@@ -1,87 +1,101 @@
-import { Plus, Building2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Building2, ArrowRight, ClipboardList, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { getOrganizations } from "@/app/actions/organizations";
 
-// Placeholder: will eventually fetch from Supabase
-const organisations: {
-  id: string;
-  name: string;
-  industry: string;
-  partner: string;
-  activeDiagnostics: number;
-}[] = [];
+export default async function OrganisationsPage() {
+  const organizations = await getOrganizations();
 
-export default function OrganisationsPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Organisations
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Manage client organisations and their diagnostic engagements.
-          </p>
-        </div>
-        <Button>
-          <Plus className="size-4" />
-          Add Organisation
-        </Button>
-      </div>
-
-      {organisations.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <Building2 className="size-6 text-muted-foreground" />
-          </div>
-          <h3 className="mt-4 text-sm font-medium">No organisations yet</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add your first client organisation to begin running diagnostics.
-          </p>
-          <Button className="mt-4" size="sm">
+    <div className="space-y-8 max-w-5xl">
+      <PageHeader
+        title="Organisations"
+        description="Manage client organisations and their assessment engagements."
+      >
+        <Link href="/organizations/create">
+          <Button>
             <Plus className="size-4" />
             Add Organisation
           </Button>
-        </div>
+        </Link>
+      </PageHeader>
+
+      {organizations.length === 0 ? (
+        <EmptyState
+          title="No organisations yet"
+          description="Add your first client organisation to begin running diagnostics and assessments."
+          actionLabel="Add Organisation"
+          actionHref="/organizations/create"
+        />
       ) : (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Industry</TableHead>
-                <TableHead>Partner</TableHead>
-                <TableHead className="text-right">
-                  Active Diagnostics
-                </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {organisations.map((org) => (
-                <TableRow key={org.id}>
-                  <TableCell className="font-medium">{org.name}</TableCell>
-                  <TableCell>{org.industry}</TableCell>
-                  <TableCell>{org.partner}</TableCell>
-                  <TableCell className="text-right">
-                    {org.activeDiagnostics}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      Edit
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {organizations.map((org, index) => (
+            <Link
+              key={org.id}
+              href={`/organizations/${org.slug}/edit`}
+            >
+              <Card
+                variant="interactive"
+                className={`stagger-${index + 1} animate-fade-in-up`}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors">
+                        <Building2 className="size-5 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <CardTitle>{org.name}</CardTitle>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge variant="dot">
+                            <span
+                              className={`size-1.5 rounded-full ${org.isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                            />
+                            {org.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                          {org.industry && (
+                            <Badge variant="secondary">{org.industry}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity mt-1" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {org.sizeRange && (
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {org.sizeRange} employees
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5">
+                      <ClipboardList className="size-3.5" />
+                      <span>
+                        {org.assessmentCount}{" "}
+                        {org.assessmentCount === 1
+                          ? "assessment"
+                          : "assessments"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Users className="size-3.5" />
+                      <span>
+                        {org.sessionCount}{" "}
+                        {org.sessionCount === 1
+                          ? "session"
+                          : "sessions"}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
       )}
     </div>

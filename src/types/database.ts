@@ -25,6 +25,15 @@ export type ResponseFormatType =
   | 'binary'
   | 'ranking'
   | 'free_text'
+  | 'sjt'
+
+/** Response format types currently active in the UI. */
+export type ActiveResponseFormatType =
+  | 'likert'
+  | 'forced_choice'
+  | 'binary'
+  | 'free_text'
+  | 'sjt'
 
 /** Algorithm family used to convert raw responses into competency scores. */
 export type ScoringMethod = 'irt' | 'ctt' | 'hybrid'
@@ -47,6 +56,9 @@ export type IRTModelType = '1PL' | '2PL' | '3PL'
 
 /** Lifecycle status of an assessment definition. */
 export type AssessmentStatus = 'draft' | 'active' | 'archived'
+
+/** How the assessment was created. */
+export type AssessmentCreationMode = 'manual' | 'ai_generated' | 'org_choice'
 
 /** Lifecycle status of a 360-style diagnostic session. */
 export type DiagnosticSessionStatus = 'draft' | 'active' | 'completed' | 'archived'
@@ -141,19 +153,34 @@ export interface Profile {
 }
 
 /**
- * A top-level grouping for competencies (e.g. "Leadership", "Cognitive").
+ * A scoring dimension within a competency category
+ * (e.g. "Cognitive Ability", "Interpersonal Skills").
  */
-export interface CompetencyCategory {
+export interface Dimension {
   /** UUID primary key. */
   id: string
   /** Scoped to a partner; null means platform-global. */
   partnerId?: string
-  /** Category display name. */
+  /** Dimension display name. */
   name: string
-  /** Longer explanation of the category. */
+  /** URL-safe slug. */
+  slug: string
+  /** Rich description of what the dimension measures. */
   description?: string
+  /** Formal definition used in reports. */
+  definition?: string
+  /** Whether this dimension produces a numeric score. */
+  isScored: boolean
   /** Display ordering weight. */
-  sortOrder: number
+  displayOrder: number
+  /** Whether this dimension is currently active. */
+  isActive: boolean
+  /** Behavioural indicators for low performance. */
+  indicatorsLow?: string
+  /** Behavioural indicators for mid performance. */
+  indicatorsMid?: string
+  /** Behavioural indicators for high performance. */
+  indicatorsHigh?: string
   created_at: string
   updated_at?: string
 }
@@ -165,18 +192,75 @@ export interface CompetencyCategory {
 export interface Competency {
   /** UUID primary key. */
   id: string
-  /** Optional parent category. */
-  categoryId?: string
+  /** Optional parent dimension. */
+  dimensionId?: string
   /** Scoped to a partner; null means platform-global. */
   partnerId?: string
   /** Short competency label. */
   name: string
+  /** URL-safe slug. */
+  slug: string
   /** Rich description explaining what the competency measures. */
   description?: string
+  /** Formal definition used in reports. */
+  definition?: string
   /** Whether this competency is available for use in assessments. */
   isActive: boolean
+  /** Behavioural indicators for low performance. */
+  indicatorsLow?: string
+  /** Behavioural indicators for mid performance. */
+  indicatorsMid?: string
+  /** Behavioural indicators for high performance. */
+  indicatorsHigh?: string
   created_at: string
   updated_at?: string
+}
+
+/**
+ * A measurable trait that can be linked to one or more competencies
+ * (e.g. "Adaptability", "Attention to Detail").
+ */
+export interface Trait {
+  /** UUID primary key. */
+  id: string
+  /** Scoped to a partner; null means platform-global. */
+  partnerId?: string
+  /** Trait display name. */
+  name: string
+  /** URL-safe slug. */
+  slug: string
+  /** Rich description of what the trait measures. */
+  description?: string
+  /** Formal definition used in reports. */
+  definition?: string
+  /** Whether this trait is currently active. */
+  isActive: boolean
+  /** Behavioural indicators for low performance. */
+  indicatorsLow?: string
+  /** Behavioural indicators for mid performance. */
+  indicatorsMid?: string
+  /** Behavioural indicators for high performance. */
+  indicatorsHigh?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Junction linking a competency to its constituent traits,
+ * including per-trait weighting and ordering.
+ */
+export interface CompetencyTrait {
+  /** UUID primary key. */
+  id: string
+  /** Parent competency. */
+  competencyId: string
+  /** Linked trait. */
+  traitId: string
+  /** Relative weight of this trait within the competency. */
+  weight: number
+  /** Display ordering weight. */
+  displayOrder: number
+  created_at: string
 }
 
 /**
@@ -187,35 +271,39 @@ export interface ResponseFormat {
   id: string
   /** The response capture format. */
   type: ResponseFormatType
-  /** Human-readable label (e.g. "5-point Likert"). */
-  label: string
+  /** Human-readable name (e.g. "5-point Likert"). */
+  name: string
   /**
    * JSON-serialised configuration for the format
    * (e.g. scale anchors, number of points, option count).
    */
   config: Record<string, unknown>
+  /** Whether this format is currently available for use. */
+  isActive: boolean
   created_at: string
   updated_at?: string
 }
 
 /**
- * A single assessment item (question/prompt) linked to a competency.
+ * A single assessment item (question/prompt) linked to a construct (trait).
  */
 export interface Item {
   /** UUID primary key. */
   id: string
-  /** The competency this item measures. */
-  competencyId: string
+  /** Optional competency (denormalized convenience column). */
+  competencyId?: string
+  /** The construct (trait) this item measures — canonical link. */
+  traitId: string
   /** Response format governing how the item is presented. */
   responseFormatId: string
   /** The question / stimulus text presented to the candidate. */
   stem: string
+  /** Whether scoring is reversed for this item. */
+  reverseScored: boolean
   /** Lifecycle status. */
   status: ItemStatus
-  /** Locale / language code (e.g. "en", "fr"). */
-  language: string
   /** Display ordering weight within its assessment section. */
-  sortOrder: number
+  displayOrder: number
   created_at: string
   updated_at?: string
 }
@@ -234,6 +322,50 @@ export interface ItemOption {
   value: number
   /** Display ordering weight. */
   sortOrder: number
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * A media attachment for an assessment item (image, audio, video, or HTML).
+ * Used by cognitive assessments, SJT scenarios, etc.
+ */
+export interface ItemMedia {
+  /** UUID primary key. */
+  id: string
+  /** Parent item. */
+  itemId: string
+  /** Type of media: image, audio, video, or html. */
+  mediaType: 'image' | 'audio' | 'video' | 'html'
+  /** External URL or storage path. */
+  url?: string
+  /** Inline content (e.g. HTML scenario). */
+  content?: string
+  /** Accessibility description. */
+  altText?: string
+  /** Display ordering weight. */
+  displayOrder: number
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * A scoring rubric entry for SJT and other multi-option scored items.
+ * Maps each option to a quality label and score value.
+ */
+export interface ItemScoringRubric {
+  /** UUID primary key. */
+  id: string
+  /** Parent item. */
+  itemId: string
+  /** Linked option (nullable for rubrics that apply globally). */
+  optionId?: string
+  /** Quality label for this scoring level. */
+  rubricLabel: 'best' | 'good' | 'neutral' | 'poor'
+  /** Numeric score for this rubric level. */
+  scoreValue: number
+  /** Rationale for this scoring. */
+  explanation?: string
   created_at: string
   updated_at?: string
 }
@@ -284,6 +416,10 @@ export interface Assessment {
   scoringMethod: ScoringMethod
   /** Maximum time allowed in minutes, null = unlimited. */
   timeLimitMinutes?: number
+  /** How the assessment was created. */
+  creationMode: AssessmentCreationMode
+  /** Matching run that generated this assessment (if AI-created). */
+  matchingRunId?: string
   created_at: string
   updated_at?: string
 }
@@ -473,6 +609,23 @@ export interface DiagnosticDimensionWeight {
   weight: number
   created_at: string
   updated_at?: string
+}
+
+/**
+ * Bridge linking a diagnostic dimension to taxonomy competencies,
+ * seeding AI matching context. Admin controls which competencies
+ * are relevant to each diagnostic dimension.
+ */
+export interface DiagnosticCompetencyHint {
+  /** UUID primary key. */
+  id: string
+  /** The diagnostic dimension. */
+  diagnosticDimensionId: string
+  /** The taxonomy competency. */
+  competencyId: string
+  /** Relevance weight (normalised at matching time). */
+  relevanceWeight: number
+  created_at: string
 }
 
 /**
@@ -690,4 +843,40 @@ export interface CandidateScore {
   itemsUsed: number
   created_at: string
   updated_at?: string
+}
+
+// ---------------------------------------------------------------------------
+// Forced choice blocks
+// ---------------------------------------------------------------------------
+
+/**
+ * A grouping of items presented together in a forced-choice format.
+ * Typically contains 3–4 items that the candidate must rank or select from.
+ */
+export interface ForcedChoiceBlock {
+  /** UUID primary key. */
+  id: string
+  /** Block display name. */
+  name: string
+  /** Optional description of the block's purpose. */
+  description?: string
+  /** Display ordering weight. */
+  displayOrder: number
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Junction linking an item to a forced-choice block with a position.
+ */
+export interface ForcedChoiceBlockItem {
+  /** UUID primary key. */
+  id: string
+  /** Parent block. */
+  blockId: string
+  /** Linked item. */
+  itemId: string
+  /** Position within the block. */
+  position: number
+  created_at: string
 }

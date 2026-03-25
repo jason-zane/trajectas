@@ -171,12 +171,12 @@ export type SelectionStrategy = 'random' | 'ordered' | 'stratified'
  * - **`random`** (default) — items are shuffled using Fisher-Yates and the
  *   first `count` items are returned.  Ensures a different draw each session.
  *
- * - **`ordered`** — items are sorted by `sortOrder` (ascending) and the
+ * - **`ordered`** — items are sorted by `displayOrder` (ascending) and the
  *   first `count` items are taken.  Useful for piloting or when item
  *   ordering is pedagogically meaningful.
  *
  * - **`stratified`** — items are grouped by difficulty using a simple
- *   heuristic based on `sortOrder` tertiles (lower third = easy, middle
+ *   heuristic based on `displayOrder` tertiles (lower third = easy, middle
  *   third = medium, upper third = hard) and an approximately equal number
  *   are drawn from each group.  When `count` is not evenly divisible by 3,
  *   remaining slots are filled from the middle tier first, then easy.
@@ -251,20 +251,20 @@ function selectRandom(items: Item[], count: number): string[] {
 
 function selectOrdered(items: Item[], count: number): string[] {
   return [...items]
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
     .slice(0, count)
     .map((item) => item.id)
 }
 
 /**
  * Stratified selection that divides items into difficulty tertiles based
- * on `sortOrder` (a proxy when explicit difficulty tiers are not available
+ * on `displayOrder` (a proxy when explicit difficulty tiers are not available
  * on the `Item` type).  Items in the bottom third of sort order are
  * treated as "easy", middle third as "medium", and upper third as "hard".
  */
 function selectStratified(items: Item[], count: number): string[] {
-  // Sort by sortOrder to establish difficulty proxy.
-  const sorted = [...items].sort((a, b) => a.sortOrder - b.sortOrder)
+  // Sort by displayOrder to establish difficulty proxy.
+  const sorted = [...items].sort((a, b) => a.displayOrder - b.displayOrder)
   const n = sorted.length
 
   // Split into tertiles.

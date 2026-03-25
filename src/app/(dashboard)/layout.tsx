@@ -1,7 +1,13 @@
 import { cookies } from "next/headers";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
+import {
+  SidebarProvider,
+  SidebarInset,
+} from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
+import { PortalProvider } from "@/components/portal-context";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { CommandPalette } from "@/components/command-palette";
+import { PageTransition } from "@/components/page-transition";
 
 export default async function DashboardLayout({
   children,
@@ -12,18 +18,21 @@ export default async function DashboardLayout({
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
-          <Separator orientation="vertical" className="mr-2 !h-4" />
-          <span className="text-sm text-muted-foreground">
-            Psychometric Assessment & Organisational Diagnostics
-          </span>
-        </header>
-        <div className="flex-1 overflow-auto p-6">{children}</div>
-      </SidebarInset>
-    </SidebarProvider>
+    <PortalProvider>
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <AppSidebar />
+        <SidebarInset>
+          <div className="ambient-glow" />
+          <a href="#main-content" className="skip-to-content">Skip to content</a>
+          <DashboardHeader />
+          <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+            <div className="mx-auto max-w-7xl">
+              <PageTransition>{children}</PageTransition>
+            </div>
+          </main>
+          <CommandPalette />
+        </SidebarInset>
+      </SidebarProvider>
+    </PortalProvider>
   );
 }

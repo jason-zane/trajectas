@@ -1,93 +1,118 @@
-import { Plus, ClipboardList } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Plus,
+  ClipboardList,
+  ArrowRight,
+  Building2,
+  Clock,
+  Layers,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { getAssessments } from "@/app/actions/assessments";
 
-// Placeholder: will eventually fetch from Supabase
-const assessments: {
-  id: string;
-  name: string;
-  competencies: number;
-  scoringMethod: string;
-  status: string;
-}[] = [];
+const statusVariant: Record<string, "secondary" | "default" | "outline"> = {
+  draft: "secondary",
+  active: "default",
+  archived: "outline",
+};
 
-export default function AssessmentsPage() {
+const creationModeLabel: Record<string, string> = {
+  manual: "Manual",
+  ai_generated: "AI Generated",
+  org_choice: "Org Choice",
+};
+
+export default async function AssessmentsPage() {
+  const assessments = await getAssessments();
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Assessments
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Build and manage psychometric assessments from your competency
-            library.
-          </p>
-        </div>
-        <Button>
-          <Plus className="size-4" />
-          Build Assessment
-        </Button>
-      </div>
-
-      {assessments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-          <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-            <ClipboardList className="size-6 text-muted-foreground" />
-          </div>
-          <h3 className="mt-4 text-sm font-medium">No assessments yet</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Create your first assessment by selecting competencies and
-            configuring scoring.
-          </p>
-          <Button className="mt-4" size="sm">
+    <div className="space-y-8 max-w-5xl">
+      <PageHeader
+        title="Assessments"
+        description="Build and manage psychometric assessments from your factor library."
+      >
+        <Link href="/assessments/create">
+          <Button>
             <Plus className="size-4" />
             Build Assessment
           </Button>
-        </div>
+        </Link>
+      </PageHeader>
+
+      {assessments.length === 0 ? (
+        <EmptyState
+          title="No assessments yet"
+          description="Create your first assessment by selecting competencies and configuring scoring."
+          actionLabel="Build Assessment"
+          actionHref="/assessments/create"
+        />
       ) : (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="text-right">Competencies</TableHead>
-                <TableHead>Scoring Method</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {assessments.map((assessment) => (
-                <TableRow key={assessment.id}>
-                  <TableCell className="font-medium">
-                    {assessment.name}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {assessment.competencies}
-                  </TableCell>
-                  <TableCell>{assessment.scoringMethod}</TableCell>
-                  <TableCell>
-                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-                      {assessment.status}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {assessments.map((assessment, index) => (
+            <Link
+              key={assessment.id}
+              href={`/assessments/${assessment.id}/edit`}
+            >
+              <Card
+                variant="interactive"
+                className={`stagger-${index + 1} animate-fade-in-up`}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-colors">
+                        <ClipboardList className="size-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle>{assessment.title}</CardTitle>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge
+                            variant={statusVariant[assessment.status] ?? "secondary"}
+                          >
+                            {assessment.status.charAt(0).toUpperCase() +
+                              assessment.status.slice(1)}
+                          </Badge>
+                          <Badge variant="outline">
+                            {creationModeLabel[assessment.creationMode] ?? assessment.creationMode}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity mt-1" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {assessment.description && (
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                      {assessment.description}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Building2 className="size-3.5" />
+                      {assessment.organizationName}
                     </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="sm">
-                      Edit
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers className="size-3.5" />
+                      {assessment.competencyCount}{" "}
+                      {assessment.competencyCount === 1 ? "factor" : "factors"}
+                    </span>
+                    {assessment.timeLimitMinutes != null &&
+                      assessment.timeLimitMinutes > 0 && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Clock className="size-3.5" />
+                          {assessment.timeLimitMinutes} min
+                        </span>
+                      )}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
         </div>
       )}
     </div>
