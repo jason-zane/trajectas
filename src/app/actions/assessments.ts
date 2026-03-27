@@ -84,7 +84,7 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select('*, assessment_competencies(count)')
+    .select('*, assessment_factors(count)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -93,8 +93,8 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
   return (data ?? []).map((row) => ({
     ...mapAssessmentRow(row),
     factorCount:
-      (row as Record<string, unknown>).assessment_competencies
-        ? ((row as Record<string, unknown>).assessment_competencies as { count: number }[])[0]?.count ?? 0
+      (row as Record<string, unknown>).assessment_factors
+        ? ((row as Record<string, unknown>).assessment_factors as { count: number }[])[0]?.count ?? 0
         : 0,
   }))
 }
@@ -120,7 +120,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select('*, assessment_competencies(competency_id, weight, item_count)')
+    .select('*, assessment_factors(factor_id, weight, item_count)')
     .eq('id', id)
     .is('deleted_at', null)
     .single()
@@ -155,10 +155,10 @@ export async function getAssessmentWithFactors(id: string): Promise<{
 
   return {
     assessment: mapAssessmentRow(data),
-    factors: (r.assessment_competencies ?? []).map(
+    factors: (r.assessment_factors ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ac: any) => ({
-        factorId: ac.competency_id,
+        factorId: ac.factor_id,
         weight: Number(ac.weight),
         itemCount: ac.item_count ?? 0,
       })
@@ -300,11 +300,11 @@ export async function createAssessment(payload: Record<string, unknown>) {
   if (parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
       assessment_id: assessment.id,
-      competency_id: f.factorId,
+      factor_id: f.factorId,
       weight: f.weight,
       item_count: f.itemCount,
     }))
-    const { error: linkError } = await db.from('assessment_competencies').insert(links)
+    const { error: linkError } = await db.from('assessment_factors').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
@@ -353,16 +353,16 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   if (updateErr) return { error: { _form: [updateErr.message] } }
 
   // Replace factor junction records
-  await db.from('assessment_competencies').delete().eq('assessment_id', id)
+  await db.from('assessment_factors').delete().eq('assessment_id', id)
 
   if (parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
       assessment_id: id,
-      competency_id: f.factorId,
+      factor_id: f.factorId,
       weight: f.weight,
       item_count: f.itemCount,
     }))
-    const { error: linkError } = await db.from('assessment_competencies').insert(links)
+    const { error: linkError } = await db.from('assessment_factors').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 

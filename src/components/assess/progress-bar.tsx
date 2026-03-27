@@ -13,13 +13,12 @@ export function ProgressBar({
   itemIndex,
   totalItems,
 }: ProgressBarProps) {
+  const itemProgress = totalItems > 0 ? (itemIndex + 1) / totalItems : 0;
+
   const overallPct =
     totalSections > 0
-      ? Math.round(((sectionIndex + (totalItems > 0 ? itemIndex / totalItems : 0)) / totalSections) * 100)
+      ? Math.round(((sectionIndex + itemProgress) / totalSections) * 100)
       : 0;
-
-  const sectionPct =
-    totalItems > 0 ? Math.round((itemIndex / totalItems) * 100) : 0;
 
   return (
     <div className="space-y-2">

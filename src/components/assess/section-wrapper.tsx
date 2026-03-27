@@ -38,7 +38,7 @@ export function SectionWrapper({
 }: SectionWrapperProps) {
   const router = useRouter();
   const items = section.items;
-  const itemsPerPage = section.itemsPerPage ?? items.length;
+  const itemsPerPage = section.itemsPerPage ?? 1;
   const totalPages = Math.ceil(items.length / itemsPerPage);
 
   const [pageIndex, setPageIndex] = useState(0);
@@ -156,7 +156,7 @@ export function SectionWrapper({
             <ProgressBar
               sectionIndex={sectionIndex}
               totalSections={totalSections}
-              itemIndex={currentItemIndex + (pageItems.length > 0 ? 1 : 0)}
+              itemIndex={currentItemIndex}
               totalItems={items.length}
             />
           </div>

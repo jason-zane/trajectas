@@ -22,7 +22,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), organizations(name), factor_constructs(count), assessment_competencies(count)')
+    .select('*, dimensions(name), organizations(name), factor_constructs(count), assessment_factors(count)')
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
@@ -37,7 +37,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
       organizationName: r.organizations?.name ?? undefined,
       constructCount: r.factor_constructs?.[0]?.count ?? 0,
       itemCount: 0,
-      assessmentCount: r.assessment_competencies?.[0]?.count ?? 0,
+      assessmentCount: r.assessment_factors?.[0]?.count ?? 0,
     }
   })
 }
@@ -46,7 +46,7 @@ export async function getFactorBySlug(slug: string) {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), organizations(name), factor_constructs(*, constructs(id, name, slug)), assessment_competencies(assessment_id, assessments(id, name, status))')
+    .select('*, dimensions(name), organizations(name), factor_constructs(*, constructs(id, name, slug)), assessment_factors(assessment_id, assessments(id, name, status))')
     .eq('slug', slug)
     .is('deleted_at', null)
     .single()
@@ -69,7 +69,7 @@ export async function getFactorBySlug(slug: string) {
         displayOrder: fc.display_order,
       })
     ),
-    linkedAssessments: (r.assessment_competencies ?? [])
+    linkedAssessments: (r.assessment_factors ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((ac: any) => ac.assessments)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

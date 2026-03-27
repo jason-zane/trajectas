@@ -126,6 +126,27 @@ export async function updateResponseFormat(id: string, formData: FormData) {
   return { success: true, id }
 }
 
+export type AnchorPresets = Record<string, Record<number, string[]>>
+
+export async function getAnchorPresets(): Promise<AnchorPresets> {
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('anchor_presets')
+    .select('type, points, anchors')
+    .eq('is_active', true)
+    .order('display_order', { ascending: true })
+    .order('points', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  const presets: AnchorPresets = {}
+  for (const row of data ?? []) {
+    if (!presets[row.type]) presets[row.type] = {}
+    presets[row.type][row.points] = row.anchors as string[]
+  }
+  return presets
+}
+
 export async function deleteResponseFormat(id: string) {
   const db = createAdminClient()
 

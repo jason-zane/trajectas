@@ -32,44 +32,8 @@ import {
   updateResponseFormat,
   deleteResponseFormat,
 } from "@/app/actions/response-formats"
+import type { AnchorPresets } from "@/app/actions/response-formats"
 import type { ResponseFormatType } from "@/types/database"
-
-// ---------------------------------------------------------------------------
-// Likert anchor presets
-// ---------------------------------------------------------------------------
-
-const anchorPresets: Record<string, Record<number, string[]>> = {
-  agreement: {
-    3: ["Disagree", "Neutral", "Agree"],
-    4: ["Strongly Disagree", "Disagree", "Agree", "Strongly Agree"],
-    5: ["Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"],
-    6: ["Strongly Disagree", "Disagree", "Slightly Disagree", "Slightly Agree", "Agree", "Strongly Agree"],
-    7: ["Strongly Disagree", "Disagree", "Somewhat Disagree", "Neutral", "Somewhat Agree", "Agree", "Strongly Agree"],
-    8: ["Strongly Disagree", "Disagree", "Somewhat Disagree", "Slightly Disagree", "Slightly Agree", "Somewhat Agree", "Agree", "Strongly Agree"],
-    9: ["Strongly Disagree", "Disagree", "Somewhat Disagree", "Slightly Disagree", "Neutral", "Slightly Agree", "Somewhat Agree", "Agree", "Strongly Agree"],
-    10: ["Strongly Disagree", "Disagree", "Somewhat Disagree", "Slightly Disagree", "Mildly Disagree", "Mildly Agree", "Slightly Agree", "Somewhat Agree", "Agree", "Strongly Agree"],
-  },
-  frequency: {
-    3: ["Never", "Sometimes", "Always"],
-    4: ["Never", "Rarely", "Often", "Always"],
-    5: ["Never", "Rarely", "Sometimes", "Often", "Always"],
-    6: ["Never", "Rarely", "Occasionally", "Sometimes", "Often", "Always"],
-    7: ["Never", "Very Rarely", "Rarely", "Sometimes", "Often", "Very Often", "Always"],
-    8: ["Never", "Very Rarely", "Rarely", "Occasionally", "Sometimes", "Often", "Very Often", "Always"],
-    9: ["Never", "Very Rarely", "Rarely", "Occasionally", "Sometimes", "Frequently", "Often", "Very Often", "Always"],
-    10: ["Never", "Almost Never", "Very Rarely", "Rarely", "Occasionally", "Sometimes", "Frequently", "Often", "Very Often", "Always"],
-  },
-  capability: {
-    3: ["Cannot Do", "Can Partially Do", "Can Fully Do"],
-    4: ["Cannot Do", "Struggling", "Competent", "Expert"],
-    5: ["Cannot Do", "Novice", "Developing", "Competent", "Expert"],
-    6: ["Cannot Do", "Beginner", "Developing", "Competent", "Proficient", "Expert"],
-    7: ["Cannot Do", "Beginner", "Novice", "Developing", "Competent", "Proficient", "Expert"],
-    8: ["Cannot Do", "Beginner", "Novice", "Developing", "Competent", "Proficient", "Advanced", "Expert"],
-    9: ["Cannot Do", "Beginner", "Novice", "Developing", "Intermediate", "Competent", "Proficient", "Advanced", "Expert"],
-    10: ["Cannot Do", "Beginner", "Novice", "Elementary", "Developing", "Intermediate", "Competent", "Proficient", "Advanced", "Expert"],
-  },
-}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -78,6 +42,7 @@ const anchorPresets: Record<string, Record<number, string[]>> = {
 interface ResponseFormatFormProps {
   mode: "create" | "edit"
   formatId?: string
+  anchorPresets: AnchorPresets
   initialData?: {
     name: string
     type: ResponseFormatType
@@ -93,9 +58,11 @@ interface ResponseFormatFormProps {
 function LikertConfigPanel({
   config,
   onChange,
+  anchorPresets,
 }: {
   config: Record<string, unknown>
   onChange: (config: Record<string, unknown>) => void
+  anchorPresets: AnchorPresets
 }) {
   const points = (config.points as number) || 5
   const anchorType = (config.anchorType as string) || "agreement"
@@ -107,7 +74,7 @@ function LikertConfigPanel({
       ? Object.entries(rawAnchors as Record<string, string>)
           .sort(([a], [b]) => Number(a) - Number(b))
           .map(([, label]) => label)
-      : anchorPresets.agreement[5]
+      : anchorPresets.agreement?.[5] ?? []
 
   function setPoints(n: number) {
     const preset = anchorType === "custom"
@@ -164,9 +131,11 @@ function LikertConfigPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="agreement">Agreement</SelectItem>
-              <SelectItem value="frequency">Frequency</SelectItem>
-              <SelectItem value="capability">Capability</SelectItem>
+              {Object.keys(anchorPresets).map((key) => (
+                <SelectItem key={key} value={key}>
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                </SelectItem>
+              ))}
               <SelectItem value="custom">Custom</SelectItem>
             </SelectContent>
           </Select>
@@ -415,6 +384,7 @@ const typeIcons: Record<string, typeof Settings2> = {
 export function ResponseFormatForm({
   mode,
   formatId,
+  anchorPresets,
   initialData,
 }: ResponseFormatFormProps) {
   const router = useRouter()
@@ -425,7 +395,7 @@ export function ResponseFormatForm({
   const [config, setConfig] = useState<Record<string, unknown>>(
     initialData?.config && Object.keys(initialData.config).length > 0
       ? initialData.config
-      : { points: 5, anchorType: "agreement", anchors: anchorPresets.agreement[5] }
+      : { points: 5, anchorType: "agreement", anchors: anchorPresets.agreement?.[5] ?? [] }
   )
   const [pending, setPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -440,7 +410,7 @@ export function ResponseFormatForm({
     // Provide sensible defaults for each type
     switch (t) {
       case "likert":
-        setConfig({ points: 5, anchorType: "agreement", anchors: anchorPresets.agreement[5] })
+        setConfig({ points: 5, anchorType: "agreement", anchors: anchorPresets.agreement?.[5] ?? [] })
         break
       case "binary":
         setConfig({ trueLabel: "True", falseLabel: "False", trueValue: 1, falseValue: 0 })
@@ -457,7 +427,7 @@ export function ResponseFormatForm({
       default:
         setConfig({})
     }
-  }, [])
+  }, [anchorPresets])
 
   const TypeIcon = useMemo(() => typeIcons[type] ?? Settings2, [type])
 
@@ -710,7 +680,7 @@ export function ResponseFormatForm({
               </CardHeader>
               <CardContent>
                 {type === "likert" && (
-                  <LikertConfigPanel config={config} onChange={setConfig} />
+                  <LikertConfigPanel config={config} onChange={setConfig} anchorPresets={anchorPresets} />
                 )}
                 {type === "binary" && (
                   <BinaryConfigPanel config={config} onChange={setConfig} />

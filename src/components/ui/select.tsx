@@ -6,7 +6,34 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+function Select<Value, Multiple extends boolean | undefined = false>({ onOpenChange, ...props }: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const savedScrollRef = React.useRef<number | null>(null)
+
+  const handleOpenChange = React.useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (open: boolean, event: any) => {
+      const main = document.getElementById('main-content')
+      if (main) {
+        if (open) {
+          // Lock BEFORE popup mounts — prevents focus-driven scroll
+          savedScrollRef.current = main.scrollTop
+          main.style.overflow = 'hidden'
+        } else {
+          // Unlock when popup closes — restore exact scroll position
+          main.style.overflow = ''
+          if (savedScrollRef.current !== null) {
+            main.scrollTop = savedScrollRef.current
+            savedScrollRef.current = null
+          }
+        }
+      }
+      onOpenChange?.(open, event)
+    },
+    [onOpenChange]
+  )
+
+  return <SelectPrimitive.Root onOpenChange={handleOpenChange} {...props} />
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -71,20 +98,6 @@ function SelectContent({
     SelectPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger" | "positionMethod"
   >) {
-  // Lock the main scroll container to prevent focus-triggered jump
-  React.useEffect(() => {
-    const main = document.getElementById('main-content')
-    if (!main) return
-    const scrollTop = main.scrollTop
-    main.style.overflow = 'hidden'
-
-    const frame = requestAnimationFrame(() => {
-      main.scrollTop = scrollTop
-      main.style.overflow = ''
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [])
-
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner

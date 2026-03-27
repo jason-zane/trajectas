@@ -1,8 +1,60 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Data-attribute variants (inlined from shadcn/tailwind.css) */
+@custom-variant data-open {
+  &:where([data-state="open"]),
+  &:where([data-open]:not([data-open="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-closed {
+  &:where([data-state="closed"]),
+  &:where([data-closed]:not([data-closed="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-checked {
+  &:where([data-state="checked"]),
+  &:where([data-checked]:not([data-checked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-unchecked {
+  &:where([data-state="unchecked"]),
+  &:where([data-unchecked]:not([data-unchecked="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-selected {
+  &:where([data-selected="true"]) {
+    @slot;
+  }
+}
+@custom-variant data-disabled {
+  &:where([data-disabled="true"]),
+  &:where([data-disabled]:not([data-disabled="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-active {
+  &:where([data-state="active"]),
+  &:where([data-active]:not([data-active="false"])) {
+    @slot;
+  }
+}
+@custom-variant data-horizontal {
+  &:where([data-orientation="horizontal"]) {
+    @slot;
+  }
+}
+@custom-variant data-vertical {
+  &:where([data-orientation="vertical"]) {
+    @slot;
+  }
+}
 
 @theme inline {
   /* Colors — base */
@@ -396,6 +448,11 @@
     @apply font-sans;
   }
 
+  /* Prevent content width shift when Select overflow:hidden is toggled */
+  #main-content {
+    scrollbar-gutter: stable;
+  }
+
   /* Refined focus ring */
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
@@ -533,32 +590,6 @@
   /* Sidebar gradient — rich depth in both modes */
   [data-slot="sidebar"]:not([data-mobile="true"]) {
     background: linear-gradient(180deg, oklch(from var(--sidebar) calc(l + 0.04) c h) 0%, var(--sidebar) 40%, oklch(from var(--sidebar) calc(l - 0.03) c h) 100%);
-  }
-
-  /* Stagger animation delay */
-  .stagger-1 { animation-delay: 50ms; }
-  .stagger-2 { animation-delay: 100ms; }
-  .stagger-3 { animation-delay: 150ms; }
-  .stagger-4 { animation-delay: 200ms; }
-  .stagger-5 { animation-delay: 250ms; }
-  .stagger-6 { animation-delay: 300ms; }
-
-  /* Card highlight edge */
-  .card-highlight {
-    position: relative;
-  }
-  .card-highlight::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(to right, transparent, oklch(1 0 0 / 15%), transparent);
-    pointer-events: none;
-  }
-  :is(.dark .card-highlight)::before {
-    background: linear-gradient(to right, transparent, oklch(1 0 0 / 6%), transparent);
   }
 
   /* Ambient glow */

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { getResponseFormatById } from "@/app/actions/response-formats"
+import { getResponseFormatById, getAnchorPresets } from "@/app/actions/response-formats"
 import { ResponseFormatForm } from "../../response-format-form"
 
 export default async function EditResponseFormatPage({
@@ -8,7 +8,10 @@ export default async function EditResponseFormatPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const format = await getResponseFormatById(id)
+  const [format, anchorPresets] = await Promise.all([
+    getResponseFormatById(id),
+    getAnchorPresets(),
+  ])
 
   if (!format) notFound()
 
@@ -16,6 +19,7 @@ export default async function EditResponseFormatPage({
     <ResponseFormatForm
       mode="edit"
       formatId={id}
+      anchorPresets={anchorPresets}
       initialData={{
         name: format.name,
         type: format.type,

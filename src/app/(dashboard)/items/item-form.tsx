@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { FileQuestion, Dna, Settings2, ArrowLeftRight, Weight, Shield, AlertTriangle, Eye, BarChart3, ListOrdered, Plus, Trash2 } from "lucide-react";
+import { Dna, Settings2, ArrowLeftRight, Weight, Shield, AlertTriangle, Eye, BarChart3, ListOrdered, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";

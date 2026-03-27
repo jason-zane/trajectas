@@ -120,7 +120,7 @@ export async function validateAccessToken(
   // Load campaign assessments
   const { data: caRows } = await db
     .from('campaign_assessments')
-    .select('*, assessments(id, title, description, assessment_sections(count))')
+    .select('*, assessments(id, name, description, assessment_sections(count))')
     .eq('campaign_id', campaign.id)
     .order('display_order', { ascending: true })
 
@@ -128,7 +128,7 @@ export async function validateAccessToken(
   const assessments = (caRows ?? []).map((r: any) => ({
     ...mapCampaignAssessmentRow(r),
     id: r.assessments?.id ?? r.assessment_id,
-    title: r.assessments?.title ?? 'Untitled',
+    title: r.assessments?.name ?? 'Untitled',
     description: r.assessments?.description ?? undefined,
     sectionCount: r.assessments?.assessment_sections?.[0]?.count ?? 0,
   }))
