@@ -7,7 +7,7 @@ import { mapDimensionRow, toDimensionInsert } from '@/lib/supabase/mappers'
 import { dimensionSchema } from '@/lib/validations/dimensions'
 import type { Dimension } from '@/types/database'
 
-export type DimensionWithCounts = Dimension & { competencyCount: number }
+export type DimensionWithCounts = Dimension & { factorCount: number }
 
 export type DimensionWithChildren = Dimension & {
   childFactors: { id: string; name: string; slug: string; isActive: boolean }[]
@@ -17,15 +17,15 @@ export async function getDimensions(): Promise<DimensionWithCounts[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
-    .select('*, competencies(count)')
+    .select('*, factors(count)')
     .order('display_order', { ascending: true })
 
   if (error) throw new Error(error.message)
 
   return (data ?? []).map((row) => ({
     ...mapDimensionRow(row),
-    competencyCount: (row as Record<string, unknown>).competencies
-      ? ((row as Record<string, unknown>).competencies as { count: number }[])[0]?.count ?? 0
+    factorCount: (row as Record<string, unknown>).factors
+      ? ((row as Record<string, unknown>).factors as { count: number }[])[0]?.count ?? 0
       : 0,
   }))
 }
@@ -34,7 +34,7 @@ export async function getDimensionBySlug(slug: string): Promise<DimensionWithChi
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
-    .select('*, competencies(id, name, slug, is_active)')
+    .select('*, factors(id, name, slug, is_active)')
     .eq('slug', slug)
     .single()
 
@@ -44,7 +44,7 @@ export async function getDimensionBySlug(slug: string): Promise<DimensionWithChi
   const r = data as any
   return {
     ...mapDimensionRow(data),
-    childFactors: (r.competencies ?? []).map(
+    childFactors: (r.factors ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (c: any) => ({
         id: c.id,

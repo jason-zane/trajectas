@@ -1,6 +1,5 @@
 import {
   getConstructsForSelect,
-  getFactorsForSelect,
   getResponseFormats,
 } from "@/app/actions/items";
 import { ItemForm } from "../item-form";
@@ -11,9 +10,8 @@ export default async function CreateItemPage({
   searchParams: Promise<{ constructSlug?: string }>
 }) {
   const { constructSlug } = await searchParams;
-  const [constructs, factors, responseFormats] = await Promise.all([
+  const [constructs, responseFormats] = await Promise.all([
     getConstructsForSelect(),
-    getFactorsForSelect(),
     getResponseFormats(),
   ]);
 
@@ -29,20 +27,18 @@ export default async function CreateItemPage({
   return (
     <ItemForm
       constructs={constructs}
-      factors={factors}
       responseFormats={responseFormats}
       mode="create"
       returnTo={returnTo}
       initialData={
         preselectedConstruct
           ? {
-              traitId: preselectedConstruct.id,
+              constructId: preselectedConstruct.id,
               responseFormatId: "",
               stem: "",
               reverseScored: false,
               status: "draft",
               displayOrder: 0,
-              options: [],
             }
           : undefined
       }

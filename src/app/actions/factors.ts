@@ -3,23 +3,23 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { mapCompetencyRow } from '@/lib/supabase/mappers'
-import { competencySchema } from '@/lib/validations/competencies'
-import type { Competency } from '@/types/database'
+import { mapFactorRow } from '@/lib/supabase/mappers'
+import { factorSchema } from '@/lib/validations/factors'
+import type { Factor } from '@/types/database'
 
-export type CompetencyWithMeta = Competency & {
+export type FactorWithMeta = Factor & {
   dimensionName?: string
-  traitCount: number
+  constructCount: number
   itemCount: number
 }
 
 export type SelectOption = { id: string; name: string }
 
-export async function getCompetencies(): Promise<CompetencyWithMeta[]> {
+export async function getFactors(): Promise<FactorWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
-    .from('competencies')
-    .select('*, dimensions(name), competency_traits(count), items(count)')
+    .from('factors')
+    .select('*, dimensions(name), factor_constructs(count), items(count)')
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -28,19 +28,19 @@ export async function getCompetencies(): Promise<CompetencyWithMeta[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = row as any
     return {
-      ...mapCompetencyRow(row),
+      ...mapFactorRow(row),
       dimensionName: r.dimensions?.name ?? undefined,
-      traitCount: r.competency_traits?.[0]?.count ?? 0,
+      constructCount: r.factor_constructs?.[0]?.count ?? 0,
       itemCount: r.items?.[0]?.count ?? 0,
     }
   })
 }
 
-export async function getCompetencyBySlug(slug: string) {
+export async function getFactorBySlug(slug: string) {
   const db = createAdminClient()
   const { data, error } = await db
-    .from('competencies')
-    .select('*, dimensions(name), competency_traits(*, traits(id, name, slug))')
+    .from('factors')
+    .select('*, dimensions(name), factor_constructs(*, constructs(id, name, slug))')
     .eq('slug', slug)
     .single()
 
@@ -49,16 +49,16 @@ export async function getCompetencyBySlug(slug: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = data as any
   return {
-    ...mapCompetencyRow(data),
+    ...mapFactorRow(data),
     dimensionName: r.dimensions?.name ?? undefined,
-    linkedTraits: (r.competency_traits ?? []).map(
+    linkedConstructs: (r.factor_constructs ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (ct: any) => ({
-        id: ct.id,
-        traitId: ct.trait_id,
-        name: ct.traits?.name ?? '',
-        weight: Number(ct.weight),
-        displayOrder: ct.display_order,
+      (fc: any) => ({
+        id: fc.id,
+        constructId: fc.construct_id,
+        name: fc.constructs?.name ?? '',
+        weight: Number(fc.weight),
+        displayOrder: fc.display_order,
       })
     ),
   }
@@ -76,10 +76,10 @@ export async function getDimensionsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
-export async function getTraitsForSelect(): Promise<SelectOption[]> {
+export async function getConstructsForSelect(): Promise<SelectOption[]> {
   const db = createAdminClient()
   const { data, error } = await db
-    .from('traits')
+    .from('constructs')
     .select('id, name')
     .eq('is_active', true)
     .order('name', { ascending: true })
@@ -88,11 +88,11 @@ export async function getTraitsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
-export async function createCompetency(formData: FormData) {
-  const traitsJson = formData.get('traits') as string
-  let traits: { traitId: string; weight: number }[] = []
+export async function createFactor(formData: FormData) {
+  const constructsJson = formData.get('constructs') as string
+  let constructs: { constructId: string; weight: number }[] = []
   try {
-    traits = traitsJson ? JSON.parse(traitsJson) : []
+    constructs = constructsJson ? JSON.parse(constructsJson) : []
   } catch {
     // ignore parse errors
   }
@@ -104,22 +104,22 @@ export async function createCompetency(formData: FormData) {
     definition: (formData.get('definition') as string) || undefined,
     dimensionId: (formData.get('dimensionId') as string) || undefined,
     isActive: formData.get('isActive') !== 'false',
-    traits,
+    constructs,
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
   }
 
-  const parsed = competencySchema.safeParse(raw)
+  const parsed = factorSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
   const db = createAdminClient()
 
-  // Insert competency
-  const { data: comp, error: compErr } = await db
-    .from('competencies')
+  // Insert factor
+  const { data: factor, error: factorErr } = await db
+    .from('factors')
     .insert({
       name: parsed.data.name,
       slug: parsed.data.slug,
@@ -134,17 +134,17 @@ export async function createCompetency(formData: FormData) {
     .select('id')
     .single()
 
-  if (compErr) return { error: { _form: [compErr.message] } }
+  if (factorErr) return { error: { _form: [factorErr.message] } }
 
-  // Insert trait links
-  if (parsed.data.traits.length > 0) {
-    const links = parsed.data.traits.map((t, i) => ({
-      competency_id: comp.id,
-      trait_id: t.traitId,
-      weight: t.weight,
+  // Insert construct links
+  if (parsed.data.constructs.length > 0) {
+    const links = parsed.data.constructs.map((c, i) => ({
+      factor_id: factor.id,
+      construct_id: c.constructId,
+      weight: c.weight,
       display_order: i + 1,
     }))
-    await db.from('competency_traits').insert(links)
+    await db.from('factor_constructs').insert(links)
   }
 
   revalidatePath('/factors')
@@ -152,11 +152,11 @@ export async function createCompetency(formData: FormData) {
   redirect('/factors')
 }
 
-export async function updateCompetency(id: string, formData: FormData) {
-  const traitsJson = formData.get('traits') as string
-  let traits: { traitId: string; weight: number }[] = []
+export async function updateFactor(id: string, formData: FormData) {
+  const constructsJson = formData.get('constructs') as string
+  let constructs: { constructId: string; weight: number }[] = []
   try {
-    traits = traitsJson ? JSON.parse(traitsJson) : []
+    constructs = constructsJson ? JSON.parse(constructsJson) : []
   } catch {
     // ignore parse errors
   }
@@ -168,13 +168,13 @@ export async function updateCompetency(id: string, formData: FormData) {
     definition: (formData.get('definition') as string) || undefined,
     dimensionId: (formData.get('dimensionId') as string) || undefined,
     isActive: formData.get('isActive') !== 'false',
-    traits,
+    constructs,
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
   }
 
-  const parsed = competencySchema.safeParse(raw)
+  const parsed = factorSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
@@ -182,7 +182,7 @@ export async function updateCompetency(id: string, formData: FormData) {
   const db = createAdminClient()
 
   const { error: updateErr } = await db
-    .from('competencies')
+    .from('factors')
     .update({
       name: parsed.data.name,
       slug: parsed.data.slug,
@@ -198,17 +198,17 @@ export async function updateCompetency(id: string, formData: FormData) {
 
   if (updateErr) return { error: { _form: [updateErr.message] } }
 
-  // Replace trait links: delete old, insert new
-  await db.from('competency_traits').delete().eq('competency_id', id)
+  // Replace construct links: delete old, insert new
+  await db.from('factor_constructs').delete().eq('factor_id', id)
 
-  if (parsed.data.traits.length > 0) {
-    const links = parsed.data.traits.map((t, i) => ({
-      competency_id: id,
-      trait_id: t.traitId,
-      weight: t.weight,
+  if (parsed.data.constructs.length > 0) {
+    const links = parsed.data.constructs.map((c, i) => ({
+      factor_id: id,
+      construct_id: c.constructId,
+      weight: c.weight,
       display_order: i + 1,
     }))
-    await db.from('competency_traits').insert(links)
+    await db.from('factor_constructs').insert(links)
   }
 
   revalidatePath('/factors')
@@ -216,11 +216,11 @@ export async function updateCompetency(id: string, formData: FormData) {
   redirect('/factors')
 }
 
-export async function deleteCompetency(id: string) {
+export async function deleteFactor(id: string) {
   const db = createAdminClient()
-  // Delete trait links first (cascade should handle it, but be explicit)
-  await db.from('competency_traits').delete().eq('competency_id', id)
-  const { error } = await db.from('competencies').delete().eq('id', id)
+  // Delete construct links first (cascade should handle it, but be explicit)
+  await db.from('factor_constructs').delete().eq('factor_id', id)
+  const { error } = await db.from('factors').delete().eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/factors')

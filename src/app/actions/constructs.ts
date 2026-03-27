@@ -3,39 +3,70 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { mapTraitRow, toTraitInsert } from '@/lib/supabase/mappers'
-import { traitSchema } from '@/lib/validations/traits'
-import type { Trait } from '@/types/database'
+import { mapConstructRow, toConstructInsert } from '@/lib/supabase/mappers'
+import { constructSchema } from '@/lib/validations/constructs'
+import type { Construct } from '@/types/database'
 
-export type TraitWithCounts = Trait & { competencyCount: number }
+export type ConstructWithCounts = Construct & {
+  factorCount: number
+  dimensionNames: string[]
+}
 
-export type TraitWithRelationships = Trait & {
+export type ConstructWithRelationships = Construct & {
   linkedItems: { id: string; stem: string; status: string; responseFormatType?: string }[]
   parentFactors: { id: string; name: string; slug: string }[]
 }
 
-export async function getTraits(): Promise<TraitWithCounts[]> {
+export async function getConstructs(): Promise<ConstructWithCounts[]> {
   const db = createAdminClient()
-  const { data, error } = await db
-    .from('traits')
-    .select('*, competency_traits(count)')
-    .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  // Two queries: count can't mix with nested relations in PostgREST
+  const [countResult, relResult] = await Promise.all([
+    db
+      .from('constructs')
+      .select('id, factor_constructs(count)')
+      .order('name', { ascending: true }),
+    db
+      .from('constructs')
+      .select('*, factor_constructs(factors(dimensions(name)))')
+      .order('name', { ascending: true }),
+  ])
 
-  return (data ?? []).map((row) => ({
-    ...mapTraitRow(row),
-    competencyCount: (row as Record<string, unknown>).competency_traits
-      ? ((row as Record<string, unknown>).competency_traits as { count: number }[])[0]?.count ?? 0
-      : 0,
-  }))
+  if (relResult.error) throw new Error(relResult.error.message)
+
+  // Build count lookup
+  const countMap = new Map<string, number>()
+  for (const row of countResult.data ?? []) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = row as any
+    countMap.set(r.id, r.factor_constructs?.[0]?.count ?? 0)
+  }
+
+  return (relResult.data ?? []).map((row) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = row as any
+    const fcRows = r.factor_constructs ?? []
+
+    // Collect dimension names through the factor chain
+    const dimNames = new Set<string>()
+    for (const fc of fcRows) {
+      const dimName = fc.factors?.dimensions?.name
+      if (dimName) dimNames.add(dimName)
+    }
+
+    return {
+      ...mapConstructRow(row),
+      factorCount: countMap.get(r.id) ?? 0,
+      dimensionNames: Array.from(dimNames).sort(),
+    }
+  })
 }
 
-export async function getTraitBySlug(slug: string): Promise<TraitWithRelationships | null> {
+export async function getConstructBySlug(slug: string): Promise<ConstructWithRelationships | null> {
   const db = createAdminClient()
   const { data, error } = await db
-    .from('traits')
-    .select('*, items(id, stem, status, response_formats(type)), competency_traits(*, competencies(id, name, slug))')
+    .from('constructs')
+    .select('*, items(id, stem, status, response_formats(type)), factor_constructs(*, factors(id, name, slug))')
     .eq('slug', slug)
     .single()
 
@@ -44,7 +75,7 @@ export async function getTraitBySlug(slug: string): Promise<TraitWithRelationshi
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = data as any
   return {
-    ...mapTraitRow(data),
+    ...mapConstructRow(data),
     linkedItems: (r.items ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (item: any) => ({
@@ -54,18 +85,18 @@ export async function getTraitBySlug(slug: string): Promise<TraitWithRelationshi
         responseFormatType: item.response_formats?.type ?? undefined,
       })
     ),
-    parentFactors: (r.competency_traits ?? []).map(
+    parentFactors: (r.factor_constructs ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (ct: any) => ({
-        id: ct.competencies?.id ?? ct.competency_id,
-        name: ct.competencies?.name ?? '',
-        slug: ct.competencies?.slug ?? '',
+      (fc: any) => ({
+        id: fc.factors?.id ?? fc.factor_id,
+        name: fc.factors?.name ?? '',
+        slug: fc.factors?.slug ?? '',
       })
     ),
   }
 }
 
-export async function createTrait(formData: FormData) {
+export async function createConstruct(formData: FormData) {
   const raw = {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
@@ -77,14 +108,14 @@ export async function createTrait(formData: FormData) {
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
   }
 
-  const parsed = traitSchema.safeParse(raw)
+  const parsed = constructSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
   const db = createAdminClient()
-  const insert = toTraitInsert(parsed.data)
-  const { error } = await db.from('traits').insert(insert)
+  const insert = toConstructInsert(parsed.data)
+  const { error } = await db.from('constructs').insert(insert)
   if (error) return { error: { _form: [error.message] } }
 
   revalidatePath('/constructs')
@@ -92,7 +123,7 @@ export async function createTrait(formData: FormData) {
   redirect('/constructs')
 }
 
-export async function updateTrait(id: string, formData: FormData) {
+export async function updateConstruct(id: string, formData: FormData) {
   const raw = {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
@@ -104,14 +135,14 @@ export async function updateTrait(id: string, formData: FormData) {
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
   }
 
-  const parsed = traitSchema.safeParse(raw)
+  const parsed = constructSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
   const db = createAdminClient()
   const { error } = await db
-    .from('traits')
+    .from('constructs')
     .update({
       name: parsed.data.name,
       slug: parsed.data.slug,
@@ -131,9 +162,9 @@ export async function updateTrait(id: string, formData: FormData) {
   redirect('/constructs')
 }
 
-export async function deleteTrait(id: string) {
+export async function deleteConstruct(id: string) {
   const db = createAdminClient()
-  const { error } = await db.from('traits').delete().eq('id', id)
+  const { error } = await db.from('constructs').delete().eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/constructs')

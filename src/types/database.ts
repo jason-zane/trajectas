@@ -186,25 +186,25 @@ export interface Dimension {
 }
 
 /**
- * A measurable behavioural or cognitive competency
+ * A measurable behavioural or cognitive factor
  * (e.g. "Strategic Thinking", "Emotional Resilience").
  */
-export interface Competency {
+export interface Factor {
   /** UUID primary key. */
   id: string
   /** Optional parent dimension. */
   dimensionId?: string
   /** Scoped to a partner; null means platform-global. */
   partnerId?: string
-  /** Short competency label. */
+  /** Short factor label. */
   name: string
   /** URL-safe slug. */
   slug: string
-  /** Rich description explaining what the competency measures. */
+  /** Rich description explaining what the factor measures. */
   description?: string
   /** Formal definition used in reports. */
   definition?: string
-  /** Whether this competency is available for use in assessments. */
+  /** Whether this factor is available for use in assessments. */
   isActive: boolean
   /** Behavioural indicators for low performance. */
   indicatorsLow?: string
@@ -217,23 +217,23 @@ export interface Competency {
 }
 
 /**
- * A measurable trait that can be linked to one or more competencies
+ * A measurable construct that can be linked to one or more factors
  * (e.g. "Adaptability", "Attention to Detail").
  */
-export interface Trait {
+export interface Construct {
   /** UUID primary key. */
   id: string
   /** Scoped to a partner; null means platform-global. */
   partnerId?: string
-  /** Trait display name. */
+  /** Construct display name. */
   name: string
   /** URL-safe slug. */
   slug: string
-  /** Rich description of what the trait measures. */
+  /** Rich description of what the construct measures. */
   description?: string
   /** Formal definition used in reports. */
   definition?: string
-  /** Whether this trait is currently active. */
+  /** Whether this construct is currently active. */
   isActive: boolean
   /** Behavioural indicators for low performance. */
   indicatorsLow?: string
@@ -246,17 +246,17 @@ export interface Trait {
 }
 
 /**
- * Junction linking a competency to its constituent traits,
- * including per-trait weighting and ordering.
+ * Junction linking a factor to its constituent constructs,
+ * including per-construct weighting and ordering.
  */
-export interface CompetencyTrait {
+export interface FactorConstruct {
   /** UUID primary key. */
   id: string
-  /** Parent competency. */
-  competencyId: string
-  /** Linked trait. */
-  traitId: string
-  /** Relative weight of this trait within the competency. */
+  /** Parent factor. */
+  factorId: string
+  /** Linked construct. */
+  constructId: string
+  /** Relative weight of this construct within the factor. */
   weight: number
   /** Display ordering weight. */
   displayOrder: number
@@ -285,15 +285,15 @@ export interface ResponseFormat {
 }
 
 /**
- * A single assessment item (question/prompt) linked to a construct (trait).
+ * A single assessment item (question/prompt) linked to a construct.
  */
 export interface Item {
   /** UUID primary key. */
   id: string
-  /** Optional competency (denormalized convenience column). */
-  competencyId?: string
-  /** The construct (trait) this item measures — canonical link. */
-  traitId: string
+  /** Optional factor (denormalized convenience column). */
+  factorId?: string
+  /** The construct this item measures — canonical link. */
+  constructId: string
   /** Response format governing how the item is presented. */
   responseFormatId: string
   /** The question / stimulus text presented to the candidate. */
@@ -402,8 +402,8 @@ export interface ItemParameter {
 export interface Assessment {
   /** UUID primary key. */
   id: string
-  /** Owning organisation. */
-  organizationId: string
+  /** Owning organisation (optional — assigned when deployed to an org). */
+  organizationId?: string
   /** Assessment display title. */
   title: string
   /** Longer description / purpose statement. */
@@ -414,8 +414,6 @@ export interface Assessment {
   itemSelectionStrategy: ItemSelectionStrategy
   /** Algorithm used to convert responses to scores. */
   scoringMethod: ScoringMethod
-  /** Maximum time allowed in minutes, null = unlimited. */
-  timeLimitMinutes?: number
   /** How the assessment was created. */
   creationMode: AssessmentCreationMode
   /** Matching run that generated this assessment (if AI-created). */

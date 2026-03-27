@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import {
   getItemById,
   getConstructsForSelect,
-  getFactorsForSelect,
   getResponseFormats,
 } from "@/app/actions/items";
 import { ItemForm } from "../../item-form";
@@ -16,10 +15,9 @@ export default async function EditItemPage({
 }) {
   const { id } = await params;
   const { returnTo } = await searchParams;
-  const [item, constructs, factors, responseFormats] = await Promise.all([
+  const [item, constructs, responseFormats] = await Promise.all([
     getItemById(id),
     getConstructsForSelect(),
-    getFactorsForSelect(),
     getResponseFormats(),
   ]);
 
@@ -28,26 +26,17 @@ export default async function EditItemPage({
   return (
     <ItemForm
       constructs={constructs}
-      factors={factors}
       responseFormats={responseFormats}
       mode="edit"
       itemId={id}
       returnTo={returnTo}
       initialData={{
-        traitId: item.traitId,
-        competencyId: item.competencyId,
+        constructId: item.constructId,
         responseFormatId: item.responseFormatId,
         stem: item.stem,
         reverseScored: item.reverseScored,
         status: item.status,
         displayOrder: item.displayOrder,
-        options: item.options,
-        rubrics: (item.rubrics ?? []).map((rb: { rubricLabel: string; scoreValue: number; explanation?: string }, i: number) => ({
-          optionIndex: i,
-          rubricLabel: rb.rubricLabel as "best" | "good" | "neutral" | "poor",
-          scoreValue: rb.scoreValue,
-          explanation: rb.explanation,
-        })),
       }}
     />
   );

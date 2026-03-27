@@ -1,7 +1,7 @@
-import { getCompetencies } from "@/app/actions/competencies";
-import { CompetencyList } from "./competency-list";
+import { getFactors } from "@/app/actions/factors";
+import { FactorList } from "./factor-list";
 
-export default async function CompetenciesPage() {
-  const competencies = await getCompetencies();
-  return <CompetencyList competencies={competencies} />;
+export default async function FactorsPage() {
+  const factors = await getFactors();
+  return <FactorList factors={factors} />;
 }

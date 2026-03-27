@@ -75,8 +75,8 @@ export default async function DimensionsPage() {
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Layers className="size-3.5" />
                     <span>
-                      {dimension.competencyCount}{" "}
-                      {dimension.competencyCount === 1
+                      {dimension.factorCount}{" "}
+                      {dimension.factorCount === 1
                         ? "factor"
                         : "factors"}
                     </span>
@@ -84,7 +84,7 @@ export default async function DimensionsPage() {
                   <div className="mt-2 h-0.5 w-full rounded-full bg-border overflow-hidden">
                     <div
                       className="h-full rounded-full bg-dimension-accent transition-all"
-                      style={{ width: `${Math.min((dimension.competencyCount / 10) * 100, 100)}%`, opacity: 0.6 }}
+                      style={{ width: `${Math.min((dimension.factorCount / 10) * 100, 100)}%`, opacity: 0.6 }}
                     />
                   </div>
                 </CardContent>

@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import {
-  getAssessmentById,
-  getOrganizationsForSelect,
+  getAssessmentWithCompetencies,
+  getCompetenciesForBuilder,
 } from "@/app/actions/assessments";
-import { AssessmentForm } from "../../assessment-form";
+import { AssessmentBuilder } from "../../assessment-builder";
 
 export default async function EditAssessmentPage({
   params,
@@ -11,14 +11,18 @@ export default async function EditAssessmentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [assessment, organizations] = await Promise.all([
-    getAssessmentById(id),
-    getOrganizationsForSelect(),
+  const [result, allFactors] = await Promise.all([
+    getAssessmentWithCompetencies(id),
+    getCompetenciesForBuilder(),
   ]);
 
-  if (!assessment) notFound();
+  if (!result) notFound();
 
   return (
-    <AssessmentForm assessment={assessment} organizations={organizations} />
+    <AssessmentBuilder
+      assessment={result.assessment}
+      existingCompetencies={result.competencies}
+      allFactors={allFactors}
+    />
   );
 }

@@ -1,8 +1,8 @@
-import { getOrganizationsForSelect } from "@/app/actions/assessments";
-import { AssessmentForm } from "../assessment-form";
+import { getCompetenciesForBuilder } from "@/app/actions/assessments";
+import { AssessmentBuilder } from "../assessment-builder";
 
 export default async function CreateAssessmentPage() {
-  const organizations = await getOrganizationsForSelect();
+  const allFactors = await getCompetenciesForBuilder();
 
-  return <AssessmentForm organizations={organizations} />;
+  return <AssessmentBuilder allFactors={allFactors} />;
 }

@@ -29,14 +29,14 @@ import { Breadcrumbs } from "@/components/breadcrumbs"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
 import {
-  createCompetency,
-  updateCompetency,
-  deleteCompetency,
-} from "@/app/actions/competencies"
-import type { SelectOption } from "@/app/actions/competencies"
+  createFactor,
+  updateFactor,
+  deleteFactor,
+} from "@/app/actions/factors"
+import type { SelectOption } from "@/app/actions/factors"
 
-interface LinkedTrait {
-  traitId: string
+interface LinkedConstruct {
+  constructId: string
   name: string
   weight: number
 }
@@ -50,11 +50,11 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
-interface CompetencyFormProps {
+interface FactorFormProps {
   dimensions: SelectOption[]
-  availableTraits: SelectOption[]
+  availableConstructs: SelectOption[]
   mode: "create" | "edit"
-  competencyId?: string
+  factorId?: string
   initialData?: {
     name: string
     slug: string
@@ -65,17 +65,17 @@ interface CompetencyFormProps {
     indicatorsLow?: string
     indicatorsMid?: string
     indicatorsHigh?: string
-    linkedTraits: { traitId: string; name: string; weight: number }[]
+    linkedConstructs: { constructId: string; name: string; weight: number }[]
   }
 }
 
-export function CompetencyForm({
+export function FactorForm({
   dimensions,
-  availableTraits,
+  availableConstructs,
   mode,
-  competencyId,
+  factorId,
   initialData,
-}: CompetencyFormProps) {
+}: FactorFormProps) {
   const [name, setName] = useState(initialData?.name ?? "")
   const [slug, setSlug] = useState(initialData?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
@@ -86,8 +86,8 @@ export function CompetencyForm({
   const [indicatorsLow, setIndicatorsLow] = useState(initialData?.indicatorsLow ?? "")
   const [indicatorsMid, setIndicatorsMid] = useState(initialData?.indicatorsMid ?? "")
   const [indicatorsHigh, setIndicatorsHigh] = useState(initialData?.indicatorsHigh ?? "")
-  const [linkedTraits, setLinkedTraits] = useState<LinkedTrait[]>(
-    initialData?.linkedTraits ?? []
+  const [linkedConstructs, setLinkedConstructs] = useState<LinkedConstruct[]>(
+    initialData?.linkedConstructs ?? []
   )
   const [pending, setPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -112,38 +112,38 @@ export function CompetencyForm({
     []
   )
 
-  const addExistingTrait = useCallback(
-    (traitId: string) => {
-      const trait = availableTraits.find((t) => t.id === traitId)
-      if (!trait) return
-      if (linkedTraits.some((lt) => lt.traitId === traitId)) return
-      setLinkedTraits((prev) => [
+  const addExistingConstruct = useCallback(
+    (constructId: string) => {
+      const construct = availableConstructs.find((c) => c.id === constructId)
+      if (!construct) return
+      if (linkedConstructs.some((lc) => lc.constructId === constructId)) return
+      setLinkedConstructs((prev) => [
         ...prev,
-        { traitId: trait.id, name: trait.name, weight: 1.0 },
+        { constructId: construct.id, name: construct.name, weight: 1.0 },
       ])
     },
-    [availableTraits, linkedTraits]
+    [availableConstructs, linkedConstructs]
   )
 
-  const removeTrait = useCallback((traitId: string) => {
-    setLinkedTraits((prev) => prev.filter((t) => t.traitId !== traitId))
+  const removeConstruct = useCallback((constructId: string) => {
+    setLinkedConstructs((prev) => prev.filter((c) => c.constructId !== constructId))
   }, [])
 
-  const updateTraitWeight = useCallback((traitId: string, weight: number) => {
-    setLinkedTraits((prev) =>
-      prev.map((t) => (t.traitId === traitId ? { ...t, weight } : t))
+  const updateConstructWeight = useCallback((constructId: string, weight: number) => {
+    setLinkedConstructs((prev) =>
+      prev.map((c) => (c.constructId === constructId ? { ...c, weight } : c))
     )
   }, [])
 
-  const unlinkedTraits = availableTraits.filter(
-    (t) => !linkedTraits.some((lt) => lt.traitId === t.id)
+  const unlinkedConstructs = availableConstructs.filter(
+    (c) => !linkedConstructs.some((lc) => lc.constructId === c.id)
   )
 
   async function handleSubmit(formData: FormData) {
     formData.set(
-      "traits",
+      "constructs",
       JSON.stringify(
-        linkedTraits.map((t) => ({ traitId: t.traitId, weight: t.weight }))
+        linkedConstructs.map((c) => ({ constructId: c.constructId, weight: c.weight }))
       )
     )
 
@@ -151,9 +151,9 @@ export function CompetencyForm({
     setError(null)
 
     const result =
-      mode === "edit" && competencyId
-        ? await updateCompetency(competencyId, formData)
-        : await createCompetency(formData)
+      mode === "edit" && factorId
+        ? await updateFactor(factorId, formData)
+        : await createFactor(formData)
 
     if (result?.error) {
       const errors = result.error
@@ -167,9 +167,9 @@ export function CompetencyForm({
   }
 
   async function handleDelete() {
-    if (!competencyId) return
+    if (!factorId) return
     setDeleting(true)
-    await deleteCompetency(competencyId)
+    await deleteFactor(factorId)
   }
 
   const title = mode === "create" ? "Create Factor" : "Edit Factor"
@@ -198,9 +198,9 @@ export function CompetencyForm({
             <TabsTrigger value="indicators">Indicators</TabsTrigger>
             <TabsTrigger value="relationships">
               Relationships
-              {linkedTraits.length > 0 && (
+              {linkedConstructs.length > 0 && (
                 <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
-                  {linkedTraits.length}
+                  {linkedConstructs.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -248,7 +248,7 @@ export function CompetencyForm({
                   <Textarea
                     id="factor-description"
                     name="description"
-                    placeholder="A brief description of what this competency measures..."
+                    placeholder="A brief description of what this factor measures..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     className="min-h-20"
@@ -356,26 +356,26 @@ export function CompetencyForm({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  {unlinkedTraits.length > 0 && (
+                  {unlinkedConstructs.length > 0 && (
                     <div className="space-y-2">
                       <Label>Add existing construct</Label>
                       <Select
                         onValueChange={(v) => {
-                          if (v) addExistingTrait(v)
+                          if (v) addExistingConstruct(v)
                         }}
                         value=""
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select a construct to add...">
                             {(value: string) =>
-                              availableTraits.find((t) => t.id === value)?.name ?? value
+                              availableConstructs.find((c) => c.id === value)?.name ?? value
                             }
                           </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {unlinkedTraits.map((trait) => (
-                            <SelectItem key={trait.id} value={trait.id}>
-                              {trait.name}
+                          {unlinkedConstructs.map((construct) => (
+                            <SelectItem key={construct.id} value={construct.id}>
+                              {construct.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -383,7 +383,7 @@ export function CompetencyForm({
                     </div>
                   )}
 
-                  {linkedTraits.length === 0 ? (
+                  {linkedConstructs.length === 0 ? (
                     <div className="flex flex-col items-center py-8 text-center">
                       <Dna className="size-8 text-muted-foreground/40 mb-3" />
                       <p className="text-sm text-muted-foreground">
@@ -392,9 +392,9 @@ export function CompetencyForm({
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {linkedTraits.map((trait) => (
+                      {linkedConstructs.map((construct) => (
                         <div
-                          key={trait.traitId}
+                          key={construct.constructId}
                           className="flex items-start gap-3 rounded-lg border p-3"
                         >
                           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-trait-bg">
@@ -403,7 +403,7 @@ export function CompetencyForm({
                           <div className="flex-1 min-w-0 space-y-3">
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-medium">
-                                {trait.name}
+                                {construct.name}
                               </span>
                             </div>
                             <div className="space-y-1.5">
@@ -412,14 +412,14 @@ export function CompetencyForm({
                                   Weight
                                 </Label>
                                 <span className="text-xs font-medium tabular-nums">
-                                  {trait.weight.toFixed(1)}
+                                  {construct.weight.toFixed(1)}
                                 </span>
                               </div>
                               <Slider
-                                value={[Math.round(trait.weight * 100)]}
+                                value={[Math.round(construct.weight * 100)]}
                                 onValueChange={(val) => {
                                   const v = Array.isArray(val) ? val[0] : val
-                                  updateTraitWeight(trait.traitId, v / 100)
+                                  updateConstructWeight(construct.constructId, v / 100)
                                 }}
                                 min={1}
                                 max={200}
@@ -431,7 +431,7 @@ export function CompetencyForm({
                             type="button"
                             variant="ghost"
                             size="icon-xs"
-                            onClick={() => removeTrait(trait.traitId)}
+                            onClick={() => removeConstruct(construct.constructId)}
                             className="shrink-0"
                           >
                             <X className="size-3.5" />
@@ -458,7 +458,7 @@ export function CompetencyForm({
                   entityName="Factor"
                   isActive={isActive}
                   onActiveChange={setIsActive}
-                  onDelete={mode === "edit" && competencyId ? handleDelete : undefined}
+                  onDelete={mode === "edit" && factorId ? handleDelete : undefined}
                   deleting={deleting}
                 />
               </CardContent>

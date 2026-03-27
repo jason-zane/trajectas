@@ -51,7 +51,7 @@ export {
 // Adaptive
 export {
   CATEngine,
-  calculateItemsPerCompetency,
+  calculateItemsPerFactor,
   selectItems,
-  parseCompetencyCountRule,
+  parseFactorCountRule,
 } from './adaptive'

@@ -1,19 +1,19 @@
 import {
   getDimensionsForSelect,
-  getTraitsForSelect,
-} from "@/app/actions/competencies";
-import { CompetencyForm } from "../competency-form";
+  getConstructsForSelect,
+} from "@/app/actions/factors";
+import { FactorForm } from "../factor-form";
 
-export default async function CreateCompetencyPage() {
-  const [dimensions, traits] = await Promise.all([
+export default async function CreateFactorPage() {
+  const [dimensions, constructs] = await Promise.all([
     getDimensionsForSelect(),
-    getTraitsForSelect(),
+    getConstructsForSelect(),
   ]);
 
   return (
-    <CompetencyForm
+    <FactorForm
       dimensions={dimensions}
-      availableTraits={traits}
+      availableConstructs={constructs}
       mode="create"
     />
   );

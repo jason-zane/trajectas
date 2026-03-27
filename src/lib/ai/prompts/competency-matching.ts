@@ -8,7 +8,7 @@
  * results can be correlated with the exact prompt that produced them.
  */
 
-import type { MatchingInput, CompetencyRanking } from '@/types/ai'
+import type { MatchingInput, FactorRanking } from '@/types/ai'
 
 /** Current version of the matching prompt template. */
 export const PROMPT_VERSION = 1
@@ -50,8 +50,8 @@ Return ONLY valid JSON with this exact structure:
 {
   "rankings": [
     {
-      "competencyId": "<string>",
-      "competencyName": "<string>",
+      "factorId": "<string>",
+      "factorName": "<string>",
       "rank": <number>,
       "relevanceScore": <number 0-100>,
       "reasoning": "<string>",
@@ -85,7 +85,7 @@ function buildUserPrompt(input: MatchingInput): string {
     .map(([dimensionId, score]) => `- ${dimensionId}: ${score}`)
     .join('\n')
 
-  const competencies = input.availableCompetencies
+  const competencies = input.availableFactors
     .map((c) => `- **${c.name}** (${c.id})\n  ${c.description}`)
     .join('\n')
 
@@ -105,7 +105,7 @@ Analyse the diagnostic profile above, then rank the competencies by relevance. R
  */
 export function isValidRankingsPayload(
   value: unknown,
-): value is { rankings: CompetencyRanking[]; summary: string; recommendedCount: { minimum: number; optimal: number; maximum: number } } {
+): value is { rankings: FactorRanking[]; summary: string; recommendedCount: { minimum: number; optimal: number; maximum: number } } {
   if (typeof value !== 'object' || value === null) return false
   const obj = value as Record<string, unknown>
   if (!Array.isArray(obj.rankings)) return false
@@ -115,8 +115,8 @@ export function isValidRankingsPayload(
     (r: unknown) =>
       typeof r === 'object' &&
       r !== null &&
-      typeof (r as Record<string, unknown>).competencyId === 'string' &&
-      typeof (r as Record<string, unknown>).competencyName === 'string' &&
+      typeof (r as Record<string, unknown>).factorId === 'string' &&
+      typeof (r as Record<string, unknown>).factorName === 'string' &&
       typeof (r as Record<string, unknown>).relevanceScore === 'number' &&
       typeof (r as Record<string, unknown>).reasoning === 'string' &&
       typeof (r as Record<string, unknown>).incrementalValue === 'number',

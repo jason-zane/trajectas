@@ -142,18 +142,18 @@ export interface AdaptiveItemSelectionConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Competency-level scoring output
+// Factor-level scoring output
 // ---------------------------------------------------------------------------
 
 /**
- * The final score for a single competency within a candidate's assessment session.
+ * The final score for a single factor within a candidate's assessment session.
  * This is the primary unit reported on score reports and dashboards.
  */
-export interface CompetencyScore {
-  /** UUID of the competency. */
-  competencyId: string
-  /** Human-readable competency name. */
-  competencyName: string
+export interface FactorScore {
+  /** UUID of the factor. */
+  factorId: string
+  /** Human-readable factor name. */
+  factorName: string
   /** Unscaled raw score (sum or IRT theta, depending on method). */
   rawScore: number
   /** Score transformed to the reporting scale (e.g. 0–100 or stanine). */
@@ -179,7 +179,7 @@ export interface CompetencyScore {
 
 /**
  * Input bundle sent to the scoring engine for a complete candidate session.
- * Contains all the data needed to produce competency scores.
+ * Contains all the data needed to produce factor scores.
  */
 export interface ScoringEngineInput {
   /** UUID of the candidate session. */
@@ -191,20 +191,20 @@ export interface ScoringEngineInput {
   /** All responses collected during the session. */
   responses: IRTResponse[]
   /**
-   * Map from competency ID to the item IDs that belong to that competency,
-   * used to partition responses for per-competency scoring.
+   * Map from factor ID to the item IDs that belong to that factor,
+   * used to partition responses for per-factor scoring.
    */
-  competencyItemMap: Record<string, string[]>
+  factorItemMap: Record<string, string[]>
   /**
    * Map from item ID to its calibrated IRT parameters.
    * Only required when `scoringMethod` is `irt` or `hybrid`.
    */
   itemParameters?: Record<string, IRTParameters>
   /**
-   * Map from competency ID to its weight within the assessment.
+   * Map from factor ID to its weight within the assessment.
    * Used for computing weighted composite scores.
    */
-  competencyWeights?: Record<string, number>
+  factorWeights?: Record<string, number>
 }
 
 /**
@@ -213,11 +213,11 @@ export interface ScoringEngineInput {
 export interface ScoringEngineOutput {
   /** UUID of the candidate session that was scored. */
   sessionId: string
-  /** Per-competency score results. */
-  competencyScores: CompetencyScore[]
+  /** Per-factor score results. */
+  factorScores: FactorScore[]
   /**
-   * Optional weighted composite score across all competencies.
-   * Only computed when competency weights are provided.
+   * Optional weighted composite score across all factors.
+   * Only computed when factor weights are provided.
    */
   compositeScore?: number
   /** ISO-8601 timestamp of when scoring completed. */

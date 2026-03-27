@@ -29,11 +29,11 @@ import { Breadcrumbs } from "@/components/breadcrumbs"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
 import {
-  createTrait,
-  updateTrait,
-  deleteTrait,
-} from "@/app/actions/traits"
-import type { TraitWithRelationships } from "@/app/actions/traits"
+  createConstruct,
+  updateConstruct,
+  deleteConstruct,
+} from "@/app/actions/constructs"
+import type { ConstructWithRelationships } from "@/app/actions/constructs"
 
 const formatLabels: Record<string, string> = {
   likert: "Likert",
@@ -54,25 +54,25 @@ function slugify(text: string): string {
 
 interface ConstructFormProps {
   mode: "create" | "edit"
-  trait?: TraitWithRelationships
+  construct?: ConstructWithRelationships
 }
 
-export function ConstructForm({ mode, trait }: ConstructFormProps) {
-  const [name, setName] = useState(trait?.name ?? "")
-  const [slug, setSlug] = useState(trait?.slug ?? "")
+export function ConstructForm({ mode, construct }: ConstructFormProps) {
+  const [name, setName] = useState(construct?.name ?? "")
+  const [slug, setSlug] = useState(construct?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
-  const [description, setDescription] = useState(trait?.description ?? "")
-  const [definition, setDefinition] = useState(trait?.definition ?? "")
-  const [isActive, setIsActive] = useState(trait?.isActive ?? true)
-  const [indicatorsLow, setIndicatorsLow] = useState(trait?.indicatorsLow ?? "")
-  const [indicatorsMid, setIndicatorsMid] = useState(trait?.indicatorsMid ?? "")
-  const [indicatorsHigh, setIndicatorsHigh] = useState(trait?.indicatorsHigh ?? "")
+  const [description, setDescription] = useState(construct?.description ?? "")
+  const [definition, setDefinition] = useState(construct?.definition ?? "")
+  const [isActive, setIsActive] = useState(construct?.isActive ?? true)
+  const [indicatorsLow, setIndicatorsLow] = useState(construct?.indicatorsLow ?? "")
+  const [indicatorsMid, setIndicatorsMid] = useState(construct?.indicatorsMid ?? "")
+  const [indicatorsHigh, setIndicatorsHigh] = useState(construct?.indicatorsHigh ?? "")
   const [pending, setPending] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const parentFactors = trait?.parentFactors ?? []
-  const linkedItems = trait?.linkedItems ?? []
+  const parentFactors = construct?.parentFactors ?? []
+  const linkedItems = construct?.linkedItems ?? []
 
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,9 +97,9 @@ export function ConstructForm({ mode, trait }: ConstructFormProps) {
     setPending(true)
     setError(null)
     const result =
-      mode === "edit" && trait
-        ? await updateTrait(trait.id, formData)
-        : await createTrait(formData)
+      mode === "edit" && construct
+        ? await updateConstruct(construct.id, formData)
+        : await createConstruct(formData)
     if (result?.error) {
       const errors = result.error
       const msg =
@@ -112,16 +112,16 @@ export function ConstructForm({ mode, trait }: ConstructFormProps) {
   }
 
   async function handleDelete() {
-    if (!trait) return
+    if (!construct) return
     setDeleting(true)
-    await deleteTrait(trait.id)
+    await deleteConstruct(construct.id)
   }
 
   const title = mode === "create" ? "Create Construct" : "Edit Construct"
   const subtitle =
     mode === "create"
       ? "Define a new measurable attribute for fine-grained measurement within factors."
-      : `Update the details for \u201c${trait?.name}\u201d.`
+      : `Update the details for \u201c${construct?.name}\u201d.`
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -265,8 +265,8 @@ export function ConstructForm({ mode, trait }: ConstructFormProps) {
                         </CardDescription>
                       </div>
                     </div>
-                    {trait?.slug && (
-                      <Link href={`/items/create?constructSlug=${trait.slug}`}>
+                    {construct?.slug && (
+                      <Link href={`/items/create?constructSlug=${construct.slug}`}>
                         <Button type="button" variant="outline" size="sm">
                           <Plus className="size-4" />
                           Add Item
@@ -282,8 +282,8 @@ export function ConstructForm({ mode, trait }: ConstructFormProps) {
                       <p className="text-sm text-muted-foreground mb-4">
                         No items target this construct yet.
                       </p>
-                      {trait?.slug && (
-                        <Link href={`/items/create?constructSlug=${trait.slug}`}>
+                      {construct?.slug && (
+                        <Link href={`/items/create?constructSlug=${construct.slug}`}>
                           <Button type="button" variant="outline" size="sm">
                             <Plus className="size-4" />
                             Create First Item
@@ -328,7 +328,7 @@ export function ConstructForm({ mode, trait }: ConstructFormProps) {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              <Link href={`/items/${item.id}/edit`}>
+                              <Link href={`/items/${item.id}/edit?returnTo=/constructs/${construct?.slug}/edit`}>
                                 <Button type="button" variant="ghost" size="icon-xs">
                                   <ArrowRight className="size-3.5" />
                                 </Button>

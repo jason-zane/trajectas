@@ -32,14 +32,14 @@ import {
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
-import type { CompetencyWithMeta } from "@/app/actions/competencies"
+import type { FactorWithMeta } from "@/app/actions/factors"
 
 type StatusFilter = "all" | "active" | "inactive"
 
-export function CompetencyList({
-  competencies,
+export function FactorList({
+  factors,
 }: {
-  competencies: CompetencyWithMeta[]
+  factors: FactorWithMeta[]
 }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [dimensionFilter, setDimensionFilter] = useState("all")
@@ -47,50 +47,50 @@ export function CompetencyList({
 
   const dimensionNames = useMemo(() => {
     const names = new Set<string>()
-    competencies.forEach((c) => {
-      if (c.dimensionName) names.add(c.dimensionName)
+    factors.forEach((f) => {
+      if (f.dimensionName) names.add(f.dimensionName)
     })
     return Array.from(names).sort()
-  }, [competencies])
+  }, [factors])
 
   const hasFilters =
     searchQuery !== "" ||
     dimensionFilter !== "all" ||
     statusFilter !== "all"
 
-  const filteredCompetencies = useMemo(() => {
-    return competencies.filter((c) => {
+  const filteredFactors = useMemo(() => {
+    return factors.filter((f) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase()
         const matches =
-          c.name.toLowerCase().includes(q) ||
-          (c.description && c.description.toLowerCase().includes(q)) ||
-          (c.dimensionName && c.dimensionName.toLowerCase().includes(q))
+          f.name.toLowerCase().includes(q) ||
+          (f.description && f.description.toLowerCase().includes(q)) ||
+          (f.dimensionName && f.dimensionName.toLowerCase().includes(q))
         if (!matches) return false
       }
       if (dimensionFilter !== "all") {
-        const dimName = c.dimensionName || "Ungrouped"
+        const dimName = f.dimensionName || "Ungrouped"
         if (dimName !== dimensionFilter) return false
       }
-      if (statusFilter === "active" && !c.isActive) return false
-      if (statusFilter === "inactive" && c.isActive) return false
+      if (statusFilter === "active" && !f.isActive) return false
+      if (statusFilter === "inactive" && f.isActive) return false
       return true
     })
-  }, [competencies, searchQuery, dimensionFilter, statusFilter])
+  }, [factors, searchQuery, dimensionFilter, statusFilter])
 
   const grouped = useMemo(() => {
-    const acc: Record<string, CompetencyWithMeta[]> = {}
-    for (const comp of filteredCompetencies) {
-      const key = comp.dimensionName || "Ungrouped"
+    const acc: Record<string, FactorWithMeta[]> = {}
+    for (const factor of filteredFactors) {
+      const key = factor.dimensionName || "Ungrouped"
       if (!acc[key]) acc[key] = []
-      acc[key].push(comp)
+      acc[key].push(factor)
     }
     return Object.entries(acc).sort(([a], [b]) => {
       if (a === "Ungrouped") return 1
       if (b === "Ungrouped") return -1
       return a.localeCompare(b)
     })
-  }, [filteredCompetencies])
+  }, [filteredFactors])
 
   const allGroupNames = grouped.map(([name]) => name)
 
@@ -115,7 +115,7 @@ export function CompetencyList({
         </Link>
       </PageHeader>
 
-      {competencies.length === 0 ? (
+      {factors.length === 0 ? (
         <EmptyState
           variant="competency"
           title="No factors yet"
@@ -181,7 +181,7 @@ export function CompetencyList({
             </div>
           </div>
 
-          {filteredCompetencies.length === 0 ? (
+          {filteredFactors.length === 0 ? (
             <div className="flex flex-col items-center py-16">
               <p className="text-sm text-muted-foreground">
                 No factors match your filters.
@@ -199,7 +199,7 @@ export function CompetencyList({
             </div>
           ) : (
             <Accordion multiple defaultValue={allGroupNames}>
-              {grouped.map(([groupName, groupCompetencies]) => (
+              {grouped.map(([groupName, groupFactors]) => (
                 <AccordionItem key={groupName} value={groupName}>
                   <AccordionTrigger className="rounded-t-lg border-t-2 border-t-dimension-accent bg-dimension-bg/30">
                     <LayoutGrid className="size-4 text-dimension-accent" />
@@ -207,14 +207,14 @@ export function CompetencyList({
                       {groupName}
                     </span>
                     <span className="text-xs text-muted-foreground font-normal">
-                      ({groupCompetencies.length})
+                      ({groupFactors.length})
                     </span>
                   </AccordionTrigger>
                   <AccordionPanel>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-4 pb-2">
-                      {groupCompetencies.map((comp, cardIndex) => (
-                        <ScrollReveal key={comp.id} delay={cardIndex * 60}>
-                          <Link href={`/factors/${comp.slug}/edit`}>
+                      {groupFactors.map((factor, cardIndex) => (
+                        <ScrollReveal key={factor.id} delay={cardIndex * 60}>
+                          <Link href={`/factors/${factor.slug}/edit`}>
                             <Card
                               variant="interactive"
                               className="flex flex-col h-full"
@@ -226,29 +226,29 @@ export function CompetencyList({
                                       <Brain className="size-4 text-competency-accent" />
                                     </div>
                                     <CardTitle className="leading-snug">
-                                      {comp.name}
+                                      {factor.name}
                                     </CardTitle>
                                   </div>
                                   <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0 mt-0.5" />
                                 </div>
-                                {comp.description && (
+                                {factor.description && (
                                   <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
-                                    {comp.description}
+                                    {factor.description}
                                   </p>
                                 )}
                               </CardHeader>
                               <CardContent>
                                 <div className="flex items-center gap-3 flex-wrap">
-                                  {comp.dimensionName && (
+                                  {factor.dimensionName && (
                                     <Badge variant="dimension">
-                                      {comp.dimensionName}
+                                      {factor.dimensionName}
                                     </Badge>
                                   )}
                                   <Badge variant="dot">
                                     <span
-                                      className={`size-1.5 rounded-full ${comp.isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                                      className={`size-1.5 rounded-full ${factor.isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
                                     />
-                                    {comp.isActive ? "Active" : "Inactive"}
+                                    {factor.isActive ? "Active" : "Inactive"}
                                   </Badge>
                                 </div>
 
@@ -256,14 +256,14 @@ export function CompetencyList({
                                   <div className="flex items-center gap-1">
                                     <Dna className="size-3.5" />
                                     <span>
-                                      {comp.traitCount}{" "}
-                                      {comp.traitCount === 1
+                                      {factor.constructCount}{" "}
+                                      {factor.constructCount === 1
                                         ? "construct"
                                         : "constructs"}
                                     </span>
                                     <span className="flex items-center gap-0.5 ml-1">
                                       {Array.from({
-                                        length: Math.min(comp.traitCount, 5),
+                                        length: Math.min(factor.constructCount, 5),
                                       }).map((_, i) => (
                                         <span
                                           key={i}
@@ -272,7 +272,7 @@ export function CompetencyList({
                                       ))}
                                       {Array.from({
                                         length: Math.max(
-                                          5 - comp.traitCount,
+                                          5 - factor.constructCount,
                                           0
                                         ),
                                       }).map((_, i) => (
@@ -286,8 +286,8 @@ export function CompetencyList({
                                   <div className="flex items-center gap-1">
                                     <FileQuestion className="size-3.5" />
                                     <span>
-                                      {comp.itemCount}{" "}
-                                      {comp.itemCount === 1 ? "item" : "items"}
+                                      {factor.itemCount}{" "}
+                                      {factor.itemCount === 1 ? "item" : "items"}
                                     </span>
                                   </div>
                                 </div>

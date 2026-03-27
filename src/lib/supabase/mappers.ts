@@ -1,9 +1,9 @@
 import type {
   Assessment,
   Dimension,
-  Competency,
-  Trait,
-  CompetencyTrait,
+  Factor,
+  Construct,
+  FactorConstruct,
   Item,
   ItemOption,
   Organization,
@@ -37,7 +37,7 @@ export function mapDimensionRow(row: any): Dimension {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapCompetencyRow(row: any): Competency {
+export function mapFactorRow(row: any): Factor {
   return {
     id: row.id,
     dimensionId: row.dimension_id ?? undefined,
@@ -56,7 +56,7 @@ export function mapCompetencyRow(row: any): Competency {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapTraitRow(row: any): Trait {
+export function mapConstructRow(row: any): Construct {
   return {
     id: row.id,
     partnerId: row.partner_id ?? undefined,
@@ -74,11 +74,11 @@ export function mapTraitRow(row: any): Trait {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapCompetencyTraitRow(row: any): CompetencyTrait {
+export function mapFactorConstructRow(row: any): FactorConstruct {
   return {
     id: row.id,
-    competencyId: row.competency_id,
-    traitId: row.trait_id,
+    factorId: row.factor_id,
+    constructId: row.construct_id,
     weight: Number(row.weight),
     displayOrder: row.display_order,
     created_at: row.created_at,
@@ -89,8 +89,8 @@ export function mapCompetencyTraitRow(row: any): CompetencyTrait {
 export function mapItemRow(row: any): Item {
   return {
     id: row.id,
-    competencyId: row.competency_id ?? undefined,
-    traitId: row.trait_id,
+    factorId: row.factor_id ?? undefined,
+    constructId: row.construct_id,
     responseFormatId: row.response_format_id,
     stem: row.stem,
     reverseScored: row.reverse_scored,
@@ -162,7 +162,7 @@ export function toDimensionInsert(d: Omit<Dimension, 'id' | 'created_at' | 'upda
   }
 }
 
-export function toCompetencyInsert(c: Omit<Competency, 'id' | 'created_at' | 'updated_at'>) {
+export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at'>) {
   return {
     dimension_id: c.dimensionId ?? null,
     partner_id: c.partnerId ?? null,
@@ -177,7 +177,7 @@ export function toCompetencyInsert(c: Omit<Competency, 'id' | 'created_at' | 'up
   }
 }
 
-export function toTraitInsert(t: Omit<Trait, 'id' | 'created_at' | 'updated_at'>) {
+export function toConstructInsert(t: Omit<Construct, 'id' | 'created_at' | 'updated_at'>) {
   return {
     partner_id: t.partnerId ?? null,
     name: t.name,
@@ -193,8 +193,8 @@ export function toTraitInsert(t: Omit<Trait, 'id' | 'created_at' | 'updated_at'>
 
 export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) {
   return {
-    competency_id: i.competencyId ?? null,
-    trait_id: i.traitId,
+    factor_id: i.factorId ?? null,
+    construct_id: i.constructId,
     response_format_id: i.responseFormatId,
     stem: i.stem,
     reverse_scored: i.reverseScored,
@@ -217,13 +217,12 @@ export function toOrganizationInsert(o: Omit<Organization, 'id' | 'partnerId' | 
 export function mapAssessmentRow(row: any): Assessment {
   return {
     id: row.id,
-    organizationId: row.organization_id,
+    organizationId: row.organization_id ?? undefined,
     title: row.title,
     description: row.description ?? undefined,
     status: row.status,
     itemSelectionStrategy: row.item_selection_strategy,
     scoringMethod: row.scoring_method,
-    timeLimitMinutes: row.time_limit_minutes ?? undefined,
     creationMode: row.creation_mode,
     matchingRunId: row.matching_run_id ?? undefined,
     created_at: row.created_at,
@@ -233,13 +232,12 @@ export function mapAssessmentRow(row: any): Assessment {
 
 export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 'created_at' | 'updated_at'>) {
   return {
-    organization_id: a.organizationId,
+    organization_id: a.organizationId ?? null,
     title: a.title,
     description: a.description ?? null,
     status: a.status,
     item_selection_strategy: a.itemSelectionStrategy,
     scoring_method: a.scoringMethod,
-    time_limit_minutes: a.timeLimitMinutes ?? null,
     creation_mode: a.creationMode,
   }
 }

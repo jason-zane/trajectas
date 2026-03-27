@@ -7,7 +7,7 @@
  * ```ts
  * import {
  *   CATEngine,
- *   calculateItemsPerCompetency,
+ *   calculateItemsPerFactor,
  *   selectItems,
  * } from '@/lib/scoring/adaptive'
  * ```
@@ -17,9 +17,9 @@
 
 export { CATEngine } from './cat-engine'
 export {
-  calculateItemsPerCompetency,
+  calculateItemsPerFactor,
   selectItems,
-  parseCompetencyCountRule,
+  parseFactorCountRule,
 } from './rule-based'
 
-export type { SelectionStrategy, CompetencyCountRule } from './rule-based'
+export type { SelectionStrategy, FactorCountRule } from './rule-based'

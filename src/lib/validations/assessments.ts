@@ -6,9 +6,12 @@ export const assessmentSchema = z.object({
   status: z.enum(['draft', 'active', 'archived']).default('draft'),
   itemSelectionStrategy: z.enum(['fixed', 'rule_based', 'cat']).default('fixed'),
   scoringMethod: z.enum(['irt', 'ctt', 'hybrid']).default('ctt'),
-  timeLimitMinutes: z.coerce.number().int().min(0).optional(),
-  organizationId: z.string().uuid('Organisation is required'),
   creationMode: z.enum(['manual', 'ai_generated', 'org_choice']).default('manual'),
+  competencies: z.array(z.object({
+    competencyId: z.string().uuid(),
+    weight: z.coerce.number().positive().default(1),
+    itemCount: z.coerce.number().int().min(0).default(0),
+  })).default([]),
 })
 
 export type AssessmentInput = z.infer<typeof assessmentSchema>

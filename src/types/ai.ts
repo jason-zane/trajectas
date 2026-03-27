@@ -72,11 +72,11 @@ export interface AIModelResponse {
  * A single competency in the ranked output of the matching engine.
  * Includes the AI's reasoning and value-add metrics.
  */
-export interface CompetencyRanking {
+export interface FactorRanking {
   /** UUID of the competency. */
-  competencyId: string
+  factorId: string
   /** Human-readable competency name. */
-  competencyName: string
+  factorName: string
   /** Ordinal rank (1 = most relevant to the organisation's diagnostic profile). */
   rank: number
   /**
@@ -111,7 +111,7 @@ export interface MatchingInput {
    */
   diagnosticData: Record<string, number>
   /** The pool of competencies the AI should evaluate and rank. */
-  availableCompetencies: Array<{
+  availableFactors: Array<{
     /** UUID of the competency. */
     id: string
     /** Competency display name. */
@@ -127,7 +127,7 @@ export interface MatchingInput {
  */
 export interface MatchingOutput {
   /** Ordered list of competency rankings (index 0 = rank 1). */
-  rankings: CompetencyRanking[]
+  rankings: FactorRanking[]
   /**
    * AI-generated executive summary explaining the overall matching
    * rationale and key themes from the diagnostic data.
@@ -167,7 +167,7 @@ export interface PromptTemplateVariables {
   /** JSON-serialised diagnostic data summary. */
   diagnosticSummary?: string
   /** JSON-serialised list of available competencies. */
-  competencyList?: string
+  factorList?: string
   /** Any additional context the prompt template requires. */
   [key: string]: string | undefined
 }

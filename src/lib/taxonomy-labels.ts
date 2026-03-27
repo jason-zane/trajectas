@@ -16,13 +16,13 @@ export const taxonomyLabels = {
     singular: 'Factor',
     plural: 'Factors',
     route: '/factors',
-    dbTable: 'competencies',
+    dbTable: 'factors',
   },
   trait: {
     singular: 'Construct',
     plural: 'Constructs',
     route: '/constructs',
-    dbTable: 'traits',
+    dbTable: 'constructs',
   },
   item: {
     singular: 'Item',

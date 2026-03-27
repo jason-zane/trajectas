@@ -30,7 +30,7 @@ const statCards = [
     glowColor: "var(--dimension-accent)",
   },
   {
-    key: "competencies" as const,
+    key: "factors" as const,
     title: "Factors",
     icon: Brain,
     description: "In your library",
@@ -41,7 +41,7 @@ const statCards = [
     glowColor: "var(--competency-accent)",
   },
   {
-    key: "traits" as const,
+    key: "constructs" as const,
     title: "Constructs",
     icon: Dna,
     description: "Measurement constructs",

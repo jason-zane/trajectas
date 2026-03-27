@@ -1,42 +1,42 @@
 import { notFound } from "next/navigation"
 import {
-  getCompetencyBySlug,
+  getFactorBySlug,
   getDimensionsForSelect,
-  getTraitsForSelect,
-} from "@/app/actions/competencies"
-import { CompetencyForm } from "../../competency-form"
+  getConstructsForSelect,
+} from "@/app/actions/factors"
+import { FactorForm } from "../../factor-form"
 
-export default async function EditCompetencyPage({
+export default async function EditFactorPage({
   params,
 }: {
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const [competency, dimensions, traits] = await Promise.all([
-    getCompetencyBySlug(slug),
+  const [factor, dimensions, constructs] = await Promise.all([
+    getFactorBySlug(slug),
     getDimensionsForSelect(),
-    getTraitsForSelect(),
+    getConstructsForSelect(),
   ])
 
-  if (!competency) notFound()
+  if (!factor) notFound()
 
   return (
-    <CompetencyForm
+    <FactorForm
       dimensions={dimensions}
-      availableTraits={traits}
+      availableConstructs={constructs}
       mode="edit"
-      competencyId={competency.id}
+      factorId={factor.id}
       initialData={{
-        name: competency.name,
-        slug: competency.slug,
-        description: competency.description,
-        definition: competency.definition,
-        dimensionId: competency.dimensionId,
-        isActive: competency.isActive,
-        indicatorsLow: competency.indicatorsLow,
-        indicatorsMid: competency.indicatorsMid,
-        indicatorsHigh: competency.indicatorsHigh,
-        linkedTraits: competency.linkedTraits,
+        name: factor.name,
+        slug: factor.slug,
+        description: factor.description,
+        definition: factor.definition,
+        dimensionId: factor.dimensionId,
+        isActive: factor.isActive,
+        indicatorsLow: factor.indicatorsLow,
+        indicatorsMid: factor.indicatorsMid,
+        indicatorsHigh: factor.indicatorsHigh,
+        linkedConstructs: factor.linkedConstructs,
       }}
     />
   )

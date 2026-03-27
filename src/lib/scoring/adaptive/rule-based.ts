@@ -26,13 +26,13 @@ import type { ItemSelectionRule, Item } from '@/types/database'
  * in the database, where the `ruleType` is `"competency_count"` and
  * the `config` object contains the threshold fields.
  */
-export interface CompetencyCountRule {
+export interface FactorCountRule {
   /** Minimum total competencies for this rule to apply (inclusive). */
-  totalCompetencyMin: number
+  totalFactorMin: number
   /** Maximum total competencies for this rule to apply (inclusive). */
-  totalCompetencyMax: number
+  totalFactorMax: number
   /** Number of items to administer per competency when this rule matches. */
-  itemsPerCompetency: number
+  itemsPerFactor: number
 }
 
 // ---------------------------------------------------------------------------
@@ -49,45 +49,45 @@ export interface CompetencyCountRule {
  * | 8 - 12             | 5                    |
  * | 13 +               | 4                    |
  */
-const DEFAULT_RULES: CompetencyCountRule[] = [
-  { totalCompetencyMin: 1, totalCompetencyMax: 3, itemsPerCompetency: 10 },
-  { totalCompetencyMin: 4, totalCompetencyMax: 7, itemsPerCompetency: 7 },
-  { totalCompetencyMin: 8, totalCompetencyMax: 12, itemsPerCompetency: 5 },
-  { totalCompetencyMin: 13, totalCompetencyMax: Infinity, itemsPerCompetency: 4 },
+const DEFAULT_RULES: FactorCountRule[] = [
+  { totalFactorMin: 1, totalFactorMax: 3, itemsPerFactor: 10 },
+  { totalFactorMin: 4, totalFactorMax: 7, itemsPerFactor: 7 },
+  { totalFactorMin: 8, totalFactorMax: 12, itemsPerFactor: 5 },
+  { totalFactorMin: 13, totalFactorMax: Infinity, itemsPerFactor: 4 },
 ]
 
 // ---------------------------------------------------------------------------
-// Helpers: convert DB rule to CompetencyCountRule
+// Helpers: convert DB rule to FactorCountRule
 // ---------------------------------------------------------------------------
 
 /**
- * Extract a {@link CompetencyCountRule} from a generic
+ * Extract a {@link FactorCountRule} from a generic
  * {@link ItemSelectionRule} whose `ruleType` is `"competency_count"`.
  *
- * The `config` object is expected to contain `totalCompetencyMin`,
- * `totalCompetencyMax`, and `itemsPerCompetency` as numeric fields.
+ * The `config` object is expected to contain `totalFactorMin`,
+ * `totalFactorMax`, and `itemsPerFactor` as numeric fields.
  *
  * @param rule - A database-backed item selection rule.
  * @returns The extracted competency-count rule, or `undefined` if the
  *          rule is not of type `"competency_count"` or is malformed.
  */
-export function parseCompetencyCountRule(
+export function parseFactorCountRule(
   rule: ItemSelectionRule,
-): CompetencyCountRule | undefined {
+): FactorCountRule | undefined {
   if (rule.ruleType !== 'competency_count') return undefined
 
-  const min = rule.config.totalCompetencyMin
-  const max = rule.config.totalCompetencyMax
-  const count = rule.config.itemsPerCompetency
+  const min = rule.config.totalFactorMin
+  const max = rule.config.totalFactorMax
+  const count = rule.config.itemsPerFactor
 
   if (typeof min !== 'number' || typeof max !== 'number' || typeof count !== 'number') {
     return undefined
   }
 
   return {
-    totalCompetencyMin: min,
-    totalCompetencyMax: max,
-    itemsPerCompetency: count,
+    totalFactorMin: min,
+    totalFactorMax: max,
+    itemsPerFactor: count,
   }
 }
 
@@ -99,12 +99,12 @@ export function parseCompetencyCountRule(
  * Determine how many items to administer per competency.
  *
  * Searches the provided rules (or the defaults) for one whose
- * `[totalCompetencyMin, totalCompetencyMax]` range contains the
- * given `totalCompetencies` count.  Returns the matching rule's
- * `itemsPerCompetency` value.
+ * `[totalFactorMin, totalFactorMax]` range contains the
+ * given `totalFactors` count.  Returns the matching rule's
+ * `itemsPerFactor` value.
  *
  * If database-backed {@link ItemSelectionRule} objects are passed,
- * they are first converted via {@link parseCompetencyCountRule}.
+ * they are first converted via {@link parseFactorCountRule}.
  * Any rules that are not of type `"competency_count"` are silently
  * skipped.
  *
@@ -112,30 +112,30 @@ export function parseCompetencyCountRule(
  * the function falls back to **4 items per competency** as a
  * conservative default.
  *
- * @param totalCompetencies - Number of competencies in the assessment.
+ * @param totalFactors - Number of competencies in the assessment.
  * @param rules             - Optional custom rules.  Accepts either
- *                            {@link CompetencyCountRule} or raw
+ *                            {@link FactorCountRule} or raw
  *                            {@link ItemSelectionRule} objects from the DB.
  * @returns Number of items to select for each competency.
  */
-export function calculateItemsPerCompetency(
-  totalCompetencies: number,
-  rules?: (CompetencyCountRule | ItemSelectionRule)[],
+export function calculateItemsPerFactor(
+  totalFactors: number,
+  rules?: (FactorCountRule | ItemSelectionRule)[],
 ): number {
-  // Normalise to CompetencyCountRule[].
-  let effectiveRules: CompetencyCountRule[]
+  // Normalise to FactorCountRule[].
+  let effectiveRules: FactorCountRule[]
 
   if (!rules || rules.length === 0) {
     effectiveRules = DEFAULT_RULES
   } else {
     effectiveRules = rules
       .map((r) => {
-        // Already a CompetencyCountRule?
-        if ('totalCompetencyMin' in r) return r as CompetencyCountRule
+        // Already a FactorCountRule?
+        if ('totalFactorMin' in r) return r as FactorCountRule
         // Try to parse from a DB rule.
-        return parseCompetencyCountRule(r as ItemSelectionRule)
+        return parseFactorCountRule(r as ItemSelectionRule)
       })
-      .filter((r): r is CompetencyCountRule => r !== undefined)
+      .filter((r): r is FactorCountRule => r !== undefined)
 
     // If nothing parsed successfully, fall back to defaults.
     if (effectiveRules.length === 0) {
@@ -145,10 +145,10 @@ export function calculateItemsPerCompetency(
 
   for (const rule of effectiveRules) {
     if (
-      totalCompetencies >= rule.totalCompetencyMin &&
-      totalCompetencies <= rule.totalCompetencyMax
+      totalFactors >= rule.totalFactorMin &&
+      totalFactors <= rule.totalFactorMax
     ) {
-      return rule.itemsPerCompetency
+      return rule.itemsPerFactor
     }
   }
 
@@ -187,21 +187,21 @@ export type SelectionStrategy = 'random' | 'ordered' | 'stratified'
  * competency are considered.  If the pool contains fewer eligible items
  * than `count`, all eligible items are returned (no error).
  *
- * @param competencyId - The competency to draw items for.
+ * @param factorId - The competency to draw items for.
  * @param itemPool     - Full item pool (may contain items for other competencies).
  * @param count        - Target number of items to select.
  * @param strategy     - Selection strategy (default `'random'`).
  * @returns Array of selected item IDs.
  */
 export function selectItems(
-  competencyId: string,
+  factorId: string,
   itemPool: Item[],
   count: number,
   strategy: SelectionStrategy = 'random',
 ): string[] {
   // Filter to active items for the target competency.
   const eligible = itemPool.filter(
-    (item) => item.competencyId === competencyId && item.status === 'active',
+    (item) => item.factorId === factorId && item.status === 'active',
   )
 
   if (eligible.length === 0 || count <= 0) {
