@@ -106,6 +106,15 @@ const adminNav = [
     ],
   },
   {
+    label: "Psychometrics",
+    items: [
+      { title: "Overview", href: "/psychometrics", icon: BarChart3 },
+      { title: "Item Health", href: "/psychometrics/items", icon: FileQuestion },
+      { title: "Reliability", href: "/psychometrics/reliability", icon: Dna },
+      { title: "Norms", href: "/psychometrics/norms", icon: Layers },
+    ],
+  },
+  {
     label: "AI Matching",
     items: [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },

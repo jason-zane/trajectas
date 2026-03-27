@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/page-header";
-import { Breadcrumbs } from "@/components/breadcrumbs";
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab";
 import { createItem, updateItem, deleteItem } from "@/app/actions/items";
 import type { SelectOption } from "@/app/actions/items";
@@ -114,10 +113,7 @@ export function ItemForm({
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader title={title} description={subtitle} />
-      </div>
+      <PageHeader title={title} description={subtitle} />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">

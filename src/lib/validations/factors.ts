@@ -14,6 +14,11 @@ export const factorSchema = z.object({
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
     .default(true),
+  isMatchEligible: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => v === true || v === 'true')
+    .default(true),
+  organizationId: z.string().uuid().optional().or(z.literal('')),
   constructs: z
     .array(
       z.object({

@@ -9,9 +9,13 @@ import type { Factor } from '@/types/database'
 
 export type FactorWithMeta = Factor & {
   dimensionName?: string
+  organizationName?: string
   constructCount: number
   itemCount: number
+  assessmentCount: number
 }
+
+export type LinkedAssessment = { id: string; name: string; status: string }
 
 export type SelectOption = { id: string; name: string }
 
@@ -19,7 +23,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), factor_constructs(count), items(count)')
+    .select('*, dimensions(name), organizations(name), factor_constructs(count), items(count), assessment_competencies(count)')
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -30,8 +34,10 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
     return {
       ...mapFactorRow(row),
       dimensionName: r.dimensions?.name ?? undefined,
+      organizationName: r.organizations?.name ?? undefined,
       constructCount: r.factor_constructs?.[0]?.count ?? 0,
       itemCount: r.items?.[0]?.count ?? 0,
+      assessmentCount: r.assessment_competencies?.[0]?.count ?? 0,
     }
   })
 }
@@ -40,7 +46,7 @@ export async function getFactorBySlug(slug: string) {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), factor_constructs(*, constructs(id, name, slug))')
+    .select('*, dimensions(name), organizations(name), factor_constructs(*, constructs(id, name, slug)), assessment_competencies(assessment_id, assessments(id, name, status))')
     .eq('slug', slug)
     .single()
 
@@ -51,6 +57,7 @@ export async function getFactorBySlug(slug: string) {
   return {
     ...mapFactorRow(data),
     dimensionName: r.dimensions?.name ?? undefined,
+    organizationName: r.organizations?.name ?? undefined,
     linkedConstructs: (r.factor_constructs ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (fc: any) => ({
@@ -61,6 +68,15 @@ export async function getFactorBySlug(slug: string) {
         displayOrder: fc.display_order,
       })
     ),
+    linkedAssessments: (r.assessment_competencies ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((ac: any) => ac.assessments)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((ac: any) => ({
+        id: ac.assessments.id,
+        name: ac.assessments.name,
+        status: ac.assessments.status,
+      })) as LinkedAssessment[],
   }
 }
 
@@ -88,6 +104,17 @@ export async function getConstructsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
+export async function getOrganizationsForFactorSelect(): Promise<SelectOption[]> {
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('organizations')
+    .select('id, name')
+    .order('name')
+
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
 export async function createFactor(formData: FormData) {
   const constructsJson = formData.get('constructs') as string
   let constructs: { constructId: string; weight: number }[] = []
@@ -104,6 +131,8 @@ export async function createFactor(formData: FormData) {
     definition: (formData.get('definition') as string) || undefined,
     dimensionId: (formData.get('dimensionId') as string) || undefined,
     isActive: formData.get('isActive') !== 'false',
+    isMatchEligible: formData.get('isMatchEligible') !== 'false',
+    organizationId: (formData.get('organizationId') as string) || undefined,
     constructs,
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
@@ -127,6 +156,8 @@ export async function createFactor(formData: FormData) {
       definition: parsed.data.definition ?? null,
       dimension_id: parsed.data.dimensionId || null,
       is_active: parsed.data.isActive,
+      is_match_eligible: parsed.data.isMatchEligible,
+      organization_id: parsed.data.organizationId || null,
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,
@@ -168,6 +199,8 @@ export async function updateFactor(id: string, formData: FormData) {
     definition: (formData.get('definition') as string) || undefined,
     dimensionId: (formData.get('dimensionId') as string) || undefined,
     isActive: formData.get('isActive') !== 'false',
+    isMatchEligible: formData.get('isMatchEligible') !== 'false',
+    organizationId: (formData.get('organizationId') as string) || undefined,
     constructs,
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
@@ -190,6 +223,8 @@ export async function updateFactor(id: string, formData: FormData) {
       definition: parsed.data.definition ?? null,
       dimension_id: parsed.data.dimensionId || null,
       is_active: parsed.data.isActive,
+      is_match_eligible: parsed.data.isMatchEligible,
+      organization_id: parsed.data.organizationId || null,
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,

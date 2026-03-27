@@ -22,6 +22,7 @@ export default async function EditAssessmentPage({
     <AssessmentBuilder
       assessment={result.assessment}
       existingCompetencies={result.competencies}
+      existingSections={result.sections}
       allFactors={allFactors}
     />
   );

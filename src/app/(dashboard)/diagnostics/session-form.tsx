@@ -20,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
-import { Breadcrumbs } from "@/components/breadcrumbs";
 import { createDiagnosticSession } from "@/app/actions/diagnostics";
 import type { SelectOption } from "@/app/actions/diagnostics";
 
@@ -55,13 +54,10 @@ export function SessionForm({ organizations, templates }: SessionFormProps) {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader
-          title="New Diagnostic Session"
-          description="Create a new diagnostic session for a client organisation."
-        />
-      </div>
+      <PageHeader
+        title="New Diagnostic Session"
+        description="Create a new diagnostic session for a client organisation."
+      />
 
       <form action={handleSubmit}>
         <Card>

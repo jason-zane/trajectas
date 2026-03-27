@@ -10,8 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
-import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/empty-state";
+import { ScrollReveal } from "@/components/scroll-reveal";
+import { TiltCard } from "@/components/tilt-card";
 import { getDiagnosticTemplates } from "@/app/actions/diagnostics";
 
 export default async function DiagnosticTemplatesPage() {
@@ -19,20 +20,17 @@ export default async function DiagnosticTemplatesPage() {
 
   return (
     <div className="space-y-8 max-w-5xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader
-          title="Diagnostic Templates"
-          description="Templates define the structure of a diagnostic survey — which dimensions are measured and how."
-        >
-          <Link href="/diagnostics/templates/create">
-            <Button>
-              <Plus className="size-4" />
-              Create Template
-            </Button>
-          </Link>
-        </PageHeader>
-      </div>
+      <PageHeader
+        title="Diagnostic Templates"
+        description="Templates define the structure of a diagnostic survey — which dimensions are measured and how."
+      >
+        <Link href="/diagnostics/templates/create">
+          <Button>
+            <Plus className="size-4" />
+            Create Template
+          </Button>
+        </Link>
+      </PageHeader>
 
       {templates.length === 0 ? (
         <EmptyState
@@ -44,19 +42,22 @@ export default async function DiagnosticTemplatesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {templates.map((template, index) => (
+            <ScrollReveal key={template.id} delay={index * 60}>
+            <TiltCard>
             <Link
-              key={template.id}
               href={`/diagnostics/templates/${template.id}/edit`}
             >
               <Card
                 variant="interactive"
-                className={`stagger-${index + 1} animate-fade-in-up`}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors">
-                        <FileText className="size-5 text-muted-foreground" />
+                      <div
+                        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                        style={{ "--glow-color": "var(--primary)" } as React.CSSProperties}
+                      >
+                        <FileText className="size-5 text-primary" />
                       </div>
                       <div>
                         <CardTitle>{template.name}</CardTitle>
@@ -100,6 +101,8 @@ export default async function DiagnosticTemplatesPage() {
                 </CardContent>
               </Card>
             </Link>
+            </TiltCard>
+            </ScrollReveal>
           ))}
         </div>
       )}

@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   Dna,
   FileQuestion,
+  ClipboardList,
   ArrowRight,
   X,
 } from "lucide-react"
@@ -32,6 +33,7 @@ import {
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
+import { TiltCard } from "@/components/tilt-card"
 import type { FactorWithMeta } from "@/app/actions/factors"
 
 type StatusFilter = "all" | "active" | "inactive"
@@ -44,6 +46,7 @@ export function FactorList({
   const [searchQuery, setSearchQuery] = useState("")
   const [dimensionFilter, setDimensionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
+  const [ownershipFilter, setOwnershipFilter] = useState("all")
 
   const dimensionNames = useMemo(() => {
     const names = new Set<string>()
@@ -53,10 +56,19 @@ export function FactorList({
     return Array.from(names).sort()
   }, [factors])
 
+  const orgNames = useMemo(() => {
+    const names = new Set<string>()
+    factors.forEach((f) => {
+      if (f.organizationName) names.add(f.organizationName)
+    })
+    return Array.from(names).sort()
+  }, [factors])
+
   const hasFilters =
     searchQuery !== "" ||
     dimensionFilter !== "all" ||
-    statusFilter !== "all"
+    statusFilter !== "all" ||
+    ownershipFilter !== "all"
 
   const filteredFactors = useMemo(() => {
     return factors.filter((f) => {
@@ -74,9 +86,11 @@ export function FactorList({
       }
       if (statusFilter === "active" && !f.isActive) return false
       if (statusFilter === "inactive" && f.isActive) return false
+      if (ownershipFilter === "platform-global" && f.organizationName) return false
+      if (ownershipFilter !== "all" && ownershipFilter !== "platform-global" && f.organizationName !== ownershipFilter) return false
       return true
     })
-  }, [factors, searchQuery, dimensionFilter, statusFilter])
+  }, [factors, searchQuery, dimensionFilter, statusFilter, ownershipFilter])
 
   const grouped = useMemo(() => {
     const acc: Record<string, FactorWithMeta[]> = {}
@@ -98,6 +112,7 @@ export function FactorList({
     setSearchQuery("")
     setDimensionFilter("all")
     setStatusFilter("all")
+    setOwnershipFilter("all")
   }
 
   return (
@@ -167,6 +182,23 @@ export function FactorList({
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+              <Select
+                value={ownershipFilter}
+                onValueChange={(v) => setOwnershipFilter(v ?? "all")}
+              >
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All ownership" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All ownership</SelectItem>
+                  <SelectItem value="platform-global">Platform-global</SelectItem>
+                  {orgNames.map((name) => (
+                    <SelectItem key={name} value={name}>
+                      {name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {hasFilters && (
                 <Button
                   variant="ghost"
@@ -214,6 +246,7 @@ export function FactorList({
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-4 pb-2">
                       {groupFactors.map((factor, cardIndex) => (
                         <ScrollReveal key={factor.id} delay={cardIndex * 60}>
+                          <TiltCard>
                           <Link href={`/factors/${factor.slug}/edit`}>
                             <Card
                               variant="interactive"
@@ -222,7 +255,10 @@ export function FactorList({
                               <CardHeader className="flex-1">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-center gap-2.5">
-                                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-competency-bg">
+                                    <div
+                                      className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-competency-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                                      style={{ "--glow-color": "var(--competency-accent)" } as React.CSSProperties}
+                                    >
                                       <Brain className="size-4 text-competency-accent" />
                                     </div>
                                     <CardTitle className="leading-snug">
@@ -242,6 +278,11 @@ export function FactorList({
                                   {factor.dimensionName && (
                                     <Badge variant="dimension">
                                       {factor.dimensionName}
+                                    </Badge>
+                                  )}
+                                  {factor.organizationName && (
+                                    <Badge variant="outline">
+                                      {factor.organizationName}
                                     </Badge>
                                   )}
                                   <Badge variant="dot">
@@ -290,10 +331,20 @@ export function FactorList({
                                       {factor.itemCount === 1 ? "item" : "items"}
                                     </span>
                                   </div>
+                                  <div className="flex items-center gap-1">
+                                    <ClipboardList className="size-3.5" />
+                                    <span>
+                                      {factor.assessmentCount}{" "}
+                                      {factor.assessmentCount === 1
+                                        ? "assessment"
+                                        : "assessments"}
+                                    </span>
+                                  </div>
                                 </div>
                               </CardContent>
                             </Card>
                           </Link>
+                          </TiltCard>
                         </ScrollReveal>
                       ))}
                     </div>

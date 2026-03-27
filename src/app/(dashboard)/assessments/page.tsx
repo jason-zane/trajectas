@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { TiltCard } from "@/components/tilt-card";
 import { getAssessments } from "@/app/actions/assessments";
 
 const statusVariant: Record<string, "secondary" | "default" | "outline"> = {
@@ -54,6 +55,7 @@ export default async function AssessmentsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {assessments.map((assessment, index) => (
             <ScrollReveal key={assessment.id} delay={index * 60}>
+              <TiltCard>
               <Link href={`/assessments/${assessment.id}/edit`}>
                 <Card
                   variant="interactive"
@@ -62,7 +64,10 @@ export default async function AssessmentsPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-colors">
+                        <div
+                          className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                          style={{ "--glow-color": "var(--primary)" } as React.CSSProperties}
+                        >
                           <ClipboardList className="size-5 text-primary" />
                         </div>
                         <div>
@@ -102,6 +107,7 @@ export default async function AssessmentsPage() {
                   </CardContent>
                 </Card>
               </Link>
+              </TiltCard>
             </ScrollReveal>
           ))}
         </div>

@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { PageHeader } from "@/components/page-header";
-import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   createDiagnosticTemplate,
   updateDiagnosticTemplate,
@@ -88,10 +87,7 @@ export function TemplateForm({
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader title={title} description={subtitle} />
-      </div>
+      <PageHeader title={title} description={subtitle} />
 
       <form action={handleSubmit}>
         <Card>

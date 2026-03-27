@@ -30,6 +30,7 @@ import {
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
+import { TiltCard } from "@/components/tilt-card"
 import type { ConstructWithCounts } from "@/app/actions/constructs"
 
 type StatusFilter = "all" | "active" | "inactive"
@@ -223,6 +224,7 @@ export function ConstructList({
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pt-4 pb-2">
                       {groupConstructs.map((construct, cardIndex) => (
                         <ScrollReveal key={construct.id} delay={cardIndex * 60}>
+                          <TiltCard>
                           <Link href={`/constructs/${construct.slug}/edit`}>
                             <Card
                               variant="interactive"
@@ -231,7 +233,10 @@ export function ConstructList({
                               <CardHeader className="flex-1">
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-center gap-2.5">
-                                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-trait-bg">
+                                    <div
+                                      className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-trait-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                                      style={{ "--glow-color": "var(--trait-accent)" } as React.CSSProperties}
+                                    >
                                       <Dna className="size-4 text-trait-accent" />
                                     </div>
                                     <CardTitle className="leading-snug">
@@ -268,6 +273,7 @@ export function ConstructList({
                               </CardContent>
                             </Card>
                           </Link>
+                          </TiltCard>
                         </ScrollReveal>
                       ))}
                     </div>

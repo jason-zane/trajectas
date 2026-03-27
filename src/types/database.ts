@@ -73,6 +73,29 @@ export type CandidateSessionStatus =
 /** Execution status for an AI-driven competency-matching run. */
 export type MatchingRunStatus = 'pending' | 'running' | 'completed' | 'failed'
 
+/**
+ * Strategy that governs how items are ordered within an assessment section.
+ * - `fixed`                    – exact order set by admin
+ * - `randomised`               – full shuffle per candidate
+ * - `interleaved_by_construct` – round-robin across constructs (default)
+ */
+export type ItemOrdering = 'fixed' | 'randomised' | 'interleaved_by_construct'
+
+/** Type of calibration analysis run. */
+export type CalibrationType = 'initial' | 'monitoring' | 'recalibration' | 'on_demand'
+
+/** Statistical method used in a calibration run. */
+export type CalibrationMethod = 'ctt_only' | 'irt_2pl' | 'irt_3pl' | 'concurrent'
+
+/** Lifecycle status of a calibration run. */
+export type CalibrationStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+/** Statistical method for Differential Item Functioning analysis. */
+export type DIFMethod = 'mantel_haenszel' | 'logistic_regression' | 'lord_chi_square'
+
+/** Effect-size classification for DIF (Mantel-Haenszel convention). */
+export type DIFClassification = 'A' | 'B' | 'C'
+
 /** The intended purpose of a stored AI system prompt. */
 export type AIPromptPurpose =
   | 'competency_matching'
@@ -206,6 +229,10 @@ export interface Factor {
   definition?: string
   /** Whether this factor is available for use in assessments. */
   isActive: boolean
+  /** Whether the AI matching engine can evaluate this factor. */
+  isMatchEligible: boolean
+  /** Client organisation this factor belongs to (null = platform-global). */
+  organizationId?: string
   /** Behavioural indicators for low performance. */
   indicatorsLow?: string
   /** Behavioural indicators for mid performance. */
@@ -804,6 +831,8 @@ export interface CandidateResponse {
   sessionId: string
   /** The item that was answered. */
   itemId: string
+  /** The assessment section this response belongs to. */
+  sectionId?: string
   /** The recorded response value (numeric encoding of the chosen option). */
   responseValue: number
   /** Time in milliseconds the candidate spent on this item. */
@@ -841,6 +870,319 @@ export interface CandidateScore {
   itemsUsed: number
   created_at: string
   updated_at?: string
+}
+
+// ---------------------------------------------------------------------------
+// Assessment sections
+// ---------------------------------------------------------------------------
+
+/**
+ * A section within an assessment, enforcing a single response format.
+ * Every assessment has at least one section.
+ */
+export interface AssessmentSection {
+  /** UUID primary key. */
+  id: string
+  /** Parent assessment. */
+  assessmentId: string
+  /** The one response format used by all items in this section. */
+  responseFormatId: string
+  /** Admin-facing section title. */
+  title: string
+  /** Candidate-facing instruction text shown at section start. */
+  instructions?: string
+  /** Display ordering weight. */
+  displayOrder: number
+  /** How items are ordered within this section. */
+  itemOrdering: ItemOrdering
+  /** Number of items per page. NULL = all on one page; 1 = one-per-page (SJT). */
+  itemsPerPage?: number
+  /** Optional per-section time limit in seconds. */
+  timeLimitSeconds?: number
+  /** Whether candidates can navigate backwards within this section. */
+  allowBackNav: boolean
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Junction linking an item to an assessment section with a display position.
+ */
+export interface AssessmentSectionItem {
+  /** UUID primary key. */
+  id: string
+  /** Parent section. */
+  sectionId: string
+  /** Linked item. */
+  itemId: string
+  /** Display order used when `item_ordering = 'fixed'`. */
+  displayOrder: number
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Psychometric infrastructure
+// ---------------------------------------------------------------------------
+
+/**
+ * A tracked execution of psychometric analyses (item stats, reliability,
+ * DIF, factor analysis). Provides a full audit trail.
+ */
+export interface CalibrationRun {
+  /** UUID primary key. */
+  id: string
+  /** Type of calibration event. */
+  runType: CalibrationType
+  /** Statistical method used. */
+  method: CalibrationMethod
+  /** Current execution status. */
+  status: CalibrationStatus
+  /** Number of responses in the analysis sample. */
+  sampleSize?: number
+  /** Start of the response date window. */
+  dateRangeStart?: string
+  /** End of the response date window. */
+  dateRangeEnd?: string
+  /** Free-form notes. */
+  notes?: string
+  /** When execution began. */
+  startedAt?: string
+  /** When execution completed. */
+  completedAt?: string
+  /** Error message if the run failed. */
+  errorMessage?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Per-item quality metrics computed during a calibration run.
+ */
+export interface ItemStatistic {
+  /** UUID primary key. */
+  id: string
+  /** The item analysed. */
+  itemId: string
+  /** The calibration run that produced these statistics. */
+  calibrationRunId: string
+  /** CTT difficulty (p-value: proportion correct or mean/max). */
+  difficulty?: number
+  /** CTT discrimination (corrected item-total correlation). */
+  discrimination?: number
+  /** Cronbach's alpha if this item were removed. */
+  alphaIfDeleted?: number
+  /** Number of responses in the analysis. */
+  responseCount?: number
+  /** Response distribution as `{ optionValue: count }`. */
+  responseDistribution?: Record<string, number>
+  /** IRT information at theta = 0. */
+  irtInformationAt0?: number
+  /** IRT peak information. */
+  irtMaxInformation?: number
+  /** Theta where information peaks. */
+  irtThetaAtMaxInfo?: number
+  /** IRT infit mean square. */
+  irtInfit?: number
+  /** IRT outfit mean square. */
+  irtOutfit?: number
+  /** SE of discrimination parameter. */
+  irtParamSeA?: number
+  /** SE of difficulty parameter. */
+  irtParamSeB?: number
+  /** SE of guessing parameter. */
+  irtParamSeC?: number
+  /** Whether this item has been flagged for review. */
+  flagged: boolean
+  /** Reasons the item was flagged. */
+  flagReasons?: string[]
+  created_at: string
+}
+
+/**
+ * Per-construct reliability metrics computed during a calibration run.
+ */
+export interface ConstructReliability {
+  /** UUID primary key. */
+  id: string
+  /** The construct analysed. */
+  constructId: string
+  /** The calibration run that produced these metrics. */
+  calibrationRunId: string
+  /** Cronbach's alpha. */
+  cronbachAlpha?: number
+  /** McDonald's omega total. */
+  omegaTotal?: number
+  /** McDonald's omega hierarchical. */
+  omegaHierarchical?: number
+  /** CFA-based composite reliability. */
+  compositeReliability?: number
+  /** Spearman-Brown corrected split-half reliability. */
+  splitHalf?: number
+  /** Standard Error of Measurement. */
+  sem?: number
+  /** Conditional SEM at score levels: `{ scoreLevel: csem }`. */
+  csemByScore?: Record<string, number>
+  /** Number of items in the construct. */
+  itemCount?: number
+  /** Number of responses in the analysis. */
+  responseCount?: number
+  /** Observed score mean. */
+  mean?: number
+  /** Observed score standard deviation. */
+  standardDeviation?: number
+  /** Distribution skewness. */
+  skewness?: number
+  /** Distribution kurtosis. */
+  kurtosis?: number
+  /** Per-item contribution summary: `{ itemId: { discrimination, alphaIfDeleted } }`. */
+  itemContributions?: Record<string, { discrimination: number; alphaIfDeleted: number }>
+  created_at: string
+}
+
+/**
+ * A norm group defined by segmentation criteria, used for
+ * norm-referenced score transformations.
+ */
+export interface NormGroup {
+  /** UUID primary key. */
+  id: string
+  /** Norm group display name. */
+  name: string
+  /** Description of the group composition. */
+  description?: string
+  /** Industry segment (e.g. "technology", "healthcare"). */
+  industry?: string
+  /** Role level (e.g. "executive", "manager", "individual_contributor"). */
+  roleLevel?: string
+  /** Job function (e.g. "engineering", "sales"). */
+  jobFunction?: string
+  /** Geographic region. */
+  region?: string
+  /** Optionally scoped to a specific organisation. */
+  organizationId?: string
+  /** Number of candidates in the norm sample. */
+  sampleSize: number
+  /** Start of data collection window. */
+  collectionStart?: string
+  /** End of data collection window. */
+  collectionEnd?: string
+  /** When the norms were last refreshed. */
+  lastRefreshed?: string
+  /** Whether this norm group is currently active. */
+  isActive: boolean
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Per-construct distribution data for a norm group, enabling
+ * T-score, percentile, stanine, and sten transformations.
+ */
+export interface NormTable {
+  /** UUID primary key. */
+  id: string
+  /** Parent norm group. */
+  normGroupId: string
+  /** The construct these norms apply to. */
+  constructId: string
+  /** Mean score in the norm sample. */
+  mean: number
+  /** Standard deviation in the norm sample. */
+  standardDeviation: number
+  /** Number of candidates in this specific norm. */
+  sampleSize: number
+  /** Percentile lookup table: `{ "5": 23.4, "10": 28.1, ... }`. */
+  percentileLookup?: Record<string, number>
+  /** 8 cutpoints defining 9 stanine bins. */
+  stanineCutpoints?: number[]
+  /** 9 cutpoints defining 10 sten bins. */
+  stenCutpoints?: number[]
+  /** What score scale mean/SD are expressed in (e.g. "pomp", "raw"). */
+  scoreType: string
+  /** When this norm table was last computed. */
+  lastComputed: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Results of a factor analysis (EFA or CFA) from a calibration run.
+ */
+export interface FactorAnalysisResult {
+  /** UUID primary key. */
+  id: string
+  /** The calibration run that produced this analysis. */
+  calibrationRunId: string
+  /** Analysis type: 'efa' or 'cfa'. */
+  analysisType: 'efa' | 'cfa'
+  /** Estimation method (e.g. 'ml', 'wlsmv', 'paf'). */
+  estimationMethod?: string
+  /** Comparative Fit Index. */
+  cfi?: number
+  /** Tucker-Lewis Index. */
+  tli?: number
+  /** Root Mean Square Error of Approximation. */
+  rmsea?: number
+  /** RMSEA 90% CI lower bound. */
+  rmseaCiLower?: number
+  /** RMSEA 90% CI upper bound. */
+  rmseaCiUpper?: number
+  /** Standardized Root Mean Square Residual. */
+  srmr?: number
+  /** Chi-square statistic. */
+  chiSquare?: number
+  /** Chi-square degrees of freedom. */
+  chiSquareDf?: number
+  /** Chi-square p-value. */
+  chiSquareP?: number
+  /** Factor loadings: `{ itemId: { factorName: loading } }`. */
+  loadings?: Record<string, Record<string, number>>
+  /** Average Variance Extracted per construct. */
+  ave?: Record<string, number>
+  /** Heterotrait-Monotrait ratio matrix. */
+  htmt?: Record<string, Record<string, number>>
+  /** Inter-construct correlation matrix. */
+  constructCorrelations?: Record<string, Record<string, number>>
+  /** Number of responses in the analysis. */
+  sampleSize?: number
+  /** Free-form notes. */
+  notes?: string
+  created_at: string
+}
+
+/**
+ * Differential Item Functioning result for one item and one group comparison.
+ */
+export interface DIFResult {
+  /** UUID primary key. */
+  id: string
+  /** The item analysed. */
+  itemId: string
+  /** The calibration run that produced this analysis. */
+  calibrationRunId: string
+  /** Demographic variable used for grouping (e.g. 'gender'). */
+  groupingVariable: string
+  /** Reference group label. */
+  referenceGroup: string
+  /** Focal group label. */
+  focalGroup: string
+  /** Statistical method used. */
+  method: DIFMethod
+  /** Effect size (MH delta or equivalent). */
+  effectSize?: number
+  /** Statistical significance. */
+  pValue?: number
+  /** Effect-size classification (A = negligible, B = moderate, C = large). */
+  classification?: DIFClassification
+  /** Sample size for the reference group. */
+  referenceN?: number
+  /** Sample size for the focal group. */
+  focalN?: number
+  /** Whether this result was flagged for review. */
+  flagged: boolean
+  /** Free-form notes. */
+  notes?: string
+  created_at: string
 }
 
 // ---------------------------------------------------------------------------

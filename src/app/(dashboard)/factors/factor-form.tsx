@@ -2,12 +2,13 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
-import { Plus, X, Dna, LayoutGrid } from "lucide-react"
+import { Plus, X, Dna, LayoutGrid, ClipboardList, Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
+import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -25,7 +26,6 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
-import { Breadcrumbs } from "@/components/breadcrumbs"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
 import {
@@ -33,7 +33,7 @@ import {
   updateFactor,
   deleteFactor,
 } from "@/app/actions/factors"
-import type { SelectOption } from "@/app/actions/factors"
+import type { SelectOption, LinkedAssessment } from "@/app/actions/factors"
 
 interface LinkedConstruct {
   constructId: string
@@ -53,6 +53,7 @@ function slugify(text: string): string {
 interface FactorFormProps {
   dimensions: SelectOption[]
   availableConstructs: SelectOption[]
+  organizations: SelectOption[]
   mode: "create" | "edit"
   factorId?: string
   initialData?: {
@@ -62,16 +63,20 @@ interface FactorFormProps {
     definition?: string
     dimensionId?: string
     isActive: boolean
+    isMatchEligible: boolean
+    organizationId?: string
     indicatorsLow?: string
     indicatorsMid?: string
     indicatorsHigh?: string
     linkedConstructs: { constructId: string; name: string; weight: number }[]
+    linkedAssessments?: LinkedAssessment[]
   }
 }
 
 export function FactorForm({
   dimensions,
   availableConstructs,
+  organizations,
   mode,
   factorId,
   initialData,
@@ -83,6 +88,8 @@ export function FactorForm({
   const [definition, setDefinition] = useState(initialData?.definition ?? "")
   const [dimensionId, setDimensionId] = useState(initialData?.dimensionId ?? "")
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
+  const [isMatchEligible, setIsMatchEligible] = useState(initialData?.isMatchEligible ?? true)
+  const [organizationId, setOrganizationId] = useState(initialData?.organizationId ?? "")
   const [indicatorsLow, setIndicatorsLow] = useState(initialData?.indicatorsLow ?? "")
   const [indicatorsMid, setIndicatorsMid] = useState(initialData?.indicatorsMid ?? "")
   const [indicatorsHigh, setIndicatorsHigh] = useState(initialData?.indicatorsHigh ?? "")
@@ -180,10 +187,7 @@ export function FactorForm({
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader title={title} description={subtitle} />
-      </div>
+      <PageHeader title={title} description={subtitle} />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -267,6 +271,43 @@ export function FactorForm({
                   />
                   <p className="text-xs text-muted-foreground">
                     A more formal, detailed definition for use in assessment reports.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Client Organisation (optional)</Label>
+                  <Select
+                    name="organizationId"
+                    value={organizationId}
+                    onValueChange={(v) => setOrganizationId(v ?? "")}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select an organisation...">
+                        {(value: string) =>
+                          organizations.find((o) => o.id === value)?.name ?? value
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {organizationId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setOrganizationId("")}
+                    >
+                      Clear selection
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Assign to a client to mark this as their custom factor. Leave empty for platform-global.
                   </p>
                 </div>
               </CardContent>
@@ -442,6 +483,56 @@ export function FactorForm({
                   )}
                 </CardContent>
               </Card>
+
+              {/* Assessment membership (edit only) */}
+              {mode === "edit" && (
+                <Card className="border-l-[3px] border-l-primary/30">
+                  <CardHeader>
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="size-4 text-primary/70" />
+                      <CardTitle>Assessment Membership</CardTitle>
+                    </div>
+                    <CardDescription>
+                      Assessments that include this factor.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {!initialData?.linkedAssessments?.length ? (
+                      <div className="flex flex-col items-center py-8 text-center">
+                        <ClipboardList className="size-8 text-muted-foreground/40 mb-3" />
+                        <p className="text-sm text-muted-foreground">
+                          Not included in any assessments yet.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {initialData.linkedAssessments.map((assessment) => (
+                          <div
+                            key={assessment.id}
+                            className="flex items-center justify-between rounded-lg border p-3"
+                          >
+                            <span className="text-sm font-medium">
+                              {assessment.name}
+                            </span>
+                            <Badge variant="dot">
+                              <span
+                                className={`size-1.5 rounded-full ${
+                                  assessment.status === "active"
+                                    ? "bg-emerald-500"
+                                    : assessment.status === "draft"
+                                      ? "bg-amber-500"
+                                      : "bg-muted-foreground/40"
+                                }`}
+                              />
+                              {assessment.status}
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
 
@@ -460,7 +551,25 @@ export function FactorForm({
                   onActiveChange={setIsActive}
                   onDelete={mode === "edit" && factorId ? handleDelete : undefined}
                   deleting={deleting}
-                />
+                >
+                  <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <Label>Matching Engine Eligible</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Allow the AI matching engine to evaluate and recommend this factor.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isMatchEligible}
+                      onCheckedChange={setIsMatchEligible}
+                    />
+                  </div>
+                  <input
+                    type="hidden"
+                    name="isMatchEligible"
+                    value={isMatchEligible ? "true" : "false"}
+                  />
+                </SettingsTab>
               </CardContent>
             </Card>
           </TabsContent>

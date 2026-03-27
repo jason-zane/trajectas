@@ -25,9 +25,9 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/page-header"
-import { Breadcrumbs } from "@/components/breadcrumbs"
 import { FactorSource } from "./factor-source"
 import { AssessmentCanvas } from "./assessment-canvas"
+import { SectionConfigurator } from "./section-configurator"
 import {
   createAssessment,
   updateAssessment,
@@ -37,6 +37,8 @@ import type { Assessment } from "@/types/database"
 import type {
   BuilderFactor,
   AssessmentCompetencyLink,
+  SectionDraft,
+  ExistingSection,
 } from "@/app/actions/assessments"
 
 const scoringMethodInfo: Record<string, { label: string; description: string }> = {
@@ -72,12 +74,14 @@ const itemSelectionInfo: Record<string, { label: string; description: string }> 
 interface AssessmentBuilderProps {
   assessment?: Assessment
   existingCompetencies?: AssessmentCompetencyLink[]
+  existingSections?: ExistingSection[]
   allFactors: BuilderFactor[]
 }
 
 export function AssessmentBuilder({
   assessment,
   existingCompetencies,
+  existingSections,
   allFactors,
 }: AssessmentBuilderProps) {
   const isEditing = !!assessment
@@ -108,6 +112,9 @@ export function AssessmentBuilder({
     [selectedFactors]
   )
 
+  // Section state
+  const [sections, setSections] = useState<SectionDraft[]>([])
+
   // UI state
   const [isPending, startTransition] = useTransition()
   const [deleting, setDeleting] = useState(false)
@@ -137,6 +144,11 @@ export function AssessmentBuilder({
     [selectedIds, addFactor, removeFactor]
   )
 
+  const factorIds = useMemo(
+    () => selectedFactors.map((f) => f.id),
+    [selectedFactors]
+  )
+
   function handleSave() {
     setError(null)
     const payload = {
@@ -151,6 +163,7 @@ export function AssessmentBuilder({
         weight: 1,
         itemCount: 0,
       })),
+      sections,
     }
 
     startTransition(async () => {
@@ -181,18 +194,15 @@ export function AssessmentBuilder({
 
   return (
     <div className="space-y-8 max-w-6xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader
-          eyebrow="Assessments"
-          title={isEditing ? "Edit Assessment" : "Build Assessment"}
-          description={
-            isEditing
-              ? `Update \u201c${assessment.title}\u201d and manage its factor composition.`
-              : "Configure your assessment and select factors from the library."
-          }
-        />
-      </div>
+      <PageHeader
+        eyebrow="Assessments"
+        title={isEditing ? "Edit Assessment" : "Build Assessment"}
+        description={
+          isEditing
+            ? `Update \u201c${assessment.title}\u201d and manage its factor composition.`
+            : "Configure your assessment and select factors from the library."
+        }
+      />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
@@ -388,6 +398,14 @@ export function AssessmentBuilder({
           </div>
         </div>
       </DragDropProvider>
+
+      {/* Section Configuration — auto-grouped from selected factors' items */}
+      <SectionConfigurator
+        factorIds={factorIds}
+        sections={sections}
+        onSectionsChange={setSections}
+        existingSections={existingSections}
+      />
 
       {/* Sticky Action Bar */}
       <div className="sticky bottom-0 z-10 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-sm border-t">

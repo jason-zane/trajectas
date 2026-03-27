@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { TiltCard } from "@/components/tilt-card";
 import { getDimensions } from "@/app/actions/dimensions";
 
 export default async function DimensionsPage() {
@@ -38,6 +39,7 @@ export default async function DimensionsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {dimensions.map((dimension, index) => (
             <ScrollReveal key={dimension.id} delay={index * 60}>
+            <TiltCard>
             <Link
               href={`/dimensions/${dimension.slug}/edit`}
             >
@@ -48,7 +50,10 @@ export default async function DimensionsPage() {
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-dimension-bg transition-colors">
+                      <div
+                        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-dimension-bg transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                        style={{ "--glow-color": "var(--dimension-accent)" } as React.CSSProperties}
+                      >
                         <LayoutGrid className="size-5 text-dimension-accent" />
                       </div>
                       <div>
@@ -90,6 +95,7 @@ export default async function DimensionsPage() {
                 </CardContent>
               </Card>
             </Link>
+            </TiltCard>
             </ScrollReveal>
           ))}
         </div>

@@ -142,6 +142,156 @@ export interface AdaptiveItemSelectionConfig {
 }
 
 // ---------------------------------------------------------------------------
+// Score transformations
+// ---------------------------------------------------------------------------
+
+/**
+ * All available score representations for a single measurement.
+ * Raw is always present; others are populated as data/norms permit.
+ */
+export interface ScoreRepresentations {
+  /** Unscaled raw score (sum or mean). */
+  raw: number
+  /** Maximum possible raw score. */
+  rawMax: number
+  /** Percentage of Maximum Possible (0-100). */
+  pomp: number
+  /** Z-score relative to a norm group. */
+  zScore?: number
+  /** T-score (50 + 10z). */
+  tScore?: number
+  /** Stanine (1-9). */
+  stanine?: number
+  /** Sten (1-10). */
+  sten?: number
+  /** Percentile rank (1-99). */
+  percentile?: number
+  /** IRT theta estimate. */
+  irtTheta?: number
+  /** Standard error of the score. */
+  standardError?: number
+  /** Confidence interval. */
+  confidence?: {
+    /** Confidence level (e.g. 0.68, 0.90, 0.95). */
+    level: number
+    lower: number
+    upper: number
+  }
+  /** Norm group used for transformations, if any. */
+  normGroupId?: string
+}
+
+/**
+ * Which scoring method to apply for an assessment.
+ */
+export type ScoreTransformMethod =
+  | 'raw'
+  | 'pomp'
+  | 'z_score'
+  | 't_score'
+  | 'stanine'
+  | 'sten'
+  | 'percentile'
+  | 'irt_theta'
+
+// ---------------------------------------------------------------------------
+// Item statistics types
+// ---------------------------------------------------------------------------
+
+/**
+ * CTT item-level quality statistics.
+ */
+export interface CTTItemStatistics {
+  /** Item ID. */
+  itemId: string
+  /** Difficulty (p-value): mean score / max score. */
+  difficulty: number
+  /** Discrimination: corrected item-total correlation. */
+  discrimination: number
+  /** Cronbach's alpha if this item were removed. */
+  alphaIfDeleted: number
+  /** Number of responses. */
+  responseCount: number
+  /** Response distribution: option value → count. */
+  responseDistribution: Record<number, number>
+  /** Whether the item is flagged for review. */
+  flagged: boolean
+  /** Reasons for flagging. */
+  flagReasons: string[]
+}
+
+/**
+ * Distractor analysis for a single option within an item.
+ */
+export interface DistractorAnalysis {
+  /** Option value. */
+  optionValue: number
+  /** Option label. */
+  optionLabel: string
+  /** Number of candidates who chose this option. */
+  count: number
+  /** Proportion of candidates who chose this option. */
+  proportion: number
+  /** Point-biserial correlation with total score. */
+  pointBiserial: number
+}
+
+// ---------------------------------------------------------------------------
+// Construct-level reliability types
+// ---------------------------------------------------------------------------
+
+/**
+ * Full reliability profile for a construct.
+ */
+export interface ConstructReliabilityProfile {
+  /** Construct ID. */
+  constructId: string
+  /** Cronbach's alpha. */
+  cronbachAlpha: number
+  /** McDonald's omega total. */
+  omegaTotal?: number
+  /** McDonald's omega hierarchical. */
+  omegaHierarchical?: number
+  /** CFA-based composite reliability. */
+  compositeReliability?: number
+  /** Split-half reliability (Spearman-Brown corrected). */
+  splitHalf: number
+  /** Standard Error of Measurement. */
+  sem: number
+  /** Per-item contribution: { itemId: { discrimination, alphaIfDeleted } }. */
+  itemContributions: Record<string, { discrimination: number; alphaIfDeleted: number }>
+  /** Distributional statistics. */
+  distribution: {
+    mean: number
+    standardDeviation: number
+    skewness: number
+    kurtosis: number
+    n: number
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Scoring pipeline types
+// ---------------------------------------------------------------------------
+
+/**
+ * Construct-level intermediate score in the pipeline.
+ * This is the explicit intermediate step between items and factors.
+ */
+export interface ConstructScore {
+  /** Construct ID. */
+  constructId: string
+  /** Construct name (for reporting). */
+  constructName?: string
+  /** All score representations. */
+  scores: ScoreRepresentations
+  /** Number of items that contributed. */
+  itemCount: number
+  /** Item IDs that contributed to this score. */
+  itemIds: string[]
+}
+
+// ---------------------------------------------------------------------------
 // Factor-level scoring output
 // ---------------------------------------------------------------------------
 
@@ -222,4 +372,86 @@ export interface ScoringEngineOutput {
   compositeScore?: number
   /** ISO-8601 timestamp of when scoring completed. */
   scoredAt: string
+}
+
+// ---------------------------------------------------------------------------
+// Full pipeline output (construct → factor → dimension)
+// ---------------------------------------------------------------------------
+
+/**
+ * Dimension-level score — simple average of its constituent factor scores.
+ */
+export interface DimensionScore {
+  /** UUID of the dimension. */
+  dimensionId: string
+  /** Human-readable dimension name. */
+  dimensionName?: string
+  /** All score representations. */
+  scores: ScoreRepresentations
+  /** Factor scores that contributed to this dimension score. */
+  factorScores: FactorScore[]
+}
+
+/**
+ * Full scoring pipeline output including all levels of the taxonomy.
+ */
+export interface PipelineOutput {
+  /** UUID of the candidate session. */
+  sessionId: string
+  /** UUID of the assessment. */
+  assessmentId: string
+  /** Construct-level intermediate scores. */
+  constructScores: ConstructScore[]
+  /** Factor-level scores (weighted rollup from constructs). */
+  factorScores: FactorScore[]
+  /** Dimension-level scores (simple average of factors). */
+  dimensionScores: DimensionScore[]
+  /** The scoring method applied. */
+  scoringMethod: ScoringMethod
+  /** ISO-8601 timestamp of when scoring completed. */
+  scoredAt: string
+}
+
+// ---------------------------------------------------------------------------
+// Norm application types
+// ---------------------------------------------------------------------------
+
+/**
+ * Parameters needed to apply norm-referenced transformations.
+ */
+export interface NormParameters {
+  /** Mean of the norm group. */
+  mean: number
+  /** Standard deviation of the norm group. */
+  sd: number
+  /** Norm group identifier. */
+  normGroupId: string
+  /** Percentile lookup table: score → percentile rank. */
+  percentileLookup?: Record<string, number>
+  /** 8 cutpoints defining 9 stanine bins. */
+  stanineCutpoints?: number[]
+  /** 9 cutpoints defining 10 sten bins. */
+  stenCutpoints?: number[]
+}
+
+// ---------------------------------------------------------------------------
+// Item metadata for scoring context
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal item metadata needed by the scoring pipeline.
+ */
+export interface ScoringItemMeta {
+  /** Item ID. */
+  id: string
+  /** Construct this item belongs to. */
+  constructId: string
+  /** Response format ID. */
+  responseFormatId: string
+  /** Whether the item is reverse-scored. */
+  reverseScored: boolean
+  /** Maximum possible score value for this item. */
+  maxValue: number
+  /** Minimum possible score value for this item. */
+  minValue: number
 }

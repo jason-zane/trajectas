@@ -10,6 +10,15 @@ import type {
   ResponseFormat,
   ForcedChoiceBlock,
   ForcedChoiceBlockItem,
+  AssessmentSection,
+  AssessmentSectionItem,
+  CalibrationRun,
+  ItemStatistic,
+  ConstructReliability,
+  NormGroup,
+  NormTable,
+  FactorAnalysisResult,
+  DIFResult,
 } from '@/types/database'
 
 // =============================================================================
@@ -47,6 +56,8 @@ export function mapFactorRow(row: any): Factor {
     description: row.description ?? undefined,
     definition: row.definition ?? undefined,
     isActive: row.is_active,
+    isMatchEligible: row.is_match_eligible ?? true,
+    organizationId: row.organization_id ?? undefined,
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
@@ -171,6 +182,8 @@ export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at
     description: c.description ?? null,
     definition: c.definition ?? null,
     is_active: c.isActive,
+    is_match_eligible: c.isMatchEligible ?? true,
+    organization_id: c.organizationId ?? null,
     indicators_low: c.indicatorsLow ?? null,
     indicators_mid: c.indicatorsMid ?? null,
     indicators_high: c.indicatorsHigh ?? null,
@@ -270,5 +283,213 @@ export function toForcedChoiceBlockInsert(b: Omit<ForcedChoiceBlock, 'id' | 'cre
     name: b.name,
     description: b.description ?? null,
     display_order: b.displayOrder,
+  }
+}
+
+// =============================================================================
+// Assessment Sections
+// =============================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapAssessmentSectionRow(row: any): AssessmentSection {
+  return {
+    id: row.id,
+    assessmentId: row.assessment_id,
+    responseFormatId: row.response_format_id,
+    title: row.title,
+    instructions: row.instructions ?? undefined,
+    displayOrder: row.display_order,
+    itemOrdering: row.item_ordering,
+    itemsPerPage: row.items_per_page ?? undefined,
+    timeLimitSeconds: row.time_limit_seconds ?? undefined,
+    allowBackNav: row.allow_back_nav,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapAssessmentSectionItemRow(row: any): AssessmentSectionItem {
+  return {
+    id: row.id,
+    sectionId: row.section_id,
+    itemId: row.item_id,
+    displayOrder: row.display_order,
+    created_at: row.created_at,
+  }
+}
+
+export function toAssessmentSectionInsert(
+  s: Omit<AssessmentSection, 'id' | 'created_at' | 'updated_at'>,
+) {
+  return {
+    assessment_id: s.assessmentId,
+    response_format_id: s.responseFormatId,
+    title: s.title,
+    instructions: s.instructions ?? null,
+    display_order: s.displayOrder,
+    item_ordering: s.itemOrdering,
+    items_per_page: s.itemsPerPage ?? null,
+    time_limit_seconds: s.timeLimitSeconds ?? null,
+    allow_back_nav: s.allowBackNav,
+  }
+}
+
+// =============================================================================
+// Psychometric Infrastructure
+// =============================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCalibrationRunRow(row: any): CalibrationRun {
+  return {
+    id: row.id,
+    runType: row.run_type,
+    method: row.method,
+    status: row.status,
+    sampleSize: row.sample_size ?? undefined,
+    dateRangeStart: row.date_range_start ?? undefined,
+    dateRangeEnd: row.date_range_end ?? undefined,
+    notes: row.notes ?? undefined,
+    startedAt: row.started_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    errorMessage: row.error_message ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapItemStatisticRow(row: any): ItemStatistic {
+  return {
+    id: row.id,
+    itemId: row.item_id,
+    calibrationRunId: row.calibration_run_id,
+    difficulty: row.difficulty != null ? Number(row.difficulty) : undefined,
+    discrimination: row.discrimination != null ? Number(row.discrimination) : undefined,
+    alphaIfDeleted: row.alpha_if_deleted != null ? Number(row.alpha_if_deleted) : undefined,
+    responseCount: row.response_count ?? undefined,
+    responseDistribution: row.response_distribution ?? undefined,
+    irtInformationAt0: row.irt_information_at_0 != null ? Number(row.irt_information_at_0) : undefined,
+    irtMaxInformation: row.irt_max_information != null ? Number(row.irt_max_information) : undefined,
+    irtThetaAtMaxInfo: row.irt_theta_at_max_info != null ? Number(row.irt_theta_at_max_info) : undefined,
+    irtInfit: row.irt_infit != null ? Number(row.irt_infit) : undefined,
+    irtOutfit: row.irt_outfit != null ? Number(row.irt_outfit) : undefined,
+    irtParamSeA: row.irt_param_se_a != null ? Number(row.irt_param_se_a) : undefined,
+    irtParamSeB: row.irt_param_se_b != null ? Number(row.irt_param_se_b) : undefined,
+    irtParamSeC: row.irt_param_se_c != null ? Number(row.irt_param_se_c) : undefined,
+    flagged: row.flagged,
+    flagReasons: row.flag_reasons ?? undefined,
+    created_at: row.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapConstructReliabilityRow(row: any): ConstructReliability {
+  return {
+    id: row.id,
+    constructId: row.construct_id,
+    calibrationRunId: row.calibration_run_id,
+    cronbachAlpha: row.cronbach_alpha != null ? Number(row.cronbach_alpha) : undefined,
+    omegaTotal: row.omega_total != null ? Number(row.omega_total) : undefined,
+    omegaHierarchical: row.omega_hierarchical != null ? Number(row.omega_hierarchical) : undefined,
+    compositeReliability: row.composite_reliability != null ? Number(row.composite_reliability) : undefined,
+    splitHalf: row.split_half != null ? Number(row.split_half) : undefined,
+    sem: row.sem != null ? Number(row.sem) : undefined,
+    csemByScore: row.csem_by_score ?? undefined,
+    itemCount: row.item_count ?? undefined,
+    responseCount: row.response_count ?? undefined,
+    mean: row.mean != null ? Number(row.mean) : undefined,
+    standardDeviation: row.standard_deviation != null ? Number(row.standard_deviation) : undefined,
+    skewness: row.skewness != null ? Number(row.skewness) : undefined,
+    kurtosis: row.kurtosis != null ? Number(row.kurtosis) : undefined,
+    itemContributions: row.item_contributions ?? undefined,
+    created_at: row.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapNormGroupRow(row: any): NormGroup {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    industry: row.industry ?? undefined,
+    roleLevel: row.role_level ?? undefined,
+    jobFunction: row.job_function ?? undefined,
+    region: row.region ?? undefined,
+    organizationId: row.organization_id ?? undefined,
+    sampleSize: row.sample_size,
+    collectionStart: row.collection_start ?? undefined,
+    collectionEnd: row.collection_end ?? undefined,
+    lastRefreshed: row.last_refreshed ?? undefined,
+    isActive: row.is_active,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapNormTableRow(row: any): NormTable {
+  return {
+    id: row.id,
+    normGroupId: row.norm_group_id,
+    constructId: row.construct_id,
+    mean: Number(row.mean),
+    standardDeviation: Number(row.standard_deviation),
+    sampleSize: row.sample_size,
+    percentileLookup: row.percentile_lookup ?? undefined,
+    stanineCutpoints: row.stanine_cutpoints ?? undefined,
+    stenCutpoints: row.sten_cutpoints ?? undefined,
+    scoreType: row.score_type,
+    lastComputed: row.last_computed,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapFactorAnalysisResultRow(row: any): FactorAnalysisResult {
+  return {
+    id: row.id,
+    calibrationRunId: row.calibration_run_id,
+    analysisType: row.analysis_type,
+    estimationMethod: row.estimation_method ?? undefined,
+    cfi: row.cfi != null ? Number(row.cfi) : undefined,
+    tli: row.tli != null ? Number(row.tli) : undefined,
+    rmsea: row.rmsea != null ? Number(row.rmsea) : undefined,
+    rmseaCiLower: row.rmsea_ci_lower != null ? Number(row.rmsea_ci_lower) : undefined,
+    rmseaCiUpper: row.rmsea_ci_upper != null ? Number(row.rmsea_ci_upper) : undefined,
+    srmr: row.srmr != null ? Number(row.srmr) : undefined,
+    chiSquare: row.chi_square != null ? Number(row.chi_square) : undefined,
+    chiSquareDf: row.chi_square_df ?? undefined,
+    chiSquareP: row.chi_square_p != null ? Number(row.chi_square_p) : undefined,
+    loadings: row.loadings ?? undefined,
+    ave: row.ave ?? undefined,
+    htmt: row.htmt ?? undefined,
+    constructCorrelations: row.construct_correlations ?? undefined,
+    sampleSize: row.sample_size ?? undefined,
+    notes: row.notes ?? undefined,
+    created_at: row.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapDIFResultRow(row: any): DIFResult {
+  return {
+    id: row.id,
+    itemId: row.item_id,
+    calibrationRunId: row.calibration_run_id,
+    groupingVariable: row.grouping_variable,
+    referenceGroup: row.reference_group,
+    focalGroup: row.focal_group,
+    method: row.method,
+    effectSize: row.effect_size != null ? Number(row.effect_size) : undefined,
+    pValue: row.p_value != null ? Number(row.p_value) : undefined,
+    classification: row.classification ?? undefined,
+    referenceN: row.reference_n ?? undefined,
+    focalN: row.focal_n ?? undefined,
+    flagged: row.flagged,
+    notes: row.notes ?? undefined,
+    created_at: row.created_at,
   }
 }

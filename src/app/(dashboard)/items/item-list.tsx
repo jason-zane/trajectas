@@ -30,6 +30,7 @@ import {
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
+import { TiltCard } from "@/components/tilt-card"
 import type { ItemStatus, ActiveResponseFormatType } from "@/types/database"
 import type { ItemWithMeta } from "@/app/actions/items"
 
@@ -276,13 +277,17 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
                           ]
                         return (
                           <ScrollReveal key={item.id} delay={cardIndex * 60}>
+                            <TiltCard>
                             <Link href={`/items/${item.id}/edit`}>
                               <Card
                                 variant="interactive"
                                 className="border-l-[3px] border-l-transparent hover:border-l-item-accent"
                               >
                                 <CardContent className="flex items-center gap-4 py-4">
-                                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-item-bg">
+                                  <div
+                                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-item-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                                    style={{ "--glow-color": "var(--item-accent)" } as React.CSSProperties}
+                                  >
                                     <FileQuestion className="size-5 text-item-accent" />
                                   </div>
                                   <div className="flex-1 min-w-0">
@@ -305,6 +310,7 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
                                 </CardContent>
                               </Card>
                             </Link>
+                            </TiltCard>
                           </ScrollReveal>
                         )
                       })}

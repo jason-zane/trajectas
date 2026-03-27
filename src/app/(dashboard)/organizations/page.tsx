@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ScrollReveal } from "@/components/scroll-reveal";
+import { TiltCard } from "@/components/tilt-card";
 import { getOrganizations } from "@/app/actions/organizations";
 
 export default async function OrganisationsPage() {
@@ -34,19 +36,22 @@ export default async function OrganisationsPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {organizations.map((org, index) => (
+            <ScrollReveal key={org.id} delay={index * 60}>
+            <TiltCard>
             <Link
-              key={org.id}
               href={`/organizations/${org.slug}/edit`}
             >
               <Card
                 variant="interactive"
-                className={`stagger-${index + 1} animate-fade-in-up`}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors">
-                        <Building2 className="size-5 text-muted-foreground" />
+                      <div
+                        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                        style={{ "--glow-color": "var(--primary)" } as React.CSSProperties}
+                      >
+                        <Building2 className="size-5 text-primary" />
                       </div>
                       <div>
                         <CardTitle>{org.name}</CardTitle>
@@ -95,6 +100,8 @@ export default async function OrganisationsPage() {
                 </CardContent>
               </Card>
             </Link>
+            </TiltCard>
+            </ScrollReveal>
           ))}
         </div>
       )}

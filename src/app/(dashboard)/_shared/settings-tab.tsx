@@ -12,6 +12,7 @@ interface SettingsTabProps {
   onActiveChange: (active: boolean) => void
   onDelete?: () => void
   deleting?: boolean
+  children?: React.ReactNode
 }
 
 export function SettingsTab({
@@ -20,6 +21,7 @@ export function SettingsTab({
   onActiveChange,
   onDelete,
   deleting,
+  children,
 }: SettingsTabProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -53,6 +55,9 @@ export function SettingsTab({
         name="isActive"
         value={isActive ? "true" : "false"}
       />
+
+      {/* Entity-specific settings (children) */}
+      {children}
 
       {/* Danger zone */}
       {onDelete && (

@@ -13,7 +13,6 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
-import { Breadcrumbs } from "@/components/breadcrumbs";
 import { createOrganization } from "@/app/actions/organizations";
 
 function slugify(text: string): string {
@@ -70,13 +69,10 @@ export default function CreateOrganizationPage() {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader
-          title="Add Organisation"
-          description="Register a new client organisation on the platform."
-        />
-      </div>
+      <PageHeader
+        title="Add Organisation"
+        description="Register a new client organisation on the platform."
+      />
 
       <form action={handleSubmit}>
         <Card>

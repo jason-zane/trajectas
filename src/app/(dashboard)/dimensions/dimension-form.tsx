@@ -17,7 +17,6 @@ import {
 } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
-import { Breadcrumbs } from "@/components/breadcrumbs"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
 import {
@@ -108,10 +107,7 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <div>
-        <Breadcrumbs className="mb-4" />
-        <PageHeader title={title} description={subtitle} />
-      </div>
+      <PageHeader title={title} description={subtitle} />
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
