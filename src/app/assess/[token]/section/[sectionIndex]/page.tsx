@@ -1,5 +1,13 @@
 import { redirect } from "next/navigation";
-import { validateAccessToken, startSession, getSessionState } from "@/app/actions/assess";
+import {
+  validateAccessToken,
+  startSession,
+  getSessionState,
+} from "@/app/actions/assess";
+import { getEffectiveBrand } from "@/app/actions/brand";
+import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
 
 export default async function SectionPage({
@@ -19,13 +27,12 @@ export default async function SectionPage({
     redirect(`/assess/${token}/complete`);
   }
 
-  // For now, work through assessments sequentially — pick the first one
-  // that doesn't have a completed session
+  // Work through assessments sequentially
   const sessions = result.data!.sessions;
   let targetAssessment = assessments[0];
   for (const a of assessments) {
     const session = sessions.find(
-      (s) => s.assessmentId === a.assessmentId && s.status === "completed",
+      (s) => s.assessmentId === a.assessmentId && s.status === "completed"
     );
     if (!session) {
       targetAssessment = a;
@@ -37,12 +44,12 @@ export default async function SectionPage({
   const sessionResult = await startSession(
     candidate.id,
     targetAssessment.assessmentId,
-    campaign.id,
+    campaign.id
   );
 
   if ("error" in sessionResult && sessionResult.error) {
     return (
-      <div className="text-center py-12">
+      <div className="flex min-h-dvh items-center justify-center px-4">
         <p className="text-destructive">{sessionResult.error}</p>
       </div>
     );
@@ -53,7 +60,7 @@ export default async function SectionPage({
 
   if (stateResult.error || !stateResult.data) {
     return (
-      <div className="text-center py-12">
+      <div className="flex min-h-dvh items-center justify-center px-4">
         <p className="text-destructive">
           {stateResult.error ?? "Failed to load session"}
         </p>
@@ -70,16 +77,45 @@ export default async function SectionPage({
   const clampedIdx = Math.min(sectionIdx, sections.length - 1);
   const section = sections[clampedIdx];
 
+  // Load brand config for the campaign's organization
+  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+
+  // Generate org-specific CSS tokens (overrides layout defaults if org branded)
+  const { css: lightCss } = generateCSSTokens(brandConfig);
+  const darkCss = brandConfig.darkModeEnabled
+    ? generateDarkCSSTokens(brandConfig)
+    : "";
+
+  // CSS is server-generated from trusted DB brand config, not user HTML
+  const brandCss = `${lightCss}\n${darkCss}`;
+
+  // Load custom fonts if org has different fonts
+  const fontsUrl = buildGoogleFontsUrl([
+    brandConfig.headingFont,
+    brandConfig.bodyFont,
+    brandConfig.monoFont,
+  ]);
+
   return (
-    <SectionWrapper
-      token={token}
-      sessionId={sessionId}
-      section={section}
-      sectionIndex={clampedIdx}
-      totalSections={sections.length}
-      existingResponses={responses}
-      showProgress={campaign.showProgress}
-      allowResume={campaign.allowResume}
-    />
+    <>
+      {/* Org-specific brand token overrides — server-generated CSS from DB config */}
+      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
+      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
+
+      <SectionWrapper
+        token={token}
+        sessionId={sessionId}
+        section={section}
+        sectionIndex={clampedIdx}
+        totalSections={sections.length}
+        allSections={sections}
+        existingResponses={responses}
+        assessmentName={targetAssessment.title}
+        brandLogoUrl={brandConfig.logoUrl}
+        brandName={brandConfig.name}
+        isCustomBrand={isCustomBrand}
+      />
+    </>
   );
 }

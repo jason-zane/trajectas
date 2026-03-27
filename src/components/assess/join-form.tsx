@@ -10,9 +10,21 @@ import { registerViaLink } from "@/app/actions/assess";
 
 interface JoinFormProps {
   linkToken: string;
+  brandLogoUrl?: string;
+  brandName?: string;
+  isCustomBrand?: boolean;
 }
 
-export function JoinForm({ linkToken }: JoinFormProps) {
+/**
+ * Join form for open enrollment.
+ * Card-centered, brand-aware redesign.
+ */
+export function JoinForm({
+  linkToken,
+  brandLogoUrl,
+  brandName,
+  isCustomBrand,
+}: JoinFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -44,61 +56,173 @@ export function JoinForm({ linkToken }: JoinFormProps) {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Join Assessment</h1>
-        <p className="text-muted-foreground">
-          Enter your details to begin the assessment.
-        </p>
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-xl border border-border bg-card p-6 space-y-4"
+    <div className="flex min-h-dvh flex-col">
+      {/* Header */}
+      <header
+        className="flex h-14 items-center px-4 sm:px-6"
+        style={{
+          background: "var(--brand-neutral-50, hsl(var(--background)))",
+        }}
       >
-        <div className="space-y-1.5">
-          <Label htmlFor="join-email">Email</Label>
-          <Input
-            id="join-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            required
-          />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="join-first">First Name</Label>
-            <Input
-              id="join-first"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Optional"
+        <div className="flex items-center gap-2.5">
+          {brandLogoUrl ? (
+            <img
+              src={brandLogoUrl}
+              alt={brandName ?? "Logo"}
+              className="h-7 w-auto object-contain"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="join-last">Last Name</Label>
-            <Input
-              id="join-last"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Optional"
-            />
-          </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div
+                className="flex size-7 items-center justify-center rounded-lg"
+                style={{
+                  background:
+                    "var(--brand-surface, hsl(var(--primary) / 0.1))",
+                }}
+              >
+                <svg
+                  className="size-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{
+                    color: "var(--brand-primary, hsl(var(--primary)))",
+                  }}
+                >
+                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </div>
+              <span
+                className="text-sm font-semibold tracking-tight"
+                style={{
+                  color: "var(--brand-text, hsl(var(--foreground)))",
+                }}
+              >
+                {brandName ?? "TalentFit"}
+              </span>
+            </div>
+          )}
         </div>
+      </header>
 
-        {error && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
+      {/* Main content */}
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
+        <div className="w-full max-w-[540px] space-y-6">
+          <div className="space-y-2 text-center">
+            <h1
+              className="text-2xl font-semibold tracking-tight"
+              style={{
+                color: "var(--brand-text, hsl(var(--foreground)))",
+                fontFamily: "var(--brand-font-heading, inherit)",
+              }}
+            >
+              Join Assessment
+            </h1>
+            <p
+              className="text-sm"
+              style={{
+                color:
+                  "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+              }}
+            >
+              Enter your details to begin the assessment.
+            </p>
           </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-2xl border p-6 shadow-sm dark:shadow-none space-y-4"
+            style={{
+              borderColor:
+                "var(--brand-neutral-200, hsl(var(--border)))",
+              background:
+                "var(--brand-neutral-50, hsl(var(--card)))",
+            }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="join-email">Email</Label>
+              <Input
+                id="join-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="join-first">First Name</Label>
+                <Input
+                  id="join-first"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="join-last">Last Name</Label>
+                <Input
+                  id="join-last"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              className="w-full gap-1.5"
+              disabled={submitting}
+              style={{
+                background:
+                  "var(--brand-primary, hsl(var(--primary)))",
+                color:
+                  "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
+              }}
+            >
+              <ArrowRight className="size-4" />
+              {submitting ? "Registering..." : "Continue"}
+            </Button>
+          </form>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-center px-4 py-4">
+        {isCustomBrand ? (
+          <span
+            className="text-xs"
+            style={{
+              color:
+                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            }}
+          >
+            Powered by TalentFit
+          </span>
+        ) : (
+          <span
+            className="text-xs"
+            style={{
+              color:
+                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            }}
+          >
+            TalentFit
+          </span>
         )}
-
-        <Button type="submit" className="w-full" disabled={submitting}>
-          <ArrowRight className="size-4" />
-          {submitting ? "Registering..." : "Continue"}
-        </Button>
-      </form>
+      </footer>
     </div>
   );
 }

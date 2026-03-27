@@ -22,6 +22,7 @@ import {
   Briefcase,
   BarChart3,
   Megaphone,
+  Palette,
 } from "lucide-react";
 import {
   Sidebar,
@@ -122,6 +123,12 @@ const adminNav = [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
       { title: "Model Config", href: "/model-config", icon: Cpu },
       { title: "Prompts", href: "/prompts", icon: MessageSquare },
+    ],
+  },
+  {
+    label: "Settings",
+    items: [
+      { title: "Brand", href: "/settings/brand", icon: Palette },
     ],
   },
 ];

@@ -22,6 +22,7 @@ import type {
   CampaignCandidate,
   CampaignAccessLink,
 } from '@/types/database'
+import type { BrandConfigRecord } from '@/lib/brand/types'
 
 // =============================================================================
 // Row → TypeScript mappers (snake_case DB → camelCase TS)
@@ -159,6 +160,20 @@ export function mapOrganizationRow(row: any): Organization {
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapBrandConfigRow(row: any): BrandConfigRecord {
+  return {
+    id: row.id,
+    ownerType: row.owner_type,
+    ownerId: row.owner_id ?? null,
+    config: row.config,
+    isDefault: row.is_default,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
+    deletedAt: row.deleted_at ?? null,
   }
 }
 

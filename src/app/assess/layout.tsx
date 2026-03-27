@@ -1,35 +1,61 @@
-import { Brain } from "lucide-react";
+import { getEffectiveBrand } from "@/app/actions/brand";
+import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import type { BrandConfig } from "@/lib/brand/types";
 
-export default function AssessLayout({
-  children,
-}: {
+interface AssessLayoutProps {
   children: React.ReactNode;
-}) {
+}
+
+/**
+ * Assessment runner layout.
+ *
+ * This layout:
+ * 1. Resolves the brand config (org-specific or platform default)
+ * 2. Generates CSS tokens and injects them via <style>
+ * 3. Loads any custom Google Fonts
+ * 4. Renders the outer shell
+ *
+ * Brand tokens are passed down via CSS custom properties so all child
+ * components can reference --brand-primary, --brand-surface, etc.
+ */
+export default async function AssessLayout({ children }: AssessLayoutProps) {
+  // Load the platform brand as the baseline. Child pages (section runner)
+  // will override with org-specific tokens via inline style when needed.
+  const brandConfig: BrandConfig = await getEffectiveBrand();
+
+  const { css: lightCss } = generateCSSTokens(brandConfig);
+  const darkCss = brandConfig.darkModeEnabled
+    ? generateDarkCSSTokens(brandConfig)
+    : "";
+
+  // Build Google Fonts URL for custom fonts
+  const fontsUrl = buildGoogleFontsUrl([
+    brandConfig.headingFont,
+    brandConfig.bodyFont,
+    brandConfig.monoFont,
+  ]);
+
+  // CSS is generated server-side from trusted brand config, not user HTML
+  const brandCss = `${lightCss}\n${darkCss}`;
+
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      {/* Brand bar */}
-      <header className="flex h-12 items-center border-b border-border px-4">
-        <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-primary/10">
-            <Brain className="size-4 text-primary" />
-          </div>
-          <span className="text-sm font-semibold tracking-tight">
-            TalentFit
-          </span>
-        </div>
-      </header>
+    <>
+      {/* Inject brand CSS tokens — content is server-generated from DB config */}
+      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
 
-      {/* Content */}
-      <main className="flex-1 overflow-auto">
-        <div className="mx-auto max-w-2xl px-4 py-8">{children}</div>
-      </main>
+      {/* Load custom Google Fonts if needed */}
+      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
-      {/* Footer */}
-      <footer className="border-t border-border px-4 py-3">
-        <p className="text-center text-xs text-muted-foreground">
-          Powered by TalentFit &middot; Your responses are saved automatically
-        </p>
-      </footer>
-    </div>
+      <div
+        className="flex min-h-dvh flex-col"
+        style={{
+          background: "var(--brand-neutral-50, hsl(var(--background)))",
+          fontFamily: "var(--brand-font-body, inherit)",
+        }}
+      >
+        {children}
+      </div>
+    </>
   );
 }

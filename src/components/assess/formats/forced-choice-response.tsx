@@ -9,93 +9,90 @@ interface ForcedChoiceResponseProps {
   responseData?: Record<string, unknown>;
 }
 
+/**
+ * Forced choice response format.
+ *
+ * Two statement cards with an "or" divider.
+ * Candidate selects one statement as "most like me" — single tap auto-advances.
+ * Uses brand tokens for selection state.
+ */
 export function ForcedChoiceResponse({
   options,
   selectedValue,
   onSelect,
   responseData,
 }: ForcedChoiceResponseProps) {
-  const [mostLike, setMostLike] = useState<number | undefined>(
-    responseData?.mostLike as number | undefined,
-  );
-  const [leastLike, setLeastLike] = useState<number | undefined>(
-    responseData?.leastLike as number | undefined,
+  const [selected, setSelected] = useState<number | undefined>(
+    (responseData?.mostLike as number | undefined) ?? selectedValue
   );
 
-  function handleMost(value: number) {
-    const newMost = value;
-    setMostLike(newMost);
-    if (leastLike !== undefined) {
-      onSelect(newMost, { mostLike: newMost, leastLike });
-    }
-  }
+  // Only show first two options for forced choice
+  const choices = options.slice(0, 2);
 
-  function handleLeast(value: number) {
-    const newLeast = value;
-    setLeastLike(newLeast);
-    if (mostLike !== undefined) {
-      onSelect(mostLike, { mostLike, leastLike: newLeast });
-    }
+  function handleSelect(value: number) {
+    setSelected(value);
+    const other = choices.find((c) => c.value !== value);
+    onSelect(value, {
+      mostLike: value,
+      leastLike: other?.value ?? 0,
+    });
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-          Most like me
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {options.map((o) => {
-            const sel = mostLike === o.value;
-            const disabled = leastLike === o.value;
-            return (
-              <button
-                key={`most-${o.id}`}
-                onClick={() => handleMost(o.value)}
-                disabled={disabled}
-                className={`rounded-xl border-2 px-4 py-3 text-sm text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  sel
-                    ? "border-primary bg-primary/10 text-primary font-medium"
-                    : disabled
-                      ? "border-border/50 bg-muted/30 text-muted-foreground cursor-not-allowed"
-                      : "border-border bg-card hover:border-primary/50"
-                }`}
-                aria-pressed={sel}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <div>
-        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-          Least like me
-        </p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {options.map((o) => {
-            const sel = leastLike === o.value;
-            const disabled = mostLike === o.value;
-            return (
-              <button
-                key={`least-${o.id}`}
-                onClick={() => handleLeast(o.value)}
-                disabled={disabled}
-                className={`rounded-xl border-2 px-4 py-3 text-sm text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  sel
-                    ? "border-destructive bg-destructive/10 text-destructive font-medium"
-                    : disabled
-                      ? "border-border/50 bg-muted/30 text-muted-foreground cursor-not-allowed"
-                      : "border-border bg-card hover:border-destructive/50"
-                }`}
-                aria-pressed={sel}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {choices.map((option, idx) => {
+        const isSelected = selected === option.value;
+        return (
+          <div key={option.id}>
+            <button
+              onClick={() => handleSelect(option.value)}
+              className={`
+                w-full rounded-xl border-2 px-5 py-5 text-left text-sm leading-relaxed
+                transition-all duration-150 ease-out
+                focus-visible:outline-none focus-visible:ring-2
+                min-h-[44px]
+                ${isSelected ? "scale-[1.01]" : "hover:scale-[1.005]"}
+              `}
+              style={{
+                borderColor: isSelected
+                  ? "var(--brand-primary, hsl(var(--primary)))"
+                  : "var(--brand-neutral-200, hsl(var(--border)))",
+                background: isSelected
+                  ? "var(--brand-surface, hsl(var(--primary) / 0.08))"
+                  : "transparent",
+                color: isSelected
+                  ? "var(--brand-primary, hsl(var(--primary)))"
+                  : "var(--brand-text, hsl(var(--foreground)))",
+              }}
+              aria-pressed={isSelected}
+            >
+              <span className={isSelected ? "font-medium" : ""}>
+                {option.label}
+              </span>
+            </button>
+
+            {/* "or" divider between the two options */}
+            {idx === 0 && choices.length > 1 && (
+              <div className="flex items-center gap-3 py-2">
+                <div
+                  className="h-px flex-1"
+                  style={{ background: "var(--brand-neutral-200, hsl(var(--border)))" }}
+                />
+                <span
+                  className="text-xs font-medium uppercase tracking-wider"
+                  style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+                >
+                  or
+                </span>
+                <div
+                  className="h-px flex-1"
+                  style={{ background: "var(--brand-neutral-200, hsl(var(--border)))" }}
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

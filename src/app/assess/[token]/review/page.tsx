@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
-import { validateAccessToken, getSessionState } from "@/app/actions/assess";
+import {
+  validateAccessToken,
+  getSessionState,
+} from "@/app/actions/assess";
+import { getEffectiveBrand } from "@/app/actions/brand";
+import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { ReviewScreen } from "@/components/assess/review-screen";
 
 export default async function ReviewPage({
@@ -11,7 +18,7 @@ export default async function ReviewPage({
   const result = await validateAccessToken(token);
   if (result.error) redirect("/assess/expired");
 
-  const { sessions } = result.data!;
+  const { campaign, sessions, assessments } = result.data!;
   const currentSession = sessions.find((s) => s.status === "in_progress");
 
   if (!currentSession) {
@@ -27,14 +34,46 @@ export default async function ReviewPage({
   const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
   const answeredCount = Object.keys(responses).length;
 
+  // Find the assessment name for the current session
+  const currentAssessment = assessments.find(
+    (a) => a.assessmentId === currentSession.assessmentId
+  );
+
+  // Load brand config for the campaign's organization
+  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+
+  // CSS is server-generated from trusted DB brand config, not user HTML
+  const { css: lightCss } = generateCSSTokens(brandConfig);
+  const darkCss = brandConfig.darkModeEnabled
+    ? generateDarkCSSTokens(brandConfig)
+    : "";
+  const brandCss = `${lightCss}\n${darkCss}`;
+
+  const fontsUrl = buildGoogleFontsUrl([
+    brandConfig.headingFont,
+    brandConfig.bodyFont,
+    brandConfig.monoFont,
+  ]);
+
   return (
-    <ReviewScreen
-      token={token}
-      sessionId={currentSession.id}
-      sections={sections}
-      responses={responses}
-      totalItems={totalItems}
-      answeredCount={answeredCount}
-    />
+    <>
+      {/* Server-generated CSS custom properties from DB brand config */}
+      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
+      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
+
+      <ReviewScreen
+        token={token}
+        sessionId={currentSession.id}
+        sections={sections}
+        responses={responses}
+        totalItems={totalItems}
+        answeredCount={answeredCount}
+        assessmentName={currentAssessment?.title}
+        brandLogoUrl={brandConfig.logoUrl}
+        brandName={brandConfig.name}
+        isCustomBrand={isCustomBrand}
+      />
+    </>
   );
 }

@@ -35,7 +35,7 @@ type LinkedAssessment = {
 
 type AvailableAssessment = {
   id: string;
-  title: string;
+  name: string;
   status: string;
 };
 
@@ -157,7 +157,7 @@ export function CampaignAssessmentsList({
                   <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
                     <ClipboardList className="size-4 text-primary" />
                   </div>
-                  <span className="text-sm font-medium">{a.title}</span>
+                  <span className="text-sm font-medium">{a.name}</span>
                 </button>
               ))}
             </div>

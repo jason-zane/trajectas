@@ -1,12 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 import { ProgressBar } from "./progress-bar";
-import { SectionTimer } from "./section-timer";
-import { ItemDisplay } from "./item-display";
+import { ItemCard } from "./item-card";
 import {
   saveResponse,
   updateSessionProgress,
@@ -19,12 +17,47 @@ interface SectionWrapperProps {
   section: SectionForRunner;
   sectionIndex: number;
   totalSections: number;
+  /** All sections' items flattened for global progress tracking. */
+  allSections: SectionForRunner[];
   existingResponses: Record<
     string,
     { value: number; data: Record<string, unknown> }
   >;
-  showProgress: boolean;
-  allowResume: boolean;
+  assessmentName: string;
+  /** Brand config for the assessment. */
+  brandLogoUrl?: string;
+  brandName?: string;
+  isCustomBrand?: boolean;
+}
+
+/** Formats that auto-advance on selection (single-select). */
+const AUTO_ADVANCE_FORMATS = new Set([
+  "likert",
+  "forced_choice",
+  "binary",
+  "sjt",
+]);
+
+/** Formats that need a Continue button (multi-step input). */
+const CONTINUE_FORMATS = new Set(["free_text", "ranking"]);
+
+/**
+ * Flatten all sections to get a global item list for navigation.
+ * Returns array of { sectionIdx, itemIdx, item, section }.
+ */
+function flattenItems(sections: SectionForRunner[]) {
+  const flat: {
+    sectionIdx: number;
+    itemIdx: number;
+    item: SectionForRunner["items"][number];
+    section: SectionForRunner;
+  }[] = [];
+  sections.forEach((section, sIdx) => {
+    section.items.forEach((item, iIdx) => {
+      flat.push({ sectionIdx: sIdx, itemIdx: iIdx, item, section });
+    });
+  });
+  return flat;
 }
 
 export function SectionWrapper({
@@ -33,38 +66,140 @@ export function SectionWrapper({
   section,
   sectionIndex,
   totalSections,
+  allSections,
   existingResponses,
-  showProgress,
+  assessmentName,
+  brandLogoUrl,
+  brandName,
+  isCustomBrand,
 }: SectionWrapperProps) {
   const router = useRouter();
-  const items = section.items;
-  const itemsPerPage = section.itemsPerPage ?? 1;
-  const totalPages = Math.ceil(items.length / itemsPerPage);
 
-  const [pageIndex, setPageIndex] = useState(0);
+  // Build a flat global item list from all sections
+  const globalItems = flattenItems(allSections);
+  const totalItems = globalItems.length;
+
+  // Compute the global index for the first item of this section
+  const sectionStartGlobal = globalItems.findIndex(
+    (g) => g.sectionIdx === sectionIndex && g.itemIdx === 0
+  );
+
+  // Find the first unanswered item in this section as the start point,
+  // or resume from where we left off
+  const [localItemIndex, setLocalItemIndex] = useState(() => {
+    // Check URL params for resume=last (back from next section)
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("resume") === "last") {
+        // Clean up URL
+        window.history.replaceState({}, "", window.location.pathname);
+        return section.items.length - 1;
+      }
+    }
+    const firstUnanswered = section.items.findIndex(
+      (item) => !existingResponses[item.id]
+    );
+    return firstUnanswered >= 0 ? firstUnanswered : 0;
+  });
   const [responses, setResponses] = useState(existingResponses);
-  const [showInstructions, setShowInstructions] = useState(
-    !!section.instructions,
+  const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
+    "idle"
+  );
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const currentItem = section.items[localItemIndex];
+  const globalIndex = sectionStartGlobal + localItemIndex;
+  const responseFormatType = section.responseFormatType;
+
+  // Determine if this format needs a Continue button
+  const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
+
+  // For forced_choice, auto-advance only after both most+least are selected
+  // For SJT, auto-advance only if single-select mode
+  const shouldAutoAdvance = useCallback(
+    (formatType: string, _value: number, data?: Record<string, unknown>) => {
+      if (formatType === "forced_choice") {
+        return data?.mostLike !== undefined && data?.leastLike !== undefined;
+      }
+      if (formatType === "sjt") {
+        // SJT auto-advances on single select
+        return true;
+      }
+      return AUTO_ADVANCE_FORMATS.has(formatType);
+    },
+    []
   );
 
-  const pageItems = items.slice(
-    pageIndex * itemsPerPage,
-    (pageIndex + 1) * itemsPerPage,
+  const navigateToItem = useCallback(
+    (newLocalIdx: number, direction: "left" | "right") => {
+      if (isAnimating) return;
+      setSlideDirection(direction);
+      setIsAnimating(true);
+      // Brief delay for animation
+      setTimeout(() => {
+        setLocalItemIndex(newLocalIdx);
+        setIsAnimating(false);
+      }, 200);
+    },
+    [isAnimating]
   );
 
-  const currentItemIndex = pageIndex * itemsPerPage;
+  const goToNextItem = useCallback(async () => {
+    if (localItemIndex < section.items.length - 1) {
+      // Next item in same section
+      navigateToItem(localItemIndex + 1, "left");
+      await updateSessionProgress(sessionId, {
+        currentSectionId: section.id,
+        currentItemIndex: localItemIndex + 1,
+      });
+    } else if (sectionIndex < totalSections - 1) {
+      // Next section
+      await updateSessionProgress(sessionId, {
+        currentSectionId: undefined,
+        currentItemIndex: 0,
+      });
+      router.push(`/assess/${token}/section/${sectionIndex + 1}`);
+    } else {
+      // End of assessment — go to review
+      router.push(`/assess/${token}/review`);
+    }
+  }, [
+    localItemIndex,
+    section.items.length,
+    section.id,
+    sectionIndex,
+    totalSections,
+    sessionId,
+    token,
+    router,
+    navigateToItem,
+  ]);
+
+  const goToPreviousItem = useCallback(() => {
+    if (localItemIndex > 0) {
+      navigateToItem(localItemIndex - 1, "right");
+    } else if (sectionIndex > 0) {
+      // Go to previous section's last item
+      router.push(`/assess/${token}/section/${sectionIndex - 1}?resume=last`);
+    }
+  }, [localItemIndex, sectionIndex, token, router, navigateToItem]);
 
   async function handleResponse(
     itemId: string,
     value: number,
-    data?: Record<string, unknown>,
+    data?: Record<string, unknown>
   ) {
     setResponses((prev) => ({
       ...prev,
       [itemId]: { value, data: data ?? {} },
     }));
 
-    // Zone 1: immediate save
+    // Zone 1: immediate save with status indicator
+    setSaveStatus("saving");
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
     await saveResponse({
       sessionId,
       itemId,
@@ -72,158 +207,146 @@ export function SectionWrapper({
       responseValue: value,
       responseData: data,
     });
-  }
 
-  function handlePrevPage() {
-    if (pageIndex > 0) {
-      setPageIndex(pageIndex - 1);
+    setSaveStatus("saved");
+    saveTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+
+    // Auto-advance for single-select formats
+    if (shouldAutoAdvance(responseFormatType, value, data)) {
+      // Brief delay so the user sees their selection
+      setTimeout(() => {
+        goToNextItem();
+      }, 350);
     }
   }
 
-  async function handleNextPage() {
-    if (pageIndex < totalPages - 1) {
-      setPageIndex(pageIndex + 1);
-      await updateSessionProgress(sessionId, {
-        currentSectionId: section.id,
-        currentItemIndex: (pageIndex + 1) * itemsPerPage,
-      });
-    } else {
-      // End of section — go to next section or review
-      if (sectionIndex < totalSections - 1) {
-        await updateSessionProgress(sessionId, {
-          currentSectionId: undefined,
-          currentItemIndex: 0,
-        });
-        router.push(`/assess/${token}/section/${sectionIndex + 1}`);
-      } else {
-        router.push(`/assess/${token}/review`);
-      }
-    }
-  }
-
-  const handleTimerExpiry = useCallback(() => {
-    // Auto-advance on timer expiry
-    if (sectionIndex < totalSections - 1) {
-      router.push(`/assess/${token}/section/${sectionIndex + 1}`);
-    } else {
-      router.push(`/assess/${token}/review`);
-    }
-  }, [router, token, sectionIndex, totalSections]);
-
-  // Section instruction screen
-  if (showInstructions) {
-    return (
-      <div className="space-y-6">
-        {showProgress && (
-          <ProgressBar
-            sectionIndex={sectionIndex}
-            totalSections={totalSections}
-            itemIndex={0}
-            totalItems={items.length}
-          />
-        )}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
-          <h2 className="text-xl font-semibold">{section.title}</h2>
-          {section.instructions && (
-            <p className="text-muted-foreground leading-relaxed">
-              {section.instructions}
-            </p>
-          )}
-          {section.timeLimitSeconds && (
-            <p className="text-sm text-muted-foreground">
-              Time limit: {Math.ceil(section.timeLimitSeconds / 60)} minutes
-            </p>
-          )}
-          <p className="text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "question" : "questions"} in
-            this section
-          </p>
-        </div>
-        <Button onClick={() => setShowInstructions(false)}>
-          <ArrowRight className="size-4" />
-          Start Section
-        </Button>
-      </div>
-    );
-  }
+  const canGoBack = localItemIndex > 0 || sectionIndex > 0;
 
   return (
-    <div className="space-y-6">
-      {/* Progress + timer */}
-      <div className="flex items-center justify-between gap-4">
-        {showProgress && (
-          <div className="flex-1">
-            <ProgressBar
-              sectionIndex={sectionIndex}
-              totalSections={totalSections}
-              itemIndex={currentItemIndex}
-              totalItems={items.length}
+    <div className="flex min-h-dvh flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between px-4 sm:px-6"
+        style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
+      >
+        <div className="flex items-center gap-2.5">
+          {brandLogoUrl ? (
+            <img
+              src={brandLogoUrl}
+              alt={brandName ?? "Logo"}
+              className="h-7 w-auto object-contain"
             />
-          </div>
-        )}
-        {section.timeLimitSeconds && (
-          <SectionTimer
-            initialSeconds={section.timeLimitSeconds}
-            onExpiry={handleTimerExpiry}
-          />
-        )}
-      </div>
-
-      {/* Items for current page */}
-      <div className="space-y-8">
-        {pageItems.map((item, idx) => {
-          const globalIdx = pageIndex * itemsPerPage + idx;
-          const existing = responses[item.id];
-          return (
-            <div
-              key={item.id}
-              className="rounded-xl border border-border bg-card p-6"
-            >
-              <ItemDisplay
-                item={item}
-                itemNumber={globalIdx + 1}
-                totalItems={items.length}
-                responseFormatType={section.responseFormatType}
-                selectedValue={existing?.value}
-                responseData={existing?.data}
-                onResponse={(value, data) =>
-                  handleResponse(item.id, value, data)
-                }
-              />
+          ) : (
+            <div className="flex items-center gap-2">
+              <div
+                className="flex size-7 items-center justify-center rounded-lg"
+                style={{ background: "var(--brand-surface, hsl(var(--primary) / 0.1))" }}
+              >
+                <svg
+                  className="size-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
+                >
+                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+              </div>
+              <span
+                className="text-sm font-semibold tracking-tight"
+                style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
+              >
+                {brandName ?? "TalentFit"}
+              </span>
             </div>
-          );
-        })}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex items-center justify-between">
-        <div>
-          {section.allowBackNav && pageIndex > 0 && (
-            <Button variant="outline" onClick={handlePrevPage}>
-              <ArrowLeft className="size-4" />
-              Previous
-            </Button>
           )}
         </div>
-        <Button onClick={handleNextPage}>
-          {pageIndex < totalPages - 1 ? (
-            <>
-              Next
-              <ArrowRight className="size-4" />
-            </>
-          ) : sectionIndex < totalSections - 1 ? (
-            <>
-              Next Section
-              <ArrowRight className="size-4" />
-            </>
-          ) : (
-            <>
-              Review
-              <ArrowRight className="size-4" />
-            </>
-          )}
-        </Button>
-      </div>
+
+        {canGoBack && (
+          <button
+            onClick={goToPreviousItem}
+            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            style={{ color: "var(--brand-text-muted, hsl(var(--muted-foreground)))" }}
+          >
+            <ArrowLeft className="size-3.5" />
+            Back
+          </button>
+        )}
+      </header>
+
+      {/* Progress bar */}
+      <ProgressBar currentIndex={globalIndex} totalItems={totalItems} />
+
+      {/* Main content area */}
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
+        <div className="w-full max-w-[540px]">
+          {/* Assessment name label */}
+          <p
+            className="mb-4 text-xs font-medium uppercase tracking-widest"
+            style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
+          >
+            {assessmentName}
+          </p>
+
+          {/* Item card with slide animation */}
+          <div
+            className={`transition-all duration-200 ease-out ${
+              isAnimating
+                ? slideDirection === "left"
+                  ? "translate-x-[-8px] opacity-0"
+                  : "translate-x-[8px] opacity-0"
+                : "translate-x-0 opacity-100"
+            }`}
+          >
+            <ItemCard
+              key={currentItem?.id}
+              item={currentItem}
+              responseFormatType={responseFormatType}
+              selectedValue={responses[currentItem?.id]?.value}
+              responseData={responses[currentItem?.id]?.data}
+              onResponse={(value, data) =>
+                handleResponse(currentItem.id, value, data)
+              }
+              onContinue={goToNextItem}
+              showContinue={needsContinue}
+            />
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-center gap-2 px-4 py-4">
+        <span
+          className={`inline-block size-1.5 rounded-full transition-colors duration-300 ${
+            saveStatus === "saving"
+              ? "animate-pulse bg-amber-400"
+              : saveStatus === "saved"
+                ? "bg-emerald-400"
+                : "bg-emerald-400/60 animate-[pulse_3s_ease-in-out_infinite]"
+          }`}
+        />
+        <span
+          className="text-xs"
+          style={{ color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))" }}
+        >
+          {saveStatus === "saving"
+            ? "Saving..."
+            : saveStatus === "saved"
+              ? "Saved"
+              : "Responses saved automatically"}
+        </span>
+        {isCustomBrand && (
+          <span
+            className="ml-4 text-xs"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Powered by TalentFit
+          </span>
+        )}
+      </footer>
     </div>
   );
 }

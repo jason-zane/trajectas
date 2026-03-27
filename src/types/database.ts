@@ -1375,3 +1375,17 @@ export interface CampaignAccessLink {
   isActive: boolean
   created_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Brand Configuration
+// ---------------------------------------------------------------------------
+
+// Re-export brand types from their canonical location
+export type {
+  BrandConfig,
+  BrandConfigRow,
+  BrandConfigRecord,
+  BrandOwnerType,
+  NeutralTemperature,
+  BorderRadiusPreset,
+} from '@/lib/brand/types'

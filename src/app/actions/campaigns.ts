@@ -477,10 +477,10 @@ export async function getActiveAssessments() {
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select('id, title, status')
+    .select('id, name, status')
     .eq('status', 'active')
     .is('deleted_at', null)
-    .order('title', { ascending: true })
+    .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
   return data ?? []
