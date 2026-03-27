@@ -6,7 +6,6 @@ import {
   Brain,
   FileQuestion,
   ClipboardList,
-  ListChecks,
   Layers,
   FileText,
   Building2,
@@ -22,6 +21,7 @@ import {
   Shield,
   Briefcase,
   BarChart3,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -77,7 +77,6 @@ const adminNav = [
       { title: "Constructs", href: "/constructs", icon: Dna },
       { title: "Items", href: "/items", icon: FileQuestion },
       { title: "Response Formats", href: "/response-formats", icon: Settings2 },
-      { title: "FC Blocks", href: "/forced-choice-blocks", icon: Layers },
     ],
   },
   {
@@ -88,7 +87,7 @@ const adminNav = [
         href: "/assessments",
         icon: ClipboardList,
       },
-      { title: "Item Selection Rules", href: "/item-rules", icon: ListChecks },
+      { title: "Campaigns", href: "/campaigns", icon: Megaphone },
     ],
   },
   {
@@ -142,6 +141,7 @@ const partnerNav = [
     label: "Assessments",
     items: [
       { title: "Assessments", href: "/assessments", icon: ClipboardList },
+      { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Results", href: "/results", icon: BarChart3 },
     ],
   },
@@ -177,6 +177,7 @@ const clientNav = [
         href: "/results",
         icon: ClipboardList,
       },
+      { title: "Campaigns", href: "/campaigns", icon: Megaphone },
     ],
   },
 ];

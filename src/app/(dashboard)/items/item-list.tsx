@@ -143,7 +143,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
       }
       return true
     })
-  }, [items, searchQuery, statusFilter, formatFilter, constructFilter])
+  }, [items, searchQuery, statusFilter, formatFilter, constructFilter, purposeFilter])
 
   const grouped = useMemo(() => {
     const acc: Record<string, ItemWithMeta[]> = {}
@@ -163,6 +163,13 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
   }, [filteredItems])
 
   const allGroupNames = grouped.map(([name]) => name)
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([])
+
+  // Keep all groups expanded when the group list changes
+  useMemo(() => {
+    setExpandedGroups(allGroupNames)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allGroupNames.join(",")])
 
   function clearFilters() {
     setSearchQuery("")
@@ -304,7 +311,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
               )}
             </div>
           ) : (
-            <Accordion multiple defaultValue={allGroupNames}>
+            <Accordion multiple value={expandedGroups} onValueChange={setExpandedGroups}>
               {grouped.map(([groupName, groupItems]) => {
                 const isValidityGroup = Object.values(purposeConfig).some((p) => p.label === groupName && groupName !== "Construct")
                 const purposeEntry = Object.entries(purposeConfig).find(([, v]) => v.label === groupName)

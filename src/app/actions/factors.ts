@@ -22,7 +22,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), organizations(name), factor_constructs(count), items(count), assessment_competencies(count)')
+    .select('*, dimensions(name), organizations(name), factor_constructs(count), assessment_competencies(count)')
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
@@ -36,7 +36,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
       dimensionName: r.dimensions?.name ?? undefined,
       organizationName: r.organizations?.name ?? undefined,
       constructCount: r.factor_constructs?.[0]?.count ?? 0,
-      itemCount: r.items?.[0]?.count ?? 0,
+      itemCount: 0,
       assessmentCount: r.assessment_competencies?.[0]?.count ?? 0,
     }
   })

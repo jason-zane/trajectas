@@ -32,11 +32,4 @@ export const itemSchema = z.object({
   }
 })
 
-export const forcedChoiceBlockSchema = z.object({
-  name: z.string().min(1, 'Block name is required').max(200),
-  description: z.string().optional(),
-  itemIds: z.array(z.string().uuid()).min(3, 'At least 3 items required').max(4, 'At most 4 items'),
-})
-
 export type ItemInput = z.infer<typeof itemSchema>
-export type ForcedChoiceBlockInput = z.infer<typeof forcedChoiceBlockSchema>

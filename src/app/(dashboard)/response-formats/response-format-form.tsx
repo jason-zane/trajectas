@@ -99,7 +99,15 @@ function LikertConfigPanel({
 }) {
   const points = (config.points as number) || 5
   const anchorType = (config.anchorType as string) || "agreement"
-  const anchors = (config.anchors as string[]) || anchorPresets.agreement[5]
+  // Normalize anchors: DB stores Record<string, string>, form uses string[]
+  const rawAnchors = config.anchors
+  const anchors: string[] = Array.isArray(rawAnchors)
+    ? rawAnchors
+    : typeof rawAnchors === "object" && rawAnchors != null
+      ? Object.entries(rawAnchors as Record<string, string>)
+          .sort(([a], [b]) => Number(a) - Number(b))
+          .map(([, label]) => label)
+      : anchorPresets.agreement[5]
 
   function setPoints(n: number) {
     const preset = anchorType === "custom"
@@ -609,19 +617,28 @@ export function ResponseFormatForm({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {type === "likert" && (
-                    <div className="flex items-center gap-1">
-                      {((config.anchors as string[]) || []).map((anchor, i) => (
-                        <div
-                          key={i}
-                          className="flex-1 rounded-lg border p-2 text-center text-xs text-muted-foreground hover:border-item-accent hover:text-foreground transition-colors"
-                        >
-                          <div className="font-medium tabular-nums mb-0.5">{i + 1}</div>
-                          <div className="line-clamp-1">{anchor}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  {type === "likert" && (() => {
+                    const anchors = config.anchors
+                    // anchors can be string[] or Record<string, string> from DB
+                    const entries: [string, string][] = Array.isArray(anchors)
+                      ? anchors.map((a, i) => [String(i + 1), a as string])
+                      : typeof anchors === "object" && anchors != null
+                        ? Object.entries(anchors as Record<string, string>).sort(([a], [b]) => Number(a) - Number(b))
+                        : []
+                    return (
+                      <div className="flex items-center gap-1">
+                        {entries.map(([val, label]) => (
+                          <div
+                            key={val}
+                            className="flex-1 rounded-lg border p-2 text-center text-xs text-muted-foreground hover:border-item-accent hover:text-foreground transition-colors"
+                          >
+                            <div className="font-medium tabular-nums mb-0.5">{val}</div>
+                            <div className="line-clamp-1">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })()}
                   {type === "binary" && (
                     <div className="flex gap-3">
                       <div className="flex-1 rounded-lg border p-4 text-center hover:border-item-accent transition-colors">

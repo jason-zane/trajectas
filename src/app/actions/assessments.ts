@@ -4,7 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
-import type { Assessment, ItemOrdering } from '@/types/database'
+import type { Assessment, ItemOrdering, FormatMode } from '@/types/database'
+import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
 
 export type AssessmentWithMeta = Assessment & {
   factorCount: number
@@ -49,6 +50,18 @@ export type SectionDraft = {
   timeLimitSeconds: number | null
   allowBackNav: boolean
   itemCount: number
+}
+
+/** Existing FC block loaded from DB for editing. */
+export type ExistingFCBlock = {
+  id: string
+  items: {
+    itemId: string
+    constructId: string
+    stem: string
+    constructName: string
+    position: number
+  }[]
 }
 
 /** Existing section loaded from DB for editing. */
@@ -215,23 +228,49 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), factor_constructs(count), items(count)')
+    .select('*, dimensions(name), factor_constructs(construct_id)')
     .eq('is_active', true)
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
 
-  return (data ?? []).map((row) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const r = row as any
+  // Gather all construct IDs to count items per factor
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = data as any[] ?? []
+  const allConstructIds = new Set<string>()
+  const constructsByFactor = new Map<string, string[]>()
+
+  for (const r of rows) {
+    const cIds = (r.factor_constructs ?? []).map((fc: { construct_id: string }) => fc.construct_id)
+    constructsByFactor.set(r.id, cIds)
+    for (const cId of cIds) allConstructIds.add(cId)
+  }
+
+  // Count active items per construct in one query
+  let itemCountByConstruct: Record<string, number> = {}
+  if (allConstructIds.size > 0) {
+    const { data: items } = await db
+      .from('items')
+      .select('construct_id')
+      .in('construct_id', [...allConstructIds])
+      .eq('status', 'active')
+
+    for (const item of items ?? []) {
+      itemCountByConstruct[item.construct_id] = (itemCountByConstruct[item.construct_id] ?? 0) + 1
+    }
+  }
+
+  return rows.map((r) => {
+    const cIds = constructsByFactor.get(r.id) ?? []
+    const itemCount = cIds.reduce((sum, cId) => sum + (itemCountByConstruct[cId] ?? 0), 0)
     return {
       id: r.id,
       name: r.name,
       description: r.description ?? undefined,
       dimensionId: r.dimension_id ?? undefined,
       dimensionName: r.dimensions?.name ?? undefined,
-      constructCount: r.factor_constructs?.[0]?.count ?? 0,
-      itemCount: r.items?.[0]?.count ?? 0,
+      constructCount: cIds.length,
+      itemCount,
       isActive: r.is_active,
     }
   })
@@ -251,6 +290,8 @@ export async function createAssessment(payload: Record<string, unknown>) {
     item_selection_strategy: parsed.data.itemSelectionStrategy,
     scoring_method: parsed.data.scoringMethod,
     creation_mode: parsed.data.creationMode,
+    format_mode: parsed.data.formatMode,
+    fc_block_size: parsed.data.fcBlockSize ?? null,
   }).select('id').single()
 
   if (error) return { error: { _form: [error.message] } }
@@ -267,12 +308,19 @@ export async function createAssessment(payload: Record<string, unknown>) {
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
-  // Insert sections
+  // Insert sections (traditional mode)
   const sections = (payload.sections ?? []) as SectionDraft[]
-  if (sections.length > 0) {
+  if (sections.length > 0 && parsed.data.formatMode === 'traditional') {
     const factorIds = parsed.data.factors.map((f) => f.factorId)
     const sectionErr = await persistSections(db, assessment.id, sections, factorIds)
     if (sectionErr) return { error: { _form: [sectionErr] } }
+  }
+
+  // Persist FC blocks (forced_choice mode)
+  const fcBlocks = (payload.forcedChoiceBlocks ?? []) as ForcedChoiceBlockDraft[]
+  if (fcBlocks.length > 0 && parsed.data.formatMode === 'forced_choice') {
+    const blockErr = await persistForcedChoiceBlocks(db, assessment.id, fcBlocks)
+    if (blockErr) return { error: { _form: [blockErr] } }
   }
 
   revalidatePath('/assessments')
@@ -297,6 +345,8 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       item_selection_strategy: parsed.data.itemSelectionStrategy,
       scoring_method: parsed.data.scoringMethod,
       creation_mode: parsed.data.creationMode,
+      format_mode: parsed.data.formatMode,
+      fc_block_size: parsed.data.fcBlockSize ?? null,
     })
     .eq('id', id)
 
@@ -316,14 +366,41 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
-  // Replace sections (cascade deletes section_items)
-  await db.from('assessment_sections').delete().eq('assessment_id', id)
+  if (parsed.data.formatMode === 'traditional') {
+    // Replace sections (cascade deletes section_items)
+    await db.from('assessment_sections').delete().eq('assessment_id', id)
 
-  const sections = (payload.sections ?? []) as SectionDraft[]
-  if (sections.length > 0) {
-    const factorIds = parsed.data.factors.map((f) => f.factorId)
-    const sectionErr = await persistSections(db, id, sections, factorIds)
-    if (sectionErr) return { error: { _form: [sectionErr] } }
+    const sections = (payload.sections ?? []) as SectionDraft[]
+    if (sections.length > 0) {
+      const factorIds = parsed.data.factors.map((f) => f.factorId)
+      const sectionErr = await persistSections(db, id, sections, factorIds)
+      if (sectionErr) return { error: { _form: [sectionErr] } }
+    }
+
+    // Clean up any stale FC blocks
+    await db.from('forced_choice_block_items').delete()
+      .in('block_id', (await db.from('forced_choice_blocks').select('id').eq('assessment_id', id)).data?.map((b: { id: string }) => b.id) ?? [])
+    await db.from('forced_choice_blocks').delete().eq('assessment_id', id)
+  } else {
+    // Forced-choice mode: persist blocks, clean up sections
+    await db.from('assessment_sections').delete().eq('assessment_id', id)
+
+    const fcBlocks = (payload.forcedChoiceBlocks ?? []) as ForcedChoiceBlockDraft[]
+    if (fcBlocks.length > 0) {
+      // Delete existing blocks first
+      const { data: existingBlockIds } = await db
+        .from('forced_choice_blocks')
+        .select('id')
+        .eq('assessment_id', id)
+      const oldBlockIds = (existingBlockIds ?? []).map((b: { id: string }) => b.id)
+      if (oldBlockIds.length > 0) {
+        await db.from('forced_choice_block_items').delete().in('block_id', oldBlockIds)
+        await db.from('forced_choice_blocks').delete().eq('assessment_id', id)
+      }
+
+      const blockErr = await persistForcedChoiceBlocks(db, id, fcBlocks)
+      if (blockErr) return { error: { _form: [blockErr] } }
+    }
   }
 
   revalidatePath('/assessments')
@@ -458,4 +535,117 @@ async function persistSections(
   }
 
   return null
+}
+
+/**
+ * Persist forced-choice blocks for an assessment.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function persistForcedChoiceBlocks(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  assessmentId: string,
+  blocks: ForcedChoiceBlockDraft[],
+): Promise<string | null> {
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i]
+    const { data: inserted, error: blockErr } = await db
+      .from('forced_choice_blocks')
+      .insert({
+        assessment_id: assessmentId,
+        name: `Block ${i + 1}`,
+        display_order: i,
+      })
+      .select('id')
+      .single()
+
+    if (blockErr) return blockErr.message
+
+    const blockItems = block.items.map((item) => ({
+      block_id: inserted.id,
+      item_id: item.itemId,
+      position: item.position,
+    }))
+
+    const { error: itemsErr } = await db
+      .from('forced_choice_block_items')
+      .insert(blockItems)
+
+    if (itemsErr) return itemsErr.message
+  }
+
+  return null
+}
+
+/**
+ * Get active construct items for the selected factors,
+ * with construct info for FC block generation.
+ */
+export async function getFCItemsForFactors(factorIds: string[]): Promise<{
+  itemId: string
+  constructId: string
+  stem: string
+  constructName: string
+}[]> {
+  if (factorIds.length === 0) return []
+
+  const db = createAdminClient()
+
+  // Get construct IDs for these factors
+  const { data: links } = await db
+    .from('factor_constructs')
+    .select('construct_id')
+    .in('factor_id', factorIds)
+
+  const constructIds = [...new Set((links ?? []).map((l: { construct_id: string }) => l.construct_id))]
+  if (constructIds.length === 0) return []
+
+  // Get active construct items with their construct names
+  const { data: items } = await db
+    .from('items')
+    .select('id, construct_id, stem, constructs(name)')
+    .in('construct_id', constructIds)
+    .eq('status', 'active')
+    .eq('purpose', 'construct')
+
+  if (!items || items.length === 0) return []
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return items.map((item: any) => ({
+    itemId: item.id,
+    constructId: item.construct_id,
+    stem: item.stem,
+    constructName: item.constructs?.name ?? '',
+  }))
+}
+
+/**
+ * Load existing FC blocks for an assessment (for editing).
+ */
+export async function getExistingBlocks(assessmentId: string): Promise<ExistingFCBlock[]> {
+  const db = createAdminClient()
+
+  const { data: blocks } = await db
+    .from('forced_choice_blocks')
+    .select('id, forced_choice_block_items(item_id, position, items(stem, construct_id, constructs(name)))')
+    .eq('assessment_id', assessmentId)
+    .order('display_order', { ascending: true })
+
+  if (!blocks || blocks.length === 0) return []
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return blocks.map((block: any) => ({
+    id: block.id,
+    items: (block.forced_choice_block_items ?? [])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .sort((a: any, b: any) => a.position - b.position)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((bi: any) => ({
+        itemId: bi.item_id,
+        constructId: bi.items?.construct_id ?? '',
+        stem: bi.items?.stem ?? '',
+        constructName: bi.items?.constructs?.name ?? '',
+        position: bi.position,
+      })),
+  }))
 }

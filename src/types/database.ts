@@ -57,8 +57,23 @@ export type IRTModelType = '1PL' | '2PL' | '3PL'
 /** Lifecycle status of an assessment definition. */
 export type AssessmentStatus = 'draft' | 'active' | 'archived'
 
+/** Lifecycle status of a campaign. */
+export type CampaignStatus = 'draft' | 'active' | 'paused' | 'closed' | 'archived'
+
+/** Progress status of a candidate within a campaign. */
+export type CampaignCandidateStatus =
+  | 'invited'
+  | 'registered'
+  | 'in_progress'
+  | 'completed'
+  | 'withdrawn'
+  | 'expired'
+
 /** How the assessment was created. */
 export type AssessmentCreationMode = 'manual' | 'ai_generated' | 'org_choice'
+
+/** Delivery format for an assessment — traditional (per-item rating) or forced-choice (block comparison). */
+export type FormatMode = 'traditional' | 'forced_choice'
 
 /** Lifecycle status of a 360-style diagnostic session. */
 export type DiagnosticSessionStatus = 'draft' | 'active' | 'completed' | 'archived'
@@ -463,6 +478,10 @@ export interface Assessment {
   scoringMethod: ScoringMethod
   /** How the assessment was created. */
   creationMode: AssessmentCreationMode
+  /** Delivery format — traditional per-item or forced-choice blocks. */
+  formatMode: FormatMode
+  /** Number of items per forced-choice block (3 or 4). Only set when formatMode is forced_choice. */
+  fcBlockSize?: number
   /** Matching run that generated this assessment (if AI-created). */
   matchingRunId?: string
   created_at: string
@@ -1218,6 +1237,8 @@ export interface DIFResult {
 export interface ForcedChoiceBlock {
   /** UUID primary key. */
   id: string
+  /** Parent assessment this block belongs to. */
+  assessmentId: string
   /** Block display name. */
   name: string
   /** Optional description of the block's purpose. */
@@ -1240,5 +1261,117 @@ export interface ForcedChoiceBlockItem {
   itemId: string
   /** Position within the block. */
   position: number
+  created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Campaign management
+// ---------------------------------------------------------------------------
+
+/**
+ * Operational container that holds assessments, manages candidates,
+ * and controls access windows for deploying assessments.
+ */
+export interface Campaign {
+  /** UUID primary key. */
+  id: string
+  /** Campaign display title. */
+  title: string
+  /** URL-safe slug. */
+  slug: string
+  /** Longer description / purpose statement. */
+  description?: string
+  /** Lifecycle status. */
+  status: CampaignStatus
+  /** Owning organisation (optional). */
+  organizationId?: string
+  /** Owning partner (optional). */
+  partnerId?: string
+  /** Profile ID of the user who created the campaign. */
+  createdBy?: string
+  /** When the campaign opens for candidates. */
+  opensAt?: string
+  /** When the campaign closes. */
+  closesAt?: string
+  /** Branding configuration (logo, colors, welcome message). */
+  branding: Record<string, unknown>
+  /** Whether candidates can resume an in-progress session. */
+  allowResume: boolean
+  /** Whether to show progress indicators to candidates. */
+  showProgress: boolean
+  /** Whether to randomize the order assessments are presented. */
+  randomizeAssessmentOrder: boolean
+  created_at: string
+  updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
+}
+
+/**
+ * Junction linking an assessment to a campaign with ordering.
+ */
+export interface CampaignAssessment {
+  /** UUID primary key. */
+  id: string
+  /** Parent campaign. */
+  campaignId: string
+  /** Linked assessment. */
+  assessmentId: string
+  /** Display ordering weight. */
+  displayOrder: number
+  /** Whether this assessment is required to complete the campaign. */
+  isRequired: boolean
+  created_at: string
+}
+
+/**
+ * A person invited to take assessments in a campaign.
+ * Token-based auth — no login required.
+ */
+export interface CampaignCandidate {
+  /** UUID primary key. */
+  id: string
+  /** Parent campaign. */
+  campaignId: string
+  /** Candidate email. */
+  email: string
+  /** Given name. */
+  firstName?: string
+  /** Family name. */
+  lastName?: string
+  /** Unique 64-char hex token used as URL identifier. */
+  accessToken: string
+  /** Progress status within the campaign. */
+  status: CampaignCandidateStatus
+  /** When the invitation was sent. */
+  invitedAt: string
+  /** When the candidate started. */
+  startedAt?: string
+  /** When the candidate completed all assessments. */
+  completedAt?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Shareable enrollment link that allows self-registration into a campaign.
+ */
+export interface CampaignAccessLink {
+  /** UUID primary key. */
+  id: string
+  /** Parent campaign. */
+  campaignId: string
+  /** Unique token for the link URL. */
+  token: string
+  /** Optional descriptive label. */
+  label?: string
+  /** Maximum allowed uses (NULL = unlimited). */
+  maxUses?: number
+  /** Current use count. */
+  useCount: number
+  /** When the link expires. */
+  expiresAt?: string
+  /** Whether the link is currently active. */
+  isActive: boolean
   created_at: string
 }

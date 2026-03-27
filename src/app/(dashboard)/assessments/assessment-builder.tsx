@@ -41,13 +41,15 @@ import {
   restoreAssessment,
   updateAssessmentField,
 } from "@/app/actions/assessments"
-import type { Assessment } from "@/types/database"
+import type { Assessment, FormatMode } from "@/types/database"
 import type {
   BuilderFactor,
   AssessmentFactorLink,
   SectionDraft,
   ExistingSection,
+  ExistingFCBlock,
 } from "@/app/actions/assessments"
+import type { ForcedChoiceBlockDraft } from "@/lib/forced-choice-generator"
 
 const scoringMethodInfo: Record<string, { label: string; description: string }> = {
   ctt: {
@@ -85,6 +87,7 @@ interface AssessmentBuilderProps {
   assessment?: Assessment
   existingFactors?: AssessmentFactorLink[]
   existingSections?: ExistingSection[]
+  existingBlocks?: ExistingFCBlock[]
   allFactors: BuilderFactor[]
 }
 
@@ -92,6 +95,7 @@ export function AssessmentBuilder({
   assessment,
   existingFactors,
   existingSections,
+  existingBlocks,
   allFactors,
 }: AssessmentBuilderProps) {
   const router = useRouter()
@@ -110,6 +114,21 @@ export function AssessmentBuilder({
     assessment?.creationMode ?? "manual"
   )
   const [status, setStatus] = useState(assessment?.status ?? "draft")
+  const [formatMode, setFormatMode] = useState<FormatMode>(
+    assessment?.formatMode ?? "traditional"
+  )
+  const [fcBlockSize, setFcBlockSize] = useState<3 | 4>(
+    (assessment?.fcBlockSize as 3 | 4) ?? 3
+  )
+  const [fcBlocks, setFcBlocks] = useState<ForcedChoiceBlockDraft[]>(
+    existingBlocks?.map((b) => ({
+      items: b.items.map((item) => ({
+        itemId: item.itemId,
+        constructId: item.constructId,
+        position: item.position,
+      })),
+    })) ?? []
+  )
 
   // Factor selection state
   const [selectedFactors, setSelectedFactors] = useState<BuilderFactor[]>(() => {
@@ -150,6 +169,8 @@ export function AssessmentBuilder({
     scoringMethod: assessment?.scoringMethod ?? "ctt",
     itemSelectionStrategy: assessment?.itemSelectionStrategy ?? "fixed",
     creationMode: assessment?.creationMode ?? "manual",
+    formatMode: assessment?.formatMode ?? "traditional",
+    fcBlockSize: assessment?.fcBlockSize ?? 3,
     factorIds: existingFactors?.map((c) => c.factorId).sort().join(",") ?? "",
   })
 
@@ -159,6 +180,8 @@ export function AssessmentBuilder({
       scoringMethod !== initialStructural.current.scoringMethod ||
       itemSelectionStrategy !== initialStructural.current.itemSelectionStrategy ||
       creationMode !== initialStructural.current.creationMode ||
+      formatMode !== initialStructural.current.formatMode ||
+      fcBlockSize !== initialStructural.current.fcBlockSize ||
       selectedFactors.map((f) => f.id).sort().join(",") !== initialStructural.current.factorIds
     : title.trim() !== ""
 
@@ -201,12 +224,15 @@ export function AssessmentBuilder({
       itemSelectionStrategy,
       scoringMethod,
       creationMode,
+      formatMode,
+      fcBlockSize: formatMode === "forced_choice" ? fcBlockSize : undefined,
       factors: selectedFactors.map((f) => ({
         factorId: f.id,
         weight: 1,
         itemCount: 0,
       })),
       sections,
+      forcedChoiceBlocks: formatMode === "forced_choice" ? fcBlocks : undefined,
     }
 
     setSaveState("saving")
@@ -234,6 +260,8 @@ export function AssessmentBuilder({
           scoringMethod,
           itemSelectionStrategy,
           creationMode,
+          formatMode,
+          fcBlockSize,
           factorIds: selectedFactors.map((f) => f.id).sort().join(","),
         }
         if (!isEditing && result.id) {
@@ -511,6 +539,13 @@ export function AssessmentBuilder({
         sections={sections}
         onSectionsChange={setSections}
         existingSections={existingSections}
+        formatMode={formatMode}
+        onFormatModeChange={setFormatMode}
+        fcBlockSize={fcBlockSize}
+        onFcBlockSizeChange={setFcBlockSize}
+        fcBlocks={fcBlocks}
+        onFcBlocksChange={setFcBlocks}
+        existingBlocks={existingBlocks}
       />
 
       {/* Sticky Action Bar */}

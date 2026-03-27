@@ -524,3 +524,29 @@ Import trace:
     at processFullBinaryRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2393:9)
     at processBinaryChunk (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2502:221)
     at progress (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2689:13) @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
+[ 2723486ms] [ERROR] %o
+
+%s Error: column forced_choice_blocks.deleted_at does not exist
+    at getForcedChoiceBlocks (about://React/Server/file:///Users/jasonhunt/projects/talent-fit/.next/dev/server/chunks/ssr/_0oe0tv7._.js?66:642:22)
+    at  ForcedChoiceBlocksPage (about://React/Server/file:///Users/jasonhunt/projects/talent-fit/.next/dev/server/chunks/ssr/%5Broot-of-the-server%5D__0cztxr6._.js?67:76:20)
+    at resolveErrorDev (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:1919:150)
+    at processFullStringRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2434:29)
+    at processFullBinaryRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2393:9)
+    at processBinaryChunk (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2502:221)
+    at progress (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2689:13) The above error occurred in the <ForcedChoiceBlocksPage> component. It was handled by the <ErrorBoundaryHandler> error boundary. @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0fhqo1d._.js:1998
+[ 2723492ms] [ERROR] Error: column forced_choice_blocks.deleted_at does not exist
+    at getForcedChoiceBlocks (about://React/Server/file:///Users/jasonhunt/projects/talent-fit/.next/dev/server/chunks/ssr/_0oe0tv7._.js?66:642:22)
+    at  ForcedChoiceBlocksPage (about://React/Server/file:///Users/jasonhunt/projects/talent-fit/.next/dev/server/chunks/ssr/%5Broot-of-the-server%5D__0cztxr6._.js?67:76:20)
+    at resolveErrorDev (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:1919:150)
+    at processFullStringRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2434:29)
+    at processFullBinaryRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2393:9)
+    at processBinaryChunk (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2502:221)
+    at progress (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2689:13) @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272
+[ 2723493ms] [ERROR] Error: column forced_choice_blocks.deleted_at does not exist
+    at getForcedChoiceBlocks (about://React/Server/file:///Users/jasonhunt/projects/talent-fit/.next/dev/server/chunks/ssr/_0oe0tv7._.js?66:642:22)
+    at  ForcedChoiceBlocksPage (about://React/Server/file:///Users/jasonhunt/projects/talent-fit/.next/dev/server/chunks/ssr/%5Broot-of-the-server%5D__0cztxr6._.js?67:76:20)
+    at resolveErrorDev (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:1919:150)
+    at processFullStringRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2434:29)
+    at processFullBinaryRow (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2393:9)
+    at processBinaryChunk (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2502:221)
+    at progress (http://localhost:3002/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_0p3wegg._.js:2689:13) @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_115brz8._.js:3272

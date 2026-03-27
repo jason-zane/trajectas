@@ -139,13 +139,14 @@ export function ItemForm({
   const structuralDirty = useMemo(() => {
     if (mode !== "edit" || !initialData) return false;
     return (
+      purpose !== initialData.purpose ||
       constructId !== initialData.constructId ||
       responseFormatId !== initialData.responseFormatId ||
       reverseScored !== initialData.reverseScored ||
       weight !== initialData.weight ||
       status !== initialData.status
     );
-  }, [mode, initialData, constructId, responseFormatId, reverseScored, weight, status]);
+  }, [mode, initialData, purpose, constructId, responseFormatId, reverseScored, weight, status]);
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(structuralDirty);
@@ -318,44 +319,6 @@ export function ItemForm({
           {/* ── Details tab ── */}
           <TabsContent value="details" keepMounted>
             <div className="space-y-6">
-              {/* Purpose selector */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Item Purpose</CardTitle>
-                  <CardDescription>
-                    Choose whether this item measures a construct or serves a validity function.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {purposeOptions.map(({ value, label, icon: Icon, description }) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setPurpose(value);
-                          if (value !== "construct") {
-                            setConstructId("");
-                            setReverseScored(false);
-                            setWeight(1.0);
-                          }
-                        }}
-                        className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-all ${
-                          purpose === value
-                            ? "border-primary bg-primary/5 ring-1 ring-primary"
-                            : "border-border hover:border-primary/50"
-                        }`}
-                      >
-                        <Icon className={`size-4 ${purpose === value ? "text-primary" : "text-muted-foreground"}`} />
-                        <span className="text-xs font-medium">{label}</span>
-                        <span className="text-[10px] text-muted-foreground leading-tight">{description}</span>
-                      </button>
-                    ))}
-                  </div>
-                  <input type="hidden" name="purpose" value={purpose} />
-                </CardContent>
-              </Card>
-
               {/* Validity banner for non-construct items */}
               {!isConstructItem && (
                 <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
@@ -425,6 +388,40 @@ export function ItemForm({
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  <div className="space-y-2">
+                    <Label>Item Purpose</Label>
+                    <Select
+                      name="purpose"
+                      value={purpose}
+                      onValueChange={(v) => {
+                        const val = v as ItemPurpose;
+                        setPurpose(val);
+                        if (val !== "construct") {
+                          setConstructId("");
+                          setReverseScored(false);
+                          setWeight(1.0);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full sm:w-64">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {purposeOptions.map(({ value, label, icon: Icon }) => (
+                          <SelectItem key={value} value={value}>
+                            <span className="flex items-center gap-2">
+                              <Icon className="size-3.5 text-muted-foreground" />
+                              {label}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Whether this item scores a construct or serves a validity function.
+                    </p>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Response Format</Label>
                     <Select

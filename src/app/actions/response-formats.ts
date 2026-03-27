@@ -13,7 +13,6 @@ export async function getResponseFormats(): Promise<ResponseFormatWithMeta[]> {
   const { data, error } = await db
     .from('response_formats')
     .select('*, items(count)')
-    .is('deleted_at', null)
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -36,7 +35,6 @@ export async function getResponseFormatById(
     .from('response_formats')
     .select('*')
     .eq('id', id)
-    .is('deleted_at', null)
     .single()
 
   if (error) return null
@@ -146,10 +144,10 @@ export async function deleteResponseFormat(id: string) {
     }
   }
 
-  // Soft-delete
+  // Hard delete (response_formats has no soft-delete)
   const { error } = await db
     .from('response_formats')
-    .update({ deleted_at: new Date().toISOString() })
+    .delete()
     .eq('id', id)
 
   if (error) return { error: error.message }

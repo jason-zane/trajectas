@@ -38,7 +38,8 @@ export function useUnsavedChanges(isDirty: boolean) {
         if (target !== current) {
           pendingHref.current = target
           isBackNav.current = false
-          setShowDialog(true)
+          // Defer to avoid calling setState during useInsertionEffect (Next.js router)
+          queueMicrotask(() => setShowDialog(true))
           return
         }
       }

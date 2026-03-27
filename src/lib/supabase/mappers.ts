@@ -8,8 +8,6 @@ import type {
   ItemOption,
   Organization,
   ResponseFormat,
-  ForcedChoiceBlock,
-  ForcedChoiceBlockItem,
   AssessmentSection,
   AssessmentSectionItem,
   CalibrationRun,
@@ -19,6 +17,10 @@ import type {
   NormTable,
   FactorAnalysisResult,
   DIFResult,
+  Campaign,
+  CampaignAssessment,
+  CampaignCandidate,
+  CampaignAccessLink,
 } from '@/types/database'
 
 // =============================================================================
@@ -246,6 +248,8 @@ export function mapAssessmentRow(row: any): Assessment {
     itemSelectionStrategy: row.item_selection_strategy,
     scoringMethod: row.scoring_method,
     creationMode: row.creation_mode,
+    formatMode: row.format_mode ?? 'traditional',
+    fcBlockSize: row.fc_block_size != null ? Number(row.fc_block_size) : undefined,
     matchingRunId: row.matching_run_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
@@ -262,37 +266,8 @@ export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 
     item_selection_strategy: a.itemSelectionStrategy,
     scoring_method: a.scoringMethod,
     creation_mode: a.creationMode,
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapForcedChoiceBlockRow(row: any): ForcedChoiceBlock {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description ?? undefined,
-    displayOrder: row.display_order,
-    created_at: row.created_at,
-    updated_at: row.updated_at ?? undefined,
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapForcedChoiceBlockItemRow(row: any): ForcedChoiceBlockItem {
-  return {
-    id: row.id,
-    blockId: row.block_id,
-    itemId: row.item_id,
-    position: row.position,
-    created_at: row.created_at,
-  }
-}
-
-export function toForcedChoiceBlockInsert(b: Omit<ForcedChoiceBlock, 'id' | 'created_at' | 'updated_at'>) {
-  return {
-    name: b.name,
-    description: b.description ?? null,
-    display_order: b.displayOrder,
+    format_mode: a.formatMode ?? 'traditional',
+    fc_block_size: a.fcBlockSize ?? null,
   }
 }
 
@@ -501,5 +476,95 @@ export function mapDIFResultRow(row: any): DIFResult {
     flagged: row.flagged,
     notes: row.notes ?? undefined,
     created_at: row.created_at,
+  }
+}
+
+// =============================================================================
+// Campaign Management
+// =============================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCampaignRow(row: any): Campaign {
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    description: row.description ?? undefined,
+    status: row.status,
+    organizationId: row.organization_id ?? undefined,
+    partnerId: row.partner_id ?? undefined,
+    createdBy: row.created_by ?? undefined,
+    opensAt: row.opens_at ?? undefined,
+    closesAt: row.closes_at ?? undefined,
+    branding: row.branding ?? {},
+    allowResume: row.allow_resume,
+    showProgress: row.show_progress,
+    randomizeAssessmentOrder: row.randomize_assessment_order,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCampaignAssessmentRow(row: any): CampaignAssessment {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    assessmentId: row.assessment_id,
+    displayOrder: row.display_order,
+    isRequired: row.is_required,
+    created_at: row.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCampaignCandidateRow(row: any): CampaignCandidate {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    email: row.email,
+    firstName: row.first_name ?? undefined,
+    lastName: row.last_name ?? undefined,
+    accessToken: row.access_token,
+    status: row.status,
+    invitedAt: row.invited_at,
+    startedAt: row.started_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCampaignAccessLinkRow(row: any): CampaignAccessLink {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    token: row.token,
+    label: row.label ?? undefined,
+    maxUses: row.max_uses ?? undefined,
+    useCount: row.use_count,
+    expiresAt: row.expires_at ?? undefined,
+    isActive: row.is_active,
+    created_at: row.created_at,
+  }
+}
+
+export function toCampaignInsert(c: Omit<Campaign, 'id' | 'created_at' | 'updated_at'>) {
+  return {
+    title: c.title,
+    slug: c.slug,
+    description: c.description ?? null,
+    status: c.status,
+    organization_id: c.organizationId ?? null,
+    partner_id: c.partnerId ?? null,
+    created_by: c.createdBy ?? null,
+    opens_at: c.opensAt ?? null,
+    closes_at: c.closesAt ?? null,
+    branding: c.branding ?? {},
+    allow_resume: c.allowResume,
+    show_progress: c.showProgress,
+    randomize_assessment_order: c.randomizeAssessmentOrder,
   }
 }

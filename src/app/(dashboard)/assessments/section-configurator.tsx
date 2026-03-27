@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   Layers,
   ChevronDown,
@@ -9,6 +9,10 @@ import {
   FileQuestion,
   Settings2,
   Sparkles,
+  ListChecks,
+  Shuffle,
+  RefreshCw,
+  LayoutGrid,
 } from "lucide-react"
 import {
   Card,
@@ -18,6 +22,7 @@ import {
   CardDescription,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -31,9 +36,12 @@ import {
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { ScrollReveal } from "@/components/scroll-reveal"
-import { getFormatBreakdown } from "@/app/actions/assessments"
-import type { SectionDraft, FormatGroup } from "@/app/actions/assessments"
-import type { ItemOrdering } from "@/types/database"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { getFormatBreakdown, getFCItemsForFactors } from "@/app/actions/assessments"
+import { generateForcedChoiceBlocks } from "@/lib/forced-choice-generator"
+import type { ForcedChoiceBlockDraft } from "@/lib/forced-choice-generator"
+import type { SectionDraft, FormatGroup, ExistingFCBlock } from "@/app/actions/assessments"
+import type { ItemOrdering, FormatMode } from "@/types/database"
 
 const FORMAT_ICONS: Record<string, string> = {
   likert: "📊",
@@ -95,6 +103,13 @@ interface SectionConfiguratorProps {
   sections: SectionDraft[]
   onSectionsChange: (sections: SectionDraft[]) => void
   existingSections?: SectionDraft[]
+  formatMode: FormatMode
+  onFormatModeChange: (mode: FormatMode) => void
+  fcBlockSize: 3 | 4
+  onFcBlockSizeChange: (size: 3 | 4) => void
+  fcBlocks: ForcedChoiceBlockDraft[]
+  onFcBlocksChange: (blocks: ForcedChoiceBlockDraft[]) => void
+  existingBlocks?: ExistingFCBlock[]
 }
 
 export function SectionConfigurator({
@@ -102,6 +117,13 @@ export function SectionConfigurator({
   sections,
   onSectionsChange,
   existingSections,
+  formatMode,
+  onFormatModeChange,
+  fcBlockSize,
+  onFcBlockSizeChange,
+  fcBlocks,
+  onFcBlocksChange,
+  existingBlocks,
 }: SectionConfiguratorProps) {
   const [loading, setLoading] = useState(false)
   const [formatGroups, setFormatGroups] = useState<FormatGroup[]>([])
@@ -150,6 +172,124 @@ export function SectionConfigurator({
   )
 
   if (factorIds.length === 0) return null
+
+  return (
+    <div className="space-y-6">
+      {/* Format Mode Selector */}
+      <FormatModeSelector
+        formatMode={formatMode}
+        onFormatModeChange={onFormatModeChange}
+      />
+
+      {formatMode === "traditional" ? (
+        <TraditionalConfigurator
+          loading={loading}
+          formatGroups={formatGroups}
+          sections={sections}
+          updateSection={updateSection}
+        />
+      ) : (
+        <FCConfigurator
+          factorIds={factorIds}
+          fcBlockSize={fcBlockSize}
+          onFcBlockSizeChange={onFcBlockSizeChange}
+          fcBlocks={fcBlocks}
+          onFcBlocksChange={onFcBlocksChange}
+          existingBlocks={existingBlocks}
+        />
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Format Mode Selector
+// ---------------------------------------------------------------------------
+
+function FormatModeSelector({
+  formatMode,
+  onFormatModeChange,
+}: {
+  formatMode: FormatMode
+  onFormatModeChange: (mode: FormatMode) => void
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+            <LayoutGrid className="size-4.5 text-primary" />
+          </div>
+          <div>
+            <CardTitle>Delivery Format</CardTitle>
+            <CardDescription>
+              How candidates interact with assessment items.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => onFormatModeChange("traditional")}
+            className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+              formatMode === "traditional"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border hover:border-primary/50"
+            }`}
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <ListChecks className={`size-5 ${formatMode === "traditional" ? "text-primary" : "text-muted-foreground"}`} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Traditional</p>
+              <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                Candidates rate each statement individually on the chosen scale. Best for diagnostic depth and developmental feedback.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onFormatModeChange("forced_choice")}
+            className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all ${
+              formatMode === "forced_choice"
+                ? "border-primary bg-primary/5 ring-1 ring-primary"
+                : "border-border hover:border-primary/50"
+            }`}
+          >
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Shuffle className={`size-5 ${formatMode === "forced_choice" ? "text-primary" : "text-muted-foreground"}`} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold">Forced Choice</p>
+              <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+                Candidates compare statements from different constructs in blocks. Faking-resistant, ideal for selection and high-stakes decisions.
+              </p>
+            </div>
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Traditional Configurator (existing section-based UI)
+// ---------------------------------------------------------------------------
+
+function TraditionalConfigurator({
+  loading,
+  formatGroups,
+  sections,
+  updateSection,
+}: {
+  loading: boolean
+  formatGroups: FormatGroup[]
+  sections: SectionDraft[]
+  updateSection: (index: number, updates: Partial<SectionDraft>) => void
+}) {
   if (loading) {
     return (
       <Card>
@@ -162,7 +302,7 @@ export function SectionConfigurator({
       </Card>
     )
   }
-  if (formatGroups.length === 0) return null
+  if (formatGroups.length === 0 || sections.length === 0) return null
 
   const totalItems = sections.reduce((sum, s) => sum + s.itemCount, 0)
   const isMultiFormat = sections.length > 1
@@ -225,6 +365,274 @@ export function SectionConfigurator({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// FC Configurator
+// ---------------------------------------------------------------------------
+
+function FCConfigurator({
+  factorIds,
+  fcBlockSize,
+  onFcBlockSizeChange,
+  fcBlocks,
+  onFcBlocksChange,
+  existingBlocks,
+}: {
+  factorIds: string[]
+  fcBlockSize: 3 | 4
+  onFcBlockSizeChange: (size: 3 | 4) => void
+  fcBlocks: ForcedChoiceBlockDraft[]
+  onFcBlocksChange: (blocks: ForcedChoiceBlockDraft[]) => void
+  existingBlocks?: ExistingFCBlock[]
+}) {
+  const [loading, setLoading] = useState(false)
+  const [fcItems, setFcItems] = useState<{ itemId: string; constructId: string; stem: string; constructName: string }[]>([])
+  const [hasManualEdits, setHasManualEdits] = useState(false)
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false)
+  const [initialised, setInitialised] = useState(false)
+
+  // Fetch items for FC generation
+  useEffect(() => {
+    if (factorIds.length === 0) {
+      setFcItems([])
+      onFcBlocksChange([])
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+
+    getFCItemsForFactors(factorIds).then((items) => {
+      if (cancelled) return
+      setFcItems(items)
+      setLoading(false)
+
+      // Auto-generate blocks if no existing blocks
+      if (!initialised) {
+        if (existingBlocks && existingBlocks.length > 0) {
+          // Load from DB
+          onFcBlocksChange(
+            existingBlocks.map((b) => ({
+              items: b.items.map((item) => ({
+                itemId: item.itemId,
+                constructId: item.constructId,
+                position: item.position,
+              })),
+            }))
+          )
+        } else if (items.length > 0) {
+          const { blocks } = generateForcedChoiceBlocks(
+            items.map((i) => ({ itemId: i.itemId, constructId: i.constructId })),
+            fcBlockSize,
+          )
+          onFcBlocksChange(blocks)
+        }
+        setInitialised(true)
+      }
+    })
+
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [factorIds.join(",")])
+
+  // Regenerate when block size changes (only after initial load)
+  useEffect(() => {
+    if (!initialised || fcItems.length === 0) return
+    regenerateBlocks()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fcBlockSize])
+
+  function regenerateBlocks() {
+    if (fcItems.length === 0) return
+    const { blocks } = generateForcedChoiceBlocks(
+      fcItems.map((i) => ({ itemId: i.itemId, constructId: i.constructId })),
+      fcBlockSize,
+    )
+    onFcBlocksChange(blocks)
+    setHasManualEdits(false)
+  }
+
+  function handleRegenerate() {
+    if (hasManualEdits) {
+      setShowRegenConfirm(true)
+    } else {
+      regenerateBlocks()
+    }
+  }
+
+  // Build lookup maps for display
+  const itemLookup = useMemo(() => {
+    const map = new Map<string, { stem: string; constructName: string; constructId: string }>()
+    for (const item of fcItems) {
+      map.set(item.itemId, { stem: item.stem, constructName: item.constructName, constructId: item.constructId })
+    }
+    return map
+  }, [fcItems])
+
+  // Unique constructs across blocks
+  const constructNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const item of fcItems) names.add(item.constructName)
+    return names.size
+  }, [fcItems])
+
+  const totalBlockItems = fcBlocks.reduce((sum, b) => sum + b.items.length, 0)
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Sparkles className="size-4 animate-pulse" />
+            Loading items for block generation...
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (fcItems.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-8">
+          <div className="flex flex-col items-center text-center gap-2">
+            <Shuffle className="size-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              No active construct items found for the selected factors. Add items to your constructs first.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10">
+              <Shuffle className="size-4.5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <CardTitle>Forced-Choice Blocks</CardTitle>
+              <CardDescription>
+                Items are auto-generated into balanced blocks that maximise construct diversity.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Controls */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="space-y-1">
+              <Label className="text-xs">Block Size</Label>
+              <div className="flex rounded-lg bg-muted p-0.5">
+                {([3, 4] as const).map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => onFcBlockSizeChange(size)}
+                    className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      fcBlockSize === size
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {size} items
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRegenerate}
+              className="mt-auto"
+            >
+              <RefreshCw className="size-3.5" />
+              Regenerate All
+            </Button>
+
+            <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+              <span>{fcBlocks.length} blocks</span>
+              <span className="text-border">|</span>
+              <span>{totalBlockItems} items</span>
+              <span className="text-border">|</span>
+              <span>{constructNames} constructs</span>
+            </div>
+          </div>
+
+          {/* Block Grid */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {fcBlocks.map((block, blockIndex) => (
+              <ScrollReveal key={blockIndex} delay={blockIndex * 40}>
+                <div className="rounded-xl border border-border/60 bg-card p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Block {blockIndex + 1}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px] h-4 px-1.5 tabular-nums">
+                      {block.items.length} items
+                    </Badge>
+                  </div>
+                  <div className="space-y-1.5">
+                    {block.items.map((item, itemIndex) => {
+                      const info = itemLookup.get(item.itemId)
+                      return (
+                        <div
+                          key={item.itemId}
+                          className="flex items-start gap-2 rounded-lg bg-muted/50 px-2.5 py-2"
+                        >
+                          <span className="text-[10px] tabular-nums text-muted-foreground mt-0.5 shrink-0 w-3">
+                            {itemIndex + 1}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs line-clamp-2 leading-relaxed">
+                              {info?.stem ?? "Unknown item"}
+                            </p>
+                            {info?.constructName && (
+                              <Badge variant="outline" className="text-[9px] h-3.5 px-1 mt-1">
+                                {info.constructName}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+
+          {/* Info note */}
+          <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
+            <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Blocks are auto-generated to maximise construct diversity and balance. Change the block size or click Regenerate All to reshuffle.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <ConfirmDialog
+        open={showRegenConfirm}
+        onOpenChange={setShowRegenConfirm}
+        title="Regenerate all blocks?"
+        description="This will discard any manual adjustments and create new blocks from scratch."
+        confirmLabel="Regenerate"
+        variant="destructive"
+        onConfirm={() => {
+          regenerateBlocks()
+          setShowRegenConfirm(false)
+        }}
+      />
+    </>
   )
 }
 
