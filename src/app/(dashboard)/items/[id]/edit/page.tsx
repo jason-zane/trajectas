@@ -3,6 +3,8 @@ import {
   getItemById,
   getConstructsForSelect,
   getResponseFormats,
+  getItemParameters,
+  getItemOptions,
 } from "@/app/actions/items";
 import { ItemForm } from "../../item-form";
 
@@ -15,10 +17,12 @@ export default async function EditItemPage({
 }) {
   const { id } = await params;
   const { returnTo } = await searchParams;
-  const [item, constructs, responseFormats] = await Promise.all([
+  const [item, constructs, responseFormats, irtParameters, options] = await Promise.all([
     getItemById(id),
     getConstructsForSelect(),
     getResponseFormats(),
+    getItemParameters(id),
+    getItemOptions(id),
   ]);
 
   if (!item) notFound();
@@ -30,13 +34,18 @@ export default async function EditItemPage({
       mode="edit"
       itemId={id}
       returnTo={returnTo}
+      irtParameters={irtParameters}
+      initialOptions={options}
       initialData={{
+        purpose: item.purpose,
         constructId: item.constructId,
         responseFormatId: item.responseFormatId,
         stem: item.stem,
         reverseScored: item.reverseScored,
+        weight: item.weight,
         status: item.status,
         displayOrder: item.displayOrder,
+        keyedAnswer: item.keyedAnswer,
       }}
     />
   );

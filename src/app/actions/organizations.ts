@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapOrganizationRow, toOrganizationInsert } from '@/lib/supabase/mappers'
 import { organizationSchema } from '@/lib/validations/organizations'
@@ -17,6 +16,7 @@ export async function getOrganizations(): Promise<OrganizationWithCounts[]> {
   const { data, error } = await db
     .from('organizations')
     .select('*, assessments(count), diagnostic_sessions(count)')
+    .is('deleted_at', null)
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -38,6 +38,7 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
     .from('organizations')
     .select('*')
     .eq('slug', slug)
+    .is('deleted_at', null)
     .single()
 
   if (error) return null
@@ -67,12 +68,17 @@ export async function createOrganization(formData: FormData) {
     isActive: parsed.data.isActive,
   })
 
-  const { error } = await db.from('organizations').insert(insert)
+  const { data: created, error } = await db
+    .from('organizations')
+    .insert(insert)
+    .select('id')
+    .single()
+
   if (error) return { error: { _form: [error.message] } }
 
   revalidatePath('/organizations')
   revalidatePath('/')
-  redirect('/organizations')
+  return { success: true as const, id: created.id, slug: parsed.data.slug }
 }
 
 export async function updateOrganization(id: string, formData: FormData) {
@@ -105,15 +111,31 @@ export async function updateOrganization(id: string, formData: FormData) {
 
   revalidatePath('/organizations')
   revalidatePath('/')
-  redirect('/organizations')
+  return { success: true as const, id, slug: parsed.data.slug }
 }
 
 export async function deleteOrganization(id: string) {
   const db = createAdminClient()
-  const { error } = await db.from('organizations').delete().eq('id', id)
+  const { error } = await db
+    .from('organizations')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
   if (error) return { error: error.message }
 
   revalidatePath('/organizations')
   revalidatePath('/')
-  redirect('/organizations')
+}
+
+export async function restoreOrganization(id: string) {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('organizations')
+    .update({ deleted_at: null })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/organizations')
+  revalidatePath('/')
 }

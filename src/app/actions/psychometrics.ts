@@ -3,6 +3,93 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // ---------------------------------------------------------------------------
+// Inline indicators (for Library pages)
+// ---------------------------------------------------------------------------
+
+/** Lightweight item health indicator for the items list page. */
+export type ItemHealthIndicator = {
+  itemId: string
+  status: 'healthy' | 'review' | 'action'
+  discrimination: number | null
+}
+
+/** Lightweight construct reliability indicator for the constructs list page. */
+export type ConstructAlphaIndicator = {
+  constructId: string
+  alpha: number | null
+}
+
+/**
+ * Fetch item health indicators for all items in the latest completed calibration.
+ * Returns a map-friendly array for merging into item list data.
+ */
+export async function getItemHealthIndicators(): Promise<ItemHealthIndicator[]> {
+  const db = createAdminClient()
+
+  const { data: latestRun } = await db
+    .from('calibration_runs')
+    .select('id')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!latestRun) return []
+
+  const { data: stats } = await db
+    .from('item_statistics')
+    .select('item_id, difficulty, discrimination, flagged')
+    .eq('calibration_run_id', latestRun.id)
+
+  if (!stats) return []
+
+  return stats.map((row) => {
+    const d = row.difficulty != null ? Number(row.difficulty) : null
+    const r = row.discrimination != null ? Number(row.discrimination) : null
+    let status: 'healthy' | 'review' | 'action' = 'healthy'
+
+    if (row.flagged) {
+      status = 'action'
+    } else if (r !== null && r < 0.30) {
+      status = r < 0.20 ? 'action' : 'review'
+    } else if (d !== null && (d < 0.25 || d > 0.75)) {
+      status = 'review'
+    }
+
+    return { itemId: row.item_id, status, discrimination: r }
+  })
+}
+
+/**
+ * Fetch construct alpha indicators for the latest completed calibration.
+ */
+export async function getConstructAlphaIndicators(): Promise<ConstructAlphaIndicator[]> {
+  const db = createAdminClient()
+
+  const { data: latestRun } = await db
+    .from('calibration_runs')
+    .select('id')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!latestRun) return []
+
+  const { data: rows } = await db
+    .from('construct_reliability')
+    .select('construct_id, cronbach_alpha')
+    .eq('calibration_run_id', latestRun.id)
+
+  if (!rows) return []
+
+  return rows.map((row) => ({
+    constructId: row.construct_id,
+    alpha: row.cronbach_alpha != null ? Number(row.cronbach_alpha) : null,
+  }))
+}
+
+// ---------------------------------------------------------------------------
 // Overview statistics
 // ---------------------------------------------------------------------------
 

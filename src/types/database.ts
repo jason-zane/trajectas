@@ -146,6 +146,8 @@ export interface Organization {
   isActive: boolean
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
@@ -206,6 +208,8 @@ export interface Dimension {
   indicatorsHigh?: string
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
@@ -241,6 +245,8 @@ export interface Factor {
   indicatorsHigh?: string
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
@@ -270,6 +276,8 @@ export interface Construct {
   indicatorsHigh?: string
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
@@ -311,28 +319,40 @@ export interface ResponseFormat {
   updated_at?: string
 }
 
+/** The purpose of an assessment item — whether it scores a construct or serves a validity function. */
+export type ItemPurpose = 'construct' | 'impression_management' | 'infrequency' | 'attention_check'
+
 /**
  * A single assessment item (question/prompt) linked to a construct.
  */
 export interface Item {
   /** UUID primary key. */
   id: string
-  /** Optional factor (denormalized convenience column). */
-  factorId?: string
   /** The construct this item measures — canonical link. */
-  constructId: string
+  constructId?: string
   /** Response format governing how the item is presented. */
   responseFormatId: string
   /** The question / stimulus text presented to the candidate. */
   stem: string
   /** Whether scoring is reversed for this item. */
   reverseScored: boolean
+  /**
+   * Relative weight of this item's contribution to its construct score.
+   * Default 1.0 — all items contribute equally.
+   */
+  weight: number
   /** Lifecycle status. */
   status: ItemStatus
   /** Display ordering weight within its assessment section. */
   displayOrder: number
+  /** Purpose of this item — construct scoring or validity detection. */
+  purpose: ItemPurpose
+  /** Expected response value for attention check items. */
+  keyedAnswer?: number
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
@@ -447,19 +467,21 @@ export interface Assessment {
   matchingRunId?: string
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
- * Junction between an assessment and the competencies it measures,
- * including per-competency configuration.
+ * Junction between an assessment and the factors it measures,
+ * including per-factor configuration.
  */
-export interface AssessmentCompetency {
+export interface AssessmentFactor {
   /** UUID primary key. */
   id: string
   /** Parent assessment. */
   assessmentId: string
-  /** Linked competency. */
-  competencyId: string
+  /** Linked factor. */
+  factorId: string
   /**
    * Relative weight of this competency within the assessment
    * (weights are normalised at scoring time).
@@ -637,8 +659,8 @@ export interface DiagnosticDimensionWeight {
 }
 
 /**
- * Bridge linking a diagnostic dimension to taxonomy competencies,
- * seeding AI matching context. Admin controls which competencies
+ * Bridge linking a diagnostic dimension to taxonomy factors,
+ * seeding AI matching context. Admin controls which factors
  * are relevant to each diagnostic dimension.
  */
 export interface DiagnosticCompetencyHint {
@@ -646,8 +668,8 @@ export interface DiagnosticCompetencyHint {
   id: string
   /** The diagnostic dimension. */
   diagnosticDimensionId: string
-  /** The taxonomy competency. */
-  competencyId: string
+  /** The taxonomy factor. */
+  factorId: string
   /** Relevance weight (normalised at matching time). */
   relevanceWeight: number
   created_at: string
@@ -772,7 +794,7 @@ export interface MatchingRun {
 }
 
 /**
- * A single ranked competency produced by a matching run,
+ * A single ranked factor produced by a matching run,
  * including the AI's reasoning for the ranking.
  */
 export interface MatchingResult {
@@ -780,8 +802,8 @@ export interface MatchingResult {
   id: string
   /** Parent matching run. */
   matchingRunId: string
-  /** The competency that was ranked. */
-  competencyId: string
+  /** The factor that was ranked. */
+  factorId: string
   /** Ordinal rank (1 = most relevant). */
   rank: number
   /** Normalised relevance score (0–1). */
@@ -844,7 +866,7 @@ export interface CandidateResponse {
 }
 
 /**
- * A computed score for one competency within a candidate session,
+ * A computed score for one factor within a candidate session,
  * persisted after the scoring engine runs.
  */
 export interface CandidateScore {
@@ -852,8 +874,8 @@ export interface CandidateScore {
   id: string
   /** Parent candidate session. */
   sessionId: string
-  /** The competency that was scored. */
-  competencyId: string
+  /** The factor that was scored. */
+  factorId: string
   /** Unscaled raw score. */
   rawScore: number
   /** Score transformed to the reporting scale (e.g. 0–100). */

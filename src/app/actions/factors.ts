@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
@@ -24,6 +23,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
   const { data, error } = await db
     .from('factors')
     .select('*, dimensions(name), organizations(name), factor_constructs(count), items(count), assessment_competencies(count)')
+    .is('deleted_at', null)
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -48,6 +48,7 @@ export async function getFactorBySlug(slug: string) {
     .from('factors')
     .select('*, dimensions(name), organizations(name), factor_constructs(*, constructs(id, name, slug)), assessment_competencies(assessment_id, assessments(id, name, status))')
     .eq('slug', slug)
+    .is('deleted_at', null)
     .single()
 
   if (error) return null
@@ -145,11 +146,12 @@ export async function createFactor(formData: FormData) {
   }
 
   const db = createAdminClient()
+  const newId = crypto.randomUUID()
 
-  // Insert factor
-  const { data: factor, error: factorErr } = await db
-    .from('factors')
-    .insert({
+  // Atomic upsert via RPC
+  const { data: factorId, error: rpcErr } = await db.rpc('upsert_factor_with_constructs', {
+    p_factor_id: newId,
+    p_factor: {
       name: parsed.data.name,
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
@@ -161,26 +163,19 @@ export async function createFactor(formData: FormData) {
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,
-    })
-    .select('id')
-    .single()
-
-  if (factorErr) return { error: { _form: [factorErr.message] } }
-
-  // Insert construct links
-  if (parsed.data.constructs.length > 0) {
-    const links = parsed.data.constructs.map((c, i) => ({
-      factor_id: factor.id,
+    },
+    p_construct_links: parsed.data.constructs.map((c, i) => ({
       construct_id: c.constructId,
       weight: c.weight,
       display_order: i + 1,
-    }))
-    await db.from('factor_constructs').insert(links)
-  }
+    })),
+  })
+
+  if (rpcErr) return { error: { _form: [rpcErr.message] } }
 
   revalidatePath('/factors')
   revalidatePath('/')
-  redirect('/factors')
+  return { success: true, id: factorId ?? newId, slug: parsed.data.slug }
 }
 
 export async function updateFactor(id: string, formData: FormData) {
@@ -214,9 +209,10 @@ export async function updateFactor(id: string, formData: FormData) {
 
   const db = createAdminClient()
 
-  const { error: updateErr } = await db
-    .from('factors')
-    .update({
+  // Atomic upsert via RPC
+  const { error: rpcErr } = await db.rpc('upsert_factor_with_constructs', {
+    p_factor_id: id,
+    p_factor: {
       name: parsed.data.name,
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
@@ -228,37 +224,88 @@ export async function updateFactor(id: string, formData: FormData) {
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,
-    })
-    .eq('id', id)
-
-  if (updateErr) return { error: { _form: [updateErr.message] } }
-
-  // Replace construct links: delete old, insert new
-  await db.from('factor_constructs').delete().eq('factor_id', id)
-
-  if (parsed.data.constructs.length > 0) {
-    const links = parsed.data.constructs.map((c, i) => ({
-      factor_id: id,
+    },
+    p_construct_links: parsed.data.constructs.map((c, i) => ({
       construct_id: c.constructId,
       weight: c.weight,
       display_order: i + 1,
-    }))
-    await db.from('factor_constructs').insert(links)
-  }
+    })),
+  })
+
+  if (rpcErr) return { error: { _form: [rpcErr.message] } }
 
   revalidatePath('/factors')
   revalidatePath('/')
-  redirect('/factors')
+  return { success: true, id, slug: parsed.data.slug }
 }
 
 export async function deleteFactor(id: string) {
   const db = createAdminClient()
-  // Delete construct links first (cascade should handle it, but be explicit)
-  await db.from('factor_constructs').delete().eq('factor_id', id)
-  const { error } = await db.from('factors').delete().eq('id', id)
+  const { error } = await db
+    .from('factors')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
   if (error) return { error: error.message }
 
   revalidatePath('/factors')
   revalidatePath('/')
-  redirect('/factors')
+  return { success: true }
+}
+
+export async function restoreFactor(id: string) {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('factors')
+    .update({ deleted_at: null })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/factors')
+  revalidatePath('/')
+  return { success: true }
+}
+
+export async function toggleFactorActive(id: string, isActive: boolean) {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('factors')
+    .update({ is_active: isActive })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/factors')
+  revalidatePath('/')
+  return { success: true }
+}
+
+const ALLOWED_FACTOR_FIELDS = ['description', 'definition', 'indicators_low', 'indicators_mid', 'indicators_high'] as const
+type AllowedFactorField = typeof ALLOWED_FACTOR_FIELDS[number]
+
+const camelToSnakeMap: Record<string, AllowedFactorField> = {
+  description: 'description',
+  definition: 'definition',
+  indicatorsLow: 'indicators_low',
+  indicatorsMid: 'indicators_mid',
+  indicatorsHigh: 'indicators_high',
+}
+
+export async function updateFactorField(id: string, field: string, value: string) {
+  const dbField = camelToSnakeMap[field] ?? field
+  if (!ALLOWED_FACTOR_FIELDS.includes(dbField as AllowedFactorField)) {
+    return { error: `Field "${field}" is not allowed` }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('factors')
+    .update({ [dbField]: value || null })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/factors')
+  return { success: true }
 }

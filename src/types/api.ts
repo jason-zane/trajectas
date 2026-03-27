@@ -393,15 +393,15 @@ export interface ItemParameterResponse {
 // ---------------------------------------------------------------------------
 
 /**
- * Competency-level configuration supplied when creating or updating
+ * Factor-level configuration supplied when creating or updating
  * an assessment through the assessment builder.
  */
-export interface AssessmentCompetencyInput {
-  /** Competency UUID. */
-  competencyId: string
-  /** Relative weight of this competency within the assessment. */
+export interface AssessmentFactorInput {
+  /** Factor UUID. */
+  factorId: string
+  /** Relative weight of this factor within the assessment. */
   weight: number
-  /** Target number of items to administer for this competency. */
+  /** Target number of items to administer for this factor. */
   itemCount: number
 }
 
@@ -413,8 +413,8 @@ export interface CreateAssessmentRequest {
   itemSelectionStrategy: ItemSelectionStrategy
   scoringMethod: ScoringMethod
   timeLimitMinutes?: number
-  /** Competencies to include with per-competency weights and item counts. */
-  competencies: AssessmentCompetencyInput[]
+  /** Factors to include with per-factor weights and item counts. */
+  factors: AssessmentFactorInput[]
 }
 
 /** Request body for updating an existing assessment. */
@@ -425,21 +425,21 @@ export interface UpdateAssessmentRequest {
   itemSelectionStrategy?: ItemSelectionStrategy
   scoringMethod?: ScoringMethod
   timeLimitMinutes?: number | null
-  /** Replace the full competency list; omit to leave unchanged. */
-  competencies?: AssessmentCompetencyInput[]
+  /** Replace the full factor list; omit to leave unchanged. */
+  factors?: AssessmentFactorInput[]
 }
 
-/** Competency detail embedded in an assessment response. */
-export interface AssessmentCompetencyDetail {
+/** Factor detail embedded in an assessment response. */
+export interface AssessmentFactorDetail {
   id: string
   assessmentId: string
-  competencyId: string
-  competencyName: string
+  factorId: string
+  factorName: string
   weight: number
   itemCount: number
 }
 
-/** Single assessment returned from the API with nested competencies. */
+/** Single assessment returned from the API with nested factors. */
 export interface AssessmentResponse {
   id: string
   organizationId: string
@@ -449,7 +449,7 @@ export interface AssessmentResponse {
   itemSelectionStrategy: ItemSelectionStrategy
   scoringMethod: ScoringMethod
   timeLimitMinutes?: number
-  competencies: AssessmentCompetencyDetail[]
+  factors: AssessmentFactorDetail[]
   created_at: string
   updated_at?: string
 }
@@ -554,10 +554,10 @@ export interface RunMatchingRequest {
   systemPromptId?: string
 }
 
-/** A single ranked competency within a matching result response. */
-export interface MatchingResultCompetency {
-  competencyId: string
-  competencyName: string
+/** A single ranked factor within a matching result response. */
+export interface MatchingResultFactor {
+  factorId: string
+  factorName: string
   rank: number
   relevanceScore: number
   reasoning: string
@@ -574,7 +574,7 @@ export interface MatchingRecommendedCount {
 export interface MatchingResultResponse {
   matchingRunId: string
   status: MatchingRunStatus
-  rankings: MatchingResultCompetency[]
+  rankings: MatchingResultFactor[]
   summary: string
   recommendedCount: MatchingRecommendedCount
   modelUsed: string
@@ -629,10 +629,10 @@ export interface SubmitCandidateResponseResponse {
   estimatedTotalItems: number
 }
 
-/** Competency-level score included in a candidate session result. */
-export interface CandidateCompetencyScoreResponse {
-  competencyId: string
-  competencyName: string
+/** Factor-level score included in a candidate session result. */
+export interface CandidateFactorScoreResponse {
+  factorId: string
+  factorName: string
   rawScore: number
   scaledScore: number
   percentile?: number
@@ -652,7 +652,7 @@ export interface CandidateSessionResultResponse {
   status: CandidateSessionStatus
   startedAt?: string
   completedAt?: string
-  scores: CandidateCompetencyScoreResponse[]
+  scores: CandidateFactorScoreResponse[]
   created_at: string
 }
 

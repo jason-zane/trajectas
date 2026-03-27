@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +17,13 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { updateOrganization, deleteOrganization } from "@/app/actions/organizations";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
+import {
+  updateOrganization,
+  deleteOrganization,
+  restoreOrganization,
+} from "@/app/actions/organizations";
 import type { Organization } from "@/types/database";
 
 function slugify(text: string): string {
@@ -27,17 +35,42 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+type SaveState = "idle" | "saving" | "saved";
+
 export function OrganizationEditForm({ organization }: { organization: Organization }) {
+  const router = useRouter();
+
   const [name, setName] = useState(organization.name);
   const [slug, setSlug] = useState(organization.slug);
   const [slugTouched, setSlugTouched] = useState(true);
   const [industry, setIndustry] = useState(organization.industry ?? "");
   const [sizeRange, setSizeRange] = useState(organization.sizeRange ?? "");
   const [isActive, setIsActive] = useState(organization.isActive);
-  const [pending, setPending] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const pending = saveState === "saving";
+
+  // --- Structural dirty tracking ---
+  const initialStructural = useRef({
+    name: organization.name,
+    slug: organization.slug,
+    industry: organization.industry ?? "",
+    sizeRange: organization.sizeRange ?? "",
+    isActive: organization.isActive,
+  });
+
+  const isDirty =
+    name !== initialStructural.current.name ||
+    slug !== initialStructural.current.slug ||
+    industry !== initialStructural.current.industry ||
+    sizeRange !== initialStructural.current.sizeRange ||
+    isActive !== initialStructural.current.isActive;
+
+  const { showDialog, confirmNavigation, cancelNavigation } =
+    useUnsavedChanges(isDirty);
 
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,7 +92,7 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
   );
 
   async function handleSubmit(formData: FormData) {
-    setPending(true);
+    setSaveState("saving");
     setError(null);
     const result = await updateOrganization(organization.id, formData);
     if (result?.error) {
@@ -69,17 +102,48 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
           ? (errors as Record<string, string[]>)._form?.[0]
           : Object.values(errors).flat().join(", ");
       setError(msg ?? "Validation failed");
-      setPending(false);
+      setSaveState("idle");
+    } else if (result && "success" in result) {
+      toast.success("Changes saved");
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+      initialStructural.current = { name, slug, industry, sizeRange, isActive };
+      if (result.slug !== organization.slug) {
+        router.replace(`/organizations/${result.slug}/edit`, { scroll: false });
+      }
     }
   }
 
   async function handleDelete() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
+    setDeleting(true);
+    setShowDeleteDialog(false);
+    const result = await deleteOrganization(organization.id);
+    if (result && "error" in result) {
+      toast.error(
+        typeof result.error === "string" ? result.error : "Failed to delete"
+      );
+      setDeleting(false);
       return;
     }
-    setDeleting(true);
-    await deleteOrganization(organization.id);
+
+    let undone = false;
+    const timer = setTimeout(() => {
+      if (!undone) router.push("/organizations");
+    }, 5000);
+
+    toast.success("Organisation deleted", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          undone = true;
+          clearTimeout(timer);
+          await restoreOrganization(organization.id);
+          toast.success("Organisation restored");
+          setDeleting(false);
+        },
+      },
+      duration: 5000,
+    });
   }
 
   return (
@@ -208,26 +272,46 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
             type="button"
             variant="destructive"
             size="sm"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteDialog(true)}
             disabled={deleting}
           >
             <Trash2 className="size-4" />
-            {confirmDelete
-              ? deleting
-                ? "Deleting..."
-                : "Confirm Delete"
-              : "Delete Organisation"}
+            Delete Organisation
           </Button>
           <div className="flex items-center gap-3">
             <Link href="/organizations">
               <Button type="button" variant="outline">Cancel</Button>
             </Link>
             <Button type="submit" disabled={!name.trim() || pending}>
-              {pending ? "Saving..." : "Save Changes"}
+              {pending ? "Saving..." : saveState === "saved" ? "Saved" : "Save Changes"}
             </Button>
           </div>
         </div>
       </form>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Organisation"
+        description={`This will soft-delete "${organization.name}". You can undo this action for a few seconds after deletion.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
+
+      {/* Unsaved changes dialog */}
+      <ConfirmDialog
+        open={showDialog}
+        onOpenChange={(open) => { if (!open) cancelNavigation(); }}
+        title="Unsaved changes"
+        description="You have unsaved changes. Are you sure you want to leave? Your changes will be lost."
+        confirmLabel="Leave"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+      />
     </div>
   );
 }

@@ -63,13 +63,28 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  alignItemWithTrigger = false,
+  positionMethod = "fixed",
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<
     SelectPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
+    "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger" | "positionMethod"
   >) {
+  // Lock the main scroll container to prevent focus-triggered jump
+  React.useEffect(() => {
+    const main = document.getElementById('main-content')
+    if (!main) return
+    const scrollTop = main.scrollTop
+    main.style.overflow = 'hidden'
+
+    const frame = requestAnimationFrame(() => {
+      main.scrollTop = scrollTop
+      main.style.overflow = ''
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -78,6 +93,7 @@ function SelectContent({
         align={align}
         alignOffset={alignOffset}
         alignItemWithTrigger={alignItemWithTrigger}
+        positionMethod={positionMethod}
         className="isolate z-50"
       >
         <SelectPrimitive.Popup

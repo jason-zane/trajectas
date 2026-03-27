@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Plus, X, Dna, LayoutGrid, ClipboardList, Building2 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,10 +30,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
+import { useAutoSave } from "@/hooks/use-auto-save"
+import { AutoSaveIndicator } from "@/components/auto-save-indicator"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   createFactor,
   updateFactor,
   deleteFactor,
+  restoreFactor,
+  updateFactorField,
 } from "@/app/actions/factors"
 import type { SelectOption, LinkedAssessment } from "@/app/actions/factors"
 
@@ -81,25 +89,107 @@ export function FactorForm({
   factorId,
   initialData,
 }: FactorFormProps) {
+  const router = useRouter()
+
+  // --- Structural fields (participate in dirty check / form submit) ---
   const [name, setName] = useState(initialData?.name ?? "")
   const [slug, setSlug] = useState(initialData?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
-  const [description, setDescription] = useState(initialData?.description ?? "")
-  const [definition, setDefinition] = useState(initialData?.definition ?? "")
   const [dimensionId, setDimensionId] = useState(initialData?.dimensionId ?? "")
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
   const [isMatchEligible, setIsMatchEligible] = useState(initialData?.isMatchEligible ?? true)
   const [organizationId, setOrganizationId] = useState(initialData?.organizationId ?? "")
-  const [indicatorsLow, setIndicatorsLow] = useState(initialData?.indicatorsLow ?? "")
-  const [indicatorsMid, setIndicatorsMid] = useState(initialData?.indicatorsMid ?? "")
-  const [indicatorsHigh, setIndicatorsHigh] = useState(initialData?.indicatorsHigh ?? "")
   const [linkedConstructs, setLinkedConstructs] = useState<LinkedConstruct[]>(
     initialData?.linkedConstructs ?? []
   )
+
+  // --- Create-mode-only local state for text fields ---
+  const [createDescription, setCreateDescription] = useState(initialData?.description ?? "")
+  const [createDefinition, setCreateDefinition] = useState(initialData?.definition ?? "")
+  const [createIndicatorsLow, setCreateIndicatorsLow] = useState(initialData?.indicatorsLow ?? "")
+  const [createIndicatorsMid, setCreateIndicatorsMid] = useState(initialData?.indicatorsMid ?? "")
+  const [createIndicatorsHigh, setCreateIndicatorsHigh] = useState(initialData?.indicatorsHigh ?? "")
+
+  // --- Auto-save hooks for text fields (edit mode only) ---
+  const descriptionAutoSave = useAutoSave({
+    initialValue: initialData?.description ?? "",
+    onSave: (val) => updateFactorField(factorId!, "description", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
+  const definitionAutoSave = useAutoSave({
+    initialValue: initialData?.definition ?? "",
+    onSave: (val) => updateFactorField(factorId!, "definition", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
+  const indicatorsLowAutoSave = useAutoSave({
+    initialValue: initialData?.indicatorsLow ?? "",
+    onSave: (val) => updateFactorField(factorId!, "indicatorsLow", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
+  const indicatorsMidAutoSave = useAutoSave({
+    initialValue: initialData?.indicatorsMid ?? "",
+    onSave: (val) => updateFactorField(factorId!, "indicatorsMid", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
+  const indicatorsHighAutoSave = useAutoSave({
+    initialValue: initialData?.indicatorsHigh ?? "",
+    onSave: (val) => updateFactorField(factorId!, "indicatorsHigh", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
+  // --- Resolve text field values based on mode ---
+  const description = mode === "edit" ? descriptionAutoSave.value : createDescription
+  const definition = mode === "edit" ? definitionAutoSave.value : createDefinition
+  const indicatorsLow = mode === "edit" ? indicatorsLowAutoSave.value : createIndicatorsLow
+  const indicatorsMid = mode === "edit" ? indicatorsMidAutoSave.value : createIndicatorsMid
+  const indicatorsHigh = mode === "edit" ? indicatorsHighAutoSave.value : createIndicatorsHigh
+
+  // --- Form state ---
   const [pending, setPending] = useState(false)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // --- Dirty tracking (structural fields only) ---
+  const initialStructural = useRef({
+    name: initialData?.name ?? "",
+    slug: initialData?.slug ?? "",
+    dimensionId: initialData?.dimensionId ?? "",
+    isActive: initialData?.isActive ?? true,
+    isMatchEligible: initialData?.isMatchEligible ?? true,
+    organizationId: initialData?.organizationId ?? "",
+    linkedConstructs: JSON.stringify(
+      (initialData?.linkedConstructs ?? []).map((c) => ({
+        constructId: c.constructId,
+        weight: c.weight,
+      }))
+    ),
+  })
+
+  const isStructuralDirty =
+    mode === "create"
+      ? name.trim() !== ""
+      : name !== initialStructural.current.name ||
+        slug !== initialStructural.current.slug ||
+        dimensionId !== initialStructural.current.dimensionId ||
+        isActive !== initialStructural.current.isActive ||
+        isMatchEligible !== initialStructural.current.isMatchEligible ||
+        organizationId !== initialStructural.current.organizationId ||
+        JSON.stringify(
+          linkedConstructs.map((c) => ({
+            constructId: c.constructId,
+            weight: c.weight,
+          }))
+        ) !== initialStructural.current.linkedConstructs
+
+  const { showDialog, confirmNavigation, cancelNavigation } =
+    useUnsavedChanges(isStructuralDirty)
+
+  // --- Handlers ---
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
@@ -146,6 +236,8 @@ export function FactorForm({
     (c) => !linkedConstructs.some((lc) => lc.constructId === c.id)
   )
 
+  const deleteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
   async function handleSubmit(formData: FormData) {
     formData.set(
       "constructs",
@@ -155,6 +247,7 @@ export function FactorForm({
     )
 
     setPending(true)
+    setSaveState("saving")
     setError(null)
 
     const result =
@@ -167,8 +260,37 @@ export function FactorForm({
       const msg =
         typeof errors === "object" && "_form" in errors
           ? (errors as Record<string, string[]>)._form?.[0]
-          : Object.values(errors).flat().join(", ")
+          : typeof errors === "string"
+            ? errors
+            : Object.values(errors).flat().join(", ")
       setError(msg ?? "Validation failed")
+      toast.error(msg ?? "Validation failed")
+      setPending(false)
+      setSaveState("idle")
+      return
+    }
+
+    if (result && "success" in result && result.success) {
+      toast.success(mode === "create" ? "Factor created" : "Changes saved")
+      setSaveState("saved")
+      setTimeout(() => setSaveState("idle"), 2000)
+      initialStructural.current = {
+        name,
+        slug,
+        dimensionId,
+        isActive,
+        isMatchEligible,
+        organizationId,
+        linkedConstructs: JSON.stringify(
+          linkedConstructs.map((c) => ({
+            constructId: c.constructId,
+            weight: c.weight,
+          }))
+        ),
+      }
+      if (mode === "create" && result.slug) {
+        router.replace(`/factors/${result.slug}/edit`, { scroll: false })
+      }
       setPending(false)
     }
   }
@@ -176,8 +298,48 @@ export function FactorForm({
   async function handleDelete() {
     if (!factorId) return
     setDeleting(true)
-    await deleteFactor(factorId)
+    const result = await deleteFactor(factorId)
+
+    if (result && "error" in result) {
+      toast.error(
+        typeof result.error === "string" ? result.error : "Failed to delete"
+      )
+      setDeleting(false)
+      return
+    }
+
+    let undone = false
+    const timer = setTimeout(() => {
+      if (!undone) router.push("/factors")
+    }, 5000)
+    deleteTimer.current = timer
+
+    toast.success("Factor deleted", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          undone = true
+          clearTimeout(timer)
+          await restoreFactor(factorId)
+          toast.success("Factor restored")
+          setDeleting(false)
+        },
+      },
+      duration: 5000,
+    })
   }
+
+  // --- Button label ---
+  const buttonLabel =
+    saveState === "saving" || pending
+      ? mode === "create"
+        ? "Creating..."
+        : "Saving..."
+      : saveState === "saved"
+        ? "Saved"
+        : mode === "create"
+          ? "Create Factor"
+          : "Save Changes"
 
   const title = mode === "create" ? "Create Factor" : "Edit Factor"
   const subtitle =
@@ -254,9 +416,20 @@ export function FactorForm({
                     name="description"
                     placeholder="A brief description of what this factor measures..."
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={
+                      mode === "edit"
+                        ? descriptionAutoSave.handleChange
+                        : (e) => setCreateDescription(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? descriptionAutoSave.handleBlur : undefined}
                     className="min-h-20"
                   />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={descriptionAutoSave.status}
+                      onRetry={descriptionAutoSave.retry}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -266,50 +439,25 @@ export function FactorForm({
                     name="definition"
                     placeholder="A formal definition used in reports and documentation..."
                     value={definition}
-                    onChange={(e) => setDefinition(e.target.value)}
+                    onChange={
+                      mode === "edit"
+                        ? definitionAutoSave.handleChange
+                        : (e) => setCreateDefinition(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? definitionAutoSave.handleBlur : undefined}
                     className="min-h-20"
                   />
                   <p className="text-xs text-muted-foreground">
                     A more formal, detailed definition for use in assessment reports.
                   </p>
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={definitionAutoSave.status}
+                      onRetry={definitionAutoSave.retry}
+                    />
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Client Organisation (optional)</Label>
-                  <Select
-                    name="organizationId"
-                    value={organizationId}
-                    onValueChange={(v) => setOrganizationId(v ?? "")}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an organisation...">
-                        {(value: string) =>
-                          organizations.find((o) => o.id === value)?.name ?? value
-                        }
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {organizations.map((org) => (
-                        <SelectItem key={org.id} value={org.id}>
-                          {org.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {organizationId && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      onClick={() => setOrganizationId("")}
-                    >
-                      Clear selection
-                    </Button>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    Assign to a client to mark this as their custom factor. Leave empty for platform-global.
-                  </p>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -327,9 +475,48 @@ export function FactorForm({
                   indicatorsLow={indicatorsLow}
                   indicatorsMid={indicatorsMid}
                   indicatorsHigh={indicatorsHigh}
-                  onChangeLow={setIndicatorsLow}
-                  onChangeMid={setIndicatorsMid}
-                  onChangeHigh={setIndicatorsHigh}
+                  onChangeLow={
+                    mode === "edit"
+                      ? (val) => indicatorsLowAutoSave.setValue(val)
+                      : setCreateIndicatorsLow
+                  }
+                  onChangeMid={
+                    mode === "edit"
+                      ? (val) => indicatorsMidAutoSave.setValue(val)
+                      : setCreateIndicatorsMid
+                  }
+                  onChangeHigh={
+                    mode === "edit"
+                      ? (val) => indicatorsHighAutoSave.setValue(val)
+                      : setCreateIndicatorsHigh
+                  }
+                  onBlurLow={mode === "edit" ? indicatorsLowAutoSave.handleBlur : undefined}
+                  onBlurMid={mode === "edit" ? indicatorsMidAutoSave.handleBlur : undefined}
+                  onBlurHigh={mode === "edit" ? indicatorsHighAutoSave.handleBlur : undefined}
+                  statusLow={
+                    mode === "edit" ? (
+                      <AutoSaveIndicator
+                        status={indicatorsLowAutoSave.status}
+                        onRetry={indicatorsLowAutoSave.retry}
+                      />
+                    ) : undefined
+                  }
+                  statusMid={
+                    mode === "edit" ? (
+                      <AutoSaveIndicator
+                        status={indicatorsMidAutoSave.status}
+                        onRetry={indicatorsMidAutoSave.retry}
+                      />
+                    ) : undefined
+                  }
+                  statusHigh={
+                    mode === "edit" ? (
+                      <AutoSaveIndicator
+                        status={indicatorsHighAutoSave.status}
+                        onRetry={indicatorsHighAutoSave.retry}
+                      />
+                    ) : undefined
+                  }
                 />
               </CardContent>
             </Card>
@@ -552,6 +739,44 @@ export function FactorForm({
                   onDelete={mode === "edit" && factorId ? handleDelete : undefined}
                   deleting={deleting}
                 >
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <div className="space-y-0.5">
+                      <Label>Client Organisation</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Assign to a client to mark this as their custom factor. Leave empty for platform-global.
+                      </p>
+                    </div>
+                    <Select
+                      name="organizationId"
+                      value={organizationId}
+                      onValueChange={(v) => setOrganizationId(v ?? "")}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an organisation...">
+                          {(value: string) =>
+                            organizations.find((o) => o.id === value)?.name ?? value
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {organizations.map((org) => (
+                          <SelectItem key={org.id} value={org.id}>
+                            {org.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {organizationId && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setOrganizationId("")}
+                      >
+                        Clear selection
+                      </Button>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <Label>Matching Engine Eligible</Label>
@@ -582,17 +807,22 @@ export function FactorForm({
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={!name.trim() || pending}>
-            {pending
-              ? mode === "create"
-                ? "Creating..."
-                : "Saving..."
-              : mode === "create"
-                ? "Create Factor"
-                : "Save Changes"}
+          <Button type="submit" disabled={!name.trim() || pending || saveState === "saved"}>
+            {buttonLabel}
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={showDialog}
+        onOpenChange={() => cancelNavigation()}
+        title="Unsaved changes"
+        description="You have unsaved changes that will be lost if you leave this page."
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+      />
     </div>
   )
 }

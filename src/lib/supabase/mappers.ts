@@ -42,6 +42,7 @@ export function mapDimensionRow(row: any): Dimension {
     indicatorsHigh: row.indicators_high ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 
@@ -63,6 +64,7 @@ export function mapFactorRow(row: any): Factor {
     indicatorsHigh: row.indicators_high ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 
@@ -81,6 +83,7 @@ export function mapConstructRow(row: any): Construct {
     indicatorsHigh: row.indicators_high ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 
@@ -100,15 +103,18 @@ export function mapFactorConstructRow(row: any): FactorConstruct {
 export function mapItemRow(row: any): Item {
   return {
     id: row.id,
-    factorId: row.factor_id ?? undefined,
-    constructId: row.construct_id,
+    constructId: row.construct_id ?? undefined,
     responseFormatId: row.response_format_id,
     stem: row.stem,
     reverseScored: row.reverse_scored,
+    weight: row.weight != null ? Number(row.weight) : 1.0,
     status: row.status,
     displayOrder: row.display_order,
+    purpose: row.purpose ?? 'construct',
+    keyedAnswer: row.keyed_answer != null ? Number(row.keyed_answer) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 
@@ -150,6 +156,7 @@ export function mapOrganizationRow(row: any): Organization {
     isActive: row.is_active,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 
@@ -206,13 +213,15 @@ export function toConstructInsert(t: Omit<Construct, 'id' | 'created_at' | 'upda
 
 export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) {
   return {
-    factor_id: i.factorId ?? null,
-    construct_id: i.constructId,
+    construct_id: i.constructId ?? null,
     response_format_id: i.responseFormatId,
     stem: i.stem,
     reverse_scored: i.reverseScored,
+    weight: i.weight ?? 1.0,
     status: i.status,
     display_order: i.displayOrder,
+    purpose: i.purpose ?? 'construct',
+    keyed_answer: i.keyedAnswer ?? null,
   }
 }
 
@@ -240,6 +249,7 @@ export function mapAssessmentRow(row: any): Assessment {
     matchingRunId: row.matching_run_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
   }
 }
 

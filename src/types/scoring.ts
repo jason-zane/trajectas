@@ -450,6 +450,8 @@ export interface ScoringItemMeta {
   responseFormatId: string
   /** Whether the item is reverse-scored. */
   reverseScored: boolean
+  /** Relative weight within its construct (default 1.0). */
+  weight: number
   /** Maximum possible score value for this item. */
   maxValue: number
   /** Minimum possible score value for this item. */

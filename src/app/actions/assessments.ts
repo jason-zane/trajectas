@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
@@ -22,8 +21,8 @@ export type BuilderFactor = {
   isActive: boolean
 }
 
-export type AssessmentCompetencyLink = {
-  competencyId: string
+export type AssessmentFactorLink = {
+  factorId: string
   weight: number
   itemCount: number
 }
@@ -73,6 +72,7 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
   const { data, error } = await db
     .from('assessments')
     .select('*, assessment_competencies(count)')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -92,15 +92,16 @@ export async function getAssessmentById(id: string): Promise<Assessment | null> 
     .from('assessments')
     .select('*')
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
   if (error) return null
   return mapAssessmentRow(data)
 }
 
-export async function getAssessmentWithCompetencies(id: string): Promise<{
+export async function getAssessmentWithFactors(id: string): Promise<{
   assessment: Assessment
-  competencies: AssessmentCompetencyLink[]
+  factors: AssessmentFactorLink[]
   sections: ExistingSection[]
 } | null> {
   const db = createAdminClient()
@@ -108,6 +109,7 @@ export async function getAssessmentWithCompetencies(id: string): Promise<{
     .from('assessments')
     .select('*, assessment_competencies(competency_id, weight, item_count)')
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
   if (error) return null
@@ -140,10 +142,10 @@ export async function getAssessmentWithCompetencies(id: string): Promise<{
 
   return {
     assessment: mapAssessmentRow(data),
-    competencies: (r.assessment_competencies ?? []).map(
+    factors: (r.assessment_competencies ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ac: any) => ({
-        competencyId: ac.competency_id,
+        factorId: ac.competency_id,
         weight: Number(ac.weight),
         itemCount: ac.item_count ?? 0,
       })
@@ -209,7 +211,7 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
     .sort((a, b) => b.itemCount - a.itemCount)
 }
 
-export async function getCompetenciesForBuilder(): Promise<BuilderFactor[]> {
+export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
@@ -254,12 +256,12 @@ export async function createAssessment(payload: Record<string, unknown>) {
   if (error) return { error: { _form: [error.message] } }
 
   // Insert factor junction records
-  if (parsed.data.competencies.length > 0) {
-    const links = parsed.data.competencies.map((c) => ({
+  if (parsed.data.factors.length > 0) {
+    const links = parsed.data.factors.map((f) => ({
       assessment_id: assessment.id,
-      competency_id: c.competencyId,
-      weight: c.weight,
-      item_count: c.itemCount,
+      competency_id: f.factorId,
+      weight: f.weight,
+      item_count: f.itemCount,
     }))
     const { error: linkError } = await db.from('assessment_competencies').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
@@ -268,14 +270,14 @@ export async function createAssessment(payload: Record<string, unknown>) {
   // Insert sections
   const sections = (payload.sections ?? []) as SectionDraft[]
   if (sections.length > 0) {
-    const factorIds = parsed.data.competencies.map((c) => c.competencyId)
+    const factorIds = parsed.data.factors.map((f) => f.factorId)
     const sectionErr = await persistSections(db, assessment.id, sections, factorIds)
     if (sectionErr) return { error: { _form: [sectionErr] } }
   }
 
   revalidatePath('/assessments')
   revalidatePath('/')
-  redirect('/assessments')
+  return { success: true as const, id: assessment.id }
 }
 
 export async function updateAssessment(id: string, payload: Record<string, unknown>) {
@@ -303,12 +305,12 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   // Replace factor junction records
   await db.from('assessment_competencies').delete().eq('assessment_id', id)
 
-  if (parsed.data.competencies.length > 0) {
-    const links = parsed.data.competencies.map((c) => ({
+  if (parsed.data.factors.length > 0) {
+    const links = parsed.data.factors.map((f) => ({
       assessment_id: id,
-      competency_id: c.competencyId,
-      weight: c.weight,
-      item_count: c.itemCount,
+      competency_id: f.factorId,
+      weight: f.weight,
+      item_count: f.itemCount,
     }))
     const { error: linkError } = await db.from('assessment_competencies').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
@@ -319,24 +321,56 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
   const sections = (payload.sections ?? []) as SectionDraft[]
   if (sections.length > 0) {
-    const factorIds = parsed.data.competencies.map((c) => c.competencyId)
+    const factorIds = parsed.data.factors.map((f) => f.factorId)
     const sectionErr = await persistSections(db, id, sections, factorIds)
     if (sectionErr) return { error: { _form: [sectionErr] } }
   }
 
   revalidatePath('/assessments')
   revalidatePath('/')
-  redirect('/assessments')
+  return { success: true as const, id }
 }
 
 export async function deleteAssessment(id: string) {
   const db = createAdminClient()
-  const { error } = await db.from('assessments').delete().eq('id', id)
+  const { error } = await db
+    .from('assessments')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', id)
+
   if (error) return { error: error.message }
 
   revalidatePath('/assessments')
   revalidatePath('/')
-  redirect('/assessments')
+}
+
+export async function restoreAssessment(id: string) {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessments')
+    .update({ deleted_at: null })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/assessments')
+  revalidatePath('/')
+}
+
+export async function updateAssessmentField(id: string, field: string, value: string) {
+  if (field !== 'description') {
+    return { error: 'Only description can be auto-saved' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessments')
+    .update({ [field]: value || null })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/assessments')
 }
 
 // ---------------------------------------------------------------------------

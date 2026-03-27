@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Brain, FileQuestion, ArrowRight, Plus } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,10 +29,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
+import { useAutoSave } from "@/hooks/use-auto-save"
+import { AutoSaveIndicator } from "@/components/auto-save-indicator"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   createConstruct,
   updateConstruct,
   deleteConstruct,
+  restoreConstruct,
+  updateConstructField,
 } from "@/app/actions/constructs"
 import type { ConstructWithRelationships } from "@/app/actions/constructs"
 
@@ -51,12 +59,16 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
+type SaveButtonState = "idle" | "saving" | "saved"
+
 interface ConstructFormProps {
   mode: "create" | "edit"
   construct?: ConstructWithRelationships
 }
 
 export function ConstructForm({ mode, construct }: ConstructFormProps) {
+  const router = useRouter()
+
   const [name, setName] = useState(construct?.name ?? "")
   const [slug, setSlug] = useState(construct?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
@@ -66,12 +78,62 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
   const [indicatorsLow, setIndicatorsLow] = useState(construct?.indicatorsLow ?? "")
   const [indicatorsMid, setIndicatorsMid] = useState(construct?.indicatorsMid ?? "")
   const [indicatorsHigh, setIndicatorsHigh] = useState(construct?.indicatorsHigh ?? "")
-  const [pending, setPending] = useState(false)
+  const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const pending = saveState === "saving"
+
   const parentFactors = construct?.parentFactors ?? []
   const linkedItems = construct?.linkedItems ?? []
+
+  // Auto-save hooks (edit mode only)
+  const descAutoSave = useAutoSave({
+    initialValue: construct?.description ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "description", val),
+    enabled: mode === "edit" && !!construct,
+  })
+  const defAutoSave = useAutoSave({
+    initialValue: construct?.definition ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "definition", val),
+    enabled: mode === "edit" && !!construct,
+  })
+  const indLowAutoSave = useAutoSave({
+    initialValue: construct?.indicatorsLow ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "indicatorsLow", val),
+    enabled: mode === "edit" && !!construct,
+  })
+  const indMidAutoSave = useAutoSave({
+    initialValue: construct?.indicatorsMid ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "indicatorsMid", val),
+    enabled: mode === "edit" && !!construct,
+  })
+  const indHighAutoSave = useAutoSave({
+    initialValue: construct?.indicatorsHigh ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "indicatorsHigh", val),
+    enabled: mode === "edit" && !!construct,
+  })
+
+  // Dirty tracking (structural fields only)
+  const initialStructural = useRef({
+    name: construct?.name ?? "",
+    slug: construct?.slug ?? "",
+    isActive: construct?.isActive ?? true,
+  })
+
+  const isStructuralDirty =
+    mode === "create"
+      ? name.trim() !== ""
+      : name !== initialStructural.current.name ||
+        slug !== initialStructural.current.slug ||
+        isActive !== initialStructural.current.isActive
+
+  const { showDialog, confirmNavigation, cancelNavigation } =
+    useUnsavedChanges(isStructuralDirty)
+
+  // Auto-save field values (edit mode uses hooks, create uses state)
+  const descValue = mode === "edit" ? descAutoSave.value : description
+  const defValue = mode === "edit" ? defAutoSave.value : definition
 
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,12 +155,22 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
   )
 
   async function handleSubmit(formData: FormData) {
-    setPending(true)
+    // Inject auto-save field values into formData for full form save
+    if (mode === "edit") {
+      formData.set("description", descAutoSave.value)
+      formData.set("definition", defAutoSave.value)
+      formData.set("indicatorsLow", indLowAutoSave.value)
+      formData.set("indicatorsMid", indMidAutoSave.value)
+      formData.set("indicatorsHigh", indHighAutoSave.value)
+    }
+
+    setSaveState("saving")
     setError(null)
     const result =
       mode === "edit" && construct
         ? await updateConstruct(construct.id, formData)
         : await createConstruct(formData)
+
     if (result?.error) {
       const errors = result.error
       const msg =
@@ -106,14 +178,49 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
           ? (errors as Record<string, string[]>)._form?.[0]
           : Object.values(errors).flat().join(", ")
       setError(msg ?? "Validation failed")
-      setPending(false)
+      toast.error(msg ?? "Validation failed")
+      setSaveState("idle")
+    } else if (result && "success" in result) {
+      toast.success(mode === "create" ? "Construct created" : "Changes saved")
+      setSaveState("saved")
+      setTimeout(() => setSaveState("idle"), 2000)
+      initialStructural.current = { name, slug, isActive }
+      if (mode === "create" && result.slug) {
+        router.replace(`/constructs/${result.slug}/edit`, { scroll: false })
+      }
     }
   }
 
   async function handleDelete() {
     if (!construct) return
     setDeleting(true)
-    await deleteConstruct(construct.id)
+    const result = await deleteConstruct(construct.id)
+    if (result && "error" in result) {
+      toast.error(
+        typeof result.error === "string" ? result.error : "Failed to delete"
+      )
+      setDeleting(false)
+      return
+    }
+
+    let undone = false
+    const timer = setTimeout(() => {
+      if (!undone) router.push("/constructs")
+    }, 5000)
+
+    toast.success("Construct deleted", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          undone = true
+          clearTimeout(timer)
+          await restoreConstruct(construct.id)
+          toast.success("Construct restored")
+          setDeleting(false)
+        },
+      },
+      duration: 5000,
+    })
   }
 
   const title = mode === "create" ? "Create Construct" : "Edit Construct"
@@ -121,6 +228,17 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
     mode === "create"
       ? "Define a new measurable attribute for fine-grained measurement within factors."
       : `Update the details for \u201c${construct?.name}\u201d.`
+
+  const saveLabel =
+    saveState === "saving"
+      ? mode === "create"
+        ? "Creating..."
+        : "Saving..."
+      : saveState === "saved"
+        ? "Saved"
+        : mode === "create"
+          ? "Create Construct"
+          : "Save Changes"
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -202,10 +320,21 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
                     id="construct-description"
                     name="description"
                     placeholder="Describe what this construct measures..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    value={descValue}
+                    onChange={
+                      mode === "edit"
+                        ? descAutoSave.handleChange
+                        : (e) => setDescription(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? descAutoSave.handleBlur : undefined}
                     className="min-h-24"
                   />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={descAutoSave.status}
+                      onRetry={descAutoSave.retry}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -214,13 +343,24 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
                     id="construct-definition"
                     name="definition"
                     placeholder="A formal definition used in reports and documentation..."
-                    value={definition}
-                    onChange={(e) => setDefinition(e.target.value)}
+                    value={defValue}
+                    onChange={
+                      mode === "edit"
+                        ? defAutoSave.handleChange
+                        : (e) => setDefinition(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? defAutoSave.handleBlur : undefined}
                     className="min-h-24"
                   />
                   <p className="text-xs text-muted-foreground">
                     A more formal, detailed definition for use in assessment reports.
                   </p>
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={defAutoSave.status}
+                      onRetry={defAutoSave.retry}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -236,12 +376,18 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
               </CardHeader>
               <CardContent>
                 <IndicatorsTab
-                  indicatorsLow={indicatorsLow}
-                  indicatorsMid={indicatorsMid}
-                  indicatorsHigh={indicatorsHigh}
-                  onChangeLow={setIndicatorsLow}
-                  onChangeMid={setIndicatorsMid}
-                  onChangeHigh={setIndicatorsHigh}
+                  indicatorsLow={mode === "edit" ? indLowAutoSave.value : indicatorsLow}
+                  indicatorsMid={mode === "edit" ? indMidAutoSave.value : indicatorsMid}
+                  indicatorsHigh={mode === "edit" ? indHighAutoSave.value : indicatorsHigh}
+                  onChangeLow={mode === "edit" ? (v) => indLowAutoSave.setValue(v) : setIndicatorsLow}
+                  onChangeMid={mode === "edit" ? (v) => indMidAutoSave.setValue(v) : setIndicatorsMid}
+                  onChangeHigh={mode === "edit" ? (v) => indHighAutoSave.setValue(v) : setIndicatorsHigh}
+                  onBlurLow={mode === "edit" ? indLowAutoSave.handleBlur : undefined}
+                  onBlurMid={mode === "edit" ? indMidAutoSave.handleBlur : undefined}
+                  onBlurHigh={mode === "edit" ? indHighAutoSave.handleBlur : undefined}
+                  statusLow={mode === "edit" ? <AutoSaveIndicator status={indLowAutoSave.status} onRetry={indLowAutoSave.retry} /> : undefined}
+                  statusMid={mode === "edit" ? <AutoSaveIndicator status={indMidAutoSave.status} onRetry={indMidAutoSave.retry} /> : undefined}
+                  statusHigh={mode === "edit" ? <AutoSaveIndicator status={indHighAutoSave.status} onRetry={indHighAutoSave.retry} /> : undefined}
                 />
               </CardContent>
             </Card>
@@ -414,17 +560,25 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={!name.trim() || pending}>
-            {pending
-              ? mode === "create"
-                ? "Creating..."
-                : "Saving..."
-              : mode === "create"
-                ? "Create Construct"
-                : "Save Changes"}
+          <Button
+            type="submit"
+            disabled={!name.trim() || pending || saveState === "saved"}
+          >
+            {saveLabel}
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={showDialog}
+        onOpenChange={() => cancelNavigation()}
+        title="Unsaved changes"
+        description="You have unsaved changes that will be lost if you leave this page."
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+      />
     </div>
   )
 }

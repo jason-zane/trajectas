@@ -14,6 +14,7 @@ import {
   Cpu,
   MessageSquare,
   Settings,
+  Settings2,
   Home,
   ChevronDown,
   Dna,
@@ -75,6 +76,8 @@ const adminNav = [
       { title: "Factors", href: "/factors", icon: Brain },
       { title: "Constructs", href: "/constructs", icon: Dna },
       { title: "Items", href: "/items", icon: FileQuestion },
+      { title: "Response Formats", href: "/response-formats", icon: Settings2 },
+      { title: "FC Blocks", href: "/forced-choice-blocks", icon: Layers },
     ],
   },
   {

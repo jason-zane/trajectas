@@ -10,6 +10,13 @@ interface IndicatorsTabProps {
   onChangeLow: (value: string) => void
   onChangeMid: (value: string) => void
   onChangeHigh: (value: string) => void
+  onBlurLow?: () => void
+  onBlurMid?: () => void
+  onBlurHigh?: () => void
+  /** Optional render prop for status indicators below each textarea. */
+  statusLow?: React.ReactNode
+  statusMid?: React.ReactNode
+  statusHigh?: React.ReactNode
 }
 
 function parseLines(text: string): string[] {
@@ -53,6 +60,12 @@ export function IndicatorsTab({
   onChangeLow,
   onChangeMid,
   onChangeHigh,
+  onBlurLow,
+  onBlurMid,
+  onBlurHigh,
+  statusLow,
+  statusMid,
+  statusHigh,
 }: IndicatorsTabProps) {
   return (
     <div className="space-y-8">
@@ -73,8 +86,10 @@ export function IndicatorsTab({
           placeholder="Struggles to identify relevant information&#10;Relies heavily on others for direction&#10;Shows limited awareness of impact"
           value={indicatorsLow}
           onChange={(e) => onChangeLow(e.target.value)}
+          onBlur={onBlurLow}
           className="min-h-28 border-l-2 border-l-red-500/30"
         />
+        {statusLow}
         <IndicatorPreview lines={parseLines(indicatorsLow)} color="red" />
       </div>
 
@@ -90,8 +105,10 @@ export function IndicatorsTab({
           placeholder="Demonstrates competence in routine situations&#10;Applies standard approaches effectively&#10;Contributes constructively in teams"
           value={indicatorsMid}
           onChange={(e) => onChangeMid(e.target.value)}
+          onBlur={onBlurMid}
           className="min-h-28 border-l-2 border-l-amber-500/30"
         />
+        {statusMid}
         <IndicatorPreview lines={parseLines(indicatorsMid)} color="amber" />
       </div>
 
@@ -107,8 +124,10 @@ export function IndicatorsTab({
           placeholder="Consistently exceeds expectations&#10;Proactively identifies and resolves challenges&#10;Role-models behaviours for others"
           value={indicatorsHigh}
           onChange={(e) => onChangeHigh(e.target.value)}
+          onBlur={onBlurHigh}
           className="min-h-28 border-l-2 border-l-emerald-500/30"
         />
+        {statusHigh}
         <IndicatorPreview lines={parseLines(indicatorsHigh)} color="green" />
       </div>
     </div>

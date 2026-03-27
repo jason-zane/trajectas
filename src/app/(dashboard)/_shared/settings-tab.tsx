@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
-import { Trash2, AlertTriangle } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { useState } from "react"
 
 interface SettingsTabProps {
   entityName: string
@@ -23,15 +24,7 @@ export function SettingsTab({
   deleting,
   children,
 }: SettingsTabProps) {
-  const [confirmDelete, setConfirmDelete] = useState(false)
-
-  function handleDelete() {
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      return
-    }
-    onDelete?.()
-  }
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   return (
     <div className="space-y-8">
@@ -61,30 +54,42 @@ export function SettingsTab({
 
       {/* Danger zone */}
       {onDelete && (
-        <div className="space-y-3 rounded-lg border border-destructive/30 p-4">
-          <div className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="size-4" />
-            <span className="text-sm font-medium">Danger Zone</span>
+        <>
+          <div className="space-y-3 rounded-lg border border-destructive/30 p-4">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-4" />
+              <span className="text-sm font-medium">Danger Zone</span>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Delete this {entityName.toLowerCase()}. This action may affect
+              linked records.
+            </p>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={deleting}
+            >
+              Delete {entityName}
+            </Button>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Permanently delete this {entityName.toLowerCase()}. This action
-            cannot be undone and may affect linked records.
-          </p>
-          <Button
-            type="button"
+
+          <ConfirmDialog
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+            title={`Delete ${entityName}?`}
+            description={`This will archive the ${entityName.toLowerCase()}. You can undo this action for a few seconds after confirming.`}
+            confirmLabel={deleting ? "Deleting..." : "Delete"}
+            cancelLabel="Cancel"
             variant="destructive"
-            size="sm"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            <Trash2 className="size-4" />
-            {confirmDelete
-              ? deleting
-                ? "Deleting..."
-                : "Confirm Delete"
-              : `Delete ${entityName}`}
-          </Button>
-        </div>
+            onConfirm={() => {
+              setShowDeleteDialog(false)
+              onDelete()
+            }}
+            loading={deleting}
+          />
+        </>
       )}
     </div>
   )

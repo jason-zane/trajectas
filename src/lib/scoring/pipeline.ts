@@ -134,11 +134,14 @@ export function scoreItems(
 /**
  * Group scored items by construct and compute construct-level scores.
  *
- * Each construct score is the mean POMP of its constituent items.
- * Raw sums are also preserved.
+ * Each construct score is the **weighted mean POMP** of its constituent
+ * items, using the per-item `weight` field. Items with higher weights
+ * contribute more to the construct score.
+ *
+ * Raw weighted sums are also preserved.
  *
  * @param scoredItems - Items after scoring and POMP normalisation.
- * @param items       - Item metadata map (for construct assignment).
+ * @param items       - Item metadata map (for construct assignment + weights).
  * @param constructNames - Optional construct name lookup.
  * @param constructNorms - Optional norm parameters per construct.
  * @returns Array of construct-level scores.
@@ -169,22 +172,29 @@ export function aggregateToConstructs(
 
   for (const [constructId, responses] of byConstruct) {
     const itemIds = responses.map((r) => r.itemId)
-    const pompValues = responses.map((r) => r.pompValue)
-    const rawValues = responses.map((r) => r.effectiveValue)
 
-    const meanPomp = pompValues.reduce((s, v) => s + v, 0) / pompValues.length
-    const rawSum = rawValues.reduce((s, v) => s + v, 0)
-
-    // Compute raw max for this construct's items
+    // Weighted mean POMP: sum(weight_i * pomp_i) / sum(weight_i)
+    let weightedPompSum = 0
+    let weightedRawSum = 0
+    let totalWeight = 0
     let rawMax = 0
+
     for (const r of responses) {
       const meta = items.get(r.itemId)
-      if (meta) rawMax += meta.maxValue
+      if (!meta) continue
+      const w = meta.weight
+      weightedPompSum += w * r.pompValue
+      weightedRawSum += w * r.effectiveValue
+      totalWeight += w
+      rawMax += meta.maxValue * w
     }
+
+    const meanPomp = totalWeight > 0 ? weightedPompSum / totalWeight : 0
+    const rawSum = weightedRawSum
 
     const norms = constructNorms?.get(constructId)
     const scores = buildScoreRepresentations(rawSum, rawMax, 0, norms)
-    // Override POMP with the mean of item-level POMPs (more accurate for mixed formats)
+    // Override POMP with the weighted mean of item-level POMPs
     scores.pomp = meanPomp
 
     results.push({
@@ -316,8 +326,6 @@ export function aggregateToDimensions(
     const relevantFactorScores: FactorScore[] = []
     let pompSum = 0
     let rawSum = 0
-    let rawMaxSum = 0
-
     for (const factorId of factorIds) {
       const fs = factorScoreMap.get(factorId)
       if (!fs) continue
@@ -330,10 +338,11 @@ export function aggregateToDimensions(
 
     const meanPomp = pompSum / relevantFactorScores.length
 
-    // Build score representations with POMP as the primary scale
+    // Dimension scores are POMP-only (simple average of factor POMP scores).
+    // rawMax is not meaningful at dimension level — set to 0.
     const scores: ScoreRepresentations = {
       raw: rawSum,
-      rawMax: rawMaxSum || rawSum, // fallback
+      rawMax: 0,
       pomp: meanPomp,
     }
 

@@ -33,10 +33,12 @@ export default async function CreateItemPage({
       initialData={
         preselectedConstruct
           ? {
+              purpose: "construct" as const,
               constructId: preselectedConstruct.id,
               responseFormatId: "",
               stem: "",
               reverseScored: false,
+              weight: 1.0,
               status: "draft",
               displayOrder: 0,
             }

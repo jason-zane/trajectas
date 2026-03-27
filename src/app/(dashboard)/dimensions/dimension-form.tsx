@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Brain, ArrowRight } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,10 +21,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
+import { useAutoSave } from "@/hooks/use-auto-save"
+import { AutoSaveIndicator } from "@/components/auto-save-indicator"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   createDimension,
   updateDimension,
   deleteDimension,
+  restoreDimension,
+  updateDimensionField,
 } from "@/app/actions/dimensions"
 import type { DimensionWithChildren } from "@/app/actions/dimensions"
 
@@ -41,21 +49,85 @@ interface DimensionFormProps {
 }
 
 export function DimensionForm({ mode, dimension }: DimensionFormProps) {
+  const router = useRouter()
+
+  // --- Structural fields (participate in dirty check / form submit) ---
   const [name, setName] = useState(dimension?.name ?? "")
   const [slug, setSlug] = useState(dimension?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
-  const [description, setDescription] = useState(dimension?.description ?? "")
-  const [definition, setDefinition] = useState(dimension?.definition ?? "")
   const [isActive, setIsActive] = useState(dimension?.isActive ?? true)
-  const [indicatorsLow, setIndicatorsLow] = useState(dimension?.indicatorsLow ?? "")
-  const [indicatorsMid, setIndicatorsMid] = useState(dimension?.indicatorsMid ?? "")
-  const [indicatorsHigh, setIndicatorsHigh] = useState(dimension?.indicatorsHigh ?? "")
+
+  // --- Create-mode-only local state for text fields ---
+  const [createDescription, setCreateDescription] = useState(dimension?.description ?? "")
+  const [createDefinition, setCreateDefinition] = useState(dimension?.definition ?? "")
+  const [createIndicatorsLow, setCreateIndicatorsLow] = useState(dimension?.indicatorsLow ?? "")
+  const [createIndicatorsMid, setCreateIndicatorsMid] = useState(dimension?.indicatorsMid ?? "")
+  const [createIndicatorsHigh, setCreateIndicatorsHigh] = useState(dimension?.indicatorsHigh ?? "")
+
+  // --- Auto-save hooks for text fields (edit mode only) ---
+  const descriptionAutoSave = useAutoSave({
+    initialValue: dimension?.description ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "description", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  const definitionAutoSave = useAutoSave({
+    initialValue: dimension?.definition ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "definition", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  const indicatorsLowAutoSave = useAutoSave({
+    initialValue: dimension?.indicatorsLow ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "indicatorsLow", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  const indicatorsMidAutoSave = useAutoSave({
+    initialValue: dimension?.indicatorsMid ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "indicatorsMid", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  const indicatorsHighAutoSave = useAutoSave({
+    initialValue: dimension?.indicatorsHigh ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "indicatorsHigh", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  // --- Resolve text field values based on mode ---
+  const description = mode === "edit" ? descriptionAutoSave.value : createDescription
+  const definition = mode === "edit" ? definitionAutoSave.value : createDefinition
+  const indicatorsLow = mode === "edit" ? indicatorsLowAutoSave.value : createIndicatorsLow
+  const indicatorsMid = mode === "edit" ? indicatorsMidAutoSave.value : createIndicatorsMid
+  const indicatorsHigh = mode === "edit" ? indicatorsHighAutoSave.value : createIndicatorsHigh
+
+  // --- Form state ---
   const [pending, setPending] = useState(false)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const childFactors = dimension?.childFactors ?? []
 
+  // --- Dirty tracking (structural fields only) ---
+  const initialStructural = useRef({
+    name: dimension?.name ?? "",
+    slug: dimension?.slug ?? "",
+    isActive: dimension?.isActive ?? true,
+  })
+
+  const isStructuralDirty =
+    mode === "create"
+      ? name.trim() !== ""
+      : name !== initialStructural.current.name ||
+        slug !== initialStructural.current.slug ||
+        isActive !== initialStructural.current.isActive
+
+  const { showDialog, confirmNavigation, cancelNavigation } =
+    useUnsavedChanges(isStructuralDirty)
+
+  // --- Handlers ---
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
@@ -75,20 +147,41 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
     []
   )
 
+  const deleteTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
   async function handleSubmit(formData: FormData) {
     setPending(true)
+    setSaveState("saving")
     setError(null)
+
     const result =
       mode === "edit" && dimension
         ? await updateDimension(dimension.id, formData)
         : await createDimension(formData)
+
     if (result?.error) {
       const errors = result.error
       const msg =
         typeof errors === "object" && "_form" in errors
           ? (errors as Record<string, string[]>)._form?.[0]
-          : Object.values(errors).flat().join(", ")
+          : typeof errors === "string"
+            ? errors
+            : Object.values(errors).flat().join(", ")
       setError(msg ?? "Validation failed")
+      toast.error(msg ?? "Validation failed")
+      setPending(false)
+      setSaveState("idle")
+      return
+    }
+
+    if (result && "success" in result && result.success) {
+      toast.success(mode === "create" ? "Dimension created" : "Changes saved")
+      setSaveState("saved")
+      setTimeout(() => setSaveState("idle"), 2000)
+      initialStructural.current = { name, slug, isActive }
+      if (mode === "create" && result.slug) {
+        router.replace(`/dimensions/${result.slug}/edit`, { scroll: false })
+      }
       setPending(false)
     }
   }
@@ -96,8 +189,48 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
   async function handleDelete() {
     if (!dimension) return
     setDeleting(true)
-    await deleteDimension(dimension.id)
+    const result = await deleteDimension(dimension.id)
+
+    if (result && "error" in result) {
+      toast.error(
+        typeof result.error === "string" ? result.error : "Failed to delete"
+      )
+      setDeleting(false)
+      return
+    }
+
+    let undone = false
+    const timer = setTimeout(() => {
+      if (!undone) router.push("/dimensions")
+    }, 5000)
+    deleteTimer.current = timer
+
+    toast.success("Dimension deleted", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          undone = true
+          clearTimeout(timer)
+          await restoreDimension(dimension.id)
+          toast.success("Dimension restored")
+          setDeleting(false)
+        },
+      },
+      duration: 5000,
+    })
   }
+
+  // --- Button label ---
+  const buttonLabel =
+    saveState === "saving" || pending
+      ? mode === "create"
+        ? "Creating..."
+        : "Saving..."
+      : saveState === "saved"
+        ? "Saved"
+        : mode === "create"
+          ? "Create Dimension"
+          : "Save Changes"
 
   const title = mode === "create" ? "Create Dimension" : "Edit Dimension"
   const subtitle =
@@ -179,9 +312,20 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
                     name="description"
                     placeholder="Describe what this dimension measures and why it matters..."
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={
+                      mode === "edit"
+                        ? descriptionAutoSave.handleChange
+                        : (e) => setCreateDescription(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? descriptionAutoSave.handleBlur : undefined}
                     className="min-h-24"
                   />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={descriptionAutoSave.status}
+                      onRetry={descriptionAutoSave.retry}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -191,12 +335,23 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
                     name="definition"
                     placeholder="A formal definition used in reports and documentation..."
                     value={definition}
-                    onChange={(e) => setDefinition(e.target.value)}
+                    onChange={
+                      mode === "edit"
+                        ? definitionAutoSave.handleChange
+                        : (e) => setCreateDefinition(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? definitionAutoSave.handleBlur : undefined}
                     className="min-h-24"
                   />
                   <p className="text-xs text-muted-foreground">
                     A more formal, detailed definition for use in assessment reports.
                   </p>
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={definitionAutoSave.status}
+                      onRetry={definitionAutoSave.retry}
+                    />
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -215,9 +370,48 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
                   indicatorsLow={indicatorsLow}
                   indicatorsMid={indicatorsMid}
                   indicatorsHigh={indicatorsHigh}
-                  onChangeLow={setIndicatorsLow}
-                  onChangeMid={setIndicatorsMid}
-                  onChangeHigh={setIndicatorsHigh}
+                  onChangeLow={
+                    mode === "edit"
+                      ? (val) => indicatorsLowAutoSave.setValue(val)
+                      : setCreateIndicatorsLow
+                  }
+                  onChangeMid={
+                    mode === "edit"
+                      ? (val) => indicatorsMidAutoSave.setValue(val)
+                      : setCreateIndicatorsMid
+                  }
+                  onChangeHigh={
+                    mode === "edit"
+                      ? (val) => indicatorsHighAutoSave.setValue(val)
+                      : setCreateIndicatorsHigh
+                  }
+                  onBlurLow={mode === "edit" ? indicatorsLowAutoSave.handleBlur : undefined}
+                  onBlurMid={mode === "edit" ? indicatorsMidAutoSave.handleBlur : undefined}
+                  onBlurHigh={mode === "edit" ? indicatorsHighAutoSave.handleBlur : undefined}
+                  statusLow={
+                    mode === "edit" ? (
+                      <AutoSaveIndicator
+                        status={indicatorsLowAutoSave.status}
+                        onRetry={indicatorsLowAutoSave.retry}
+                      />
+                    ) : undefined
+                  }
+                  statusMid={
+                    mode === "edit" ? (
+                      <AutoSaveIndicator
+                        status={indicatorsMidAutoSave.status}
+                        onRetry={indicatorsMidAutoSave.retry}
+                      />
+                    ) : undefined
+                  }
+                  statusHigh={
+                    mode === "edit" ? (
+                      <AutoSaveIndicator
+                        status={indicatorsHighAutoSave.status}
+                        onRetry={indicatorsHighAutoSave.retry}
+                      />
+                    ) : undefined
+                  }
                 />
               </CardContent>
             </Card>
@@ -305,17 +499,22 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
               Cancel
             </Button>
           </Link>
-          <Button type="submit" disabled={!name.trim() || pending}>
-            {pending
-              ? mode === "create"
-                ? "Creating..."
-                : "Saving..."
-              : mode === "create"
-                ? "Create Dimension"
-                : "Save Changes"}
+          <Button type="submit" disabled={!name.trim() || pending || saveState === "saved"}>
+            {buttonLabel}
           </Button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={showDialog}
+        onOpenChange={() => cancelNavigation()}
+        title="Unsaved changes"
+        description="You have unsaved changes that will be lost if you leave this page."
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+      />
     </div>
   )
 }

@@ -183,25 +183,25 @@ export type SelectionStrategy = 'random' | 'ordered' | 'stratified'
  *   Stratification promotes content balance and improves measurement
  *   precision across the ability range.
  *
- * Only **active** items (status === 'active') belonging to the specified
- * competency are considered.  If the pool contains fewer eligible items
- * than `count`, all eligible items are returned (no error).
+ * Only **active** construct items belonging to the specified construct IDs
+ * are considered.  If the pool contains fewer eligible items than `count`,
+ * all eligible items are returned (no error).
  *
- * @param factorId - The competency to draw items for.
- * @param itemPool     - Full item pool (may contain items for other competencies).
+ * @param constructIds - Set of construct IDs that belong to the target factor.
+ * @param itemPool     - Full item pool (may contain items for other constructs).
  * @param count        - Target number of items to select.
  * @param strategy     - Selection strategy (default `'random'`).
  * @returns Array of selected item IDs.
  */
 export function selectItems(
-  factorId: string,
+  constructIds: Set<string>,
   itemPool: Item[],
   count: number,
   strategy: SelectionStrategy = 'random',
 ): string[] {
-  // Filter to active items for the target competency.
+  // Filter to active construct items for the target constructs.
   const eligible = itemPool.filter(
-    (item) => item.factorId === factorId && item.status === 'active',
+    (item) => item.constructId != null && constructIds.has(item.constructId) && item.status === 'active' && item.purpose === 'construct',
   )
 
   if (eligible.length === 0 || count <= 0) {

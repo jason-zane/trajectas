@@ -7,6 +7,8 @@ import {
   Dna,
   Search,
   Brain,
+  FileQuestion,
+  LayoutGrid,
   ArrowRight,
   X,
 } from "lucide-react"
@@ -31,15 +33,23 @@ import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { TiltCard } from "@/components/tilt-card"
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
 import type { ConstructWithCounts } from "@/app/actions/constructs"
 
 type StatusFilter = "all" | "active" | "inactive"
 
 export function ConstructList({
   constructs,
+  alphaMap = {},
 }: {
   constructs: ConstructWithCounts[]
+  alphaMap?: Record<string, number | null>
 }) {
+  const hasAlphaData = Object.keys(alphaMap).length > 0
   const [searchQuery, setSearchQuery] = useState("")
   const [dimensionFilter, setDimensionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
@@ -211,9 +221,9 @@ export function ConstructList({
             <Accordion multiple defaultValue={allGroupNames}>
               {grouped.map(([groupName, groupConstructs]) => (
                 <AccordionItem key={groupName} value={groupName}>
-                  <AccordionTrigger className="rounded-t-lg border-t-2 border-t-trait-accent bg-trait-bg/30">
-                    <Dna className="size-4 text-trait-accent" />
-                    <span className="text-overline text-trait-fg flex-1">
+                  <AccordionTrigger className="rounded-t-lg border-t-2 border-t-dimension-accent bg-dimension-bg/30">
+                    <LayoutGrid className="size-4 text-dimension-accent" />
+                    <span className="text-overline text-dimension-fg flex-1">
                       {groupName}
                     </span>
                     <span className="text-xs text-muted-foreground font-normal">
@@ -259,6 +269,41 @@ export function ConstructList({
                                     />
                                     {construct.isActive ? "Active" : "Inactive"}
                                   </Badge>
+                                  {hasAlphaData && (() => {
+                                    const alpha = alphaMap[construct.id]
+                                    if (alpha === undefined) return null
+                                    const color =
+                                      alpha === null
+                                        ? "text-muted-foreground bg-muted"
+                                        : alpha >= 0.80
+                                          ? "text-[var(--success)] bg-[var(--success)]/10"
+                                          : alpha >= 0.70
+                                            ? "text-[var(--warning)] bg-[var(--warning)]/10"
+                                            : "text-[var(--destructive)] bg-[var(--destructive)]/10"
+                                    const label = alpha !== null ? `\u03B1 ${alpha.toFixed(2)}` : "\u03B1 \u2014"
+                                    const tooltip =
+                                      alpha === null
+                                        ? "No reliability data"
+                                        : alpha >= 0.80
+                                          ? "Good internal consistency"
+                                          : alpha >= 0.70
+                                            ? "Acceptable \u2014 may benefit from refinement"
+                                            : "Below threshold \u2014 review items"
+                                    return (
+                                      <Tooltip>
+                                        <TooltipTrigger
+                                          render={
+                                            <span
+                                              className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-semibold tabular-nums cursor-default ${color}`}
+                                            />
+                                          }
+                                        >
+                                          {label}
+                                        </TooltipTrigger>
+                                        <TooltipContent>{tooltip}</TooltipContent>
+                                      </Tooltip>
+                                    )
+                                  })()}
                                 </div>
 
                                 <div className="flex items-center gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
@@ -267,6 +312,13 @@ export function ConstructList({
                                     <span>
                                       {construct.factorCount}{" "}
                                       {construct.factorCount === 1 ? "factor" : "factors"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <FileQuestion className="size-3.5" />
+                                    <span>
+                                      {construct.itemCount}{" "}
+                                      {construct.itemCount === 1 ? "item" : "items"}
                                     </span>
                                   </div>
                                 </div>

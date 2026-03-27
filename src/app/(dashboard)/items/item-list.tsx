@@ -9,6 +9,9 @@ import {
   FileQuestion,
   ArrowRight,
   X,
+  Shield,
+  AlertTriangle,
+  Eye,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,8 +34,15 @@ import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { TiltCard } from "@/components/tilt-card"
-import type { ItemStatus, ActiveResponseFormatType } from "@/types/database"
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
+import type { ItemStatus, ActiveResponseFormatType, ItemPurpose } from "@/types/database"
 import type { ItemWithMeta } from "@/app/actions/items"
+
+type ItemHealthInfo = { status: "healthy" | "review" | "action"; discrimination: number | null }
 
 const statusConfig: Record<
   ItemStatus,
@@ -51,6 +61,21 @@ const formatConfig: Record<ActiveResponseFormatType, { label: string }> = {
   sjt: { label: "SJT" },
 }
 
+const purposeConfig: Record<ItemPurpose, { label: string; icon: typeof Shield; color: string }> = {
+  construct: { label: "Construct", icon: Dna, color: "text-trait-accent" },
+  impression_management: { label: "Impression Mgmt", icon: Shield, color: "text-amber-600" },
+  infrequency: { label: "Infrequency", icon: AlertTriangle, color: "text-orange-600" },
+  attention_check: { label: "Attention Check", icon: Eye, color: "text-blue-600" },
+}
+
+const allPurposes: { value: ItemPurpose | "all"; label: string }[] = [
+  { value: "all", label: "All Items" },
+  { value: "construct", label: "Construct" },
+  { value: "impression_management", label: "Impression Mgmt" },
+  { value: "infrequency", label: "Infrequency" },
+  { value: "attention_check", label: "Attention Check" },
+]
+
 const allStatuses: { value: ItemStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
@@ -67,13 +92,15 @@ const allFormats: { value: ActiveResponseFormatType | "all"; label: string }[] =
   { value: "sjt", label: "SJT" },
 ]
 
-export function ItemList({ items }: { items: ItemWithMeta[] }) {
+export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; healthMap?: Record<string, ItemHealthInfo> }) {
+  const hasHealthData = Object.keys(healthMap).length > 0
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<ItemStatus | "all">("all")
   const [formatFilter, setFormatFilter] = useState<ActiveResponseFormatType | "all">(
     "all"
   )
   const [constructFilter, setConstructFilter] = useState("all")
+  const [purposeFilter, setPurposeFilter] = useState<ItemPurpose | "all">("all")
 
   const constructNames = useMemo(() => {
     const names = new Set<string>()
@@ -95,7 +122,8 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
     searchQuery !== "" ||
     statusFilter !== "all" ||
     formatFilter !== "all" ||
-    constructFilter !== "all"
+    constructFilter !== "all" ||
+    purposeFilter !== "all"
 
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
@@ -108,6 +136,7 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
       }
       if (statusFilter !== "all" && item.status !== statusFilter) return false
       if (formatFilter !== "all" && item.responseFormatType !== formatFilter) return false
+      if (purposeFilter !== "all" && item.purpose !== purposeFilter) return false
       if (constructFilter !== "all") {
         const name = item.constructName || "Unassigned"
         if (name !== constructFilter) return false
@@ -119,7 +148,10 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
   const grouped = useMemo(() => {
     const acc: Record<string, ItemWithMeta[]> = {}
     for (const item of filteredItems) {
-      const key = item.constructName || "Unassigned"
+      const isValidity = item.purpose !== "construct"
+      const key = isValidity
+        ? purposeConfig[item.purpose]?.label ?? item.purpose
+        : item.constructName || "Unassigned"
       if (!acc[key]) acc[key] = []
       acc[key].push(item)
     }
@@ -137,6 +169,7 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
     setStatusFilter("all")
     setFormatFilter("all")
     setConstructFilter("all")
+    setPurposeFilter("all")
   }
 
   return (
@@ -220,6 +253,22 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
                 </Button>
               )}
             </div>
+            {/* Purpose filter pills */}
+            <div className="flex gap-2 flex-wrap">
+              {allPurposes.map(({ value, label }) => (
+                <button
+                  key={value}
+                  onClick={() => setPurposeFilter(value)}
+                  className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                    purposeFilter === value
+                      ? "bg-item-bg text-item-fg"
+                      : "bg-transparent text-muted-foreground hover:text-foreground border border-border"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             {/* Format filter pills */}
             <div className="flex gap-2 flex-wrap">
               {allFormats.map(({ value, label }) => (
@@ -256,11 +305,18 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
             </div>
           ) : (
             <Accordion multiple defaultValue={allGroupNames}>
-              {grouped.map(([groupName, groupItems]) => (
+              {grouped.map(([groupName, groupItems]) => {
+                const isValidityGroup = Object.values(purposeConfig).some((p) => p.label === groupName && groupName !== "Construct")
+                const purposeEntry = Object.entries(purposeConfig).find(([, v]) => v.label === groupName)
+                const GroupIcon = isValidityGroup && purposeEntry ? purposeEntry[1].icon : Dna
+                const groupColor = isValidityGroup && purposeEntry ? purposeEntry[1].color : "text-trait-accent"
+                const groupBorderColor = isValidityGroup ? "border-t-amber-500 bg-amber-500/5" : "border-t-trait-accent bg-trait-bg/30"
+
+                return (
                 <AccordionItem key={groupName} value={groupName}>
-                  <AccordionTrigger className="rounded-t-lg border-t-2 border-t-trait-accent bg-trait-bg/30">
-                    <Dna className="size-4 text-trait-accent" />
-                    <span className="text-overline text-trait-fg flex-1">
+                  <AccordionTrigger className={`rounded-t-lg border-t-2 ${groupBorderColor}`}>
+                    <GroupIcon className={`size-4 ${groupColor}`} />
+                    <span className="text-overline flex-1">
                       {groupName}
                     </span>
                     <span className="text-xs text-muted-foreground font-normal">
@@ -275,13 +331,25 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
                           formatConfig[
                             item.responseFormatType as ActiveResponseFormatType
                           ]
+                        const isValidity = item.purpose !== "construct"
+                        const purposeInfo = purposeConfig[item.purpose]
+                        const PurposeIcon = purposeInfo?.icon
+                        const health = healthMap[item.id]
+                        const healthBorderClass = health
+                          ? health.status === "action"
+                            ? "border-l-[color:var(--destructive)]"
+                            : health.status === "review"
+                              ? "border-l-[color:var(--warning)]"
+                              : "border-l-[color:var(--success)]"
+                          : "border-l-transparent hover:border-l-item-accent"
+
                         return (
                           <ScrollReveal key={item.id} delay={cardIndex * 60}>
                             <TiltCard>
                             <Link href={`/items/${item.id}/edit`}>
                               <Card
                                 variant="interactive"
-                                className="border-l-[3px] border-l-transparent hover:border-l-item-accent"
+                                className={`border-l-[3px] ${hasHealthData ? healthBorderClass : "border-l-transparent hover:border-l-item-accent"}`}
                               >
                                 <CardContent className="flex items-center gap-4 py-4">
                                   <div
@@ -298,12 +366,49 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
                                       <Badge variant="item">
                                         {format?.label ?? item.responseFormatName}
                                       </Badge>
+                                      {isValidity && PurposeIcon && (
+                                        <Badge variant="outline" className="gap-1">
+                                          <PurposeIcon className="size-3" />
+                                          {purposeInfo.label}
+                                        </Badge>
+                                      )}
                                       <Badge variant="dot">
                                         <span
                                           className={`size-1.5 rounded-full ${status.dotColor}`}
                                         />
                                         {status.label}
                                       </Badge>
+                                      {health && (
+                                        <Tooltip>
+                                          <TooltipTrigger
+                                            render={
+                                              <span className="inline-flex items-center gap-1 cursor-default" />
+                                            }
+                                          >
+                                            <span
+                                              className={`size-2 rounded-full ${
+                                                health.status === "healthy"
+                                                  ? "bg-[var(--success)]"
+                                                  : health.status === "review"
+                                                    ? "bg-[var(--warning)]"
+                                                    : "bg-[var(--destructive)]"
+                                              }`}
+                                            />
+                                            {health.discrimination !== null && (
+                                              <span className="text-[10px] tabular-nums text-muted-foreground">
+                                                r={health.discrimination.toFixed(2)}
+                                              </span>
+                                            )}
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            {health.status === "healthy"
+                                              ? "Item quality: Good"
+                                              : health.status === "review"
+                                                ? "Item quality: Needs review"
+                                                : "Item quality: Action needed"}
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      )}
                                     </div>
                                   </div>
                                   <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
@@ -317,7 +422,8 @@ export function ItemList({ items }: { items: ItemWithMeta[] }) {
                     </div>
                   </AccordionPanel>
                 </AccordionItem>
-              ))}
+                )
+              })}
             </Accordion>
           )}
 

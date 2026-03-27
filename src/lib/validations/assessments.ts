@@ -7,8 +7,8 @@ export const assessmentSchema = z.object({
   itemSelectionStrategy: z.enum(['fixed', 'rule_based', 'cat']).default('fixed'),
   scoringMethod: z.enum(['irt', 'ctt', 'hybrid']).default('ctt'),
   creationMode: z.enum(['manual', 'ai_generated', 'org_choice']).default('manual'),
-  competencies: z.array(z.object({
-    competencyId: z.string().uuid(),
+  factors: z.array(z.object({
+    factorId: z.string().uuid(),
     weight: z.coerce.number().positive().default(1),
     itemCount: z.coerce.number().int().min(0).default(0),
   })).default([]),

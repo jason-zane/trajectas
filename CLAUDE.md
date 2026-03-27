@@ -30,8 +30,21 @@ Every page in this platform must feel premium and intentional. Follow these patt
 
 ### Toast Feedback
 - All CRUD operations should show toast notifications via `sonner`
-- Success: `toast.success("Entity created")` then navigate
+- Success: `toast.success("Entity created")` — stay on page, don't navigate
 - Error: `toast.error(message)` in addition to inline display
+- Delete: `toast.success("Entity deleted", { action: { label: "Undo", onClick: ... }, duration: 5000 })`
+
+## Save & Persistence Principles
+
+1. **ZONES**: Every page is Zone 1 (immediate), Zone 2 (explicit save), or Zone 3 (auto-save). Never mix zones — except: text areas on a Zone 2 page may auto-save (Zone 3) if they're visually distinct from structural controls.
+2. **FEEDBACK**: Every mutation produces a toast. Success = green, error = red (persistent), undo = includes action button. Auto-save fields use inline indicators ("Saving..." / "Saved") instead of toasts.
+3. **STAY**: Explicit save keeps the user on the page. Only navigate away on explicit user action. For creates, use `router.replace()` to switch to the edit URL.
+4. **WARN**: Unsaved structural changes trigger a dialog on navigate-away via `useUnsavedChanges` hook. Auto-saved fields don't participate in this check.
+5. **DELETE**: `ConfirmDialog` → soft-delete (`deleted_at` column) → toast with undo (5s) → redirect after timeout. Never hard-delete from UI.
+6. **TOGGLES**: Imperative controls (switches, toggles) take effect immediately with toast confirmation. No save button. Use dedicated `toggle*Active()` server actions.
+7. **AUTO-SAVE TEXT**: Description, definition, indicator, stem, and instruction fields auto-save on blur + 3s debounce via `useAutoSave` hook. Inline `AutoSaveIndicator` component. No save button needed for these fields. Only active in edit mode.
+8. **ERRORS**: Inline banner + toast for explicit saves. Inline indicator + persistent error state for auto-save fields. Never auto-dismiss errors.
+9. **SAVE BUTTON**: Label transitions: "Save Changes" → "Saving..." → "Saved" (2s) → back to normal. Disabled during saved state.
 
 ### Loading States
 - Every route must have a `loading.tsx` that matches the page layout structure

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import {
-  getAssessmentWithCompetencies,
-  getCompetenciesForBuilder,
+  getAssessmentWithFactors,
+  getFactorsForBuilder,
 } from "@/app/actions/assessments";
 import { AssessmentBuilder } from "../../assessment-builder";
 
@@ -12,8 +12,8 @@ export default async function EditAssessmentPage({
 }) {
   const { id } = await params;
   const [result, allFactors] = await Promise.all([
-    getAssessmentWithCompetencies(id),
-    getCompetenciesForBuilder(),
+    getAssessmentWithFactors(id),
+    getFactorsForBuilder(),
   ]);
 
   if (!result) notFound();
@@ -21,7 +21,7 @@ export default async function EditAssessmentPage({
   return (
     <AssessmentBuilder
       assessment={result.assessment}
-      existingCompetencies={result.competencies}
+      existingFactors={result.factors}
       existingSections={result.sections}
       allFactors={allFactors}
     />

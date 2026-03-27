@@ -1,8 +1,10 @@
 "use client"
 
-import { useState, useCallback, useTransition, useMemo } from "react"
+import { useState, useCallback, useTransition, useMemo, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Trash2, Info } from "lucide-react"
+import { toast } from "sonner"
 import { DragDropProvider } from "@dnd-kit/react"
 import { move } from "@dnd-kit/helpers"
 import { Button } from "@/components/ui/button"
@@ -25,6 +27,10 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/page-header"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { AutoSaveIndicator } from "@/components/auto-save-indicator"
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
+import { useAutoSave } from "@/hooks/use-auto-save"
 import { FactorSource } from "./factor-source"
 import { AssessmentCanvas } from "./assessment-canvas"
 import { SectionConfigurator } from "./section-configurator"
@@ -32,11 +38,13 @@ import {
   createAssessment,
   updateAssessment,
   deleteAssessment,
+  restoreAssessment,
+  updateAssessmentField,
 } from "@/app/actions/assessments"
 import type { Assessment } from "@/types/database"
 import type {
   BuilderFactor,
-  AssessmentCompetencyLink,
+  AssessmentFactorLink,
   SectionDraft,
   ExistingSection,
 } from "@/app/actions/assessments"
@@ -71,19 +79,22 @@ const itemSelectionInfo: Record<string, { label: string; description: string }> 
   },
 }
 
+type SaveButtonState = "idle" | "saving" | "saved"
+
 interface AssessmentBuilderProps {
   assessment?: Assessment
-  existingCompetencies?: AssessmentCompetencyLink[]
+  existingFactors?: AssessmentFactorLink[]
   existingSections?: ExistingSection[]
   allFactors: BuilderFactor[]
 }
 
 export function AssessmentBuilder({
   assessment,
-  existingCompetencies,
+  existingFactors,
   existingSections,
   allFactors,
 }: AssessmentBuilderProps) {
+  const router = useRouter()
   const isEditing = !!assessment
 
   // Metadata state
@@ -102,8 +113,8 @@ export function AssessmentBuilder({
 
   // Factor selection state
   const [selectedFactors, setSelectedFactors] = useState<BuilderFactor[]>(() => {
-    if (!existingCompetencies?.length) return []
-    const ids = new Set(existingCompetencies.map((c) => c.competencyId))
+    if (!existingFactors?.length) return []
+    const ids = new Set(existingFactors.map((c) => c.factorId))
     return allFactors.filter((f) => ids.has(f.id))
   })
 
@@ -117,10 +128,42 @@ export function AssessmentBuilder({
 
   // UI state
   const [isPending, startTransition] = useTransition()
+  const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
+
+  // Auto-save for description (edit mode only)
+  const descAutoSave = useAutoSave({
+    initialValue: assessment?.description ?? "",
+    onSave: (val) => updateAssessmentField(assessment!.id, "description", val),
+    enabled: isEditing && !!assessment,
+  })
+
+  const descValue = isEditing ? descAutoSave.value : description
+
+  // Dirty tracking
+  const initialStructural = useRef({
+    title: assessment?.title ?? "",
+    status: assessment?.status ?? "draft",
+    scoringMethod: assessment?.scoringMethod ?? "ctt",
+    itemSelectionStrategy: assessment?.itemSelectionStrategy ?? "fixed",
+    creationMode: assessment?.creationMode ?? "manual",
+    factorIds: existingFactors?.map((c) => c.factorId).sort().join(",") ?? "",
+  })
+
+  const isStructuralDirty = isEditing
+    ? title !== initialStructural.current.title ||
+      status !== initialStructural.current.status ||
+      scoringMethod !== initialStructural.current.scoringMethod ||
+      itemSelectionStrategy !== initialStructural.current.itemSelectionStrategy ||
+      creationMode !== initialStructural.current.creationMode ||
+      selectedFactors.map((f) => f.id).sort().join(",") !== initialStructural.current.factorIds
+    : title.trim() !== ""
+
+  const { showDialog, confirmNavigation, cancelNavigation } =
+    useUnsavedChanges(isStructuralDirty)
 
   const addFactor = useCallback((factor: BuilderFactor) => {
     setSelectedFactors((prev) => {
@@ -153,19 +196,20 @@ export function AssessmentBuilder({
     setError(null)
     const payload = {
       title,
-      description: description || undefined,
+      description: (isEditing ? descAutoSave.value : description) || undefined,
       status,
       itemSelectionStrategy,
       scoringMethod,
       creationMode,
-      competencies: selectedFactors.map((f) => ({
-        competencyId: f.id,
+      factors: selectedFactors.map((f) => ({
+        factorId: f.id,
         weight: 1,
         itemCount: 0,
       })),
       sections,
     }
 
+    setSaveState("saving")
     startTransition(async () => {
       const result = isEditing
         ? await updateAssessment(assessment.id, payload)
@@ -178,19 +222,70 @@ export function AssessmentBuilder({
             ? (errors as Record<string, string[]>)._form?.[0]
             : Object.values(errors).flat().join(", ")
         setError(msg ?? "Validation failed")
+        toast.error(msg ?? "Validation failed")
+        setSaveState("idle")
+      } else if (result && "success" in result) {
+        toast.success(isEditing ? "Changes saved" : "Assessment created")
+        setSaveState("saved")
+        setTimeout(() => setSaveState("idle"), 2000)
+        initialStructural.current = {
+          title,
+          status,
+          scoringMethod,
+          itemSelectionStrategy,
+          creationMode,
+          factorIds: selectedFactors.map((f) => f.id).sort().join(","),
+        }
+        if (!isEditing && result.id) {
+          router.replace(`/assessments/${result.id}/edit`, { scroll: false })
+        }
       }
     })
   }
 
   async function handleDelete() {
     if (!assessment) return
-    if (!confirmDelete) {
-      setConfirmDelete(true)
+    setDeleting(true)
+    setShowDeleteDialog(false)
+    const result = await deleteAssessment(assessment.id)
+    if (result && "error" in result) {
+      toast.error(
+        typeof result.error === "string" ? result.error : "Failed to delete"
+      )
+      setDeleting(false)
       return
     }
-    setDeleting(true)
-    await deleteAssessment(assessment.id)
+
+    let undone = false
+    const timer = setTimeout(() => {
+      if (!undone) router.push("/assessments")
+    }, 5000)
+
+    toast.success("Assessment deleted", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          undone = true
+          clearTimeout(timer)
+          await restoreAssessment(assessment.id)
+          toast.success("Assessment restored")
+          setDeleting(false)
+        },
+      },
+      duration: 5000,
+    })
   }
+
+  const saveLabel =
+    saveState === "saving" || isPending
+      ? isEditing
+        ? "Saving..."
+        : "Creating..."
+      : saveState === "saved"
+        ? "Saved"
+        : isEditing
+          ? "Save Changes"
+          : "Create Assessment"
 
   return (
     <div className="space-y-8 max-w-6xl">
@@ -238,10 +333,21 @@ export function AssessmentBuilder({
               <Textarea
                 id="description"
                 placeholder="Describe the purpose and scope of this assessment..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={descValue}
+                onChange={
+                  isEditing
+                    ? descAutoSave.handleChange
+                    : (e) => setDescription(e.target.value)
+                }
+                onBlur={isEditing ? descAutoSave.handleBlur : undefined}
                 className="min-h-20"
               />
+              {isEditing && (
+                <AutoSaveIndicator
+                  status={descAutoSave.status}
+                  onRetry={descAutoSave.retry}
+                />
+              )}
             </div>
 
             {/* Status (edit only) */}
@@ -417,15 +523,11 @@ export function AssessmentBuilder({
               type="button"
               variant="destructive"
               size="sm"
-              onClick={handleDelete}
+              onClick={() => setShowDeleteDialog(true)}
               disabled={deleting}
             >
               <Trash2 className="size-4" />
-              {confirmDelete
-                ? deleting
-                  ? "Deleting..."
-                  : "Confirm Delete"
-                : "Delete Assessment"}
+              Delete Assessment
             </Button>
           )}
           <div className="flex items-center gap-3">
@@ -436,19 +538,37 @@ export function AssessmentBuilder({
             </Link>
             <Button
               onClick={handleSave}
-              disabled={!title.trim() || isPending}
+              disabled={!title.trim() || isPending || saveState === "saved"}
             >
-              {isPending
-                ? isEditing
-                  ? "Saving..."
-                  : "Creating..."
-                : isEditing
-                  ? "Save Changes"
-                  : "Create Assessment"}
+              {saveLabel}
             </Button>
           </div>
         </div>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Assessment?"
+        description="This will archive the assessment. You can undo this for a few seconds after confirming."
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={deleting}
+      />
+
+      {/* Unsaved changes dialog */}
+      <ConfirmDialog
+        open={showDialog}
+        onOpenChange={() => cancelNavigation()}
+        title="Unsaved changes"
+        description="You have unsaved changes that will be lost if you leave this page."
+        confirmLabel="Discard"
+        cancelLabel="Stay"
+        variant="destructive"
+        onConfirm={confirmNavigation}
+      />
     </div>
   )
 }
