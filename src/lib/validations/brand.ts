@@ -37,6 +37,8 @@ export const brandConfigSchema = z.object({
   neutralTemperature: z.enum(['warm', 'neutral', 'cool']),
   portalAccents: portalAccentsSchema.optional(),
   sidebarColor: hexColor.optional(),
+  backgroundColor: hexColor.optional(),
+  cardColor: hexColor.optional(),
   semanticColors: semanticColorsSchema.optional(),
   taxonomyColors: taxonomyColorsSchema.optional(),
   emailStyles: emailStylesSchema.optional(),

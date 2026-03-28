@@ -1,38 +1,44 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RotateCcw } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { WelcomeContent } from "@/lib/experience/types";
+import { Checkbox } from "@/components/ui/checkbox";
+import { saveConsent } from "@/app/actions/experience";
+import type { ConsentContent } from "@/lib/experience/types";
 
-interface WelcomeScreenProps {
+interface ConsentScreenProps {
   token: string;
-  campaignTitle: string;
-  campaignDescription?: string;
-  assessmentCount: number;
-  candidateFirstName?: string;
-  hasInProgressSession: boolean;
-  allowResume: boolean;
+  candidateId: string;
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
-  content: WelcomeContent;
-  /** The URL to navigate to when the candidate clicks Begin/Resume. Determined server-side from flow config. */
+  content: ConsentContent;
+  /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
 }
 
-export function WelcomeScreen({
+export function ConsentScreen({
   token,
-  hasInProgressSession,
+  candidateId,
   brandLogoUrl,
   brandName,
   isCustomBrand,
   content,
   nextUrl,
-}: WelcomeScreenProps) {
+}: ConsentScreenProps) {
   const router = useRouter();
+  const [agreed, setAgreed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleBegin() {
+  async function handleContinue() {
+    if (!agreed) return;
+    setSubmitting(true);
+
+    // Save consent — IP will be captured server-side
+    await saveConsent(candidateId, "client");
+
     router.push(nextUrl);
   }
 
@@ -41,7 +47,9 @@ export function WelcomeScreen({
       {/* Header */}
       <header
         className="flex h-14 items-center px-4 sm:px-6"
-        style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
+        style={{
+          background: "var(--brand-neutral-50, hsl(var(--background)))",
+        }}
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
@@ -91,14 +99,13 @@ export function WelcomeScreen({
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
         <div className="w-full max-w-[540px] space-y-6">
-          {/* Greeting */}
+          {/* Eyebrow + Title */}
           <div className="space-y-3 text-center">
             {content.eyebrow && (
               <p
-                className="text-sm"
+                className="text-xs font-medium uppercase tracking-widest"
                 style={{
-                  color:
-                    "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                  color: "var(--brand-primary, hsl(var(--primary)))",
                 }}
               >
                 {content.eyebrow}
@@ -113,68 +120,90 @@ export function WelcomeScreen({
             >
               {content.heading}
             </h1>
-            {content.body && (
-              <p
-                className="leading-relaxed"
-                style={{
-                  color:
-                    "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-                }}
-              >
-                {content.body}
-              </p>
-            )}
           </div>
 
-          {/* Info card */}
+          {/* Body content card */}
           <div
             className="rounded-2xl border p-6 shadow-sm dark:shadow-none"
             style={{
-              background:
-                "var(--brand-neutral-50, hsl(var(--card)))",
-              borderColor:
-                "var(--brand-neutral-200, hsl(var(--border)))",
+              background: "var(--brand-neutral-50, hsl(var(--card)))",
+              borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
             }}
           >
-            <h2
-              className="mb-4 text-sm font-medium"
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed"
               style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
+                color:
+                  "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
               }}
             >
-              {content.infoHeading}
-            </h2>
-            <ul className="space-y-3">
-              {content.infoItems.map((item, idx) => (
-                <InfoBullet key={idx}>{item}</InfoBullet>
-              ))}
-            </ul>
+              {content.body.split("\n").map((line, idx) => {
+                if (line.startsWith("**") && line.endsWith("**")) {
+                  return (
+                    <p
+                      key={idx}
+                      className="font-semibold mt-4 mb-2"
+                      style={{
+                        color: "var(--brand-text, hsl(var(--foreground)))",
+                      }}
+                    >
+                      {line.replace(/\*\*/g, "")}
+                    </p>
+                  );
+                }
+                if (line.startsWith("- ")) {
+                  return (
+                    <div key={idx} className="flex items-start gap-2 ml-1 mb-1">
+                      <span
+                        className="mt-1.5 size-1.5 shrink-0 rounded-full"
+                        style={{
+                          background:
+                            "var(--brand-primary, hsl(var(--primary)))",
+                        }}
+                      />
+                      <span>{line.slice(2)}</span>
+                    </div>
+                  );
+                }
+                if (line.trim() === "") return <div key={idx} className="h-3" />;
+                return <p key={idx}>{line}</p>;
+              })}
+            </div>
+
+            {/* Consent checkbox */}
+            <div className="mt-6 flex items-start gap-3 pt-4 border-t border-border">
+              <Checkbox
+                id="consent-check"
+                checked={agreed}
+                onCheckedChange={(v) => setAgreed(v === true)}
+              />
+              <label
+                htmlFor="consent-check"
+                className="text-sm cursor-pointer leading-snug"
+                style={{
+                  color: "var(--brand-text, hsl(var(--foreground)))",
+                }}
+              >
+                {content.consentCheckboxLabel}
+              </label>
+            </div>
           </div>
 
           {/* CTA */}
           <div className="flex justify-center">
             <Button
               size="lg"
-              onClick={handleBegin}
+              onClick={handleContinue}
+              disabled={!agreed || submitting}
               className="min-w-[200px] gap-1.5"
               style={{
-                background:
-                  "var(--brand-primary, hsl(var(--primary)))",
+                background: "var(--brand-primary, hsl(var(--primary)))",
                 color:
                   "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
               }}
             >
-              {hasInProgressSession ? (
-                <>
-                  <RotateCcw className="size-4" />
-                  {content.resumeButtonLabel}
-                </>
-              ) : (
-                <>
-                  <ArrowRight className="size-4" />
-                  {content.buttonLabel}
-                </>
-              )}
+              <ArrowRight className="size-4" />
+              {submitting ? "Continuing..." : content.buttonLabel}
             </Button>
           </div>
         </div>
@@ -194,26 +223,5 @@ export function WelcomeScreen({
         </span>
       </footer>
     </div>
-  );
-}
-
-function InfoBullet({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-2.5 text-sm">
-      <span
-        className="mt-1.5 size-1.5 shrink-0 rounded-full"
-        style={{
-          background: "var(--brand-primary, hsl(var(--primary)))",
-        }}
-      />
-      <span
-        style={{
-          color:
-            "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-        }}
-      >
-        {children}
-      </span>
-    </li>
   );
 }

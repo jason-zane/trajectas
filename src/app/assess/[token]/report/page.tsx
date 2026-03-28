@@ -1,52 +1,50 @@
+import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
 import { getEffectiveBrand } from "@/app/actions/brand";
 import { getEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
-import { getPageContent } from "@/lib/experience/resolve";
+import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
-import { CheckCircle2 } from "lucide-react";
-import type { TemplateVariables } from "@/lib/experience/types";
+import { CheckCircle2, Clock } from "lucide-react";
+import type { TemplateVariables, ReportContent } from "@/lib/experience/types";
 
-export default async function CompletePage({
+export default async function ReportPage({
   params,
 }: {
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const result = await validateAccessToken(token);
 
-  // Try to load brand config and experience template from the campaign
-  let brandConfig = await getEffectiveBrand();
-  let isCustomBrand = false;
-  let campaignId: string | undefined;
-
-  try {
-    const result = await validateAccessToken(token);
-    if (result.data?.campaign) {
-      campaignId = result.data.campaign.id;
-      if (result.data.campaign.organizationId) {
-        brandConfig = await getEffectiveBrand(
-          result.data.campaign.organizationId
-        );
-        isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
-      }
-    }
-  } catch {
-    // Use default brand if token validation fails
+  if (result.error) {
+    redirect("/assess/expired");
   }
 
-  const experience = await getEffectiveExperience(campaignId);
-  const rawContent = getPageContent(experience, "complete");
-  const variables: TemplateVariables = {};
-  const content = interpolateContent(rawContent, variables);
+  const { campaign, candidate } = result.data!;
+  const experience = await getEffectiveExperience(campaign.id);
 
-  // Server-generated CSS from trusted DB brand config
+  if (!isPageEnabled(experience, "report")) {
+    redirect(`/assess/${token}/complete`);
+  }
+
+  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+
+  const rawContent = getPageContent(experience, "report");
+  const variables: TemplateVariables = {
+    candidateName: candidate.firstName,
+    campaignTitle: campaign.title,
+  };
+  const content: ReportContent = interpolateContent(rawContent, variables);
+
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled
     ? generateDarkCSSTokens(brandConfig)
     : "";
-  const brandCss = `${lightCss}\n${darkCss}`;
+  // Server-generated CSS custom properties from validated brand config hex colors — not user HTML
+  const safeCSS = `${lightCss}\n${darkCss}`;
 
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,
@@ -54,10 +52,12 @@ export default async function CompletePage({
     brandConfig.monoFont,
   ]);
 
+  const isHolding = content.reportMode === "holding";
+
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- server-generated CSS from validated brand config */}
-      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
+      {/* eslint-disable-next-line react/no-danger -- server-generated CSS from validated brand hex colors */}
+      <style dangerouslySetInnerHTML={{ __html: safeCSS }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
       <div className="flex min-h-dvh flex-col">
@@ -122,12 +122,21 @@ export default async function CompletePage({
                     "var(--brand-surface, hsl(var(--primary) / 0.1))",
                 }}
               >
-                <CheckCircle2
-                  className="size-10 animate-in zoom-in duration-500"
-                  style={{
-                    color: "var(--brand-primary, hsl(var(--primary)))",
-                  }}
-                />
+                {isHolding ? (
+                  <Clock
+                    className="size-10"
+                    style={{
+                      color: "var(--brand-primary, hsl(var(--primary)))",
+                    }}
+                  />
+                ) : (
+                  <CheckCircle2
+                    className="size-10"
+                    style={{
+                      color: "var(--brand-primary, hsl(var(--primary)))",
+                    }}
+                  />
+                )}
               </div>
             </div>
 
@@ -151,6 +160,18 @@ export default async function CompletePage({
                 {content.body}
               </p>
             </div>
+
+            {!isHolding && (
+              <p
+                className="text-sm"
+                style={{
+                  color:
+                    "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+                }}
+              >
+                Results view will be available once the scoring pipeline is connected.
+              </p>
+            )}
           </div>
         </main>
 

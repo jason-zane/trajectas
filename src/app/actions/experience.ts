@@ -1,0 +1,294 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { mapExperienceTemplateRow } from '@/lib/supabase/mappers'
+import { resolveTemplate } from '@/lib/experience/resolve'
+import { DEFAULT_EXPERIENCE_TEMPLATE } from '@/lib/experience/defaults'
+import type {
+  ExperienceOwnerType,
+  ExperienceTemplate,
+  ExperienceTemplateRecord,
+  PageContentMap,
+  FlowConfig,
+  DemographicsConfig,
+} from '@/lib/experience/types'
+
+// ---------------------------------------------------------------------------
+// Read
+// ---------------------------------------------------------------------------
+
+/**
+ * Get an experience template by owner type and ID.
+ */
+export async function getExperienceTemplate(
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null
+): Promise<ExperienceTemplateRecord | null> {
+  const db = createAdminClient()
+
+  let query = db
+    .from('experience_templates')
+    .select('*')
+    .eq('owner_type', ownerType)
+    .is('deleted_at', null)
+
+  if (ownerId) {
+    query = query.eq('owner_id', ownerId)
+  } else {
+    query = query.is('owner_id', null)
+  }
+
+  const { data, error } = await query.single()
+  if (error) return null
+  return mapExperienceTemplateRow(data)
+}
+
+/**
+ * Get the platform default experience template.
+ */
+export async function getPlatformExperienceTemplate(): Promise<ExperienceTemplateRecord | null> {
+  return getExperienceTemplate('platform', null)
+}
+
+/**
+ * Resolve the effective experience template for a campaign.
+ *
+ * Resolution order:
+ * 1. Campaign-specific template (if exists)
+ * 2. Platform default template
+ * 3. Hardcoded defaults (fallback)
+ */
+export async function getEffectiveExperience(
+  campaignId?: string | null
+): Promise<ExperienceTemplate> {
+  const platform = await getPlatformExperienceTemplate()
+
+  let campaign: ExperienceTemplateRecord | null = null
+  if (campaignId) {
+    campaign = await getExperienceTemplate('campaign', campaignId)
+  }
+
+  return resolveTemplate(platform, campaign)
+}
+
+// ---------------------------------------------------------------------------
+// Write
+// ---------------------------------------------------------------------------
+
+/**
+ * Upsert an experience template's page content.
+ */
+export async function upsertExperiencePageContent(
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null,
+  pageContent: Partial<PageContentMap>
+): Promise<{ error?: string }> {
+  const db = createAdminClient()
+  const existing = await getExperienceTemplate(ownerType, ownerId)
+
+  if (existing) {
+    const { error } = await db
+      .from('experience_templates')
+      .update({ page_content: pageContent })
+      .eq('id', existing.id)
+
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await db
+      .from('experience_templates')
+      .insert({
+        owner_type: ownerType,
+        owner_id: ownerId,
+        page_content: pageContent,
+      })
+
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath('/settings/experience')
+  if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  return {}
+}
+
+/**
+ * Upsert an experience template's flow config.
+ */
+export async function upsertExperienceFlowConfig(
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null,
+  flowConfig: Partial<FlowConfig>
+): Promise<{ error?: string }> {
+  const db = createAdminClient()
+  const existing = await getExperienceTemplate(ownerType, ownerId)
+
+  if (existing) {
+    const { error } = await db
+      .from('experience_templates')
+      .update({ flow_config: flowConfig })
+      .eq('id', existing.id)
+
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await db
+      .from('experience_templates')
+      .insert({
+        owner_type: ownerType,
+        owner_id: ownerId,
+        flow_config: flowConfig,
+      })
+
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath('/settings/experience')
+  if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  return {}
+}
+
+/**
+ * Upsert an experience template's demographics config.
+ */
+export async function upsertExperienceDemographics(
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null,
+  demographicsConfig: DemographicsConfig
+): Promise<{ error?: string }> {
+  const db = createAdminClient()
+  const existing = await getExperienceTemplate(ownerType, ownerId)
+
+  if (existing) {
+    const { error } = await db
+      .from('experience_templates')
+      .update({ demographics_config: demographicsConfig })
+      .eq('id', existing.id)
+
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await db
+      .from('experience_templates')
+      .insert({
+        owner_type: ownerType,
+        owner_id: ownerId,
+        demographics_config: demographicsConfig,
+      })
+
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath('/settings/experience')
+  if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  return {}
+}
+
+/**
+ * Full upsert — update all three JSONB columns at once.
+ */
+export async function upsertExperienceTemplate(
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null,
+  template: Partial<ExperienceTemplate>
+): Promise<{ error?: string }> {
+  const db = createAdminClient()
+  const existing = await getExperienceTemplate(ownerType, ownerId)
+
+  const payload: Record<string, unknown> = {}
+  if (template.pageContent) payload.page_content = template.pageContent
+  if (template.flowConfig) payload.flow_config = template.flowConfig
+  if (template.demographicsConfig) payload.demographics_config = template.demographicsConfig
+  if (template.customPageContent !== undefined) payload.custom_page_content = template.customPageContent
+
+  if (existing) {
+    const { error } = await db
+      .from('experience_templates')
+      .update(payload)
+      .eq('id', existing.id)
+
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await db
+      .from('experience_templates')
+      .insert({
+        owner_type: ownerType,
+        owner_id: ownerId,
+        ...payload,
+      })
+
+    if (error) return { error: error.message }
+  }
+
+  revalidatePath('/settings/experience')
+  if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  return {}
+}
+
+/**
+ * Reset a campaign's experience template to use platform defaults.
+ * Soft-deletes the campaign-specific template.
+ */
+export async function resetExperienceToDefault(
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null
+): Promise<{ error?: string }> {
+  if (ownerType === 'platform') {
+    return { error: 'Cannot reset platform template — edit it instead.' }
+  }
+
+  const existing = await getExperienceTemplate(ownerType, ownerId)
+  if (!existing) return {}
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('experience_templates')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', existing.id)
+
+  if (error) return { error: error.message }
+
+  if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  return {}
+}
+
+// ---------------------------------------------------------------------------
+// Candidate-facing actions
+// ---------------------------------------------------------------------------
+
+/**
+ * Save consent for a candidate.
+ */
+export async function saveConsent(
+  candidateId: string,
+  ip: string
+): Promise<{ error?: string }> {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_candidates')
+    .update({
+      consent_given_at: new Date().toISOString(),
+      consent_ip: ip,
+    })
+    .eq('id', candidateId)
+
+  if (error) return { error: error.message }
+  return {}
+}
+
+/**
+ * Save demographics for a candidate.
+ */
+export async function saveDemographics(
+  candidateId: string,
+  demographics: Record<string, string>
+): Promise<{ error?: string }> {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_candidates')
+    .update({
+      demographics,
+      demographics_completed_at: new Date().toISOString(),
+    })
+    .eq('id', candidateId)
+
+  if (error) return { error: error.message }
+  return {}
+}

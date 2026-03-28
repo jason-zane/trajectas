@@ -84,6 +84,12 @@ export interface BrandConfig {
   /** Sidebar background color as hex. Defaults to primary. */
   sidebarColor?: string
 
+  /** Page background color as hex. Overrides neutral temperature for the main surface. */
+  backgroundColor?: string
+
+  /** Card / popover background color as hex. */
+  cardColor?: string
+
   /** Semantic status colors. */
   semanticColors?: SemanticColors
 

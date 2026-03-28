@@ -393,6 +393,8 @@ export function generateDarkCSSTokens(config: BrandConfig): string {
 export function generateDashboardCSS(config: BrandConfig): string {
   const primary = hexToOklch(config.primaryColor)
   const sidebar = hexToOklch(config.sidebarColor || config.primaryColor)
+  const neutralHue = NEUTRAL_HUE[config.neutralTemperature]
+  const neutralChroma = NEUTRAL_CHROMA[config.neutralTemperature]
 
   const sections: string[] = []
 
@@ -402,6 +404,37 @@ export function generateDashboardCSS(config: BrandConfig): string {
   // Brand
   rootTokens['--brand'] = oklchCss(primary)
   rootTokens['--brand-foreground'] = 'oklch(1 0 0)'
+
+  // Surface colors — from explicit overrides or neutral temperature
+  if (config.backgroundColor) {
+    const bg = hexToOklch(config.backgroundColor)
+    rootTokens['--background'] = oklchCss(bg)
+    rootTokens['--foreground'] = oklchCss({ l: 0.14, c: neutralChroma * 2, h: neutralHue })
+  } else {
+    rootTokens['--background'] = oklchCss({ l: 0.97, c: neutralChroma, h: neutralHue })
+    rootTokens['--foreground'] = oklchCss({ l: 0.14, c: neutralChroma * 2, h: neutralHue })
+  }
+
+  if (config.cardColor) {
+    const card = hexToOklch(config.cardColor)
+    rootTokens['--card'] = oklchCss(card)
+    rootTokens['--popover'] = oklchCss(card)
+  } else {
+    // White card with very subtle neutral tint
+    rootTokens['--card'] = oklchCss({ l: 1, c: 0, h: 0 })
+    rootTokens['--popover'] = oklchCss({ l: 1, c: 0, h: 0 })
+  }
+
+  rootTokens['--card-foreground'] = rootTokens['--foreground']
+  rootTokens['--popover-foreground'] = rootTokens['--foreground']
+
+  // Muted / secondary surfaces from neutral temperature
+  rootTokens['--muted'] = oklchCss({ l: 0.95, c: neutralChroma, h: neutralHue })
+  rootTokens['--muted-foreground'] = oklchCss({ l: 0.45, c: neutralChroma * 2, h: neutralHue })
+  rootTokens['--secondary'] = oklchCss({ l: 0.95, c: neutralChroma, h: neutralHue })
+  rootTokens['--secondary-foreground'] = oklchCss({ l: 0.20, c: neutralChroma * 2, h: neutralHue })
+  rootTokens['--border'] = oklchCss({ l: 0.90, c: neutralChroma, h: neutralHue })
+  rootTokens['--input'] = oklchCss({ l: 0.90, c: neutralChroma, h: neutralHue })
 
   // Sidebar from config
   rootTokens['--sidebar'] = oklchCss(sidebar)
@@ -438,6 +471,20 @@ export function generateDashboardCSS(config: BrandConfig): string {
   const darkTokens: Record<string, string> = {}
 
   darkTokens['--brand'] = oklchCss({ ...primary, l: Math.max(primary.l - 0.10, 0.30) })
+
+  // Dark surface colors
+  darkTokens['--background'] = oklchCss({ l: 0.13, c: neutralChroma * 2, h: neutralHue })
+  darkTokens['--foreground'] = oklchCss({ l: 0.93, c: neutralChroma, h: neutralHue })
+  darkTokens['--card'] = oklchCss({ l: 0.17, c: neutralChroma * 2, h: neutralHue })
+  darkTokens['--card-foreground'] = darkTokens['--foreground']
+  darkTokens['--popover'] = darkTokens['--card']
+  darkTokens['--popover-foreground'] = darkTokens['--foreground']
+  darkTokens['--muted'] = oklchCss({ l: 0.22, c: neutralChroma * 2, h: neutralHue })
+  darkTokens['--muted-foreground'] = oklchCss({ l: 0.60, c: neutralChroma * 2, h: neutralHue })
+  darkTokens['--secondary'] = oklchCss({ l: 0.22, c: neutralChroma * 2, h: neutralHue })
+  darkTokens['--secondary-foreground'] = oklchCss({ l: 0.92, c: 0, h: 0 })
+  darkTokens['--border'] = 'oklch(1 0 0 / 8%)'
+  darkTokens['--input'] = 'oklch(1 0 0 / 12%)'
 
   // Sidebar dark
   const sidebarDark: OKLCH = { ...sidebar, l: Math.max(sidebar.l - 0.10, 0.30) }

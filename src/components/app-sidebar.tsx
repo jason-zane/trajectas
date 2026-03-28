@@ -12,7 +12,6 @@ import {
   Sparkles,
   Cpu,
   MessageSquare,
-  Settings,
   Settings2,
   Home,
   ChevronDown,
@@ -23,6 +22,7 @@ import {
   BarChart3,
   Megaphone,
   Palette,
+  Users,
 } from "lucide-react";
 import {
   Sidebar,
@@ -129,6 +129,7 @@ const adminNav = [
     label: "Settings",
     items: [
       { title: "Brand", href: "/settings/brand", icon: Palette },
+      { title: "Experience", href: "/settings/experience", icon: Users },
     ],
   },
 ];
@@ -292,24 +293,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem className="relative">
-            {pathname.startsWith("/settings") && (
-              <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-sidebar-primary" />
-            )}
-            <SidebarMenuButton
-              isActive={pathname.startsWith("/settings")}
-              tooltip="Settings"
-              render={<Link href="/settings/brand" />}
-              size="sm"
-            >
-              <Settings className="size-4" />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
+      <SidebarFooter />
     </Sidebar>
   );
 }

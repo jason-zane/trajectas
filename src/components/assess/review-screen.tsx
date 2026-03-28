@@ -6,6 +6,7 @@ import { CheckCircle2, AlertCircle, Send, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { submitSession } from "@/app/actions/assess";
 import type { SectionForRunner } from "@/app/actions/assess";
+import type { ReviewContent } from "@/lib/experience/types";
 
 interface ReviewScreenProps {
   token: string;
@@ -18,13 +19,9 @@ interface ReviewScreenProps {
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
+  content: ReviewContent;
 }
 
-/**
- * Review screen for the assessment runner.
- * Card-centered, brand-aware redesign.
- * Shows per-section completion status and allows submission.
- */
 export function ReviewScreen({
   token,
   sessionId,
@@ -36,6 +33,7 @@ export function ReviewScreen({
   brandLogoUrl,
   brandName,
   isCustomBrand,
+  content,
 }: ReviewScreenProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -152,7 +150,7 @@ export function ReviewScreen({
                 fontFamily: "var(--brand-font-heading, inherit)",
               }}
             >
-              Review Your Responses
+              {content.heading}
             </h1>
             <p
               className="text-sm"
@@ -180,9 +178,7 @@ export function ReviewScreen({
                   style={{
                     borderColor:
                       "var(--brand-neutral-200, hsl(var(--border)))",
-                    background: complete
-                      ? "transparent"
-                      : "transparent",
+                    background: "transparent",
                   }}
                 >
                   {complete ? (
@@ -236,8 +232,7 @@ export function ReviewScreen({
           <div className="pt-4 space-y-3">
             {!allAnswered && (
               <p className="text-sm text-amber-500">
-                You have unanswered questions. You can still submit, but
-                incomplete sections may affect your results.
+                {content.incompleteWarning}
               </p>
             )}
             <div className="flex justify-center">
@@ -254,7 +249,7 @@ export function ReviewScreen({
                 }}
               >
                 <Send className="size-4" />
-                {submitting ? "Submitting..." : "Submit Assessment"}
+                {submitting ? "Submitting..." : content.buttonLabel}
               </Button>
             </div>
           </div>
@@ -263,27 +258,16 @@ export function ReviewScreen({
 
       {/* Footer */}
       <footer className="flex items-center justify-center px-4 py-4">
-        {isCustomBrand ? (
-          <span
-            className="text-xs"
-            style={{
-              color:
-                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-            }}
-          >
-            Powered by TalentFit
-          </span>
-        ) : (
-          <span
-            className="text-xs"
-            style={{
-              color:
-                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-            }}
-          >
-            Your responses are confidential
-          </span>
-        )}
+        <span
+          className="text-xs"
+          style={{
+            color:
+              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+          }}
+        >
+          {content.footerText ??
+            (isCustomBrand ? "Powered by TalentFit" : "Your responses are confidential")}
+        </span>
       </footer>
     </div>
   );

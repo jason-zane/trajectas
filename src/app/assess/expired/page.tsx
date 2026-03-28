@@ -1,6 +1,11 @@
+import { getEffectiveExperience } from "@/app/actions/experience";
+import { getPageContent } from "@/lib/experience/resolve";
 import { XCircle } from "lucide-react";
 
-export default function ExpiredPage() {
+export default async function ExpiredPage() {
+  const experience = await getEffectiveExperience();
+  const content = getPageContent(experience, "expired");
+
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Header */}
@@ -61,7 +66,7 @@ export default function ExpiredPage() {
                 fontFamily: "var(--brand-font-heading, inherit)",
               }}
             >
-              Link Expired
+              {content.heading}
             </h1>
             <p
               className="mx-auto max-w-md leading-relaxed"
@@ -70,9 +75,7 @@ export default function ExpiredPage() {
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
               }}
             >
-              This assessment link is no longer valid. The campaign may have
-              closed or your access may have been revoked. Please contact your
-              administrator.
+              {content.body}
             </p>
           </div>
         </div>
@@ -87,7 +90,7 @@ export default function ExpiredPage() {
               "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
           }}
         >
-          TalentFit
+          {content.footerText ?? "TalentFit"}
         </span>
       </footer>
     </div>

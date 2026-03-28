@@ -29,7 +29,6 @@ import type {
   PortalAccents,
   TaxonomyColors,
   EmailStyleColors,
-  SemanticColors,
 } from "@/lib/brand/types"
 import { cn } from "@/lib/utils"
 
@@ -39,8 +38,15 @@ interface BrandEditorProps {
 
 type SaveState = "idle" | "saving" | "saved"
 
+/** Deep clone to avoid readonly reference leaks from defaults. */
+function cloneConfig(config: BrandConfig): BrandConfig {
+  return JSON.parse(JSON.stringify(config))
+}
+
 export function BrandEditor({ initialRecord }: BrandEditorProps) {
-  const initialConfig = initialRecord?.config ?? { ...TALENT_FIT_DEFAULTS }
+  const initialConfig = initialRecord?.config
+    ? cloneConfig(initialRecord.config)
+    : cloneConfig(TALENT_FIT_DEFAULTS as BrandConfig)
 
   const [config, setConfig] = useState<BrandConfig>(initialConfig)
   const [savedConfig, setSavedConfig] = useState<BrandConfig>(initialConfig)
@@ -90,7 +96,7 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
       }
 
       toast.success("Brand settings saved")
-      setSavedConfig(config)
+      setSavedConfig(cloneConfig(config))
       setSaveState("saved")
 
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
@@ -98,9 +104,9 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
     })
   }, [config, startTransition])
 
-  // Reset
+  // Reset — deep clone defaults to ensure no stale references
   const handleReset = useCallback(() => {
-    setConfig({ ...TALENT_FIT_DEFAULTS })
+    setConfig(cloneConfig(TALENT_FIT_DEFAULTS as BrandConfig))
     setShowResetDialog(false)
     toast.success("Reset to defaults — save to persist")
   }, [])
@@ -126,295 +132,390 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
   ]
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Settings"
-        title="Brand"
-        description="Configure the visual identity for the dashboard, assessments, reports, and emails."
-      />
-
-      <div className="flex gap-8 items-start">
-        {/* Controls panel — left */}
-        <div className="w-[380px] shrink-0 space-y-6">
-          <Tabs defaultValue="identity">
-            <TabsList variant="line" className="w-full flex-wrap gap-0.5">
-              <TabsTrigger value="identity">Identity</TabsTrigger>
-              <TabsTrigger value="colors">Colors</TabsTrigger>
-              <TabsTrigger value="portals">Portals</TabsTrigger>
-              <TabsTrigger value="taxonomy">Taxonomy</TabsTrigger>
-              <TabsTrigger value="typography">Type</TabsTrigger>
-              <TabsTrigger value="shape">Shape</TabsTrigger>
-              <TabsTrigger value="email">Email</TabsTrigger>
-            </TabsList>
-
-            {/* --- Identity --- */}
-            <TabsContent value="identity">
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>Brand Identity</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="brand-name">Brand Name</Label>
-                    <Input
-                      id="brand-name"
-                      value={config.name}
-                      onChange={(e) => update({ name: e.target.value })}
-                      placeholder="Talent Fit"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Logo</Label>
-                    <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 text-xs text-muted-foreground">
-                      Logo upload coming soon
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* --- Colors --- */}
-            <TabsContent value="colors">
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>Colors</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <ColorPicker
-                    label="Primary Color"
-                    description="Main brand color for buttons, accents, and highlights."
-                    value={config.primaryColor}
-                    onChange={(hex) => update({ primaryColor: hex })}
-                  />
-                  <ColorPicker
-                    label="Accent Color"
-                    description="Secondary color for premium moments and charts."
-                    value={config.accentColor}
-                    onChange={(hex) => update({ accentColor: hex })}
-                  />
-                  <ColorPicker
-                    label="Sidebar Color"
-                    description="Background color for the sidebar. Defaults to primary."
-                    value={config.sidebarColor || config.primaryColor}
-                    onChange={(hex) => update({ sidebarColor: hex })}
-                  />
-
-                  {/* Neutral temperature */}
-                  <div className="space-y-2">
-                    <Label>Neutral Temperature</Label>
-                    <p className="text-caption text-muted-foreground">
-                      Controls the subtle hue tint in backgrounds, borders, and muted text.
-                    </p>
-                    <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
-                      {neutralOptions.map((opt) => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => update({ neutralTemperature: opt.value })}
-                          className={cn(
-                            "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                            config.neutralTemperature === opt.value
-                              ? "bg-background text-foreground shadow-sm"
-                              : "text-muted-foreground hover:text-foreground"
-                          )}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Semantic colors */}
-                  <div className="space-y-3 pt-2 border-t border-border/40">
-                    <Label>Semantic Colors</Label>
-                    <ColorPicker
-                      label="Destructive"
-                      description="Error states and delete actions."
-                      value={config.semanticColors?.destructive || "#c53030"}
-                      onChange={(hex) =>
-                        update({
-                          semanticColors: {
-                            destructive: hex,
-                            success: config.semanticColors?.success || "#2f855a",
-                            warning: config.semanticColors?.warning || "#c27803",
-                          },
-                        })
-                      }
-                    />
-                    <ColorPicker
-                      label="Success"
-                      description="Confirmation and positive states."
-                      value={config.semanticColors?.success || "#2f855a"}
-                      onChange={(hex) =>
-                        update({
-                          semanticColors: {
-                            destructive: config.semanticColors?.destructive || "#c53030",
-                            success: hex,
-                            warning: config.semanticColors?.warning || "#c27803",
-                          },
-                        })
-                      }
-                    />
-                    <ColorPicker
-                      label="Warning"
-                      description="Caution and attention states."
-                      value={config.semanticColors?.warning || "#c27803"}
-                      onChange={(hex) =>
-                        update({
-                          semanticColors: {
-                            destructive: config.semanticColors?.destructive || "#c53030",
-                            success: config.semanticColors?.success || "#2f855a",
-                            warning: hex,
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* --- Portal Accents --- */}
-            <TabsContent value="portals">
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>Portal Accents</CardTitle>
-                  <p className="text-caption text-muted-foreground">
-                    Each portal context uses its own accent color for the primary button, ring, and sidebar highlight. These override the base primary color per portal.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <PortalAccentEditor
-                    value={config.portalAccents}
-                    onChange={(accents: PortalAccents) => update({ portalAccents: accents })}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* --- Taxonomy --- */}
-            <TabsContent value="taxonomy">
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>Taxonomy Colors</CardTitle>
-                  <p className="text-caption text-muted-foreground">
-                    Each level of the assessment taxonomy gets a unique color for cards, badges, and accents. A bg/fg/accent scale is auto-generated from each base color.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <TaxonomyColorEditor
-                    value={config.taxonomyColors}
-                    onChange={(colors: TaxonomyColors) => update({ taxonomyColors: colors })}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* --- Typography --- */}
-            <TabsContent value="typography">
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>Typography</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <FontSelector
-                    label="Heading Font"
-                    value={config.headingFont}
-                    onChange={(name) => update({ headingFont: name })}
-                    fonts={HEADING_BODY_FONTS}
-                  />
-                  <FontSelector
-                    label="Body Font"
-                    value={config.bodyFont}
-                    onChange={(name) => update({ bodyFont: name })}
-                    fonts={HEADING_BODY_FONTS}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* --- Shape & Surface --- */}
-            <TabsContent value="shape">
-              <div className="mt-4 space-y-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Shape</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <RadiusSelector
-                      value={config.borderRadius}
-                      onChange={(v: BorderRadiusPreset) => update({ borderRadius: v })}
-                      previewColor={config.primaryColor}
-                    />
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Dark Mode</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">Enable Dark Mode</p>
-                        <p className="text-caption text-muted-foreground">
-                          Allow candidates to use dark mode based on system preference.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={config.darkModeEnabled}
-                        onCheckedChange={(checked: boolean) =>
-                          update({ darkModeEnabled: checked })
-                        }
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            {/* --- Email Styling --- */}
-            <TabsContent value="email">
-              <Card className="mt-4">
-                <CardHeader>
-                  <CardTitle>Email Styling</CardTitle>
-                  <p className="text-caption text-muted-foreground">
-                    Customize text colors for branded email templates. The header background always uses the primary brand color.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <EmailStyleEditor
-                    value={config.emailStyles}
-                    onChange={(styles: EmailStyleColors) => update({ emailStyles: styles })}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 pb-8">
-            <Button
-              onClick={handleSave}
-              disabled={!isDirty || saveState === "saving" || saveState === "saved"}
-            >
-              {saveLabel}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setShowResetDialog(true)}
-              disabled={isPending}
-            >
-              Reset to Defaults
-            </Button>
-          </div>
-        </div>
-
-        {/* Preview gallery — right */}
-        <div className="flex-1 min-w-0 sticky top-6">
-          <PreviewGallery config={config} />
+    <div className="space-y-6">
+      <div className="flex items-end justify-between gap-4">
+        <PageHeader
+          eyebrow="Settings"
+          title="Brand"
+          description="Configure the visual identity for the dashboard, assessments, reports, and emails."
+        />
+        <div className="flex items-center gap-3 shrink-0 pb-1">
+          <Button
+            variant="outline"
+            onClick={() => setShowResetDialog(true)}
+            disabled={isPending}
+            size="sm"
+          >
+            Reset to Defaults
+          </Button>
+          <Button
+            onClick={handleSave}
+            disabled={!isDirty || saveState === "saving" || saveState === "saved"}
+            size="sm"
+          >
+            {saveLabel}
+          </Button>
         </div>
       </div>
+
+      <Tabs defaultValue="colors">
+        <TabsList variant="line">
+          <TabsTrigger value="identity">Identity</TabsTrigger>
+          <TabsTrigger value="colors">Colors</TabsTrigger>
+          <TabsTrigger value="surfaces">Surfaces</TabsTrigger>
+          <TabsTrigger value="portals">Portals</TabsTrigger>
+          <TabsTrigger value="taxonomy">Taxonomy</TabsTrigger>
+          <TabsTrigger value="typography">Typography</TabsTrigger>
+          <TabsTrigger value="shape">Shape</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+        </TabsList>
+
+        {/* --- Identity --- */}
+        <TabsContent value="identity">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-3xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Brand Name</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Input
+                  id="brand-name"
+                  value={config.name}
+                  onChange={(e) => update({ name: e.target.value })}
+                  placeholder="Talent Fit"
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Logo</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 text-xs text-muted-foreground">
+                  Logo upload coming soon
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Colors --- */}
+        <TabsContent value="colors">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-5xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Primary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ColorPicker
+                  label="Primary Color"
+                  description="Main brand color — buttons, accents, highlights."
+                  value={config.primaryColor}
+                  onChange={(hex) => update({ primaryColor: hex })}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Accent</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ColorPicker
+                  label="Accent Color"
+                  description="Premium moments, charts, gold highlights."
+                  value={config.accentColor}
+                  onChange={(hex) => update({ accentColor: hex })}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Sidebar</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ColorPicker
+                  label="Sidebar Color"
+                  description="Navigation sidebar background."
+                  value={config.sidebarColor || config.primaryColor}
+                  onChange={(hex) => update({ sidebarColor: hex })}
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="md:col-span-2 lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Semantic Colors</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-5 md:grid-cols-3">
+                  <ColorPicker
+                    label="Destructive"
+                    description="Error states and delete actions."
+                    value={config.semanticColors?.destructive || "#c53030"}
+                    onChange={(hex) =>
+                      update({
+                        semanticColors: {
+                          destructive: hex,
+                          success: config.semanticColors?.success || "#2f855a",
+                          warning: config.semanticColors?.warning || "#c27803",
+                        },
+                      })
+                    }
+                  />
+                  <ColorPicker
+                    label="Success"
+                    description="Confirmation, positive states."
+                    value={config.semanticColors?.success || "#2f855a"}
+                    onChange={(hex) =>
+                      update({
+                        semanticColors: {
+                          destructive: config.semanticColors?.destructive || "#c53030",
+                          success: hex,
+                          warning: config.semanticColors?.warning || "#c27803",
+                        },
+                      })
+                    }
+                  />
+                  <ColorPicker
+                    label="Warning"
+                    description="Caution and attention states."
+                    value={config.semanticColors?.warning || "#c27803"}
+                    onChange={(hex) =>
+                      update({
+                        semanticColors: {
+                          destructive: config.semanticColors?.destructive || "#c53030",
+                          success: config.semanticColors?.success || "#2f855a",
+                          warning: hex,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Surfaces --- */}
+        <TabsContent value="surfaces">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-5xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Neutral Temperature</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-caption text-muted-foreground">
+                  Controls the overall hue tint of backgrounds, borders, cards, and muted text across the entire dashboard.
+                </p>
+                <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
+                  {neutralOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => update({ neutralTemperature: opt.value })}
+                      className={cn(
+                        "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
+                        config.neutralTemperature === opt.value
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Background</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ColorPicker
+                  label="Page Background"
+                  description="Main page surface color. Leave empty to derive from neutral temperature."
+                  value={config.backgroundColor || "#f5f5f4"}
+                  onChange={(hex) => update({ backgroundColor: hex })}
+                />
+                {config.backgroundColor && (
+                  <button
+                    type="button"
+                    onClick={() => update({ backgroundColor: undefined })}
+                    className="mt-2 text-xs text-primary hover:underline"
+                  >
+                    Use neutral temperature instead
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Cards</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ColorPicker
+                  label="Card Background"
+                  description="Card and popover surfaces. Leave empty for white."
+                  value={config.cardColor || "#ffffff"}
+                  onChange={(hex) => update({ cardColor: hex })}
+                />
+                {config.cardColor && (
+                  <button
+                    type="button"
+                    onClick={() => update({ cardColor: undefined })}
+                    className="mt-2 text-xs text-primary hover:underline"
+                  >
+                    Reset to white
+                  </button>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Portal Accents --- */}
+        <TabsContent value="portals">
+          <div className="mt-6 max-w-xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Portal Accents</CardTitle>
+                <p className="text-caption text-muted-foreground">
+                  Each portal context uses its own accent color for buttons, rings, and sidebar highlights. These override the base primary per portal.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <PortalAccentEditor
+                  value={config.portalAccents}
+                  onChange={(accents: PortalAccents) => update({ portalAccents: accents })}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Taxonomy --- */}
+        <TabsContent value="taxonomy">
+          <div className="mt-6 max-w-xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Taxonomy Colors</CardTitle>
+                <p className="text-caption text-muted-foreground">
+                  Each hierarchy level gets a unique color for cards, badges, and accents. A bg/fg/accent scale is auto-generated from each base color.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <TaxonomyColorEditor
+                  value={config.taxonomyColors}
+                  onChange={(colors: TaxonomyColors) => update({ taxonomyColors: colors })}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Typography --- */}
+        <TabsContent value="typography">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-3xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Heading Font</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FontSelector
+                  label="Heading Font"
+                  value={config.headingFont}
+                  onChange={(name) => update({ headingFont: name })}
+                  fonts={HEADING_BODY_FONTS}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Body Font</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FontSelector
+                  label="Body Font"
+                  value={config.bodyFont}
+                  onChange={(name) => update({ bodyFont: name })}
+                  fonts={HEADING_BODY_FONTS}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Shape & Surface --- */}
+        <TabsContent value="shape">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-3xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Border Radius</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RadiusSelector
+                  value={config.borderRadius}
+                  onChange={(v: BorderRadiusPreset) => update({ borderRadius: v })}
+                  previewColor={config.primaryColor}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Dark Mode</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Enable Dark Mode</p>
+                    <p className="text-caption text-muted-foreground">
+                      Allow candidates to use dark mode based on system preference.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={config.darkModeEnabled}
+                    onCheckedChange={(checked: boolean) =>
+                      update({ darkModeEnabled: checked })
+                    }
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Email Styling --- */}
+        <TabsContent value="email">
+          <div className="mt-6 max-w-xl">
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Styling</CardTitle>
+                <p className="text-caption text-muted-foreground">
+                  Customize text colors for branded email templates. The header background always uses the primary brand color.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <EmailStyleEditor
+                  value={config.emailStyles}
+                  onChange={(styles: EmailStyleColors) => update({ emailStyles: styles })}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* --- Preview --- */}
+        <TabsContent value="preview">
+          <div className="mt-6">
+            <PreviewGallery config={config} />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Unsaved changes dialog */}
       <ConfirmDialog

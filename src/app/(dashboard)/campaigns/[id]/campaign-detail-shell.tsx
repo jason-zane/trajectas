@@ -11,6 +11,7 @@ const tabs = [
   { label: "Assessments", segment: "assessments" },
   { label: "Candidates", segment: "candidates" },
   { label: "Results", segment: "results" },
+  { label: "Experience", segment: "experience" },
   { label: "Settings", segment: "settings" },
 ];
 

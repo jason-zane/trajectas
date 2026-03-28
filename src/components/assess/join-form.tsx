@@ -7,23 +7,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
 import { registerViaLink } from "@/app/actions/assess";
+import type { JoinContent } from "@/lib/experience/types";
 
 interface JoinFormProps {
   linkToken: string;
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
+  content: JoinContent;
 }
 
-/**
- * Join form for open enrollment.
- * Card-centered, brand-aware redesign.
- */
 export function JoinForm({
   linkToken,
   brandLogoUrl,
   brandName,
   isCustomBrand,
+  content,
 }: JoinFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -120,7 +119,7 @@ export function JoinForm({
                 fontFamily: "var(--brand-font-heading, inherit)",
               }}
             >
-              Join Assessment
+              {content.heading}
             </h1>
             <p
               className="text-sm"
@@ -129,7 +128,7 @@ export function JoinForm({
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
               }}
             >
-              Enter your details to begin the assessment.
+              {content.body}
             </p>
           </div>
 
@@ -193,7 +192,7 @@ export function JoinForm({
               }}
             >
               <ArrowRight className="size-4" />
-              {submitting ? "Registering..." : "Continue"}
+              {submitting ? "Registering..." : content.buttonLabel}
             </Button>
           </form>
         </div>
@@ -201,27 +200,16 @@ export function JoinForm({
 
       {/* Footer */}
       <footer className="flex items-center justify-center px-4 py-4">
-        {isCustomBrand ? (
-          <span
-            className="text-xs"
-            style={{
-              color:
-                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-            }}
-          >
-            Powered by TalentFit
-          </span>
-        ) : (
-          <span
-            className="text-xs"
-            style={{
-              color:
-                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-            }}
-          >
-            TalentFit
-          </span>
-        )}
+        <span
+          className="text-xs"
+          style={{
+            color:
+              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+          }}
+        >
+          {content.footerText ??
+            (isCustomBrand ? "Powered by TalentFit" : "TalentFit")}
+        </span>
       </footer>
     </div>
   );

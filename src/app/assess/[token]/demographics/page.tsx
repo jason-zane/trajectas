@@ -7,10 +7,10 @@ import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
-import { WelcomeScreen } from "@/components/assess/welcome-screen";
+import { DemographicsForm } from "@/components/assess/demographics-form";
 import type { TemplateVariables } from "@/lib/experience/types";
 
-export default async function WelcomePage({
+export default async function DemographicsPage({
   params,
 }: {
   params: Promise<{ token: string }>;
@@ -22,32 +22,37 @@ export default async function WelcomePage({
     redirect("/assess/expired");
   }
 
-  const { campaign, candidate, assessments, sessions } = result.data!;
+  const { campaign, candidate } = result.data!;
+  const experience = await getEffectiveExperience(campaign.id);
 
-  // Load brand config for the campaign's organization
+  // If demographics is not enabled, skip
+  if (!isPageEnabled(experience, "demographics")) {
+    redirect(`/assess/${token}/section/0`);
+  }
+
+  // If demographics already completed, skip
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if ((candidate as any).demographicsCompletedAt) {
+    redirect(`/assess/${token}/section/0`);
+  }
+
   const brandConfig = await getEffectiveBrand(campaign.organizationId);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
-  // Load experience template
-  const experience = await getEffectiveExperience(campaign.id);
-  const rawContent = getPageContent(experience, "welcome");
-
-  // Interpolate template variables
+  const rawContent = getPageContent(experience, "demographics");
   const variables: TemplateVariables = {
     candidateName: candidate.firstName,
     campaignTitle: campaign.title,
-    campaignDescription: campaign.description,
-    assessmentCount: assessments.length,
-    organizationName: undefined,
   };
   const content = interpolateContent(rawContent, variables);
+  const fields = experience.demographicsConfig.fields;
 
-  // Generate org-specific CSS tokens (server-generated from trusted DB brand config)
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled
     ? generateDarkCSSTokens(brandConfig)
     : "";
-  const brandCss = `${lightCss}\n${darkCss}`;
+  // CSS is server-generated from trusted DB brand config (hex colors only), not user HTML
+  const brandCssText = `${lightCss}\n${darkCss}`;
 
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,
@@ -57,30 +62,18 @@ export default async function WelcomePage({
 
   return (
     <>
-      {/* Server-generated CSS custom properties from trusted DB brand config */}
-      {/* eslint-disable-next-line react/no-danger -- CSS generated server-side from validated brand config, not user HTML */}
-      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
+      {/* eslint-disable-next-line react/no-danger -- server-generated CSS custom properties from validated brand config hex colors */}
+      <style dangerouslySetInnerHTML={{ __html: brandCssText }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
-      <WelcomeScreen
+      <DemographicsForm
         token={token}
-        campaignTitle={campaign.title}
-        campaignDescription={campaign.description}
-        assessmentCount={assessments.length}
-        candidateFirstName={candidate.firstName}
-        hasInProgressSession={sessions.some((s) => s.status === "in_progress")}
-        allowResume={campaign.allowResume}
+        candidateId={candidate.id}
+        fields={fields}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         content={content}
-        nextUrl={
-          isPageEnabled(experience, "consent")
-            ? `/assess/${token}/consent`
-            : isPageEnabled(experience, "demographics")
-              ? `/assess/${token}/demographics`
-              : `/assess/${token}/section/0`
-        }
       />
     </>
   );

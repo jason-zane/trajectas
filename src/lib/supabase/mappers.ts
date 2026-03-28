@@ -23,6 +23,7 @@ import type {
   CampaignAccessLink,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
+import type { ExperienceTemplateRecord } from '@/lib/experience/types'
 
 // =============================================================================
 // Row → TypeScript mappers (snake_case DB → camelCase TS)
@@ -171,6 +172,22 @@ export function mapBrandConfigRow(row: any): BrandConfigRecord {
     ownerId: row.owner_id ?? null,
     config: row.config,
     isDefault: row.is_default,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at ?? null,
+    deletedAt: row.deleted_at ?? null,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapExperienceTemplateRow(row: any): ExperienceTemplateRecord {
+  return {
+    id: row.id,
+    ownerType: row.owner_type,
+    ownerId: row.owner_id ?? null,
+    pageContent: row.page_content ?? {},
+    flowConfig: row.flow_config ?? {},
+    demographicsConfig: row.demographics_config ?? { fields: [] },
+    customPageContent: row.custom_page_content ?? {},
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? null,
     deletedAt: row.deleted_at ?? null,

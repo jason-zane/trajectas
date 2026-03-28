@@ -4,10 +4,14 @@ import {
   getSessionState,
 } from "@/app/actions/assess";
 import { getEffectiveBrand } from "@/app/actions/brand";
+import { getEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
+import { getPageContent } from "@/lib/experience/resolve";
+import { interpolateContent } from "@/lib/experience/interpolate";
 import { ReviewScreen } from "@/components/assess/review-screen";
+import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function ReviewPage({
   params,
@@ -43,7 +47,16 @@ export default async function ReviewPage({
   const brandConfig = await getEffectiveBrand(campaign.organizationId);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
-  // CSS is server-generated from trusted DB brand config, not user HTML
+  // Load experience template
+  const experience = await getEffectiveExperience(campaign.id);
+  const rawContent = getPageContent(experience, "review");
+  const variables: TemplateVariables = {
+    campaignTitle: campaign.title,
+    organizationName: undefined,
+  };
+  const content = interpolateContent(rawContent, variables);
+
+  // Server-generated CSS from trusted DB brand config
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled
     ? generateDarkCSSTokens(brandConfig)
@@ -58,7 +71,7 @@ export default async function ReviewPage({
 
   return (
     <>
-      {/* Server-generated CSS custom properties from DB brand config */}
+      {/* eslint-disable-next-line react/no-danger -- CSS generated server-side from validated brand config, not user HTML */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
@@ -73,6 +86,7 @@ export default async function ReviewPage({
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
+        content={content}
       />
     </>
   );
