@@ -8,6 +8,12 @@
 // =============================================================================
 
 import type { BrandConfig, BorderRadiusPreset, NeutralTemperature } from './types'
+import {
+  DEFAULT_PORTAL_ACCENTS,
+  DEFAULT_SEMANTIC_COLORS,
+  DEFAULT_TAXONOMY_COLORS,
+  DEFAULT_EMAIL_STYLES,
+} from './defaults'
 
 // ---------------------------------------------------------------------------
 // Color math — hex ↔ OKLCH conversion
@@ -108,6 +114,11 @@ function oklchCss(oklch: OKLCH): string {
   return `oklch(${oklch.l.toFixed(3)} ${oklch.c.toFixed(3)} ${oklch.h.toFixed(1)})`
 }
 
+/** Format OKLCH with alpha as a CSS value. */
+function oklchCssAlpha(oklch: OKLCH, alpha: string): string {
+  return `oklch(${oklch.l.toFixed(3)} ${oklch.c.toFixed(3)} ${oklch.h.toFixed(1)} / ${alpha})`
+}
+
 // ---------------------------------------------------------------------------
 // Scale generation
 // ---------------------------------------------------------------------------
@@ -163,6 +174,80 @@ const RADIUS_BASE: Record<BorderRadiusPreset, number> = {
   sharp: 4,
   soft: 8,
   round: 16,
+}
+
+// ---------------------------------------------------------------------------
+// Portal accent token generation
+// ---------------------------------------------------------------------------
+
+/** Generate CSS vars for a portal accent color (light mode). */
+function generatePortalAccentTokens(hex: string): Record<string, string> {
+  const oklch = hexToOklch(hex)
+  const tokens: Record<string, string> = {}
+
+  // Adapt lightness/chroma for the target role
+  const primaryL = Math.max(0.45, Math.min(0.73, oklch.l))
+  const primary: OKLCH = { l: primaryL, c: Math.min(oklch.c, 0.18), h: oklch.h }
+
+  tokens['--primary'] = oklchCss(primary)
+  // White foreground if dark enough, dark foreground if light
+  tokens['--primary-foreground'] = primaryL < 0.6
+    ? 'oklch(0.99 0 0)'
+    : `oklch(0.15 0.01 ${oklch.h.toFixed(1)})`
+  tokens['--ring'] = oklchCss(primary)
+  tokens['--accent'] = oklchCss({ l: 0.96, c: 0.02, h: oklch.h })
+  tokens['--accent-foreground'] = oklchCss({ l: 0.45, c: 0.14, h: oklch.h })
+  tokens['--sidebar-primary'] = oklchCss(primary)
+  tokens['--sidebar-accent'] = 'oklch(1 0 0 / 12%)'
+  tokens['--sidebar-ring'] = oklchCss(primary)
+  tokens['--chart-1'] = oklchCss(primary)
+  tokens['--shadow-glow'] = `0 0 20px ${oklchCssAlpha(primary, '15%')}`
+
+  return tokens
+}
+
+/** Generate CSS vars for a portal accent color (dark mode). */
+function generatePortalAccentDarkTokens(hex: string): Record<string, string> {
+  const oklch = hexToOklch(hex)
+  const tokens: Record<string, string> = {}
+
+  const primaryL = Math.max(0.60, Math.min(0.80, oklch.l + 0.15))
+  const primary: OKLCH = { l: primaryL, c: Math.min(oklch.c, 0.16), h: oklch.h }
+
+  tokens['--primary'] = oklchCss(primary)
+  tokens['--primary-foreground'] = `oklch(0.15 0.01 ${oklch.h.toFixed(1)})`
+  tokens['--ring'] = oklchCss(primary)
+  tokens['--accent'] = oklchCss({ l: 0.25, c: 0.03, h: oklch.h })
+  tokens['--accent-foreground'] = oklchCss({ l: 0.80, c: 0.10, h: oklch.h })
+  tokens['--sidebar-primary'] = oklchCss(primary)
+  tokens['--sidebar-accent'] = 'oklch(1 0 0 / 10%)'
+  tokens['--sidebar-ring'] = oklchCss(primary)
+  tokens['--chart-1'] = oklchCss(primary)
+  tokens['--shadow-glow'] = `0 0 25px ${oklchCssAlpha(primary, '20%')}`
+
+  return tokens
+}
+
+// ---------------------------------------------------------------------------
+// Taxonomy token generation
+// ---------------------------------------------------------------------------
+
+/** Generate bg/fg/accent CSS vars for a taxonomy level from a hex color. */
+function generateTaxonomyTokens(prefix: string, hex: string, isDark: boolean): Record<string, string> {
+  const oklch = hexToOklch(hex)
+  const tokens: Record<string, string> = {}
+
+  if (isDark) {
+    tokens[`--${prefix}-bg`] = oklchCss({ l: 0.22, c: oklch.c * 0.25, h: oklch.h })
+    tokens[`--${prefix}-fg`] = oklchCss({ l: 0.80, c: oklch.c * 0.8, h: oklch.h })
+    tokens[`--${prefix}-accent`] = oklchCss({ l: 0.65, c: oklch.c * 0.9, h: oklch.h })
+  } else {
+    tokens[`--${prefix}-bg`] = oklchCss({ l: 0.955, c: oklch.c * 0.25, h: oklch.h })
+    tokens[`--${prefix}-fg`] = oklchCss({ l: 0.38, c: oklch.c * 0.9, h: oklch.h })
+    tokens[`--${prefix}-accent`] = oklchCss({ l: 0.55, c: oklch.c, h: oklch.h })
+  }
+
+  return tokens
 }
 
 // ---------------------------------------------------------------------------
@@ -294,6 +379,137 @@ export function generateDarkCSSTokens(config: BrandConfig): string {
   return `.dark {\n${css}\n}`
 }
 
+/**
+ * Generate FULL dashboard CSS overrides from a BrandConfig.
+ *
+ * This produces CSS that overrides the globals.css defaults for:
+ * - Brand/sidebar colors
+ * - Portal accent overrides (admin, partner, client)
+ * - Semantic colors (destructive, success, warning)
+ * - Taxonomy colors (dimension, competency, trait, item)
+ *
+ * The globals.css values remain as fallbacks — this style tag takes precedence.
+ */
+export function generateDashboardCSS(config: BrandConfig): string {
+  const primary = hexToOklch(config.primaryColor)
+  const sidebar = hexToOklch(config.sidebarColor || config.primaryColor)
+
+  const sections: string[] = []
+
+  // --- :root overrides (light) ---
+  const rootTokens: Record<string, string> = {}
+
+  // Brand
+  rootTokens['--brand'] = oklchCss(primary)
+  rootTokens['--brand-foreground'] = 'oklch(1 0 0)'
+
+  // Sidebar from config
+  rootTokens['--sidebar'] = oklchCss(sidebar)
+  rootTokens['--sidebar-foreground'] = 'oklch(1 0 0 / 80%)'
+  rootTokens['--sidebar-border'] = 'oklch(1 0 0 / 10%)'
+  rootTokens['--sidebar-accent'] = 'oklch(1 0 0 / 12%)'
+  rootTokens['--sidebar-accent-foreground'] = 'oklch(1 0 0)'
+
+  // Glow from brand
+  rootTokens['--shadow-glow'] = `0 0 20px ${oklchCssAlpha(primary, '12%')}`
+
+  // Semantic colors
+  const sem = config.semanticColors ?? DEFAULT_SEMANTIC_COLORS
+  const destructive = hexToOklch(sem.destructive)
+  const success = hexToOklch(sem.success)
+  const warning = hexToOklch(sem.warning)
+  rootTokens['--destructive'] = oklchCss(destructive)
+  rootTokens['--success'] = oklchCss(success)
+  rootTokens['--warning'] = oklchCss(warning)
+
+  // Taxonomy colors (light)
+  const tax = config.taxonomyColors ?? DEFAULT_TAXONOMY_COLORS
+  Object.assign(rootTokens, generateTaxonomyTokens('dimension', tax.dimension, false))
+  Object.assign(rootTokens, generateTaxonomyTokens('competency', tax.competency, false))
+  Object.assign(rootTokens, generateTaxonomyTokens('trait', tax.trait, false))
+  Object.assign(rootTokens, generateTaxonomyTokens('item', tax.item, false))
+
+  const rootCss = Object.entries(rootTokens)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`:root {\n${rootCss}\n}`)
+
+  // --- .dark overrides ---
+  const darkTokens: Record<string, string> = {}
+
+  darkTokens['--brand'] = oklchCss({ ...primary, l: Math.max(primary.l - 0.10, 0.30) })
+
+  // Sidebar dark
+  const sidebarDark: OKLCH = { ...sidebar, l: Math.max(sidebar.l - 0.10, 0.30) }
+  darkTokens['--sidebar'] = oklchCss(sidebarDark)
+  darkTokens['--sidebar-foreground'] = 'oklch(1 0 0 / 80%)'
+  darkTokens['--sidebar-border'] = 'oklch(1 0 0 / 8%)'
+  darkTokens['--sidebar-accent'] = 'oklch(1 0 0 / 10%)'
+  darkTokens['--sidebar-accent-foreground'] = 'oklch(1 0 0)'
+
+  darkTokens['--shadow-glow'] = `0 0 25px ${oklchCssAlpha({ ...primary, l: primary.l - 0.10 }, '20%')}`
+
+  // Semantic (dark mode — slightly brighter)
+  darkTokens['--destructive'] = oklchCss({ ...destructive, l: Math.min(destructive.l + 0.10, 0.75) })
+  darkTokens['--success'] = oklchCss(success)
+  darkTokens['--warning'] = oklchCss({ ...warning, l: Math.min(warning.l + 0.05, 0.80) })
+
+  // Taxonomy (dark)
+  Object.assign(darkTokens, generateTaxonomyTokens('dimension', tax.dimension, true))
+  Object.assign(darkTokens, generateTaxonomyTokens('competency', tax.competency, true))
+  Object.assign(darkTokens, generateTaxonomyTokens('trait', tax.trait, true))
+  Object.assign(darkTokens, generateTaxonomyTokens('item', tax.item, true))
+
+  const darkCss = Object.entries(darkTokens)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`.dark {\n${darkCss}\n}`)
+
+  // --- Portal accent overrides ---
+  const portals = config.portalAccents ?? DEFAULT_PORTAL_ACCENTS
+
+  // Admin (default) — set in :root
+  const adminLight = generatePortalAccentTokens(portals.admin)
+  const adminRootCss = Object.entries(adminLight)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`:root {\n${adminRootCss}\n}`)
+
+  const adminDark = generatePortalAccentDarkTokens(portals.admin)
+  const adminDarkCss = Object.entries(adminDark)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`.dark {\n${adminDarkCss}\n}`)
+
+  // Partner
+  const partnerLight = generatePortalAccentTokens(portals.partner)
+  const partnerLightCss = Object.entries(partnerLight)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`[data-portal="partner"] {\n${partnerLightCss}\n}`)
+
+  const partnerDark = generatePortalAccentDarkTokens(portals.partner)
+  const partnerDarkCss = Object.entries(partnerDark)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`[data-portal="partner"].dark,\n.dark [data-portal="partner"] {\n${partnerDarkCss}\n}`)
+
+  // Client
+  const clientLight = generatePortalAccentTokens(portals.client)
+  const clientLightCss = Object.entries(clientLight)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`[data-portal="client"] {\n${clientLightCss}\n}`)
+
+  const clientDark = generatePortalAccentDarkTokens(portals.client)
+  const clientDarkCss = Object.entries(clientDark)
+    .map(([k, v]) => `  ${k}: ${v};`)
+    .join('\n')
+  sections.push(`[data-portal="client"].dark,\n.dark [data-portal="client"] {\n${clientDarkCss}\n}`)
+
+  return sections.join('\n\n')
+}
+
 // ---------------------------------------------------------------------------
 // PDF Style Generation
 // ---------------------------------------------------------------------------
@@ -376,20 +592,22 @@ export function generateEmailStyles(config: BrandConfig): EmailStyles {
   const primary = hexToOklch(config.primaryColor)
   const scale = generateScale(primary)
 
+  const emailOverrides = config.emailStyles ?? DEFAULT_EMAIL_STYLES
+
   const colors = {
     primary: config.primaryColor,
     primaryDark: oklchToHex(scale['800']),
     primaryLight: oklchToHex(scale['100']),
-    text: oklchToHex(scale['900']),
-    textMuted: oklchToHex(scale['600']),
+    text: emailOverrides.textColor,
+    textMuted: emailOverrides.footerTextColor,
     background: oklchToHex(scale['50']),
     border: oklchToHex(scale['200']),
   }
 
   return {
-    header: `background-color: ${colors.primary}; color: #ffffff; padding: 24px 32px; font-family: ${config.headingFont}, system-ui, sans-serif;`,
+    header: `background-color: ${config.primaryColor}; color: #ffffff; padding: 24px 32px; font-family: ${config.headingFont}, system-ui, sans-serif;`,
     body: `background-color: #ffffff; color: ${colors.text}; padding: 32px; font-family: ${config.bodyFont}, system-ui, sans-serif; font-size: 15px; line-height: 1.6;`,
-    button: `display: inline-block; background-color: ${colors.primary}; color: #ffffff; padding: 12px 28px; border-radius: ${RADIUS_BASE[config.borderRadius]}px; text-decoration: none; font-weight: 500; font-family: ${config.bodyFont}, system-ui, sans-serif;`,
+    button: `display: inline-block; background-color: ${config.primaryColor}; color: #ffffff; padding: 12px 28px; border-radius: ${RADIUS_BASE[config.borderRadius]}px; text-decoration: none; font-weight: 500; font-family: ${config.bodyFont}, system-ui, sans-serif;`,
     footer: `border-top: 1px solid ${colors.border}; padding: 16px 32px; color: ${colors.textMuted}; font-size: 13px; text-align: center; font-family: ${config.bodyFont}, system-ui, sans-serif;`,
     colors,
   }

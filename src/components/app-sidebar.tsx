@@ -295,13 +295,13 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem className="relative">
-            {pathname === "/settings" && (
+            {pathname.startsWith("/settings") && (
               <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-sidebar-primary" />
             )}
             <SidebarMenuButton
-              isActive={pathname === "/settings"}
+              isActive={pathname.startsWith("/settings")}
               tooltip="Settings"
-              render={<Link href="/settings" />}
+              render={<Link href="/settings/brand" />}
               size="sm"
             >
               <Settings className="size-4" />

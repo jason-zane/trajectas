@@ -8,16 +8,29 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { ColorPicker } from "@/components/brand-editor/color-picker"
 import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
+import { PortalAccentEditor } from "@/components/brand-editor/portal-accent-editor"
+import { TaxonomyColorEditor } from "@/components/brand-editor/taxonomy-color-editor"
+import { EmailStyleEditor } from "@/components/brand-editor/email-style-editor"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
-import { upsertBrandConfig, resetBrandToDefault } from "@/app/actions/brand"
-import { HEADING_BODY_FONTS, MONO_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
+import { upsertBrandConfig } from "@/app/actions/brand"
+import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
-import type { BrandConfig, BrandConfigRecord, NeutralTemperature, BorderRadiusPreset } from "@/lib/brand/types"
+import type {
+  BrandConfig,
+  BrandConfigRecord,
+  NeutralTemperature,
+  BorderRadiusPreset,
+  PortalAccents,
+  TaxonomyColors,
+  EmailStyleColors,
+  SemanticColors,
+} from "@/lib/brand/types"
 import { cn } from "@/lib/utils"
 
 interface BrandEditorProps {
@@ -46,7 +59,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
     const url = buildGoogleFontsUrl(fontNames)
     if (!url) return
 
-    // Check if we already have this link
     const existingLink = document.querySelector(`link[data-brand-fonts]`)
     if (existingLink) {
       existingLink.setAttribute("href", url)
@@ -58,10 +70,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
     link.href = url
     link.setAttribute("data-brand-fonts", "true")
     document.head.appendChild(link)
-
-    return () => {
-      // Don't remove on cleanup — we want fonts to persist while editing
-    }
   }, [config.headingFont, config.bodyFont])
 
   // Update helpers
@@ -85,7 +93,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
       setSavedConfig(config)
       setSaveState("saved")
 
-      // Reset to idle after 2s
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaveState("idle"), 2000)
     })
@@ -123,139 +130,267 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
       <PageHeader
         eyebrow="Settings"
         title="Brand"
-        description="Configure the visual identity for assessments, reports, and emails."
+        description="Configure the visual identity for the dashboard, assessments, reports, and emails."
       />
 
       <div className="flex gap-8 items-start">
         {/* Controls panel — left */}
-        <div className="w-[360px] shrink-0 space-y-6">
-          {/* Identity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Identity</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="brand-name">Brand Name</Label>
-                <Input
-                  id="brand-name"
-                  value={config.name}
-                  onChange={(e) => update({ name: e.target.value })}
-                  placeholder="Talent Fit"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Logo</Label>
-                <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 text-xs text-muted-foreground">
-                  Logo upload coming soon
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="w-[380px] shrink-0 space-y-6">
+          <Tabs defaultValue="identity">
+            <TabsList variant="line" className="w-full flex-wrap gap-0.5">
+              <TabsTrigger value="identity">Identity</TabsTrigger>
+              <TabsTrigger value="colors">Colors</TabsTrigger>
+              <TabsTrigger value="portals">Portals</TabsTrigger>
+              <TabsTrigger value="taxonomy">Taxonomy</TabsTrigger>
+              <TabsTrigger value="typography">Type</TabsTrigger>
+              <TabsTrigger value="shape">Shape</TabsTrigger>
+              <TabsTrigger value="email">Email</TabsTrigger>
+            </TabsList>
 
-          {/* Colors */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Colors</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <ColorPicker
-                label="Primary Color"
-                description="Main brand color for buttons, accents, and highlights."
-                value={config.primaryColor}
-                onChange={(hex) => update({ primaryColor: hex })}
-              />
-              <ColorPicker
-                label="Accent Color"
-                description="Secondary color for premium moments and charts."
-                value={config.accentColor}
-                onChange={(hex) => update({ accentColor: hex })}
-              />
+            {/* --- Identity --- */}
+            <TabsContent value="identity">
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Brand Identity</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="brand-name">Brand Name</Label>
+                    <Input
+                      id="brand-name"
+                      value={config.name}
+                      onChange={(e) => update({ name: e.target.value })}
+                      placeholder="Talent Fit"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Logo</Label>
+                    <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 text-xs text-muted-foreground">
+                      Logo upload coming soon
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              {/* Neutral temperature */}
-              <div className="space-y-2">
-                <Label>Neutral Temperature</Label>
-                <p className="text-caption text-muted-foreground">
-                  Controls the subtle hue tint in backgrounds, borders, and muted text.
-                </p>
-                <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
-                  {neutralOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => update({ neutralTemperature: opt.value })}
-                      className={cn(
-                        "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                        config.neutralTemperature === opt.value
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* --- Colors --- */}
+            <TabsContent value="colors">
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Colors</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <ColorPicker
+                    label="Primary Color"
+                    description="Main brand color for buttons, accents, and highlights."
+                    value={config.primaryColor}
+                    onChange={(hex) => update({ primaryColor: hex })}
+                  />
+                  <ColorPicker
+                    label="Accent Color"
+                    description="Secondary color for premium moments and charts."
+                    value={config.accentColor}
+                    onChange={(hex) => update({ accentColor: hex })}
+                  />
+                  <ColorPicker
+                    label="Sidebar Color"
+                    description="Background color for the sidebar. Defaults to primary."
+                    value={config.sidebarColor || config.primaryColor}
+                    onChange={(hex) => update({ sidebarColor: hex })}
+                  />
 
-          {/* Typography */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Typography</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <FontSelector
-                label="Heading Font"
-                value={config.headingFont}
-                onChange={(name) => update({ headingFont: name })}
-                fonts={HEADING_BODY_FONTS}
-              />
-              <FontSelector
-                label="Body Font"
-                value={config.bodyFont}
-                onChange={(name) => update({ bodyFont: name })}
-                fonts={HEADING_BODY_FONTS}
-              />
-            </CardContent>
-          </Card>
+                  {/* Neutral temperature */}
+                  <div className="space-y-2">
+                    <Label>Neutral Temperature</Label>
+                    <p className="text-caption text-muted-foreground">
+                      Controls the subtle hue tint in backgrounds, borders, and muted text.
+                    </p>
+                    <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
+                      {neutralOptions.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => update({ neutralTemperature: opt.value })}
+                          className={cn(
+                            "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
+                            config.neutralTemperature === opt.value
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-          {/* Shape */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Shape</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <RadiusSelector
-                value={config.borderRadius}
-                onChange={(v: BorderRadiusPreset) => update({ borderRadius: v })}
-                previewColor={config.primaryColor}
-              />
-            </CardContent>
-          </Card>
+                  {/* Semantic colors */}
+                  <div className="space-y-3 pt-2 border-t border-border/40">
+                    <Label>Semantic Colors</Label>
+                    <ColorPicker
+                      label="Destructive"
+                      description="Error states and delete actions."
+                      value={config.semanticColors?.destructive || "#c53030"}
+                      onChange={(hex) =>
+                        update({
+                          semanticColors: {
+                            destructive: hex,
+                            success: config.semanticColors?.success || "#2f855a",
+                            warning: config.semanticColors?.warning || "#c27803",
+                          },
+                        })
+                      }
+                    />
+                    <ColorPicker
+                      label="Success"
+                      description="Confirmation and positive states."
+                      value={config.semanticColors?.success || "#2f855a"}
+                      onChange={(hex) =>
+                        update({
+                          semanticColors: {
+                            destructive: config.semanticColors?.destructive || "#c53030",
+                            success: hex,
+                            warning: config.semanticColors?.warning || "#c27803",
+                          },
+                        })
+                      }
+                    />
+                    <ColorPicker
+                      label="Warning"
+                      description="Caution and attention states."
+                      value={config.semanticColors?.warning || "#c27803"}
+                      onChange={(hex) =>
+                        update({
+                          semanticColors: {
+                            destructive: config.semanticColors?.destructive || "#c53030",
+                            success: config.semanticColors?.success || "#2f855a",
+                            warning: hex,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          {/* Dark Mode */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Dark Mode</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium">Enable Dark Mode</p>
+            {/* --- Portal Accents --- */}
+            <TabsContent value="portals">
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Portal Accents</CardTitle>
                   <p className="text-caption text-muted-foreground">
-                    Allow candidates to use dark mode based on system preference.
+                    Each portal context uses its own accent color for the primary button, ring, and sidebar highlight. These override the base primary color per portal.
                   </p>
-                </div>
-                <Switch
-                  checked={config.darkModeEnabled}
-                  onCheckedChange={(checked: boolean) =>
-                    update({ darkModeEnabled: checked })
-                  }
-                />
+                </CardHeader>
+                <CardContent>
+                  <PortalAccentEditor
+                    value={config.portalAccents}
+                    onChange={(accents: PortalAccents) => update({ portalAccents: accents })}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* --- Taxonomy --- */}
+            <TabsContent value="taxonomy">
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Taxonomy Colors</CardTitle>
+                  <p className="text-caption text-muted-foreground">
+                    Each level of the assessment taxonomy gets a unique color for cards, badges, and accents. A bg/fg/accent scale is auto-generated from each base color.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <TaxonomyColorEditor
+                    value={config.taxonomyColors}
+                    onChange={(colors: TaxonomyColors) => update({ taxonomyColors: colors })}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* --- Typography --- */}
+            <TabsContent value="typography">
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Typography</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <FontSelector
+                    label="Heading Font"
+                    value={config.headingFont}
+                    onChange={(name) => update({ headingFont: name })}
+                    fonts={HEADING_BODY_FONTS}
+                  />
+                  <FontSelector
+                    label="Body Font"
+                    value={config.bodyFont}
+                    onChange={(name) => update({ bodyFont: name })}
+                    fonts={HEADING_BODY_FONTS}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* --- Shape & Surface --- */}
+            <TabsContent value="shape">
+              <div className="mt-4 space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Shape</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <RadiusSelector
+                      value={config.borderRadius}
+                      onChange={(v: BorderRadiusPreset) => update({ borderRadius: v })}
+                      previewColor={config.primaryColor}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Dark Mode</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Enable Dark Mode</p>
+                        <p className="text-caption text-muted-foreground">
+                          Allow candidates to use dark mode based on system preference.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={config.darkModeEnabled}
+                        onCheckedChange={(checked: boolean) =>
+                          update({ darkModeEnabled: checked })
+                        }
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+            </TabsContent>
+
+            {/* --- Email Styling --- */}
+            <TabsContent value="email">
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Email Styling</CardTitle>
+                  <p className="text-caption text-muted-foreground">
+                    Customize text colors for branded email templates. The header background always uses the primary brand color.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <EmailStyleEditor
+                    value={config.emailStyles}
+                    onChange={(styles: EmailStyleColors) => update({ emailStyles: styles })}
+                  />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           {/* Actions */}
           <div className="flex items-center gap-3 pb-8">

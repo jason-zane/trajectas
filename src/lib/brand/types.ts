@@ -11,6 +11,41 @@ export type BorderRadiusPreset = 'sharp' | 'soft' | 'round'
 /** Who owns a brand config. */
 export type BrandOwnerType = 'platform' | 'organization'
 
+/** Portal accent colors — one hex per portal context. */
+export interface PortalAccents {
+  /** Admin portal accent (default: violet #6d28d9). */
+  admin: string
+  /** Partner portal accent (default: gold #d4a032). */
+  partner: string
+  /** Client portal accent (default: terracotta #b85c3a). */
+  client: string
+}
+
+/** Semantic status colors. */
+export interface SemanticColors {
+  destructive: string
+  success: string
+  warning: string
+}
+
+/** Taxonomy level identity colors. */
+export interface TaxonomyColors {
+  dimension: string
+  competency: string
+  trait: string
+  item: string
+}
+
+/** Email template style overrides. */
+export interface EmailStyleColors {
+  /** Body text color (default: near-black). */
+  textColor: string
+  /** Highlight/bold color (default: brand primary). */
+  highlightColor: string
+  /** Footer text color (default: muted gray). */
+  footerTextColor: string
+}
+
 /**
  * Complete brand configuration. Stored as JSONB in the `brand_configs` table.
  *
@@ -42,6 +77,21 @@ export interface BrandConfig {
    * - `neutral` keeps neutrals achromatic
    */
   neutralTemperature: NeutralTemperature
+
+  /** Per-portal accent hex colors. */
+  portalAccents?: PortalAccents
+
+  /** Sidebar background color as hex. Defaults to primary. */
+  sidebarColor?: string
+
+  /** Semantic status colors. */
+  semanticColors?: SemanticColors
+
+  /** Taxonomy level identity colors. */
+  taxonomyColors?: TaxonomyColors
+
+  /** Email template style overrides. */
+  emailStyles?: EmailStyleColors
 
   // -- Typography -----------------------------------------------------------
 

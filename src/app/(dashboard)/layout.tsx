@@ -8,6 +8,8 @@ import { PortalProvider } from "@/components/portal-context";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { CommandPalette } from "@/components/command-palette";
 import { PageTransition } from "@/components/page-transition";
+import { getEffectiveBrand } from "@/app/actions/brand";
+import { generateDashboardCSS } from "@/lib/brand/tokens";
 
 export default async function DashboardLayout({
   children,
@@ -17,8 +19,12 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
+  const brandConfig = await getEffectiveBrand();
+  const dashboardCSS = generateDashboardCSS(brandConfig);
+
   return (
     <PortalProvider>
+      <style dangerouslySetInnerHTML={{ __html: dashboardCSS }} />
       <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar />
         <SidebarInset>
