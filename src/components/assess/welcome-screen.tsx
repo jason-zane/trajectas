@@ -10,15 +10,17 @@ interface WelcomeScreenProps {
   campaignTitle: string;
   campaignDescription?: string;
   assessmentCount: number;
-  candidateFirstName?: string;
+  participantFirstName?: string;
   hasInProgressSession: boolean;
   allowResume: boolean;
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
   content: WelcomeContent;
-  /** The URL to navigate to when the candidate clicks Begin/Resume. Determined server-side from flow config. */
+  /** The URL to navigate to when the participant clicks Begin/Resume. Determined server-side from flow config. */
   nextUrl: string;
+  privacyUrl?: string;
+  termsUrl?: string;
 }
 
 export function WelcomeScreen({
@@ -29,6 +31,8 @@ export function WelcomeScreen({
   isCustomBrand,
   content,
   nextUrl,
+  privacyUrl,
+  termsUrl,
 }: WelcomeScreenProps) {
   const router = useRouter();
 
@@ -181,7 +185,7 @@ export function WelcomeScreen({
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center px-4 py-4">
+      <footer className="flex items-center justify-center gap-3 px-4 py-4">
         <span
           className="text-xs"
           style={{
@@ -192,6 +196,28 @@ export function WelcomeScreen({
           {content.footerText ??
             (isCustomBrand ? "Powered by TalentFit" : "Your responses are confidential")}
         </span>
+        {privacyUrl && (
+          <a
+            href={privacyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Privacy
+          </a>
+        )}
+        {termsUrl && (
+          <a
+            href={termsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Terms
+          </a>
+        )}
       </footer>
     </div>
   );

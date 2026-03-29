@@ -62,15 +62,15 @@ export function CampaignSettingsToggles({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Candidate Experience</CardTitle>
+        <CardTitle>Participant Experience</CardTitle>
         <CardDescription>
-          Controls how candidates interact with the campaign.
+          Controls how participants interact with the campaign.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Toggle
           label="Allow Resume"
-          description="Candidates can leave and return to continue where they left off."
+          description="Participants can leave and return to continue where they left off."
           checked={allowResume}
           onChange={(v) => handleToggle("allow_resume", v)}
         />
@@ -82,7 +82,7 @@ export function CampaignSettingsToggles({
         />
         <Toggle
           label="Randomize Assessment Order"
-          description="Present assessments in a random order to each candidate."
+          description="Present assessments in a random order to each participant."
           checked={randomizeAssessmentOrder}
           onChange={(v) => handleToggle("randomize_assessment_order", v)}
         />

@@ -198,7 +198,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
         <EmptyState
           variant="item"
           title="No items yet"
-          description="Items are the questions presented to candidates during assessments. Create your first item to begin building your item pool."
+          description="Items are the questions presented to participants during assessments. Create your first item to begin building your item pool."
           actionLabel="Create Item"
           actionHref="/items/create"
         />

@@ -67,7 +67,7 @@ export interface FactorDimensionLink {
 
 /** Full pipeline configuration. */
 export interface PipelineConfig {
-  /** Candidate session ID. */
+  /** Participant session ID. */
   sessionId: string
   /** Assessment ID. */
   assessmentId: string
@@ -362,7 +362,7 @@ export function aggregateToDimensions(
 // ---------------------------------------------------------------------------
 
 /**
- * Execute the complete scoring pipeline for a candidate session.
+ * Execute the complete scoring pipeline for a participant session.
  *
  * @param responses - Raw response values keyed by item ID.
  * @param config    - Pipeline configuration.

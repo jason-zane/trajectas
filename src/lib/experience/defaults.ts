@@ -14,10 +14,13 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     heading: 'Join Assessment',
     body: 'Enter your details to begin the assessment.',
     buttonLabel: 'Continue',
+    marketingConsentEnabled: false,
+    marketingConsentRequired: false,
+    marketingConsentLabel: 'I agree to receive communications about future opportunities and insights.',
   },
 
   welcome: {
-    eyebrow: 'Welcome, {{candidateName}}',
+    eyebrow: 'Welcome, {{participantName}}',
     heading: '{{campaignTitle}}',
     body: '{{campaignDescription}}',
     infoHeading: 'Before you begin',
@@ -53,6 +56,15 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     buttonLabel: 'Start Section',
   },
 
+  runner: {
+    backButtonLabel: 'Back',
+    saveStatusIdle: 'Responses saved automatically',
+    saveStatusSaving: 'Saving...',
+    saveStatusSaved: 'Saved',
+    continueButtonLabel: 'Continue',
+    footerText: 'Powered by TalentFit',
+  },
+
   review: {
     eyebrow: '{{campaignTitle}}',
     heading: 'Review Your Responses',
@@ -81,19 +93,20 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
 }
 
 // =============================================================================
-// Default flow config — order mirrors the candidate journey
+// Default flow config — order mirrors the participant journey
 // =============================================================================
 
 export const DEFAULT_FLOW_CONFIG: Readonly<FlowConfig> = {
-  join: { enabled: true, order: 1 },
-  welcome: { enabled: true, order: 2 },
-  consent: { enabled: false, order: 3 },
-  demographics: { enabled: false, order: 4 },
-  // section pages are always shown between demographics and review
-  review: { enabled: true, order: 6 },
-  complete: { enabled: true, order: 7 },
-  report: { enabled: false, order: 8, reportMode: 'holding' },
-  expired: { enabled: true, order: 9 },
+  join: { enabled: true, order: 10 },
+  welcome: { enabled: true, order: 20 },
+  consent: { enabled: false, order: 30 },
+  demographics: { enabled: false, order: 40 },
+  // Pages with order < 100 are pre-assessment, >= 100 are post-assessment
+  // Assessment sections (section_intro + runner) occupy the conceptual slot at 100
+  review: { enabled: true, order: 110 },
+  complete: { enabled: true, order: 120 },
+  report: { enabled: false, order: 130, reportMode: 'holding' },
+  expired: { enabled: true, order: 999 },
 }
 
 // =============================================================================

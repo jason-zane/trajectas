@@ -21,15 +21,15 @@ export default async function CampaignOverviewPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const totalCandidates = campaign.candidates.length;
-  const startedCount = campaign.candidates.filter((c) =>
+  const totalParticipants = campaign.participants.length;
+  const startedCount = campaign.participants.filter((c) =>
     ["in_progress", "completed"].includes(c.status),
   ).length;
-  const completedCount = campaign.candidates.filter(
+  const completedCount = campaign.participants.filter(
     (c) => c.status === "completed",
   ).length;
   const completionPct =
-    totalCandidates > 0 ? Math.round((completedCount / totalCandidates) * 100) : 0;
+    totalParticipants > 0 ? Math.round((completedCount / totalParticipants) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -44,7 +44,7 @@ export default async function CampaignOverviewPage({
         <StatCard
           icon={Users}
           label="Invited"
-          value={totalCandidates}
+          value={totalParticipants}
         />
         <StatCard
           icon={PlayCircle}
@@ -64,7 +64,7 @@ export default async function CampaignOverviewPage({
       </div>
 
       {/* Completion bar */}
-      {totalCandidates > 0 && (
+      {totalParticipants > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">
@@ -74,7 +74,7 @@ export default async function CampaignOverviewPage({
           <CardContent>
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
               <span>
-                {completedCount} of {totalCandidates} candidates completed
+                {completedCount} of {totalParticipants} participants completed
               </span>
               <span className="font-medium text-foreground">
                 {completionPct}%

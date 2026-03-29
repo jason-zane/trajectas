@@ -55,7 +55,7 @@ export function PreviewReport() {
         {/* Meta section */}
         <div className="px-8 py-6 space-y-4">
           {[
-            { label: "Candidate", value: "Alex Morgan" },
+            { label: "Participant", value: "Alex Morgan" },
             { label: "Assessment", value: "Senior Leadership Suite" },
             { label: "Date", value: "28 March 2026" },
             { label: "Organisation", value: "Acme Corp" },

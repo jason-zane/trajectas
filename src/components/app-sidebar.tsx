@@ -89,6 +89,7 @@ const adminNav = [
         icon: ClipboardList,
       },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
+      { title: "Participants", href: "/participants", icon: Users },
     ],
   },
   {

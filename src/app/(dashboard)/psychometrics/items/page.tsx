@@ -18,7 +18,7 @@ export default async function ItemHealthPage() {
         <EmptyState
           variant="item"
           title="No item statistics yet"
-          description="Item health metrics are computed during calibration runs. Once you have candidate response data, run a calibration to see difficulty, discrimination, and reliability contributions for every item."
+          description="Item health metrics are computed during calibration runs. Once you have participant response data, run a calibration to see difficulty, discrimination, and reliability contributions for every item."
         />
       ) : (
         <ItemHealthList items={items} />

@@ -18,6 +18,7 @@ interface ItemCardProps {
   onResponse: (value: number, data?: Record<string, unknown>) => void;
   onContinue: () => void;
   showContinue: boolean;
+  continueButtonLabel?: string;
 }
 
 /**
@@ -33,6 +34,7 @@ export function ItemCard({
   onResponse,
   onContinue,
   showContinue,
+  continueButtonLabel,
 }: ItemCardProps) {
   if (!item) return null;
 
@@ -116,7 +118,7 @@ export function ItemCard({
               color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
             }}
           >
-            Continue
+            {continueButtonLabel ?? "Continue"}
             <ArrowRight className="size-4" />
           </Button>
         </div>

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
 import { getEffectiveExperience } from "@/app/actions/experience";
-import { isPageEnabled } from "@/lib/experience/resolve";
+import { getNextFlowUrl } from "@/lib/experience/flow-router";
 
 export default async function TokenPage({
   params,
@@ -15,10 +15,10 @@ export default async function TokenPage({
     redirect("/assess/expired");
   }
 
-  const { campaign, candidate, sessions } = result.data!;
+  const { campaign, participant, sessions } = result.data!;
 
-  // Check if candidate has completed everything
-  if (candidate.status === "completed") {
+  // Check if participant has completed everything
+  if (participant.status === "completed") {
     redirect(`/assess/${token}/complete`);
   }
 
@@ -31,27 +31,7 @@ export default async function TokenPage({
     redirect(`/assess/${token}/section/0`);
   }
 
-  // Determine next step in the flow based on template config + candidate progress
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const candidateAny = candidate as any;
-
-  // 1. Welcome page (always first for new candidates)
-  // After welcome, the welcome page routes to consent/demographics/section/0
-
-  // Check if consent is needed
-  if (isPageEnabled(experience, "consent") && !candidateAny.consentGivenAt) {
-    // Show welcome first, consent comes after
-    redirect(`/assess/${token}/welcome`);
-  }
-
-  // Check if demographics is needed
-  if (
-    isPageEnabled(experience, "demographics") &&
-    !candidateAny.demographicsCompletedAt
-  ) {
-    redirect(`/assess/${token}/welcome`);
-  }
-
-  // Default: show welcome
-  redirect(`/assess/${token}/welcome`);
+  // Use centralized flow router: join is the current step, go to next
+  const nextUrl = getNextFlowUrl(experience, "join", token);
+  redirect(nextUrl ?? `/assess/${token}/welcome`);
 }

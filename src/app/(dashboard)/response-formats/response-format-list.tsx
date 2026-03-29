@@ -64,7 +64,7 @@ export function ResponseFormatList({ formats }: { formats: ResponseFormatWithMet
       <PageHeader
         eyebrow="Library"
         title="Response Formats"
-        description="Response formats define how candidates interact with assessment items — from Likert scales to situational judgement tasks."
+        description="Response formats define how participants interact with assessment items — from Likert scales to situational judgement tasks."
       >
         <Link href="/response-formats/create">
           <Button>

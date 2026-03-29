@@ -79,7 +79,7 @@ export default async function NormsPage() {
         <EmptyState
           variant="default"
           title="Building your norm base"
-          description="Norm data accumulates automatically as candidates complete assessments. The General Population baseline is ready — specific norms (by industry, role level, region) will become available as your sample grows."
+          description="Norm data accumulates automatically as participants complete assessments. The General Population baseline is ready — specific norms (by industry, role level, region) will become available as your sample grows."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

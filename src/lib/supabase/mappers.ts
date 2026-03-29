@@ -19,7 +19,7 @@ import type {
   DIFResult,
   Campaign,
   CampaignAssessment,
-  CampaignCandidate,
+  CampaignParticipant,
   CampaignAccessLink,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
@@ -188,6 +188,8 @@ export function mapExperienceTemplateRow(row: any): ExperienceTemplateRecord {
     flowConfig: row.flow_config ?? {},
     demographicsConfig: row.demographics_config ?? { fields: [] },
     customPageContent: row.custom_page_content ?? {},
+    privacyUrl: row.privacy_url ?? null,
+    termsUrl: row.terms_url ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? null,
     deletedAt: row.deleted_at ?? null,
@@ -551,7 +553,7 @@ export function mapCampaignAssessmentRow(row: any): CampaignAssessment {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapCampaignCandidateRow(row: any): CampaignCandidate {
+export function mapCampaignParticipantRow(row: any): CampaignParticipant {
   return {
     id: row.id,
     campaignId: row.campaign_id,

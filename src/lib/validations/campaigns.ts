@@ -29,13 +29,13 @@ export const campaignSchema = z.object({
 
 export type CampaignInput = z.infer<typeof campaignSchema>
 
-export const inviteCandidateSchema = z.object({
+export const inviteParticipantSchema = z.object({
   email: z.string().email('Valid email is required'),
   firstName: z.string().max(200).optional(),
   lastName: z.string().max(200).optional(),
 })
 
-export type InviteCandidateInput = z.infer<typeof inviteCandidateSchema>
+export type InviteParticipantInput = z.infer<typeof inviteParticipantSchema>
 
 export const accessLinkSchema = z.object({
   label: z.string().max(200).optional(),

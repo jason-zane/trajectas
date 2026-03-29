@@ -5,11 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   mapCampaignRow,
   mapCampaignAssessmentRow,
-  mapCampaignCandidateRow,
+  mapCampaignParticipantRow,
   mapCampaignAccessLinkRow,
 } from '@/lib/supabase/mappers'
-import { campaignSchema, inviteCandidateSchema, accessLinkSchema } from '@/lib/validations/campaigns'
-import type { Campaign, CampaignAssessment, CampaignCandidate, CampaignAccessLink } from '@/types/database'
+import { campaignSchema, inviteParticipantSchema, accessLinkSchema } from '@/lib/validations/campaigns'
+import type { Campaign, CampaignAssessment, CampaignParticipant, CampaignAccessLink } from '@/types/database'
 
 // ---------------------------------------------------------------------------
 // Meta types
@@ -17,14 +17,14 @@ import type { Campaign, CampaignAssessment, CampaignCandidate, CampaignAccessLin
 
 export type CampaignWithMeta = Campaign & {
   assessmentCount: number
-  candidateCount: number
+  participantCount: number
   completedCount: number
   organizationName?: string
 }
 
 export type CampaignDetail = Campaign & {
   assessments: (CampaignAssessment & { assessmentTitle: string; assessmentStatus: string })[]
-  candidates: CampaignCandidate[]
+  participants: CampaignParticipant[]
   accessLinks: CampaignAccessLink[]
   organizationName?: string
 }
@@ -37,7 +37,7 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('campaigns')
-    .select('*, organizations(name), campaign_candidates(count), campaign_assessments(count)')
+    .select('*, organizations(name), campaign_participants(count), campaign_assessments(count)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -48,7 +48,7 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
   let completedMap: Record<string, number> = {}
   if (campaignIds.length > 0) {
     const { data: completed } = await db
-      .from('campaign_candidates')
+      .from('campaign_participants')
       .select('campaign_id')
       .in('campaign_id', campaignIds)
       .eq('status', 'completed')
@@ -63,7 +63,7 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
   return (data ?? []).map((row: any) => ({
     ...mapCampaignRow(row),
     assessmentCount: row.campaign_assessments?.[0]?.count ?? 0,
-    candidateCount: row.campaign_candidates?.[0]?.count ?? 0,
+    participantCount: row.campaign_participants?.[0]?.count ?? 0,
     completedCount: completedMap[row.id] ?? 0,
     organizationName: row.organizations?.name ?? undefined,
   }))
@@ -90,9 +90,9 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
     .eq('campaign_id', id)
     .order('display_order', { ascending: true })
 
-  // Load candidates
-  const { data: candidateRows } = await db
-    .from('campaign_candidates')
+  // Load participants
+  const { data: participantRows } = await db
+    .from('campaign_participants')
     .select('*')
     .eq('campaign_id', id)
     .order('created_at', { ascending: false })
@@ -113,7 +113,7 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
       assessmentTitle: r.assessments?.title ?? 'Untitled',
       assessmentStatus: r.assessments?.status ?? 'draft',
     })),
-    candidates: (candidateRows ?? []).map(mapCampaignCandidateRow),
+    participants: (participantRows ?? []).map(mapCampaignParticipantRow),
     accessLinks: (linkRows ?? []).map(mapCampaignAccessLinkRow),
   }
 }
@@ -360,18 +360,18 @@ export async function reorderCampaignAssessments(campaignId: string, orderedIds:
 }
 
 // ---------------------------------------------------------------------------
-// Candidates
+// Participants
 // ---------------------------------------------------------------------------
 
-export async function inviteCandidate(campaignId: string, payload: Record<string, unknown>) {
-  const parsed = inviteCandidateSchema.safeParse(payload)
+export async function inviteParticipant(campaignId: string, payload: Record<string, unknown>) {
+  const parsed = inviteParticipantSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
   const db = createAdminClient()
   const { data, error } = await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .insert({
       campaign_id: campaignId,
       email: parsed.data.email,
@@ -392,12 +392,12 @@ export async function inviteCandidate(campaignId: string, payload: Record<string
   return { success: true as const, id: data.id, accessToken: data.access_token }
 }
 
-export async function bulkInviteCandidates(
+export async function bulkInviteParticipants(
   campaignId: string,
-  candidates: { email: string; firstName?: string; lastName?: string }[],
+  participants: { email: string; firstName?: string; lastName?: string }[],
 ) {
   const db = createAdminClient()
-  const rows = candidates.map((c) => ({
+  const rows = participants.map((c) => ({
     campaign_id: campaignId,
     email: c.email,
     first_name: c.firstName ?? null,
@@ -405,7 +405,7 @@ export async function bulkInviteCandidates(
   }))
 
   const { data, error } = await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .upsert(rows, { onConflict: 'campaign_id,email', ignoreDuplicates: true })
     .select('id')
 
@@ -415,12 +415,12 @@ export async function bulkInviteCandidates(
   return { success: true as const, count: data?.length ?? 0 }
 }
 
-export async function removeCandidate(campaignId: string, candidateId: string) {
+export async function removeParticipant(campaignId: string, participantId: string) {
   const db = createAdminClient()
   const { error } = await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .delete()
-    .eq('id', candidateId)
+    .eq('id', participantId)
     .eq('campaign_id', campaignId)
 
   if (error) return { error: error.message }

@@ -21,22 +21,28 @@ import type {
 
 interface DemographicsFormProps {
   token: string;
-  candidateId: string;
+  participantId: string;
   fields: DemographicsFieldConfig[];
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
   content: DemographicsContent;
+  nextUrl: string;
+  privacyUrl?: string;
+  termsUrl?: string;
 }
 
 export function DemographicsForm({
   token,
-  candidateId,
+  participantId,
   fields,
   brandLogoUrl,
   brandName,
   isCustomBrand,
   content,
+  nextUrl,
+  privacyUrl,
+  termsUrl,
 }: DemographicsFormProps) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>({});
@@ -73,8 +79,8 @@ export function DemographicsForm({
     }
 
     setSubmitting(true);
-    await saveDemographics(candidateId, values);
-    router.push(`/assess/${token}/section/0`);
+    await saveDemographics(participantId, values);
+    router.push(nextUrl);
   }
 
   return (
@@ -233,7 +239,7 @@ export function DemographicsForm({
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center px-4 py-4">
+      <footer className="flex items-center justify-center gap-3 px-4 py-4">
         <span
           className="text-xs"
           style={{
@@ -244,6 +250,28 @@ export function DemographicsForm({
           {content.footerText ??
             (isCustomBrand ? "Powered by TalentFit" : "Your responses are confidential")}
         </span>
+        {privacyUrl && (
+          <a
+            href={privacyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Privacy
+          </a>
+        )}
+        {termsUrl && (
+          <a
+            href={termsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Terms
+          </a>
+        )}
       </footer>
     </div>
   );

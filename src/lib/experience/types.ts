@@ -2,13 +2,14 @@
 // Experience template types
 // =============================================================================
 
-/** Page types in the candidate experience flow. */
+/** Page types in the participant experience flow. */
 export type ExperiencePageType =
   | 'join'
   | 'welcome'
   | 'consent'
   | 'demographics'
   | 'section_intro'
+  | 'runner'
   | 'review'
   | 'complete'
   | 'report'
@@ -29,6 +30,9 @@ export interface JoinContent {
   body: string
   buttonLabel: string
   footerText?: string
+  marketingConsentEnabled: boolean
+  marketingConsentRequired: boolean
+  marketingConsentLabel: string
 }
 
 export interface WelcomeContent {
@@ -68,6 +72,15 @@ export interface SectionIntroContent {
   footerText?: string
 }
 
+export interface RunnerContent {
+  backButtonLabel: string
+  saveStatusIdle: string
+  saveStatusSaving: string
+  saveStatusSaved: string
+  continueButtonLabel: string
+  footerText?: string
+}
+
 export interface ReviewContent {
   eyebrow: string
   heading: string
@@ -81,6 +94,8 @@ export interface CompleteContent {
   heading: string
   body: string
   footerText?: string
+  redirectUrl?: string
+  redirectLabel?: string
 }
 
 export interface ReportContent {
@@ -89,6 +104,8 @@ export interface ReportContent {
   buttonLabel: string
   reportMode: ReportMode
   footerText?: string
+  redirectUrl?: string
+  redirectLabel?: string
 }
 
 export interface ExpiredContent {
@@ -121,6 +138,7 @@ export interface PageContentMap {
   consent: ConsentContent
   demographics: DemographicsContent
   section_intro: SectionIntroContent
+  runner: RunnerContent
   review: ReviewContent
   complete: CompleteContent
   report: ReportContent
@@ -185,6 +203,8 @@ export interface ExperienceTemplate {
   flowConfig: Partial<FlowConfig>
   demographicsConfig: DemographicsConfig
   customPageContent?: Record<string, CustomPageContent>
+  privacyUrl?: string
+  termsUrl?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +219,8 @@ export interface ExperienceTemplateRow {
   flow_config: Partial<FlowConfig>
   demographics_config: DemographicsConfig
   custom_page_content: Record<string, CustomPageContent>
+  privacy_url: string | null
+  terms_url: string | null
   created_at: string
   updated_at: string | null
   deleted_at: string | null
@@ -213,6 +235,8 @@ export interface ExperienceTemplateRecord {
   flowConfig: Partial<FlowConfig>
   demographicsConfig: DemographicsConfig
   customPageContent: Record<string, CustomPageContent>
+  privacyUrl: string | null
+  termsUrl: string | null
   createdAt: string
   updatedAt: string | null
   deletedAt: string | null
@@ -223,9 +247,11 @@ export interface ExperienceTemplateRecord {
 // ---------------------------------------------------------------------------
 
 export interface TemplateVariables {
-  candidateName?: string
+  participantName?: string
   campaignTitle?: string
   assessmentCount?: number
   organizationName?: string
   campaignDescription?: string
+  sectionTitle?: string
+  sectionNumber?: number
 }

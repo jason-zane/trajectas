@@ -5,10 +5,16 @@ import {
   getSessionState,
 } from "@/app/actions/assess";
 import { getEffectiveBrand } from "@/app/actions/brand";
+import { getEffectiveExperience } from "@/app/actions/experience";
+import { getPageContent } from "@/lib/experience/resolve";
+import { interpolateContent } from "@/lib/experience/interpolate";
+import { getPostSectionsUrl } from "@/lib/experience/flow-router";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
+import { SectionIntroScreen } from "@/components/assess/section-intro-screen";
+import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function SectionPage({
   params,
@@ -21,7 +27,7 @@ export default async function SectionPage({
   const result = await validateAccessToken(token);
   if (result.error) redirect("/assess/expired");
 
-  const { campaign, candidate, assessments } = result.data!;
+  const { campaign, participant, assessments } = result.data!;
 
   if (assessments.length === 0) {
     redirect(`/assess/${token}/complete`);
@@ -42,7 +48,7 @@ export default async function SectionPage({
 
   // Start or resume session
   const sessionResult = await startSession(
-    candidate.id,
+    participant.id,
     targetAssessment.assessmentId,
     campaign.id
   );
@@ -81,16 +87,27 @@ export default async function SectionPage({
   const brandConfig = await getEffectiveBrand(campaign.organizationId);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
-  // Generate org-specific CSS tokens (overrides layout defaults if org branded)
+  // Load experience template for runner content + flow routing
+  const experience = await getEffectiveExperience(campaign.id);
+  const runnerContent = getPageContent(experience, "runner");
+  const postSectionsUrl = getPostSectionsUrl(experience, token);
+
+  // Section intro content (interpolated with section-specific variables)
+  const rawSectionIntro = getPageContent(experience, "section_intro");
+  const sectionIntroVars: TemplateVariables = {
+    campaignTitle: campaign.title,
+    sectionTitle: section.title,
+    sectionNumber: clampedIdx + 1,
+  };
+  const sectionIntroContent = interpolateContent(rawSectionIntro, sectionIntroVars);
+
+  // Generate org-specific CSS tokens
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled
     ? generateDarkCSSTokens(brandConfig)
     : "";
-
-  // CSS is server-generated from trusted DB brand config, not user HTML
   const brandCss = `${lightCss}\n${darkCss}`;
 
-  // Load custom fonts if org has different fonts
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,
     brandConfig.bodyFont,
@@ -99,7 +116,7 @@ export default async function SectionPage({
 
   return (
     <>
-      {/* Org-specific brand token overrides — server-generated CSS from DB config */}
+      {/* eslint-disable-next-line react/no-danger -- server-generated CSS from validated brand config */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
@@ -115,6 +132,11 @@ export default async function SectionPage({
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
+        runnerContent={runnerContent}
+        postSectionsUrl={postSectionsUrl}
+        sectionIntroContent={sectionIntroContent}
+        privacyUrl={experience.privacyUrl}
+        termsUrl={experience.termsUrl}
       />
     </>
   );

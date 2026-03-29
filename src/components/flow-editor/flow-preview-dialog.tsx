@@ -11,6 +11,8 @@ import {
   PreviewWelcome,
   PreviewConsent,
   PreviewDemographics,
+  PreviewSectionIntro,
+  PreviewRunner,
   PreviewReview,
   PreviewComplete,
   PreviewReport,
@@ -38,7 +40,7 @@ interface FlowPreviewDialogProps {
 
 const BUILT_IN_PAGES = new Set([
   "join", "welcome", "consent", "demographics",
-  "section_intro", "review", "complete", "report", "expired",
+  "section_intro", "runner", "review", "complete", "report", "expired",
 ])
 
 export function FlowPreviewDialog({
@@ -142,6 +144,10 @@ export function FlowPreviewDialog({
         return <PreviewConsent content={{ ...defaults.consent, ...pageContent.consent }} />
       case "demographics":
         return <PreviewDemographics content={{ ...defaults.demographics, ...pageContent.demographics }} />
+      case "section_intro":
+        return <PreviewSectionIntro content={{ ...defaults.section_intro, ...pageContent.section_intro }} />
+      case "runner":
+        return <PreviewRunner content={{ ...defaults.runner, ...pageContent.runner }} />
       case "review":
         return <PreviewReview content={{ ...defaults.review, ...pageContent.review }} />
       case "complete":

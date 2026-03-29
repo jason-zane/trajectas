@@ -46,7 +46,7 @@ import { estimateMLE, estimateEAP } from '../irt/estimation'
  *
  * while (!state.isComplete) {
  *   const itemId = state.nextItemId!
- *   const response = await presentItemToCandidate(itemId)
+ *   const response = await presentItemToParticipant(itemId)
  *   state = engine.processResponse(state, itemId, response)
  * }
  *

@@ -13,8 +13,8 @@ export default async function ExperienceSettingsPage() {
     <div className="flex flex-col h-[calc(100vh-theme(spacing.16))]">
       <PageHeader
         eyebrow="Settings"
-        title="Candidate Experience"
-        description="Customise the content and flow candidates see during assessments"
+        title="Participant Experience"
+        description="Customise the content and flow participants see during assessments"
         className="pb-4"
       />
       <div className="flex-1 min-h-0">

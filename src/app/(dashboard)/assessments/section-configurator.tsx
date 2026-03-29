@@ -74,7 +74,7 @@ const ORDERING_INFO: Record<ItemOrdering, { label: string; description: string }
   },
   randomised: {
     label: "Randomised",
-    description: "Full shuffle for each candidate — maximises faking resistance.",
+    description: "Full shuffle for each participant — maximises faking resistance.",
   },
   fixed: {
     label: "Fixed order",
@@ -223,7 +223,7 @@ function FormatModeSelector({
           <div>
             <CardTitle>Delivery Format</CardTitle>
             <CardDescription>
-              How candidates interact with assessment items.
+              How participants interact with assessment items.
             </CardDescription>
           </div>
         </div>
@@ -245,7 +245,7 @@ function FormatModeSelector({
             <div>
               <p className="text-sm font-semibold">Traditional</p>
               <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                Candidates rate each statement individually on the chosen scale. Best for diagnostic depth and developmental feedback.
+                Participants rate each statement individually on the chosen scale. Best for diagnostic depth and developmental feedback.
               </p>
             </div>
           </button>
@@ -265,7 +265,7 @@ function FormatModeSelector({
             <div>
               <p className="text-sm font-semibold">Forced Choice</p>
               <p className="text-xs text-muted-foreground leading-relaxed mt-1">
-                Candidates compare statements from different constructs in blocks. Faking-resistant, ideal for selection and high-stakes decisions.
+                Participants compare statements from different constructs in blocks. Faking-resistant, ideal for selection and high-stakes decisions.
               </p>
             </div>
           </button>
@@ -356,7 +356,7 @@ function TraditionalConfigurator({
             <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
               <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Candidates will see a brief instruction card between sections explaining the new format. Items within each section only use that section&apos;s format.
+                Participants will see a brief instruction card between sections explaining the new format. Items within each section only use that section&apos;s format.
               </p>
             </div>
           </div>
@@ -751,7 +751,7 @@ function SectionFields({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs">Instructions for Candidates</Label>
+          <Label className="text-xs">Instructions for Participants</Label>
           <Textarea
             value={section.instructions}
             onChange={(e) => onChange({ instructions: e.target.value })}
@@ -825,7 +825,7 @@ function SectionFields({
           <div>
             <Label className="text-xs">Allow Back Navigation</Label>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Can candidates go back within this section?
+              Can participants go back within this section?
             </p>
           </div>
           <Switch

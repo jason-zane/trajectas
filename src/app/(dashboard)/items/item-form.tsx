@@ -340,7 +340,7 @@ export function ItemForm({
                 <CardHeader>
                   <CardTitle>Question Stem</CardTitle>
                   <CardDescription>
-                    The statement or question presented to the candidate.
+                    The statement or question presented to the participant.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -382,7 +382,7 @@ export function ItemForm({
                     <div>
                       <CardTitle>Response Configuration</CardTitle>
                       <CardDescription>
-                        How candidates interact with this item.
+                        How participants interact with this item.
                       </CardDescription>
                     </div>
                   </div>
@@ -571,7 +571,7 @@ export function ItemForm({
                         <CardDescription>
                           {formatType === "likert" || formatType === "binary"
                             ? "Options are auto-populated from the response format. You can customise labels below."
-                            : "Add the options that candidates can choose from (min 2, max 10)."}
+                            : "Add the options that participants can choose from (min 2, max 10)."}
                         </CardDescription>
                       </div>
                     </div>

@@ -43,7 +43,7 @@ export default async function CampaignsPage() {
       <PageHeader
         eyebrow="Campaigns"
         title="Campaigns"
-        description="Deploy assessments to candidates and track completion."
+        description="Deploy assessments to participants and track completion."
       >
         <Link href="/campaigns/create">
           <Button>
@@ -56,7 +56,7 @@ export default async function CampaignsPage() {
       {campaigns.length === 0 ? (
         <EmptyState
           title="No campaigns yet"
-          description="Create your first campaign to deploy assessments to candidates."
+          description="Create your first campaign to deploy assessments to participants."
           actionLabel="New Campaign"
           actionHref="/campaigns/create"
         />
@@ -64,9 +64,9 @@ export default async function CampaignsPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {campaigns.map((campaign, index) => {
             const completionPct =
-              campaign.candidateCount > 0
+              campaign.participantCount > 0
                 ? Math.round(
-                    (campaign.completedCount / campaign.candidateCount) * 100,
+                    (campaign.completedCount / campaign.participantCount) * 100,
                   )
                 : 0;
 
@@ -122,12 +122,12 @@ export default async function CampaignsPage() {
                         )}
 
                         {/* Completion mini-bar */}
-                        {campaign.candidateCount > 0 && (
+                        {campaign.participantCount > 0 && (
                           <div className="mb-3">
                             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
                               <span>
                                 {campaign.completedCount} /{" "}
-                                {campaign.candidateCount} completed
+                                {campaign.participantCount} completed
                               </span>
                               <span>{completionPct}%</span>
                             </div>
@@ -150,10 +150,10 @@ export default async function CampaignsPage() {
                           </span>
                           <span className="inline-flex items-center gap-1.5">
                             <Users className="size-3.5" />
-                            {campaign.candidateCount}{" "}
-                            {campaign.candidateCount === 1
-                              ? "candidate"
-                              : "candidates"}
+                            {campaign.participantCount}{" "}
+                            {campaign.participantCount === 1
+                              ? "participant"
+                              : "participants"}
                           </span>
                           {formatDateRange(
                             campaign.opensAt,

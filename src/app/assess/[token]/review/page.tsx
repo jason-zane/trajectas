@@ -10,6 +10,7 @@ import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
+import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { ReviewScreen } from "@/components/assess/review-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -87,6 +88,9 @@ export default async function ReviewPage({
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         content={content}
+        nextUrl={getNextFlowUrl(experience, "review", token) ?? `/assess/${token}/complete`}
+        privacyUrl={experience.privacyUrl}
+        termsUrl={experience.termsUrl}
       />
     </>
   );

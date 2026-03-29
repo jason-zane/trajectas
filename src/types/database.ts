@@ -13,12 +13,12 @@ export type UserRole =
   | 'org_admin'
   | 'consultant'
   | 'assessor'
-  | 'candidate'
+  | 'participant'
 
 /** Lifecycle status of an assessment item (question). */
 export type ItemStatus = 'draft' | 'active' | 'archived'
 
-/** The UI/data format used to capture a candidate's answer. */
+/** The UI/data format used to capture a participant's answer. */
 export type ResponseFormatType =
   | 'likert'
   | 'forced_choice'
@@ -39,7 +39,7 @@ export type ActiveResponseFormatType =
 export type ScoringMethod = 'irt' | 'ctt' | 'hybrid'
 
 /**
- * Strategy that governs which items are presented to a candidate.
+ * Strategy that governs which items are presented to a participant.
  * - `fixed`      – a predetermined, static item list
  * - `rule_based` – items chosen by configurable business rules
  * - `cat`        – computerised adaptive testing driven by IRT
@@ -60,8 +60,8 @@ export type AssessmentStatus = 'draft' | 'active' | 'archived'
 /** Lifecycle status of a campaign. */
 export type CampaignStatus = 'draft' | 'active' | 'paused' | 'closed' | 'archived'
 
-/** Progress status of a candidate within a campaign. */
-export type CampaignCandidateStatus =
+/** Progress status of a participant within a campaign. */
+export type CampaignParticipantStatus =
   | 'invited'
   | 'registered'
   | 'in_progress'
@@ -78,8 +78,8 @@ export type FormatMode = 'traditional' | 'forced_choice'
 /** Lifecycle status of a 360-style diagnostic session. */
 export type DiagnosticSessionStatus = 'draft' | 'active' | 'completed' | 'archived'
 
-/** Progress status of an individual candidate's assessment attempt. */
-export type CandidateSessionStatus =
+/** Progress status of an individual participant's assessment attempt. */
+export type ParticipantSessionStatus =
   | 'not_started'
   | 'in_progress'
   | 'completed'
@@ -91,7 +91,7 @@ export type MatchingRunStatus = 'pending' | 'running' | 'completed' | 'failed'
 /**
  * Strategy that governs how items are ordered within an assessment section.
  * - `fixed`                    – exact order set by admin
- * - `randomised`               – full shuffle per candidate
+ * - `randomised`               – full shuffle per participant
  * - `interleaved_by_construct` – round-robin across constructs (default)
  */
 export type ItemOrdering = 'fixed' | 'randomised' | 'interleaved_by_construct'
@@ -347,7 +347,7 @@ export interface Item {
   constructId?: string
   /** Response format governing how the item is presented. */
   responseFormatId: string
-  /** The question / stimulus text presented to the candidate. */
+  /** The question / stimulus text presented to the participant. */
   stem: string
   /** Whether scoring is reversed for this item. */
   reverseScored: boolean
@@ -472,7 +472,7 @@ export interface Assessment {
   description?: string
   /** Lifecycle status. */
   status: AssessmentStatus
-  /** How items are chosen for candidates. */
+  /** How items are chosen for participants. */
   itemSelectionStrategy: ItemSelectionStrategy
   /** Algorithm used to convert responses to scores. */
   scoringMethod: ScoringMethod
@@ -834,23 +834,23 @@ export interface MatchingResult {
 }
 
 // ---------------------------------------------------------------------------
-// Candidate assessment session tables
+// Participant assessment session tables
 // ---------------------------------------------------------------------------
 
 /**
- * An individual candidate's attempt at an assessment,
+ * An individual participant's attempt at an assessment,
  * tracking progress, timing and final status.
  */
-export interface CandidateSession {
+export interface ParticipantSession {
   /** UUID primary key. */
   id: string
   /** The assessment being taken. */
   assessmentId: string
-  /** Profile of the candidate. */
-  candidateProfileId: string
+  /** Profile of the participant. */
+  participantProfileId: string
   /** Current session progress status. */
-  status: CandidateSessionStatus
-  /** ISO-8601 timestamp when the candidate started the assessment. */
+  status: ParticipantSessionStatus
+  /** ISO-8601 timestamp when the participant started the assessment. */
   startedAt?: string
   /** ISO-8601 timestamp when the session was completed or expired. */
   completedAt?: string
@@ -863,12 +863,12 @@ export interface CandidateSession {
 }
 
 /**
- * A candidate's response to a single item within an assessment session.
+ * A participant's response to a single item within an assessment session.
  */
-export interface CandidateResponse {
+export interface ParticipantResponse {
   /** UUID primary key. */
   id: string
-  /** Parent candidate session. */
+  /** Parent participant session. */
   sessionId: string
   /** The item that was answered. */
   itemId: string
@@ -876,7 +876,7 @@ export interface CandidateResponse {
   sectionId?: string
   /** The recorded response value (numeric encoding of the chosen option). */
   responseValue: number
-  /** Time in milliseconds the candidate spent on this item. */
+  /** Time in milliseconds the participant spent on this item. */
   responseTimeMs?: number
   /** Display order position at which this item was presented. */
   presentationOrder: number
@@ -885,13 +885,13 @@ export interface CandidateResponse {
 }
 
 /**
- * A computed score for one factor within a candidate session,
+ * A computed score for one factor within a participant session,
  * persisted after the scoring engine runs.
  */
-export interface CandidateScore {
+export interface ParticipantScore {
   /** UUID primary key. */
   id: string
-  /** Parent candidate session. */
+  /** Parent participant session. */
   sessionId: string
   /** The factor that was scored. */
   factorId: string
@@ -930,7 +930,7 @@ export interface AssessmentSection {
   responseFormatId: string
   /** Admin-facing section title. */
   title: string
-  /** Candidate-facing instruction text shown at section start. */
+  /** Participant-facing instruction text shown at section start. */
   instructions?: string
   /** Display ordering weight. */
   displayOrder: number
@@ -940,7 +940,7 @@ export interface AssessmentSection {
   itemsPerPage?: number
   /** Optional per-section time limit in seconds. */
   timeLimitSeconds?: number
-  /** Whether candidates can navigate backwards within this section. */
+  /** Whether participants can navigate backwards within this section. */
   allowBackNav: boolean
   created_at: string
   updated_at?: string
@@ -1101,7 +1101,7 @@ export interface NormGroup {
   region?: string
   /** Optionally scoped to a specific organisation. */
   organizationId?: string
-  /** Number of candidates in the norm sample. */
+  /** Number of participants in the norm sample. */
   sampleSize: number
   /** Start of data collection window. */
   collectionStart?: string
@@ -1130,7 +1130,7 @@ export interface NormTable {
   mean: number
   /** Standard deviation in the norm sample. */
   standardDeviation: number
-  /** Number of candidates in this specific norm. */
+  /** Number of participants in this specific norm. */
   sampleSize: number
   /** Percentile lookup table: `{ "5": 23.4, "10": 28.1, ... }`. */
   percentileLookup?: Record<string, number>
@@ -1232,7 +1232,7 @@ export interface DIFResult {
 
 /**
  * A grouping of items presented together in a forced-choice format.
- * Typically contains 3–4 items that the candidate must rank or select from.
+ * Typically contains 3–4 items that the participant must rank or select from.
  */
 export interface ForcedChoiceBlock {
   /** UUID primary key. */
@@ -1269,7 +1269,7 @@ export interface ForcedChoiceBlockItem {
 // ---------------------------------------------------------------------------
 
 /**
- * Operational container that holds assessments, manages candidates,
+ * Operational container that holds assessments, manages participants,
  * and controls access windows for deploying assessments.
  */
 export interface Campaign {
@@ -1289,15 +1289,15 @@ export interface Campaign {
   partnerId?: string
   /** Profile ID of the user who created the campaign. */
   createdBy?: string
-  /** When the campaign opens for candidates. */
+  /** When the campaign opens for participants. */
   opensAt?: string
   /** When the campaign closes. */
   closesAt?: string
   /** Branding configuration (logo, colors, welcome message). */
   branding: Record<string, unknown>
-  /** Whether candidates can resume an in-progress session. */
+  /** Whether participants can resume an in-progress session. */
   allowResume: boolean
-  /** Whether to show progress indicators to candidates. */
+  /** Whether to show progress indicators to participants. */
   showProgress: boolean
   /** Whether to randomize the order assessments are presented. */
   randomizeAssessmentOrder: boolean
@@ -1328,12 +1328,12 @@ export interface CampaignAssessment {
  * A person invited to take assessments in a campaign.
  * Token-based auth — no login required.
  */
-export interface CampaignCandidate {
+export interface CampaignParticipant {
   /** UUID primary key. */
   id: string
   /** Parent campaign. */
   campaignId: string
-  /** Candidate email. */
+  /** Participant email. */
   email: string
   /** Given name. */
   firstName?: string
@@ -1342,12 +1342,12 @@ export interface CampaignCandidate {
   /** Unique 64-char hex token used as URL identifier. */
   accessToken: string
   /** Progress status within the campaign. */
-  status: CampaignCandidateStatus
+  status: CampaignParticipantStatus
   /** When the invitation was sent. */
   invitedAt: string
-  /** When the candidate started. */
+  /** When the participant started. */
   startedAt?: string
-  /** When the candidate completed all assessments. */
+  /** When the participant completed all assessments. */
   completedAt?: string
   created_at: string
   updated_at?: string

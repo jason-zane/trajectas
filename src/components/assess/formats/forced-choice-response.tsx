@@ -13,7 +13,7 @@ interface ForcedChoiceResponseProps {
  * Forced choice response format.
  *
  * Two statement cards with an "or" divider.
- * Candidate selects one statement as "most like me" — single tap auto-advances.
+ * Participant selects one statement as "most like me" — single tap auto-advances.
  * Uses brand tokens for selection state.
  */
 export function ForcedChoiceResponse({

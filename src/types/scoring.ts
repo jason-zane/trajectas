@@ -16,7 +16,7 @@ import type { ItemSelectionRule } from './database'
 export interface IRTParameters {
   /** Discrimination parameter (a). Higher values mean the item differentiates more sharply between ability levels. */
   discrimination: number
-  /** Difficulty parameter (b). Located on the same theta scale as candidate ability. */
+  /** Difficulty parameter (b). Located on the same theta scale as participant ability. */
   difficulty: number
   /** Pseudo-guessing parameter (c). Lower asymptote — the probability of a correct answer by pure guessing. */
   guessing: number
@@ -25,19 +25,19 @@ export interface IRTParameters {
 }
 
 /**
- * A candidate's response to a single item, formatted for the IRT scoring engine.
+ * A participant's response to a single item, formatted for the IRT scoring engine.
  */
 export interface IRTResponse {
   /** UUID of the item that was answered. */
   itemId: string
-  /** Numeric value of the candidate's response (e.g. 0 or 1 for dichotomous items). */
+  /** Numeric value of the participant's response (e.g. 0 or 1 for dichotomous items). */
   responseValue: number
-  /** Time in milliseconds the candidate spent on this item (optional; used for response-time modelling). */
+  /** Time in milliseconds the participant spent on this item (optional; used for response-time modelling). */
   responseTime?: number
 }
 
 /**
- * A point estimate of a candidate's latent ability (theta) on a single trait,
+ * A point estimate of a participant's latent ability (theta) on a single trait,
  * produced by the IRT estimation algorithm (e.g. MLE, EAP, MAP).
  */
 export interface IRTEstimate {
@@ -96,7 +96,7 @@ export interface CATConfig {
 }
 
 /**
- * The mutable state of a CAT session for one candidate on one trait.
+ * The mutable state of a CAT session for one participant on one trait.
  * Updated after every response.
  */
 export interface CATState {
@@ -228,9 +228,9 @@ export interface DistractorAnalysis {
   optionValue: number
   /** Option label. */
   optionLabel: string
-  /** Number of candidates who chose this option. */
+  /** Number of participants who chose this option. */
   count: number
-  /** Proportion of candidates who chose this option. */
+  /** Proportion of participants who chose this option. */
   proportion: number
   /** Point-biserial correlation with total score. */
   pointBiserial: number
@@ -296,7 +296,7 @@ export interface ConstructScore {
 // ---------------------------------------------------------------------------
 
 /**
- * The final score for a single factor within a candidate's assessment session.
+ * The final score for a single factor within a participant's assessment session.
  * This is the primary unit reported on score reports and dashboards.
  */
 export interface FactorScore {
@@ -328,11 +328,11 @@ export interface FactorScore {
 // ---------------------------------------------------------------------------
 
 /**
- * Input bundle sent to the scoring engine for a complete candidate session.
+ * Input bundle sent to the scoring engine for a complete participant session.
  * Contains all the data needed to produce factor scores.
  */
 export interface ScoringEngineInput {
-  /** UUID of the candidate session. */
+  /** UUID of the participant session. */
   sessionId: string
   /** UUID of the assessment definition. */
   assessmentId: string
@@ -358,10 +358,10 @@ export interface ScoringEngineInput {
 }
 
 /**
- * Complete output of the scoring engine for a candidate session.
+ * Complete output of the scoring engine for a participant session.
  */
 export interface ScoringEngineOutput {
-  /** UUID of the candidate session that was scored. */
+  /** UUID of the participant session that was scored. */
   sessionId: string
   /** Per-factor score results. */
   factorScores: FactorScore[]
@@ -396,7 +396,7 @@ export interface DimensionScore {
  * Full scoring pipeline output including all levels of the taxonomy.
  */
 export interface PipelineOutput {
-  /** UUID of the candidate session. */
+  /** UUID of the participant session. */
   sessionId: string
   /** UUID of the assessment. */
   assessmentId: string

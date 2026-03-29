@@ -21,7 +21,7 @@ import type { CTTItemStatistics, DistractorAnalysis } from '@/types/scoring'
 // Types
 // ---------------------------------------------------------------------------
 
-/** A single candidate's response to a single item. */
+/** A single participant's response to a single item. */
 export interface ItemResponse {
   /** Item ID. */
   itemId: string
@@ -33,15 +33,15 @@ export interface ItemResponse {
   reverseScored?: boolean
 }
 
-/** A full response matrix: candidates × items. */
+/** A full response matrix: participants × items. */
 export interface ResponseMatrix {
-  /** Map from item ID to array of responses (one per candidate, ordered). */
+  /** Map from item ID to array of responses (one per participant, ordered). */
   itemResponses: Map<string, number[]>
-  /** Total scores per candidate (same ordering as item arrays). */
+  /** Total scores per participant (same ordering as item arrays). */
   totalScores: number[]
   /** Maximum possible value per item. */
   itemMaxValues: Map<string, number>
-  /** Number of candidates. */
+  /** Number of participants. */
   n: number
 }
 
@@ -52,19 +52,18 @@ export interface ResponseMatrix {
 /**
  * Build a response matrix from flat response records.
  *
- * Groups responses by candidate and item, computes total scores
+ * Groups responses by participant and item, computes total scores
  * (with reverse-scoring applied), and validates consistency.
  *
- * @param responses - Flat array of responses. Each candidate should have
+ * @param responses - Flat array of responses. Each participant should have
  *                    responses for the same set of items.
- * @param candidateIds - Ordered candidate IDs matching response grouping.
  * @returns Structured response matrix.
  */
 export function buildResponseMatrix(
-  responses: { candidateId: string; itemId: string; value: number; maxValue: number; reverseScored?: boolean }[],
+  responses: { participantId: string; itemId: string; value: number; maxValue: number; reverseScored?: boolean }[],
 ): ResponseMatrix {
-  // Group by candidate
-  const byCandidateItem = new Map<string, Map<string, { value: number; maxValue: number; reverseScored?: boolean }>>()
+  // Group by participant
+  const byParticipantItem = new Map<string, Map<string, { value: number; maxValue: number; reverseScored?: boolean }>>()
   const allItemIds = new Set<string>()
   const itemMaxValues = new Map<string, number>()
 
@@ -72,17 +71,17 @@ export function buildResponseMatrix(
     allItemIds.add(r.itemId)
     itemMaxValues.set(r.itemId, r.maxValue)
 
-    let candidateMap = byCandidateItem.get(r.candidateId)
-    if (!candidateMap) {
-      candidateMap = new Map()
-      byCandidateItem.set(r.candidateId, candidateMap)
+    let participantMap = byParticipantItem.get(r.participantId)
+    if (!participantMap) {
+      participantMap = new Map()
+      byParticipantItem.set(r.participantId, participantMap)
     }
-    candidateMap.set(r.itemId, { value: r.value, maxValue: r.maxValue, reverseScored: r.reverseScored })
+    participantMap.set(r.itemId, { value: r.value, maxValue: r.maxValue, reverseScored: r.reverseScored })
   }
 
-  const candidateIds = [...byCandidateItem.keys()]
+  const participantIds = [...byParticipantItem.keys()]
   const itemIds = [...allItemIds]
-  const n = candidateIds.length
+  const n = participantIds.length
 
   // Build item response arrays and total scores
   const itemResponses = new Map<string, number[]>()
@@ -92,12 +91,12 @@ export function buildResponseMatrix(
 
   const totalScores: number[] = []
 
-  for (const candidateId of candidateIds) {
-    const candidateMap = byCandidateItem.get(candidateId)!
+  for (const participantId of participantIds) {
+    const participantMap = byParticipantItem.get(participantId)!
     let total = 0
 
     for (const itemId of itemIds) {
-      const resp = candidateMap.get(itemId)
+      const resp = participantMap.get(itemId)
       if (resp) {
         const effective = resp.reverseScored ? resp.maxValue - resp.value : resp.value
         itemResponses.get(itemId)!.push(effective)
@@ -124,7 +123,7 @@ export function buildResponseMatrix(
  * For Likert/polytomous items: mean score / max possible.
  * For dichotomous items: proportion correct.
  *
- * @param scores   - Array of observed scores for this item (one per candidate).
+ * @param scores   - Array of observed scores for this item (one per participant).
  * @param maxValue - Maximum possible score for this item.
  * @returns Difficulty in [0, 1].
  */
@@ -216,13 +215,13 @@ export function responseDistribution(scores: number[]): Record<number, number> {
  * Compute point-biserial correlation for each option value of an item.
  *
  * For each option k, the point-biserial is the Pearson correlation between
- * a binary indicator (1 if candidate chose k, 0 otherwise) and the
+ * a binary indicator (1 if participant chose k, 0 otherwise) and the
  * corrected total score.
  *
  * For the keyed (correct) option, point-biserial should be positive.
  * For distractors, it should be negative or near zero. A positive
  * point-biserial on a distractor indicates the wrong option is
- * attracting high-ability candidates — a serious item flaw.
+ * attracting high-ability participants — a serious item flaw.
  *
  * @param rawItemScores - Raw (un-reversed) scores for this item.
  * @param totalScores   - Total scores across all items.

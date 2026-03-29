@@ -20,6 +20,9 @@ interface ReviewScreenProps {
   brandName?: string;
   isCustomBrand?: boolean;
   content: ReviewContent;
+  nextUrl: string;
+  privacyUrl?: string;
+  termsUrl?: string;
 }
 
 export function ReviewScreen({
@@ -34,6 +37,9 @@ export function ReviewScreen({
   brandName,
   isCustomBrand,
   content,
+  nextUrl,
+  privacyUrl,
+  termsUrl,
 }: ReviewScreenProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -49,7 +55,7 @@ export function ReviewScreen({
       return;
     }
 
-    router.push(`/assess/${token}/complete`);
+    router.push(nextUrl);
   }
 
   return (
@@ -257,7 +263,7 @@ export function ReviewScreen({
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center px-4 py-4">
+      <footer className="flex items-center justify-center gap-3 px-4 py-4">
         <span
           className="text-xs"
           style={{
@@ -268,6 +274,28 @@ export function ReviewScreen({
           {content.footerText ??
             (isCustomBrand ? "Powered by TalentFit" : "Your responses are confidential")}
         </span>
+        {privacyUrl && (
+          <a
+            href={privacyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Privacy
+          </a>
+        )}
+        {termsUrl && (
+          <a
+            href={termsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Terms
+          </a>
+        )}
       </footer>
     </div>
   );

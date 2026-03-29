@@ -58,7 +58,7 @@ const scoringMethodInfo: Record<string, { label: string; description: string }> 
   },
   irt: {
     label: "IRT (Item Response Theory)",
-    description: "Models each item's difficulty and discrimination to place candidates on a latent trait scale. Required for adaptive testing (CAT).",
+    description: "Models each item's difficulty and discrimination to place participants on a latent trait scale. Required for adaptive testing (CAT).",
   },
   hybrid: {
     label: "Hybrid",
@@ -69,7 +69,7 @@ const scoringMethodInfo: Record<string, { label: string; description: string }> 
 const itemSelectionInfo: Record<string, { label: string; description: string }> = {
   fixed: {
     label: "Fixed",
-    description: "Every candidate receives the same set of items in the same order. Best for standardised assessments where comparability is critical.",
+    description: "Every participant receives the same set of items in the same order. Best for standardised assessments where comparability is critical.",
   },
   rule_based: {
     label: "Rule-based",
@@ -77,7 +77,7 @@ const itemSelectionInfo: Record<string, { label: string; description: string }> 
   },
   cat: {
     label: "CAT (Adaptive)",
-    description: "Computerised Adaptive Testing — selects items in real time based on the candidate's estimated ability. Requires IRT-calibrated items. Shorter tests, higher precision.",
+    description: "Computerised Adaptive Testing — selects items in real time based on the participant's estimated ability. Requires IRT-calibrated items. Shorter tests, higher precision.",
   },
 }
 

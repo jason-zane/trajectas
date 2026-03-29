@@ -33,7 +33,7 @@ export interface ValidityScale {
 }
 
 export interface ValidityProfile {
-  /** Candidate session ID. */
+  /** Participant session ID. */
   sessionId: string
   /** Individual validity scales. */
   scales: ValidityScale[]
@@ -279,9 +279,9 @@ function worstFlag(flags: ValidityFlag[]): ValidityFlag {
 // ---------------------------------------------------------------------------
 
 /**
- * Run the complete validity analysis for a candidate session.
+ * Run the complete validity analysis for a participant session.
  *
- * @param sessionId - The candidate session being analysed.
+ * @param sessionId - The participant session being analysed.
  * @param responses - All responses including validity items.
  * @param items     - Metadata for validity items (keyed by item ID).
  * @returns A ValidityProfile with scale-level and overall flags.

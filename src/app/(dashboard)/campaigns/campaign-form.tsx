@@ -176,7 +176,7 @@ export function CampaignForm({
           title={mode === "create" ? "New Campaign" : campaign!.title}
           description={
             mode === "create"
-              ? "Set up a new campaign to deploy assessments to candidates."
+              ? "Set up a new campaign to deploy assessments to participants."
               : "Edit campaign details."
           }
         />
@@ -279,7 +279,7 @@ export function CampaignForm({
           <CardHeader>
             <CardTitle>Access Window</CardTitle>
             <CardDescription>
-              When candidates can access the campaign. Leave blank for no
+              When participants can access the campaign. Leave blank for no
               restrictions.
             </CardDescription>
           </CardHeader>

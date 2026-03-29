@@ -10,23 +10,27 @@ import type { ConsentContent } from "@/lib/experience/types";
 
 interface ConsentScreenProps {
   token: string;
-  candidateId: string;
+  participantId: string;
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
   content: ConsentContent;
   /** URL to navigate after consent. Determined server-side from flow config. */
   nextUrl: string;
+  privacyUrl?: string;
+  termsUrl?: string;
 }
 
 export function ConsentScreen({
   token,
-  candidateId,
+  participantId,
   brandLogoUrl,
   brandName,
   isCustomBrand,
   content,
   nextUrl,
+  privacyUrl,
+  termsUrl,
 }: ConsentScreenProps) {
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
@@ -37,7 +41,7 @@ export function ConsentScreen({
     setSubmitting(true);
 
     // Save consent — IP will be captured server-side
-    await saveConsent(candidateId, "client");
+    await saveConsent(participantId, "client");
 
     router.push(nextUrl);
   }
@@ -210,7 +214,7 @@ export function ConsentScreen({
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center px-4 py-4">
+      <footer className="flex items-center justify-center gap-3 px-4 py-4">
         <span
           className="text-xs"
           style={{
@@ -221,6 +225,28 @@ export function ConsentScreen({
           {content.footerText ??
             (isCustomBrand ? "Powered by TalentFit" : "Your responses are confidential")}
         </span>
+        {privacyUrl && (
+          <a
+            href={privacyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Privacy
+          </a>
+        )}
+        {termsUrl && (
+          <a
+            href={termsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs underline-offset-2 hover:underline"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            Terms
+          </a>
+        )}
       </footer>
     </div>
   );

@@ -197,6 +197,8 @@ export async function upsertExperienceTemplate(
   if (template.flowConfig) payload.flow_config = template.flowConfig
   if (template.demographicsConfig) payload.demographics_config = template.demographicsConfig
   if (template.customPageContent !== undefined) payload.custom_page_content = template.customPageContent
+  if (template.privacyUrl !== undefined) payload.privacy_url = template.privacyUrl || null
+  if (template.termsUrl !== undefined) payload.terms_url = template.termsUrl || null
 
   if (existing) {
     const { error } = await db
@@ -250,44 +252,44 @@ export async function resetExperienceToDefault(
 }
 
 // ---------------------------------------------------------------------------
-// Candidate-facing actions
+// Participant-facing actions
 // ---------------------------------------------------------------------------
 
 /**
- * Save consent for a candidate.
+ * Save consent for a participant.
  */
 export async function saveConsent(
-  candidateId: string,
+  participantId: string,
   ip: string
 ): Promise<{ error?: string }> {
   const db = createAdminClient()
   const { error } = await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .update({
       consent_given_at: new Date().toISOString(),
       consent_ip: ip,
     })
-    .eq('id', candidateId)
+    .eq('id', participantId)
 
   if (error) return { error: error.message }
   return {}
 }
 
 /**
- * Save demographics for a candidate.
+ * Save demographics for a participant.
  */
 export async function saveDemographics(
-  candidateId: string,
+  participantId: string,
   demographics: Record<string, string>
 ): Promise<{ error?: string }> {
   const db = createAdminClient()
   const { error } = await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .update({
       demographics,
       demographics_completed_at: new Date().toISOString(),
     })
-    .eq('id', candidateId)
+    .eq('id', participantId)
 
   if (error) return { error: error.message }
   return {}

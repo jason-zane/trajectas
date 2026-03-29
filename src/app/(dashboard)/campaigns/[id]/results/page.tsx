@@ -12,8 +12,8 @@ export default async function CampaignResultsPage({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  const total = campaign.candidates.length;
-  const byStatus = campaign.candidates.reduce<Record<string, number>>(
+  const total = campaign.participants.length;
+  const byStatus = campaign.participants.reduce<Record<string, number>>(
     (acc, c) => {
       acc[c.status] = (acc[c.status] ?? 0) + 1;
       return acc;
@@ -47,7 +47,7 @@ export default async function CampaignResultsPage({
         <CardContent>
           {total === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">
-              No candidates invited yet.
+              No participants invited yet.
             </p>
           ) : (
             <div className="space-y-3">

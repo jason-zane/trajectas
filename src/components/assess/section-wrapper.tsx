@@ -10,6 +10,8 @@ import {
   updateSessionProgress,
 } from "@/app/actions/assess";
 import type { SectionForRunner } from "@/app/actions/assess";
+import type { RunnerContent, SectionIntroContent } from "@/lib/experience/types";
+import { SectionIntroScreen } from "./section-intro-screen";
 
 interface SectionWrapperProps {
   token: string;
@@ -28,6 +30,13 @@ interface SectionWrapperProps {
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
+  runnerContent?: RunnerContent;
+  /** URL to navigate to after the last section item. */
+  postSectionsUrl: string;
+  /** Pre-interpolated section intro content. */
+  sectionIntroContent?: SectionIntroContent;
+  privacyUrl?: string;
+  termsUrl?: string;
 }
 
 /** Formats that auto-advance on selection (single-select). */
@@ -72,8 +81,34 @@ export function SectionWrapper({
   brandLogoUrl,
   brandName,
   isCustomBrand,
+  runnerContent,
+  postSectionsUrl,
+  sectionIntroContent,
+  privacyUrl,
+  termsUrl,
 }: SectionWrapperProps) {
   const router = useRouter();
+
+  // Section intro gate: show intro screen before items for each section
+  const [introShown, setIntroShown] = useState(() => {
+    // If there are existing responses for items in this section, skip intro
+    const hasResponses = section.items.some((item) => existingResponses[item.id]);
+    return hasResponses;
+  });
+
+  if (!introShown && sectionIntroContent) {
+    return (
+      <SectionIntroScreen
+        content={sectionIntroContent}
+        brandLogoUrl={brandLogoUrl}
+        brandName={brandName}
+        isCustomBrand={isCustomBrand}
+        onStart={() => setIntroShown(true)}
+        privacyUrl={privacyUrl}
+        termsUrl={termsUrl}
+      />
+    );
+  }
 
   // Build a flat global item list from all sections
   const globalItems = flattenItems(allSections);
@@ -162,8 +197,8 @@ export function SectionWrapper({
       });
       router.push(`/assess/${token}/section/${sectionIndex + 1}`);
     } else {
-      // End of assessment — go to review
-      router.push(`/assess/${token}/review`);
+      // End of assessment — go to post-sections URL (review, complete, etc.)
+      router.push(postSectionsUrl);
     }
   }, [
     localItemIndex,
@@ -272,7 +307,7 @@ export function SectionWrapper({
             style={{ color: "var(--brand-text-muted, hsl(var(--muted-foreground)))" }}
           >
             <ArrowLeft className="size-3.5" />
-            Back
+            {runnerContent?.backButtonLabel ?? "Back"}
           </button>
         )}
       </header>
@@ -312,6 +347,7 @@ export function SectionWrapper({
               }
               onContinue={goToNextItem}
               showContinue={needsContinue}
+              continueButtonLabel={runnerContent?.continueButtonLabel}
             />
           </div>
         </div>
@@ -333,17 +369,17 @@ export function SectionWrapper({
           style={{ color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))" }}
         >
           {saveStatus === "saving"
-            ? "Saving..."
+            ? (runnerContent?.saveStatusSaving ?? "Saving...")
             : saveStatus === "saved"
-              ? "Saved"
-              : "Responses saved automatically"}
+              ? (runnerContent?.saveStatusSaved ?? "Saved")
+              : (runnerContent?.saveStatusIdle ?? "Responses saved automatically")}
         </span>
         {isCustomBrand && (
           <span
             className="ml-4 text-xs"
             style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
           >
-            Powered by TalentFit
+            {runnerContent?.footerText ?? "Powered by TalentFit"}
           </span>
         )}
       </footer>

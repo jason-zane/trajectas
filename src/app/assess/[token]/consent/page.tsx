@@ -7,6 +7,7 @@ import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
+import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { ConsentScreen } from "@/components/assess/consent-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -22,24 +23,20 @@ export default async function ConsentPage({
     redirect("/assess/expired");
   }
 
-  const { campaign, candidate } = result.data!;
+  const { campaign, participant } = result.data!;
   const experience = await getEffectiveExperience(campaign.id);
+
+  const nextUrl = getNextFlowUrl(experience, "consent", token) ?? `/assess/${token}/section/0`;
 
   // If consent is not enabled, skip to next page
   if (!isPageEnabled(experience, "consent")) {
-    if (isPageEnabled(experience, "demographics")) {
-      redirect(`/assess/${token}/demographics`);
-    }
-    redirect(`/assess/${token}/section/0`);
+    redirect(nextUrl);
   }
 
-  // If candidate already consented, skip
+  // If participant already consented, skip
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((candidate as any).consentGivenAt) {
-    if (isPageEnabled(experience, "demographics")) {
-      redirect(`/assess/${token}/demographics`);
-    }
-    redirect(`/assess/${token}/section/0`);
+  if ((participant as any).consentGivenAt) {
+    redirect(nextUrl);
   }
 
   const brandConfig = await getEffectiveBrand(campaign.organizationId);
@@ -47,7 +44,7 @@ export default async function ConsentPage({
 
   const rawContent = getPageContent(experience, "consent");
   const variables: TemplateVariables = {
-    candidateName: candidate.firstName,
+    participantName: participant.firstName,
     campaignTitle: campaign.title,
   };
   const content = interpolateContent(rawContent, variables);
@@ -73,16 +70,14 @@ export default async function ConsentPage({
 
       <ConsentScreen
         token={token}
-        candidateId={candidate.id}
+        participantId={participant.id}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         content={content}
-        nextUrl={
-          isPageEnabled(experience, "demographics")
-            ? `/assess/${token}/demographics`
-            : `/assess/${token}/section/0`
-        }
+        nextUrl={nextUrl}
+        privacyUrl={experience.privacyUrl}
+        termsUrl={experience.termsUrl}
       />
     </>
   );

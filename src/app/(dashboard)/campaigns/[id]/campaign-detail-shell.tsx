@@ -9,7 +9,7 @@ import type { CampaignDetail } from "@/app/actions/campaigns";
 const tabs = [
   { label: "Overview", segment: "overview" },
   { label: "Assessments", segment: "assessments" },
-  { label: "Candidates", segment: "candidates" },
+  { label: "Participants", segment: "participants" },
   { label: "Results", segment: "results" },
   { label: "Experience", segment: "experience" },
   { label: "Settings", segment: "settings" },

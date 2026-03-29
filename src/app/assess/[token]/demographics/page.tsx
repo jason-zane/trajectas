@@ -7,6 +7,7 @@ import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
+import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { DemographicsForm } from "@/components/assess/demographics-form";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -22,18 +23,20 @@ export default async function DemographicsPage({
     redirect("/assess/expired");
   }
 
-  const { campaign, candidate } = result.data!;
+  const { campaign, participant } = result.data!;
   const experience = await getEffectiveExperience(campaign.id);
+
+  const nextUrl = getNextFlowUrl(experience, "demographics", token) ?? `/assess/${token}/section/0`;
 
   // If demographics is not enabled, skip
   if (!isPageEnabled(experience, "demographics")) {
-    redirect(`/assess/${token}/section/0`);
+    redirect(nextUrl);
   }
 
   // If demographics already completed, skip
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((candidate as any).demographicsCompletedAt) {
-    redirect(`/assess/${token}/section/0`);
+  if ((participant as any).demographicsCompletedAt) {
+    redirect(nextUrl);
   }
 
   const brandConfig = await getEffectiveBrand(campaign.organizationId);
@@ -41,7 +44,7 @@ export default async function DemographicsPage({
 
   const rawContent = getPageContent(experience, "demographics");
   const variables: TemplateVariables = {
-    candidateName: candidate.firstName,
+    participantName: participant.firstName,
     campaignTitle: campaign.title,
   };
   const content = interpolateContent(rawContent, variables);
@@ -68,12 +71,15 @@ export default async function DemographicsPage({
 
       <DemographicsForm
         token={token}
-        candidateId={candidate.id}
+        participantId={participant.id}
         fields={fields}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         content={content}
+        nextUrl={nextUrl}
+        privacyUrl={experience.privacyUrl}
+        termsUrl={experience.termsUrl}
       />
     </>
   );

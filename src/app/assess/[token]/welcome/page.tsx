@@ -5,8 +5,9 @@ import { getEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
-import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
+import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
+import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { WelcomeScreen } from "@/components/assess/welcome-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -22,7 +23,7 @@ export default async function WelcomePage({
     redirect("/assess/expired");
   }
 
-  const { campaign, candidate, assessments, sessions } = result.data!;
+  const { campaign, participant, assessments, sessions } = result.data!;
 
   // Load brand config for the campaign's organization
   const brandConfig = await getEffectiveBrand(campaign.organizationId);
@@ -34,7 +35,7 @@ export default async function WelcomePage({
 
   // Interpolate template variables
   const variables: TemplateVariables = {
-    candidateName: candidate.firstName,
+    participantName: participant.firstName,
     campaignTitle: campaign.title,
     campaignDescription: campaign.description,
     assessmentCount: assessments.length,
@@ -67,20 +68,16 @@ export default async function WelcomePage({
         campaignTitle={campaign.title}
         campaignDescription={campaign.description}
         assessmentCount={assessments.length}
-        candidateFirstName={candidate.firstName}
+        participantFirstName={participant.firstName}
         hasInProgressSession={sessions.some((s) => s.status === "in_progress")}
         allowResume={campaign.allowResume}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         content={content}
-        nextUrl={
-          isPageEnabled(experience, "consent")
-            ? `/assess/${token}/consent`
-            : isPageEnabled(experience, "demographics")
-              ? `/assess/${token}/demographics`
-              : `/assess/${token}/section/0`
-        }
+        nextUrl={getNextFlowUrl(experience, "welcome", token) ?? `/assess/${token}/section/0`}
+        privacyUrl={experience.privacyUrl}
+        termsUrl={experience.termsUrl}
       />
     </>
   );

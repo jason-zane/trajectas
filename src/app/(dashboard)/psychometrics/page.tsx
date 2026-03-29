@@ -297,7 +297,7 @@ export default async function PsychometricsPage() {
         <ScrollReveal>
           <EmptyState
             title="No psychometric analyses yet"
-            description="Run your first calibration after collecting candidate responses. The platform will compute item quality metrics, scale reliability, and norm data automatically."
+            description="Run your first calibration after collecting participant responses. The platform will compute item quality metrics, scale reliability, and norm data automatically."
           />
         </ScrollReveal>
       )}

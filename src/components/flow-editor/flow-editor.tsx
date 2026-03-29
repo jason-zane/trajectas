@@ -16,7 +16,7 @@ import { resolveTemplate } from "@/lib/experience/resolve"
 import { FlowSidebar } from "./flow-sidebar"
 import { PageContentEditor } from "./page-content-editor"
 import { PagePreviewFrame } from "./page-preview-frame"
-import { FlowPreviewDialog } from "./flow-preview-dialog"
+// FlowPreviewDialog kept as file but replaced by full-page preview in new tab
 import { AddPageDialog } from "./add-page-dialog"
 import type { BrandConfig } from "@/lib/brand/types"
 import type {
@@ -79,17 +79,24 @@ export function FlowEditor({
     ? cloneDeep(resolved.customPageContent ?? {})
     : cloneDeep(initialRecord?.customPageContent ?? {})
 
+  const initPrivacy = resolved?.privacyUrl ?? initialRecord?.privacyUrl ?? ""
+  const initTerms = resolved?.termsUrl ?? initialRecord?.termsUrl ?? ""
+
   // State
   const [pageContent, setPageContent] = useState<Partial<PageContentMap>>(initContent)
   const [flowConfig, setFlowConfig] = useState<Partial<FlowConfig>>(initFlow)
   const [demographicsConfig, setDemographicsConfig] = useState<DemographicsConfig>(initDemo)
   const [customPageContent, setCustomPageContent] = useState<Record<string, CustomPageContent>>(initCustom)
+  const [privacyUrl, setPrivacyUrl] = useState(initPrivacy)
+  const [termsUrl, setTermsUrl] = useState(initTerms)
 
   // Saved snapshots for dirty detection
   const [savedContent, setSavedContent] = useState(initContent)
   const [savedFlow, setSavedFlow] = useState(initFlow)
   const [savedDemo, setSavedDemo] = useState(initDemo)
   const [savedCustom, setSavedCustom] = useState(initCustom)
+  const [savedPrivacy, setSavedPrivacy] = useState(initPrivacy)
+  const [savedTerms, setSavedTerms] = useState(initTerms)
 
   const [, startTransition] = useTransition()
   const [saveState, setSaveState] = useState<SaveState>("idle")
@@ -97,7 +104,6 @@ export function FlowEditor({
 
   const [selectedPageId, setSelectedPageId] = useState("welcome")
   const [showPreview, setShowPreview] = useState(true)
-  const [showFlowPreview, setShowFlowPreview] = useState(false)
   const [showAddPage, setShowAddPage] = useState(false)
   const [isCustomised, setIsCustomised] = useState(!!initialRecord && isCampaign)
 
@@ -105,7 +111,9 @@ export function FlowEditor({
     JSON.stringify(pageContent) !== JSON.stringify(savedContent) ||
     JSON.stringify(flowConfig) !== JSON.stringify(savedFlow) ||
     JSON.stringify(demographicsConfig) !== JSON.stringify(savedDemo) ||
-    JSON.stringify(customPageContent) !== JSON.stringify(savedCustom)
+    JSON.stringify(customPageContent) !== JSON.stringify(savedCustom) ||
+    privacyUrl !== savedPrivacy ||
+    termsUrl !== savedTerms
 
   const { showDialog, confirmNavigation, cancelNavigation } = useUnsavedChanges(isDirty)
 
@@ -157,15 +165,13 @@ export function FlowEditor({
   }, [])
 
   // --- Reorder ---
-  const handleReorder = useCallback((orderedMiddleIds: string[]) => {
+  const handleReorder = useCallback((preIds: string[], postIds: string[]) => {
     setFlowConfig((prev) => {
       const next = { ...prev }
-      const builtInMiddle = ["consent", "demographics", "review", "report"] as const
+      const builtInSortable = ["join", "welcome", "consent", "demographics", "review", "complete", "report"] as const
 
-      // Assign new order values: starting from 3 (after join=1, welcome=2)
-      orderedMiddleIds.forEach((id, idx) => {
-        const order = idx + 3
-        if (builtInMiddle.includes(id as typeof builtInMiddle[number])) {
+      function assignOrder(id: string, order: number) {
+        if (builtInSortable.includes(id as typeof builtInSortable[number])) {
           const key = id as keyof FlowConfig
           const existing = next[key]
           if (existing && typeof existing === "object" && "order" in existing) {
@@ -180,7 +186,12 @@ export function FlowEditor({
           }
           next.customPages = customPages
         }
-      })
+      }
+
+      // Pre-assessment: 10, 20, 30, ...
+      preIds.forEach((id, idx) => assignOrder(id, (idx + 1) * 10))
+      // Post-assessment: 110, 120, 130, ...
+      postIds.forEach((id, idx) => assignOrder(id, 110 + idx * 10))
 
       return next
     })
@@ -192,8 +203,20 @@ export function FlowEditor({
     const nextNum = existingCustom.length + 1
     const id = `custom_${nextNum}`
 
-    const middlePageCount = 4 + existingCustom.length // consent, demo, review, report + existing custom
-    const order = middlePageCount + 3 // after join, welcome, and existing middle pages
+    // Place new custom pages at the end of the pre-assessment zone (order < 100)
+    // Find the highest pre-assessment order value and add 10
+    const allOrders: number[] = []
+    for (const key of ["join", "welcome", "consent", "demographics"] as const) {
+      const cfg = flowConfig[key]
+      if (cfg && typeof cfg === "object" && "order" in cfg) {
+        const order = (cfg as { order: number }).order
+        if (order < 100) allOrders.push(order)
+      }
+    }
+    for (const cp of existingCustom) {
+      if (cp.order < 100) allOrders.push(cp.order)
+    }
+    const order = allOrders.length > 0 ? Math.max(...allOrders) + 10 : 50
 
     const newPage: CustomPageConfig = {
       id,
@@ -215,6 +238,18 @@ export function FlowEditor({
     toast.success(`"${label}" page added`)
   }, [flowConfig.customPages])
 
+  // --- Preview Flow in new tab ---
+  const openFlowPreview = useCallback(() => {
+    const previewData = {
+      pageContent,
+      flowConfig,
+      customPageContent,
+      brandConfig,
+    }
+    localStorage.setItem("tf-experience-preview", JSON.stringify(previewData))
+    window.open("/preview/experience", "_blank")
+  }, [pageContent, flowConfig, customPageContent, brandConfig])
+
   // --- Save ---
   async function handleSave() {
     setSaveState("saving")
@@ -224,6 +259,8 @@ export function FlowEditor({
         flowConfig,
         demographicsConfig,
         customPageContent,
+        privacyUrl: privacyUrl || undefined,
+        termsUrl: termsUrl || undefined,
       })
 
       if (result.error) {
@@ -237,6 +274,8 @@ export function FlowEditor({
       setSavedFlow(cloneDeep(flowConfig))
       setSavedDemo(cloneDeep(demographicsConfig))
       setSavedCustom(cloneDeep(customPageContent))
+      setSavedPrivacy(privacyUrl)
+      setSavedTerms(termsUrl)
       if (isCampaign) setIsCustomised(true)
       setSaveState("saved")
 
@@ -258,10 +297,14 @@ export function FlowEditor({
       setFlowConfig(cloneDeep(defaults.flowConfig))
       setDemographicsConfig(cloneDeep(defaults.demographicsConfig))
       setCustomPageContent(cloneDeep(defaults.customPageContent ?? {}))
+      setPrivacyUrl(defaults.privacyUrl ?? "")
+      setTermsUrl(defaults.termsUrl ?? "")
       setSavedContent(cloneDeep(defaults.pageContent))
       setSavedFlow(cloneDeep(defaults.flowConfig))
       setSavedDemo(cloneDeep(defaults.demographicsConfig))
       setSavedCustom(cloneDeep(defaults.customPageContent ?? {}))
+      setSavedPrivacy(defaults.privacyUrl ?? "")
+      setSavedTerms(defaults.termsUrl ?? "")
       setIsCustomised(false)
       toast.success("Reset to platform defaults")
     })
@@ -336,6 +379,10 @@ export function FlowEditor({
             onUpdateDemographics={updateDemographics}
             onUpdateCustomPage={updateCustomPage}
             onDeleteCustomPage={deleteCustomPage}
+            privacyUrl={privacyUrl}
+            termsUrl={termsUrl}
+            onUpdatePrivacyUrl={setPrivacyUrl}
+            onUpdateTermsUrl={setTermsUrl}
           />
         </div>
 
@@ -348,7 +395,7 @@ export function FlowEditor({
               flowConfig={flowConfig}
               customPageContent={customPageContent}
               brandConfig={brandConfig}
-              onPreviewFlow={() => setShowFlowPreview(true)}
+              onPreviewFlow={openFlowPreview}
             />
           </div>
         )}
@@ -359,15 +406,6 @@ export function FlowEditor({
         open={showAddPage}
         onOpenChange={setShowAddPage}
         onAdd={handleAddCustomPage}
-      />
-
-      <FlowPreviewDialog
-        open={showFlowPreview}
-        onOpenChange={setShowFlowPreview}
-        pageContent={pageContent}
-        flowConfig={flowConfig}
-        customPageContent={customPageContent}
-        brandConfig={brandConfig}
       />
 
       <ConfirmDialog

@@ -84,6 +84,8 @@ export function resolveTemplate(
   let flowConfig: Partial<FlowConfig> = { ...DEFAULT_FLOW_CONFIG }
   let demographicsConfig: DemographicsConfig = { ...DEFAULT_DEMOGRAPHICS_CONFIG }
   let customPageContent: Record<string, CustomPageContent> = {}
+  let privacyUrl: string | undefined
+  let termsUrl: string | undefined
 
   // Layer 1: Platform overrides
   if (platformRecord) {
@@ -96,6 +98,8 @@ export function resolveTemplate(
     if (platformRecord.customPageContent) {
       customPageContent = { ...customPageContent, ...platformRecord.customPageContent }
     }
+    if (platformRecord.privacyUrl) privacyUrl = platformRecord.privacyUrl
+    if (platformRecord.termsUrl) termsUrl = platformRecord.termsUrl
   }
 
   // Layer 2: Campaign overrides
@@ -109,9 +113,11 @@ export function resolveTemplate(
     if (campaignRecord.customPageContent) {
       customPageContent = { ...customPageContent, ...campaignRecord.customPageContent }
     }
+    if (campaignRecord.privacyUrl) privacyUrl = campaignRecord.privacyUrl
+    if (campaignRecord.termsUrl) termsUrl = campaignRecord.termsUrl
   }
 
-  return { pageContent, flowConfig, demographicsConfig, customPageContent }
+  return { pageContent, flowConfig, demographicsConfig, customPageContent, privacyUrl, termsUrl }
 }
 
 /**
@@ -144,7 +150,7 @@ export function isPageEnabled(
 }
 
 /**
- * Get the ordered list of enabled pages for a candidate flow.
+ * Get the ordered list of enabled pages for a participant flow.
  * Returns both built-in page types and custom page IDs.
  * Excludes 'join' (handled separately) and 'expired' (error state).
  */

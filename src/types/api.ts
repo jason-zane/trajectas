@@ -4,7 +4,7 @@
 
 import type {
   AssessmentStatus,
-  CandidateSessionStatus,
+  ParticipantSessionStatus,
   DiagnosticSessionStatus,
   ItemSelectionStrategy,
   ItemStatus,
@@ -585,17 +585,17 @@ export interface MatchingResultResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Candidate session
+// Participant session
 // ---------------------------------------------------------------------------
 
-/** Request body for starting a new candidate assessment session. */
-export interface CreateCandidateSessionRequest {
+/** Request body for starting a new participant assessment session. */
+export interface CreateParticipantSessionRequest {
   assessmentId: string
-  candidateProfileId: string
+  participantProfileId: string
 }
 
-/** A single item presented to the candidate during an adaptive session. */
-export interface CandidateItemPresentation {
+/** A single item presented to the participant during an adaptive session. */
+export interface ParticipantItemPresentation {
   itemId: string
   stem: string
   responseFormat: ResponseFormatType
@@ -608,29 +608,29 @@ export interface CandidateItemPresentation {
   presentationOrder: number
 }
 
-/** Request body for submitting a candidate's response to a single item. */
-export interface SubmitCandidateResponseRequest {
+/** Request body for submitting a participant's response to a single item. */
+export interface SubmitParticipantResponseRequest {
   sessionId: string
   itemId: string
   responseValue: number
   responseTimeMs?: number
 }
 
-/** Response confirming a candidate answer was recorded, with optional next item. */
-export interface SubmitCandidateResponseResponse {
+/** Response confirming a participant answer was recorded, with optional next item. */
+export interface SubmitParticipantResponseResponse {
   recorded: boolean
   /** Next item to present; null if the session is complete. */
-  nextItem?: CandidateItemPresentation
+  nextItem?: ParticipantItemPresentation
   /** Updated session status. */
-  sessionStatus: CandidateSessionStatus
+  sessionStatus: ParticipantSessionStatus
   /** Number of items completed so far. */
   itemsCompleted: number
   /** Estimated total items (may change during adaptive testing). */
   estimatedTotalItems: number
 }
 
-/** Factor-level score included in a candidate session result. */
-export interface CandidateFactorScoreResponse {
+/** Factor-level score included in a participant session result. */
+export interface ParticipantFactorScoreResponse {
   factorId: string
   factorName: string
   rawScore: number
@@ -644,24 +644,24 @@ export interface CandidateFactorScoreResponse {
   itemsUsed: number
 }
 
-/** Full candidate session result returned from the API. */
-export interface CandidateSessionResultResponse {
+/** Full participant session result returned from the API. */
+export interface ParticipantSessionResultResponse {
   sessionId: string
   assessmentId: string
-  candidateProfileId: string
-  status: CandidateSessionStatus
+  participantProfileId: string
+  status: ParticipantSessionStatus
   startedAt?: string
   completedAt?: string
-  scores: CandidateFactorScoreResponse[]
+  scores: ParticipantFactorScoreResponse[]
   created_at: string
 }
 
-/** Single candidate session returned from the API. */
-export interface CandidateSessionResponse {
+/** Single participant session returned from the API. */
+export interface ParticipantSessionResponse {
   id: string
   assessmentId: string
-  candidateProfileId: string
-  status: CandidateSessionStatus
+  participantProfileId: string
+  status: ParticipantSessionStatus
   startedAt?: string
   completedAt?: string
   itemsCompleted: number
@@ -670,5 +670,5 @@ export interface CandidateSessionResponse {
   updated_at?: string
 }
 
-/** Paginated list of candidate sessions. */
-export type CandidateSessionListResponse = ApiListResponse<CandidateSessionResponse>
+/** Paginated list of participant sessions. */
+export type ParticipantSessionListResponse = ApiListResponse<ParticipantSessionResponse>

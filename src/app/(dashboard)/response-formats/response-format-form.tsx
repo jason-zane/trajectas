@@ -283,7 +283,7 @@ function SJTConfigPanel({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            How candidate rankings are scored against the key.
+            How participant rankings are scored against the key.
           </p>
         </div>
       </div>
@@ -313,7 +313,7 @@ function ForcedChoiceConfigPanel({
           className="min-h-24 resize-y"
         />
         <p className="text-xs text-muted-foreground">
-          Instructions shown to candidates before forced-choice items. Leave blank to use the default.
+          Instructions shown to participants before forced-choice items. Leave blank to use the default.
         </p>
       </div>
     </div>
@@ -550,7 +550,7 @@ export function ResponseFormatForm({
                     </Select>
                     <p className="text-xs text-muted-foreground">
                       {type === "likert" && "Ordinal scale with labelled anchor points — the most common psychometric format."}
-                      {type === "forced_choice" && "Candidates choose between statements matched on social desirability — reduces faking."}
+                      {type === "forced_choice" && "Participants choose between statements matched on social desirability — reduces faking."}
                       {type === "binary" && "Two-option response — fast to complete but lower information per item."}
                       {type === "free_text" && "Open-ended text response — scored qualitatively or by AI."}
                       {type === "sjt" && "Scenario-based with ranked or rated response options — measures applied judgement."}
@@ -634,7 +634,7 @@ export function ResponseFormatForm({
                   )}
                   {type === "free_text" && (
                     <div className="rounded-lg border p-4 min-h-24 text-sm text-muted-foreground/60 italic">
-                      {(config.placeholder as string) || "Candidate response will appear here..."}
+                      {(config.placeholder as string) || "Participant response will appear here..."}
                     </div>
                   )}
                   {type === "sjt" && (

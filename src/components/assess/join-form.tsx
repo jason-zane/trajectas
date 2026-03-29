@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ArrowRight } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { registerViaLink } from "@/app/actions/assess";
 import type { JoinContent } from "@/lib/experience/types";
 
@@ -28,18 +29,26 @@ export function JoinForm({
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (content.marketingConsentEnabled && content.marketingConsentRequired && !marketingConsent) {
+      setError("Please accept the marketing consent to continue.");
+      return;
+    }
+
     setSubmitting(true);
 
     const result = await registerViaLink(linkToken, {
       email,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
+      marketingConsent: content.marketingConsentEnabled ? marketingConsent : undefined,
     });
 
     setSubmitting(false);
@@ -173,6 +182,28 @@ export function JoinForm({
                 />
               </div>
             </div>
+
+            {content.marketingConsentEnabled && (
+              <div className="flex items-start gap-2.5 pt-1">
+                <Checkbox
+                  id="marketing-consent"
+                  checked={marketingConsent}
+                  onCheckedChange={(v) => setMarketingConsent(v === true)}
+                />
+                <label
+                  htmlFor="marketing-consent"
+                  className="text-sm leading-snug cursor-pointer"
+                  style={{
+                    color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                  }}
+                >
+                  {content.marketingConsentLabel}
+                  {content.marketingConsentRequired && (
+                    <span className="text-destructive ml-0.5">*</span>
+                  )}
+                </label>
+              </div>
+            )}
 
             {error && (
               <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">

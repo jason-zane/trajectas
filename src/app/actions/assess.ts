@@ -1,14 +1,15 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
 import {
   mapCampaignRow,
-  mapCampaignCandidateRow,
+  mapCampaignParticipantRow,
   mapCampaignAssessmentRow,
 } from '@/lib/supabase/mappers'
 import type {
   Campaign,
-  CampaignCandidate,
+  CampaignParticipant,
   CampaignAssessment,
 } from '@/types/database'
 
@@ -35,7 +36,7 @@ export type SessionForRunner = {
 
 export type TokenValidationResult = {
   campaign: Campaign
-  candidate: CampaignCandidate
+  participant: CampaignParticipant
   assessments: (CampaignAssessment & AssessmentForRunner)[]
   sessions: SessionForRunner[]
 }
@@ -71,24 +72,24 @@ export async function validateAccessToken(
 ): Promise<{ data?: TokenValidationResult; error?: string }> {
   const db = createAdminClient()
 
-  // Find candidate by token
-  const { data: candidateRow, error: candidateErr } = await db
-    .from('campaign_candidates')
+  // Find participant by token
+  const { data: participantRow, error: participantErr } = await db
+    .from('campaign_participants')
     .select('*')
     .eq('access_token', token)
     .single()
 
-  if (candidateErr || !candidateRow) {
+  if (participantErr || !participantRow) {
     return { error: 'Invalid or expired access link' }
   }
 
-  const candidate = mapCampaignCandidateRow(candidateRow)
+  const participant = mapCampaignParticipantRow(participantRow)
 
   // Load campaign
   const { data: campaignRow, error: campaignErr } = await db
     .from('campaigns')
     .select('*')
-    .eq('id', candidate.campaignId)
+    .eq('id', participant.campaignId)
     .is('deleted_at', null)
     .single()
 
@@ -112,8 +113,8 @@ export async function validateAccessToken(
     return { error: 'This campaign has closed' }
   }
 
-  // Check candidate status
-  if (['withdrawn', 'expired'].includes(candidate.status)) {
+  // Check participant status
+  if (['withdrawn', 'expired'].includes(participant.status)) {
     return { error: 'Your access to this campaign has been revoked' }
   }
 
@@ -133,11 +134,11 @@ export async function validateAccessToken(
     sectionCount: r.assessments?.assessment_sections?.[0]?.count ?? 0,
   }))
 
-  // Load existing sessions for this candidate
+  // Load existing sessions for this participant
   const { data: sessionRows } = await db
-    .from('candidate_sessions')
+    .from('participant_sessions')
     .select('*')
-    .eq('campaign_candidate_id', candidate.id)
+    .eq('campaign_participant_id', participant.id)
 
   const sessions: SessionForRunner[] = (sessionRows ?? []).map((s) => ({
     id: s.id,
@@ -150,7 +151,7 @@ export async function validateAccessToken(
   }))
 
   return {
-    data: { campaign, candidate, assessments, sessions },
+    data: { campaign, participant, assessments, sessions },
   }
 }
 
@@ -159,7 +160,7 @@ export async function validateAccessToken(
 // ---------------------------------------------------------------------------
 
 export async function startSession(
-  campaignCandidateId: string,
+  campaignParticipantId: string,
   assessmentId: string,
   campaignId: string,
 ) {
@@ -167,9 +168,9 @@ export async function startSession(
 
   // Check for existing session
   const { data: existing } = await db
-    .from('candidate_sessions')
+    .from('participant_sessions')
     .select('id')
-    .eq('campaign_candidate_id', campaignCandidateId)
+    .eq('campaign_participant_id', campaignParticipantId)
     .eq('assessment_id', assessmentId)
     .single()
 
@@ -179,11 +180,11 @@ export async function startSession(
 
   // Create new session
   const { data: session, error } = await db
-    .from('candidate_sessions')
+    .from('participant_sessions')
     .insert({
       assessment_id: assessmentId,
       campaign_id: campaignId,
-      campaign_candidate_id: campaignCandidateId,
+      campaign_participant_id: campaignParticipantId,
       status: 'in_progress',
       started_at: new Date().toISOString(),
     })
@@ -192,14 +193,14 @@ export async function startSession(
 
   if (error) return { error: error.message }
 
-  // Update candidate status to in_progress
+  // Update participant status to in_progress
   await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .update({
       status: 'in_progress',
       started_at: new Date().toISOString(),
     })
-    .eq('id', campaignCandidateId)
+    .eq('id', campaignParticipantId)
     .eq('status', 'invited')
 
   return { id: session.id }
@@ -209,7 +210,7 @@ export async function getSessionState(sessionId: string) {
   const db = createAdminClient()
 
   const { data: session, error } = await db
-    .from('candidate_sessions')
+    .from('participant_sessions')
     .select('*')
     .eq('id', sessionId)
     .single()
@@ -268,7 +269,7 @@ export async function getSessionState(sessionId: string) {
 
   // Load existing responses
   const { data: responseRows } = await db
-    .from('candidate_responses')
+    .from('participant_responses')
     .select('item_id, response_value, response_data')
     .eq('session_id', sessionId)
 
@@ -316,7 +317,7 @@ export async function saveResponse({
   const db = createAdminClient()
 
   const { error } = await db
-    .from('candidate_responses')
+    .from('participant_responses')
     .upsert(
       {
         session_id: sessionId,
@@ -356,7 +357,7 @@ export async function updateSessionProgress(
     patch.time_remaining_seconds = update.timeRemaining
 
   const { error } = await db
-    .from('candidate_sessions')
+    .from('participant_sessions')
     .update(patch)
     .eq('id', sessionId)
 
@@ -371,8 +372,8 @@ export async function submitSession(sessionId: string) {
   const db = createAdminClient()
 
   const { data: session, error: fetchErr } = await db
-    .from('candidate_sessions')
-    .select('campaign_candidate_id')
+    .from('participant_sessions')
+    .select('campaign_participant_id')
     .eq('id', sessionId)
     .single()
 
@@ -380,7 +381,7 @@ export async function submitSession(sessionId: string) {
 
   // Mark session complete
   const { error: updateErr } = await db
-    .from('candidate_sessions')
+    .from('participant_sessions')
     .update({
       status: 'completed',
       completed_at: new Date().toISOString(),
@@ -389,29 +390,32 @@ export async function submitSession(sessionId: string) {
 
   if (updateErr) return { error: updateErr.message }
 
+  // Run CTT scoring (synchronous — simple mean POMP per factor)
+  await scoreSessionCTT(sessionId)
+
   // Check if all required assessments are complete
-  if (session.campaign_candidate_id) {
-    const { data: candidate } = await db
-      .from('campaign_candidates')
+  if (session.campaign_participant_id) {
+    const { data: participantRow } = await db
+      .from('campaign_participants')
       .select('campaign_id')
-      .eq('id', session.campaign_candidate_id)
+      .eq('id', session.campaign_participant_id)
       .single()
 
-    if (candidate) {
+    if (participantRow) {
       // Get required assessments
       const { data: required } = await db
         .from('campaign_assessments')
         .select('assessment_id')
-        .eq('campaign_id', candidate.campaign_id)
+        .eq('campaign_id', participantRow.campaign_id)
         .eq('is_required', true)
 
       const requiredIds = new Set((required ?? []).map((r) => r.assessment_id))
 
-      // Get completed sessions for this candidate
+      // Get completed sessions for this participant
       const { data: completed } = await db
-        .from('candidate_sessions')
+        .from('participant_sessions')
         .select('assessment_id')
-        .eq('campaign_candidate_id', session.campaign_candidate_id)
+        .eq('campaign_participant_id', session.campaign_participant_id)
         .eq('status', 'completed')
 
       const completedIds = new Set((completed ?? []).map((s) => s.assessment_id))
@@ -420,12 +424,12 @@ export async function submitSession(sessionId: string) {
 
       if (allDone) {
         await db
-          .from('campaign_candidates')
+          .from('campaign_participants')
           .update({
             status: 'completed',
             completed_at: new Date().toISOString(),
           })
-          .eq('id', session.campaign_candidate_id)
+          .eq('id', session.campaign_participant_id)
       }
     }
   }
@@ -439,7 +443,12 @@ export async function submitSession(sessionId: string) {
 
 export async function registerViaLink(
   linkToken: string,
-  { email, firstName, lastName }: { email: string; firstName?: string; lastName?: string },
+  { email, firstName, lastName, marketingConsent }: {
+    email: string
+    firstName?: string
+    lastName?: string
+    marketingConsent?: boolean
+  },
 ) {
   const db = createAdminClient()
 
@@ -477,9 +486,9 @@ export async function registerViaLink(
     return { error: 'This campaign is not currently accepting registrations' }
   }
 
-  // Create or find candidate
+  // Create or find participant
   const { data: existing } = await db
-    .from('campaign_candidates')
+    .from('campaign_participants')
     .select('id, access_token')
     .eq('campaign_id', link.campaign_id)
     .eq('email', email.toLowerCase())
@@ -490,15 +499,16 @@ export async function registerViaLink(
     return { accessToken: existing.access_token }
   }
 
-  // Create new candidate
-  const { data: candidate, error: insertErr } = await db
-    .from('campaign_candidates')
+  // Create new participant
+  const { data: newParticipant, error: insertErr } = await db
+    .from('campaign_participants')
     .insert({
       campaign_id: link.campaign_id,
       email: email.toLowerCase(),
       first_name: firstName ?? null,
       last_name: lastName ?? null,
       status: 'registered',
+      ...(marketingConsent ? { marketing_consent_given_at: new Date().toISOString() } : {}),
     })
     .select('access_token')
     .single()
@@ -511,5 +521,5 @@ export async function registerViaLink(
     .update({ use_count: link.use_count + 1 })
     .eq('id', link.id)
 
-  return { accessToken: candidate.access_token }
+  return { accessToken: newParticipant.access_token }
 }

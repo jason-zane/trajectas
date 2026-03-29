@@ -23,7 +23,7 @@ export function DemographicsFieldsEditor({
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">
-        Configure which demographic fields candidates are asked to complete.
+        Configure which demographic fields participants are asked to complete.
       </p>
 
       {config.fields.map((field, idx) => (

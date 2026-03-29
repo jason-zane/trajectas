@@ -474,7 +474,7 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
                   <div>
                     <p className="text-sm font-medium">Enable Dark Mode</p>
                     <p className="text-caption text-muted-foreground">
-                      Allow candidates to use dark mode based on system preference.
+                      Allow participants to use dark mode based on system preference.
                     </p>
                   </div>
                   <Switch
