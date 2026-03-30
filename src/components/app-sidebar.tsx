@@ -150,21 +150,22 @@ const clientNav = [
     items: [{ title: "Dashboard", href: "/", icon: Home }],
   },
   {
+    label: "Assessments",
+    items: [
+      { title: "Assessments", href: "/assessments", icon: ClipboardList },
+      {
+        title: "Assessment Results",
+        href: "/results",
+        icon: BarChart3,
+      },
+      { title: "Campaigns", href: "/campaigns", icon: Megaphone },
+    ],
+  },
+  {
     label: "Diagnostics",
     items: [
       { title: "Complete Diagnostic", href: "/diagnostics", icon: Layers },
       { title: "Results", href: "/diagnostic-results", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Assessments",
-    items: [
-      {
-        title: "Assessment Results",
-        href: "/results",
-        icon: ClipboardList,
-      },
-      { title: "Campaigns", href: "/campaigns", icon: Megaphone },
     ],
   },
 ];

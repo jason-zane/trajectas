@@ -1,4 +1,9 @@
 import OpenAI from 'openai'
+import {
+  AuthenticationRequiredError,
+  AuthorizationError,
+  requireAdminScope,
+} from '@/lib/auth/authorization'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
 import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/providers/openrouter-retry'
@@ -6,6 +11,20 @@ import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/provide
 export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
+  try {
+    await requireAdminScope()
+  } catch (error) {
+    if (error instanceof AuthenticationRequiredError) {
+      return new Response('Authentication is required', { status: 401 })
+    }
+
+    if (error instanceof AuthorizationError) {
+      return new Response(error.message, { status: 403 })
+    }
+
+    throw error
+  }
+
   const { messages, model: modelOverride } = await request.json() as {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>
     model?: string
@@ -81,7 +100,7 @@ export async function POST(request: Request) {
     return new Response(readable, {
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'private, no-store',
       },
     })
   } catch (error) {

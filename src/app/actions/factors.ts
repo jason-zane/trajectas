@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
 import type { Factor } from '@/types/database'
@@ -19,6 +21,7 @@ export type LinkedAssessment = { id: string; name: string; status: string }
 export type SelectOption = { id: string; name: string }
 
 export async function getFactors(): Promise<FactorWithMeta[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
@@ -43,6 +46,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
 }
 
 export async function getFactorBySlug(slug: string) {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
@@ -82,6 +86,7 @@ export async function getFactorBySlug(slug: string) {
 }
 
 export async function getDimensionsForSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
@@ -94,6 +99,7 @@ export async function getDimensionsForSelect(): Promise<SelectOption[]> {
 }
 
 export async function getConstructsForSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('constructs')
@@ -106,10 +112,12 @@ export async function getConstructsForSelect(): Promise<SelectOption[]> {
 }
 
 export async function getOrganizationsForFactorSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('organizations')
     .select('id, name')
+    .is('deleted_at', null)
     .order('name')
 
   if (error) throw new Error(error.message)
@@ -117,6 +125,7 @@ export async function getOrganizationsForFactorSelect(): Promise<SelectOption[]>
 }
 
 export async function createFactor(formData: FormData) {
+  const scope = await requireAdminScope()
   const constructsJson = formData.get('constructs') as string
   let constructs: { constructId: string; weight: number }[] = []
   try {
@@ -175,10 +184,23 @@ export async function createFactor(formData: FormData) {
 
   revalidatePath('/factors')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.created',
+    targetTable: 'factors',
+    targetId: (factorId ?? newId) as string,
+    clientId: parsed.data.organizationId ?? null,
+    metadata: {
+      slug: parsed.data.slug,
+      constructCount: parsed.data.constructs.length,
+      dimensionId: parsed.data.dimensionId ?? null,
+    },
+  })
   return { success: true, id: factorId ?? newId, slug: parsed.data.slug }
 }
 
 export async function updateFactor(id: string, formData: FormData) {
+  const scope = await requireAdminScope()
   const constructsJson = formData.get('constructs') as string
   let constructs: { constructId: string; weight: number }[] = []
   try {
@@ -236,10 +258,23 @@ export async function updateFactor(id: string, formData: FormData) {
 
   revalidatePath('/factors')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.updated',
+    targetTable: 'factors',
+    targetId: id,
+    clientId: parsed.data.organizationId ?? null,
+    metadata: {
+      slug: parsed.data.slug,
+      constructCount: parsed.data.constructs.length,
+      dimensionId: parsed.data.dimensionId ?? null,
+    },
+  })
   return { success: true, id, slug: parsed.data.slug }
 }
 
 export async function deleteFactor(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('factors')
@@ -250,10 +285,17 @@ export async function deleteFactor(id: string) {
 
   revalidatePath('/factors')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.deleted',
+    targetTable: 'factors',
+    targetId: id,
+  })
   return { success: true }
 }
 
 export async function restoreFactor(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('factors')
@@ -264,10 +306,17 @@ export async function restoreFactor(id: string) {
 
   revalidatePath('/factors')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.restored',
+    targetTable: 'factors',
+    targetId: id,
+  })
   return { success: true }
 }
 
 export async function toggleFactorActive(id: string, isActive: boolean) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('factors')
@@ -278,6 +327,13 @@ export async function toggleFactorActive(id: string, isActive: boolean) {
 
   revalidatePath('/factors')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.active_toggled',
+    targetTable: 'factors',
+    targetId: id,
+    metadata: { isActive },
+  })
   return { success: true }
 }
 
@@ -293,6 +349,7 @@ const camelToSnakeMap: Record<string, AllowedFactorField> = {
 }
 
 export async function updateFactorField(id: string, field: string, value: string) {
+  const scope = await requireAdminScope()
   const dbField = camelToSnakeMap[field] ?? field
   if (!ALLOWED_FACTOR_FIELDS.includes(dbField as AllowedFactorField)) {
     return { error: `Field "${field}" is not allowed` }
@@ -307,5 +364,12 @@ export async function updateFactorField(id: string, field: string, value: string
   if (error) return { error: error.message }
 
   revalidatePath('/factors')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.field_updated',
+    targetTable: 'factors',
+    targetId: id,
+    metadata: { field },
+  })
   return { success: true }
 }

@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapDimensionRow, toDimensionInsert } from '@/lib/supabase/mappers'
 import { dimensionSchema } from '@/lib/validations/dimensions'
 import type { Dimension } from '@/types/database'
@@ -17,6 +19,7 @@ export type DimensionWithChildren = Dimension & {
 /* ------------------------------------------------------------------ */
 
 export async function getDimensions(): Promise<DimensionWithCounts[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
@@ -35,6 +38,7 @@ export async function getDimensions(): Promise<DimensionWithCounts[]> {
 }
 
 export async function getDimensionBySlug(slug: string): Promise<DimensionWithChildren | null> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
@@ -66,6 +70,7 @@ export async function getDimensionBySlug(slug: string): Promise<DimensionWithChi
 /* ------------------------------------------------------------------ */
 
 export async function createDimension(formData: FormData) {
+  const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
@@ -99,10 +104,21 @@ export async function createDimension(formData: FormData) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.created',
+    targetTable: 'dimensions',
+    targetId: data.id as string,
+    metadata: {
+      slug: parsed.data.slug,
+      isActive: parsed.data.isActive,
+    },
+  })
   return { success: true as const, id: data.id as string, slug: parsed.data.slug }
 }
 
 export async function updateDimension(id: string, formData: FormData) {
+  const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
@@ -140,10 +156,21 @@ export async function updateDimension(id: string, formData: FormData) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.updated',
+    targetTable: 'dimensions',
+    targetId: id,
+    metadata: {
+      slug: parsed.data.slug,
+      isActive: parsed.data.isActive,
+    },
+  })
   return { success: true as const, id, slug: parsed.data.slug }
 }
 
 export async function deleteDimension(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('dimensions')
@@ -154,6 +181,12 @@ export async function deleteDimension(id: string) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.deleted',
+    targetTable: 'dimensions',
+    targetId: id,
+  })
   return { success: true as const }
 }
 
@@ -162,6 +195,7 @@ export async function deleteDimension(id: string) {
 /* ------------------------------------------------------------------ */
 
 export async function restoreDimension(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('dimensions')
@@ -172,6 +206,12 @@ export async function restoreDimension(id: string) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.restored',
+    targetTable: 'dimensions',
+    targetId: id,
+  })
   return { success: true as const }
 }
 
@@ -180,6 +220,7 @@ export async function restoreDimension(id: string) {
 /* ------------------------------------------------------------------ */
 
 export async function toggleDimensionActive(id: string, isActive: boolean) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('dimensions')
@@ -190,6 +231,13 @@ export async function toggleDimensionActive(id: string, isActive: boolean) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.active_toggled',
+    targetTable: 'dimensions',
+    targetId: id,
+    metadata: { isActive },
+  })
   return { success: true as const }
 }
 
@@ -206,6 +254,7 @@ const ALLOWED_FIELDS: Record<string, string> = {
 }
 
 export async function updateDimensionField(id: string, field: string, value: string) {
+  const scope = await requireAdminScope()
   const dbColumn = ALLOWED_FIELDS[field]
   if (!dbColumn) {
     return { error: `Field "${field}" is not allowed` }
@@ -220,5 +269,12 @@ export async function updateDimensionField(id: string, field: string, value: str
   if (error) return { error: error.message }
 
   revalidatePath('/dimensions')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.field_updated',
+    targetTable: 'dimensions',
+    targetId: id,
+    metadata: { field },
+  })
   return { success: true as const }
 }

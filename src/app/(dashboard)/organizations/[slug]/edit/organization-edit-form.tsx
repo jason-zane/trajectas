@@ -24,6 +24,7 @@ import {
   deleteOrganization,
   restoreOrganization,
 } from "@/app/actions/organizations";
+import { SupportLaunchButton } from "@/components/support-launch-button";
 import type { Organization } from "@/types/database";
 
 function slugify(text: string): string {
@@ -37,7 +38,17 @@ function slugify(text: string): string {
 
 type SaveState = "idle" | "saving" | "saved";
 
-export function OrganizationEditForm({ organization }: { organization: Organization }) {
+export function OrganizationEditForm({
+  organization,
+  canLaunchClientPortal = false,
+  clientLaunchEndpoint = null,
+  clientLaunchNextPath = "/",
+}: {
+  organization: Organization;
+  canLaunchClientPortal?: boolean;
+  clientLaunchEndpoint?: string | null;
+  clientLaunchNextPath?: string;
+}) {
   const router = useRouter();
 
   const [name, setName] = useState(organization.name);
@@ -163,6 +174,17 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
         <p className="text-sm text-muted-foreground mt-1.5">
           Update the details for &ldquo;{organization.name}&rdquo;.
         </p>
+        {canLaunchClientPortal ? (
+          <div className="mt-4">
+            <SupportLaunchButton
+              targetSurface="client"
+              targetTenantId={organization.id}
+              targetLabel={organization.name}
+              launchEndpoint={clientLaunchEndpoint}
+              nextPath={clientLaunchNextPath}
+            />
+          </div>
+        ) : null}
       </div>
 
       <Separator />

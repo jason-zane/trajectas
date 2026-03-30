@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapItemRow, mapResponseFormatRow } from '@/lib/supabase/mappers'
 import { itemSchema } from '@/lib/validations/items'
 import type { Item, ResponseFormat } from '@/types/database'
@@ -16,6 +18,7 @@ export type ItemWithMeta = Item & {
 export type SelectOption = { id: string; name: string; slug?: string }
 
 export async function getItems(): Promise<ItemWithMeta[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('items')
@@ -39,6 +42,7 @@ export async function getItems(): Promise<ItemWithMeta[]> {
 }
 
 export async function getItemById(id: string) {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data, error } = await db
@@ -62,6 +66,7 @@ export async function getItemById(id: string) {
 }
 
 export async function getConstructsForSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('constructs')
@@ -74,6 +79,7 @@ export async function getConstructsForSelect(): Promise<SelectOption[]> {
 }
 
 export async function getResponseFormats(): Promise<ResponseFormat[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')
@@ -86,6 +92,7 @@ export async function getResponseFormats(): Promise<ResponseFormat[]> {
 }
 
 export async function getItemsForConstruct(constructId: string): Promise<ItemWithMeta[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('items')
@@ -110,6 +117,7 @@ export async function getItemsForConstruct(constructId: string): Promise<ItemWit
 }
 
 export async function createItem(formData: FormData) {
+  const scope = await requireAdminScope()
   const purpose = (formData.get('purpose') as string) || 'construct'
   const raw = {
     purpose,
@@ -170,11 +178,23 @@ export async function createItem(formData: FormData) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.created',
+    targetTable: 'items',
+    targetId: data.id,
+    metadata: {
+      purpose: parsed.data.purpose,
+      constructId: parsed.data.constructId ?? null,
+      responseFormatId: parsed.data.responseFormatId,
+    },
+  })
 
   return { success: true, id: data.id }
 }
 
 export async function updateItem(id: string, formData: FormData) {
+  const scope = await requireAdminScope()
   const purpose = (formData.get('purpose') as string) || 'construct'
   const raw = {
     purpose,
@@ -237,11 +257,23 @@ export async function updateItem(id: string, formData: FormData) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.updated',
+    targetTable: 'items',
+    targetId: id,
+    metadata: {
+      purpose: parsed.data.purpose,
+      constructId: parsed.data.constructId ?? null,
+      responseFormatId: parsed.data.responseFormatId,
+    },
+  })
 
   return { success: true, id }
 }
 
 export async function deleteItem(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('items')
@@ -253,11 +285,18 @@ export async function deleteItem(id: string) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.deleted',
+    targetTable: 'items',
+    targetId: id,
+  })
 
   return { success: true }
 }
 
 export async function restoreItem(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('items')
@@ -269,11 +308,18 @@ export async function restoreItem(id: string) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.restored',
+    targetTable: 'items',
+    targetId: id,
+  })
 
   return { success: true }
 }
 
 export async function getItemOptions(itemId: string): Promise<{ label: string; value: number }[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('item_options')
@@ -286,6 +332,7 @@ export async function getItemOptions(itemId: string): Promise<{ label: string; v
 }
 
 export async function getItemParameters(itemId: string) {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('item_parameters')
@@ -311,6 +358,7 @@ const ALLOWED_ITEM_FIELDS = ['stem'] as const
 type AllowedItemField = (typeof ALLOWED_ITEM_FIELDS)[number]
 
 export async function updateItemField(id: string, field: string, value: string) {
+  const scope = await requireAdminScope()
   if (!ALLOWED_ITEM_FIELDS.includes(field as AllowedItemField)) {
     return { error: `Field "${field}" is not allowed` }
   }
@@ -324,6 +372,13 @@ export async function updateItemField(id: string, field: string, value: string) 
   if (error) return { error: error.message }
 
   revalidatePath('/items')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.field_updated',
+    targetTable: 'items',
+    targetId: id,
+    metadata: { field },
+  })
 
   return { success: true }
 }

@@ -61,6 +61,7 @@ const navItemsByPortal: Record<
   ],
   client: [
     { name: "Dashboard", href: "/", icon: Home },
+    { name: "Assessments", href: "/assessments", icon: ClipboardList },
     { name: "Campaigns", href: "/campaigns", icon: Layers },
     { name: "Diagnostics", href: "/diagnostics", icon: ClipboardList },
     { name: "Results", href: "/results", icon: Sparkles },

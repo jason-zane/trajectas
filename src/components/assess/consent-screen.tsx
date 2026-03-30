@@ -41,7 +41,7 @@ export function ConsentScreen({
     setSubmitting(true);
 
     // Save consent — IP will be captured server-side
-    await saveConsent(participantId, "client");
+    await saveConsent(token, participantId, "client");
 
     router.push(nextUrl);
   }
@@ -57,6 +57,7 @@ export function ConsentScreen({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
             <img
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}

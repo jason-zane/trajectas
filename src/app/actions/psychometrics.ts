@@ -1,5 +1,6 @@
 'use server'
 
+import { requireAdminScope } from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 // ---------------------------------------------------------------------------
@@ -24,6 +25,7 @@ export type ConstructAlphaIndicator = {
  * Returns a map-friendly array for merging into item list data.
  */
 export async function getItemHealthIndicators(): Promise<ItemHealthIndicator[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data: latestRun } = await db
@@ -64,6 +66,7 @@ export async function getItemHealthIndicators(): Promise<ItemHealthIndicator[]> 
  * Fetch construct alpha indicators for the latest completed calibration.
  */
 export async function getConstructAlphaIndicators(): Promise<ConstructAlphaIndicator[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data: latestRun } = await db
@@ -105,6 +108,7 @@ export type PsychometricOverview = {
 }
 
 export async function getPsychometricOverview(): Promise<PsychometricOverview> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const [items, activeItems, flagged, constructs, reliable, runs, norms] =
@@ -148,6 +152,7 @@ export type ItemHealthRow = {
 }
 
 export async function getItemHealth(): Promise<ItemHealthRow[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   // Get the latest calibration run
@@ -210,6 +215,7 @@ export type ConstructReliabilityRow = {
 }
 
 export async function getConstructReliability(): Promise<ConstructReliabilityRow[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data: latestRun } = await db
@@ -267,6 +273,7 @@ export type CalibrationRunRow = {
 }
 
 export async function getCalibrationRuns(): Promise<CalibrationRunRow[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data } = await db
@@ -310,6 +317,7 @@ export type NormGroupRow = {
 }
 
 export async function getNormGroups(): Promise<NormGroupRow[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data } = await db

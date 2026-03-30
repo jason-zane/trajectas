@@ -3,6 +3,12 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  requireAdminScope,
+  requireOrganizationAccess,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { diagnosticTemplateSchema, diagnosticSessionSchema } from '@/lib/validations/diagnostics'
 import type { DiagnosticTemplate, DiagnosticSession } from '@/types/database'
 
@@ -28,6 +34,7 @@ export type SelectOption = { id: string; name: string }
 // =============================================================================
 
 export async function getDiagnosticTemplates(): Promise<DiagnosticTemplateWithCounts[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('diagnostic_templates')
@@ -54,6 +61,7 @@ export async function getDiagnosticTemplates(): Promise<DiagnosticTemplateWithCo
 }
 
 export async function getDiagnosticTemplateById(id: string): Promise<DiagnosticTemplate | null> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('diagnostic_templates')
@@ -75,6 +83,7 @@ export async function getDiagnosticTemplateById(id: string): Promise<DiagnosticT
 }
 
 export async function createDiagnosticTemplate(formData: FormData) {
+  const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
     description: (formData.get('description') as string) || undefined,
@@ -87,21 +96,36 @@ export async function createDiagnosticTemplate(formData: FormData) {
   }
 
   const db = createAdminClient()
-  const { error } = await db.from('diagnostic_templates').insert({
-    name: parsed.data.name,
-    description: parsed.data.description ?? null,
-    is_active: parsed.data.isActive,
-  })
+  const { data, error } = await db
+    .from('diagnostic_templates')
+    .insert({
+      name: parsed.data.name,
+      description: parsed.data.description ?? null,
+      is_active: parsed.data.isActive,
+    })
+    .select('id')
+    .single()
 
   if (error) return { error: { _form: [error.message] } }
 
   revalidatePath('/diagnostics')
   revalidatePath('/diagnostics/templates')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'diagnostic_template.created',
+    targetTable: 'diagnostic_templates',
+    targetId: data.id,
+    metadata: {
+      name: parsed.data.name,
+      isActive: parsed.data.isActive,
+    },
+  })
   redirect('/diagnostics/templates')
 }
 
 export async function updateDiagnosticTemplate(id: string, formData: FormData) {
+  const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
     description: (formData.get('description') as string) || undefined,
@@ -128,10 +152,21 @@ export async function updateDiagnosticTemplate(id: string, formData: FormData) {
   revalidatePath('/diagnostics')
   revalidatePath('/diagnostics/templates')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'diagnostic_template.updated',
+    targetTable: 'diagnostic_templates',
+    targetId: id,
+    metadata: {
+      name: parsed.data.name,
+      isActive: parsed.data.isActive,
+    },
+  })
   redirect('/diagnostics/templates')
 }
 
 export async function deleteDiagnosticTemplate(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db.from('diagnostic_templates').delete().eq('id', id)
   if (error) return { error: error.message }
@@ -139,6 +174,12 @@ export async function deleteDiagnosticTemplate(id: string) {
   revalidatePath('/diagnostics')
   revalidatePath('/diagnostics/templates')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'diagnostic_template.deleted',
+    targetTable: 'diagnostic_templates',
+    targetId: id,
+  })
   redirect('/diagnostics/templates')
 }
 
@@ -147,11 +188,22 @@ export async function deleteDiagnosticTemplate(id: string) {
 // =============================================================================
 
 export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta[]> {
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin && scope.clientIds.length === 0) {
+    return []
+  }
+
   const db = createAdminClient()
-  const { data, error } = await db
+  let query = db
     .from('diagnostic_sessions')
     .select('*, organizations(name), diagnostic_templates(name), diagnostic_respondents(count)')
     .order('created_at', { ascending: false })
+
+  if (!scope.isPlatformAdmin) {
+    query = query.in('organization_id', scope.clientIds)
+  }
+
+  const { data, error } = await query
 
   if (error) throw new Error(error.message)
 
@@ -184,6 +236,11 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
     .single()
 
   if (error) return null
+  try {
+    await requireOrganizationAccess(data.organization_id)
+  } catch {
+    return null
+  }
 
   return {
     id: data.id,
@@ -212,30 +269,63 @@ export async function createDiagnosticSession(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  const { scope, organizationId } = await requireOrganizationAccess(parsed.data.organizationId)
   const db = createAdminClient()
-  const { error } = await db.from('diagnostic_sessions').insert({
-    organization_id: parsed.data.organizationId,
-    template_id: parsed.data.templateId,
-    subject_profile_id: null,
-    title: parsed.data.title,
-    status: parsed.data.status,
-    expires_at: parsed.data.expiresAt ?? null,
-  })
+  const { data, error } = await db
+    .from('diagnostic_sessions')
+    .insert({
+      organization_id: organizationId,
+      template_id: parsed.data.templateId,
+      subject_profile_id: null,
+      title: parsed.data.title,
+      status: parsed.data.status,
+      expires_at: parsed.data.expiresAt ?? null,
+    })
+    .select('id')
+    .single()
 
   if (error) return { error: { _form: [error.message] } }
 
   revalidatePath('/diagnostics')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'diagnostic_session.created',
+    targetTable: 'diagnostic_sessions',
+    targetId: data.id,
+    clientId: organizationId,
+    metadata: {
+      templateId: parsed.data.templateId,
+      title: parsed.data.title,
+      status: parsed.data.status,
+    },
+  })
   redirect('/diagnostics')
 }
 
 export async function deleteDiagnosticSession(id: string) {
   const db = createAdminClient()
+  const { data: session, error: fetchError } = await db
+    .from('diagnostic_sessions')
+    .select('id, organization_id')
+    .eq('id', id)
+    .single()
+
+  if (fetchError || !session) return { error: fetchError?.message ?? 'Diagnostic session not found' }
+
+  const { scope, organizationId } = await requireOrganizationAccess(session.organization_id)
   const { error } = await db.from('diagnostic_sessions').delete().eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/diagnostics')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'diagnostic_session.deleted',
+    targetTable: 'diagnostic_sessions',
+    targetId: id,
+    clientId: organizationId,
+  })
   redirect('/diagnostics')
 }
 
@@ -244,18 +334,29 @@ export async function deleteDiagnosticSession(id: string) {
 // =============================================================================
 
 export async function getOrganizationsForDiagnosticSelect(): Promise<SelectOption[]> {
+  const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
-  const { data, error } = await db
+  let query = db
     .from('organizations')
     .select('id, name')
-    .eq('is_active', true)
+    .is('deleted_at', null)
     .order('name', { ascending: true })
+
+  if (!scope.isPlatformAdmin) {
+    if (scope.clientIds.length === 0) {
+      return []
+    }
+    query = query.in('id', scope.clientIds)
+  }
+
+  const { data, error } = await query
 
   if (error) throw new Error(error.message)
   return data ?? []
 }
 
 export async function getTemplatesForSelect(): Promise<SelectOption[]> {
+  await resolveAuthorizedScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('diagnostic_templates')

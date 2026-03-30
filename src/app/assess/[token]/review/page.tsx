@@ -30,7 +30,7 @@ export default async function ReviewPage({
     redirect(`/assess/${token}/complete`);
   }
 
-  const stateResult = await getSessionState(currentSession.id);
+  const stateResult = await getSessionState(token, currentSession.id);
   if (stateResult.error || !stateResult.data) {
     redirect(`/assess/${token}/welcome`);
   }
@@ -72,7 +72,6 @@ export default async function ReviewPage({
 
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- CSS generated server-side from validated brand config, not user HTML */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 

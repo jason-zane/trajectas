@@ -6,7 +6,7 @@
  * Items with max wTO > cutoff are flagged as redundant.
  * Iterative removal: in each redundant pair, remove the item with higher overall wTO.
  */
-import { cosineSimilarityMatrix } from './correlation'
+import { cosineSimilarityMatrix, partialCorrelationMatrix } from './correlation'
 import type { AdjacencyMatrix, RedundancyResult } from '@/types/generation'
 
 export function computeWTO(adj: AdjacencyMatrix): number[][] {
@@ -85,10 +85,14 @@ export function findRedundantItemsIterative(
   for (;;) {
     if (active.length < 2) break
 
-    // Build correlation matrix from active embeddings only
+    // Build partial correlation matrix for UVA (puts wTO on the scale the 0.20 cutoff expects)
     const activeEmbeddings = active.map(i => embeddings[i])
     const corrMatrix = cosineSimilarityMatrix(activeEmbeddings)
-    const adj = buildNetworkFn(corrMatrix)
+    const pcorMatrix = partialCorrelationMatrix(corrMatrix)
+    if (!pcorMatrix) {
+      console.warn('[UVA] Partial correlation inversion failed — falling back to cosine similarities')
+    }
+    const adj = buildNetworkFn(pcorMatrix ?? corrMatrix)
     const wto = computeWTO(adj)
     const subN = active.length
 

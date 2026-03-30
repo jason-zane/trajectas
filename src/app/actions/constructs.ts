@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapConstructRow, toConstructInsert } from '@/lib/supabase/mappers'
 import { constructSchema } from '@/lib/validations/constructs'
 import type { Construct } from '@/types/database'
@@ -9,6 +11,7 @@ import type { Construct } from '@/types/database'
 export type SelectOption = { id: string; name: string }
 
 export async function getFactorsForSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data } = await db
     .from('factors')
@@ -31,6 +34,7 @@ export type ConstructWithRelationships = Construct & {
 }
 
 export async function getConstructs(): Promise<ConstructWithCounts[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   // Three queries: count can't mix with nested relations in PostgREST
@@ -91,6 +95,7 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
 }
 
 export async function getConstructBySlug(slug: string): Promise<ConstructWithRelationships | null> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('constructs')
@@ -126,6 +131,7 @@ export async function getConstructBySlug(slug: string): Promise<ConstructWithRel
 }
 
 export async function createConstruct(formData: FormData) {
+  const scope = await requireAdminScope()
   const parentFactorId = (formData.get('parentFactorId') as string) || undefined
 
   const raw = {
@@ -170,10 +176,21 @@ export async function createConstruct(formData: FormData) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.created',
+    targetTable: 'constructs',
+    targetId: data.id,
+    metadata: {
+      slug: parsed.data.slug,
+      parentFactorId: parentFactorId ?? null,
+    },
+  })
   return { success: true, id: data.id, slug: parsed.data.slug }
 }
 
 export async function updateConstruct(id: string, formData: FormData) {
+  const scope = await requireAdminScope()
   const raw = {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
@@ -209,10 +226,18 @@ export async function updateConstruct(id: string, formData: FormData) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.updated',
+    targetTable: 'constructs',
+    targetId: id,
+    metadata: { slug: parsed.data.slug },
+  })
   return { success: true, id, slug: parsed.data.slug }
 }
 
 export async function deleteConstruct(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('constructs')
@@ -222,9 +247,16 @@ export async function deleteConstruct(id: string) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.deleted',
+    targetTable: 'constructs',
+    targetId: id,
+  })
 }
 
 export async function restoreConstruct(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('constructs')
@@ -234,9 +266,16 @@ export async function restoreConstruct(id: string) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.restored',
+    targetTable: 'constructs',
+    targetId: id,
+  })
 }
 
 export async function toggleConstructActive(id: string, isActive: boolean) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('constructs')
@@ -246,6 +285,13 @@ export async function toggleConstructActive(id: string, isActive: boolean) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.active_toggled',
+    targetTable: 'constructs',
+    targetId: id,
+    metadata: { isActive },
+  })
 }
 
 const ALLOWED_FIELDS: Record<string, string> = {
@@ -260,6 +306,7 @@ const ALLOWED_FIELDS: Record<string, string> = {
 }
 
 export async function updateConstructField(id: string, field: string, value: string) {
+  const scope = await requireAdminScope()
   const dbField = ALLOWED_FIELDS[field]
   if (!dbField) {
     return { error: `Field "${field}" is not allowed` }
@@ -274,5 +321,12 @@ export async function updateConstructField(id: string, field: string, value: str
   if (error) return { error: error.message }
 
   revalidatePath('/constructs')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.field_updated',
+    targetTable: 'constructs',
+    targetId: id,
+    metadata: { field },
+  })
   return { success: true }
 }

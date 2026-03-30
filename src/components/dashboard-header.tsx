@@ -6,7 +6,11 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BuildPortalSwitcher } from "@/components/build-portal-switcher";
 
-export function DashboardHeader() {
+export function DashboardHeader({
+  workspaceControls,
+}: {
+  workspaceControls?: React.ReactNode;
+}) {
   const [scrollProgress, setScrollProgress] = useState(0);
 
   const handleScroll = useCallback(() => {
@@ -45,6 +49,7 @@ export function DashboardHeader() {
       <SidebarTrigger className="-ml-1" />
       <Breadcrumbs className="flex-1" />
       <div className="ml-auto flex items-center gap-2 shrink-0">
+        {workspaceControls}
         <BuildPortalSwitcher variant="header" />
         <ThemeToggle />
         <div className="size-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/10" />

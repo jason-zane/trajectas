@@ -44,7 +44,7 @@ export class NetworkAnalyzerImpl implements NetworkAnalyzer {
   }
 }
 
-export { cosineSimilarityMatrix }            from './correlation'
+export { cosineSimilarityMatrix, partialCorrelationMatrix } from './correlation'
 export { buildNetwork, isConnected }         from './network-builder'
 export { buildTMFG }                         from './tmfg'
 export { walktrap }                          from './walktrap'

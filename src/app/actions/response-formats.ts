@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapResponseFormatRow } from '@/lib/supabase/mappers'
 import { responseFormatSchema } from '@/lib/validations/response-formats'
 import type { ResponseFormat } from '@/types/database'
@@ -9,6 +11,7 @@ import type { ResponseFormat } from '@/types/database'
 export type ResponseFormatWithMeta = ResponseFormat & { itemCount: number }
 
 export async function getResponseFormats(): Promise<ResponseFormatWithMeta[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')
@@ -30,6 +33,7 @@ export async function getResponseFormats(): Promise<ResponseFormatWithMeta[]> {
 export async function getResponseFormatById(
   id: string,
 ): Promise<ResponseFormat | null> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')
@@ -42,6 +46,7 @@ export async function getResponseFormatById(
 }
 
 export async function createResponseFormat(formData: FormData) {
+  const scope = await requireAdminScope()
   const configRaw = formData.get('config') as string
   let config: Record<string, unknown> = {}
   try {
@@ -80,11 +85,22 @@ export async function createResponseFormat(formData: FormData) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'response_format.created',
+    targetTable: 'response_formats',
+    targetId: data.id,
+    metadata: {
+      type: parsed.data.type,
+      isActive: parsed.data.isActive,
+    },
+  })
 
   return { success: true, id: data.id }
 }
 
 export async function updateResponseFormat(id: string, formData: FormData) {
+  const scope = await requireAdminScope()
   const configRaw = formData.get('config') as string
   let config: Record<string, unknown> = {}
   try {
@@ -122,6 +138,16 @@ export async function updateResponseFormat(id: string, formData: FormData) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'response_format.updated',
+    targetTable: 'response_formats',
+    targetId: id,
+    metadata: {
+      type: parsed.data.type,
+      isActive: parsed.data.isActive,
+    },
+  })
 
   return { success: true, id }
 }
@@ -129,6 +155,7 @@ export async function updateResponseFormat(id: string, formData: FormData) {
 export type AnchorPresets = Record<string, Record<number, string[]>>
 
 export async function getAnchorPresets(): Promise<AnchorPresets> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('anchor_presets')
@@ -148,6 +175,7 @@ export async function getAnchorPresets(): Promise<AnchorPresets> {
 }
 
 export async function deleteResponseFormat(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
 
   // Check for dependent items
@@ -176,6 +204,12 @@ export async function deleteResponseFormat(id: string) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'response_format.deleted',
+    targetTable: 'response_formats',
+    targetId: id,
+  })
 
   return { success: true }
 }

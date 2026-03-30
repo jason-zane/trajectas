@@ -2,11 +2,13 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapGenerationRunRow, mapGeneratedItemRow } from '@/lib/supabase/mappers'
 import { createGenerationRunSchema, acceptItemsSchema } from '@/lib/validations/generation'
 import type { GenerationRun, GeneratedItem, GenerationRunStatus, GenerationRunConfig } from '@/types/database'
 import { runPipeline } from '@/lib/ai/generation'
-import type { ScoredCandidateItem, PipelineResult, ConstructForGeneration } from '@/types/generation'
+import type { ScoredCandidateItem, ConstructForGeneration } from '@/types/generation'
 import type { ProgressCallback } from '@/lib/ai/generation/types'
 
 
@@ -142,6 +144,7 @@ async function insertMockGeneratedItems(
 
 /** Get all generation runs, ordered newest first, with construct names resolved. */
 export async function getGenerationRuns(): Promise<GenerationRunWithConstructNames[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('generation_runs')
@@ -180,6 +183,7 @@ export async function getGenerationRuns(): Promise<GenerationRunWithConstructNam
 export async function getGenerationRun(
   runId: string,
 ): Promise<{ run: GenerationRun; items: GeneratedItem[] } | null> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const [runResult, itemsResult] = await Promise.all([
@@ -201,6 +205,7 @@ export async function getGenerationRun(
 
 /** Create a new generation run in 'configuring' status. */
 export async function createGenerationRun(config: GenerationRunConfig): Promise<GenerationRun> {
+  const scope = await requireAdminScope()
   const parsed = createGenerationRunSchema.safeParse({ config })
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
@@ -222,6 +227,17 @@ export async function createGenerationRun(config: GenerationRunConfig): Promise<
   if (error) throw new Error(error.message)
 
   revalidatePath('/generate')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'generation_run.created',
+    targetTable: 'generation_runs',
+    targetId: data.id,
+    metadata: {
+      constructCount: parsed.data.config.constructIds.length,
+      targetItemsPerConstruct: parsed.data.config.targetItemsPerConstruct,
+      responseFormatId: parsed.data.config.responseFormatId,
+    },
+  })
   return mapGenerationRunRow(data)
 }
 
@@ -246,6 +262,7 @@ export async function updateGenerationRunProgress(
     tokenUsage?: { inputTokens: number; outputTokens: number }
   },
 ): Promise<void> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -281,6 +298,7 @@ export async function updateGenerationRunProgress(
 export async function startGenerationRun(
   runId: string,
 ): Promise<{ success: boolean; error?: string }> {
+  const scope = await requireAdminScope()
   try {
     const db = createAdminClient()
 
@@ -314,6 +332,16 @@ export async function startGenerationRun(
     }
 
     const useRealPipeline = Boolean(process.env.OpenRouter_API_KEY)
+
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'generation_run.started',
+      targetTable: 'generation_runs',
+      targetId: runId,
+      metadata: {
+        mode: useRealPipeline ? 'pipeline' : 'mock',
+      },
+    })
 
     if (useRealPipeline) {
       const { items: scoredItems, result: pipelineResult } = await runPipeline(config, constructs, onProgress)
@@ -381,6 +409,13 @@ export async function startGenerationRun(
         status: 'failed' as GenerationRunStatus,
         errorMessage,
       })
+      await logAuditEvent({
+        actorProfileId: scope.actor?.id ?? null,
+        eventType: 'generation_run.failed',
+        targetTable: 'generation_runs',
+        targetId: runId,
+        metadata: { errorMessage },
+      })
     } catch {
       // If we can't even update the status, we still return the error
     }
@@ -401,6 +436,7 @@ export async function acceptGeneratedItems(
   runId: string,
   itemIds: string[],
 ): Promise<{ accepted: number }> {
+  const scope = await requireAdminScope()
   const parsed = acceptItemsSchema.safeParse({ runId, itemIds })
   if (!parsed.success) {
     throw new Error(parsed.error.flatten().formErrors.join(', ') || 'Invalid input')
@@ -501,11 +537,23 @@ export async function acceptGeneratedItems(
   revalidatePath('/constructs')
   revalidatePath('/')
 
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'generation_run.items_accepted',
+    targetTable: 'generation_runs',
+    targetId: runId,
+    metadata: {
+      acceptedCount,
+      requestedCount: itemIds.length,
+    },
+  })
+
   return { accepted: acceptedCount }
 }
 
 /** Delete a generation run and its generated items. */
 export async function deleteGenerationRun(runId: string): Promise<void> {
+  const scope = await requireAdminScope()
   // TODO: Migrate to soft-delete (add deleted_at column to generation_runs) per project conventions.
   // Currently performs hard-delete with CASCADE to generated_items.
   const db = createAdminClient()
@@ -516,6 +564,12 @@ export async function deleteGenerationRun(runId: string): Promise<void> {
   if (error) throw new Error(error.message)
 
   revalidatePath('/generate')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'generation_run.deleted',
+    targetTable: 'generation_runs',
+    targetId: runId,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -552,6 +606,7 @@ async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructF
 
 /** Run construct readiness pre-flight check for the given construct IDs. */
 export async function checkConstructReadiness(constructIds: string[]) {
+  await requireAdminScope()
   try {
     const constructs = await fetchConstructsForRun(constructIds)
     const { runConstructPreflight } = await import('@/lib/ai/generation')
@@ -581,6 +636,7 @@ export async function getConstructsForGeneration(): Promise<
     existingItemCount: number
   }>
 > {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const [constructsResult, itemCountResult] = await Promise.all([
@@ -642,12 +698,19 @@ export async function getConstructsForGeneration(): Promise<
 
 /** Mark a stuck run as failed so it stops showing as in-progress. */
 export async function cancelGenerationRun(runId: string): Promise<{ success: boolean; error?: string }> {
+  const scope = await requireAdminScope()
   try {
     await updateGenerationRunProgress(runId, {
       status: 'failed' as GenerationRunStatus,
       errorMessage: 'Cancelled by user — pipeline did not complete.',
     })
     revalidatePath('/generate')
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'generation_run.cancelled',
+      targetTable: 'generation_runs',
+      targetId: runId,
+    })
     return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
@@ -656,6 +719,7 @@ export async function cancelGenerationRun(runId: string): Promise<{ success: boo
 
 /** Create a new generation run with the same config as an existing run. Returns the new run ID for the client to start via API route. */
 export async function rerunGenerationRun(runId: string): Promise<{ success: boolean; newRunId?: string; error?: string }> {
+  const scope = await requireAdminScope()
   try {
     const existingRun = await getGenerationRun(runId)
     if (!existingRun) return { success: false, error: 'Run not found' }
@@ -665,6 +729,15 @@ export async function rerunGenerationRun(runId: string): Promise<{ success: bool
 
     // Don't start the pipeline here — the client kicks it off via /api/generation/start
     // so that navigation doesn't abort the long-running pipeline
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'generation_run.rerun_requested',
+      targetTable: 'generation_runs',
+      targetId: runId,
+      metadata: {
+        newRunId: newRun.id,
+      },
+    })
     return { success: true, newRunId: newRun.id }
   } catch (error) {
     return { success: false, error: String(error) }
@@ -673,6 +746,7 @@ export async function rerunGenerationRun(runId: string): Promise<{ success: bool
 
 /** Export all generated items for a run as a CSV string. */
 export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boolean; csv?: string; error?: string }> {
+  const scope = await requireAdminScope()
   try {
     const db = createAdminClient()
 
@@ -714,6 +788,17 @@ export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boo
       ].join(',')
     })
 
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'generation_run.exported',
+      targetTable: 'generation_runs',
+      targetId: runId,
+      metadata: {
+        rowCount: items.length,
+        format: 'csv',
+      },
+    })
+
     return { success: true, csv: [header, ...rows].join('\n') }
   } catch (error) {
     return { success: false, error: String(error) }
@@ -728,6 +813,7 @@ export async function getResponseFormatsForGeneration(): Promise<
     type: string
   }>
 > {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')

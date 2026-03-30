@@ -2,9 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getAccessibleCampaignIds, requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
-import type { Assessment, ItemOrdering, FormatMode } from '@/types/database'
+import type { Assessment, ItemOrdering } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
 
 export type AssessmentWithMeta = Assessment & {
@@ -80,7 +82,37 @@ export type ExistingSection = {
   itemCount: number
 }
 
+export type WorkspaceAssessmentSummary = {
+  id: string
+  title: string
+  description?: string
+  status: Assessment['status']
+  organizationId?: string
+  organizationName?: string
+  campaignCount: number
+  participantCount: number
+  completedCount: number
+  campaignTitles: string[]
+  clientNames: string[]
+  updatedAt?: string
+}
+
+function getRelatedRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    const first = value[0]
+    return first && typeof first === 'object' ? (first as Record<string, unknown>) : null
+  }
+
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function getRelatedCount(value: unknown) {
+  const record = getRelatedRecord(value)
+  return record?.count ? Number(record.count) : 0
+}
+
 export async function getAssessments(): Promise<AssessmentWithMeta[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
@@ -99,7 +131,162 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
   }))
 }
 
+export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssessmentSummary[]> {
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
+
+  let accessibleCampaignIds: string[] | null = null
+  if (!scope.isPlatformAdmin) {
+    accessibleCampaignIds = await getAccessibleCampaignIds(scope)
+    if (!accessibleCampaignIds || accessibleCampaignIds.length === 0) {
+      return []
+    }
+  }
+
+  let query = db
+    .from('campaign_assessments')
+    .select(
+      'campaign_id, assessment_id, campaigns(id, title, status, organization_id, organizations(name), campaign_participants(count)), assessments(id, name, description, status, organization_id, updated_at)'
+    )
+    .order('created_at', { ascending: false })
+
+  if (accessibleCampaignIds) {
+    query = query.in('campaign_id', accessibleCampaignIds)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  const campaignIds = Array.from(
+    new Set((data ?? []).map((row) => String(row.campaign_id ?? '')).filter(Boolean))
+  )
+
+  const completedCounts = new Map<string, number>()
+  if (campaignIds.length > 0) {
+    const { data: completedRows, error: completedError } = await db
+      .from('campaign_participants')
+      .select('campaign_id')
+      .in('campaign_id', campaignIds)
+      .eq('status', 'completed')
+
+    if (completedError) {
+      throw new Error(completedError.message)
+    }
+
+    for (const row of completedRows ?? []) {
+      const campaignId = String(row.campaign_id)
+      completedCounts.set(campaignId, (completedCounts.get(campaignId) ?? 0) + 1)
+    }
+  }
+
+  const summaries = new Map<
+    string,
+    WorkspaceAssessmentSummary & {
+      _campaignIds: Set<string>
+      _campaignTitles: Set<string>
+      _clientNames: Set<string>
+    }
+  >()
+
+  for (const row of data ?? []) {
+    const assessmentRow = getRelatedRecord(row.assessments)
+    if (!assessmentRow?.id || !assessmentRow?.name) {
+      continue
+    }
+
+    const assessmentId = String(assessmentRow.id)
+    const campaignRow = getRelatedRecord(row.campaigns)
+    const campaignId = campaignRow?.id ? String(campaignRow.id) : String(row.campaign_id ?? '')
+    const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
+    const organizationRow = getRelatedRecord(campaignRow?.organizations)
+    const clientName = organizationRow?.name ? String(organizationRow.name) : undefined
+    const participantCount = getRelatedCount(campaignRow?.campaign_participants)
+
+    const existing = summaries.get(assessmentId)
+    if (existing) {
+      if (campaignId && !existing._campaignIds.has(campaignId)) {
+        existing._campaignIds.add(campaignId)
+        existing.campaignCount += 1
+        existing.participantCount += participantCount
+        existing.completedCount += completedCounts.get(campaignId) ?? 0
+      }
+      if (campaignTitle) {
+        existing._campaignTitles.add(campaignTitle)
+      }
+      if (clientName) {
+        existing._clientNames.add(clientName)
+      }
+      continue
+    }
+
+    const campaignIdsSet = new Set<string>()
+    if (campaignId) {
+      campaignIdsSet.add(campaignId)
+    }
+
+    const campaignTitles = new Set<string>()
+    if (campaignTitle) {
+      campaignTitles.add(campaignTitle)
+    }
+
+    const clientNames = new Set<string>()
+    if (clientName) {
+      clientNames.add(clientName)
+    }
+
+    summaries.set(assessmentId, {
+      id: assessmentId,
+      title: String(assessmentRow.name),
+      description: assessmentRow.description ? String(assessmentRow.description) : undefined,
+      status: assessmentRow.status as Assessment['status'],
+      organizationId: assessmentRow.organization_id ? String(assessmentRow.organization_id) : undefined,
+      organizationName: clientName,
+      campaignCount: campaignId ? 1 : 0,
+      participantCount,
+      completedCount: campaignId ? (completedCounts.get(campaignId) ?? 0) : 0,
+      campaignTitles: [],
+      clientNames: [],
+      updatedAt: assessmentRow.updated_at ? String(assessmentRow.updated_at) : undefined,
+      _campaignIds: campaignIdsSet,
+      _campaignTitles: campaignTitles,
+      _clientNames: clientNames,
+    })
+  }
+
+  return Array.from(summaries.values())
+    .map((entry) => {
+      const clientNames = Array.from(entry._clientNames)
+      return {
+        id: entry.id,
+        title: entry.title,
+        description: entry.description,
+        status: entry.status,
+        organizationId: entry.organizationId,
+        organizationName: entry.organizationName ?? clientNames[0] ?? undefined,
+        campaignCount: entry.campaignCount,
+        participantCount: entry.participantCount,
+        completedCount: entry.completedCount,
+        campaignTitles: Array.from(entry._campaignTitles),
+        clientNames,
+        updatedAt: entry.updatedAt,
+      }
+    })
+    .sort((a, b) => {
+      if (b.completedCount !== a.completedCount) {
+        return b.completedCount - a.completedCount
+      }
+      if (b.campaignCount !== a.campaignCount) {
+        return b.campaignCount - a.campaignCount
+      }
+      return a.title.localeCompare(b.title)
+    })
+}
+
 export async function getAssessmentById(id: string): Promise<Assessment | null> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
@@ -117,6 +304,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   factors: AssessmentFactorLink[]
   sections: ExistingSection[]
 } | null> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
@@ -173,6 +361,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
  * across the given factors' constructs.
  */
 export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGroup[]> {
+  await requireAdminScope()
   if (factorIds.length === 0) return []
 
   const db = createAdminClient()
@@ -225,6 +414,7 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
 }
 
 export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
+  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
@@ -247,7 +437,7 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
   }
 
   // Count active items per construct in one query
-  let itemCountByConstruct: Record<string, number> = {}
+  const itemCountByConstruct: Record<string, number> = {}
   if (allConstructIds.size > 0) {
     const { data: items } = await db
       .from('items')
@@ -277,6 +467,7 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
 }
 
 export async function createAssessment(payload: Record<string, unknown>) {
+  const scope = await requireAdminScope()
   const parsed = assessmentSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -325,10 +516,21 @@ export async function createAssessment(payload: Record<string, unknown>) {
 
   revalidatePath('/assessments')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.created',
+    targetTable: 'assessments',
+    targetId: assessment.id,
+    metadata: {
+      formatMode: parsed.data.formatMode,
+      factorCount: parsed.data.factors.length,
+    },
+  })
   return { success: true as const, id: assessment.id }
 }
 
 export async function updateAssessment(id: string, payload: Record<string, unknown>) {
+  const scope = await requireAdminScope()
   const parsed = assessmentSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -405,10 +607,21 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
   revalidatePath('/assessments')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.updated',
+    targetTable: 'assessments',
+    targetId: id,
+    metadata: {
+      formatMode: parsed.data.formatMode,
+      factorCount: parsed.data.factors.length,
+    },
+  })
   return { success: true as const, id }
 }
 
 export async function deleteAssessment(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('assessments')
@@ -419,9 +632,16 @@ export async function deleteAssessment(id: string) {
 
   revalidatePath('/assessments')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.deleted',
+    targetTable: 'assessments',
+    targetId: id,
+  })
 }
 
 export async function restoreAssessment(id: string) {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const { error } = await db
     .from('assessments')
@@ -432,9 +652,16 @@ export async function restoreAssessment(id: string) {
 
   revalidatePath('/assessments')
   revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.restored',
+    targetTable: 'assessments',
+    targetId: id,
+  })
 }
 
 export async function updateAssessmentField(id: string, field: string, value: string) {
+  const scope = await requireAdminScope()
   if (field !== 'description') {
     return { error: 'Only description can be auto-saved' }
   }
@@ -448,6 +675,13 @@ export async function updateAssessmentField(id: string, field: string, value: st
   if (error) return { error: error.message }
 
   revalidatePath('/assessments')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.description.updated',
+    targetTable: 'assessments',
+    targetId: id,
+    metadata: { field },
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -458,7 +692,6 @@ export async function updateAssessmentField(id: string, field: string, value: st
  * Persist sections for an assessment and auto-assign matching items.
  * Items are matched to sections by response_format_id.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function persistSections(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
@@ -540,7 +773,6 @@ async function persistSections(
 /**
  * Persist forced-choice blocks for an assessment.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function persistForcedChoiceBlocks(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   db: any,
@@ -587,6 +819,7 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   stem: string
   constructName: string
 }[]> {
+  await requireAdminScope()
   if (factorIds.length === 0) return []
 
   const db = createAdminClient()
@@ -623,6 +856,7 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
  * Load existing FC blocks for an assessment (for editing).
  */
 export async function getExistingBlocks(assessmentId: string): Promise<ExistingFCBlock[]> {
+  await requireAdminScope()
   const db = createAdminClient()
 
   const { data: blocks } = await db

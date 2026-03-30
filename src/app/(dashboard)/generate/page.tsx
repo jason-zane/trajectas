@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { ScrollReveal } from "@/components/scroll-reveal";
 import { getGenerationRuns } from "@/app/actions/generation";
 import { DeleteRunButton } from "./delete-run-button";
 import type { GenerationRunStatus } from "@/types/database";
@@ -79,62 +80,67 @@ export default async function GeneratePage() {
           actionHref="/generate/new"
         />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Constructs</TableHead>
-                <TableHead className="w-36">Status</TableHead>
-                <TableHead className="w-20 text-right">Items</TableHead>
-                <TableHead className="w-20 text-right">NMI</TableHead>
-                <TableHead className="w-48">Model</TableHead>
-                <TableHead className="w-28">Date</TableHead>
-                <TableHead className="w-10" />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {runs.map((run) => {
-                const meta = statusMeta[run.status] ?? { label: run.status, variant: "secondary" as const };
-                const title = formatConstructTitle(run.constructNames);
+        <ScrollReveal>
+          <div className="rounded-xl border border-border bg-card shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Constructs</TableHead>
+                  <TableHead className="w-36">Status</TableHead>
+                  <TableHead className="w-20 text-right">Items</TableHead>
+                  <TableHead className="w-20 text-right">NMI</TableHead>
+                  <TableHead className="w-48">Model</TableHead>
+                  <TableHead className="w-28">Date</TableHead>
+                  <TableHead className="w-16" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {runs.map((run) => {
+                  const meta = statusMeta[run.status] ?? { label: run.status, variant: "secondary" as const };
+                  const title = formatConstructTitle(run.constructNames);
 
-                return (
-                  <TableRow key={run.id} className="group">
-                    <TableCell>
-                      <Link
-                        href={`/generate/${run.id}`}
-                        className="font-medium text-sm hover:text-primary transition-colors line-clamp-1"
-                      >
-                        {title}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={meta.variant}>{meta.label}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
-                      {run.itemsGenerated}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
-                      {run.nmiFinal !== undefined && run.nmiFinal !== null
-                        ? run.nmiFinal.toFixed(2)
-                        : "—"}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground truncate max-w-0">
-                      <span className="block truncate">{run.modelUsed ?? "—"}</span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatRelativeTime(run.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <DeleteRunButton runId={run.id} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+                  return (
+                    <TableRow key={run.id} className="group">
+                      <TableCell>
+                        <Link
+                          href={`/generate/${run.id}`}
+                          className="font-medium text-sm hover:text-primary transition-colors line-clamp-1"
+                        >
+                          {title}
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={meta.variant}>{meta.label}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
+                        {run.itemsGenerated}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm text-muted-foreground">
+                        {run.nmiFinal !== undefined && run.nmiFinal !== null
+                          ? run.nmiFinal.toFixed(2)
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground truncate max-w-0">
+                        <span className="block truncate">{run.modelUsed ?? "—"}</span>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {formatRelativeTime(run.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <DeleteRunButton runId={run.id} />
+                          </div>
+                          <ChevronRight className="size-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </ScrollReveal>
       )}
     </div>
   );

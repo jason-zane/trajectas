@@ -79,7 +79,7 @@ export function DemographicsForm({
     }
 
     setSubmitting(true);
-    await saveDemographics(participantId, values);
+    await saveDemographics(token, participantId, values);
     router.push(nextUrl);
   }
 
@@ -94,6 +94,7 @@ export function DemographicsForm({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
             <img
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}

@@ -1,10 +1,15 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import {
+  ParticipantRuntimeAccessError,
+  requireParticipantRuntimeParticipantAccess,
+} from '@/lib/auth/participant-runtime'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapExperienceTemplateRow } from '@/lib/supabase/mappers'
 import { resolveTemplate } from '@/lib/experience/resolve'
-import { DEFAULT_EXPERIENCE_TEMPLATE } from '@/lib/experience/defaults'
 import type {
   ExperienceOwnerType,
   ExperienceTemplate,
@@ -84,6 +89,7 @@ export async function upsertExperiencePageContent(
   ownerId: string | null,
   pageContent: Partial<PageContentMap>
 ): Promise<{ error?: string }> {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -108,6 +114,18 @@ export async function upsertExperiencePageContent(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'experience_template.page_content_upserted',
+    targetTable: 'experience_templates',
+    targetId: existing?.id ?? null,
+    metadata: {
+      ownerType,
+      ownerId,
+    },
+  })
+
   return {}
 }
 
@@ -119,6 +137,7 @@ export async function upsertExperienceFlowConfig(
   ownerId: string | null,
   flowConfig: Partial<FlowConfig>
 ): Promise<{ error?: string }> {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -143,6 +162,18 @@ export async function upsertExperienceFlowConfig(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'experience_template.flow_config_upserted',
+    targetTable: 'experience_templates',
+    targetId: existing?.id ?? null,
+    metadata: {
+      ownerType,
+      ownerId,
+    },
+  })
+
   return {}
 }
 
@@ -154,6 +185,7 @@ export async function upsertExperienceDemographics(
   ownerId: string | null,
   demographicsConfig: DemographicsConfig
 ): Promise<{ error?: string }> {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -178,6 +210,18 @@ export async function upsertExperienceDemographics(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'experience_template.demographics_upserted',
+    targetTable: 'experience_templates',
+    targetId: existing?.id ?? null,
+    metadata: {
+      ownerType,
+      ownerId,
+    },
+  })
+
   return {}
 }
 
@@ -189,6 +233,7 @@ export async function upsertExperienceTemplate(
   ownerId: string | null,
   template: Partial<ExperienceTemplate>
 ): Promise<{ error?: string }> {
+  const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -221,6 +266,19 @@ export async function upsertExperienceTemplate(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'experience_template.upserted',
+    targetTable: 'experience_templates',
+    targetId: existing?.id ?? null,
+    metadata: {
+      ownerType,
+      ownerId,
+      updatedKeys: Object.keys(payload),
+    },
+  })
+
   return {}
 }
 
@@ -232,6 +290,7 @@ export async function resetExperienceToDefault(
   ownerType: ExperienceOwnerType,
   ownerId: string | null
 ): Promise<{ error?: string }> {
+  const scope = await requireAdminScope()
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform template — edit it instead.' }
   }
@@ -248,6 +307,18 @@ export async function resetExperienceToDefault(
   if (error) return { error: error.message }
 
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'experience_template.reset_to_default',
+    targetTable: 'experience_templates',
+    targetId: existing.id,
+    metadata: {
+      ownerType,
+      ownerId,
+    },
+  })
+
   return {}
 }
 
@@ -259,9 +330,19 @@ export async function resetExperienceToDefault(
  * Save consent for a participant.
  */
 export async function saveConsent(
+  token: string,
   participantId: string,
   ip: string
 ): Promise<{ error?: string }> {
+  try {
+    await requireParticipantRuntimeParticipantAccess(token, participantId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
@@ -279,9 +360,19 @@ export async function saveConsent(
  * Save demographics for a participant.
  */
 export async function saveDemographics(
+  token: string,
   participantId: string,
   demographics: Record<string, string>
 ): Promise<{ error?: string }> {
+  try {
+    await requireParticipantRuntimeParticipantAccess(token, participantId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')

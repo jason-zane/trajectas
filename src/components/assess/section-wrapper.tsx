@@ -96,20 +96,6 @@ export function SectionWrapper({
     return hasResponses;
   });
 
-  if (!introShown && sectionIntroContent) {
-    return (
-      <SectionIntroScreen
-        content={sectionIntroContent}
-        brandLogoUrl={brandLogoUrl}
-        brandName={brandName}
-        isCustomBrand={isCustomBrand}
-        onStart={() => setIntroShown(true)}
-        privacyUrl={privacyUrl}
-        termsUrl={termsUrl}
-      />
-    );
-  }
-
   // Build a flat global item list from all sections
   const globalItems = flattenItems(allSections);
   const totalItems = globalItems.length;
@@ -185,13 +171,13 @@ export function SectionWrapper({
     if (localItemIndex < section.items.length - 1) {
       // Next item in same section
       navigateToItem(localItemIndex + 1, "left");
-      await updateSessionProgress(sessionId, {
+      await updateSessionProgress(token, sessionId, {
         currentSectionId: section.id,
         currentItemIndex: localItemIndex + 1,
       });
     } else if (sectionIndex < totalSections - 1) {
       // Next section
-      await updateSessionProgress(sessionId, {
+      await updateSessionProgress(token, sessionId, {
         currentSectionId: undefined,
         currentItemIndex: 0,
       });
@@ -208,6 +194,7 @@ export function SectionWrapper({
     totalSections,
     sessionId,
     token,
+    postSectionsUrl,
     router,
     navigateToItem,
   ]);
@@ -236,6 +223,7 @@ export function SectionWrapper({
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     await saveResponse({
+      token,
       sessionId,
       itemId,
       sectionId: section.id,
@@ -257,6 +245,20 @@ export function SectionWrapper({
 
   const canGoBack = localItemIndex > 0 || sectionIndex > 0;
 
+  if (!introShown && sectionIntroContent) {
+    return (
+      <SectionIntroScreen
+        content={sectionIntroContent}
+        brandLogoUrl={brandLogoUrl}
+        brandName={brandName}
+        isCustomBrand={isCustomBrand}
+        onStart={() => setIntroShown(true)}
+        privacyUrl={privacyUrl}
+        termsUrl={termsUrl}
+      />
+    );
+  }
+
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Header */}
@@ -265,6 +267,7 @@ export function SectionWrapper({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
             <img
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}

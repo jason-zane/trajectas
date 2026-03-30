@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapBrandConfigRow } from '@/lib/supabase/mappers'
 import { brandConfigSchema } from '@/lib/validations/brand'
 import { TALENT_FIT_DEFAULTS } from '@/lib/brand/defaults'
@@ -109,6 +111,7 @@ export async function upsertBrandConfig(
   ownerId: string | null,
   configInput: unknown
 ): Promise<{ error?: Record<string, string[]> }> {
+  const scope = await requireAdminScope()
   const parsed = brandConfigSchema.safeParse(configInput)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors as Record<string, string[]> }
@@ -147,6 +150,19 @@ export async function upsertBrandConfig(
     revalidatePath(`/organizations`)
   }
 
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'brand_config.upserted',
+    targetTable: 'brand_configs',
+    targetId: existing?.id ?? null,
+    clientId: ownerType === 'organization' ? ownerId : null,
+    metadata: {
+      ownerType,
+      ownerId,
+      isDefault: ownerType === 'platform',
+    },
+  })
+
   return {}
 }
 
@@ -158,6 +174,7 @@ export async function resetBrandToDefault(
   ownerType: BrandOwnerType,
   ownerId: string | null
 ): Promise<{ error?: string }> {
+  const scope = await requireAdminScope()
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform brand — edit it instead.' }
   }
@@ -177,6 +194,18 @@ export async function resetBrandToDefault(
   if (ownerId) {
     revalidatePath(`/organizations`)
   }
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'brand_config.reset_to_default',
+    targetTable: 'brand_configs',
+    targetId: existing.id,
+    clientId: ownerType === 'organization' ? ownerId : null,
+    metadata: {
+      ownerType,
+      ownerId,
+    },
+  })
 
   return {}
 }

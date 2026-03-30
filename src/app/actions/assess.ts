@@ -1,6 +1,11 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  ParticipantRuntimeAccessError,
+  requireParticipantRuntimeCampaignAssessmentAccess,
+  requireParticipantRuntimeSessionAccess,
+} from '@/lib/auth/participant-runtime'
 import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
 import {
   mapCampaignRow,
@@ -160,10 +165,25 @@ export async function validateAccessToken(
 // ---------------------------------------------------------------------------
 
 export async function startSession(
+  token: string,
   campaignParticipantId: string,
   assessmentId: string,
   campaignId: string,
 ) {
+  try {
+    await requireParticipantRuntimeCampaignAssessmentAccess({
+      token,
+      participantId: campaignParticipantId,
+      campaignId,
+      assessmentId,
+    })
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   // Check for existing session
@@ -206,7 +226,16 @@ export async function startSession(
   return { id: session.id }
 }
 
-export async function getSessionState(sessionId: string) {
+export async function getSessionState(token: string, sessionId: string) {
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   const { data: session, error } = await db
@@ -300,6 +329,7 @@ export async function getSessionState(sessionId: string) {
 // ---------------------------------------------------------------------------
 
 export async function saveResponse({
+  token,
   sessionId,
   itemId,
   sectionId,
@@ -307,6 +337,7 @@ export async function saveResponse({
   responseData,
   responseTimeMs,
 }: {
+  token: string
   sessionId: string
   itemId: string
   sectionId?: string
@@ -314,6 +345,15 @@ export async function saveResponse({
   responseData?: Record<string, unknown>
   responseTimeMs?: number
 }) {
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   const { error } = await db
@@ -339,6 +379,7 @@ export async function saveResponse({
 // ---------------------------------------------------------------------------
 
 export async function updateSessionProgress(
+  token: string,
   sessionId: string,
   update: {
     currentSectionId?: string
@@ -346,6 +387,15 @@ export async function updateSessionProgress(
     timeRemaining?: Record<string, number>
   },
 ) {
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   const patch: Record<string, unknown> = {}
@@ -368,7 +418,16 @@ export async function updateSessionProgress(
 // Session completion
 // ---------------------------------------------------------------------------
 
-export async function submitSession(sessionId: string) {
+export async function submitSession(token: string, sessionId: string) {
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   const { data: session, error: fetchErr } = await db

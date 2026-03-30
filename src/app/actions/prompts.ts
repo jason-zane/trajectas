@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import type { AIPromptPurpose } from '@/types/database'
 
 export interface PromptVersionRow {
@@ -35,6 +37,7 @@ function mapPromptRow(row: Record<string, unknown>): PromptVersionRow {
 }
 
 export async function getPromptSummaries(): Promise<PromptSummaryRow[]> {
+  await requireAdminScope()
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('ai_system_prompts')
@@ -70,6 +73,7 @@ export async function getPromptSummaries(): Promise<PromptSummaryRow[]> {
 export async function getPromptVersions(
   purpose: AIPromptPurpose,
 ): Promise<PromptVersionRow[]> {
+  await requireAdminScope()
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('ai_system_prompts')
@@ -86,6 +90,7 @@ export async function createPromptVersion(
   content: string,
   name?: string,
 ): Promise<{ success: true } | { error: string }> {
+  const scope = await requireAdminScope()
   const trimmed = content.trim()
   if (!trimmed) {
     return { error: 'Prompt content cannot be empty.' }
@@ -106,6 +111,15 @@ export async function createPromptVersion(
   }
 
   revalidatePath('/settings/prompts')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'ai_prompt.created',
+    targetTable: 'ai_system_prompts',
+    metadata: {
+      purpose,
+      name: promptName,
+    },
+  })
   return { success: true }
 }
 
@@ -117,6 +131,7 @@ export async function activatePromptVersion(
   purpose: AIPromptPurpose,
   versionId: string,
 ): Promise<{ success: true } | { error: string }> {
+  const scope = await requireAdminScope()
   const supabase = createAdminClient()
 
   // Deactivate all versions for this purpose
@@ -136,5 +151,12 @@ export async function activatePromptVersion(
   if (activateError) return { error: activateError.message }
 
   revalidatePath('/settings/prompts')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'ai_prompt.activated',
+    targetTable: 'ai_system_prompts',
+    targetId: versionId,
+    metadata: { purpose },
+  })
   return { success: true }
 }

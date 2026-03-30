@@ -1,0 +1,489 @@
+import { headers } from "next/headers";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  inferSurfaceFromRequest,
+  isLocalDevelopmentHost,
+  resolveSurfaceHeader,
+} from "@/lib/hosts";
+import {
+  resolveSessionActor,
+  resolveSignedActiveContext,
+} from "@/lib/auth/actor";
+import type { Surface } from "@/lib/surfaces";
+import type {
+  ActiveContext,
+  ResolvedActor,
+  SupportSessionRecord,
+} from "@/lib/auth/types";
+
+export class AuthorizationError extends Error {
+  constructor(message = "You do not have permission to perform this action.") {
+    super(message);
+    this.name = "AuthorizationError";
+  }
+}
+
+export class AuthenticationRequiredError extends Error {
+  constructor(message = "Authentication is required for this action.") {
+    super(message);
+    this.name = "AuthenticationRequiredError";
+  }
+}
+
+export interface AuthorizedScope {
+  actor: ResolvedActor | null;
+  activeContext: ActiveContext | null;
+  requestSurface: Surface;
+  isPlatformAdmin: boolean;
+  isLocalDevelopmentBypass: boolean;
+  partnerIds: string[];
+  partnerAdminIds: string[];
+  clientIds: string[];
+  clientAdminIds: string[];
+  supportSession: SupportSessionRecord | null;
+}
+
+function dedupe(values: string[]) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function mapSupportSession(row: Record<string, unknown>): SupportSessionRecord {
+  const targetSurface = row.target_surface as SupportSessionRecord["targetSurface"];
+  const targetTenantId =
+    targetSurface === "partner"
+      ? String(row.partner_id)
+      : String(row.organization_id);
+
+  return {
+    id: String(row.id),
+    actorProfileId: String(row.actor_profile_id),
+    targetSurface,
+    targetTenantId,
+    reason: String(row.reason),
+    sessionKey: String(row.session_key),
+    createdAt: String(row.created_at),
+    expiresAt: String(row.expires_at),
+    endedAt: row.ended_at ? String(row.ended_at) : null,
+    metadata: (row.metadata as Record<string, unknown>) ?? {},
+  };
+}
+
+async function getRequestEnvironment() {
+  const headerStore = await headers();
+  const host = headerStore.get("host");
+
+  return {
+    host,
+    isLocalDevelopment: isLocalDevelopmentHost(host),
+    requestSurface:
+      resolveSurfaceHeader(headerStore.get("x-talentfit-surface")) ??
+      inferSurfaceFromRequest({ host }),
+  };
+}
+
+async function loadClientPartnerMap(partnerIds: string[]) {
+  if (partnerIds.length === 0) {
+    return new Map<string, string>();
+  }
+
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("organizations")
+    .select("id, partner_id")
+    .in("partner_id", partnerIds)
+    .is("deleted_at", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    map.set(String(row.id), String(row.partner_id));
+  }
+  return map;
+}
+
+async function loadAllPartnerIds() {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("partners")
+    .select("id")
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => String(row.id));
+}
+
+async function loadAllClientRows() {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("organizations")
+    .select("id, partner_id")
+    .is("deleted_at", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+async function getValidatedSupportSession(
+  actor: ResolvedActor,
+  activeContext: ActiveContext | null
+) {
+  if (
+    actor.role !== "platform_admin" ||
+    !activeContext?.supportSessionId ||
+    !activeContext.tenantType ||
+    !activeContext.tenantId
+  ) {
+    return null;
+  }
+
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("support_sessions")
+    .select("*")
+    .eq("id", activeContext.supportSessionId)
+    .eq("actor_profile_id", actor.id)
+    .is("ended_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const session = mapSupportSession(data as Record<string, unknown>);
+
+  if (
+    session.targetSurface !== activeContext.surface ||
+    session.targetSurface !== activeContext.tenantType ||
+    session.targetTenantId !== activeContext.tenantId
+  ) {
+    return null;
+  }
+
+  return session;
+}
+
+export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
+  const requestEnvironment = await getRequestEnvironment();
+  const actor = await resolveSessionActor();
+  const localDevBypass = !actor && requestEnvironment.isLocalDevelopment;
+
+  if (!actor && !localDevBypass) {
+    throw new AuthenticationRequiredError();
+  }
+
+  if (!actor && localDevBypass) {
+    const activeContext = await resolveSignedActiveContext();
+    const allPartners = await loadAllPartnerIds();
+    const allClients = await loadAllClientRows();
+
+    let partnerIds = requestEnvironment.requestSurface === "partner" ? allPartners : [];
+    let clientIds =
+      requestEnvironment.requestSurface === "partner" ||
+      requestEnvironment.requestSurface === "client"
+        ? allClients.map((row) => String(row.id))
+        : [];
+
+    if (activeContext?.tenantType === "partner" && activeContext.tenantId) {
+      partnerIds = [activeContext.tenantId];
+      clientIds = allClients
+        .filter((row) => String(row.partner_id ?? "") === activeContext.tenantId)
+        .map((row) => String(row.id));
+    } else if (activeContext?.tenantType === "client" && activeContext.tenantId) {
+      clientIds = [activeContext.tenantId];
+      const selectedClient = allClients.find(
+        (row) => String(row.id) === activeContext.tenantId
+      );
+      partnerIds =
+        requestEnvironment.requestSurface === "partner" && selectedClient?.partner_id
+          ? [String(selectedClient.partner_id)]
+          : [];
+    }
+
+    return {
+      actor: null,
+      activeContext,
+      requestSurface: requestEnvironment.requestSurface,
+      isPlatformAdmin: requestEnvironment.requestSurface === "admin",
+      isLocalDevelopmentBypass: true,
+      partnerIds,
+      partnerAdminIds: partnerIds,
+      clientIds,
+      clientAdminIds: clientIds,
+      supportSession: null,
+    };
+  }
+
+  if (!actor) {
+    throw new AuthenticationRequiredError();
+  }
+
+  const hasPlatformAdminRole = actor.role === "platform_admin";
+  const isPlatformAdmin =
+    hasPlatformAdminRole && requestEnvironment.requestSurface === "admin";
+  const actorPartnerIds = dedupe(actor.partnerMemberships.map((membership) => membership.partnerId));
+  const actorPartnerAdminIds = dedupe(
+    actor.partnerMemberships
+      .filter((membership) => membership.role === "admin")
+      .map((membership) => membership.partnerId)
+  );
+  const directClientIds = dedupe(actor.clientMemberships.map((membership) => membership.clientId));
+  const directClientAdminIds = dedupe(
+    actor.clientMemberships
+      .filter((membership) => membership.role === "admin")
+      .map((membership) => membership.clientId)
+  );
+  const clientPartnerMap = await loadClientPartnerMap(actorPartnerIds);
+  const partnerClientIds = Array.from(clientPartnerMap.keys());
+  const activeContext = actor.activeContext ?? null;
+  const supportSession = await getValidatedSupportSession(actor, activeContext);
+
+  let partnerIds = actorPartnerIds;
+  let partnerAdminIds = actorPartnerAdminIds;
+  let clientIds = dedupe([...directClientIds, ...partnerClientIds]);
+  let clientAdminIds = directClientAdminIds;
+
+  if (supportSession) {
+    if (supportSession.targetSurface === "partner") {
+      partnerIds = [supportSession.targetTenantId];
+      partnerAdminIds = [supportSession.targetTenantId];
+      clientIds = partnerClientIds.filter(
+        (clientId) => clientPartnerMap.get(clientId) === supportSession.targetTenantId
+      );
+      clientAdminIds = [];
+    } else {
+      partnerIds = [];
+      partnerAdminIds = [];
+      clientIds = [supportSession.targetTenantId];
+      clientAdminIds = [supportSession.targetTenantId];
+    }
+  } else if (activeContext?.tenantType === "partner" && activeContext.tenantId) {
+    if (isPlatformAdmin || actorPartnerIds.includes(activeContext.tenantId)) {
+      partnerIds = [activeContext.tenantId];
+      partnerAdminIds = actorPartnerAdminIds.includes(activeContext.tenantId)
+        ? [activeContext.tenantId]
+        : [];
+      clientIds = clientIds.filter(
+        (clientId) => clientPartnerMap.get(clientId) === activeContext.tenantId
+      );
+      clientAdminIds = clientAdminIds.filter((clientId) =>
+        clientIds.includes(clientId)
+      );
+    }
+  } else if (activeContext?.tenantType === "client" && activeContext.tenantId) {
+    if (isPlatformAdmin || clientIds.includes(activeContext.tenantId)) {
+      clientIds = [activeContext.tenantId];
+      clientAdminIds = directClientAdminIds.includes(activeContext.tenantId)
+        ? [activeContext.tenantId]
+        : [];
+    }
+  }
+
+  return {
+    actor,
+    activeContext,
+    requestSurface: requestEnvironment.requestSurface,
+    isPlatformAdmin,
+    isLocalDevelopmentBypass: false,
+    partnerIds,
+    partnerAdminIds,
+    clientIds,
+    clientAdminIds,
+    supportSession,
+  };
+}
+
+export function canAccessClient(scope: AuthorizedScope, clientId: string) {
+  return scope.isPlatformAdmin || scope.clientIds.includes(clientId);
+}
+
+export function canManageClient(scope: AuthorizedScope, clientId: string) {
+  return (
+    scope.isPlatformAdmin ||
+    scope.clientAdminIds.includes(clientId) ||
+    scope.partnerIds.length > 0
+  );
+}
+
+export function canManageClientDirectory(scope: AuthorizedScope) {
+  return scope.isPlatformAdmin || scope.partnerIds.length > 0;
+}
+
+export function canAccessPartner(scope: AuthorizedScope, partnerId: string) {
+  return scope.isPlatformAdmin || scope.partnerIds.includes(partnerId);
+}
+
+export async function requireOrganizationAccess(
+  organizationId: string
+) {
+  const scope = await resolveAuthorizedScope();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("organizations")
+    .select("id, partner_id, deleted_at")
+    .eq("id", organizationId)
+    .single();
+
+  if (error || !data || data.deleted_at) {
+    throw new AuthorizationError("Client not found or inaccessible.");
+  }
+
+  const partnerId = data.partner_id ? String(data.partner_id) : null;
+  const hasAccess =
+    scope.isPlatformAdmin ||
+    scope.clientIds.includes(String(data.id)) ||
+    (partnerId ? scope.partnerIds.includes(partnerId) : false);
+
+  if (!hasAccess) {
+    throw new AuthorizationError("You do not have access to this client.");
+  }
+
+  return {
+    scope,
+    organizationId: String(data.id),
+    partnerId,
+  };
+}
+
+export async function requireCampaignAccess(campaignId: string) {
+  const scope = await resolveAuthorizedScope();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("campaigns")
+    .select("id, organization_id, partner_id, deleted_at")
+    .eq("id", campaignId)
+    .single();
+
+  if (error || !data || data.deleted_at) {
+    throw new AuthorizationError("Campaign not found or inaccessible.");
+  }
+
+  const organizationId = data.organization_id ? String(data.organization_id) : null;
+  const partnerId = data.partner_id ? String(data.partner_id) : null;
+  const hasAccess =
+    scope.isPlatformAdmin ||
+    (organizationId ? scope.clientIds.includes(organizationId) : false) ||
+    (partnerId ? scope.partnerIds.includes(partnerId) : false);
+
+  if (!hasAccess) {
+    throw new AuthorizationError("You do not have access to this campaign.");
+  }
+
+  return {
+    scope,
+    campaignId: String(data.id),
+    organizationId,
+    partnerId,
+  };
+}
+
+export async function requireParticipantAccess(participantId: string) {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("campaign_participants")
+    .select("id, campaign_id")
+    .eq("id", participantId)
+    .single();
+
+  if (error || !data) {
+    throw new AuthorizationError("Participant not found or inaccessible.");
+  }
+
+  const campaign = await requireCampaignAccess(String(data.campaign_id));
+  return {
+    ...campaign,
+    participantId: String(data.id),
+  };
+}
+
+export async function requireSessionAccess(sessionId: string) {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("participant_sessions")
+    .select("id, campaign_participant_id")
+    .eq("id", sessionId)
+    .single();
+
+  if (error || !data) {
+    throw new AuthorizationError("Session not found or inaccessible.");
+  }
+
+  const participant = await requireParticipantAccess(String(data.campaign_participant_id));
+  return {
+    ...participant,
+    sessionId: String(data.id),
+  };
+}
+
+export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
+  if (scope.isPlatformAdmin) {
+    return null;
+  }
+
+  const db = createAdminClient();
+  let query = db
+    .from("campaigns")
+    .select("id")
+    .is("deleted_at", null);
+
+  if (scope.clientIds.length > 0 && scope.partnerIds.length > 0) {
+    query = query.or(
+      `organization_id.in.(${scope.clientIds.join(",")}),partner_id.in.(${scope.partnerIds.join(",")})`
+    );
+  } else if (scope.clientIds.length > 0) {
+    query = query.in("organization_id", scope.clientIds);
+  } else if (scope.partnerIds.length > 0) {
+    query = query.in("partner_id", scope.partnerIds);
+  } else {
+    return [];
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row) => String(row.id));
+}
+
+export function getPreferredPartnerIdForClientCreation(scope: AuthorizedScope) {
+  if (scope.isPlatformAdmin) {
+    return null;
+  }
+
+  if (scope.activeContext?.tenantType === "partner" && scope.activeContext.tenantId) {
+    if (scope.partnerIds.includes(scope.activeContext.tenantId)) {
+      return scope.activeContext.tenantId;
+    }
+  }
+
+  if (scope.partnerIds.length === 1) {
+    return scope.partnerIds[0];
+  }
+
+  throw new AuthorizationError(
+    "Select an active partner context before creating a client."
+  );
+}
+
+export function assertAdminOnly(scope: AuthorizedScope) {
+  if (!scope.isPlatformAdmin) {
+    throw new AuthorizationError("This action is restricted to platform admin.");
+  }
+}
+
+export async function requireAdminScope() {
+  const scope = await resolveAuthorizedScope();
+  assertAdminOnly(scope);
+  return scope;
+}

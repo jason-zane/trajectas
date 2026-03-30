@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdminScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import type { AIPromptPurpose } from '@/types/database'
 
@@ -20,6 +22,7 @@ export interface ModelConfigRow {
  * joined with the provider name.
  */
 export async function getModelConfigs(): Promise<ModelConfigRow[]> {
+  await requireAdminScope()
   const supabase = createAdminClient()
 
   const { data, error } = await supabase
@@ -44,6 +47,7 @@ export async function getModelConfigs(): Promise<ModelConfigRow[]> {
 export async function getModelConfigForPurpose(
   purpose: AIPromptPurpose,
 ): Promise<ModelConfigRow | null> {
+  await requireAdminScope()
   const configs = await getModelConfigs()
   return configs.find((config) => config.purpose === purpose) ?? null
 }
@@ -53,6 +57,7 @@ export async function getModelSelectionBootstrap(): Promise<{
   textModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
   embeddingModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
 }> {
+  await requireAdminScope()
   const [configs, textModels, embeddingModels] = await Promise.all([
     getModelConfigs(),
     openRouterProvider.listModels('text'),
@@ -75,6 +80,7 @@ export async function getModelSelectionBootstrap(): Promise<{
 export async function getDefaultModelIdForPurpose(
   purpose: AIPromptPurpose,
 ): Promise<string | null> {
+  await requireAdminScope()
   const supabase = createAdminClient()
 
   const { data } = await supabase
@@ -94,6 +100,7 @@ export async function updateModelForPurpose(
   modelId: string,
   config?: { temperature?: number; max_tokens?: number },
 ): Promise<{ success: true } | { error: string }> {
+  const scope = await requireAdminScope()
   const supabase = createAdminClient()
 
   // Look up the OpenRouter provider id
@@ -138,5 +145,16 @@ export async function updateModelForPurpose(
   if (error) return { error: error.message }
 
   revalidatePath('/settings/models')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'ai_model.updated',
+    targetTable: 'ai_model_configs',
+    targetId: existing?.id ? String(existing.id) : null,
+    metadata: {
+      purpose,
+      modelId,
+      config: nextConfig,
+    },
+  })
   return { success: true }
 }

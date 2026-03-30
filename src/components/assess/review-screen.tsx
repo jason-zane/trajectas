@@ -48,7 +48,7 @@ export function ReviewScreen({
 
   async function handleSubmit() {
     setSubmitting(true);
-    const result = await submitSession(sessionId);
+    const result = await submitSession(token, sessionId);
 
     if (result.error) {
       setSubmitting(false);
@@ -69,6 +69,7 @@ export function ReviewScreen({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
             <img
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}

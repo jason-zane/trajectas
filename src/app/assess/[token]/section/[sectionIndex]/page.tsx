@@ -13,7 +13,6 @@ import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
-import { SectionIntroScreen } from "@/components/assess/section-intro-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function SectionPage({
@@ -48,6 +47,7 @@ export default async function SectionPage({
 
   // Start or resume session
   const sessionResult = await startSession(
+    token,
     participant.id,
     targetAssessment.assessmentId,
     campaign.id
@@ -62,7 +62,7 @@ export default async function SectionPage({
   }
 
   const sessionId = sessionResult.id!;
-  const stateResult = await getSessionState(sessionId);
+  const stateResult = await getSessionState(token, sessionId);
 
   if (stateResult.error || !stateResult.data) {
     return (
@@ -116,7 +116,6 @@ export default async function SectionPage({
 
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- server-generated CSS from validated brand config */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
