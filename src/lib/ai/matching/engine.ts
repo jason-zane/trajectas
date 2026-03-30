@@ -13,6 +13,7 @@ import {
   isValidRankingsPayload,
   PROMPT_VERSION,
 } from '@/lib/ai/prompts/competency-matching'
+import { getModelForTask } from '@/lib/ai/model-resolver'
 
 export interface MatchingOptions {
   /** Explicit provider type. Falls back to the first available provider. */
@@ -38,16 +39,20 @@ export async function runMatching(
   // 2. Build prompt
   const { system, user } = buildMatchingPrompt(input)
 
-  // 3. Call provider
+  // 3. Resolve model config for this task
+  const modelConfig = await getModelForTask('competency_matching')
+
+  // 4. Call provider
   const response = await provider.complete({
     prompt: user,
     systemPrompt: system,
-    temperature: 0.3,
-    maxTokens: 4096,
+    model: modelConfig.model,
+    temperature: modelConfig.temperature,
+    maxTokens: modelConfig.maxTokens,
     responseFormat: 'json',
   })
 
-  // 4. Parse and validate
+  // 5. Parse and validate
   const parsed = parseJsonResponse(response.content)
 
   if (!isValidRankingsPayload(parsed)) {
@@ -56,7 +61,7 @@ export async function runMatching(
     )
   }
 
-  // 5. Assemble output
+  // 6. Assemble output
   return {
     rankings: parsed.rankings.map((r, i) => ({
       ...r,

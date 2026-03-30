@@ -10,6 +10,7 @@ import { ProviderNotFoundError } from '@/types/ai'
 import type { AIProvider } from './base'
 import { AnthropicProvider } from './anthropic'
 import { OpenAIProvider } from './openai'
+import { openRouterProvider } from './openrouter'
 
 export type { AIProvider } from './base'
 export { AnthropicProvider } from './anthropic'
@@ -19,6 +20,8 @@ export { OpenRouterProvider, openRouterProvider, FALLBACK_MODELS } from './openr
 const registry = new Map<AIProviderType, AIProvider>()
 
 // Pre-register built-in providers.
+// OpenRouter is registered FIRST so it wins getDefaultProvider() (Map preserves insertion order).
+registry.set('custom', openRouterProvider)
 registry.set('anthropic', new AnthropicProvider())
 registry.set('openai', new OpenAIProvider())
 
