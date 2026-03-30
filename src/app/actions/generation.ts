@@ -5,6 +5,9 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mapGenerationRunRow, mapGeneratedItemRow } from '@/lib/supabase/mappers'
 import { createGenerationRunSchema, acceptItemsSchema } from '@/lib/validations/generation'
 import type { GenerationRun, GeneratedItem, GenerationRunStatus, GenerationRunConfig } from '@/types/database'
+import { runPipeline } from '@/lib/ai/generation'
+import type { ScoredCandidateItem, PipelineResult, ConstructForGeneration } from '@/types/generation'
+import type { ProgressCallback } from '@/lib/ai/generation/types'
 
 // Re-export types used by client components
 export type { GenerationRun, GeneratedItem }
@@ -239,6 +242,7 @@ export async function updateGenerationRunProgress(
     errorMessage?: string
     startedAt?: string
     completedAt?: string
+    tokenUsage?: { inputTokens: number; outputTokens: number }
   },
 ): Promise<void> {
   const db = createAdminClient()
@@ -257,6 +261,7 @@ export async function updateGenerationRunProgress(
   if (update.errorMessage !== undefined) patch.error_message = update.errorMessage
   if (update.startedAt !== undefined) patch.started_at = update.startedAt
   if (update.completedAt !== undefined) patch.completed_at = update.completedAt
+  if (update.tokenUsage !== undefined) patch.token_usage = update.tokenUsage
 
   const { error } = await db.from('generation_runs').update(patch).eq('id', runId)
   if (error) throw new Error(error.message)
@@ -267,9 +272,8 @@ export async function updateGenerationRunProgress(
 /**
  * Start a generation run.
  *
- * Phase 2 mock: immediately advances the run to 'reviewing' with plausible
- * statistics and inserts mock generated_items rows.  The real pipeline will
- * be wired in phases 5–7.
+ * Uses the real pipeline when OpenRouter_API_KEY is set; falls back to the
+ * offline mock when the key is absent.
  */
 export async function startGenerationRun(
   runId: string,
@@ -291,34 +295,69 @@ export async function startGenerationRun(
     const run = mapGenerationRunRow(runData)
     const { config } = run
 
-    const now = new Date().toISOString()
-    const itemsGenerated = config.targetItemsPerConstruct * config.constructIds.length
-    const itemsAfterUva = Math.floor(itemsGenerated * 0.75)
-    const itemsAfterBoot = Math.floor(itemsAfterUva * 0.85)
+    if (!config.constructIds.length) {
+      return { success: false, error: 'No constructs selected' }
+    }
 
-    // Insert mock items first
-    await insertMockGeneratedItems(runId, config)
+    // Fetch construct data for the run
+    const constructs = await fetchConstructsForRun(config.constructIds)
 
-    // Advance run to 'reviewing' in one update
-    const { error: updateError } = await db
-      .from('generation_runs')
-      .update({
-        status: 'reviewing' as GenerationRunStatus,
-        progress_pct: 100,
-        current_step: 'final',
-        items_generated: itemsGenerated,
-        items_after_uva: itemsAfterUva,
-        items_after_boot: itemsAfterBoot,
-        nmi_initial: 0.72,
-        nmi_final: 0.89,
-        model_used: config.generationModel,
-        started_at: now,
-        completed_at: now,
+    const onProgress: ProgressCallback = async (step, pct, details) => {
+      await updateGenerationRunProgress(runId, {
+        currentStep: step,
+        progressPct: pct,
+        ...(details?.itemsGenerated ? { itemsGenerated: details.itemsGenerated as number } : {}),
       })
-      .eq('id', runId)
+    }
 
-    if (updateError) {
-      return { success: false, error: updateError.message }
+    const useRealPipeline = Boolean(process.env.OpenRouter_API_KEY)
+
+    if (useRealPipeline) {
+      const { items: scoredItems, result: pipelineResult } = await runPipeline(config, constructs, onProgress)
+
+      // Bulk insert scored items
+      const { error: insertError } = await db.from('generated_items').insert(
+        scoredItems.map((item: ScoredCandidateItem) => ({
+          generation_run_id: runId,
+          construct_id:      item.constructId,
+          stem:              item.stem,
+          reverse_scored:    item.reverseScored,
+          rationale:         item.rationale ?? null,
+          embedding:         item.embedding,
+          community_id:      item.communityId ?? null,
+          wto_max:           item.wtoMax ?? null,
+          boot_stability:    item.bootStability ?? null,
+          is_redundant:      item.isRedundant,
+          is_unstable:       item.isUnstable,
+        }))
+      )
+      if (insertError) throw new Error(`Failed to insert items: ${insertError.message}`)
+
+      // Update run to reviewing
+      await updateGenerationRunProgress(runId, {
+        status:          'reviewing',
+        progressPct:     100,
+        nmiInitial:      pipelineResult.nmiInitial,
+        nmiFinal:        pipelineResult.nmiFinal,
+        itemsGenerated:  pipelineResult.itemsGenerated,
+        itemsAfterUva:   pipelineResult.itemsAfterUva,
+        itemsAfterBoot:  pipelineResult.itemsAfterBoot,
+        modelUsed:       pipelineResult.modelUsed,
+        tokenUsage:      pipelineResult.tokenUsage,
+      })
+    } else {
+      // Offline fallback — API key not configured
+      await insertMockGeneratedItems(runId, config)
+      await updateGenerationRunProgress(runId, {
+        status: 'reviewing',
+        progressPct: 100,
+        nmiInitial: 0.71,
+        nmiFinal: 0.89,
+        itemsGenerated: config.targetItemsPerConstruct * config.constructIds.length,
+        itemsAfterUva: Math.floor(config.targetItemsPerConstruct * config.constructIds.length * 0.75),
+        itemsAfterBoot: Math.floor(config.targetItemsPerConstruct * config.constructIds.length * 0.65),
+      })
+      return { success: true }
     }
 
     revalidatePath('/generate')
@@ -457,6 +496,50 @@ export async function deleteGenerationRun(runId: string): Promise<void> {
   if (error) throw new Error(error.message)
 
   revalidatePath('/generate')
+}
+
+// ---------------------------------------------------------------------------
+// Private helper — fetch construct data for a specific set of IDs
+// ---------------------------------------------------------------------------
+
+async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructForGeneration[]> {
+  const db = createAdminClient()
+
+  const { data, error } = await db
+    .from('constructs')
+    .select('id, name, slug, definition, description, indicators_low, indicators_mid, indicators_high')
+    .in('id', constructIds)
+    .is('deleted_at', null)
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    definition: row.definition ?? undefined,
+    description: row.description ?? undefined,
+    indicatorsLow: row.indicators_low ?? undefined,
+    indicatorsMid: row.indicators_mid ?? undefined,
+    indicatorsHigh: row.indicators_high ?? undefined,
+    existingItemCount: 0,
+  }))
+}
+
+// ---------------------------------------------------------------------------
+// Pre-flight check action
+// ---------------------------------------------------------------------------
+
+/** Run construct readiness pre-flight check for the given construct IDs. */
+export async function checkConstructReadiness(constructIds: string[]) {
+  try {
+    const constructs = await fetchConstructsForRun(constructIds)
+    const { runConstructPreflight } = await import('@/lib/ai/generation')
+    const result = await runConstructPreflight(constructs)
+    return { success: true as const, result }
+  } catch (error) {
+    return { success: false as const, error: String(error) }
+  }
 }
 
 /** Get constructs available for generation with their existing item counts. */

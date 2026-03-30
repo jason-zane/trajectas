@@ -29,9 +29,11 @@ import {
   getResponseFormatsForGeneration,
   createGenerationRun,
   startGenerationRun,
+  checkConstructReadiness,
 } from "@/app/actions/generation";
 import { FALLBACK_MODELS } from "@/lib/ai/providers/openrouter";
 import type { GenerationRunConfig } from "@/types/database";
+import type { PreflightResult } from "@/types/generation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -245,6 +247,54 @@ function Step2ReadinessCheck({
     [constructs, selectedIds],
   );
 
+  const [preflightResult, setPreflightResult] = React.useState<PreflightResult | null>(null);
+  const [preflightError, setPreflightError] = React.useState<string | null>(null);
+  const [preflightLoading, setPreflightLoading] = React.useState(true);
+
+  // Map construct IDs to their preflight status from pairs
+  const constructStatus = React.useMemo((): Map<string, "green" | "amber" | "red"> => {
+    const map = new Map<string, "green" | "amber" | "red">();
+    if (!preflightResult) return map;
+    for (const pair of preflightResult.pairs) {
+      const existingA = map.get(pair.constructAId);
+      const existingB = map.get(pair.constructBId);
+      const worse = (
+        a: "green" | "amber" | "red" | undefined,
+        b: "green" | "amber" | "red",
+      ): "green" | "amber" | "red" => {
+        if (a === "red" || b === "red") return "red";
+        if (a === "amber" || b === "amber") return "amber";
+        return "green";
+      };
+      map.set(pair.constructAId, worse(existingA, pair.status));
+      map.set(pair.constructBId, worse(existingB, pair.status));
+    }
+    return map;
+  }, [preflightResult]);
+
+  useEffect(() => {
+    setPreflightLoading(true);
+    setPreflightError(null);
+    setPreflightResult(null);
+    checkConstructReadiness(selectedIds)
+      .then((res) => {
+        if (res.success) {
+          setPreflightResult(res.result);
+        } else {
+          setPreflightError(res.error ?? "Readiness check failed");
+        }
+      })
+      .catch((err) => {
+        setPreflightError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        setPreflightLoading(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds.join(",")]);
+
+  const overallStatus = preflightResult?.overallStatus ?? "green";
+
   return (
     <div className="space-y-6">
       <div>
@@ -254,31 +304,123 @@ function Step2ReadinessCheck({
         </p>
       </div>
 
-      <div className="space-y-2">
-        {selected.map((construct) => (
-          <div
-            key={construct.id}
-            className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
-          >
-            <CheckCircle2 className="size-5 shrink-0 text-green-500" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">{construct.name}</p>
-              <p className="text-xs text-muted-foreground">Definition is clear and distinct</p>
-            </div>
-            <Badge variant="outline" className="text-green-600 border-green-200 dark:border-green-800">
-              Ready
-            </Badge>
-          </div>
-        ))}
-      </div>
-
-      {selected.length > 0 && (
-        <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 flex items-center gap-2">
-          <CheckCircle2 className="size-4 text-primary shrink-0" />
-          <p className="text-sm text-primary font-medium">
-            All {selected.length} construct{selected.length !== 1 ? "s" : ""} passed readiness checks
-          </p>
+      {preflightLoading ? (
+        <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center">
+          <Loader2 className="size-4 animate-spin" />
+          Running readiness check…
         </div>
+      ) : preflightError ? (
+        <>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 flex items-start gap-2">
+            <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              Readiness check unavailable (no API key configured). Constructs will be treated as ready.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {selected.map((construct) => (
+              <div
+                key={construct.id}
+                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+              >
+                <CheckCircle2 className="size-5 shrink-0 text-green-500" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold">{construct.name}</p>
+                  <p className="text-xs text-muted-foreground">Definition is clear and distinct</p>
+                </div>
+                <Badge variant="outline" className="text-green-600 border-green-200 dark:border-green-800">
+                  Ready
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-2">
+            {selected.map((construct) => {
+              const status = constructStatus.get(construct.id) ?? "green";
+              const isAmber = status === "amber";
+              const isRed = status === "red";
+              return (
+                <div
+                  key={construct.id}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+                >
+                  {isRed ? (
+                    <AlertCircle className="size-5 shrink-0 text-red-500" />
+                  ) : isAmber ? (
+                    <AlertCircle className="size-5 shrink-0 text-amber-500" />
+                  ) : (
+                    <CheckCircle2 className="size-5 shrink-0 text-green-500" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">{construct.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {isRed
+                        ? "High overlap with another construct — may produce redundant items"
+                        : isAmber
+                          ? "Some similarity detected — review before proceeding"
+                          : "Definition is clear and distinct"}
+                    </p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={
+                      isRed
+                        ? "text-red-600 border-red-200 dark:border-red-800"
+                        : isAmber
+                          ? "text-amber-600 border-amber-200 dark:border-amber-800"
+                          : "text-green-600 border-green-200 dark:border-green-800"
+                    }
+                  >
+                    {isRed ? "At risk" : isAmber ? "Review" : "Ready"}
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+
+          {preflightResult && (
+            <div
+              className={[
+                "rounded-lg p-3 flex items-center gap-2 border",
+                overallStatus === "red"
+                  ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
+                  : overallStatus === "amber"
+                    ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                    : "bg-primary/5 border-primary/20",
+              ].join(" ")}
+            >
+              {overallStatus === "green" ? (
+                <CheckCircle2 className="size-4 text-primary shrink-0" />
+              ) : (
+                <AlertCircle
+                  className={[
+                    "size-4 shrink-0",
+                    overallStatus === "red" ? "text-red-600" : "text-amber-600",
+                  ].join(" ")}
+                />
+              )}
+              <p
+                className={[
+                  "text-sm font-medium",
+                  overallStatus === "red"
+                    ? "text-red-700 dark:text-red-400"
+                    : overallStatus === "amber"
+                      ? "text-amber-700 dark:text-amber-400"
+                      : "text-primary",
+                ].join(" ")}
+              >
+                {overallStatus === "green"
+                  ? `All ${selected.length} construct${selected.length !== 1 ? "s" : ""} passed readiness checks`
+                  : overallStatus === "amber"
+                    ? "Some constructs have overlapping definitions — you can still proceed"
+                    : "One or more constructs have high semantic overlap — consider revising definitions"}
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex items-center justify-between pt-2">
@@ -286,7 +428,7 @@ function Step2ReadinessCheck({
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button onClick={onNext}>
+        <Button onClick={onNext} disabled={preflightLoading}>
           Proceed to Configuration
           <ChevronRight className="size-4" />
         </Button>
