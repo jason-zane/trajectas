@@ -40,6 +40,15 @@ export interface PipelineResult {
   nmiInitial: number
   nmiFinal: number
   modelUsed: string
+  aiSnapshot?: {
+    models?: Record<string, string>
+    prompts?: Record<string, { id: string; version: number }>
+    preflight?: {
+      similarityThreshold: number
+      pairCount: number
+      llmPairCount: number
+    }
+  }
   tokenUsage: { inputTokens: number; outputTokens: number }
 }
 
@@ -108,6 +117,16 @@ export interface NetworkAnalyzer {
 export interface PreflightResult {
   pairs: ConstructPairResult[]
   overallStatus: 'green' | 'amber' | 'red'
+  metadata?: PreflightMetadata
+}
+
+export interface PreflightMetadata {
+  similarityThreshold: number
+  pairCount: number
+  llmPairCount: number
+  embeddingModel: string
+  preflightModel?: string
+  promptVersion?: number
 }
 
 /** Similarity analysis result for a pair of constructs. */

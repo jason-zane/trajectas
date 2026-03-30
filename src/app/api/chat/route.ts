@@ -1,9 +1,8 @@
 import OpenAI from 'openai'
 import { getModelForTask } from '@/lib/ai/model-config'
+import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
 
 export const runtime = 'nodejs'
-
-const SYSTEM_PROMPT = `You are a helpful AI assistant for TalentFit, an assessment and psychometric platform. You can help with questions about organisational psychology, psychometric assessment design, competency frameworks, and general queries. Be concise and professional.`
 
 export async function POST(request: Request) {
   const { messages, model: modelOverride } = await request.json() as {
@@ -20,28 +19,31 @@ export async function POST(request: Request) {
     return new Response('OpenRouter API key is not configured', { status: 500 })
   }
 
-  // Resolve the configured model for chat purpose
-  const taskConfig = await getModelForTask('chat')
-  const modelId = modelOverride || taskConfig.modelId
-
-  const client = new OpenAI({
-    apiKey,
-    baseURL: 'https://openrouter.ai/api/v1',
-    defaultHeaders: {
-      'HTTP-Referer': 'https://talent-fit.app',
-      'X-Title': 'Talent Fit',
-    },
-  })
-
-  const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...messages.map((m) => ({
-      role: m.role as 'user' | 'assistant',
-      content: m.content,
-    })),
-  ]
-
   try {
+    // Resolve the configured model for chat purpose
+    const [taskConfig, systemPrompt] = await Promise.all([
+      getModelForTask('chat'),
+      getActiveSystemPrompt('chat'),
+    ])
+    const modelId = modelOverride || taskConfig.modelId
+
+    const client = new OpenAI({
+      apiKey,
+      baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': 'https://talent-fit.app',
+        'X-Title': 'Talent Fit',
+      },
+    })
+
+    const chatMessages: OpenAI.ChatCompletionMessageParam[] = [
+      { role: 'system', content: systemPrompt.content },
+      ...messages.map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      })),
+    ]
+
     const stream = await client.chat.completions.create({
       model: modelId,
       messages: chatMessages,

@@ -8,6 +8,7 @@
 import type { AIProviderType, MatchingInput, MatchingOutput } from '@/types/ai'
 import { ResponseParseError } from '@/types/ai'
 import { getProvider, getDefaultProvider } from '@/lib/ai/providers'
+import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
 import {
   buildMatchingPrompt,
   isValidRankingsPayload,
@@ -41,12 +42,13 @@ export async function runMatching(
   const modelId = options.modelId ?? taskConfig.modelId
 
   // 3. Build prompt
-  const { system, user } = buildMatchingPrompt(input)
+  const prompt = await getActiveSystemPrompt('competency_matching')
+  const { user } = buildMatchingPrompt(input)
 
   // 4. Call provider
   const response = await provider.complete({
     prompt: user,
-    systemPrompt: system,
+    systemPrompt: prompt.content,
     model: modelId,
     temperature: taskConfig.config.temperature ?? 0.3,
     maxTokens: taskConfig.config.max_tokens ?? 4096,
@@ -76,7 +78,7 @@ export async function runMatching(
       maximum: parsed.rankings.length,
     },
     modelUsed: response.model,
-    promptVersion: PROMPT_VERSION,
+    promptVersion: prompt.version ?? PROMPT_VERSION,
   }
 }
 

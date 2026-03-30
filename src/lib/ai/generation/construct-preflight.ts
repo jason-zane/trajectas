@@ -10,10 +10,11 @@
 import { embedTexts } from './embeddings'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getModelForTask } from '@/lib/ai/model-config'
-import { DISCRIMINATION_SYSTEM_PROMPT, buildDiscriminationPrompt } from './prompts/construct-discrimination'
+import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
+import { buildDiscriminationPrompt } from './prompts/construct-discrimination'
 import type { ConstructForGeneration, PreflightResult, ConstructPairResult } from '@/types/generation'
 
-const SIMILARITY_THRESHOLD = 0.75
+export const PREFLIGHT_SIMILARITY_THRESHOLD = 0.75
 
 function cosineSimilarity(a: number[], b: number[]): number {
   let dot = 0, normA = 0, normB = 0
@@ -30,21 +31,35 @@ export async function runConstructPreflight(
   constructs: ConstructForGeneration[],
 ): Promise<PreflightResult> {
   if (constructs.length < 2) {
-    return { pairs: [], overallStatus: 'green' }
+    const embeddingModel = (await getModelForTask('embedding')).modelId
+    return {
+      pairs: [],
+      overallStatus: 'green',
+      metadata: {
+        similarityThreshold: PREFLIGHT_SIMILARITY_THRESHOLD,
+        pairCount: 0,
+        llmPairCount: 0,
+        embeddingModel,
+      },
+    }
   }
 
   // 1. Embed all definitions
   const texts = constructs.map(c =>
     [c.name, c.definition ?? '', c.description ?? ''].filter(Boolean).join('. ')
   )
-  const embeddings = await embedTexts(texts)
+  const embeddingTask = await getModelForTask('embedding')
+  const preflightTask = await getModelForTask('preflight_analysis')
+  const embeddings = await embedTexts(texts, embeddingTask.modelId)
+  const prompt = await getActiveSystemPrompt('preflight_analysis')
 
   // 2. Pairwise similarity
   const pairs: ConstructPairResult[] = []
+  let llmPairCount = 0
   for (let i = 0; i < constructs.length; i++) {
     for (let j = i + 1; j < constructs.length; j++) {
       const similarity = cosineSimilarity(embeddings[i], embeddings[j])
-      if (similarity <= SIMILARITY_THRESHOLD) {
+      if (similarity <= PREFLIGHT_SIMILARITY_THRESHOLD) {
         pairs.push({
           constructAId: constructs[i].id,
           constructAName: constructs[i].name,
@@ -57,18 +72,18 @@ export async function runConstructPreflight(
       }
 
       // 3. LLM discrimination check for similar pairs
-      const taskConfig = await getModelForTask('preflight_analysis')
+      llmPairCount += 1
       let pairResult: ConstructPairResult
       try {
         const response = await openRouterProvider.complete({
-          model:          taskConfig.modelId,
-          systemPrompt:   DISCRIMINATION_SYSTEM_PROMPT,
+          model:          preflightTask.modelId,
+          systemPrompt:   prompt.content,
           prompt:         buildDiscriminationPrompt(
                             { name: constructs[i].name, definition: constructs[i].definition ?? constructs[i].name },
                             { name: constructs[j].name, definition: constructs[j].definition ?? constructs[j].name },
                           ),
-          temperature:    taskConfig.config.temperature,
-          maxTokens:      taskConfig.config.max_tokens,
+          temperature:    preflightTask.config.temperature,
+          maxTokens:      preflightTask.config.max_tokens,
           responseFormat: 'json',
         })
 
@@ -111,5 +126,16 @@ export async function runConstructPreflight(
       ? 'amber'
       : 'green'
 
-  return { pairs, overallStatus }
+  return {
+    pairs,
+    overallStatus,
+    metadata: {
+      similarityThreshold: PREFLIGHT_SIMILARITY_THRESHOLD,
+      pairCount: pairs.length,
+      llmPairCount,
+      embeddingModel: embeddingTask.modelId,
+      preflightModel: llmPairCount > 0 ? preflightTask.modelId : undefined,
+      promptVersion: prompt.version,
+    },
+  }
 }

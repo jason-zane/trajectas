@@ -1,12 +1,12 @@
 /**
  * embeddings.ts
  *
- * Embeds arrays of text via OpenRouter using text-embedding-3-small.
- * Returns a float array per input text (1536 dimensions).
+ * Embeds arrays of text via OpenRouter.
+ * Returns a float array per input text.
  */
 import OpenAI from 'openai'
+import { getModelForTask } from '@/lib/ai/model-config'
 
-const EMBEDDING_MODEL = 'openai/text-embedding-3-small'
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const BATCH_SIZE = 100   // OpenRouter limit per request
 
@@ -30,17 +30,18 @@ function getEmbeddingClient(): OpenAI {
  */
 export async function embedTexts(
   texts: string[],
-  model = EMBEDDING_MODEL,
+  model?: string,
 ): Promise<number[][]> {
   if (texts.length === 0) return []
 
+  const resolvedModel = model ?? (await getModelForTask('embedding')).modelId
   const client = getEmbeddingClient()
   const results: number[][] = []
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE)
     const response = await client.embeddings.create({
-      model,
+      model: resolvedModel,
       input: batch,
     })
     // OpenAI SDK returns embeddings sorted by index
@@ -56,7 +57,7 @@ export async function embedTexts(
 /**
  * Embed a single text string.
  */
-export async function embedText(text: string, model = EMBEDDING_MODEL): Promise<number[]> {
+export async function embedText(text: string, model?: string): Promise<number[]> {
   const results = await embedTexts([text], model)
   return results[0] ?? []
 }

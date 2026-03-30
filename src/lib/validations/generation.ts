@@ -5,7 +5,7 @@ export const generationRunConfigSchema = z.object({
   targetItemsPerConstruct: z.number().int().min(20).max(80).default(60),
   temperature: z.number().min(0.5).max(1.5).default(0.8),
   generationModel: z.string().min(1, 'Generation model is required'),
-  embeddingModel: z.string().min(1, 'Embedding model is required').default('openai/text-embedding-3-small'),
+  embeddingModel: z.string().min(1, 'Embedding model is required'),
   responseFormatId: z.string().uuid().optional(),
 })
 

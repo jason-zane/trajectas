@@ -36,10 +36,11 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
 
   const selectedModelName =
     models.find((m) => m.id === selectedModel)?.name ?? selectedModel;
+  const isConfigured = Boolean(selectedModel);
 
   async function handleSubmit() {
     const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
+    if (!trimmed || isStreaming || !isConfigured) return;
 
     const userMsg: Message = {
       id: crypto.randomUUID(),
@@ -169,7 +170,7 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
             </h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-md">
               Ask about psychometrics, assessment design, competency frameworks,
-              or anything else. Using {selectedModelName}.
+              or anything else. {isConfigured ? `Using ${selectedModelName}.` : "Configure a chat model in Settings before sending messages."}
             </p>
           </div>
         )}
@@ -222,14 +223,14 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder={isConfigured ? "Type a message..." : "No chat model configured"}
             rows={1}
             className="min-h-[44px] max-h-[120px] resize-none"
-            disabled={isStreaming}
+            disabled={isStreaming || !isConfigured}
           />
           <Button
             onClick={handleSubmit}
-            disabled={!input.trim() || isStreaming}
+            disabled={!input.trim() || isStreaming || !isConfigured}
             size="icon"
             className="size-[44px] shrink-0"
           >

@@ -772,16 +772,16 @@ export interface AIModelConfig {
   id: string
   /** Parent provider. */
   providerId: string
+  /** Purpose this task config applies to. */
+  purpose?: AIPromptPurpose
   /** Model identifier (e.g. "claude-opus-4-20250514", "gpt-4o"). */
   modelId: string
   /** Human-friendly display name. */
   displayName: string
-  /** Default sampling temperature. */
-  defaultTemperature: number
-  /** Default maximum output tokens. */
-  defaultMaxTokens: number
-  /** Whether this model config is currently enabled. */
-  isActive: boolean
+  /** Config JSONB persisted with the model selection. */
+  config: { temperature?: number; max_tokens?: number }
+  /** Whether this row is marked as the provider default. */
+  isDefault: boolean
   created_at: string
   updated_at?: string
 }
@@ -793,6 +793,8 @@ export interface AIModelConfig {
 export interface AISystemPrompt {
   /** UUID primary key. */
   id: string
+  /** Human-readable prompt name. */
+  name: string
   /** The purpose this prompt serves. */
   purpose: AIPromptPurpose
   /** Monotonically increasing version number. */
@@ -1443,6 +1445,15 @@ export interface GenerationRun {
   nmiFinal?: number
   promptVersion?: number
   modelUsed?: string
+  aiSnapshot?: {
+    models?: Partial<Record<AIPromptPurpose, string>>
+    prompts?: Partial<Record<AIPromptPurpose, { id: string; version: number }>>
+    preflight?: {
+      similarityThreshold: number
+      llmPairCount: number
+      pairCount: number
+    }
+  }
   tokenUsage?: Record<string, number>
   errorMessage?: string
   startedAt?: string

@@ -12,9 +12,9 @@
  */
 import { openRouterProvider }         from '@/lib/ai/providers/openrouter'
 import { getModelForTask }            from '@/lib/ai/model-config'
+import { getActiveSystemPrompt }      from '@/lib/ai/prompt-config'
 import { embedTexts }                 from './embeddings'
 import {
-  ITEM_GENERATION_SYSTEM_PROMPT,
   buildItemGenerationPrompt,
   parseGeneratedItems,
 }                                     from './prompts/item-generation'
@@ -47,7 +47,9 @@ export async function runPipeline(
   result: PipelineResult
 }> {
   const taskConfig = await getModelForTask('item_generation')
+  const itemPrompt = await getActiveSystemPrompt('item_generation')
   const model      = config.generationModel ?? taskConfig.modelId
+  const embeddingModel = config.embeddingModel || (await getModelForTask('embedding')).modelId
   let totalInputTokens  = 0
   let totalOutputTokens = 0
 
@@ -81,7 +83,7 @@ export async function runPipeline(
 
       const response = await openRouterProvider.complete({
         model,
-        systemPrompt:   ITEM_GENERATION_SYSTEM_PROMPT,
+        systemPrompt:   itemPrompt.content,
         prompt,
         temperature:    config.temperature ?? taskConfig.config.temperature,
         maxTokens:      taskConfig.config.max_tokens,
@@ -109,7 +111,7 @@ export async function runPipeline(
   // Step 2: Embed items
   // ---------------------------------------------------------------------------
   const stems      = rawCandidates.map(c => c.stem)
-  const embeddings = await embedTexts(stems, config.embeddingModel)
+  const embeddings = await embedTexts(stems, embeddingModel)
 
   await onProgress('initial_ega', 50)
 
@@ -197,6 +199,15 @@ export async function runPipeline(
       nmiInitial,
       nmiFinal,
       modelUsed:   model,
+      aiSnapshot: {
+        models: {
+          item_generation: model,
+          embedding: embeddingModel,
+        },
+        prompts: {
+          item_generation: { id: itemPrompt.id, version: itemPrompt.version },
+        },
+      },
       tokenUsage:  { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
     },
   }

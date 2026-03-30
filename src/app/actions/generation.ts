@@ -203,7 +203,8 @@ export async function getGenerationRun(
 export async function createGenerationRun(config: GenerationRunConfig): Promise<GenerationRun> {
   const parsed = createGenerationRunSchema.safeParse({ config })
   if (!parsed.success) {
-    throw new Error(parsed.error.flatten().formErrors.join(', ') || 'Invalid generation config')
+    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+    throw new Error(issues.join(', ') || 'Invalid generation config')
   }
 
   const db = createAdminClient()
@@ -237,6 +238,8 @@ export async function updateGenerationRunProgress(
     nmiInitial?: number
     nmiFinal?: number
     modelUsed?: string
+    promptVersion?: number
+    aiSnapshot?: Record<string, unknown>
     errorMessage?: string
     startedAt?: string
     completedAt?: string
@@ -256,6 +259,8 @@ export async function updateGenerationRunProgress(
   if (update.nmiInitial !== undefined) patch.nmi_initial = update.nmiInitial
   if (update.nmiFinal !== undefined) patch.nmi_final = update.nmiFinal
   if (update.modelUsed !== undefined) patch.model_used = update.modelUsed
+  if (update.promptVersion !== undefined) patch.prompt_version = update.promptVersion
+  if (update.aiSnapshot !== undefined) patch.ai_snapshot = update.aiSnapshot
   if (update.errorMessage !== undefined) patch.error_message = update.errorMessage
   if (update.startedAt !== undefined) patch.started_at = update.startedAt
   if (update.completedAt !== undefined) patch.completed_at = update.completedAt
@@ -341,6 +346,8 @@ export async function startGenerationRun(
         itemsAfterUva:   pipelineResult.itemsAfterUva,
         itemsAfterBoot:  pipelineResult.itemsAfterBoot,
         modelUsed:       pipelineResult.modelUsed,
+        promptVersion:   pipelineResult.aiSnapshot?.prompts?.item_generation?.version,
+        aiSnapshot:      pipelineResult.aiSnapshot,
         tokenUsage:      pipelineResult.tokenUsage,
       })
     } else {
@@ -354,6 +361,12 @@ export async function startGenerationRun(
         itemsGenerated: config.targetItemsPerConstruct * config.constructIds.length,
         itemsAfterUva: Math.floor(config.targetItemsPerConstruct * config.constructIds.length * 0.75),
         itemsAfterBoot: Math.floor(config.targetItemsPerConstruct * config.constructIds.length * 0.65),
+        aiSnapshot: {
+          models: {
+            item_generation: config.generationModel,
+            embedding: config.embeddingModel,
+          },
+        },
       })
       return { success: true }
     }
@@ -538,7 +551,10 @@ export async function checkConstructReadiness(constructIds: string[]) {
     const result = await runConstructPreflight(constructs)
     return { success: true as const, result }
   } catch (error) {
-    return { success: false as const, error: String(error) }
+    return {
+      success: false as const,
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 

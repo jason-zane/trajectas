@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import type { AIPromptPurpose } from '@/types/database'
 
 export interface ModelConfigRow {
@@ -40,11 +41,40 @@ export async function getModelConfigs(): Promise<ModelConfigRow[]> {
   }))
 }
 
+export async function getModelConfigForPurpose(
+  purpose: AIPromptPurpose,
+): Promise<ModelConfigRow | null> {
+  const configs = await getModelConfigs()
+  return configs.find((config) => config.purpose === purpose) ?? null
+}
+
+export async function getModelSelectionBootstrap(): Promise<{
+  configuredModels: Partial<Record<AIPromptPurpose, string>>
+  textModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
+  embeddingModels: Awaited<ReturnType<typeof openRouterProvider.listModels>>
+}> {
+  const [configs, textModels, embeddingModels] = await Promise.all([
+    getModelConfigs(),
+    openRouterProvider.listModels('text'),
+    openRouterProvider.listModels('embeddings'),
+  ])
+
+  return {
+    configuredModels: Object.fromEntries(
+      configs.map((config) => [config.purpose, config.modelId]),
+    ) as Partial<Record<AIPromptPurpose, string>>,
+    textModels,
+    embeddingModels,
+  }
+}
+
 /**
  * Returns just the model ID for a given purpose. Lightweight helper for
  * client components that only need to seed a default value.
  */
-export async function getDefaultModelIdForPurpose(purpose: AIPromptPurpose): Promise<string> {
+export async function getDefaultModelIdForPurpose(
+  purpose: AIPromptPurpose,
+): Promise<string | null> {
   const supabase = createAdminClient()
 
   const { data } = await supabase
@@ -53,11 +83,11 @@ export async function getDefaultModelIdForPurpose(purpose: AIPromptPurpose): Pro
     .eq('purpose', purpose)
     .single()
 
-  return (data?.model_id as string | undefined) ?? 'anthropic/claude-sonnet-4-5'
+  return (data?.model_id as string | undefined) ?? null
 }
 
 /**
- * Updates the model_id (and optional config JSONB) for a given purpose.
+ * Updates or inserts the model_id for a given purpose.
  */
 export async function updateModelForPurpose(
   purpose: AIPromptPurpose,
@@ -66,15 +96,44 @@ export async function updateModelForPurpose(
 ): Promise<{ success: true } | { error: string }> {
   const supabase = createAdminClient()
 
-  const updatePayload: Record<string, unknown> = { model_id: modelId }
-  if (config !== undefined) {
-    updatePayload.config = config
+  // Look up the OpenRouter provider id
+  const { data: provider, error: providerError } = await supabase
+    .from('ai_providers')
+    .select('id')
+    .eq('name', 'OpenRouter')
+    .single()
+
+  if (providerError || !provider) {
+    return { error: 'OpenRouter provider not found in database' }
   }
 
-  const { error } = await supabase
+  const { data: existing } = await supabase
     .from('ai_model_configs')
-    .update(updatePayload)
+    .select('id, config')
     .eq('purpose', purpose)
+    .maybeSingle()
+
+  const nextConfig =
+    config ??
+    ((existing?.config as { temperature?: number; max_tokens?: number } | null) ?? {})
+
+  const payload = {
+    provider_id: provider.id as string,
+    purpose,
+    model_id: modelId,
+    display_name: modelId, // use model id as display name; label shown in UI comes from OpenRouter model list
+    is_default: false,
+    config: nextConfig,
+  }
+
+  const { error } = existing?.id
+    ? await supabase
+        .from('ai_model_configs')
+        .update(payload)
+        .eq('id', existing.id as string)
+    : await supabase
+        .from('ai_model_configs')
+        .insert(payload)
 
   if (error) return { error: error.message }
 

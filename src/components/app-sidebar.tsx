@@ -11,6 +11,7 @@ import {
   Building2,
   Sparkles,
   Cpu,
+  Braces,
   MessageSquare,
   Settings2,
   Home,
@@ -133,6 +134,7 @@ const adminNav = [
       { title: "Brand", href: "/settings/brand", icon: Palette },
       { title: "Experience", href: "/settings/experience", icon: Users },
       { title: "AI Models", href: "/settings/models", icon: Cpu },
+      { title: "AI Prompts", href: "/settings/prompts", icon: Braces },
     ],
   },
 ];

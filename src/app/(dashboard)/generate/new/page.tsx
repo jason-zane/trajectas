@@ -31,10 +31,11 @@ import {
   startGenerationRun,
   checkConstructReadiness,
 } from "@/app/actions/generation";
-import { FALLBACK_MODELS } from "@/lib/ai/providers/openrouter";
-import { getDefaultModelIdForPurpose } from "@/app/actions/model-config";
+import { getModelSelectionBootstrap } from "@/app/actions/model-config";
 import type { GenerationRunConfig } from "@/types/database";
 import type { PreflightResult } from "@/types/generation";
+import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
+import type { OpenRouterModel } from "@/types/generation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,6 +53,12 @@ interface WizardConfig {
   generationModel: string;
   embeddingModel: string;
   responseFormatId?: string;
+}
+
+interface WizardModelBootstrap {
+  configuredModels: Partial<Record<string, string>>;
+  textModels: OpenRouterModel[];
+  embeddingModels: OpenRouterModel[];
 }
 
 // ---------------------------------------------------------------------------
@@ -295,6 +302,7 @@ function Step2ReadinessCheck({
   }, [selectedIds.join(",")]);
 
   const overallStatus = preflightResult?.overallStatus ?? "green";
+  const metadata = preflightResult?.metadata;
 
   return (
     <div className="space-y-6">
@@ -312,28 +320,16 @@ function Step2ReadinessCheck({
         </div>
       ) : preflightError ? (
         <>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 flex items-start gap-2">
-            <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
-            <p className="text-xs text-amber-700 dark:text-amber-400">
-              Readiness check unavailable (no API key configured). Constructs will be treated as ready.
-            </p>
-          </div>
-          <div className="space-y-2">
-            {selected.map((construct) => (
-              <div
-                key={construct.id}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
-              >
-                <CheckCircle2 className="size-5 shrink-0 text-green-500" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold">{construct.name}</p>
-                  <p className="text-xs text-muted-foreground">Definition is clear and distinct</p>
-                </div>
-                <Badge variant="outline" className="text-green-600 border-green-200 dark:border-green-800">
-                  Ready
-                </Badge>
-              </div>
-            ))}
+          <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-3 flex items-start gap-2">
+            <AlertCircle className="size-4 shrink-0 text-red-600 mt-0.5" />
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                Readiness check failed
+              </p>
+              <p className="text-xs text-red-700 dark:text-red-400">
+                {preflightError}
+              </p>
+            </div>
           </div>
         </>
       ) : (
@@ -383,42 +379,68 @@ function Step2ReadinessCheck({
           </div>
 
           {preflightResult && (
-            <div
-              className={[
-                "rounded-lg p-3 flex items-center gap-2 border",
-                overallStatus === "red"
-                  ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
-                  : overallStatus === "amber"
-                    ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
-                    : "bg-primary/5 border-primary/20",
-              ].join(" ")}
-            >
-              {overallStatus === "green" ? (
-                <CheckCircle2 className="size-4 text-primary shrink-0" />
-              ) : (
-                <AlertCircle
-                  className={[
-                    "size-4 shrink-0",
-                    overallStatus === "red" ? "text-red-600" : "text-amber-600",
-                  ].join(" ")}
-                />
-              )}
-              <p
+            <div className="space-y-3">
+              <div
                 className={[
-                  "text-sm font-medium",
+                  "rounded-lg p-3 flex items-center gap-2 border",
                   overallStatus === "red"
-                    ? "text-red-700 dark:text-red-400"
+                    ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
                     : overallStatus === "amber"
-                      ? "text-amber-700 dark:text-amber-400"
-                      : "text-primary",
+                      ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                      : "bg-primary/5 border-primary/20",
                 ].join(" ")}
               >
-                {overallStatus === "green"
-                  ? `All ${selected.length} construct${selected.length !== 1 ? "s" : ""} passed readiness checks`
-                  : overallStatus === "amber"
-                    ? "Some constructs have overlapping definitions — you can still proceed"
-                    : "One or more constructs have high semantic overlap — consider revising definitions"}
-              </p>
+                {overallStatus === "green" ? (
+                  <CheckCircle2 className="size-4 text-primary shrink-0" />
+                ) : (
+                  <AlertCircle
+                    className={[
+                      "size-4 shrink-0",
+                      overallStatus === "red" ? "text-red-600" : "text-amber-600",
+                    ].join(" ")}
+                  />
+                )}
+                <p
+                  className={[
+                    "text-sm font-medium",
+                    overallStatus === "red"
+                      ? "text-red-700 dark:text-red-400"
+                      : overallStatus === "amber"
+                        ? "text-amber-700 dark:text-amber-400"
+                        : "text-primary",
+                  ].join(" ")}
+                >
+                  {overallStatus === "green"
+                    ? `All ${selected.length} construct${selected.length !== 1 ? "s" : ""} passed readiness checks`
+                    : overallStatus === "amber"
+                      ? "Some constructs have overlapping definitions — you can still proceed"
+                      : "One or more constructs have high semantic overlap — consider revising definitions"}
+                </p>
+              </div>
+
+              {metadata && (
+                <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                  <p>
+                    Similarity threshold: <span className="font-medium text-foreground">{metadata.similarityThreshold.toFixed(2)}</span>
+                  </p>
+                  <p>
+                    Pair checks: <span className="font-medium text-foreground">{metadata.pairCount}</span>
+                    {" · "}
+                    LLM-reviewed pairs: <span className="font-medium text-foreground">{metadata.llmPairCount}</span>
+                  </p>
+                  <p>
+                    Embedding model: <span className="font-medium text-foreground">{metadata.embeddingModel}</span>
+                  </p>
+                  <p>
+                    Pre-flight model: <span className="font-medium text-foreground">{metadata.preflightModel ?? "Not needed"}</span>
+                    {metadata.promptVersion ? (
+                      <>
+                        {" · "}Prompt v<span className="font-medium text-foreground">{metadata.promptVersion}</span>
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -429,10 +451,16 @@ function Step2ReadinessCheck({
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button onClick={onNext} disabled={preflightLoading}>
-          Proceed to Configuration
-          <ChevronRight className="size-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={preflightError ? "outline" : "default"}
+            onClick={onNext}
+            disabled={preflightLoading}
+          >
+            {preflightError ? "Continue Anyway" : "Proceed to Configuration"}
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -444,12 +472,16 @@ function Step2ReadinessCheck({
 
 function Step3Configure({
   config,
+  textModels,
+  embeddingModels,
   responseFormats,
   onChange,
   onBack,
   onNext,
 }: {
   config: WizardConfig;
+  textModels: OpenRouterModel[];
+  embeddingModels: OpenRouterModel[];
   responseFormats: ResponseFormat[] | null;
   onChange: (patch: Partial<WizardConfig>) => void;
   onBack: () => void;
@@ -518,29 +550,21 @@ function Step3Configure({
         {/* Generation model */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Generation Model</label>
-          <Select
+          <ModelPickerCombobox
             value={config.generationModel}
-            onValueChange={(v) => { if (v) onChange({ generationModel: v }); }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {FALLBACK_MODELS.map((model) => (
-                <SelectItem key={model.id} value={model.id}>
-                  {model.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(modelId) => onChange({ generationModel: modelId })}
+            models={textModels}
+          />
         </div>
 
-        {/* Embedding model — read-only */}
+        {/* Embedding model */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Embedding Model</label>
-          <div className="flex h-8 items-center rounded-lg border border-border bg-muted/40 px-2.5 text-sm text-muted-foreground">
-            {config.embeddingModel}
-          </div>
+          <ModelPickerCombobox
+            value={config.embeddingModel}
+            onChange={(modelId) => onChange({ embeddingModel: modelId })}
+            models={embeddingModels}
+          />
         </div>
 
         {/* Response format */}
@@ -584,7 +608,7 @@ function Step3Configure({
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button onClick={onNext}>
+        <Button onClick={onNext} disabled={!config.generationModel || !config.embeddingModel}>
           Next: Review &amp; Launch
           <ChevronRight className="size-4" />
         </Button>
@@ -600,6 +624,8 @@ function Step3Configure({
 function Step4Launch({
   config,
   constructs,
+  textModels,
+  embeddingModels,
   responseFormats,
   onBack,
   onLaunch,
@@ -607,6 +633,8 @@ function Step4Launch({
 }: {
   config: WizardConfig;
   constructs: Construct[] | null;
+  textModels: OpenRouterModel[];
+  embeddingModels: OpenRouterModel[];
   responseFormats: ResponseFormat[] | null;
   onBack: () => void;
   onLaunch: () => void;
@@ -618,7 +646,8 @@ function Step4Launch({
   const selectedFormat = (responseFormats ?? []).find(
     (rf) => rf.id === config.responseFormatId,
   );
-  const selectedModel = FALLBACK_MODELS.find((m) => m.id === config.generationModel);
+  const selectedGenerationModel = textModels.find((m) => m.id === config.generationModel);
+  const selectedEmbeddingModel = embeddingModels.find((m) => m.id === config.embeddingModel);
   const totalItems = config.selectedConstructIds.length * config.targetItemsPerConstruct;
 
   return (
@@ -659,8 +688,16 @@ function Step4Launch({
               <p className="font-semibold">{config.temperature.toFixed(1)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Model</p>
-              <p className="font-semibold">{selectedModel?.name ?? config.generationModel}</p>
+              <p className="text-xs text-muted-foreground">Generation Model</p>
+              <p className="font-semibold">
+                {(selectedGenerationModel?.name ?? config.generationModel) || "Unconfigured"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Embedding Model</p>
+              <p className="font-semibold">
+                {(selectedEmbeddingModel?.name ?? config.embeddingModel) || "Unconfigured"}
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Response Format</p>
@@ -675,7 +712,11 @@ function Step4Launch({
           <ArrowLeft className="size-4" />
           Back
         </Button>
-        <Button onClick={onLaunch} disabled={isLaunching} className="min-w-36">
+        <Button
+          onClick={onLaunch}
+          disabled={isLaunching || !config.generationModel || !config.embeddingModel}
+          className="min-w-36"
+        >
           {isLaunching ? (
             <>
               <Loader2 className="size-4 animate-spin" />
@@ -701,8 +742,8 @@ const DEFAULT_CONFIG: WizardConfig = {
   selectedConstructIds: [],
   targetItemsPerConstruct: 60,
   temperature: 0.8,
-  generationModel: "anthropic/claude-sonnet-4-5",
-  embeddingModel: "openai/text-embedding-3-small",
+  generationModel: "",
+  embeddingModel: "",
   responseFormatId: undefined,
 };
 
@@ -716,6 +757,7 @@ export default function NewGenerationPage() {
 
   const [constructs, setConstructs] = useState<Construct[] | null>(null);
   const [responseFormats, setResponseFormats] = useState<ResponseFormat[] | null>(null);
+  const [modelBootstrap, setModelBootstrap] = useState<WizardModelBootstrap | null>(null);
 
   // Fetch constructs, response formats, and default models on mount
   useEffect(() => {
@@ -725,9 +767,17 @@ export default function NewGenerationPage() {
     getResponseFormatsForGeneration()
       .then(setResponseFormats)
       .catch(() => toast.error("Failed to load response formats"));
-    getDefaultModelIdForPurpose("item_generation")
-      .then((modelId) => patchConfig({ generationModel: modelId }))
-      .catch(() => {/* keep hardcoded default */});
+    getModelSelectionBootstrap()
+      .then((bootstrap) => {
+        setModelBootstrap(bootstrap);
+        patchConfig({
+          generationModel: bootstrap.configuredModels.item_generation ?? "",
+          embeddingModel: bootstrap.configuredModels.embedding ?? "",
+        });
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Failed to load model configuration");
+      });
   }, []);
 
   function patchConfig(patch: Partial<WizardConfig>) {
@@ -811,6 +861,8 @@ export default function NewGenerationPage() {
           {step === 3 && (
             <Step3Configure
               config={config}
+              textModels={modelBootstrap?.textModels ?? []}
+              embeddingModels={modelBootstrap?.embeddingModels ?? []}
               responseFormats={responseFormats}
               onChange={patchConfig}
               onBack={() => goToStep(2)}
@@ -821,6 +873,8 @@ export default function NewGenerationPage() {
             <Step4Launch
               config={config}
               constructs={constructs}
+              textModels={modelBootstrap?.textModels ?? []}
+              embeddingModels={modelBootstrap?.embeddingModels ?? []}
               responseFormats={responseFormats}
               onBack={() => goToStep(3)}
               onLaunch={handleLaunch}

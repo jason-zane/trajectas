@@ -1,5 +1,3 @@
-export const DISCRIMINATION_SYSTEM_PROMPT = `You are an expert psychometrician. Your task is to assess whether two psychological constructs are sufficiently distinct to support independent self-report item development.`
-
 export function buildDiscriminationPrompt(
   constructA: { name: string; definition: string },
   constructB: { name: string; definition: string },

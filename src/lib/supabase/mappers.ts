@@ -626,6 +626,7 @@ export function mapGenerationRunRow(row: any): GenerationRun {
     nmiFinal: row.nmi_final != null ? Number(row.nmi_final) : undefined,
     promptVersion: row.prompt_version ?? undefined,
     modelUsed: row.model_used ?? undefined,
+    aiSnapshot: row.ai_snapshot ?? undefined,
     tokenUsage: row.token_usage ?? undefined,
     errorMessage: row.error_message ?? undefined,
     startedAt: row.started_at ?? undefined,

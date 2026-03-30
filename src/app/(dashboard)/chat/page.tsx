@@ -14,7 +14,7 @@ export default async function ChatPage() {
       <PageHeader eyebrow="AI Tools" title="Chat" />
 
       <div className="flex-1 min-h-0 mt-4">
-        <ChatInterface defaultModel={defaultModel} models={models} />
+        <ChatInterface defaultModel={defaultModel ?? ""} models={models} />
       </div>
     </div>
   );

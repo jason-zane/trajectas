@@ -12,9 +12,6 @@ import { ProviderRequestError } from '@/types/ai'
 import type { AIProvider } from './base'
 import type { OpenRouterModel } from '@/types/generation'
 
-/** Default model used when not overridden. */
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
-
 /** Default maximum tokens if not provided in the request. */
 const DEFAULT_MAX_TOKENS = 4096
 
@@ -48,6 +45,9 @@ export class OpenRouterProvider implements AIProvider {
   async complete(request: AIModelRequest): Promise<AIModelResponse> {
     try {
       const client = this.getClient()
+      if (!request.model) {
+        throw new Error('OpenRouter requests must provide an explicit model.')
+      }
 
       const messages: OpenAI.ChatCompletionMessageParam[] = []
       if (request.systemPrompt) {
@@ -56,7 +56,7 @@ export class OpenRouterProvider implements AIProvider {
       messages.push({ role: 'user', content: request.prompt })
 
       const response = await client.chat.completions.create({
-        model: request.model ?? DEFAULT_MODEL,
+        model: request.model,
         messages,
         max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
         ...(request.temperature !== undefined && { temperature: request.temperature }),

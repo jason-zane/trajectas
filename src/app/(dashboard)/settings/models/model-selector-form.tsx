@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Cpu, Layers, Sparkles, MessageSquare, BarChart3, Check, Loader2, ScanSearch } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -83,33 +84,37 @@ const PURPOSE_ORDER: AIPromptPurpose[] = [
 // ---------------------------------------------------------------------------
 
 function PurposeCard({
+  purpose,
   config,
   models,
   embeddingModels,
   index,
 }: {
-  config: ModelConfigRow
+  purpose: AIPromptPurpose
+  config: ModelConfigRow | null
   models: OpenRouterModel[]
   embeddingModels: OpenRouterModel[]
   index: number
 }) {
-  const meta = PURPOSE_META[config.purpose]
+  const router = useRouter()
+  const meta = PURPOSE_META[purpose]
   const Icon = meta.icon
 
-  const [selectedModel, setSelectedModel] = useState(config.modelId)
+  const [selectedModel, setSelectedModel] = useState(config?.modelId ?? "")
   // Tracks what's actually persisted — updated on successful save so
   // isDirty stays correct after revalidatePath re-renders the server component.
-  const [persistedModel, setPersistedModel] = useState(config.modelId)
+  const [persistedModel, setPersistedModel] = useState(config?.modelId ?? "")
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
   const [isPending, startTransition] = useTransition()
 
   const isDirty = selectedModel !== persistedModel
-  const activeModels = config.purpose === "embedding" ? embeddingModels : models
+  const activeModels = purpose === "embedding" ? embeddingModels : models
 
   function handleSave() {
+    if (!selectedModel) return
     startTransition(async () => {
       setSaveState("saving")
-      const result = await updateModelForPurpose(config.purpose, selectedModel)
+      const result = await updateModelForPurpose(purpose, selectedModel)
       if ("error" in result) {
         toast.error(result.error)
         setSaveState("idle")
@@ -117,6 +122,7 @@ function PurposeCard({
         setPersistedModel(selectedModel)
         toast.success(`${meta.label} model updated`)
         setSaveState("saved")
+        router.refresh()
         setTimeout(() => setSaveState("idle"), 2000)
       }
     })
@@ -152,12 +158,12 @@ function PurposeCard({
 
           <div className="flex items-center justify-between gap-2">
             <p className="text-caption text-muted-foreground">
-              via {config.providerName}
+              {config ? `via ${config.providerName}` : "No model configured yet"}
             </p>
             <Button
               size="sm"
               onClick={handleSave}
-              disabled={!isDirty || isPending || saveState === "saved"}
+              disabled={!selectedModel || !isDirty || isPending || saveState === "saved"}
             >
               {isPending || saveState === "saving" ? (
                 <>
@@ -193,24 +199,14 @@ interface ModelSelectorFormProps {
 export function ModelSelectorForm({ configs, models, embeddingModels }: ModelSelectorFormProps) {
   const configMap = Object.fromEntries(configs.map((c) => [c.purpose, c]))
 
-  const orderedConfigs: ModelConfigRow[] = PURPOSE_ORDER.map((purpose) => {
-    if (configMap[purpose]) return configMap[purpose]
-    return {
-      id: "",
-      purpose,
-      modelId: "anthropic/claude-sonnet-4-5",
-      displayName: "Claude Sonnet 4.5",
-      providerName: "OpenRouter",
-      config: {},
-      updatedAt: "",
-    }
-  })
+  const orderedConfigs = PURPOSE_ORDER.map((purpose) => configMap[purpose] ?? null)
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {orderedConfigs.map((config, i) => (
         <PurposeCard
-          key={config.purpose}
+          key={PURPOSE_ORDER[i]}
+          purpose={PURPOSE_ORDER[i]}
           config={config}
           models={models}
           embeddingModels={embeddingModels}

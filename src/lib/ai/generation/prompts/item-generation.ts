@@ -1,15 +1,5 @@
 import type { ConstructForGeneration } from '@/types/generation'
 
-export const ITEM_GENERATION_SYSTEM_PROMPT = `You are an expert psychometrician with 20+ years of experience in personality and organisational assessment. You specialise in writing high-quality psychometric items that:
-- Capture individual differences in the target construct
-- Avoid double-barrelled phrasing (one idea per item)
-- Use clear, accessible language (8th grade reading level)
-- Include a mix of positively and negatively keyed items (~60/40 split)
-- Are culturally neutral and avoid idioms or region-specific references
-- Produce adequate variance across the response scale
-
-Always respond with valid JSON only. No markdown, no explanation outside the JSON array.`
-
 export function buildItemGenerationPrompt(params: {
   construct:        ConstructForGeneration
   batchSize:        number
