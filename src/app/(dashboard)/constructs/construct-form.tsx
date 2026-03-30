@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Brain, FileQuestion, ArrowRight, Plus } from "lucide-react"
+import { Brain, FileQuestion, ArrowRight, Plus, Wand2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -408,12 +408,20 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
                       </div>
                     </div>
                     {construct?.slug && (
-                      <Link href={`/items/create?constructSlug=${construct.slug}`}>
-                        <Button type="button" variant="outline" size="sm">
-                          <Plus className="size-4" />
-                          Add Item
-                        </Button>
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/generate/new?constructId=${construct.id}`}>
+                          <Button type="button" variant="outline" size="sm">
+                            <Wand2 className="size-4" />
+                            Generate Items
+                          </Button>
+                        </Link>
+                        <Link href={`/items/create?constructSlug=${construct.slug}`}>
+                          <Button type="button" variant="outline" size="sm">
+                            <Plus className="size-4" />
+                            Add Item
+                          </Button>
+                        </Link>
+                      </div>
                     )}
                   </div>
                 </CardHeader>
@@ -425,12 +433,20 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
                         No items target this construct yet.
                       </p>
                       {construct?.slug && (
-                        <Link href={`/items/create?constructSlug=${construct.slug}`}>
-                          <Button type="button" variant="outline" size="sm">
-                            <Plus className="size-4" />
-                            Create First Item
-                          </Button>
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/generate/new?constructId=${construct.id}`}>
+                            <Button type="button" variant="outline" size="sm">
+                              <Wand2 className="size-4" />
+                              Generate Items
+                            </Button>
+                          </Link>
+                          <Link href={`/items/create?constructSlug=${construct.slug}`}>
+                            <Button type="button" variant="outline" size="sm">
+                              <Plus className="size-4" />
+                              Create First Item
+                            </Button>
+                          </Link>
+                        </div>
                       )}
                     </div>
                   ) : (

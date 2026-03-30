@@ -78,6 +78,7 @@ const adminNav = [
       { title: "Dimensions", href: "/dimensions", icon: LayoutGrid },
       { title: "Factors", href: "/factors", icon: Brain },
       { title: "Constructs", href: "/constructs", icon: Dna },
+      { title: "Item Generator", href: "/generate", icon: Wand2 },
       { title: "Items", href: "/items", icon: FileQuestion },
       { title: "Response Formats", href: "/response-formats", icon: Settings2 },
     ],
@@ -125,7 +126,6 @@ const adminNav = [
     items: [
       { title: "Chat", href: "/chat", icon: MessageSquare },
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
-      { title: "Item Generator", href: "/generate", icon: Wand2 },
     ],
   },
   {

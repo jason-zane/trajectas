@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
   ChevronRight,
@@ -749,6 +749,8 @@ const DEFAULT_CONFIG: WizardConfig = {
 
 export default function NewGenerationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedConstructId = searchParams.get("constructId");
   const [isPending, startTransition] = useTransition();
 
   const [step, setStep] = useState(1);
@@ -762,7 +764,12 @@ export default function NewGenerationPage() {
   // Fetch constructs, response formats, and default models on mount
   useEffect(() => {
     getConstructsForGeneration()
-      .then(setConstructs)
+      .then((list) => {
+        setConstructs(list);
+        if (preselectedConstructId && list.some((c) => c.id === preselectedConstructId)) {
+          patchConfig({ selectedConstructIds: [preselectedConstructId] });
+        }
+      })
       .catch(() => toast.error("Failed to load constructs"));
     getResponseFormatsForGeneration()
       .then(setResponseFormats)
@@ -828,7 +835,7 @@ export default function NewGenerationPage() {
 
   return (
     <div className="max-w-4xl space-y-8">
-      <PageHeader eyebrow="AI Tools" title="New Item Generation" />
+      <PageHeader eyebrow="Library" title="New Item Generation" />
 
       <div className="grid gap-8 lg:grid-cols-[220px_1fr]">
         {/* Left: Step indicator */}
