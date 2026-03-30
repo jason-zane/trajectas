@@ -11,11 +11,11 @@ const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const BATCH_SIZE = 100   // OpenRouter limit per request
 
 function getEmbeddingClient(): OpenAI {
-  if (!process.env.OPENROUTER_API_KEY) {
-    throw new Error('OPENROUTER_API_KEY is not set')
+  if (!process.env.OpenRouter_API_KEY) {
+    throw new Error('OpenRouter_API_KEY is not set')
   }
   return new OpenAI({
-    apiKey:         process.env.OPENROUTER_API_KEY,
+    apiKey:         process.env.OpenRouter_API_KEY,
     baseURL:        OPENROUTER_BASE_URL,
     defaultHeaders: {
       'HTTP-Referer': 'https://talent-fit.app',
