@@ -121,6 +121,9 @@ export default async function GeneratePage() {
                             {formatRelativeTime(run.created_at)}
                           </span>
                         </div>
+                        {run.modelUsed && (
+                          <p className="text-caption text-muted-foreground truncate mt-1">{run.modelUsed}</p>
+                        )}
                       </CardContent>
                     </Card>
                   </Link>

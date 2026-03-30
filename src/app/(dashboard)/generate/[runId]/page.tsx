@@ -1,6 +1,7 @@
 "use client"
 
-import React, { use, useEffect, useRef, useState, useCallback } from "react"
+import React, { use, useEffect, useRef, useState, useCallback, useTransition } from "react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   CheckCircle2,
@@ -12,6 +13,8 @@ import {
   AlertTriangle,
   CheckSquare,
   Square,
+  RefreshCw,
+  Download,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
@@ -31,6 +34,8 @@ import {
   getGenerationRun,
   acceptGeneratedItems,
   getConstructsForGeneration,
+  rerunGenerationRun,
+  exportRunItemsAsCSV,
 } from "@/app/actions/generation"
 import type { GenerationRun, GeneratedItem } from "@/app/actions/generation"
 
@@ -615,8 +620,11 @@ function ReviewView({
   items: GeneratedItem[]
   constructNameMap: Map<string, string>
 }) {
+  const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isAccepting, setIsAccepting] = useState(false)
+  const [isRerunning, startRerun] = useTransition()
+  const [isExporting, startExport] = useTransition()
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
 
   const suggestedItems = items.filter((i) => !i.isRedundant && !i.isUnstable)
@@ -663,6 +671,36 @@ function ReviewView({
       setIsAccepting(false)
     }
   }, [run.id, selectedIds])
+
+  const handleRerun = useCallback(() => {
+    startRerun(async () => {
+      const result = await rerunGenerationRun(run.id)
+      if (result.success && result.newRunId) {
+        toast.success("New generation run started")
+        router.push(`/generate/${result.newRunId}`)
+      } else {
+        toast.error(result.error ?? "Failed to start new run")
+      }
+    })
+  }, [run.id, router])
+
+  const handleExportCSV = useCallback(() => {
+    startExport(async () => {
+      const result = await exportRunItemsAsCSV(run.id)
+      if (result.success && result.csv) {
+        const blob = new Blob([result.csv], { type: 'text/csv' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `items-${run.id.slice(0, 8)}.csv`
+        a.click()
+        URL.revokeObjectURL(url)
+        toast.success("CSV exported")
+      } else {
+        toast.error(result.error ?? "Failed to export CSV")
+      }
+    })
+  }, [run.id])
 
   // Funnel stats
   const maxCount = run.itemsGenerated || 1
@@ -890,6 +928,34 @@ function ReviewView({
               </p>
             )}
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCSV}
+            disabled={isExporting}
+            className="gap-1.5"
+          >
+            {isExporting ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Download className="size-3.5" />
+            )}
+            Export CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRerun}
+            disabled={isRerunning}
+            className="gap-1.5"
+          >
+            {isRerunning ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="size-3.5" />
+            )}
+            Re-run
+          </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>

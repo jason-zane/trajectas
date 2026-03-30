@@ -617,6 +617,73 @@ export async function getConstructsForGeneration(): Promise<
   })
 }
 
+/** Re-run a generation run with the same config, navigating to the new run. */
+export async function rerunGenerationRun(runId: string): Promise<{ success: boolean; newRunId?: string; error?: string }> {
+  try {
+    const existingRun = await getGenerationRun(runId)
+    if (!existingRun) return { success: false, error: 'Run not found' }
+
+    const newRun = await createGenerationRun(existingRun.run.config)
+    if (!newRun) return { success: false, error: 'Failed to create new run' }
+
+    // Start the new run in the background (don't await — let it run)
+    void startGenerationRun(newRun.id)
+
+    return { success: true, newRunId: newRun.id }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+}
+
+/** Export all generated items for a run as a CSV string. */
+export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boolean; csv?: string; error?: string }> {
+  try {
+    const db = createAdminClient()
+
+    const { data: items, error } = await db
+      .from('generated_items')
+      .select('stem, reverse_scored, construct_id, wto_max, boot_stability, is_redundant, is_unstable, is_accepted')
+      .eq('generation_run_id', runId)
+      .order('construct_id')
+
+    if (error) return { success: false, error: error.message }
+    if (!items?.length) return { success: false, error: 'No items found' }
+
+    // Fetch construct names for the IDs
+    const constructIds = [...new Set(items.map(i => i.construct_id))]
+    const { data: constructs } = await db
+      .from('constructs')
+      .select('id, name')
+      .in('id', constructIds)
+
+    const constructNameMap = new Map((constructs ?? []).map(c => [c.id, c.name]))
+
+    const header = 'stem,reverse_scored,construct_name,wto_max,boot_stability,is_redundant,is_unstable,status'
+    const rows = items.map(item => {
+      const constructName = constructNameMap.get(item.construct_id) ?? item.construct_id
+      const status = item.is_accepted === true ? 'accepted'
+        : item.is_accepted === false ? 'rejected'
+        : item.is_redundant ? 'redundant'
+        : item.is_unstable ? 'unstable'
+        : 'suggested'
+      return [
+        JSON.stringify(item.stem),
+        item.reverse_scored,
+        JSON.stringify(constructName),
+        item.wto_max ?? '',
+        item.boot_stability ?? '',
+        item.is_redundant,
+        item.is_unstable,
+        status,
+      ].join(',')
+    })
+
+    return { success: true, csv: [header, ...rows].join('\n') }
+  } catch (error) {
+    return { success: false, error: String(error) }
+  }
+}
+
 /** Get active response formats for the generation wizard config step. */
 export async function getResponseFormatsForGeneration(): Promise<
   Array<{
