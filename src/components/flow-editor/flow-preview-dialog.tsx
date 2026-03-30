@@ -60,11 +60,6 @@ export function FlowPreviewDialog({
     return all.filter((p) => p.enabled)
   }, [flowConfig])
 
-  // Reset on open
-  useEffect(() => {
-    if (open) setCurrentIndex(0)
-  }, [open])
-
   const currentPage = enabledPages[currentIndex]
 
   // Keyboard navigation

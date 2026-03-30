@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { WorkspacePortalLivePage } from "@/components/workspace-portal-live";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
 import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { partnerPortalPages } from "@/lib/workspace-portal-config";
+import {
+  partnerPortalPages,
+  resolveWorkspacePortalPageConfig,
+} from "@/lib/workspace-portal-config";
 import { getWorkspaceRequestContext } from "@/lib/workspace-request";
 
 export default async function PartnerPortalPage({
@@ -12,7 +15,7 @@ export default async function PartnerPortalPage({
 }) {
   const { slug } = await params;
   const key = slug?.join("/") ?? "";
-  const config = partnerPortalPages[key];
+  const config = resolveWorkspacePortalPageConfig(partnerPortalPages, key);
 
   if (!config) {
     notFound();

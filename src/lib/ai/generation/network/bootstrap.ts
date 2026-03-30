@@ -21,6 +21,18 @@ export function bootstrapStability(
   const n = embeddings.length
   if (n === 0) return { stabilityScores: [], unstableIndices: new Set() }
 
+  // Single construct → community-membership stability is meaningless.
+  // Walktrap will find arbitrary sub-communities within the one construct,
+  // and those splits are inherently unstable under resampling. This matches
+  // EGAnet's behaviour: single-factor data doesn't undergo community-stability testing.
+  const uniqueLabels = new Set(constructLabels)
+  if (uniqueLabels.size <= 1) {
+    return {
+      stabilityScores: new Array(n).fill(1.0) as number[],
+      unstableIndices: new Set<number>(),
+    }
+  }
+
   // Track community assignments per bootstrap iteration per item
   const communityHistory: number[][] = Array.from({ length: n }, () => [])
   let successfulIterations = 0

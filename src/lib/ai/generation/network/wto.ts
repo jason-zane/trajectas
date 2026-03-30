@@ -69,6 +69,10 @@ export function findRedundantItems(
  * Iterative UVA as specified by the AI-GENIE paper:
  * remove redundant items, rebuild the network, recompute wTO, repeat
  * until no pairs exceed the cutoff.
+ *
+ * Partial correlations are computed ONCE from the full item set to avoid
+ * a deflation spiral: recomputing with fewer items inflates remaining
+ * partial correlations because fewer variables condition away shared variance.
  */
 export function findRedundantItemsIterative(
   embeddings: number[][],
@@ -79,20 +83,25 @@ export function findRedundantItemsIterative(
   const wtoScores = new Array<number>(n).fill(0)
   const redundantIndices = new Set<number>()
 
+  // Compute partial correlations ONCE from the full item set.
+  // Recomputing per-iteration would cause a deflation spiral: removing items
+  // inflates remaining partial correlations, flagging more items, and so on.
+  const fullCorrMatrix = cosineSimilarityMatrix(embeddings)
+  const fullPcorMatrix = partialCorrelationMatrix(fullCorrMatrix)
+  if (!fullPcorMatrix) {
+    console.warn('[UVA] Partial correlation inversion failed — falling back to cosine similarities')
+  }
+  const baseMatrix = fullPcorMatrix ?? fullCorrMatrix
+
   // Active indices — items still in the running
   let active = Array.from({ length: n }, (_, i) => i)
 
   for (;;) {
     if (active.length < 2) break
 
-    // Build partial correlation matrix for UVA (puts wTO on the scale the 0.20 cutoff expects)
-    const activeEmbeddings = active.map(i => embeddings[i])
-    const corrMatrix = cosineSimilarityMatrix(activeEmbeddings)
-    const pcorMatrix = partialCorrelationMatrix(corrMatrix)
-    if (!pcorMatrix) {
-      console.warn('[UVA] Partial correlation inversion failed — falling back to cosine similarities')
-    }
-    const adj = buildNetworkFn(pcorMatrix ?? corrMatrix)
+    // Extract sub-matrix for active items from the pre-computed base matrix
+    const subMatrix = active.map(i => active.map(j => baseMatrix[i][j]))
+    const adj = buildNetworkFn(subMatrix)
     const wto = computeWTO(adj)
     const subN = active.length
 

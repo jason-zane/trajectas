@@ -20,6 +20,18 @@ export interface WorkspacePortalPageConfig {
   sections: WorkspacePortalSection[];
 }
 
+export function resolveWorkspacePortalPageConfig(
+  pages: Record<string, WorkspacePortalPageConfig>,
+  pageKey: string
+) {
+  if (pages[pageKey]) {
+    return pages[pageKey];
+  }
+
+  const baseKey = pageKey.split("/").filter(Boolean)[0] ?? "";
+  return pages[baseKey] ?? null;
+}
+
 export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
   "": {
     eyebrow: "Partner Portal",

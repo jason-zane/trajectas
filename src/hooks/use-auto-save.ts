@@ -24,20 +24,20 @@ export function useAutoSave({
 }: UseAutoSaveOptions) {
   const [value, setValue] = useState(initialValue)
   const [status, setStatus] = useState<AutoSaveStatus>("idle")
-  const lastSaved = useRef(initialValue)
+  const [lastSavedValue, setLastSavedValue] = useState(initialValue)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const fadeRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   const save = useCallback(
     async (val: string) => {
-      if (!enabled || val === lastSaved.current) return
+      if (!enabled || val === lastSavedValue) return
       setStatus("saving")
       try {
         const result = await onSave(val)
         if (result && "error" in result && result.error) {
           setStatus("error")
         } else {
-          lastSaved.current = val
+          setLastSavedValue(val)
           setStatus("saved")
           clearTimeout(fadeRef.current)
           fadeRef.current = setTimeout(() => setStatus("idle"), 3000)
@@ -46,16 +46,16 @@ export function useAutoSave({
         setStatus("error")
       }
     },
-    [onSave, enabled]
+    [enabled, lastSavedValue, onSave]
   )
 
   // Debounced save on value change
   useEffect(() => {
-    if (!enabled || value === lastSaved.current) return
+    if (!enabled || value === lastSavedValue) return
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => save(value), delay)
     return () => clearTimeout(timerRef.current)
-  }, [value, delay, save, enabled])
+  }, [delay, enabled, lastSavedValue, save, value])
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -74,17 +74,17 @@ export function useAutoSave({
 
   const handleBlur = useCallback(() => {
     clearTimeout(timerRef.current)
-    if (enabled && value !== lastSaved.current) {
-      save(value)
+    if (enabled && value !== lastSavedValue) {
+      void save(value)
     }
-  }, [value, save, enabled])
+  }, [enabled, lastSavedValue, save, value])
 
   const retry = useCallback(() => {
-    save(value)
+    void save(value)
   }, [value, save])
 
   /** Whether this field has local changes not yet persisted. */
-  const isDirty = value !== lastSaved.current
+  const isDirty = value !== lastSavedValue
 
   return { value, setValue, status, handleChange, handleBlur, retry, isDirty }
 }

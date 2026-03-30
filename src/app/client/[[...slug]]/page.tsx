@@ -2,7 +2,10 @@ import { notFound } from "next/navigation";
 import { WorkspacePortalLivePage } from "@/components/workspace-portal-live";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
 import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { clientPortalPages } from "@/lib/workspace-portal-config";
+import {
+  clientPortalPages,
+  resolveWorkspacePortalPageConfig,
+} from "@/lib/workspace-portal-config";
 import { getWorkspaceRequestContext } from "@/lib/workspace-request";
 
 export default async function ClientPortalPage({
@@ -12,7 +15,7 @@ export default async function ClientPortalPage({
 }) {
   const { slug } = await params;
   const key = slug?.join("/") ?? "";
-  const config = clientPortalPages[key];
+  const config = resolveWorkspacePortalPageConfig(clientPortalPages, key);
 
   if (!config) {
     notFound();

@@ -1,9 +1,17 @@
 import Link from "next/link";
 import {
+  Activity,
+  ArrowLeft,
+  Calendar,
   Building2,
+  Check,
   ClipboardList,
+  ExternalLink,
   Layers,
   Loader2,
+  Mail,
+  Megaphone,
+  Timer,
   ShieldCheck,
   Sparkles,
   Users,
@@ -12,10 +20,15 @@ import {
   Clock,
 } from "lucide-react";
 import { getWorkspaceAssessmentSummaries } from "@/app/actions/assessments";
-import { getCampaigns } from "@/app/actions/campaigns";
+import { getCampaignById, getCampaigns } from "@/app/actions/campaigns";
 import { getDiagnosticSessions, getOrganizationsForDiagnosticSelect } from "@/app/actions/diagnostics";
 import { getWorkspaceMatchingRuns } from "@/app/actions/matching";
 import { getOrganizations } from "@/app/actions/organizations";
+import {
+  getParticipant,
+  getParticipantActivity,
+  getParticipantSessions,
+} from "@/app/actions/participants";
 import { PageHeader } from "@/components/page-header";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
 import { Badge } from "@/components/ui/badge";
@@ -224,6 +237,35 @@ function EmptyState({
   );
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return "Not set";
+
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function formatDuration(start?: string, end?: string) {
+  if (!start || !end) return null;
+
+  const minutes = Math.max(
+    0,
+    Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000)
+  );
+
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours}h ${remainingMinutes}m`;
+}
+
 async function WorkspaceOverview({
   access,
   config,
@@ -342,7 +384,13 @@ async function WorkspaceOverview({
             {campaigns.slice(0, 6).map((campaign) => (
               <div key={campaign.id} className="flex items-start justify-between gap-4 rounded-lg border border-border/70 px-4 py-3">
                 <div>
-                  <p className="font-medium">{campaign.title}</p>
+                  <Link
+                    href={applyRoutePrefix(routePrefix, `/campaigns/${campaign.id}`)}
+                    className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                  >
+                    {campaign.title}
+                    <ExternalLink className="size-3.5 opacity-60" />
+                  </Link>
                   <p className="text-xs text-muted-foreground">
                     {campaign.organizationName || "Client not set"} • {campaign.participantCount} participants
                   </p>
@@ -481,7 +529,13 @@ async function WorkspaceCampaignsPage({
                   <TableRow key={campaign.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{campaign.title}</p>
+                        <Link
+                          href={applyRoutePrefix(routePrefix, `/campaigns/${campaign.id}`)}
+                          className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                        >
+                          {campaign.title}
+                          <ExternalLink className="size-3.5 opacity-60" />
+                        </Link>
                         <p className="text-xs text-muted-foreground">
                           Opens {formatDate(campaign.opensAt)} • Closes {formatDate(campaign.closesAt)}
                         </p>
@@ -498,6 +552,399 @@ async function WorkspaceCampaignsPage({
                 ))}
               </TableBody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+async function WorkspaceCampaignDetailPage({
+  access,
+  config,
+  routePrefix,
+  campaignId,
+}: {
+  access: WorkspaceAccessResult;
+  config: WorkspacePortalPageConfig;
+  routePrefix: string;
+  campaignId: string;
+}) {
+  const campaign = await getCampaignById(campaignId);
+
+  if (!campaign) {
+    return (
+      <div className="space-y-8">
+        <PageHeader eyebrow={config.eyebrow} title="Campaign detail" description="Campaign scope is enforced through the same tenant-aware access layer.">
+          <Link
+            href={applyRoutePrefix(routePrefix, "/campaigns")}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="size-4" />
+            Back to campaigns
+          </Link>
+        </PageHeader>
+        <WorkspaceAccessCard access={access} />
+        <EmptyState
+          title="Campaign not available"
+          description="This campaign is either outside the current workspace scope or no longer exists."
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow={config.eyebrow}
+        title={campaign.title}
+        description={campaign.description || "Campaign detail is scoped through client and partner memberships."}
+      >
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={applyRoutePrefix(routePrefix, "/campaigns")}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="size-4" />
+            Back to campaigns
+          </Link>
+          <Link
+            href={applyRoutePrefix(routePrefix, "/results")}
+            className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            View results
+          </Link>
+        </div>
+      </PageHeader>
+
+      <WorkspaceAccessCard access={access} />
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard
+          label="Status"
+          value={campaign.status === "active" ? 1 : 0}
+          description={campaign.status}
+          icon={Megaphone}
+        />
+        <MetricCard
+          label="Assessments"
+          value={campaign.assessments.length}
+          description="Deployed in this campaign"
+          icon={ClipboardList}
+        />
+        <MetricCard
+          label="Participants"
+          value={campaign.participants.length}
+          description="Currently visible in this scope"
+          icon={Users}
+        />
+        <MetricCard
+          label="Access links"
+          value={campaign.accessLinks.length}
+          description="Runtime entry points"
+          icon={ExternalLink}
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Assessment lineup</CardTitle>
+            <CardDescription>
+              These assessments are currently deployed inside this campaign.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {campaign.assessments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No assessments are attached to this campaign yet.</p>
+            ) : (
+              campaign.assessments.map((assessment) => (
+                <div
+                  key={assessment.id}
+                  className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3"
+                >
+                  <div>
+                    <p className="font-medium">{assessment.assessmentTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Display order {assessment.displayOrder}
+                    </p>
+                  </div>
+                  <Badge variant={statusBadgeVariant(assessment.assessmentStatus)}>
+                    {assessment.assessmentStatus}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Participants</CardTitle>
+            <CardDescription>
+              Participant visibility is scoped through the same campaign access boundary.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {campaign.participants.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No participants are visible for this campaign yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Participant</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Invited</TableHead>
+                    <TableHead>Completed</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {campaign.participants.map((participant) => {
+                    const label =
+                      participant.firstName || participant.lastName
+                        ? `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim()
+                        : participant.email;
+
+                    return (
+                      <TableRow key={participant.id}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <Link
+                              href={applyRoutePrefix(
+                                routePrefix,
+                                `/campaigns/${campaign.id}/participants/${participant.id}`
+                              )}
+                              className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                            >
+                              {label}
+                              <ExternalLink className="size-3.5 opacity-60" />
+                            </Link>
+                            <p className="text-xs text-muted-foreground">{participant.email}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={statusBadgeVariant(participant.status)}>
+                            {participant.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(participant.invitedAt)}</TableCell>
+                        <TableCell>{formatDate(participant.completedAt)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+async function WorkspaceParticipantDetailPage({
+  access,
+  config,
+  routePrefix,
+  campaignId,
+  participantId,
+}: {
+  access: WorkspaceAccessResult;
+  config: WorkspacePortalPageConfig;
+  routePrefix: string;
+  campaignId: string;
+  participantId: string;
+}) {
+  const [participant, sessions, activity] = await Promise.all([
+    getParticipant(participantId),
+    getParticipantSessions(participantId),
+    getParticipantActivity(participantId),
+  ]);
+
+  if (!participant || participant.campaignId !== campaignId) {
+    return (
+      <div className="space-y-8">
+        <PageHeader eyebrow={config.eyebrow} title="Participant detail" description="Participant access remains campaign-scoped and token-separated from the runtime.">
+          <Link
+            href={applyRoutePrefix(routePrefix, `/campaigns/${campaignId}`)}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="size-4" />
+            Back to campaign
+          </Link>
+        </PageHeader>
+        <WorkspaceAccessCard access={access} />
+        <EmptyState
+          title="Participant not available"
+          description="This participant is either outside the current workspace scope or no longer exists."
+        />
+      </div>
+    );
+  }
+
+  const displayName =
+    participant.firstName || participant.lastName
+      ? `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim()
+      : participant.email;
+  const completedSessions = sessions.filter((session) => session.status === "completed").length;
+  const totalDuration = formatDuration(participant.startedAt, participant.completedAt);
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow={config.eyebrow}
+        title={displayName}
+        description="Participant detail is visible here because it belongs to the active campaign and workspace scope."
+      >
+        <Link
+          href={applyRoutePrefix(routePrefix, `/campaigns/${campaignId}`)}
+          className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+        >
+          <ArrowLeft className="size-4" />
+          Back to campaign
+        </Link>
+      </PageHeader>
+
+      <WorkspaceAccessCard access={access} />
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard
+          label="Assessments completed"
+          value={completedSessions}
+          description={`${sessions.length} session(s) in total`}
+          icon={Check}
+        />
+        <MetricCard
+          label="Total time"
+          value={totalDuration ? 1 : 0}
+          description={totalDuration ?? "Not completed yet"}
+          icon={Timer}
+        />
+        <MetricCard
+          label="Activity events"
+          value={activity.length}
+          description="Auditable milestones in this participant journey"
+          icon={Activity}
+        />
+        <MetricCard
+          label="Status"
+          value={participant.status === "completed" ? 1 : 0}
+          description={participant.status}
+          icon={Users}
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Participant overview</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Email</p>
+              <p className="font-medium">{participant.email}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Campaign</p>
+              <p className="font-medium">{participant.campaignTitle}</p>
+            </div>
+            {participant.organizationName ? (
+              <div className="space-y-1">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Client</p>
+                <p className="font-medium">{participant.organizationName}</p>
+              </div>
+            ) : null}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <Mail className="size-3.5" />
+                  Invited
+                </div>
+                <p className="font-medium">{formatDateTime(participant.invitedAt)}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <Calendar className="size-3.5" />
+                  Completed
+                </div>
+                <p className="font-medium">{formatDateTime(participant.completedAt)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Assessment sessions</CardTitle>
+            <CardDescription>
+              Session visibility stays bounded to the participant and campaign you are authorised to view.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {sessions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No assessment sessions are visible yet.</p>
+            ) : (
+              sessions.map((session) => (
+                <div
+                  key={session.id}
+                  className="rounded-lg border border-border/70 px-4 py-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{session.assessmentTitle}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Started {formatDateTime(session.startedAt)} • Completed {formatDateTime(session.completedAt)}
+                      </p>
+                    </div>
+                    <Badge variant={statusBadgeVariant(session.status)}>{session.status}</Badge>
+                  </div>
+                  {session.scores.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {session.scores.slice(0, 4).map((score) => (
+                        <Badge key={`${session.id}-${score.factorId}`} variant="outline">
+                          {score.factorName}: {Math.round(score.scaledScore)}
+                        </Badge>
+                      ))}
+                      {session.scores.length > 4 ? (
+                        <Badge variant="secondary">+{session.scores.length - 4} more</Badge>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Activity timeline</CardTitle>
+          <CardDescription>
+            Milestones across invite, progress, and completion inside this campaign.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {activity.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No activity has been recorded yet.</p>
+          ) : (
+            activity.map((event, index) => (
+              <div
+                key={`${event.type}-${event.timestamp}-${index}`}
+                className="flex items-start gap-3 rounded-lg border border-border/70 px-4 py-3"
+              >
+                <div className="mt-0.5 flex size-8 items-center justify-center rounded-full bg-muted">
+                  <Activity className="size-4 text-muted-foreground" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium">{event.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatDateTime(event.timestamp)}
+                    {event.detail ? ` • ${event.detail}` : ""}
+                  </p>
+                </div>
+              </div>
+            ))
           )}
         </CardContent>
       </Card>
@@ -755,7 +1202,13 @@ async function WorkspaceResultsPage({
                 {campaignsWithResults.map((campaign) => (
                   <div key={campaign.id} className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3">
                     <div>
-                      <p className="font-medium">{campaign.title}</p>
+                      <Link
+                        href={applyRoutePrefix(routePrefix, `/campaigns/${campaign.id}`)}
+                        className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                      >
+                        {campaign.title}
+                        <ExternalLink className="size-3.5 opacity-60" />
+                      </Link>
                       <p className="text-xs text-muted-foreground">
                         {campaign.organizationName || "Client not set"} • {campaign.completedCount} completed
                       </p>
@@ -928,7 +1381,35 @@ export async function WorkspacePortalLivePage({
   surface,
   pageKey,
 }: WorkspacePortalLivePageProps) {
-  const supportedKey = pageKey as SupportedPageKey;
+  const segments = pageKey.split("/").filter(Boolean);
+  const supportedKey = (segments[0] ?? "") as SupportedPageKey;
+
+  if (supportedKey === "campaigns" && segments.length === 2) {
+    return (
+      <WorkspaceCampaignDetailPage
+        access={access}
+        config={config}
+        routePrefix={routePrefix}
+        campaignId={segments[1]}
+      />
+    );
+  }
+
+  if (
+    supportedKey === "campaigns" &&
+    segments.length === 4 &&
+    segments[2] === "participants"
+  ) {
+    return (
+      <WorkspaceParticipantDetailPage
+        access={access}
+        config={config}
+        routePrefix={routePrefix}
+        campaignId={segments[1]}
+        participantId={segments[3]}
+      />
+    );
+  }
 
   switch (supportedKey) {
     case "":

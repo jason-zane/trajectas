@@ -93,7 +93,7 @@ Maps audience types to templates for a campaign. One row per campaign. Using a s
 | `hr_manager_template_id` | `uuid? FK` | References `report_templates`. Null = no HR manager report. |
 | `consultant_template_id` | `uuid? FK` | References `report_templates`. Null = no consultant report. |
 | `created_at` | `timestamptz` | |
-| `updated_at` | `timestamptz` | |
+| `updated_at` | `timestamptz` | Wired to existing `set_updated_at()` trigger (migration 00001). |
 
 **RLS:** Partner admins and consultants can read/write configs for campaigns they own. No participant/client access.
 
@@ -111,17 +111,13 @@ A point-in-time render for one participant session + one audience template. Froz
 | `narrative_mode` | `enum` | `derived \| ai_enhanced` |
 | `rendered_data` | `jsonb` | Resolved block data frozen at generation time |
 | `pdf_url` | `text?` | Supabase Storage path — populated async after HTML render |
-| `released_at` | `timestamptz?` | Null = held at gate. Set to release. |
-| `released_by` | `uuid?` | Profile ID of releasing consultant |
-| `generated_at` | `timestamptz?` | |
-| `error_message` | `text?` | Populated on failure |
 | `campaign_id` | `uuid FK` | Denormalised from `participant_sessions → campaign_participants → campaigns` for performance and RLS clarity. |
 | `released_at` | `timestamptz?` | Null = held at gate. Set to release. |
 | `released_by` | `uuid?` | Profile ID of releasing consultant |
 | `generated_at` | `timestamptz?` | |
 | `error_message` | `text?` | Populated on failure |
 | `created_at` | `timestamptz` | |
-| `updated_at` | `timestamptz` | Required for status transition audit trail. |
+| `updated_at` | `timestamptz` | Required for status transition audit trail. Wired to the existing `set_updated_at()` trigger function (defined in migration 00001). |
 
 **RLS:**
 - `participant` audience: row visible to the session owner on the assess surface when `released_at IS NOT NULL`
@@ -129,13 +125,27 @@ A point-in-time render for one participant session + one audience template. Froz
 - `consultant` audience: row visible to campaign owners on admin/partner surfaces when `status IN ('ready', 'released')`
 - Insert/update: service role only (runner executes as service role)
 
+**RLS for `report_templates`:**
+- Read: any authenticated user in the partner scope (partner admins, consultants)
+- Insert/update/delete: partner admins only
+- Platform-global templates (partner_id IS NULL): read-only for all partners
+
+### Snapshot Creation Trigger
+
+When `participant_sessions.status` transitions to `completed`, a Postgres function fires (via trigger) that:
+1. Looks up the `campaign_report_config` for the session's campaign
+2. Creates one `report_snapshot` row per non-null template assignment in the config (`status: pending`)
+3. Calls `pg_notify('report_generation_queue', snapshot_id)` to signal the runner
+
+The runner is a Next.js API route (`POST /api/reports/generate`) that **polls** the `report_snapshots` table for `status = 'pending'` rows on a short interval (consistent with the existing generation pipeline polling pattern). Realtime is not used for v1 — polling is simpler, already established in this codebase, and sufficient given report generation is not latency-critical. The route processes one snapshot per invocation; concurrent invocations handle parallelism naturally. On failure, status → `failed` with `error_message` set; consultant can retry from the admin UI.
+
 ### New AI Prompt Purpose
 
-Add `report_narrative` to the `AIPromptPurpose` enum. Used for AI enhancement of derived narrative blocks.
+Add `report_narrative` to the `AIPromptPurpose` enum. Used for AI enhancement of derived narrative blocks. The migration adding this enum value must also seed an initial `ai_system_prompts` row with `purpose = 'report_narrative'` and `is_active = true` — otherwise `getActiveSystemPrompt('report_narrative')` returns null and the AI enhance path must handle this gracefully (fall back to derived narrative).
 
-### Language Cleanup
+### Language Standard
 
-Audit and replace all instances of "candidate" with "participant" across the codebase, UI copy, database comments, and type definitions.
+"Participant" throughout — not "candidate". The database rename was completed in migration `00031_candidate_to_participant_rename.sql`. All new code, UI copy, and type definitions must follow this convention. Any residual instances of "candidate" in UI copy should be fixed as encountered.
 
 ---
 
@@ -149,13 +159,33 @@ interface BlockConfig {
   type: BlockType         // Key into the block registry
   order: number           // Sort order within the template
   config: Record<string, unknown>  // Block-type-specific settings (see below)
+  condition?: BlockCondition  // Optional — block is skipped if condition not met
   printBreakBefore?: boolean  // Force CSS page break before this block
   printHide?: boolean     // Hide in PDF output (interactive-only elements)
   screenHide?: boolean    // Hide on web (print-only footer, page numbers, etc.)
 }
+
+type BlockCondition =
+  | { type: 'hasNormData' }      // Skip if no norm table exists for this session
+  | { type: 'has360Data' }       // Skip if no rater responses exist
+  | { type: 'scoreAbove'; entityId: string; threshold: number }
+  | { type: 'scoreBelow'; entityId: string; threshold: number }
 ```
 
 No `audiences` field — the template itself is the audience scope.
+
+### Person Reference Substitution
+
+The template's `person_reference` field controls how the participant is referred to in derived and AI-enhanced narrative. The runner replaces the token `{{person}}` at render time:
+
+| Value | Renders as |
+|---|---|
+| `you` | "you" (second person — participant self-report) |
+| `first_name` | Participant's first name, e.g. "Alex" |
+| `participant` | "the participant" (neutral third person) |
+| `the_participant` | "the participant" (same as above, explicit) |
+
+This substitution applies to: derived narrative text assembled by the runner, AI-enhanced narrative responses, and `custom_text` block content authored by admins (admins may use `{{person}}` in their authored text to have it personalised at render time).
 
 ---
 
@@ -164,7 +194,7 @@ No `audiences` field — the template itself is the audience scope.
 ### Meta Blocks
 | Type | Purpose | Key config |
 |---|---|---|
-| `cover_page` | Participant name, assessment title, date, partner branding | `showDate`, `showLogo`, `subtitle` |
+| `cover_page` | Participant name, campaign title (not assessment title — a campaign may contain multiple assessments), date, partner branding | `showDate`, `showLogo`, `subtitle` |
 | `custom_text` | Admin-authored freeform text (intros, disclaimers). Supports markdown. | `content`, `heading` |
 | `section_divider` | Visual break with title and optional subtitle. Controls print pacing. | `title`, `subtitle` |
 
@@ -174,7 +204,7 @@ No `audiences` field — the template itself is the audience scope.
 | `score_overview` | High-level snapshot across all factors/dimensions. Radar or horizontal bars. | `displayLevel`, `groupByDimension`, `showDimensionScore`, `chartType` (radar \| bars), `entityIds` |
 | `score_detail` | One entity's score: bar, band label, definition, indicators, development suggestion. The main workhorse block — one per factor/dimension typically. | `displayLevel`, `entityId`, `showScore`, `showBandLabel`, `showDefinition`, `showIndicators`, `showDevelopment`, `showChildBreakdown` |
 | `strengths_highlights` | Top N entities by score with hero visual treatment. | `topN`, `displayLevel`, `style` (cards \| list) |
-| `norm_comparison` | Percentile/sten rank against a norm group. Condition-gated — only renders if norm data exists. | `normGroupId`, `displayType`, `entityIds` |
+| `norm_comparison` | ~~Percentile/sten rank against a norm group.~~ **Deferred to post-v1.** Session-to-norm-group assignment is not built yet. The block type is registered in the registry so it appears in the builder, but the runner will emit a warning and skip it if included in a template. | — |
 | `development_plan` | Aggregated development suggestions, prioritised by lowest score. | `maxItems`, `prioritiseByScore`, `entityIds` |
 
 ### Score Display Levels
@@ -211,9 +241,29 @@ Executed per snapshot when triggered (on session completion for auto-release tem
 
 ## PDF Output
 
-- Route: `/reports/[snapshotId]?format=print`
-- Puppeteer renders this URL in headless Chrome → saves PDF to Supabase Storage → sets `pdf_url` on snapshot
-- `?format=print` adds `data-print` to document root — Tailwind `print:` variants and `[data-print]` selectors control layout
+### Report Viewer Routes
+
+The report viewer is a surface-aware route that lives on each portal independently:
+
+| Surface | Route | Auth |
+|---|---|---|
+| Assess (participant) | `/assess/[token]/report/[snapshotId]` | Existing token-based auth. Replaces current `ReportScreen` placeholder. Only renders if `released_at IS NOT NULL`. |
+| Client (HR manager) | `/client/reports/[snapshotId]` | Session-based, org-scoped. Only renders if `released_at IS NOT NULL`. |
+| Admin / Partner (consultant) | `/reports/[snapshotId]` | Session-based, partner-scoped. Renders when `status IN ('ready', 'released')`. |
+
+All three routes render the same underlying `<ReportRenderer>` component — they differ only in their auth wrapper and which surface they run on.
+
+### Puppeteer PDF Generation
+
+Puppeteer renders the **admin/partner** route (`/reports/[snapshotId]?format=print`) using a service-role JWT injected as a cookie. This means:
+1. The admin route must accept a service-role token for headless rendering
+2. The generated PDF is stored in Supabase Storage under `reports/{snapshotId}.pdf`
+3. `pdf_url` is set on the snapshot row after successful upload
+4. Participants and HR managers access their PDF via a signed URL generated server-side (not stored directly)
+
+### Print CSS
+
+- `?format=print` adds `data-print="true"` to document root — Tailwind `print:` variants and `[data-print]` selectors control layout
 - `@page { margin: 20mm }` in global CSS
 - Every block component is responsible for its own print rules:
   - `break-inside-avoid` on score cards and narrative sections
@@ -279,14 +329,25 @@ Three templates shipped as Supabase migration seed data so the system is usable 
 **Hiring Manager Brief** (`self_report`, hr_manager audience)
 - Cover page → Score overview (bars, factor-level) → Score detail ×4 (scores + band labels only, no indicators) → Custom text (disclaimer)
 
-**360 Debrief** (`360`, participant + separate consultant copy)
-- Cover page → Custom text (confidentiality notice) → Score overview → Rater comparison → Gap analysis → Score detail ×4 (with indicators) → Open comments → Development plan
+**360 Debrief — Participant** (`360`, participant audience)
+- Cover page → Custom text (confidentiality notice) → Score overview (radar) → Rater comparison → Gap analysis → Score detail ×4 (with indicators) → Development plan
+
+**360 Debrief — Consultant** (`360`, consultant audience)
+- Cover page → Score overview (radar) → Rater comparison → Gap analysis → Score detail ×4 (construct breakdown enabled) → Open comments → Development plan
+
+Note: the two 360 Debrief templates are independent — the consultant version includes `open_comments` and construct-level breakdown; the participant version does not. They share the same block types but have different configurations and ordering. A campaign using 360 would assign both templates in its `campaign_report_config`.
+
+**Seeded template entity references:** The four `score_detail` blocks in each template are seeded with `entityId: null` and a `displayLevel: 'factor'` placeholder. They require post-install configuration once real taxonomy entities exist in the environment. The seeds are functional for preview mode (which uses mock data) but will produce empty blocks in live reports until `entityId` is set via the builder. A future enhancement could auto-populate `score_detail` blocks from the campaign's assessment factors.
+
+**`auto_release` is a template-level setting with no per-campaign override in v1.** If a template has `auto_release: true`, it will auto-release for every campaign that uses it. Choose templates accordingly — a template intended for controlled release should always have `auto_release: false`.
 
 ---
 
 ## Out of Scope for v1
 
 - Norm-derived band thresholds (architecture supports it, implementation deferred until calibration data exists)
+- `norm_comparison` block active rendering (block type registered but skipped at runtime — requires norm group → session assignment to be built first)
+- Per-campaign `auto_release` overrides (template-level setting only in v1)
 - Report versioning / diff between re-generates
 - Scheduled/batch report generation
 - Participant comparison views (side-by-side across a cohort)

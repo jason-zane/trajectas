@@ -236,7 +236,7 @@ export function FlowEditor({
     setSelectedPageId(id)
     setShowAddPage(false)
     toast.success(`"${label}" page added`)
-  }, [flowConfig.customPages])
+  }, [flowConfig])
 
   // --- Preview Flow in new tab ---
   const openFlowPreview = useCallback(() => {

@@ -258,7 +258,7 @@ export class CATEngine {
    */
   processResponse(state: CATState, itemId: string, response: number): CATState {
     // 1. Update the estimate.
-    let newState = this.updateEstimate(state, itemId, response)
+    const newState = this.updateEstimate(state, itemId, response)
 
     // 2. Check termination.
     const { terminate, reason } = this.shouldTerminate(newState)

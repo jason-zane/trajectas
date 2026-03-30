@@ -48,7 +48,7 @@ export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('matching_runs')
-    .select('*, organizations(name), diagnostic_sessions(title), matching_results(count)')
+    .select('*, organizations(name), diagnostic_sessions(name), matching_results(count)')
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -78,7 +78,7 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
   const db = createAdminClient()
   let query = db
     .from('matching_runs')
-    .select('*, organizations(name), diagnostic_sessions(title), matching_results(count)')
+    .select('*, organizations(name), diagnostic_sessions(name), matching_results(count)')
     .order('created_at', { ascending: false })
 
   if (!scope.isPlatformAdmin) {
@@ -136,7 +136,7 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
       organizationId: String(row.organization_id),
       organizationName: organizationRow?.name ? String(organizationRow.name) : '',
       diagnosticSessionId: String(row.diagnostic_session_id),
-      sessionTitle: sessionRow?.title ? String(sessionRow.title) : '',
+      sessionTitle: sessionRow?.name ? String(sessionRow.name) : '',
       status: String(row.status),
       resultCount: getRelatedCount(row.matching_results),
       startedAt: row.started_at ? String(row.started_at) : undefined,

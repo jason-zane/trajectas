@@ -50,7 +50,7 @@ export function walktrap(
 
   // Step 4: Hierarchical clustering (single-linkage) cutting at max modularity
   // Start: each node is its own community
-  let communities = Array.from({ length: n }, (_, i) => i)
+  const communities = Array.from({ length: n }, (_, i) => i)
   let bestCommunities = [...communities]
   let bestModularity = computeModularity(adjacency, communities, degrees, totalVolume)
 
