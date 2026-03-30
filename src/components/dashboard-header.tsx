@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BuildPortalSwitcher } from "@/components/build-portal-switcher";
 
 export function DashboardHeader() {
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -20,7 +21,7 @@ export function DashboardHeader() {
       rafId = requestAnimationFrame(handleScroll);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
-    handleScroll();
+    rafId = requestAnimationFrame(handleScroll);
     return () => {
       window.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(rafId);
@@ -44,6 +45,7 @@ export function DashboardHeader() {
       <SidebarTrigger className="-ml-1" />
       <Breadcrumbs className="flex-1" />
       <div className="ml-auto flex items-center gap-2 shrink-0">
+        <BuildPortalSwitcher variant="header" />
         <ThemeToggle />
         <div className="size-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/10" />
       </div>

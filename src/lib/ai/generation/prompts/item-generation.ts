@@ -46,7 +46,13 @@ export function parseGeneratedItems(jsonContent: string): GeneratedItemRaw[] {
     .replace(/\n?```$/m, '')
     .trim()
 
-  const parsed = JSON.parse(cleaned) as unknown
+  let parsed = JSON.parse(cleaned) as unknown
+  // Models sometimes wrap the array in an object like { "items": [...] }
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const obj = parsed as Record<string, unknown>
+    const firstArray = Object.values(obj).find(Array.isArray)
+    if (firstArray) parsed = firstArray
+  }
   if (!Array.isArray(parsed)) return []
 
   return parsed.filter(

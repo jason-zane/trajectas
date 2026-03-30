@@ -1,15 +1,6 @@
 import { cookies } from "next/headers";
-import {
-  SidebarProvider,
-  SidebarInset,
-} from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { PortalProvider } from "@/components/portal-context";
-import { DashboardHeader } from "@/components/dashboard-header";
-import { CommandPalette } from "@/components/command-palette";
-import { PageTransition } from "@/components/page-transition";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { generateDashboardCSS } from "@/lib/brand/tokens";
+import { WorkspaceShell } from "@/components/workspace-shell";
+import { getWorkspaceRequestContext } from "@/lib/workspace-request";
 
 export default async function DashboardLayout({
   children,
@@ -18,27 +9,16 @@ export default async function DashboardLayout({
 }) {
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
-
-  const brandConfig = await getEffectiveBrand();
-  const dashboardCSS = generateDashboardCSS(brandConfig);
+  const { routePrefix, isLocalDev } = await getWorkspaceRequestContext("admin");
 
   return (
-    <PortalProvider>
-      <style dangerouslySetInnerHTML={{ __html: dashboardCSS }} />
-      <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar />
-        <SidebarInset>
-          <div className="ambient-glow" />
-          <a href="#main-content" className="skip-to-content">Skip to content</a>
-          <DashboardHeader />
-          <main id="main-content" className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-            <div className="mx-auto max-w-7xl">
-              <PageTransition>{children}</PageTransition>
-            </div>
-          </main>
-          <CommandPalette />
-        </SidebarInset>
-      </SidebarProvider>
-    </PortalProvider>
+    <WorkspaceShell
+      defaultOpen={defaultOpen}
+      portal="admin"
+      routePrefix={routePrefix}
+      canSwitchPortal={isLocalDev}
+    >
+      {children}
+    </WorkspaceShell>
   );
 }

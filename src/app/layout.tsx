@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Talent Fit",
-  description: "Psychometric Assessment & Organisational Diagnostic Platform",
+  description: "Psychometric Assessment & Client Diagnostic Platform",
 };
 
 export default function RootLayout({

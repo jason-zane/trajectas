@@ -35,6 +35,7 @@ import {
   acceptGeneratedItems,
   getConstructsForGeneration,
   rerunGenerationRun,
+  cancelGenerationRun,
   exportRunItemsAsCSV,
 } from "@/app/actions/generation"
 import type { GenerationRun, GeneratedItem } from "@/types/database"
@@ -78,7 +79,7 @@ function constructColor(index: number): string {
 // ProgressView
 // ---------------------------------------------------------------------------
 
-function ProgressView({ run }: { run: GenerationRun }) {
+function ProgressView({ run, onCancel }: { run: GenerationRun; onCancel: () => void }) {
   const currentStepKey = run.currentStep as PipelineStepKey | undefined
 
   const currentStepIndex = currentStepKey
@@ -154,9 +155,14 @@ function ProgressView({ run }: { run: GenerationRun }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <Loader2 className="size-4 animate-spin shrink-0" />
-          <span>Generation pipeline is running… polling every 2 seconds.</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin shrink-0" />
+            <span>Generation pipeline is running… polling every 2 seconds.</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={onCancel}>
+            Cancel Run
+          </Button>
         </div>
       </div>
     </div>
@@ -676,6 +682,12 @@ function ReviewView({
     startRerun(async () => {
       const result = await rerunGenerationRun(run.id)
       if (result.success && result.newRunId) {
+        // Kick off pipeline via API route so navigation doesn't abort it
+        fetch("/api/generation/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: result.newRunId }),
+        })
         toast.success("New generation run started")
         router.push(`/generate/${result.newRunId}`)
       } else {
@@ -958,7 +970,9 @@ function ReviewView({
           </Button>
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger
+                render={<span className="inline-flex" />}
+              >
                 <span className={selectedIds.size === 0 || !hasResponseFormat ? "cursor-not-allowed inline-flex" : "inline-flex"}>
                   <Button
                     onClick={handleAccept}
@@ -1107,7 +1121,20 @@ export default function GenerationRunPage({
       {!isFailed && isReviewing && (
         <ReviewView run={run} items={items} constructNameMap={constructNameMap} />
       )}
-      {!isFailed && !isReviewing && <ProgressView run={run} />}
+      {!isFailed && !isReviewing && (
+        <ProgressView
+          run={run}
+          onCancel={async () => {
+            const result = await cancelGenerationRun(runId)
+            if (result.success) {
+              toast.error("Run cancelled")
+              fetchData()
+            } else {
+              toast.error(result.error ?? "Failed to cancel run")
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

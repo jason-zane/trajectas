@@ -1,6 +1,14 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  AuthorizationError,
+  getAccessibleCampaignIds,
+  requireCampaignAccess,
+  requireParticipantAccess,
+  requireSessionAccess,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
 import type { CampaignParticipant, CampaignParticipantStatus } from '@/types/database'
 
@@ -73,10 +81,29 @@ export async function getParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: ParticipantWithMeta[]; total: number }> {
+  const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const page = filters?.page ?? 1
   const perPage = filters?.perPage ?? 50
   const offset = (page - 1) * perPage
+  let scopedCampaignIds: string[] | null = null
+
+  if (filters?.campaignId) {
+    try {
+      await requireCampaignAccess(filters.campaignId)
+      scopedCampaignIds = [filters.campaignId]
+    } catch (error) {
+      if (error instanceof AuthorizationError) {
+        return { data: [], total: 0 }
+      }
+      throw error
+    }
+  } else if (!scope.isPlatformAdmin) {
+    scopedCampaignIds = await getAccessibleCampaignIds(scope)
+    if (!scopedCampaignIds || scopedCampaignIds.length === 0) {
+      return { data: [], total: 0 }
+    }
+  }
 
   // Build query
   let query = db
@@ -90,8 +117,10 @@ export async function getParticipants(filters?: {
   if (filters?.status) {
     query = query.eq('status', filters.status)
   }
-  if (filters?.campaignId) {
-    query = query.eq('campaign_id', filters.campaignId)
+  if (scopedCampaignIds?.length === 1) {
+    query = query.eq('campaign_id', scopedCampaignIds[0])
+  } else if (scopedCampaignIds && scopedCampaignIds.length > 1) {
+    query = query.in('campaign_id', scopedCampaignIds)
   }
   if (filters?.search) {
     query = query.or(`email.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%`)
@@ -136,6 +165,15 @@ export async function getParticipants(filters?: {
 // ---------------------------------------------------------------------------
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
+  try {
+    await requireParticipantAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   const { data: row, error } = await db
@@ -164,6 +202,15 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 // ---------------------------------------------------------------------------
 
 export async function getParticipantSessions(participantId: string): Promise<ParticipantSession[]> {
+  try {
+    await requireParticipantAccess(participantId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return []
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   const { data: sessionRows, error } = await db
@@ -215,6 +262,15 @@ export async function getParticipantSessions(participantId: string): Promise<Par
 // ---------------------------------------------------------------------------
 
 export async function getParticipantActivity(participantId: string): Promise<ActivityEvent[]> {
+  try {
+    await requireParticipantAccess(participantId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return []
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   // Get participant record
@@ -291,6 +347,15 @@ export async function getParticipantActivity(participantId: string): Promise<Act
 // ---------------------------------------------------------------------------
 
 export async function getParticipantResponses(sessionId: string): Promise<ParticipantResponseGroup[]> {
+  try {
+    await requireSessionAccess(sessionId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return []
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   // Get session's assessment
@@ -335,7 +400,6 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
     sectionId: s.id,
     sectionTitle: s.title,
     displayOrder: s.display_order,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     items: (s.assessment_section_items ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .sort((a: any, b: any) => a.display_order - b.display_order)

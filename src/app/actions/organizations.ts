@@ -3,6 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapOrganizationRow, toOrganizationInsert } from '@/lib/supabase/mappers'
+import {
+  AuthorizationError,
+  canManageClientDirectory,
+  getPreferredPartnerIdForClientCreation,
+  requireOrganizationAccess,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { organizationSchema } from '@/lib/validations/organizations'
 import type { Organization } from '@/types/database'
 
@@ -12,12 +20,22 @@ export type OrganizationWithCounts = Organization & {
 }
 
 export async function getOrganizations(): Promise<OrganizationWithCounts[]> {
+  const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
-  const { data, error } = await db
+  let query = db
     .from('organizations')
     .select('*, assessments(count), diagnostic_sessions(count)')
     .is('deleted_at', null)
     .order('name', { ascending: true })
+
+  if (!scope.isPlatformAdmin) {
+    if (scope.clientIds.length === 0) {
+      return []
+    }
+    query = query.in('id', scope.clientIds)
+  }
+
+  const { data, error } = await query
 
   if (error) throw new Error(error.message)
 
@@ -42,7 +60,16 @@ export async function getOrganizationBySlug(slug: string): Promise<Organization 
     .single()
 
   if (error) return null
-  return mapOrganizationRow(data)
+  const scope = await resolveAuthorizedScope()
+  const organization = mapOrganizationRow(data)
+
+  const hasAccess =
+    scope.isPlatformAdmin ||
+    scope.clientIds.includes(organization.id) ||
+    (organization.partnerId ? scope.partnerIds.includes(organization.partnerId) : false)
+
+  if (!hasAccess) return null
+  return organization
 }
 
 export async function createOrganization(formData: FormData) {
@@ -59,8 +86,24 @@ export async function createOrganization(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  const scope = await resolveAuthorizedScope()
+  if (!canManageClientDirectory(scope)) {
+    return { error: { _form: ['You do not have permission to create clients'] } }
+  }
+
+  let partnerId: string | undefined
+  try {
+    partnerId = getPreferredPartnerIdForClientCreation(scope) ?? undefined
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const insert = toOrganizationInsert({
+    partnerId,
     name: parsed.data.name,
     slug: parsed.data.slug,
     industry: parsed.data.industry,
@@ -75,6 +118,19 @@ export async function createOrganization(formData: FormData) {
     .single()
 
   if (error) return { error: { _form: [error.message] } }
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'client.created',
+    targetTable: 'organizations',
+    targetId: created.id,
+    partnerId: partnerId ?? null,
+    clientId: created.id,
+    metadata: {
+      slug: parsed.data.slug,
+      isLocalDevelopmentBypass: scope.isLocalDevelopmentBypass,
+    },
+  })
 
   revalidatePath('/organizations')
   revalidatePath('/')
@@ -95,6 +151,23 @@ export async function updateOrganization(id: string, formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  let access
+  try {
+    access = await requireOrganizationAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
+  }
+
+  if (
+    !access.scope.isPlatformAdmin &&
+    (!access.partnerId || !access.scope.partnerIds.includes(access.partnerId))
+  ) {
+    return { error: { _form: ['You do not have permission to update this client'] } }
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('organizations')
@@ -109,12 +182,42 @@ export async function updateOrganization(id: string, formData: FormData) {
 
   if (error) return { error: { _form: [error.message] } }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'client.updated',
+    targetTable: 'organizations',
+    targetId: id,
+    partnerId: access.partnerId ?? null,
+    clientId: id,
+    metadata: {
+      slug: parsed.data.slug,
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
+
   revalidatePath('/organizations')
   revalidatePath('/')
   return { success: true as const, id, slug: parsed.data.slug }
 }
 
 export async function deleteOrganization(id: string) {
+  let access
+  try {
+    access = await requireOrganizationAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (
+    !access.scope.isPlatformAdmin &&
+    (!access.partnerId || !access.scope.partnerIds.includes(access.partnerId))
+  ) {
+    return { error: 'You do not have permission to delete this client' }
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('organizations')
@@ -123,11 +226,40 @@ export async function deleteOrganization(id: string) {
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'client.deleted',
+    targetTable: 'organizations',
+    targetId: id,
+    partnerId: access.partnerId ?? null,
+    clientId: id,
+    metadata: {
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
+
   revalidatePath('/organizations')
   revalidatePath('/')
 }
 
 export async function restoreOrganization(id: string) {
+  let access
+  try {
+    access = await requireOrganizationAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (
+    !access.scope.isPlatformAdmin &&
+    (!access.partnerId || !access.scope.partnerIds.includes(access.partnerId))
+  ) {
+    return { error: 'You do not have permission to restore this client' }
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('organizations')
@@ -135,6 +267,18 @@ export async function restoreOrganization(id: string) {
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'client.restored',
+    targetTable: 'organizations',
+    targetId: id,
+    partnerId: access.partnerId ?? null,
+    clientId: id,
+    metadata: {
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
 
   revalidatePath('/organizations')
   revalidatePath('/')

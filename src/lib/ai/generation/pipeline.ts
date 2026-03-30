@@ -22,7 +22,7 @@ import { cosineSimilarityMatrix }     from './network/correlation'
 import { buildNetwork }               from './network/network-builder'
 import { walktrap }                   from './network/walktrap'
 import { computeNMI }                 from './network/nmi'
-import { findRedundantItems }         from './network/wto'
+import { findRedundantItemsIterative } from './network/wto'
 import { bootstrapStability }         from './network/bootstrap'
 import { detectLeakage }              from './network/leakage'
 import type {
@@ -36,7 +36,7 @@ import type { ProgressCallback }      from './types'
 const BATCH_SIZE       = 20
 const WTO_CUTOFF       = 0.20
 const STABILITY_CUTOFF = 0.75
-const N_BOOTSTRAPS     = 50
+const N_BOOTSTRAPS     = 100
 
 export async function runPipeline(
   config:     GenerationRunConfig,
@@ -66,12 +66,15 @@ export async function runPipeline(
 
   const responseFormatDesc = 'A 5-point Likert scale from "Strongly Disagree" to "Strongly Agree"'
 
+  const MAX_CONSECUTIVE_FAILURES = 5
+
   for (const construct of constructs) {
     const target      = config.targetItemsPerConstruct
     const accumulated: string[] = []
     let attempts      = 0
+    let consecutiveFailures = 0
 
-    while (accumulated.length < target && attempts < target * 3) {
+    while (accumulated.length < target && attempts < Math.ceil(target / BATCH_SIZE) + 3) {
       attempts++
       const needed = Math.min(BATCH_SIZE, target - accumulated.length)
       const prompt = buildItemGenerationPrompt({
@@ -95,13 +98,28 @@ export async function runPipeline(
 
       try {
         const parsed = parseGeneratedItems(response.content)
+        if (parsed.length === 0) {
+          consecutiveFailures++
+          console.warn(`[pipeline] Empty parse result for ${construct.name} attempt ${attempts}. Raw response (first 500 chars):`, response.content.slice(0, 500))
+        } else {
+          consecutiveFailures = 0
+        }
         for (const item of parsed) {
           if (item.stem && !accumulated.includes(item.stem)) {
             accumulated.push(item.stem)
             rawCandidates.push({ constructId: construct.id, ...item })
           }
         }
-      } catch { /* skip malformed batch */ }
+      } catch (parseError) {
+        consecutiveFailures++
+        console.warn(`[pipeline] JSON parse failed for ${construct.name} attempt ${attempts}:`, parseError instanceof Error ? parseError.message : parseError, '— Raw (first 500 chars):', response.content.slice(0, 500))
+      }
+
+      // Bail if the model consistently returns unparseable responses
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.error(`[pipeline] ${MAX_CONSECUTIVE_FAILURES} consecutive parse failures for ${construct.name} — skipping construct`)
+        break
+      }
     }
   }
 
@@ -134,7 +152,11 @@ export async function runPipeline(
   // ---------------------------------------------------------------------------
   // Step 4: UVA — redundancy removal
   // ---------------------------------------------------------------------------
-  const { redundantIndices, wtoScores } = findRedundantItems(adjacency, WTO_CUTOFF)
+  const { redundantIndices, wtoScores } = findRedundantItemsIterative(
+    embeddings,
+    WTO_CUTOFF,
+    (corrMatrix) => buildNetwork(corrMatrix).adjacency,
+  )
 
   await onProgress('boot_ega', 75)
 

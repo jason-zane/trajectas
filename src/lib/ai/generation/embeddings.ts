@@ -6,6 +6,7 @@
  */
 import OpenAI from 'openai'
 import { getModelForTask } from '@/lib/ai/model-config'
+import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/providers/openrouter-retry'
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const BATCH_SIZE = 100   // OpenRouter limit per request
@@ -17,6 +18,7 @@ function getEmbeddingClient(): OpenAI {
   return new OpenAI({
     apiKey:         process.env.OpenRouter_API_KEY,
     baseURL:        OPENROUTER_BASE_URL,
+    timeout:        60_000, // 1 min — embedding calls are fast, fail early
     defaultHeaders: {
       'HTTP-Referer': 'https://talent-fit.app',
       'X-Title':      'Talent Fit',
@@ -40,9 +42,13 @@ export async function embedTexts(
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE)
-    const response = await client.embeddings.create({
-      model: resolvedModel,
-      input: batch,
+    const response = await withOpenRouterRetry(() =>
+      client.embeddings.create({
+        model: resolvedModel,
+        input: batch,
+      })
+    ).catch((error) => {
+      throw new Error(`Embedding request failed: ${getOpenRouterErrorMessage(error)}`)
     })
     // OpenAI SDK returns embeddings sorted by index
     const batchEmbeddings = response.data

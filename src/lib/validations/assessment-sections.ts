@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import { postgresUuid } from './uuid'
 
 export const assessmentSectionSchema = z.object({
   assessmentId: z.string().uuid(),
-  responseFormatId: z.string().uuid(),
+  responseFormatId: postgresUuid(),
   title: z.string().min(1, 'Title is required').max(300),
   instructions: z.string().max(4000).optional(),
   displayOrder: z.coerce.number().int().min(0).default(0),

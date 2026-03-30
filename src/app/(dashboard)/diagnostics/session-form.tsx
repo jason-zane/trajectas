@@ -56,7 +56,7 @@ export function SessionForm({ organizations, templates }: SessionFormProps) {
     <div className="space-y-8 max-w-2xl">
       <PageHeader
         title="New Diagnostic Session"
-        description="Create a new diagnostic session for a client organisation."
+        description="Create a new diagnostic session for a client."
       />
 
       <form action={handleSubmit}>
@@ -91,14 +91,14 @@ export function SessionForm({ organizations, templates }: SessionFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label>Organisation</Label>
+              <Label>Client</Label>
               <Select
                 name="organizationId"
                 value={organizationId}
                 onValueChange={(v) => setOrganizationId(v ?? "")}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select an organisation...">
+                  <SelectValue placeholder="Select a client...">
                     {(value: string) =>
                       organizations.find((o) => o.id === value)?.name ?? value
                     }
@@ -114,7 +114,7 @@ export function SessionForm({ organizations, templates }: SessionFormProps) {
               </Select>
               {organizations.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  No active organisations found.{" "}
+                  No active clients found.{" "}
                   <Link
                     href="/organizations"
                     className="text-primary underline underline-offset-2"

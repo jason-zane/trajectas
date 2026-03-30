@@ -28,7 +28,6 @@ import {
   getConstructsForGeneration,
   getResponseFormatsForGeneration,
   createGenerationRun,
-  startGenerationRun,
   checkConstructReadiness,
 } from "@/app/actions/generation";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
@@ -805,7 +804,12 @@ export default function NewGenerationPage() {
     if (n > maxReached) setMaxReached(n);
   }
 
+  const [launched, setLaunched] = useState(false);
+
   function handleLaunch() {
+    if (launched) return; // Prevent double-click
+    setLaunched(true);
+
     startTransition(async () => {
       try {
         const runConfig: GenerationRunConfig = {
@@ -818,16 +822,20 @@ export default function NewGenerationPage() {
         };
 
         const run = await createGenerationRun(runConfig);
-        const result = await startGenerationRun(run.id);
 
-        if (!result.success) {
-          toast.error(result.error ?? "Failed to start generation run");
-          return;
-        }
+        // Kick off the pipeline via API route (not server action) so that
+        // client-side navigation doesn't abort the long-running pipeline.
+        // We don't await — the detail page polls for progress.
+        fetch("/api/generation/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ runId: run.id }),
+        });
 
-        toast.success("Generation run started — reviewing results shortly");
+        toast.success("Generation run started");
         router.push(`/generate/${run.id}`);
       } catch (err) {
+        setLaunched(false);
         toast.error(err instanceof Error ? err.message : "Failed to launch generation run");
       }
     });
@@ -885,7 +893,7 @@ export default function NewGenerationPage() {
               responseFormats={responseFormats}
               onBack={() => goToStep(3)}
               onLaunch={handleLaunch}
-              isLaunching={isPending}
+              isLaunching={isPending || launched}
             />
           )}
         </div>

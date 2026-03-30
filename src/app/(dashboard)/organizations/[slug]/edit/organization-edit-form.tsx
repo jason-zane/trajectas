@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Trash2 } from "lucide-react";
@@ -54,20 +54,20 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
   const pending = saveState === "saving";
 
   // --- Structural dirty tracking ---
-  const initialStructural = useRef({
+  const [initialStructural, setInitialStructural] = useState(() => ({
     name: organization.name,
     slug: organization.slug,
     industry: organization.industry ?? "",
     sizeRange: organization.sizeRange ?? "",
     isActive: organization.isActive,
-  });
+  }));
 
   const isDirty =
-    name !== initialStructural.current.name ||
-    slug !== initialStructural.current.slug ||
-    industry !== initialStructural.current.industry ||
-    sizeRange !== initialStructural.current.sizeRange ||
-    isActive !== initialStructural.current.isActive;
+    name !== initialStructural.name ||
+    slug !== initialStructural.slug ||
+    industry !== initialStructural.industry ||
+    sizeRange !== initialStructural.sizeRange ||
+    isActive !== initialStructural.isActive;
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(isDirty);
@@ -107,7 +107,7 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
       toast.success("Changes saved");
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
-      initialStructural.current = { name, slug, industry, sizeRange, isActive };
+      setInitialStructural({ name, slug, industry, sizeRange, isActive });
       if (result.slug !== organization.slug) {
         router.replace(`/organizations/${result.slug}/edit`, { scroll: false });
       }
@@ -131,14 +131,14 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
       if (!undone) router.push("/organizations");
     }, 5000);
 
-    toast.success("Organisation deleted", {
+    toast.success("Client deleted", {
       action: {
         label: "Undo",
         onClick: async () => {
           undone = true;
           clearTimeout(timer);
           await restoreOrganization(organization.id);
-          toast.success("Organisation restored");
+          toast.success("Client restored");
           setDeleting(false);
         },
       },
@@ -155,10 +155,10 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="size-3.5" />
-          Back to Organisations
+          Back to Clients
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
-          Edit Organisation
+          Edit Client
         </h1>
         <p className="text-sm text-muted-foreground mt-1.5">
           Update the details for &ldquo;{organization.name}&rdquo;.
@@ -171,9 +171,9 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
       <form action={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle>Organisation Details</CardTitle>
+            <CardTitle>Client Details</CardTitle>
             <CardDescription>
-              Update the information for this organisation.
+              Update the information for this client.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -249,7 +249,7 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
               <div className="space-y-0.5">
                 <Label htmlFor="active">Active</Label>
                 <p className="text-xs text-muted-foreground">
-                  Inactive organisations are hidden from assessments and diagnostics.
+                  Inactive clients are hidden from assessments and diagnostics.
                 </p>
               </div>
               <Switch
@@ -276,7 +276,7 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
             disabled={deleting}
           >
             <Trash2 className="size-4" />
-            Delete Organisation
+            Delete Client
           </Button>
           <div className="flex items-center gap-3">
             <Link href="/organizations">
@@ -293,7 +293,7 @@ export function OrganizationEditForm({ organization }: { organization: Organizat
       <ConfirmDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
-        title="Delete Organisation"
+        title="Delete Client"
         description={`This will soft-delete "${organization.name}". You can undo this action for a few seconds after deletion.`}
         confirmLabel="Delete"
         variant="destructive"

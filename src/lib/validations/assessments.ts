@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { postgresUuid } from './uuid'
 
 export const assessmentSchema = z.object({
   title: z.string().min(1, 'Title is required').max(300),
@@ -10,7 +11,7 @@ export const assessmentSchema = z.object({
   formatMode: z.enum(['traditional', 'forced_choice']).default('traditional'),
   fcBlockSize: z.coerce.number().int().min(3).max(4).optional(),
   factors: z.array(z.object({
-    factorId: z.string().uuid(),
+    factorId: postgresUuid(),
     weight: z.coerce.number().positive().default(1),
     itemCount: z.coerce.number().int().min(0).default(0),
   })).default([]),

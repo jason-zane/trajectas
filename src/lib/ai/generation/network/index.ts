@@ -45,10 +45,11 @@ export class NetworkAnalyzerImpl implements NetworkAnalyzer {
 }
 
 export { cosineSimilarityMatrix }            from './correlation'
-export { buildNetwork }                      from './network-builder'
+export { buildNetwork, isConnected }         from './network-builder'
+export { buildTMFG }                         from './tmfg'
 export { walktrap }                          from './walktrap'
 export { computeNMI, computeAMI }            from './nmi'
-export { findRedundantItems, computeWTO }    from './wto'
+export { findRedundantItems, findRedundantItemsIterative, computeWTO } from './wto'
 export { bootstrapStability }                from './bootstrap'
 export { detectLeakage }                     from './leakage'
 export type { LeakageResult }                from './leakage'

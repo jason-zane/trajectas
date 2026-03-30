@@ -3,6 +3,15 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  assertAdminOnly,
+  AuthorizationError,
+  canAccessClient,
+  getAccessibleCampaignIds,
+  requireCampaignAccess,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
+import {
   mapCampaignRow,
   mapCampaignAssessmentRow,
   mapCampaignParticipantRow,
@@ -33,13 +42,40 @@ export type CampaignDetail = Campaign & {
 // Reads
 // ---------------------------------------------------------------------------
 
-export async function getCampaigns(): Promise<CampaignWithMeta[]> {
+async function getOrganizationPartnerId(organizationId: string) {
   const db = createAdminClient()
   const { data, error } = await db
+    .from('organizations')
+    .select('id, partner_id')
+    .eq('id', organizationId)
+    .is('deleted_at', null)
+    .single()
+
+  if (error || !data) {
+    throw new AuthorizationError('Selected client is not available.')
+  }
+
+  return data.partner_id ? String(data.partner_id) : null
+}
+
+export async function getCampaigns(): Promise<CampaignWithMeta[]> {
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
+  let query = db
     .from('campaigns')
     .select('*, organizations(name), campaign_participants(count), campaign_assessments(count)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+
+  if (!scope.isPlatformAdmin) {
+    const campaignIds = await getAccessibleCampaignIds(scope)
+    if (!campaignIds || campaignIds.length === 0) {
+      return []
+    }
+    query = query.in('id', campaignIds)
+  }
+
+  const { data, error } = await query
 
   if (error) throw new Error(error.message)
 
@@ -70,6 +106,15 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
 }
 
 export async function getCampaignById(id: string): Promise<CampaignDetail | null> {
+  try {
+    await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { data, error } = await db
     .from('campaigns')
@@ -128,6 +173,24 @@ export async function createCampaign(payload: Record<string, unknown>) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  const scope = await resolveAuthorizedScope()
+  const organizationId = parsed.data.organizationId || null
+
+  if (!scope.isPlatformAdmin) {
+    if (!organizationId) {
+      return { error: { organizationId: ['Campaigns must belong to a client context'] } }
+    }
+
+    if (!canAccessClient(scope, organizationId)) {
+      return { error: { organizationId: ['You do not have access to this client'] } }
+    }
+  }
+
+  const partnerId =
+    organizationId
+      ? await getOrganizationPartnerId(organizationId)
+      : (parsed.data.partnerId || null)
+
   const db = createAdminClient()
   const { data: campaign, error } = await db
     .from('campaigns')
@@ -136,8 +199,8 @@ export async function createCampaign(payload: Record<string, unknown>) {
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
       status: parsed.data.status,
-      organization_id: parsed.data.organizationId || null,
-      partner_id: parsed.data.partnerId || null,
+      organization_id: organizationId,
+      partner_id: partnerId,
       opens_at: parsed.data.opensAt || null,
       closes_at: parsed.data.closesAt || null,
       allow_resume: parsed.data.allowResume,
@@ -148,6 +211,19 @@ export async function createCampaign(payload: Record<string, unknown>) {
     .single()
 
   if (error) return { error: { _form: [error.message] } }
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'campaign.created',
+    targetTable: 'campaigns',
+    targetId: campaign.id,
+    partnerId,
+    clientId: organizationId,
+    metadata: {
+      slug: parsed.data.slug,
+      isLocalDevelopmentBypass: scope.isLocalDevelopmentBypass,
+    },
+  })
 
   revalidatePath('/campaigns')
   revalidatePath('/')
@@ -160,6 +236,29 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
+  }
+
+  const organizationId = parsed.data.organizationId || access.organizationId || null
+
+  if (!access.scope.isPlatformAdmin) {
+    if (!organizationId || !canAccessClient(access.scope, organizationId)) {
+      return { error: { organizationId: ['You do not have access to this client'] } }
+    }
+  }
+
+  const partnerId =
+    organizationId
+      ? await getOrganizationPartnerId(organizationId)
+      : (parsed.data.partnerId || access.partnerId || null)
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -167,8 +266,8 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
       title: parsed.data.title,
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
-      organization_id: parsed.data.organizationId || null,
-      partner_id: parsed.data.partnerId || null,
+      organization_id: organizationId,
+      partner_id: partnerId,
       opens_at: parsed.data.opensAt || null,
       closes_at: parsed.data.closesAt || null,
       allow_resume: parsed.data.allowResume,
@@ -178,6 +277,19 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
     .eq('id', id)
 
   if (error) return { error: { _form: [error.message] } }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.updated',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId,
+    clientId: organizationId,
+    metadata: {
+      slug: parsed.data.slug,
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
 
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
@@ -194,6 +306,16 @@ export async function updateCampaignField(id: string, field: string, value: stri
     return { error: 'Only description can be auto-saved' }
   }
 
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -201,6 +323,19 @@ export async function updateCampaignField(id: string, field: string, value: stri
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.description.updated',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: {
+      field,
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
 
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
@@ -211,6 +346,16 @@ export async function updateCampaignField(id: string, field: string, value: stri
 // ---------------------------------------------------------------------------
 
 export async function deleteCampaign(id: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -219,11 +364,33 @@ export async function deleteCampaign(id: string) {
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.deleted',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: {
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
+
   revalidatePath('/campaigns')
   revalidatePath('/')
 }
 
 export async function restoreCampaign(id: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -231,6 +398,18 @@ export async function restoreCampaign(id: string) {
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.restored',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: {
+      isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
+    },
+  })
 
   revalidatePath('/campaigns')
   revalidatePath('/')
@@ -241,6 +420,16 @@ export async function restoreCampaign(id: string) {
 // ---------------------------------------------------------------------------
 
 export async function activateCampaign(id: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -249,11 +438,30 @@ export async function activateCampaign(id: string) {
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.activated',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+  })
+
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
 }
 
 export async function pauseCampaign(id: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -262,11 +470,30 @@ export async function pauseCampaign(id: string) {
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.paused',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+  })
+
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
 }
 
 export async function closeCampaign(id: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -274,6 +501,15 @@ export async function closeCampaign(id: string) {
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.closed',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+  })
 
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
@@ -289,6 +525,16 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
     return { error: `Cannot toggle ${field}` }
   }
 
+  let access
+  try {
+    access = await requireCampaignAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaigns')
@@ -296,6 +542,16 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.setting.updated',
+    targetTable: 'campaigns',
+    targetId: id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { field, value },
+  })
 
   revalidatePath(`/campaigns/${id}`)
 }
@@ -305,6 +561,16 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
 // ---------------------------------------------------------------------------
 
 export async function addAssessmentToCampaign(campaignId: string, assessmentId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   // Get max display order
@@ -327,10 +593,30 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.assessment.added',
+    targetTable: 'campaigns',
+    targetId: campaignId,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { assessmentId },
+  })
+
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
 export async function removeAssessmentFromCampaign(campaignId: string, assessmentId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_assessments')
@@ -340,10 +626,30 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.assessment.removed',
+    targetTable: 'campaigns',
+    targetId: campaignId,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { assessmentId },
+  })
+
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
 export async function reorderCampaignAssessments(campaignId: string, orderedIds: string[]) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
 
   for (let i = 0; i < orderedIds.length; i++) {
@@ -357,6 +663,16 @@ export async function reorderCampaignAssessments(campaignId: string, orderedIds:
   }
 
   revalidatePath(`/campaigns/${campaignId}`)
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.assessments.reordered',
+    targetTable: 'campaigns',
+    targetId: campaignId,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { orderedIds },
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -367,6 +683,16 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
   const parsed = inviteParticipantSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
+  }
+
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
   }
 
   const db = createAdminClient()
@@ -388,6 +714,16 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     return { error: { _form: [error.message] } }
   }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.participant.invited',
+    targetTable: 'campaign_participants',
+    targetId: data.id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { campaignId, email: parsed.data.email },
+  })
+
   revalidatePath(`/campaigns/${campaignId}`)
   return { success: true as const, id: data.id, accessToken: data.access_token }
 }
@@ -396,6 +732,16 @@ export async function bulkInviteParticipants(
   campaignId: string,
   participants: { email: string; firstName?: string; lastName?: string }[],
 ) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const rows = participants.map((c) => ({
     campaign_id: campaignId,
@@ -411,11 +757,33 @@ export async function bulkInviteParticipants(
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.participants.bulk_invited',
+    targetTable: 'campaigns',
+    targetId: campaignId,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: {
+      count: data?.length ?? 0,
+    },
+  })
+
   revalidatePath(`/campaigns/${campaignId}`)
   return { success: true as const, count: data?.length ?? 0 }
 }
 
 export async function removeParticipant(campaignId: string, participantId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
@@ -424,6 +792,16 @@ export async function removeParticipant(campaignId: string, participantId: strin
     .eq('campaign_id', campaignId)
 
   if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.participant.removed',
+    targetTable: 'campaign_participants',
+    targetId: participantId,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { campaignId },
+  })
 
   revalidatePath(`/campaigns/${campaignId}`)
 }
@@ -436,6 +814,16 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
   const parsed = accessLinkSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
+  }
+
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
   }
 
   const db = createAdminClient()
@@ -452,11 +840,35 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
 
   if (error) return { error: { _form: [error.message] } }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.access_link.created',
+    targetTable: 'campaign_access_links',
+    targetId: data.id,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: {
+      campaignId,
+      expiresAt: parsed.data.expiresAt || null,
+      maxUses: parsed.data.maxUses ?? null,
+    },
+  })
+
   revalidatePath(`/campaigns/${campaignId}`)
   return { success: true as const, id: data.id, token: data.token }
 }
 
 export async function deactivateAccessLink(campaignId: string, linkId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_access_links')
@@ -466,6 +878,16 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
 
   if (error) return { error: error.message }
 
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.access_link.deactivated',
+    targetTable: 'campaign_access_links',
+    targetId: linkId,
+    partnerId: access.partnerId,
+    clientId: access.organizationId,
+    metadata: { campaignId },
+  })
+
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
@@ -474,6 +896,8 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
 // ---------------------------------------------------------------------------
 
 export async function getActiveAssessments() {
+  const scope = await resolveAuthorizedScope()
+  assertAdminOnly(scope)
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')

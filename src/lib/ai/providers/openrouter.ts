@@ -11,6 +11,7 @@ import type { AIModelRequest, AIModelResponse, AIProviderType } from '@/types/ai
 import { ProviderRequestError } from '@/types/ai'
 import type { AIProvider } from './base'
 import type { OpenRouterModel } from '@/types/generation'
+import { getOpenRouterErrorMessage, withOpenRouterRetry } from './openrouter-retry'
 
 /** Default maximum tokens if not provided in the request. */
 const DEFAULT_MAX_TOKENS = 4096
@@ -33,6 +34,7 @@ export class OpenRouterProvider implements AIProvider {
       this.client = new OpenAI({
         apiKey: process.env.OpenRouter_API_KEY,
         baseURL: OPENROUTER_BASE_URL,
+        timeout: 120_000, // 2 min per request — fail fast so retries can kick in
         defaultHeaders: {
           'HTTP-Referer': 'https://talent-fit.app',
           'X-Title': 'Talent Fit',
@@ -48,6 +50,7 @@ export class OpenRouterProvider implements AIProvider {
       if (!request.model) {
         throw new Error('OpenRouter requests must provide an explicit model.')
       }
+      const model = request.model
 
       const messages: OpenAI.ChatCompletionMessageParam[] = []
       if (request.systemPrompt) {
@@ -55,15 +58,17 @@ export class OpenRouterProvider implements AIProvider {
       }
       messages.push({ role: 'user', content: request.prompt })
 
-      const response = await client.chat.completions.create({
-        model: request.model,
-        messages,
-        max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
-        ...(request.temperature !== undefined && { temperature: request.temperature }),
-        ...(request.responseFormat === 'json' && {
-          response_format: { type: 'json_object' as const },
-        }),
-      })
+      const response = await withOpenRouterRetry(() =>
+        client.chat.completions.create({
+          model,
+          messages,
+          max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
+          ...(request.temperature !== undefined && { temperature: request.temperature }),
+          ...(request.responseFormat === 'json' && {
+            response_format: { type: 'json_object' as const },
+          }),
+        })
+      )
 
       const choice = response.choices[0]
       if (!choice) {
@@ -81,7 +86,7 @@ export class OpenRouterProvider implements AIProvider {
       }
     } catch (error) {
       if (error instanceof ProviderRequestError) throw error
-      throw new ProviderRequestError('openrouter', error)
+      throw new ProviderRequestError('openrouter', getOpenRouterErrorMessage(error))
     }
   }
 

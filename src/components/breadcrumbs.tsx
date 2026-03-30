@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils"
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const INTERNAL_WORKSPACE_SEGMENTS = new Set(["partner", "client"])
 
 // Segments that have their own page (i.e. a list/index page)
 const ROUTABLE_SEGMENTS = new Set([
@@ -54,7 +55,7 @@ const segmentConfig: Record<
   assessments: { label: "Assessments" },
   diagnostics: { label: "Diagnostics" },
   templates: { label: "Templates" },
-  organizations: { label: "Organisations" },
+  organizations: { label: "Clients" },
   matching: { label: "AI Matching" },
   psychometrics: { label: "Psychometrics" },
   reliability: { label: "Scale Reliability" },
@@ -81,6 +82,7 @@ export function Breadcrumbs({ className }: { className?: string }) {
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i]
     if (UUID_RE.test(segment)) continue
+    if (i === 0 && INTERNAL_WORKSPACE_SEGMENTS.has(segment)) continue
 
     const href = "/" + segments.slice(0, i + 1).join("/")
     const config = segmentConfig[segment] || {

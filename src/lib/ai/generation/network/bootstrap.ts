@@ -23,6 +23,7 @@ export function bootstrapStability(
 
   // Track community assignments per bootstrap iteration per item
   const communityHistory: number[][] = Array.from({ length: n }, () => [])
+  let successfulIterations = 0
 
   for (let b = 0; b < nBootstraps; b++) {
     // Resample with replacement
@@ -40,25 +41,33 @@ export function bootstrapStability(
         const originalIdx = sampleIndices[si]
         communityHistory[originalIdx].push(communities[si]?.communityId ?? 0)
       }
+      successfulIterations++
     } catch {
-      // Skip failed iterations
+      // Skip failed iterations — tracked via successfulIterations count
     }
   }
 
+  // If less than half of bootstrap iterations succeeded, the network is
+  // too unstable to draw conclusions — don't flag anything as unstable
+  const tooFewIterations = successfulIterations < nBootstraps * 0.5
+
   // Compute stability as proportion in modal community
   const stabilityScores = communityHistory.map(history => {
-    if (history.length === 0) return 0
+    if (history.length === 0) return tooFewIterations ? 1.0 : 0
     const counts = new Map<number, number>()
     for (const c of history) counts.set(c, (counts.get(c) ?? 0) + 1)
     const modalCount = Math.max(...counts.values())
     return modalCount / history.length
   })
 
-  const unstableIndices = new Set(
-    stabilityScores
-      .map((s, i) => s < stabilityCutoff ? i : -1)
-      .filter(i => i !== -1)
-  )
+  // Don't flag anything if bootstrap itself was unreliable
+  const unstableIndices = tooFewIterations
+    ? new Set<number>()
+    : new Set(
+        stabilityScores
+          .map((s, i) => s < stabilityCutoff ? i : -1)
+          .filter(i => i !== -1)
+      )
 
   return { stabilityScores, unstableIndices }
 }

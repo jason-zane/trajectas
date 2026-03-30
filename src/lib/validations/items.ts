@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { postgresUuid } from './uuid'
 
 export const itemPurposeEnum = z.enum(['construct', 'impression_management', 'infrequency', 'attention_check'])
 
 export const itemSchema = z.object({
   purpose: itemPurposeEnum.default('construct'),
-  constructId: z.string().uuid('Construct is required').optional(),
-  responseFormatId: z.string().uuid('Response format is required'),
+  constructId: postgresUuid('Construct is required').optional(),
+  responseFormatId: postgresUuid('Response format is required'),
   stem: z.string().min(1, 'Item stem is required').max(4000),
   reverseScored: z
     .union([z.boolean(), z.string()])

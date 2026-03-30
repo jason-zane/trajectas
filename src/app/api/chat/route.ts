@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
+import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/providers/openrouter-retry'
 
 export const runtime = 'nodejs'
 
@@ -44,15 +45,17 @@ export async function POST(request: Request) {
       })),
     ]
 
-    const stream = await client.chat.completions.create({
-      model: modelId,
-      messages: chatMessages,
-      max_tokens: taskConfig.config.max_tokens ?? 4096,
-      ...(taskConfig.config.temperature !== undefined && {
-        temperature: taskConfig.config.temperature,
-      }),
-      stream: true,
-    })
+    const stream = await withOpenRouterRetry(() =>
+      client.chat.completions.create({
+        model: modelId,
+        messages: chatMessages,
+        max_tokens: taskConfig.config.max_tokens ?? 4096,
+        ...(taskConfig.config.temperature !== undefined && {
+          temperature: taskConfig.config.temperature,
+        }),
+        stream: true,
+      })
+    )
 
     // Convert the OpenAI stream to a ReadableStream of text chunks
     const encoder = new TextEncoder()
@@ -68,8 +71,7 @@ export async function POST(request: Request) {
           controller.close()
         } catch (error) {
           // Mid-stream provider error — write it as text so the client sees it
-          const err = error as { error?: { message?: string; metadata?: { raw?: string } }; message?: string }
-          const msg = err.error?.metadata?.raw || err.error?.message || err.message || 'Provider error during streaming'
+          const msg = getOpenRouterErrorMessage(error)
           controller.enqueue(encoder.encode(`\n\n[Error: ${msg}]`))
           controller.close()
         }
@@ -85,8 +87,7 @@ export async function POST(request: Request) {
   } catch (error) {
     // Surface OpenRouter errors to the client instead of a generic 500
     const status = (error as { status?: number }).status ?? 500
-    const metadata = (error as { error?: { message?: string; metadata?: { raw?: string } } }).error
-    const message = metadata?.metadata?.raw || metadata?.message || 'An error occurred'
+    const message = getOpenRouterErrorMessage(error)
     return new Response(message, { status })
   }
 }

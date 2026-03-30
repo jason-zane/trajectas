@@ -108,3 +108,33 @@ export async function createPromptVersion(
   revalidatePath('/settings/prompts')
   return { success: true }
 }
+
+/**
+ * Activate an existing prompt version by ID.
+ * Deactivates all other versions for the same purpose.
+ */
+export async function activatePromptVersion(
+  purpose: AIPromptPurpose,
+  versionId: string,
+): Promise<{ success: true } | { error: string }> {
+  const supabase = createAdminClient()
+
+  // Deactivate all versions for this purpose
+  const { error: deactivateError } = await supabase
+    .from('ai_system_prompts')
+    .update({ is_active: false })
+    .eq('purpose', purpose)
+
+  if (deactivateError) return { error: deactivateError.message }
+
+  // Activate the target version
+  const { error: activateError } = await supabase
+    .from('ai_system_prompts')
+    .update({ is_active: true })
+    .eq('id', versionId)
+
+  if (activateError) return { error: activateError.message }
+
+  revalidatePath('/settings/prompts')
+  return { success: true }
+}

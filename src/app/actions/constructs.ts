@@ -6,6 +6,19 @@ import { mapConstructRow, toConstructInsert } from '@/lib/supabase/mappers'
 import { constructSchema } from '@/lib/validations/constructs'
 import type { Construct } from '@/types/database'
 
+export type SelectOption = { id: string; name: string }
+
+export async function getFactorsForSelect(): Promise<SelectOption[]> {
+  const db = createAdminClient()
+  const { data } = await db
+    .from('factors')
+    .select('id, name')
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+  return data ?? []
+}
+
 export type ConstructWithCounts = Construct & {
   factorCount: number
   itemCount: number
@@ -113,6 +126,8 @@ export async function getConstructBySlug(slug: string): Promise<ConstructWithRel
 }
 
 export async function createConstruct(formData: FormData) {
+  const parentFactorId = (formData.get('parentFactorId') as string) || undefined
+
   const raw = {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
@@ -133,6 +148,25 @@ export async function createConstruct(formData: FormData) {
   const insert = toConstructInsert(parsed.data)
   const { data, error } = await db.from('constructs').insert(insert).select('id').single()
   if (error) return { error: { _form: [error.message] } }
+
+  // Link to parent factor if one was selected
+  if (parentFactorId) {
+    const { data: maxOrder } = await db
+      .from('factor_constructs')
+      .select('display_order')
+      .eq('factor_id', parentFactorId)
+      .order('display_order', { ascending: false })
+      .limit(1)
+      .maybeSingle() as { data: { display_order: number } | null }
+
+    await db.from('factor_constructs').insert({
+      factor_id: parentFactorId,
+      construct_id: data.id,
+      weight: 1.0,
+      display_order: (maxOrder?.display_order ?? 0) + 1,
+    })
+    revalidatePath('/factors')
+  }
 
   revalidatePath('/constructs')
   revalidatePath('/')

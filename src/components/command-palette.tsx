@@ -28,6 +28,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { getAllEntities } from "@/app/actions/search";
+import { usePortal, type PortalType } from "@/components/portal-context";
 
 type EntityData = {
   dimensions: { id: string; name: string; slug: string }[];
@@ -36,24 +37,55 @@ type EntityData = {
   items: { id: string; name: string }[];
 };
 
-const navItems = [
-  { name: "Dashboard", href: "/", icon: Home },
-  { name: "Dimensions", href: "/dimensions", icon: LayoutGrid },
-  { name: "Factors", href: "/factors", icon: Brain },
-  { name: "Constructs", href: "/constructs", icon: Dna },
-  { name: "Items", href: "/items", icon: FileQuestion },
-  { name: "Assessments", href: "/assessments", icon: ClipboardList },
-  { name: "Diagnostics", href: "/diagnostics", icon: Layers },
-  { name: "Organizations", href: "/organizations", icon: Building2 },
-  { name: "Matching", href: "/matching", icon: Sparkles },
-];
+const navItemsByPortal: Record<
+  PortalType,
+  { name: string; href: string; icon: typeof Home }[]
+> = {
+  admin: [
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Dimensions", href: "/dimensions", icon: LayoutGrid },
+    { name: "Factors", href: "/factors", icon: Brain },
+    { name: "Constructs", href: "/constructs", icon: Dna },
+    { name: "Items", href: "/items", icon: FileQuestion },
+    { name: "Assessments", href: "/assessments", icon: ClipboardList },
+    { name: "Diagnostics", href: "/diagnostics", icon: Layers },
+    { name: "Clients", href: "/organizations", icon: Building2 },
+    { name: "Matching", href: "/matching", icon: Sparkles },
+  ],
+  partner: [
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Clients", href: "/organizations", icon: Building2 },
+    { name: "Assessments", href: "/assessments", icon: ClipboardList },
+    { name: "Campaigns", href: "/campaigns", icon: Layers },
+    { name: "Results", href: "/results", icon: Sparkles },
+  ],
+  client: [
+    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Campaigns", href: "/campaigns", icon: Layers },
+    { name: "Diagnostics", href: "/diagnostics", icon: ClipboardList },
+    { name: "Results", href: "/results", icon: Sparkles },
+  ],
+};
 
-const quickActions = [
-  { name: "Create Dimension", href: "/dimensions/create", icon: Plus },
-  { name: "Create Factor", href: "/factors/create", icon: Plus },
-  { name: "Create Construct", href: "/constructs/create", icon: Plus },
-  { name: "Create Item", href: "/items/create", icon: Plus },
-];
+const quickActionsByPortal: Record<
+  PortalType,
+  { name: string; href: string; icon: typeof Plus }[]
+> = {
+  admin: [
+    { name: "Create Dimension", href: "/dimensions/create", icon: Plus },
+    { name: "Create Factor", href: "/factors/create", icon: Plus },
+    { name: "Create Construct", href: "/constructs/create", icon: Plus },
+    { name: "Create Item", href: "/items/create", icon: Plus },
+  ],
+  partner: [
+    { name: "Open Clients", href: "/organizations", icon: Plus },
+    { name: "Open Campaigns", href: "/campaigns", icon: Plus },
+  ],
+  client: [
+    { name: "Open Campaigns", href: "/campaigns", icon: Plus },
+    { name: "Open Diagnostics", href: "/diagnostics", icon: Plus },
+  ],
+};
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -61,6 +93,9 @@ export function CommandPalette() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { setTheme, theme } = useTheme();
+  const { href, portal } = usePortal();
+  const navItems = navItemsByPortal[portal];
+  const quickActions = quickActionsByPortal[portal];
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -85,10 +120,10 @@ export function CommandPalette() {
   }, [entities, loading]);
 
   useEffect(() => {
-    if (open && !entities) {
+    if (portal === "admin" && open && !entities) {
       loadEntities();
     }
-  }, [open, entities, loadEntities]);
+  }, [open, entities, loadEntities, portal]);
 
   const runCommand = useCallback(
     (command: () => void) => {
@@ -109,7 +144,7 @@ export function CommandPalette() {
             {navItems.map((item) => (
               <CommandItem
                 key={item.href}
-                onSelect={() => runCommand(() => router.push(item.href))}
+                onSelect={() => runCommand(() => router.push(href(item.href)))}
               >
                 <item.icon className="size-4 text-muted-foreground" />
                 <span>{item.name}</span>
@@ -123,7 +158,7 @@ export function CommandPalette() {
             {quickActions.map((item) => (
               <CommandItem
                 key={item.href}
-                onSelect={() => runCommand(() => router.push(item.href))}
+                onSelect={() => runCommand(() => router.push(href(item.href)))}
               >
                 <item.icon className="size-4 text-muted-foreground" />
                 <span>{item.name}</span>
@@ -145,7 +180,7 @@ export function CommandPalette() {
             </CommandItem>
           </CommandGroup>
 
-          {entities && (
+          {portal === "admin" && entities && (
             <>
               {entities.dimensions.length > 0 && (
                 <>

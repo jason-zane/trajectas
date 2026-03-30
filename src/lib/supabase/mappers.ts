@@ -264,8 +264,16 @@ export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) 
   }
 }
 
-export function toOrganizationInsert(o: Omit<Organization, 'id' | 'partnerId' | 'created_at' | 'updated_at'>) {
+export function toOrganizationInsert(o: {
+  partnerId?: string
+  name: string
+  slug: string
+  industry?: string
+  sizeRange?: string
+  isActive: boolean
+}) {
   return {
+    partner_id: o.partnerId ?? null,
     name: o.name,
     slug: o.slug,
     industry: o.industry ?? null,

@@ -18,6 +18,13 @@ import {
   CardDescription,
 } from "@/components/ui/card"
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
   Table,
   TableBody,
   TableCell,
@@ -40,7 +47,7 @@ import {
   restoreConstruct,
   updateConstructField,
 } from "@/app/actions/constructs"
-import type { ConstructWithRelationships } from "@/app/actions/constructs"
+import type { ConstructWithRelationships, SelectOption } from "@/app/actions/constructs"
 
 const formatLabels: Record<string, string> = {
   likert: "Likert",
@@ -64,9 +71,10 @@ type SaveButtonState = "idle" | "saving" | "saved"
 interface ConstructFormProps {
   mode: "create" | "edit"
   construct?: ConstructWithRelationships
+  availableFactors?: SelectOption[]
 }
 
-export function ConstructForm({ mode, construct }: ConstructFormProps) {
+export function ConstructForm({ mode, construct, availableFactors = [] }: ConstructFormProps) {
   const router = useRouter()
 
   const [name, setName] = useState(construct?.name ?? "")
@@ -78,6 +86,7 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
   const [indicatorsLow, setIndicatorsLow] = useState(construct?.indicatorsLow ?? "")
   const [indicatorsMid, setIndicatorsMid] = useState(construct?.indicatorsMid ?? "")
   const [indicatorsHigh, setIndicatorsHigh] = useState(construct?.indicatorsHigh ?? "")
+  const [parentFactorId, setParentFactorId] = useState("")
   const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -155,6 +164,11 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
   )
 
   async function handleSubmit(formData: FormData) {
+    // Pass parent factor selection for create mode
+    if (mode === "create" && parentFactorId) {
+      formData.set("parentFactorId", parentFactorId)
+    }
+
     // Inject auto-save field values into formData for full form save
     if (mode === "edit") {
       formData.set("description", descAutoSave.value)
@@ -240,6 +254,9 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
           ? "Create Construct"
           : "Save Changes"
 
+  const relationshipsCount =
+    mode === "edit" ? parentFactors.length : parentFactorId ? 1 : 0
+
   return (
     <div className="space-y-8 max-w-3xl">
       <PageHeader title={title} description={subtitle} />
@@ -255,26 +272,22 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
           <TabsList variant="line" className="mb-6">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="indicators">Indicators</TabsTrigger>
-            {mode === "edit" && (
-              <TabsTrigger value="items">
-                Items
-                {linkedItems.length > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
-                    {linkedItems.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            )}
-            {mode === "edit" && (
-              <TabsTrigger value="relationships">
-                Relationships
-                {parentFactors.length > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
-                    {parentFactors.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            )}
+            <TabsTrigger value="items">
+              Items
+              {linkedItems.length > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
+                  {linkedItems.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="relationships">
+              Relationships
+              {relationshipsCount > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-xs px-1.5 py-0">
+                  {relationshipsCount}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -393,20 +406,51 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
             </Card>
           </TabsContent>
 
-          {mode === "edit" && (
-            <TabsContent value="items">
-              <Card className="border-l-[3px] border-l-item-accent">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <FileQuestion className="size-4 text-item-accent" />
-                      <div>
-                        <CardTitle>Items</CardTitle>
-                        <CardDescription>
-                          Assessment items that target this construct.
-                        </CardDescription>
-                      </div>
+          <TabsContent value="items">
+            <Card className="border-l-[3px] border-l-item-accent">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileQuestion className="size-4 text-item-accent" />
+                    <div>
+                      <CardTitle>Items</CardTitle>
+                      <CardDescription>
+                        Assessment items that target this construct.
+                      </CardDescription>
                     </div>
+                  </div>
+                  {mode === "edit" && construct?.slug && (
+                    <div className="flex items-center gap-2">
+                      <Link href={`/generate/new?constructId=${construct.id}`}>
+                        <Button type="button" variant="outline" size="sm">
+                          <Wand2 className="size-4" />
+                          Generate Items
+                        </Button>
+                      </Link>
+                      <Link href={`/items/create?constructSlug=${construct.slug}`}>
+                        <Button type="button" variant="outline" size="sm">
+                          <Plus className="size-4" />
+                          Add Item
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {mode === "create" ? (
+                  <div className="flex flex-col items-center py-8 text-center">
+                    <FileQuestion className="size-8 text-muted-foreground/40 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      Save this construct first to start adding items.
+                    </p>
+                  </div>
+                ) : linkedItems.length === 0 ? (
+                  <div className="flex flex-col items-center py-8 text-center">
+                    <FileQuestion className="size-8 text-muted-foreground/40 mb-3" />
+                    <p className="text-sm text-muted-foreground mb-4">
+                      No items target this construct yet.
+                    </p>
                     {construct?.slug && (
                       <div className="flex items-center gap-2">
                         <Link href={`/generate/new?constructId=${construct.id}`}>
@@ -418,135 +462,147 @@ export function ConstructForm({ mode, construct }: ConstructFormProps) {
                         <Link href={`/items/create?constructSlug=${construct.slug}`}>
                           <Button type="button" variant="outline" size="sm">
                             <Plus className="size-4" />
-                            Add Item
+                            Create First Item
                           </Button>
                         </Link>
                       </div>
                     )}
                   </div>
-                </CardHeader>
-                <CardContent>
-                  {linkedItems.length === 0 ? (
-                    <div className="flex flex-col items-center py-8 text-center">
-                      <FileQuestion className="size-8 text-muted-foreground/40 mb-3" />
-                      <p className="text-sm text-muted-foreground mb-4">
-                        No items target this construct yet.
-                      </p>
-                      {construct?.slug && (
-                        <div className="flex items-center gap-2">
-                          <Link href={`/generate/new?constructId=${construct.id}`}>
-                            <Button type="button" variant="outline" size="sm">
-                              <Wand2 className="size-4" />
-                              Generate Items
-                            </Button>
-                          </Link>
-                          <Link href={`/items/create?constructSlug=${construct.slug}`}>
-                            <Button type="button" variant="outline" size="sm">
-                              <Plus className="size-4" />
-                              Create First Item
-                            </Button>
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Item Stem</TableHead>
-                          <TableHead className="w-24">Format</TableHead>
-                          <TableHead className="w-24">Status</TableHead>
-                          <TableHead className="w-16" />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {linkedItems.map((item) => (
-                          <TableRow key={item.id}>
-                            <TableCell className="max-w-md">
-                              <p className="text-sm line-clamp-2">{item.stem}</p>
-                            </TableCell>
-                            <TableCell>
-                              {item.responseFormatType && (
-                                <Badge variant="item">
-                                  {formatLabels[item.responseFormatType] ?? item.responseFormatType}
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={
-                                  item.status === "active"
-                                    ? "default"
-                                    : item.status === "draft"
-                                      ? "secondary"
-                                      : "outline"
-                                }
-                              >
-                                {item.status}
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item Stem</TableHead>
+                        <TableHead className="w-24">Format</TableHead>
+                        <TableHead className="w-24">Status</TableHead>
+                        <TableHead className="w-16" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {linkedItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="max-w-md">
+                            <p className="text-sm line-clamp-2">{item.stem}</p>
+                          </TableCell>
+                          <TableCell>
+                            {item.responseFormatType && (
+                              <Badge variant="item">
+                                {formatLabels[item.responseFormatType] ?? item.responseFormatType}
                               </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Link href={`/items/${item.id}/edit?returnTo=/constructs/${construct?.slug}/edit`}>
-                                <Button type="button" variant="ghost" size="icon-xs">
-                                  <ArrowRight className="size-3.5" />
-                                </Button>
-                              </Link>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {mode === "edit" && (
-            <TabsContent value="relationships">
-              <Card className="border-l-[3px] border-l-competency-accent">
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Brain className="size-4 text-competency-accent" />
-                    <div>
-                      <CardTitle>Parent Factors</CardTitle>
-                      <CardDescription>
-                        Factors that include this construct in their measurement model.
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {parentFactors.length === 0 ? (
-                    <div className="flex flex-col items-center py-6 text-center">
-                      <Brain className="size-8 text-muted-foreground/40 mb-3" />
-                      <p className="text-sm text-muted-foreground">
-                        This construct is not linked to any factors yet.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {parentFactors.map((factor) => (
-                        <Link
-                          key={factor.id}
-                          href={`/factors/${factor.slug}/edit`}
-                          className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
-                        >
-                          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-competency-bg">
-                            <Brain className="size-4 text-competency-accent" />
-                          </div>
-                          <span className="text-sm font-medium flex-1">
-                            {factor.name}
-                          </span>
-                          <ArrowRight className="size-4 text-muted-foreground" />
-                        </Link>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                item.status === "active"
+                                  ? "default"
+                                  : item.status === "draft"
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                            >
+                              {item.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Link href={`/items/${item.id}/edit?returnTo=/constructs/${construct?.slug}/edit`}>
+                              <Button type="button" variant="ghost" size="icon-xs">
+                                <ArrowRight className="size-3.5" />
+                              </Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
                       ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="relationships">
+            <Card className="border-l-[3px] border-l-competency-accent">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Brain className="size-4 text-competency-accent" />
+                  <div>
+                    <CardTitle>Parent Factors</CardTitle>
+                    <CardDescription>
+                      {mode === "create"
+                        ? "Optionally assign this construct to a factor."
+                        : "Factors that include this construct in their measurement model."}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {mode === "create" ? (
+                  <div className="space-y-2">
+                    <Label>Factor (optional)</Label>
+                    <Select
+                      value={parentFactorId}
+                      onValueChange={(v) => setParentFactorId(v ?? "")}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a factor...">
+                          {(value: string) =>
+                            availableFactors.find((f) => f.id === value)?.name ?? value
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableFactors.map((factor) => (
+                          <SelectItem key={factor.id} value={factor.id}>
+                            {factor.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {parentFactorId && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => setParentFactorId("")}
+                      >
+                        Clear selection
+                      </Button>
+                    )}
+                    {availableFactors.length === 0 && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        No factors available yet. You can link this construct from a factor&apos;s edit page.
+                      </p>
+                    )}
+                  </div>
+                ) : parentFactors.length === 0 ? (
+                  <div className="flex flex-col items-center py-6 text-center">
+                    <Brain className="size-8 text-muted-foreground/40 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      This construct is not linked to any factors yet.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {parentFactors.map((factor) => (
+                      <Link
+                        key={factor.id}
+                        href={`/factors/${factor.slug}/edit`}
+                        className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
+                      >
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-competency-bg">
+                          <Brain className="size-4 text-competency-accent" />
+                        </div>
+                        <span className="text-sm font-medium flex-1">
+                          {factor.name}
+                        </span>
+                        <ArrowRight className="size-4 text-muted-foreground" />
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="settings" keepMounted>
             <Card>

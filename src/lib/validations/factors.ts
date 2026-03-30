@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { postgresUuid } from './uuid'
 
 export const factorSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
@@ -9,7 +10,7 @@ export const factorSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
   description: z.string().max(2000).optional(),
   definition: z.string().max(4000).optional(),
-  dimensionId: z.string().uuid().optional().or(z.literal('')),
+  dimensionId: postgresUuid().optional().or(z.literal('')),
   isActive: z
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
@@ -22,7 +23,7 @@ export const factorSchema = z.object({
   constructs: z
     .array(
       z.object({
-        constructId: z.string().uuid(),
+        constructId: postgresUuid(),
         weight: z.coerce.number().positive('Weight must be positive'),
       })
     )

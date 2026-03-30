@@ -15,11 +15,8 @@ import {
   MessageSquare,
   Settings2,
   Home,
-  ChevronDown,
   Dna,
   LayoutGrid,
-  Shield,
-  Briefcase,
   BarChart3,
   Megaphone,
   Palette,
@@ -38,34 +35,11 @@ import {
   SidebarMenuItem,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { usePortal, type PortalType } from "@/components/portal-context";
-
-const portalConfig: Record<
-  PortalType,
-  { label: string; description: string; icon: typeof Shield }
-> = {
-  admin: {
-    label: "Platform Admin",
-    description: "Full platform control",
-    icon: Shield,
-  },
-  partner: {
-    label: "Partner Console",
-    description: "Consulting firm view",
-    icon: Briefcase,
-  },
-  client: {
-    label: "Organisation",
-    description: "Client organisation view",
-    icon: Building2,
-  },
-};
+import {
+  BuildPortalSwitcher,
+  portalConfig,
+} from "@/components/build-portal-switcher";
 
 const adminNav = [
   {
@@ -103,10 +77,10 @@ const adminNav = [
     ],
   },
   {
-    label: "Organisations",
+    label: "Clients",
     items: [
       {
-        title: "Manage Organisations",
+        title: "Manage Clients",
         href: "/organizations",
         icon: Building2,
       },
@@ -147,7 +121,7 @@ const partnerNav = [
   {
     label: "Clients",
     items: [
-      { title: "Organisations", href: "/organizations", icon: Building2 },
+      { title: "Clients", href: "/organizations", icon: Building2 },
     ],
   },
   {
@@ -203,7 +177,7 @@ const navByPortal: Record<PortalType, typeof adminNav> = {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { portal, setPortal } = usePortal();
+  const { portal, canSwitchPortal, href } = usePortal();
   const config = portalConfig[portal];
   const PortalIcon = config.icon;
   const navSections = navByPortal[portal];
@@ -227,40 +201,21 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <div className="mx-3 mb-2 rounded-lg bg-white/5 px-1 py-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-white/10" />
-            }
-          >
+        {canSwitchPortal ? (
+          <BuildPortalSwitcher />
+        ) : (
+          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm">
             <PortalIcon className="size-3.5 text-sidebar-primary" />
-            <span className="flex-1 truncate text-xs font-medium text-sidebar-foreground">
-              {config.label}
-            </span>
-            <ChevronDown className="size-3 text-sidebar-foreground/60" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {(Object.keys(portalConfig) as PortalType[]).map((key) => {
-              const p = portalConfig[key];
-              const Icon = p.icon;
-              return (
-                <DropdownMenuItem
-                  key={key}
-                  onClick={() => setPortal(key)}
-                  className={portal === key ? "bg-accent" : ""}
-                >
-                  <Icon className="size-4" />
-                  <div className="flex flex-col">
-                    <span className="text-sm">{p.label}</span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {p.description}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-              );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-xs font-medium text-sidebar-foreground">
+                {config.label}
+              </span>
+              <span className="truncate text-[11px] text-sidebar-foreground/60">
+                {config.description}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <SidebarContent>
@@ -272,19 +227,20 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {section.items.map((item) => {
+                  const resolvedHref = href(item.href);
                   const isActive =
-                    item.href === "/"
+                    resolvedHref === "/"
                       ? pathname === "/"
-                      : pathname.startsWith(item.href);
+                      : pathname === resolvedHref || pathname.startsWith(`${resolvedHref}/`);
                   return (
-                    <SidebarMenuItem key={item.href} className="relative">
+                    <SidebarMenuItem key={resolvedHref} className="relative">
                       {isActive && (
                         <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-sidebar-primary transition-all" />
                       )}
                       <SidebarMenuButton
                         isActive={isActive}
                         tooltip={item.title}
-                        render={<Link href={item.href} />}
+                        render={<Link href={resolvedHref} />}
                       >
                         <item.icon className="size-4" />
                         <span>{item.title}</span>

@@ -374,10 +374,17 @@ export async function startGenerationRun(
     revalidatePath('/generate')
     return { success: true }
   } catch (err) {
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Unknown error starting run',
+    // Persist the error to the DB so the run shows as failed, not stuck
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error starting run'
+    try {
+      await updateGenerationRunProgress(runId, {
+        status: 'failed' as GenerationRunStatus,
+        errorMessage,
+      })
+    } catch {
+      // If we can't even update the status, we still return the error
     }
+    return { success: false, error: errorMessage }
   }
 }
 
@@ -633,7 +640,21 @@ export async function getConstructsForGeneration(): Promise<
   })
 }
 
-/** Re-run a generation run with the same config, navigating to the new run. */
+/** Mark a stuck run as failed so it stops showing as in-progress. */
+export async function cancelGenerationRun(runId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    await updateGenerationRunProgress(runId, {
+      status: 'failed' as GenerationRunStatus,
+      errorMessage: 'Cancelled by user — pipeline did not complete.',
+    })
+    revalidatePath('/generate')
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/** Create a new generation run with the same config as an existing run. Returns the new run ID for the client to start via API route. */
 export async function rerunGenerationRun(runId: string): Promise<{ success: boolean; newRunId?: string; error?: string }> {
   try {
     const existingRun = await getGenerationRun(runId)
@@ -642,9 +663,8 @@ export async function rerunGenerationRun(runId: string): Promise<{ success: bool
     const newRun = await createGenerationRun(existingRun.run.config)
     if (!newRun) return { success: false, error: 'Failed to create new run' }
 
-    // Start the new run in the background (don't await — let it run)
-    void startGenerationRun(newRun.id)
-
+    // Don't start the pipeline here — the client kicks it off via /api/generation/start
+    // so that navigation doesn't abort the long-running pipeline
     return { success: true, newRunId: newRun.id }
   } catch (error) {
     return { success: false, error: String(error) }

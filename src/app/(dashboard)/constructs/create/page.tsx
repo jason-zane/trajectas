@@ -1,7 +1,7 @@
-"use client"
-
 import { ConstructForm } from "../construct-form"
+import { getFactorsForSelect } from "@/app/actions/constructs"
 
-export default function CreateConstructPage() {
-  return <ConstructForm mode="create" />
+export default async function CreateConstructPage() {
+  const factors = await getFactorsForSelect()
+  return <ConstructForm mode="create" availableFactors={factors} />
 }

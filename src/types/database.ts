@@ -165,8 +165,9 @@ export interface Partner {
 }
 
 /**
- * A client organisation managed by a partner.
- * Assessments and diagnostic sessions are scoped to an organisation.
+ * A client account managed by a partner.
+ * Assessments and diagnostic sessions are scoped to an organisation record
+ * in persistence, but the product term is "client".
  */
 export interface Organization {
   /** UUID primary key. */
@@ -214,6 +215,70 @@ export interface Profile {
   isActive: boolean
   created_at: string
   updated_at?: string
+}
+
+/**
+ * Partner-scoped membership record used for multi-membership resolution.
+ */
+export interface PartnerMembership {
+  id: string
+  profileId: string
+  partnerId: string
+  role: 'admin' | 'member'
+  isDefault: boolean
+  createdBy?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Client-scoped membership record used for multi-membership resolution.
+ *
+ * Persistence still uses `organization_id` for compatibility, even though
+ * the product term is "client".
+ */
+export interface ClientMembership {
+  id: string
+  profileId: string
+  organizationId: string
+  role: 'admin' | 'member'
+  isDefault: boolean
+  createdBy?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Audited admin support launch into a partner or client surface.
+ */
+export interface SupportSession {
+  id: string
+  actorProfileId: string
+  targetSurface: 'partner' | 'client'
+  partnerId?: string
+  organizationId?: string
+  reason: string
+  sessionKey: string
+  metadata: Record<string, unknown>
+  created_at: string
+  expiresAt: string
+  endedAt?: string
+}
+
+/**
+ * Append-only audit log record for privileged and security-relevant actions.
+ */
+export interface AuditEvent {
+  id: string
+  actorProfileId?: string
+  eventType: string
+  targetTable?: string
+  targetId?: string
+  partnerId?: string
+  organizationId?: string
+  supportSessionId?: string
+  metadata: Record<string, unknown>
+  created_at: string
 }
 
 /**

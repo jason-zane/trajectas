@@ -1,8 +1,11 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertAdminOnly, resolveAuthorizedScope } from '@/lib/auth/authorization'
 
 export async function getAllEntities() {
+  const scope = await resolveAuthorizedScope()
+  assertAdminOnly(scope)
   const db = createAdminClient()
 
   const [dims, facts, consts, items] = await Promise.all([

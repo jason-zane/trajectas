@@ -70,16 +70,16 @@ export default function CreateOrganizationPage() {
   return (
     <div className="space-y-8 max-w-2xl">
       <PageHeader
-        title="Add Organisation"
-        description="Register a new client organisation on the platform."
+        title="Add Client"
+        description="Register a new client on the platform."
       />
 
       <form action={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle>Organisation Details</CardTitle>
+            <CardTitle>Client Details</CardTitle>
             <CardDescription>
-              Provide the basic information for this organisation. The slug is
+              Provide the basic information for this client. The slug is
               auto-generated from the name but can be customised.
             </CardDescription>
           </CardHeader>
@@ -101,7 +101,7 @@ export default function CreateOrganizationPage() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                The display name for this organisation.
+                The display name for this client.
               </p>
             </div>
 
@@ -159,7 +159,7 @@ export default function CreateOrganizationPage() {
             </Button>
           </Link>
           <Button type="submit" disabled={!name.trim() || pending}>
-            {pending ? "Creating..." : "Add Organisation"}
+            {pending ? "Creating..." : "Add Client"}
           </Button>
         </div>
       </form>
