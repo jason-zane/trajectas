@@ -43,6 +43,11 @@ export interface AIModelRequest {
    * - `json` — the model is instructed to return valid JSON
    */
   responseFormat?: 'text' | 'json'
+  /**
+   * Optional model override. When provided, the provider uses this model
+   * instead of its configured default. Use OpenRouter model IDs e.g. "anthropic/claude-sonnet-4-5".
+   */
+  model?: string
 }
 
 /**

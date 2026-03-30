@@ -36,6 +36,10 @@ export class OpenRouterProvider implements AIProvider {
       this.client = new OpenAI({
         apiKey: process.env.OPENROUTER_API_KEY,
         baseURL: OPENROUTER_BASE_URL,
+        defaultHeaders: {
+          'HTTP-Referer': 'https://talent-fit.app',
+          'X-Title': 'Talent Fit',
+        },
       })
     }
     return this.client
@@ -52,7 +56,7 @@ export class OpenRouterProvider implements AIProvider {
       messages.push({ role: 'user', content: request.prompt })
 
       const response = await client.chat.completions.create({
-        model: DEFAULT_MODEL,
+        model: request.model ?? DEFAULT_MODEL,
         messages,
         max_tokens: request.maxTokens ?? DEFAULT_MAX_TOKENS,
         ...(request.temperature !== undefined && { temperature: request.temperature }),
