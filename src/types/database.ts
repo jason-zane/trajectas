@@ -116,6 +116,8 @@ export type AIPromptPurpose =
   | 'competency_matching'
   | 'ranking_explanation'
   | 'diagnostic_analysis'
+  | 'item_generation'
+  | 'preflight_analysis'
 
 /** Execution status for an AI-GENIE item generation run. */
 export type GenerationRunStatus =
