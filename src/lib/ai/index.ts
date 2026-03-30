@@ -39,3 +39,9 @@ export {
   buildMatchingPrompt,
   PROMPT_VERSION,
 } from './prompts/competency-matching'
+
+// Generation pipeline
+export * from './generation'
+
+// OpenRouter provider
+export { openRouterProvider, FALLBACK_MODELS } from './providers/openrouter'

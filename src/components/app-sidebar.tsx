@@ -23,6 +23,7 @@ import {
   Megaphone,
   Palette,
   Users,
+  Wand2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -124,6 +125,7 @@ const adminNav = [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
       { title: "Model Config", href: "/model-config", icon: Cpu },
       { title: "Prompts", href: "/prompts", icon: MessageSquare },
+      { title: "Item Generator", href: "/generate", icon: Wand2 },
     ],
   },
   {

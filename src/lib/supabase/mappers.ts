@@ -21,6 +21,9 @@ import type {
   CampaignAssessment,
   CampaignParticipant,
   CampaignAccessLink,
+  GenerationRun,
+  GeneratedItem,
+  GenerationRunLog,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
 import type { ExperienceTemplateRecord } from '@/lib/experience/types'
@@ -600,5 +603,68 @@ export function toCampaignInsert(c: Omit<Campaign, 'id' | 'created_at' | 'update
     allow_resume: c.allowResume,
     show_progress: c.showProgress,
     randomize_assessment_order: c.randomizeAssessmentOrder,
+  }
+}
+
+// =============================================================================
+// AI-GENIE item generation
+// =============================================================================
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapGenerationRunRow(row: any): GenerationRun {
+  return {
+    id: row.id,
+    status: row.status,
+    currentStep: row.current_step ?? undefined,
+    progressPct: row.progress_pct,
+    config: row.config ?? {},
+    itemsGenerated: row.items_generated,
+    itemsAfterUva: row.items_after_uva ?? undefined,
+    itemsAfterBoot: row.items_after_boot ?? undefined,
+    itemsAccepted: row.items_accepted ?? undefined,
+    nmiInitial: row.nmi_initial != null ? Number(row.nmi_initial) : undefined,
+    nmiFinal: row.nmi_final != null ? Number(row.nmi_final) : undefined,
+    promptVersion: row.prompt_version ?? undefined,
+    modelUsed: row.model_used ?? undefined,
+    tokenUsage: row.token_usage ?? undefined,
+    errorMessage: row.error_message ?? undefined,
+    startedAt: row.started_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapGeneratedItemRow(row: any): GeneratedItem {
+  return {
+    id: row.id,
+    generationRunId: row.generation_run_id,
+    constructId: row.construct_id,
+    stem: row.stem,
+    reverseScored: row.reverse_scored,
+    rationale: row.rationale ?? undefined,
+    embedding: row.embedding ?? [],
+    communityId: row.community_id ?? undefined,
+    wtoMax: row.wto_max != null ? Number(row.wto_max) : undefined,
+    bootStability: row.boot_stability != null ? Number(row.boot_stability) : undefined,
+    isRedundant: row.is_redundant,
+    isUnstable: row.is_unstable,
+    isAccepted: row.is_accepted ?? undefined,
+    savedItemId: row.saved_item_id ?? undefined,
+    created_at: row.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapGenerationRunLogRow(row: any): GenerationRunLog {
+  return {
+    id: row.id,
+    generationRunId: row.generation_run_id,
+    step: row.step,
+    status: row.status,
+    details: row.details ?? undefined,
+    durationMs: row.duration_ms ?? undefined,
+    created_at: row.created_at,
   }
 }

@@ -117,6 +117,26 @@ export type AIPromptPurpose =
   | 'ranking_explanation'
   | 'diagnostic_analysis'
 
+/** Execution status for an AI-GENIE item generation run. */
+export type GenerationRunStatus =
+  | 'configuring'
+  | 'generating'
+  | 'embedding'
+  | 'analysing'
+  | 'reviewing'
+  | 'completed'
+  | 'failed'
+
+/** Pipeline step identifier within a generation run. */
+export type GenerationStep =
+  | 'preflight'
+  | 'item_generation'
+  | 'embedding'
+  | 'initial_ega'
+  | 'uva'
+  | 'boot_ega'
+  | 'final'
+
 // ---------------------------------------------------------------------------
 // Row types
 // ---------------------------------------------------------------------------
@@ -1389,3 +1409,70 @@ export type {
   NeutralTemperature,
   BorderRadiusPreset,
 } from '@/lib/brand/types'
+
+// ---------------------------------------------------------------------------
+// AI-GENIE item generation
+// ---------------------------------------------------------------------------
+
+/** Configuration snapshot stored with a generation run. */
+export interface GenerationRunConfig {
+  constructIds: string[]
+  targetItemsPerConstruct: number
+  temperature: number
+  generationModel: string
+  embeddingModel: string
+  responseFormatId?: string
+}
+
+/** An AI-GENIE item generation run record. */
+export interface GenerationRun {
+  id: string
+  status: GenerationRunStatus
+  currentStep?: string
+  progressPct: number
+  config: GenerationRunConfig
+  itemsGenerated: number
+  itemsAfterUva?: number
+  itemsAfterBoot?: number
+  itemsAccepted?: number
+  nmiInitial?: number
+  nmiFinal?: number
+  promptVersion?: number
+  modelUsed?: string
+  tokenUsage?: Record<string, number>
+  errorMessage?: string
+  startedAt?: string
+  completedAt?: string
+  created_at: string
+  updated_at?: string
+}
+
+/** A candidate item generated during a generation run (before acceptance). */
+export interface GeneratedItem {
+  id: string
+  generationRunId: string
+  constructId: string
+  stem: string
+  reverseScored: boolean
+  rationale?: string
+  embedding: number[]
+  communityId?: number
+  wtoMax?: number
+  bootStability?: number
+  isRedundant: boolean
+  isUnstable: boolean
+  isAccepted?: boolean
+  savedItemId?: string
+  created_at: string
+}
+
+/** Audit log entry for a pipeline step within a generation run. */
+export interface GenerationRunLog {
+  id: string
+  generationRunId: string
+  step: string
+  status: string
+  details?: Record<string, unknown>
+  durationMs?: number
+  created_at: string
+}

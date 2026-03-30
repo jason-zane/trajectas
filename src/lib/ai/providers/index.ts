@@ -14,6 +14,7 @@ import { OpenAIProvider } from './openai'
 export type { AIProvider } from './base'
 export { AnthropicProvider } from './anthropic'
 export { OpenAIProvider } from './openai'
+export { OpenRouterProvider, openRouterProvider, FALLBACK_MODELS } from './openrouter'
 
 const registry = new Map<AIProviderType, AIProvider>()
 
