@@ -120,10 +120,10 @@ const adminNav = [
     ],
   },
   {
-    label: "AI Matching",
+    label: "AI Tools",
     items: [
+      { title: "Chat", href: "/chat", icon: MessageSquare },
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
-      { title: "Prompts", href: "/prompts", icon: MessageSquare },
       { title: "Item Generator", href: "/generate", icon: Wand2 },
     ],
   },
@@ -161,7 +161,7 @@ const partnerNav = [
     items: [{ title: "Sessions", href: "/diagnostics", icon: Layers }],
   },
   {
-    label: "AI Matching",
+    label: "AI Tools",
     items: [
       { title: "Matching Results", href: "/matching", icon: Sparkles },
     ],

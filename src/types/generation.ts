@@ -137,4 +137,10 @@ export interface OpenRouterModel {
     completion: string
   }
   context_length?: number
+  architecture?: {
+    modality?: string
+    input_modalities?: string[]
+    output_modalities?: string[]
+    tokenizer?: string
+  }
 }

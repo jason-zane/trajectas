@@ -92,24 +92,58 @@ export class OpenRouterProvider implements AIProvider {
     )
   }
 
-  /** Fetch available models from the OpenRouter API. Falls back to FALLBACK_MODELS on error. */
-  async listModels(): Promise<OpenRouterModel[]> {
+  /**
+   * Fetch models from the OpenRouter API.
+   * @param outputModality - Optional filter: 'text' for chat/completion models,
+   *   'embeddings' for embedding models. Omit to fetch all models.
+   */
+  async listModels(outputModality?: 'text' | 'embeddings'): Promise<OpenRouterModel[]> {
+    const fallback = outputModality === 'embeddings' ? FALLBACK_EMBEDDING_MODELS : FALLBACK_MODELS
     try {
-      const response = await fetch(`${OPENROUTER_BASE_URL}/models`, {
+      const url = outputModality
+        ? `${OPENROUTER_BASE_URL}/models?output_modalities=${outputModality}`
+        : `${OPENROUTER_BASE_URL}/models`
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${process.env.OpenRouter_API_KEY}`,
         },
+        next: { revalidate: 3600 }, // cache for 1 hour — model list rarely changes
       })
-      if (!response.ok) return FALLBACK_MODELS
+      if (!response.ok) return fallback
       const data = await response.json() as { data?: OpenRouterModel[] }
-      return data.data ?? FALLBACK_MODELS
+      return data.data ?? fallback
     } catch {
-      return FALLBACK_MODELS
+      return fallback
+    }
+  }
+
+  /**
+   * Fetch OpenRouter account credits.
+   * Requires OPENROUTER_MANAGEMENT_KEY (separate from the inference key).
+   * Returns null if the management key is not configured.
+   */
+  async getCredits(): Promise<{ totalCredits: number; totalUsage: number } | null> {
+    const managementKey = process.env.OPENROUTER_MANAGEMENT_KEY
+    if (!managementKey) return null
+    try {
+      const response = await fetch(`${OPENROUTER_BASE_URL}/credits`, {
+        headers: { Authorization: `Bearer ${managementKey}` },
+        next: { revalidate: 60 }, // cache for 60s
+      })
+      if (!response.ok) return null
+      const data = await response.json() as { data?: { total_credits: number; total_usage: number } }
+      if (!data.data) return null
+      return {
+        totalCredits: data.data.total_credits,
+        totalUsage: data.data.total_usage,
+      }
+    } catch {
+      return null
     }
   }
 }
 
-/** Fallback model list used when the OpenRouter API is unavailable. */
+/** Fallback chat/completion model list used when the OpenRouter API is unavailable. */
 export const FALLBACK_MODELS: OpenRouterModel[] = [
   { id: 'anthropic/claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
   { id: 'anthropic/claude-haiku-4-5', name: 'Claude Haiku 4.5' },
@@ -119,6 +153,28 @@ export const FALLBACK_MODELS: OpenRouterModel[] = [
   { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B' },
   { id: 'deepseek/deepseek-chat', name: 'DeepSeek Chat' },
   { id: 'mistralai/mistral-small-3.1-24b-instruct', name: 'Mistral Small 3.1 24B' },
+]
+
+/** Fallback embedding model list used when the OpenRouter API is unavailable. */
+export const FALLBACK_EMBEDDING_MODELS: OpenRouterModel[] = [
+  {
+    id: 'openai/text-embedding-3-small',
+    name: 'Text Embedding 3 Small',
+    pricing: { prompt: '0.00000002', completion: '0' },
+    context_length: 8191,
+  },
+  {
+    id: 'openai/text-embedding-3-large',
+    name: 'Text Embedding 3 Large',
+    pricing: { prompt: '0.00000013', completion: '0' },
+    context_length: 8191,
+  },
+  {
+    id: 'openai/text-embedding-ada-002',
+    name: 'Text Embedding Ada 002',
+    pricing: { prompt: '0.0000001', completion: '0' },
+    context_length: 8191,
+  },
 ]
 
 export const openRouterProvider = new OpenRouterProvider()

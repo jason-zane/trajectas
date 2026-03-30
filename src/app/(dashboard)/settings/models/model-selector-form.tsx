@@ -60,9 +60,16 @@ const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: ScanSearch,
     glowColor: "var(--primary)",
   },
+  chat: {
+    label: "Chat",
+    description: "General-purpose AI chat for testing and exploration.",
+    icon: MessageSquare,
+    glowColor: "var(--primary)",
+  },
 }
 
 const PURPOSE_ORDER: AIPromptPurpose[] = [
+  "chat",
   "item_generation",
   "preflight_analysis",
   "embedding",
@@ -78,20 +85,26 @@ const PURPOSE_ORDER: AIPromptPurpose[] = [
 function PurposeCard({
   config,
   models,
+  embeddingModels,
   index,
 }: {
   config: ModelConfigRow
   models: OpenRouterModel[]
+  embeddingModels: OpenRouterModel[]
   index: number
 }) {
   const meta = PURPOSE_META[config.purpose]
   const Icon = meta.icon
 
   const [selectedModel, setSelectedModel] = useState(config.modelId)
+  // Tracks what's actually persisted — updated on successful save so
+  // isDirty stays correct after revalidatePath re-renders the server component.
+  const [persistedModel, setPersistedModel] = useState(config.modelId)
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
   const [isPending, startTransition] = useTransition()
 
-  const isDirty = selectedModel !== config.modelId
+  const isDirty = selectedModel !== persistedModel
+  const activeModels = config.purpose === "embedding" ? embeddingModels : models
 
   function handleSave() {
     startTransition(async () => {
@@ -101,6 +114,7 @@ function PurposeCard({
         toast.error(result.error)
         setSaveState("idle")
       } else {
+        setPersistedModel(selectedModel)
         toast.success(`${meta.label} model updated`)
         setSaveState("saved")
         setTimeout(() => setSaveState("idle"), 2000)
@@ -132,7 +146,7 @@ function PurposeCard({
           <ModelPickerCombobox
             value={selectedModel}
             onChange={setSelectedModel}
-            models={models}
+            models={activeModels}
             disabled={isPending}
           />
 
@@ -173,9 +187,10 @@ function PurposeCard({
 interface ModelSelectorFormProps {
   configs: ModelConfigRow[]
   models: OpenRouterModel[]
+  embeddingModels: OpenRouterModel[]
 }
 
-export function ModelSelectorForm({ configs, models }: ModelSelectorFormProps) {
+export function ModelSelectorForm({ configs, models, embeddingModels }: ModelSelectorFormProps) {
   const configMap = Object.fromEntries(configs.map((c) => [c.purpose, c]))
 
   const orderedConfigs: ModelConfigRow[] = PURPOSE_ORDER.map((purpose) => {
@@ -194,7 +209,13 @@ export function ModelSelectorForm({ configs, models }: ModelSelectorFormProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {orderedConfigs.map((config, i) => (
-        <PurposeCard key={config.purpose} config={config} models={models} index={i} />
+        <PurposeCard
+          key={config.purpose}
+          config={config}
+          models={models}
+          embeddingModels={embeddingModels}
+          index={i}
+        />
       ))}
     </div>
   )

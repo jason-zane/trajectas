@@ -38,6 +38,10 @@ const DEFAULTS: Record<AIPromptPurpose, TaskModelConfig> = {
     modelId: 'anthropic/claude-sonnet-4-5',
     config: { temperature: 0.5, max_tokens: 4096 },
   },
+  chat: {
+    modelId: 'anthropic/claude-sonnet-4-5',
+    config: { temperature: 0.7, max_tokens: 4096 },
+  },
 }
 
 /**
