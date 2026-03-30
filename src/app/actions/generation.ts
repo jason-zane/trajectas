@@ -507,7 +507,7 @@ async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructF
 
   const { data, error } = await db
     .from('constructs')
-    .select('id, name, slug, definition, description, indicators_low, indicators_mid, indicators_high')
+    .select('*')
     .in('id', constructIds)
     .is('deleted_at', null)
 
@@ -563,7 +563,7 @@ export async function getConstructsForGeneration(): Promise<
   const [constructsResult, itemCountResult] = await Promise.all([
     db
       .from('constructs')
-      .select('id, name, slug, definition, description, indicators_low, indicators_mid, indicators_high, factor_constructs(factors(dimensions(id, name)))')
+      .select('*, factor_constructs(factors(dimensions(id, name)))')
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name', { ascending: true }),
