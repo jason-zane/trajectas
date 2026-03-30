@@ -1,5 +1,7 @@
 'use server'
 
+export const maxDuration = 300  // 5-minute timeout for pipeline runs
+
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapGenerationRunRow, mapGeneratedItemRow } from '@/lib/supabase/mappers'
@@ -488,6 +490,8 @@ export async function acceptGeneratedItems(
 
 /** Delete a generation run and its generated items. */
 export async function deleteGenerationRun(runId: string): Promise<void> {
+  // TODO: Migrate to soft-delete (add deleted_at column to generation_runs) per project conventions.
+  // Currently performs hard-delete with CASCADE to generated_items.
   const db = createAdminClient()
 
   // Delete child rows first (no cascade assumed)

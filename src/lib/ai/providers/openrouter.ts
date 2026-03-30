@@ -3,7 +3,7 @@
  *
  * OpenRouter exposes an OpenAI-compatible API that routes requests to many
  * upstream models. We reuse the official openai SDK with a custom baseURL.
- * Requires the OPENROUTER_API_KEY environment variable to be set.
+ * Requires the OpenRouter_API_KEY environment variable to be set.
  */
 
 import OpenAI from 'openai'
@@ -30,11 +30,11 @@ export class OpenRouterProvider implements AIProvider {
   /** Lazily initialise the SDK client to avoid throwing at import time. */
   private getClient(): OpenAI {
     if (!this.client) {
-      if (!process.env.OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY environment variable is not set')
+      if (!process.env.OpenRouter_API_KEY) {
+        throw new Error('OpenRouter_API_KEY environment variable is not set')
       }
       this.client = new OpenAI({
-        apiKey: process.env.OPENROUTER_API_KEY,
+        apiKey: process.env.OpenRouter_API_KEY,
         baseURL: OPENROUTER_BASE_URL,
         defaultHeaders: {
           'HTTP-Referer': 'https://talent-fit.app',
@@ -87,8 +87,8 @@ export class OpenRouterProvider implements AIProvider {
 
   async isAvailable(): Promise<boolean> {
     return (
-      typeof process.env.OPENROUTER_API_KEY === 'string' &&
-      process.env.OPENROUTER_API_KEY.length > 0
+      typeof process.env.OpenRouter_API_KEY === 'string' &&
+      process.env.OpenRouter_API_KEY.length > 0
     )
   }
 
@@ -97,7 +97,7 @@ export class OpenRouterProvider implements AIProvider {
     try {
       const response = await fetch(`${OPENROUTER_BASE_URL}/models`, {
         headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${process.env.OpenRouter_API_KEY}`,
         },
       })
       if (!response.ok) return FALLBACK_MODELS
