@@ -9,7 +9,7 @@
  */
 import { embedTexts } from './embeddings'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
-import { getModelForTask } from '@/lib/ai/model-resolver'
+import { getModelForTask } from '@/lib/ai/model-config'
 import { DISCRIMINATION_SYSTEM_PROMPT, buildDiscriminationPrompt } from './prompts/construct-discrimination'
 import type { ConstructForGeneration, PreflightResult, ConstructPairResult } from '@/types/generation'
 
@@ -57,18 +57,18 @@ export async function runConstructPreflight(
       }
 
       // 3. LLM discrimination check for similar pairs
-      const modelConfig = await getModelForTask('preflight_analysis')
+      const taskConfig = await getModelForTask('preflight_analysis')
       let pairResult: ConstructPairResult
       try {
         const response = await openRouterProvider.complete({
-          model:          modelConfig.model,
+          model:          taskConfig.modelId,
           systemPrompt:   DISCRIMINATION_SYSTEM_PROMPT,
           prompt:         buildDiscriminationPrompt(
                             { name: constructs[i].name, definition: constructs[i].definition ?? constructs[i].name },
                             { name: constructs[j].name, definition: constructs[j].definition ?? constructs[j].name },
                           ),
-          temperature:    modelConfig.temperature,
-          maxTokens:      modelConfig.maxTokens,
+          temperature:    taskConfig.config.temperature,
+          maxTokens:      taskConfig.config.max_tokens,
           responseFormat: 'json',
         })
 

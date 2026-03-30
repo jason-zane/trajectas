@@ -37,7 +37,7 @@ import {
   rerunGenerationRun,
   exportRunItemsAsCSV,
 } from "@/app/actions/generation"
-import type { GenerationRun, GeneratedItem } from "@/app/actions/generation"
+import type { GenerationRun, GeneratedItem } from "@/types/database"
 
 // ---------------------------------------------------------------------------
 // Pipeline step definitions

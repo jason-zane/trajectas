@@ -32,6 +32,7 @@ import {
   checkConstructReadiness,
 } from "@/app/actions/generation";
 import { FALLBACK_MODELS } from "@/lib/ai/providers/openrouter";
+import { getDefaultModelIdForPurpose } from "@/app/actions/model-config";
 import type { GenerationRunConfig } from "@/types/database";
 import type { PreflightResult } from "@/types/generation";
 
@@ -716,7 +717,7 @@ export default function NewGenerationPage() {
   const [constructs, setConstructs] = useState<Construct[] | null>(null);
   const [responseFormats, setResponseFormats] = useState<ResponseFormat[] | null>(null);
 
-  // Fetch constructs and response formats on mount
+  // Fetch constructs, response formats, and default models on mount
   useEffect(() => {
     getConstructsForGeneration()
       .then(setConstructs)
@@ -724,6 +725,9 @@ export default function NewGenerationPage() {
     getResponseFormatsForGeneration()
       .then(setResponseFormats)
       .catch(() => toast.error("Failed to load response formats"));
+    getDefaultModelIdForPurpose("item_generation")
+      .then((modelId) => patchConfig({ generationModel: modelId }))
+      .catch(() => {/* keep hardcoded default */});
   }, []);
 
   function patchConfig(patch: Partial<WizardConfig>) {

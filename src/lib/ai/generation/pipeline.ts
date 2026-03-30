@@ -11,7 +11,7 @@
  * Step 7: Finalise + return scored candidates
  */
 import { openRouterProvider }         from '@/lib/ai/providers/openrouter'
-import { getModelForTask }            from '@/lib/ai/model-resolver'
+import { getModelForTask }            from '@/lib/ai/model-config'
 import { embedTexts }                 from './embeddings'
 import {
   ITEM_GENERATION_SYSTEM_PROMPT,
@@ -46,8 +46,8 @@ export async function runPipeline(
   items:  ScoredCandidateItem[]
   result: PipelineResult
 }> {
-  const modelConfig = await getModelForTask('item_generation')
-  const model       = config.generationModel ?? modelConfig.model
+  const taskConfig = await getModelForTask('item_generation')
+  const model      = config.generationModel ?? taskConfig.modelId
   let totalInputTokens  = 0
   let totalOutputTokens = 0
 
@@ -83,8 +83,8 @@ export async function runPipeline(
         model,
         systemPrompt:   ITEM_GENERATION_SYSTEM_PROMPT,
         prompt,
-        temperature:    config.temperature ?? modelConfig.temperature,
-        maxTokens:      modelConfig.maxTokens,
+        temperature:    config.temperature ?? taskConfig.config.temperature,
+        maxTokens:      taskConfig.config.max_tokens,
         responseFormat: 'json',
       })
 

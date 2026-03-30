@@ -1,7 +1,5 @@
 'use server'
 
-export const maxDuration = 300  // 5-minute timeout for pipeline runs
-
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapGenerationRunRow, mapGeneratedItemRow } from '@/lib/supabase/mappers'
@@ -11,8 +9,6 @@ import { runPipeline } from '@/lib/ai/generation'
 import type { ScoredCandidateItem, PipelineResult, ConstructForGeneration } from '@/types/generation'
 import type { ProgressCallback } from '@/lib/ai/generation/types'
 
-// Re-export types used by client components
-export type { GenerationRun, GeneratedItem }
 
 export type GenerationRunWithConstructNames = GenerationRun & {
   constructNames: string[]

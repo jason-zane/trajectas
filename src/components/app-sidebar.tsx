@@ -123,7 +123,6 @@ const adminNav = [
     label: "AI Matching",
     items: [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
-      { title: "Model Config", href: "/model-config", icon: Cpu },
       { title: "Prompts", href: "/prompts", icon: MessageSquare },
       { title: "Item Generator", href: "/generate", icon: Wand2 },
     ],
@@ -133,6 +132,7 @@ const adminNav = [
     items: [
       { title: "Brand", href: "/settings/brand", icon: Palette },
       { title: "Experience", href: "/settings/experience", icon: Users },
+      { title: "AI Models", href: "/settings/models", icon: Cpu },
     ],
   },
 ];

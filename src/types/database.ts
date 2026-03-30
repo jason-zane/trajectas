@@ -118,6 +118,7 @@ export type AIPromptPurpose =
   | 'diagnostic_analysis'
   | 'item_generation'
   | 'preflight_analysis'
+  | 'embedding'
 
 /** Execution status for an AI-GENIE item generation run. */
 export type GenerationRunStatus =
