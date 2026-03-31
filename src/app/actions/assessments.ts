@@ -6,6 +6,7 @@ import { getAccessibleCampaignIds, requireAdminScope, resolveAuthorizedScope } f
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
+import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import type { Assessment, ItemOrdering } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
 
@@ -375,19 +376,26 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
   const constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
   if (constructIds.length === 0) return []
 
-  // Get active items for these constructs with their format info
+  // Determine per-construct limit from rules
+  const limit = await getItemsPerConstructForCount(constructIds.length)
+
+  // Get active, non-deleted items for these constructs with their format info
   const { data: items } = await db
     .from('items')
-    .select('response_format_id, response_formats(id, name, type)')
+    .select('id, construct_id, response_format_id, selection_priority, display_order, response_formats(id, name, type)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
+    .is('deleted_at', null)
 
   if (!items || items.length === 0) return []
+
+  // Apply per-construct limiting
+  const limitedItems = applyPerConstructLimit(items, limit)
 
   // Group by format
   const groups = new Map<string, { formatName: string; formatType: string; count: number }>()
 
-  for (const item of items) {
+  for (const item of limitedItems) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rf = (item as any).response_formats
     const fmtId = item.response_format_id
@@ -420,6 +428,7 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
     .from('factors')
     .select('*, dimensions(name), factor_constructs(construct_id)')
     .eq('is_active', true)
+    .is('deleted_at', null)
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
@@ -728,14 +737,21 @@ async function persistSections(
   const constructIds = [...new Set((links ?? []).map((l: { construct_id: string }) => l.construct_id))]
   if (constructIds.length === 0) return null
 
-  // Get all active items for these constructs
+  // Determine per-construct limit from rules
+  const limit = await getItemsPerConstructForCount(constructIds.length)
+
+  // Get all active, non-deleted items for these constructs with priority ordering
   const { data: items } = await db
     .from('items')
-    .select('id, response_format_id')
+    .select('id, construct_id, response_format_id, selection_priority, display_order')
     .in('construct_id', constructIds)
     .eq('status', 'active')
+    .is('deleted_at', null)
 
   if (!items || items.length === 0) return null
+
+  // Apply per-construct limiting
+  const limitedItems = applyPerConstructLimit(items, limit)
 
   // Build section ID lookup by format
   const sectionByFormat = new Map<string, string>()
@@ -747,7 +763,7 @@ async function persistSections(
   const sectionItems: { section_id: string; item_id: string; display_order: number }[] = []
   const orderBySection = new Map<string, number>()
 
-  for (const item of items) {
+  for (const item of limitedItems) {
     const sectionId = sectionByFormat.get(item.response_format_id)
     if (!sectionId) continue
 
@@ -833,23 +849,68 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   const constructIds = [...new Set((links ?? []).map((l: { construct_id: string }) => l.construct_id))]
   if (constructIds.length === 0) return []
 
-  // Get active construct items with their construct names
+  // Determine per-construct limit from rules
+  const limit = await getItemsPerConstructForCount(constructIds.length)
+
+  // Get active, non-deleted construct items with their construct names
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, stem, constructs(name)')
+    .select('id, construct_id, stem, selection_priority, display_order, constructs(name)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .eq('purpose', 'construct')
+    .is('deleted_at', null)
 
   if (!items || items.length === 0) return []
 
+  // Apply per-construct limiting
+  const limitedItems = applyPerConstructLimit(items, limit)
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return items.map((item: any) => ({
+  return limitedItems.map((item: any) => ({
     itemId: item.id,
     constructId: item.construct_id,
     stem: item.stem,
     constructName: item.constructs?.name ?? '',
   }))
+}
+
+/**
+ * Apply per-construct item limit: group items by construct_id,
+ * sort by selection_priority then display_order, and take the top N.
+ * Returns all items if limit is null.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyPerConstructLimit<T extends Record<string, any> & { construct_id: string; selection_priority: number; display_order: number }>(
+  items: T[],
+  limit: number | null,
+): T[] {
+  if (limit === null) return items
+
+  // Group by construct
+  const byConstruct = new Map<string, T[]>()
+  for (const item of items) {
+    const group = byConstruct.get(item.construct_id)
+    if (group) {
+      group.push(item)
+    } else {
+      byConstruct.set(item.construct_id, [item])
+    }
+  }
+
+  // Sort each group and take top N
+  const result: T[] = []
+  for (const [, group] of byConstruct) {
+    group.sort((a, b) => {
+      if (a.selection_priority !== b.selection_priority) {
+        return a.selection_priority - b.selection_priority
+      }
+      return a.display_order - b.display_order
+    })
+    result.push(...group.slice(0, limit))
+  }
+
+  return result
 }
 
 /**

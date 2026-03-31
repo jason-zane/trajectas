@@ -60,17 +60,19 @@ export async function resolveSessionActor(): Promise<ResolvedActor | null> {
     await Promise.all([
       db
         .from("profiles")
-        .select("id, email, role")
+        .select("id, email, role, display_name, is_active")
         .eq("id", user.id)
         .single(),
       db
         .from("partner_memberships")
         .select("id, partner_id, role, is_default, created_at")
-        .eq("profile_id", user.id),
+        .eq("profile_id", user.id)
+        .is("revoked_at", null),
       db
         .from("client_memberships")
         .select("id, organization_id, role, is_default, created_at")
-        .eq("profile_id", user.id),
+        .eq("profile_id", user.id)
+        .is("revoked_at", null),
       resolveSignedActiveContext(),
     ]);
 
@@ -82,6 +84,8 @@ export async function resolveSessionActor(): Promise<ResolvedActor | null> {
     id: profileResult.data.id,
     email: profileResult.data.email,
     role: profileResult.data.role,
+    displayName: profileResult.data.display_name,
+    isActive: profileResult.data.is_active,
     partnerMemberships: (partnerMembershipResult.data ?? []).map(mapPartnerMembership),
     clientMemberships: (clientMembershipResult.data ?? []).map(mapClientMembership),
     activeContext,

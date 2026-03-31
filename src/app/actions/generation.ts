@@ -4,9 +4,15 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
-import { mapGenerationRunRow, mapGeneratedItemRow } from '@/lib/supabase/mappers'
+import { mapGenerationRunRow, mapGeneratedItemRow, mapResponseFormatRow } from '@/lib/supabase/mappers'
 import { createGenerationRunSchema, acceptItemsSchema } from '@/lib/validations/generation'
-import type { GenerationRun, GeneratedItem, GenerationRunStatus, GenerationRunConfig } from '@/types/database'
+import type {
+  GenerationRun,
+  GeneratedItem,
+  GenerationRunStatus,
+  GenerationRunConfig,
+  ResponseFormat,
+} from '@/types/database'
 import { runPipeline } from '@/lib/ai/generation'
 import type { ScoredCandidateItem, ConstructForGeneration } from '@/types/generation'
 import type { ProgressCallback } from '@/lib/ai/generation/types'
@@ -96,8 +102,12 @@ async function insertMockGeneratedItems(
     rationale: string
     embedding: number[]
     community_id: number
+    initial_community_id: number
+    final_community_id: number
     wto_max: number
     boot_stability: number
+    removal_stage: 'uva' | 'boot_ega' | 'kept'
+    removal_sweep: number | null
     is_redundant: boolean
     is_unstable: boolean
     is_accepted: boolean
@@ -123,10 +133,14 @@ async function insertMockGeneratedItems(
         rationale: 'Generated item for construct',
         embedding: [],
         community_id: ((i % constructIds.length) + communityBase - 1) % constructIds.length + 1,
+        initial_community_id: ((i % constructIds.length) + communityBase - 1) % constructIds.length + 1,
+        final_community_id: ((i % constructIds.length) + communityBase - 1) % constructIds.length + 1,
         wto_max: Math.round(wtoMax * 1000) / 1000,
         boot_stability: Math.round(bootStability * 1000) / 1000,
         is_redundant: wtoMax > 0.20,
         is_unstable: bootStability < 0.75,
+        removal_stage: wtoMax > 0.20 ? 'uva' : bootStability < 0.75 ? 'boot_ega' : 'kept',
+        removal_sweep: wtoMax > 0.20 || bootStability < 0.75 ? 1 : null,
         is_accepted: false,
       })
     }
@@ -322,6 +336,7 @@ export async function startGenerationRun(
 
     // Fetch construct data for the run
     const constructs = await fetchConstructsForRun(config.constructIds)
+    const responseFormatDescription = await fetchResponseFormatDescription(config.responseFormatId)
 
     const onProgress: ProgressCallback = async (step, pct, details) => {
       await updateGenerationRunProgress(runId, {
@@ -344,7 +359,12 @@ export async function startGenerationRun(
     })
 
     if (useRealPipeline) {
-      const { items: scoredItems, result: pipelineResult } = await runPipeline(config, constructs, onProgress)
+      const { items: scoredItems, result: pipelineResult } = await runPipeline(
+        config,
+        constructs,
+        onProgress,
+        { responseFormatDescription },
+      )
 
       // Bulk insert scored items
       const { error: insertError } = await db.from('generated_items').insert(
@@ -355,9 +375,13 @@ export async function startGenerationRun(
           reverse_scored:    item.reverseScored,
           rationale:         item.rationale ?? null,
           embedding:         item.embedding,
-          community_id:      item.communityId ?? null,
+          community_id:      item.communityId ?? item.finalCommunityId ?? item.initialCommunityId ?? null,
+          initial_community_id: item.initialCommunityId ?? null,
+          final_community_id: item.finalCommunityId ?? null,
           wto_max:           item.wtoMax ?? null,
           boot_stability:    item.bootStability ?? null,
+          removal_stage:     item.removalStage ?? null,
+          removal_sweep:     item.removalSweep ?? null,
           is_redundant:      item.isRedundant,
           is_unstable:       item.isUnstable,
         }))
@@ -579,15 +603,33 @@ export async function deleteGenerationRun(runId: string): Promise<void> {
 async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructForGeneration[]> {
   const db = createAdminClient()
 
-  const { data, error } = await db
-    .from('constructs')
-    .select('*')
-    .in('id', constructIds)
-    .is('deleted_at', null)
+  const [constructsResult, itemsResult] = await Promise.all([
+    db
+      .from('constructs')
+      .select('*')
+      .in('id', constructIds)
+      .is('deleted_at', null),
+    db
+      .from('items')
+      .select('construct_id, stem')
+      .in('construct_id', constructIds)
+      .is('deleted_at', null)
+      .eq('purpose', 'construct'),
+  ])
 
-  if (error) throw new Error(error.message)
+  if (constructsResult.error) throw new Error(constructsResult.error.message)
+  if (itemsResult.error) throw new Error(itemsResult.error.message)
 
-  return (data ?? []).map((row) => ({
+  const existingItemsByConstruct = new Map<string, string[]>()
+  for (const row of itemsResult.data ?? []) {
+    const stems = existingItemsByConstruct.get(row.construct_id) ?? []
+    stems.push(row.stem)
+    existingItemsByConstruct.set(row.construct_id, stems)
+  }
+
+  return (constructsResult.data ?? []).map((row) => {
+    const existingItems = existingItemsByConstruct.get(row.id) ?? []
+    return {
     id: row.id,
     name: row.name,
     slug: row.slug,
@@ -596,8 +638,78 @@ async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructF
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
-    existingItemCount: 0,
-  }))
+      existingItemCount: existingItems.length,
+      existingItems,
+    }
+  })
+}
+
+async function fetchResponseFormatDescription(
+  responseFormatId?: string,
+): Promise<string | undefined> {
+  if (!responseFormatId) return undefined
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('response_formats')
+    .select('*')
+    .eq('id', responseFormatId)
+    .single()
+
+  if (error || !data) return undefined
+  return describeResponseFormat(mapResponseFormatRow(data))
+}
+
+function describeResponseFormat(format: ResponseFormat): string {
+  const config = format.config as Record<string, unknown>
+  const points = typeof config.points === 'number' ? config.points : undefined
+  const anchors = extractAnchors(config)
+
+  if (format.type === 'likert') {
+    const prefix = points
+      ? `Use a ${points}-point Likert-style agreement scale.`
+      : 'Use a Likert-style agreement scale.'
+    return anchors.length > 0
+      ? `${prefix} Anchors: ${anchors.map((anchor, index) => `${index + 1} = ${anchor}`).join('; ')}.`
+      : `${prefix} Write items that can be answered cleanly on an ordered agreement/frequency scale.`
+  }
+
+  if (format.type === 'binary') {
+    return anchors.length > 0
+      ? `Use a binary response format with anchors: ${anchors.join(' vs ')}. Write items that permit a clear two-option judgement.`
+      : 'Use a binary response format. Write items that permit a clear yes/no or either/or judgement.'
+  }
+
+  if (format.type === 'forced_choice') {
+    const optionCount =
+      typeof config.optionCount === 'number'
+        ? config.optionCount
+        : typeof config.options === 'number'
+          ? config.options
+          : undefined
+    const optionText = optionCount ? ` with ${optionCount} options per item` : ''
+    return `Use a forced-choice response format${optionText}. Write stems that create a meaningful trade-off instead of a simple agreement judgement.`
+  }
+
+  if (format.type === 'sjt') {
+    return 'Use a situational judgement format. Write realistic, work-relevant scenario stems that can be evaluated against the configured options.'
+  }
+
+  return `Use the response format "${format.name}" (${format.type}). Write items that fit this response mode without needing reinterpretation by the respondent.`
+}
+
+function extractAnchors(config: Record<string, unknown>): string[] {
+  const rawAnchors = config.anchors
+  if (Array.isArray(rawAnchors)) {
+    return rawAnchors.filter((anchor): anchor is string => typeof anchor === 'string')
+  }
+  if (typeof rawAnchors === 'object' && rawAnchors !== null) {
+    return Object.entries(rawAnchors as Record<string, unknown>)
+      .sort(([a], [b]) => Number(a) - Number(b))
+      .map(([, label]) => label)
+      .filter((label): label is string => typeof label === 'string')
+  }
+  return []
 }
 
 // ---------------------------------------------------------------------------
@@ -752,7 +864,7 @@ export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boo
 
     const { data: items, error } = await db
       .from('generated_items')
-      .select('stem, reverse_scored, construct_id, wto_max, boot_stability, is_redundant, is_unstable, is_accepted')
+      .select('stem, reverse_scored, construct_id, initial_community_id, final_community_id, wto_max, boot_stability, removal_stage, removal_sweep, is_redundant, is_unstable, is_accepted')
       .eq('generation_run_id', runId)
       .order('construct_id')
 
@@ -768,7 +880,7 @@ export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boo
 
     const constructNameMap = new Map((constructs ?? []).map(c => [c.id, c.name]))
 
-    const header = 'stem,reverse_scored,construct_name,wto_max,boot_stability,is_redundant,is_unstable,status'
+    const header = 'stem,reverse_scored,construct_name,initial_community_id,final_community_id,wto_max,boot_stability,removal_stage,removal_sweep,is_redundant,is_unstable,status'
     const rows = items.map(item => {
       const constructName = constructNameMap.get(item.construct_id) ?? item.construct_id
       const status = item.is_accepted === true ? 'accepted'
@@ -780,8 +892,12 @@ export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boo
         JSON.stringify(item.stem),
         item.reverse_scored,
         JSON.stringify(constructName),
+        item.initial_community_id ?? '',
+        item.final_community_id ?? '',
         item.wto_max ?? '',
         item.boot_stability ?? '',
+        item.removal_stage ?? '',
+        item.removal_sweep ?? '',
         item.is_redundant,
         item.is_unstable,
         status,

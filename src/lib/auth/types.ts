@@ -39,6 +39,8 @@ export interface ResolvedActor {
   id: string;
   email: string;
   role: UserRole;
+  displayName?: string | null;
+  isActive: boolean;
   partnerMemberships: PartnerMembershipRecord[];
   clientMemberships: ClientMembershipRecord[];
   activeContext: ActiveContext | null;

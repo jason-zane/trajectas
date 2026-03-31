@@ -261,25 +261,36 @@ export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
     throw new AuthenticationRequiredError();
   }
 
-  const hasPlatformAdminRole = actor.role === "platform_admin";
+  const actorIsActive = actor.isActive;
+  const hasPlatformAdminRole = actorIsActive && actor.role === "platform_admin";
   const isPlatformAdmin =
     hasPlatformAdminRole && requestEnvironment.requestSurface === "admin";
-  const actorPartnerIds = dedupe(actor.partnerMemberships.map((membership) => membership.partnerId));
+  const actorPartnerIds = dedupe(
+    actorIsActive
+      ? actor.partnerMemberships.map((membership) => membership.partnerId)
+      : []
+  );
   const actorPartnerAdminIds = dedupe(
-    actor.partnerMemberships
+    (actorIsActive ? actor.partnerMemberships : [])
       .filter((membership) => membership.role === "admin")
       .map((membership) => membership.partnerId)
   );
-  const directClientIds = dedupe(actor.clientMemberships.map((membership) => membership.clientId));
+  const directClientIds = dedupe(
+    actorIsActive
+      ? actor.clientMemberships.map((membership) => membership.clientId)
+      : []
+  );
   const directClientAdminIds = dedupe(
-    actor.clientMemberships
+    (actorIsActive ? actor.clientMemberships : [])
       .filter((membership) => membership.role === "admin")
       .map((membership) => membership.clientId)
   );
   const clientPartnerMap = await loadClientPartnerMap(actorPartnerIds);
   const partnerClientIds = Array.from(clientPartnerMap.keys());
-  const activeContext = actor.activeContext ?? null;
-  const supportSession = await getValidatedSupportSession(actor, activeContext);
+  const activeContext = actorIsActive ? actor.activeContext ?? null : null;
+  const supportSession = actorIsActive
+    ? await getValidatedSupportSession(actor, activeContext)
+    : null;
 
   let partnerIds = actorPartnerIds;
   let partnerAdminIds = actorPartnerAdminIds;

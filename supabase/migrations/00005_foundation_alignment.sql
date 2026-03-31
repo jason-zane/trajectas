@@ -101,15 +101,9 @@ CREATE TRIGGER set_item_scoring_rubrics_updated_at
     BEFORE UPDATE ON item_scoring_rubrics
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Seed new response formats
-INSERT INTO response_formats (id, name, type, config) VALUES
-  ('a5000000-0000-0000-0000-000000000005', 'SJT 4-Option', 'sjt',
-   '{"options": 4, "scoring": "rubric", "instructions": "Rank the following responses from most effective to least effective."}'),
-  ('a5000000-0000-0000-0000-000000000006', 'Pattern Recognition', 'cognitive',
-   '{"mediaRequired": true, "timeLimit": 60, "instructions": "Identify the pattern and select the next element in the sequence."}'),
-  ('a5000000-0000-0000-0000-000000000007', 'Scale 0-100', 'scale',
-   '{"min": 0, "max": 100, "step": 1, "anchors": {"0": "Not at all", "50": "Moderate", "100": "Extremely"}}')
-ON CONFLICT DO NOTHING;
+-- Seeding for the new enum-backed response formats happens in a later migration.
+-- PostgreSQL does not allow freshly added enum values to be used safely again
+-- within the same transaction that added them.
 
 -- ---------------------------------------------------------------------------
 -- 2.2 — Multi-tenant diagnostics

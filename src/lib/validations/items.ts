@@ -15,6 +15,7 @@ export const itemSchema = z.object({
   weight: z.coerce.number().positive('Weight must be positive').default(1.0),
   status: z.enum(['draft', 'active', 'archived']).default('draft'),
   displayOrder: z.coerce.number().int().min(0).default(0),
+  selectionPriority: z.coerce.number().int().min(0).default(0),
   keyedAnswer: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
   if (data.purpose === 'construct' && !data.constructId) {

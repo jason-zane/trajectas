@@ -253,6 +253,36 @@ export async function deleteConstruct(id: string) {
     targetTable: 'constructs',
     targetId: id,
   })
+  return { success: true as const }
+}
+
+export async function deleteConstructs(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one construct.' }
+  }
+
+  const db = createAdminClient()
+  const timestamp = new Date().toISOString()
+  const { error } = await db
+    .from('constructs')
+    .update({ deleted_at: timestamp })
+    .in('id', uniqueIds)
+  if (error) return { error: error.message }
+
+  revalidatePath('/constructs')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.bulk_deleted',
+    targetTable: 'constructs',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+  return { success: true as const, count: uniqueIds.length }
 }
 
 export async function restoreConstruct(id: string) {
@@ -272,6 +302,35 @@ export async function restoreConstruct(id: string) {
     targetTable: 'constructs',
     targetId: id,
   })
+  return { success: true as const }
+}
+
+export async function restoreConstructs(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one construct.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('constructs')
+    .update({ deleted_at: null })
+    .in('id', uniqueIds)
+  if (error) return { error: error.message }
+
+  revalidatePath('/constructs')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.bulk_restored',
+    targetTable: 'constructs',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+  return { success: true as const, count: uniqueIds.length }
 }
 
 export async function toggleConstructActive(id: string, isActive: boolean) {

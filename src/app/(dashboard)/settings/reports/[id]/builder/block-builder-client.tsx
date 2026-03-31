@@ -47,16 +47,59 @@ import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
   getEntityOptions,
+  linkTemplateToCampaign,
+  unlinkTemplateFromCampaign,
   type EntityOption,
+  type TemplateUsageEntry,
+  type AudienceType,
 } from '@/app/actions/reports'
 
 type ReportType = 'self_report' | '360'
+
+// ---------------------------------------------------------------------------
+// Friendly label overrides for config field keys
+// ---------------------------------------------------------------------------
+
+const FIELD_LABEL_OVERRIDES: Record<string, string> = {
+  entityIds: 'Entities',
+  entityId: 'Entity',
+  aiNarrative: 'AI-enhanced narrative',
+  topN: 'Show top',
+  maxItems: 'Max items',
+  showScore: 'Show score',
+  showBandLabel: 'Show band label',
+  showDefinition: 'Show definition',
+  showIndicators: 'Show indicators',
+  showDevelopment: 'Show development',
+  showChildBreakdown: 'Show child breakdown',
+  showDate: 'Show date',
+  showLogo: 'Show logo',
+  groupByDimension: 'Group by dimension',
+  showDimensionScore: 'Show dimension score',
+  prioritiseByScore: 'Prioritise by score',
+  groupByFactor: 'Group by factor',
+  showBlindSpots: 'Show blind spots',
+  showHiddenStrengths: 'Show hidden strengths',
+  printBreakBefore: 'Page break before',
+}
+
+// ---------------------------------------------------------------------------
+// Audience type labels
+// ---------------------------------------------------------------------------
+
+const AUDIENCE_LABELS: Record<AudienceType, string> = {
+  participant: 'Participant',
+  hr_manager: 'HR / Manager',
+  consultant: 'Consultant',
+}
 
 interface Props {
   templateId: string
   templateName: string
   reportType: ReportType
   initialBlocks: BlockConfig[]
+  initialUsage?: TemplateUsageEntry[]
+  campaigns?: { id: string; title: string }[]
 }
 
 function generateId(): string {
@@ -278,6 +321,8 @@ export function BlockBuilderClient({
   templateName: initialName,
   reportType,
   initialBlocks,
+  initialUsage,
+  campaigns: allCampaigns,
 }: Props) {
   const router = useRouter()
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks)
@@ -289,6 +334,8 @@ export function BlockBuilderClient({
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
+  const [usage, setUsage] = useState<TemplateUsageEntry[]>(initialUsage ?? [])
+  const [isLinking, startLinking] = useTransition()
 
   useEffect(() => {
     getEntityOptions().then(setEntityOptions)
@@ -380,6 +427,39 @@ export function BlockBuilderClient({
     })
     setDraggingId(null)
     setDragOverId(null)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Campaign link / unlink
+  // ---------------------------------------------------------------------------
+  function handleLinkCampaign(campaignId: string, audienceType: AudienceType) {
+    startLinking(async () => {
+      try {
+        await linkTemplateToCampaign(templateId, campaignId, audienceType)
+        const campaign = allCampaigns?.find((c) => c.id === campaignId)
+        setUsage((prev) => [
+          ...prev,
+          { campaignId, campaignTitle: campaign?.title ?? 'Campaign', audienceType, assessments: [] },
+        ])
+        toast.success('Template linked to campaign')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Link failed')
+      }
+    })
+  }
+
+  function handleUnlinkCampaign(campaignId: string, audienceType: AudienceType) {
+    startLinking(async () => {
+      try {
+        await unlinkTemplateFromCampaign(templateId, campaignId, audienceType)
+        setUsage((prev) =>
+          prev.filter((u) => !(u.campaignId === campaignId && u.audienceType === audienceType)),
+        )
+        toast.success('Template unlinked from campaign')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Unlink failed')
+      }
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -519,7 +599,18 @@ export function BlockBuilderClient({
         </div>
 
         {/* Right: Config panel */}
-        <div className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4">
+        <div className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4 space-y-5">
+          {/* Campaign linkage panel */}
+          {allCampaigns && (
+            <CampaignLinkagePanel
+              usage={usage}
+              campaigns={allCampaigns}
+              isLinking={isLinking}
+              onLink={handleLinkCampaign}
+              onUnlink={handleUnlinkCampaign}
+            />
+          )}
+
           {selectedBlock ? (
             <BlockConfigPanel
               block={selectedBlock}
@@ -532,7 +623,7 @@ export function BlockBuilderClient({
               }
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-center py-8">
+            <div className="flex flex-col items-center justify-center gap-2 text-center py-8">
               <Settings className="size-8 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">
                 Select a block to configure it.
@@ -573,7 +664,7 @@ function BlockConfigPanel({ block, entityOptions, onUpdateConfig, onUpdateBlock 
         {Object.entries(block.config as Record<string, unknown>).map(([key, val]) => {
           if (key.startsWith('_')) return null // internal flags
 
-          const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
+          const label = FIELD_LABEL_OVERRIDES[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
 
           // Boolean → Switch (no change)
           if (typeof val === 'boolean') {
@@ -726,6 +817,138 @@ function BlockConfigPanel({ block, entityOptions, onUpdateConfig, onUpdateBlock 
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Campaign Linkage Panel
+// ---------------------------------------------------------------------------
+
+interface CampaignLinkagePanelProps {
+  usage: TemplateUsageEntry[]
+  campaigns: { id: string; title: string }[]
+  isLinking: boolean
+  onLink: (campaignId: string, audienceType: AudienceType) => void
+  onUnlink: (campaignId: string, audienceType: AudienceType) => void
+}
+
+function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }: CampaignLinkagePanelProps) {
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkSearch, setLinkSearch] = useState('')
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
+  const [selectedAudience, setSelectedAudience] = useState<AudienceType>('participant')
+
+  const linkedCampaignIds = new Set(usage.map((u) => u.campaignId))
+  const availableCampaigns = campaigns.filter((c) => !linkedCampaignIds.has(c.id))
+  const filteredCampaigns = linkSearch.trim()
+    ? availableCampaigns.filter((c) => c.title.toLowerCase().includes(linkSearch.toLowerCase()))
+    : availableCampaigns
+
+  function handleConfirmLink() {
+    if (!selectedCampaignId) return
+    onLink(selectedCampaignId, selectedAudience)
+    setSelectedCampaignId(null)
+    setLinkOpen(false)
+    setLinkSearch('')
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Campaigns</p>
+
+      {usage.length === 0 ? (
+        <p className="text-xs text-muted-foreground">Not linked to any campaigns.</p>
+      ) : (
+        <div className="space-y-2">
+          {usage.map((entry) => (
+            <div
+              key={`${entry.campaignId}-${entry.audienceType}`}
+              className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-1.5"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium leading-tight">{entry.campaignTitle}</p>
+                <button
+                  type="button"
+                  disabled={isLinking}
+                  onClick={() => onUnlink(entry.campaignId, entry.audienceType)}
+                  className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+              <Badge variant="outline" className="text-[10px]">
+                {AUDIENCE_LABELS[entry.audienceType]}
+              </Badge>
+              {entry.assessments.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {entry.assessments.map((a) => a.name).join(', ')}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Popover open={linkOpen} onOpenChange={setLinkOpen}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors"
+            />
+          }
+        >
+          <Plus className="size-3" />
+          Link to campaign
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3 space-y-3" align="start" sideOffset={4}>
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Search campaigns…"
+              value={linkSearch}
+              onValueChange={setLinkSearch}
+            />
+            <CommandList className="max-h-40">
+              <CommandEmpty className="py-3 text-xs text-center text-muted-foreground">
+                No campaigns available.
+              </CommandEmpty>
+              <CommandGroup>
+                {filteredCampaigns.map((c) => (
+                  <CommandItem
+                    key={c.id}
+                    value={c.id}
+                    onSelect={(v) => setSelectedCampaignId(v)}
+                    data-checked={c.id === selectedCampaignId}
+                  >
+                    {c.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+
+          {selectedCampaignId && (
+            <>
+              <Select value={selectedAudience} onValueChange={(v) => setSelectedAudience(v as AudienceType)}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="participant">Participant</SelectItem>
+                  <SelectItem value="hr_manager">HR / Manager</SelectItem>
+                  <SelectItem value="consultant">Consultant</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" className="w-full" disabled={isLinking} onClick={handleConfirmLink}>
+                Link
+              </Button>
+            </>
+          )}
+        </PopoverContent>
+      </Popover>
+
+      <Separator />
     </div>
   )
 }

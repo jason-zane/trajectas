@@ -1,150 +1,206 @@
 /**
  * wto.ts — Weighted Topological Overlap (wTO) redundancy detection
  *
- * wTO(i,j) = (Σ_u A[i][u]·A[j][u] + A[i][j]) / (min(Σ_u A[i][u], Σ_u A[j][u]) + 1 - A[i][j])
- *
- * Items with max wTO > cutoff are flagged as redundant.
- * Iterative removal: in each redundant pair, remove the item with higher overall wTO.
+ * Redundant sets are identified globally. Within each redundant pair/set, the
+ * keeper is the item with the lowest overall overlap with the rest of the pool.
  */
-import { cosineSimilarityMatrix, partialCorrelationMatrix } from './correlation'
+import { itemCorrelationMatrix } from './correlation'
+import { buildNetwork } from './network-builder'
 import type { AdjacencyMatrix, RedundancyResult } from '@/types/generation'
 
-export function computeWTO(adj: AdjacencyMatrix): number[][] {
-  const n = adj.length
+export function computeWTO(adjacency: AdjacencyMatrix): number[][] {
+  const n = adjacency.length
+  const absAdj = adjacency.map(row => row.map(weight => Math.abs(weight)))
   const wto: number[][] = Array.from({ length: n }, () => new Array(n).fill(0) as number[])
-  const degrees = adj.map(row => row.reduce((s, v) => s + v, 0))
+  const degrees = absAdj.map(row => row.reduce((sum, value) => sum + value, 0))
 
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       let sharedNeighbors = 0
       for (let u = 0; u < n; u++) {
-        sharedNeighbors += adj[i][u] * adj[j][u]
+        sharedNeighbors += absAdj[i][u]! * absAdj[j][u]!
       }
-      const numerator   = sharedNeighbors + adj[i][j]
-      const denominator = Math.min(degrees[i], degrees[j]) + 1 - adj[i][j]
+      const edgeWeight = absAdj[i][j]!
+      const numerator = sharedNeighbors + edgeWeight
+      const denominator = Math.min(degrees[i]!, degrees[j]!) + 1 - edgeWeight
       const score = denominator > 0 ? numerator / denominator : 0
       wto[i][j] = wto[j][i] = score
     }
   }
+
   return wto
 }
 
 export function findRedundantItems(
-  adj: AdjacencyMatrix,
+  adjacency: AdjacencyMatrix,
   cutoff: number,
 ): RedundancyResult {
-  const n = adj.length
-  const wtoMatrix = computeWTO(adj)
-
-  // Per-item max wTO (excluding self)
-  const wtoScores = Array.from({ length: n }, (_, i) =>
-    Math.max(...wtoMatrix[i].filter((_, j) => j !== i), 0)
-  )
-
+  const n = adjacency.length
+  const wtoMatrix = computeWTO(adjacency)
+  const wtoScores = Array.from({ length: n }, (_, index) => rowMax(wtoMatrix[index]!))
   const redundantIndices = new Set<number>()
 
-  // Iteratively flag redundant items
-  // In each redundant pair (wTO > cutoff), flag the one with higher max wTO
-  let changed = true
-  while (changed) {
-    changed = false
-    for (let i = 0; i < n; i++) {
-      if (redundantIndices.has(i)) continue
-      for (let j = i + 1; j < n; j++) {
-        if (redundantIndices.has(j)) continue
-        if (wtoMatrix[i][j] > cutoff) {
-          // Remove the item with higher overall wTO
-          const toRemove = wtoScores[i] >= wtoScores[j] ? i : j
-          redundantIndices.add(toRemove)
-          changed = true
-        }
-      }
-    }
+  for (const group of greedyRedundantSets(wtoMatrix, cutoff)) {
+    if (group.length < 2) continue
+    const keeper = keepMostUnique(group, wtoMatrix)
+    group.forEach(index => {
+      if (index !== keeper) redundantIndices.add(index)
+    })
   }
 
   return { redundantIndices, wtoScores }
 }
 
-/**
- * Iterative UVA as specified by the AI-GENIE paper:
- * remove redundant items, rebuild the network, recompute wTO, repeat
- * until no pairs exceed the cutoff.
- *
- * Partial correlations are computed ONCE from the full item set to avoid
- * a deflation spiral: recomputing with fewer items inflates remaining
- * partial correlations because fewer variables condition away shared variance.
- */
 export function findRedundantItemsIterative(
   embeddings: number[][],
   cutoff: number,
-  buildNetworkFn: (corrMatrix: number[][]) => AdjacencyMatrix,
+  resolveAdjacency?: (corrMatrix: number[][]) => AdjacencyMatrix,
 ): RedundancyResult {
-  const n = embeddings.length
-  const wtoScores = new Array<number>(n).fill(0)
+  const itemCount = embeddings.length
+  const wtoScores = new Array<number>(itemCount).fill(0)
   const redundantIndices = new Set<number>()
+  const removalSweepByIndex = new Map<number, number>()
 
-  // Compute partial correlations ONCE from the full item set.
-  // Recomputing per-iteration would cause a deflation spiral: removing items
-  // inflates remaining partial correlations, flagging more items, and so on.
-  const fullCorrMatrix = cosineSimilarityMatrix(embeddings)
-  const fullPcorMatrix = partialCorrelationMatrix(fullCorrMatrix)
-  if (!fullPcorMatrix) {
-    console.warn('[UVA] Partial correlation inversion failed — falling back to cosine similarities')
-  }
-  const baseMatrix = fullPcorMatrix ?? fullCorrMatrix
+  let active = Array.from({ length: itemCount }, (_, index) => index)
+  let sweep = 0
 
-  // Active indices — items still in the running
-  let active = Array.from({ length: n }, (_, i) => i)
+  while (active.length >= 2) {
+    sweep += 1
+    const activeEmbeddings = active.map(index => embeddings[index]!)
+    const corrMatrix = itemCorrelationMatrix(activeEmbeddings)
+    const ggmAdjacency = resolveAdjacency
+      ? resolveAdjacency(corrMatrix)
+      : buildNetwork(corrMatrix, 'ebicglasso').adjacency
+    const resolvedWto = computeWTO(ggmAdjacency)
+    const groups = greedyRedundantSets(resolvedWto, cutoff)
 
-  for (;;) {
-    if (active.length < 2) break
-
-    // Extract sub-matrix for active items from the pre-computed base matrix
-    const subMatrix = active.map(i => active.map(j => baseMatrix[i][j]))
-    const adj = buildNetworkFn(subMatrix)
-    const wto = computeWTO(adj)
-    const subN = active.length
-
-    // Find pairs exceeding cutoff and pick items to remove
-    const toRemove = new Set<number>() // indices into `active`
-    const maxWto = new Array<number>(subN).fill(0)
-    for (let i = 0; i < subN; i++) {
-      for (let j = i + 1; j < subN; j++) {
-        if (wto[i][j] > maxWto[i]) maxWto[i] = wto[i][j]
-        if (wto[i][j] > maxWto[j]) maxWto[j] = wto[i][j]
-      }
+    for (let subIndex = 0; subIndex < active.length; subIndex++) {
+      const originalIndex = active[subIndex]!
+      wtoScores[originalIndex] = Math.max(
+        wtoScores[originalIndex] ?? 0,
+        rowMax(resolvedWto[subIndex]!),
+      )
     }
 
-    for (let i = 0; i < subN; i++) {
-      if (toRemove.has(i)) continue
-      for (let j = i + 1; j < subN; j++) {
-        if (toRemove.has(j)) continue
-        if (wto[i][j] > cutoff) {
-          // Remove the item with higher max-wTO
-          const victim = maxWto[i] >= maxWto[j] ? i : j
-          toRemove.add(victim)
-        }
-      }
+    if (groups.length === 0) break
+
+    const victims = new Set<number>()
+    for (const group of groups) {
+      if (group.length < 2) continue
+      const keeper = keepMostUnique(group, resolvedWto)
+      group.forEach(subIndex => {
+        if (subIndex === keeper) return
+        victims.add(subIndex)
+      })
     }
 
-    if (toRemove.size === 0) {
-      // Record final wTO scores for surviving items
-      for (let i = 0; i < subN; i++) {
-        wtoScores[active[i]] = maxWto[i]
-      }
-      break
-    }
+    if (victims.size === 0) break
 
-    // Record wTO scores for removed items and mark them redundant
-    for (const subIdx of toRemove) {
-      const originalIdx = active[subIdx]
-      wtoScores[originalIdx] = maxWto[subIdx]
-      redundantIndices.add(originalIdx)
-    }
+    victims.forEach(subIndex => {
+      const originalIndex = active[subIndex]!
+      redundantIndices.add(originalIndex)
+      removalSweepByIndex.set(originalIndex, sweep)
+    })
 
-    // Shrink active set
-    active = active.filter((_, i) => !toRemove.has(i))
+    active = active.filter((_, subIndex) => !victims.has(subIndex))
   }
 
-  return { redundantIndices, wtoScores }
+  return { redundantIndices, wtoScores, removalSweepByIndex, sweepCount: sweep }
+}
+
+function greedyRedundantSets(wtoMatrix: number[][], cutoff: number): number[][] {
+  const edgeList: Array<{ a: number; b: number; weight: number }> = []
+  for (let i = 0; i < wtoMatrix.length; i++) {
+    for (let j = i + 1; j < wtoMatrix.length; j++) {
+      const weight = wtoMatrix[i]?.[j] ?? 0
+      if (weight > cutoff) {
+        edgeList.push({ a: i, b: j, weight })
+      }
+    }
+  }
+
+  edgeList.sort((left, right) => right.weight - left.weight)
+
+  const groups: number[][] = []
+  const membership = new Map<number, number>()
+
+  for (const { a, b } of edgeList) {
+    const groupA = membership.get(a)
+    const groupB = membership.get(b)
+
+    if (groupA === undefined && groupB === undefined) {
+      const nextIndex = groups.length
+      groups.push([a, b])
+      membership.set(a, nextIndex)
+      membership.set(b, nextIndex)
+      continue
+    }
+
+    if (groupA !== undefined && groupB === undefined) {
+      const group = groups[groupA]!
+      if (canJoinDenseGroup(b, group, wtoMatrix, cutoff)) {
+        group.push(b)
+        membership.set(b, groupA)
+      }
+      continue
+    }
+
+    if (groupA === undefined && groupB !== undefined) {
+      const group = groups[groupB]!
+      if (canJoinDenseGroup(a, group, wtoMatrix, cutoff)) {
+        group.push(a)
+        membership.set(a, groupB)
+      }
+      continue
+    }
+
+    if (groupA === groupB) continue
+
+    const left = groups[groupA!]!
+    const right = groups[groupB!]!
+    if (!canMergeDenseGroups(left, right, wtoMatrix, cutoff)) continue
+
+    const merged = [...left, ...right]
+    groups[groupA!] = merged
+    groups[groupB!] = []
+    merged.forEach(node => membership.set(node, groupA!))
+  }
+
+  return groups.filter(group => group.length > 1)
+}
+
+function canJoinDenseGroup(
+  candidate: number,
+  group: number[],
+  wtoMatrix: number[][],
+  cutoff: number,
+): boolean {
+  return group.every(member => (wtoMatrix[candidate]?.[member] ?? 0) > cutoff)
+}
+
+function canMergeDenseGroups(
+  left: number[],
+  right: number[],
+  wtoMatrix: number[][],
+  cutoff: number,
+): boolean {
+  return left.every(a => right.every(b => (wtoMatrix[a]?.[b] ?? 0) > cutoff))
+}
+
+function keepMostUnique(component: number[], wtoMatrix: number[][]): number {
+  return [...component].sort((a, b) => {
+    const meanDiff = rowMean(wtoMatrix[a]!) - rowMean(wtoMatrix[b]!)
+    if (meanDiff !== 0) return meanDiff
+    return rowMax(wtoMatrix[a]!) - rowMax(wtoMatrix[b]!)
+  })[0]!
+}
+
+function rowMean(row: number[]): number {
+  const values = row.filter(value => value > 0)
+  if (values.length === 0) return 0
+  return values.reduce((sum, value) => sum + value, 0) / values.length
+}
+
+function rowMax(row: number[]): number {
+  return row.reduce((max, value) => value > max ? value : max, 0)
 }

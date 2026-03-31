@@ -11,7 +11,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ScrollReveal } from '@/components/scroll-reveal'
-import { getReportTemplates } from '@/app/actions/reports'
+import { getReportTemplates, getTemplateUsageCounts } from '@/app/actions/reports'
 import { CreateTemplateButton } from './create-template-button'
 import { CloneTemplateButton } from './clone-template-button'
 import { DeleteTemplateButton } from './delete-template-button'
@@ -28,7 +28,10 @@ const DISPLAY_LEVEL_LABELS: Record<string, string> = {
 }
 
 export default async function ReportTemplatesPage() {
-  const templates = await getReportTemplates()
+  const [templates, usageCounts] = await Promise.all([
+    getReportTemplates(),
+    getTemplateUsageCounts(),
+  ])
 
   return (
     <div className="flex flex-col gap-8 p-6">
@@ -62,6 +65,7 @@ export default async function ReportTemplatesPage() {
                   <TableHead>Template</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Display level</TableHead>
+                  <TableHead>Campaigns</TableHead>
                   <TableHead>Blocks</TableHead>
                   <TableHead className="hidden sm:table-cell">Auto-release</TableHead>
                   <TableHead className="w-24" />
@@ -97,6 +101,15 @@ export default async function ReportTemplatesPage() {
                       <span className="text-sm text-muted-foreground">
                         {DISPLAY_LEVEL_LABELS[template.displayLevel] ?? template.displayLevel}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      {(usageCounts[template.id] ?? 0) > 0 ? (
+                        <Badge variant="outline" className="text-xs">
+                          {usageCounts[template.id]} {usageCounts[template.id] === 1 ? 'campaign' : 'campaigns'}
+                        </Badge>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">&mdash;</span>
+                      )}
                     </TableCell>
                     <TableCell>
                       <span className="text-sm text-muted-foreground">

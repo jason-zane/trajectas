@@ -1,85 +1,86 @@
 /**
- * bootstrap.ts — bootEGA: bootstrap stability analysis
+ * bootstrap.ts — bootEGA stability analysis
  *
- * Resamples the embedding matrix 100 times (with replacement), runs EGA
- * on each sample, and computes per-item stability as the proportion of
- * bootstrap iterations where the item stayed in its modal community.
- *
- * Items with stability < cutoff are flagged as unstable.
+ * Bootstraps embedding dimensions (observations), not items, and aligns each
+ * bootstrap partition back to the original community structure before scoring
+ * item stability.
  */
-import { cosineSimilarityMatrix } from './correlation'
-import { buildNetwork }           from './network-builder'
-import { walktrap }               from './walktrap'
-import type { StabilityResult }   from '@/types/generation'
+import { itemCorrelationMatrix, resampleEmbeddingDimensions } from './correlation'
+import { buildNetwork } from './network-builder'
+import { walktrap } from './walktrap'
+import type { NetworkEstimator, StabilityResult } from '@/types/generation'
 
 export function bootstrapStability(
-  embeddings:       number[][],
-  constructLabels:  number[],
-  nBootstraps:      number,
-  stabilityCutoff:  number,
+  embeddings: number[][],
+  originalCommunities: number[],
+  estimator: NetworkEstimator,
+  walktrapStep: number,
+  nBootstraps: number,
+  stabilityCutoff: number,
 ): StabilityResult {
-  const n = embeddings.length
-  if (n === 0) return { stabilityScores: [], unstableIndices: new Set() }
+  const itemCount = embeddings.length
+  if (itemCount === 0) return { stabilityScores: [], unstableIndices: new Set() }
 
-  // Single construct → community-membership stability is meaningless.
-  // Walktrap will find arbitrary sub-communities within the one construct,
-  // and those splits are inherently unstable under resampling. This matches
-  // EGAnet's behaviour: single-factor data doesn't undergo community-stability testing.
-  const uniqueLabels = new Set(constructLabels)
-  if (uniqueLabels.size <= 1) {
+  const stableCounts = new Array<number>(itemCount).fill(0)
+  let successfulIterations = 0
+
+  for (let iteration = 0; iteration < nBootstraps; iteration++) {
+    try {
+      const sampledEmbeddings = resampleEmbeddingDimensions(embeddings)
+      const corrMatrix = itemCorrelationMatrix(sampledEmbeddings)
+      const { adjacency } = buildNetwork(corrMatrix, estimator)
+      const predicted = walktrap(adjacency, originalCommunities, walktrapStep)
+        .map(entry => entry.communityId)
+      const aligned = alignCommunitiesToReference(predicted, originalCommunities)
+
+      for (let index = 0; index < itemCount; index++) {
+        if (aligned[index] === originalCommunities[index]) {
+          stableCounts[index] += 1
+        }
+      }
+
+      successfulIterations++
+    } catch {
+      // Skip failed bootstrap draws; stability is based on successful draws only.
+    }
+  }
+
+  if (successfulIterations === 0) {
     return {
-      stabilityScores: new Array(n).fill(1.0) as number[],
+      stabilityScores: new Array(itemCount).fill(0),
       unstableIndices: new Set<number>(),
     }
   }
 
-  // Track community assignments per bootstrap iteration per item
-  const communityHistory: number[][] = Array.from({ length: n }, () => [])
-  let successfulIterations = 0
-
-  for (let b = 0; b < nBootstraps; b++) {
-    // Resample with replacement
-    const sampleIndices      = Array.from({ length: n }, () => Math.floor(Math.random() * n))
-    const sampleEmbeddings   = sampleIndices.map(i => embeddings[i])
-    const sampleLabels       = sampleIndices.map(i => constructLabels[i])
-
-    try {
-      const corrMatrix    = cosineSimilarityMatrix(sampleEmbeddings)
-      const { adjacency } = buildNetwork(corrMatrix)
-      const communities   = walktrap(adjacency, sampleLabels)
-
-      // Map bootstrap assignments back to original item indices
-      for (let si = 0; si < sampleIndices.length; si++) {
-        const originalIdx = sampleIndices[si]
-        communityHistory[originalIdx].push(communities[si]?.communityId ?? 0)
-      }
-      successfulIterations++
-    } catch {
-      // Skip failed iterations — tracked via successfulIterations count
-    }
-  }
-
-  // If less than half of bootstrap iterations succeeded, the network is
-  // too unstable to draw conclusions — don't flag anything as unstable
-  const tooFewIterations = successfulIterations < nBootstraps * 0.5
-
-  // Compute stability as proportion in modal community
-  const stabilityScores = communityHistory.map(history => {
-    if (history.length === 0) return tooFewIterations ? 1.0 : 0
-    const counts = new Map<number, number>()
-    for (const c of history) counts.set(c, (counts.get(c) ?? 0) + 1)
-    const modalCount = Math.max(...counts.values())
-    return modalCount / history.length
-  })
-
-  // Don't flag anything if bootstrap itself was unreliable
-  const unstableIndices = tooFewIterations
-    ? new Set<number>()
-    : new Set(
-        stabilityScores
-          .map((s, i) => s < stabilityCutoff ? i : -1)
-          .filter(i => i !== -1)
-      )
+  const stabilityScores = stableCounts.map(count => count / successfulIterations)
+  const unstableIndices = new Set(
+    stabilityScores
+      .map((score, index) => score < stabilityCutoff ? index : -1)
+      .filter(index => index !== -1)
+  )
 
   return { stabilityScores, unstableIndices }
+}
+
+export function alignCommunitiesToReference(
+  predicted: number[],
+  reference: number[],
+): number[] {
+  const overlaps = new Map<number, Map<number, number>>()
+
+  for (let index = 0; index < predicted.length; index++) {
+    const predictedId = predicted[index] ?? 0
+    const referenceId = reference[index] ?? 0
+    if (!overlaps.has(predictedId)) overlaps.set(predictedId, new Map<number, number>())
+    const counts = overlaps.get(predictedId)!
+    counts.set(referenceId, (counts.get(referenceId) ?? 0) + 1)
+  }
+
+  const mapping = new Map<number, number>()
+  overlaps.forEach((counts, predictedId) => {
+    const bestMatch = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]
+    mapping.set(predictedId, bestMatch?.[0] ?? predictedId)
+  })
+
+  return predicted.map(predictedId => mapping.get(predictedId) ?? predictedId)
 }

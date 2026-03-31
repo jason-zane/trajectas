@@ -15,16 +15,17 @@ import type {
   CommunityAssignment,
   RedundancyResult,
   StabilityResult,
+  NetworkEstimator,
 } from '@/types/generation'
 
 export class NetworkAnalyzerImpl implements NetworkAnalyzer {
-  buildNetwork(correlationMatrix: number[][]): AdjacencyMatrix {
-    return buildNetwork(correlationMatrix).adjacency
+  buildNetwork(correlationMatrix: number[][], estimator: NetworkEstimator = 'tmfg'): AdjacencyMatrix {
+    return buildNetwork(correlationMatrix, estimator).adjacency
   }
-  detectCommunities(adjacency: AdjacencyMatrix): CommunityAssignment[] {
+  detectCommunities(adjacency: AdjacencyMatrix, walktrapStep = 4): CommunityAssignment[] {
     const n = adjacency.length
     const labels = new Array<number>(n).fill(0)
-    return walktrap(adjacency, labels)
+    return walktrap(adjacency, labels, walktrapStep)
   }
   computeNMI(predicted: number[], actual: number[]): number {
     return computeNMI(predicted, actual)
@@ -33,17 +34,31 @@ export class NetworkAnalyzerImpl implements NetworkAnalyzer {
     return findRedundantItems(adjacency, cutoff)
   }
   bootstrapStability(
-    embeddings:  number[][],
+    embeddings: number[][],
+    originalCommunities: number[],
+    estimator: NetworkEstimator,
+    walktrapStep: number,
     nBootstraps: number,
-    cutoff:      number,
+    cutoff: number,
   ): StabilityResult {
-    const n      = embeddings.length
-    const labels = new Array<number>(n).fill(0)
-    return bootstrapStability(embeddings, labels, nBootstraps, cutoff)
+    return bootstrapStability(
+      embeddings,
+      originalCommunities,
+      estimator,
+      walktrapStep,
+      nBootstraps,
+      cutoff,
+    )
   }
 }
 
-export { cosineSimilarityMatrix, partialCorrelationMatrix } from './correlation'
+export {
+  cosineSimilarityMatrix,
+  itemCorrelationMatrix,
+  partialCorrelationMatrix,
+  sparsifyEmbeddings,
+  resampleEmbeddingDimensions,
+} from './correlation'
 export { buildNetwork, isConnected }         from './network-builder'
 export { buildTMFG }                         from './tmfg'
 export { walktrap }                          from './walktrap'

@@ -305,6 +305,152 @@ export async function getReportSnapshotsForParticipant(
 }
 
 // ---------------------------------------------------------------------------
+// Template Usage / Campaign Linkage
+// ---------------------------------------------------------------------------
+
+export type AudienceType = 'participant' | 'hr_manager' | 'consultant'
+
+export interface TemplateUsageEntry {
+  campaignId: string
+  campaignTitle: string
+  audienceType: AudienceType
+  assessments: { id: string; name: string }[]
+}
+
+const AUDIENCE_FK_COLUMNS: Record<AudienceType, string> = {
+  participant: 'participant_template_id',
+  hr_manager: 'hr_manager_template_id',
+  consultant: 'consultant_template_id',
+}
+
+/** Returns campaigns linked to a template, with their assessments. */
+export async function getTemplateUsage(templateId: string): Promise<TemplateUsageEntry[]> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+
+  // Find all campaign_report_config rows that reference this template
+  const { data: configs, error } = await db
+    .from('campaign_report_config')
+    .select('campaign_id, participant_template_id, hr_manager_template_id, consultant_template_id')
+    .or(
+      `participant_template_id.eq.${templateId},hr_manager_template_id.eq.${templateId},consultant_template_id.eq.${templateId}`,
+    )
+  if (error) throw new Error(error.message)
+  if (!configs?.length) return []
+
+  const campaignIds = configs.map((c) => c.campaign_id)
+
+  // Fetch campaigns + their assessments in parallel
+  const [{ data: campaigns }, { data: campaignAssessments }] = await Promise.all([
+    db.from('campaigns').select('id, title').in('id', campaignIds),
+    db.from('campaign_assessments').select('campaign_id, assessment_id, assessments(id, name)').in('campaign_id', campaignIds),
+  ])
+
+  const results: TemplateUsageEntry[] = []
+  for (const config of configs) {
+    const campaign = campaigns?.find((c) => c.id === config.campaign_id)
+    if (!campaign) continue
+
+    const assessments = (campaignAssessments ?? [])
+      .filter((ca) => ca.campaign_id === config.campaign_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((ca) => ({ id: (ca.assessments as any)?.id ?? ca.assessment_id, name: (ca.assessments as any)?.name ?? 'Unknown' }))
+
+    // Determine which audience types use this template
+    const audiences: AudienceType[] = []
+    if (config.participant_template_id === templateId) audiences.push('participant')
+    if (config.hr_manager_template_id === templateId) audiences.push('hr_manager')
+    if (config.consultant_template_id === templateId) audiences.push('consultant')
+
+    for (const audienceType of audiences) {
+      results.push({
+        campaignId: config.campaign_id,
+        campaignTitle: campaign.title,
+        audienceType,
+        assessments,
+      })
+    }
+  }
+
+  return results
+}
+
+/** Link a template to a campaign for a specific audience type. */
+export async function linkTemplateToCampaign(
+  templateId: string,
+  campaignId: string,
+  audienceType: AudienceType,
+): Promise<void> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const column = AUDIENCE_FK_COLUMNS[audienceType]
+
+  const { error } = await db
+    .from('campaign_report_config')
+    .upsert(
+      { campaign_id: campaignId, [column]: templateId },
+      { onConflict: 'campaign_id' },
+    )
+  if (error) throw new Error(error.message)
+  revalidatePath('/settings/reports')
+  revalidatePath(`/campaigns/${campaignId}`)
+}
+
+/** Unlink a template from a campaign for a specific audience type. */
+export async function unlinkTemplateFromCampaign(
+  templateId: string,
+  campaignId: string,
+  audienceType: AudienceType,
+): Promise<void> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const column = AUDIENCE_FK_COLUMNS[audienceType]
+
+  const { error } = await db
+    .from('campaign_report_config')
+    .update({ [column]: null })
+    .eq('campaign_id', campaignId)
+    .eq(column, templateId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/settings/reports')
+  revalidatePath(`/campaigns/${campaignId}`)
+}
+
+/** Returns template usage counts for the template list page. */
+export async function getTemplateUsageCounts(): Promise<Record<string, number>> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+
+  const { data, error } = await db
+    .from('campaign_report_config')
+    .select('participant_template_id, hr_manager_template_id, consultant_template_id')
+  if (error) throw new Error(error.message)
+
+  const counts: Record<string, number> = {}
+  for (const row of data ?? []) {
+    for (const col of ['participant_template_id', 'hr_manager_template_id', 'consultant_template_id'] as const) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const id = (row as any)[col]
+      if (id) counts[id] = (counts[id] ?? 0) + 1
+    }
+  }
+  return counts
+}
+
+/** Returns all campaigns (for linking UI). */
+export async function getAllCampaigns(): Promise<{ id: string; title: string }[]> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const { data, error } = await db
+    .from('campaigns')
+    .select('id, title')
+    .is('deleted_at', null)
+    .order('title')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+// ---------------------------------------------------------------------------
 // Entity Options (for block builder)
 // ---------------------------------------------------------------------------
 

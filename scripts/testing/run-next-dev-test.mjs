@@ -43,7 +43,22 @@ function readLocalSupabaseEnv(cwd) {
       stdio: ["ignore", "pipe", "ignore"],
     });
 
-    return parseEnvContent(output);
+    const parsed = parseEnvContent(output);
+
+    return {
+      ...parsed,
+      NEXT_PUBLIC_SUPABASE_URL:
+        parsed.NEXT_PUBLIC_SUPABASE_URL ?? parsed.API_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY:
+        parsed.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+        parsed.ANON_KEY ??
+        parsed.PUBLISHABLE_KEY,
+      SUPABASE_SERVICE_ROLE_KEY:
+        parsed.SUPABASE_SERVICE_ROLE_KEY ??
+        parsed.SERVICE_ROLE_KEY ??
+        parsed.SECRET_KEY,
+      DATABASE_URL: parsed.DATABASE_URL ?? parsed.DB_URL,
+    };
   } catch {
     return {};
   }

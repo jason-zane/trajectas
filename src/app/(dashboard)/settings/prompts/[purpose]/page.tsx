@@ -10,10 +10,14 @@ const VALID_PURPOSES: Record<string, { label: string }> = {
   chat: { label: "Chat" },
   item_generation: { label: "Item Generation (Construct)" },
   factor_item_generation: { label: "Item Generation (Factor)" },
+  library_import_structuring: { label: "Library Import Structuring" },
   preflight_analysis: { label: "Preflight Analysis" },
   competency_matching: { label: "Competency Matching" },
   ranking_explanation: { label: "Ranking Explanation" },
   diagnostic_analysis: { label: "Diagnostic Analysis" },
+  report_narrative: { label: "Report Narrative" },
+  report_strengths_analysis: { label: "Report Strengths Analysis" },
+  report_development_advice: { label: "Report Development Advice" },
 }
 
 export default async function PromptDetailPage({

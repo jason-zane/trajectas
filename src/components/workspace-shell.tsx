@@ -8,8 +8,10 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { CommandPalette } from "@/components/command-palette";
 import { PageTransition } from "@/components/page-transition";
 import { WorkspaceContextSwitcher } from "@/components/workspace-context-switcher";
+import { AccountMenu } from "@/components/auth/account-menu";
 import { getEffectiveBrand } from "@/app/actions/brand";
 import { getWorkspaceContextOptions } from "@/lib/auth/workspace-access";
+import { resolveSessionActor } from "@/lib/auth/actor";
 import { generateDashboardCSS } from "@/lib/brand/tokens";
 
 interface WorkspaceShellProps {
@@ -27,9 +29,10 @@ export async function WorkspaceShell({
   routePrefix = "",
   canSwitchPortal = false,
 }: WorkspaceShellProps) {
-  const [brandConfig, workspaceContextOptions] = await Promise.all([
+  const [brandConfig, workspaceContextOptions, actor] = await Promise.all([
     getEffectiveBrand(),
     portal === "admin" ? Promise.resolve([]) : getWorkspaceContextOptions(portal),
+    resolveSessionActor(),
   ]);
   const dashboardCSS = generateDashboardCSS(brandConfig);
 
@@ -48,6 +51,14 @@ export async function WorkspaceShell({
             Skip to content
           </a>
           <DashboardHeader
+            accountControl={
+              actor ? (
+                <AccountMenu
+                  email={actor.email}
+                  displayName={actor.displayName}
+                />
+              ) : null
+            }
             workspaceControls={
               portal === "admin" || workspaceContextOptions.length === 0 ? null : (
                 <WorkspaceContextSwitcher

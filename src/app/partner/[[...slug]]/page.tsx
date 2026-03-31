@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { WorkspacePortalLivePage } from "@/components/workspace-portal-live";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
 import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
@@ -25,6 +25,10 @@ export default async function PartnerPortalPage({
     resolveWorkspaceAccess("partner"),
     getWorkspaceRequestContext("partner"),
   ]);
+
+  if (access.status === "signed_out") {
+    redirect(`/login?next=${encodeURIComponent(`/partner/${key}`.replace(/\/+$/, "") || "/partner")}`);
+  }
 
   if (access.status === "ok") {
     return (

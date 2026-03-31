@@ -1,18 +1,25 @@
 "use client"
 
 import { useDroppable } from "@dnd-kit/react"
-import { Layers, FileQuestion, Inbox } from "lucide-react"
+import { Layers, FileQuestion, Inbox, AlertTriangle } from "lucide-react"
 import { SortableFactorCard } from "./sortable-factor-card"
 import type { BuilderFactor } from "@/app/actions/assessments"
+import type { ConstructShortfall } from "@/app/actions/item-selection-rules"
 
 interface AssessmentCanvasProps {
   selectedFactors: BuilderFactor[]
   onRemove: (id: string) => void
+  ruleInfo?: {
+    constructCount: number
+    itemsPerConstruct: number | null
+    shortfalls: ConstructShortfall[]
+  } | null
 }
 
 export function AssessmentCanvas({
   selectedFactors,
   onRemove,
+  ruleInfo,
 }: AssessmentCanvasProps) {
   const { ref, isDropTarget } = useDroppable({ id: "assessment-canvas" })
 
@@ -76,8 +83,36 @@ export function AssessmentCanvas({
       </div>
 
       {selectedFactors.length > 0 && (
-        <div className="rounded-lg bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-          {selectedFactors.length} factors covering {totalConstructs} constructs and {totalItems} items
+        <div className="space-y-2">
+          <div className="rounded-lg bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
+            {selectedFactors.length} factors covering {totalConstructs} constructs
+            {ruleInfo?.itemsPerConstruct != null ? (
+              <> &mdash; {ruleInfo.itemsPerConstruct} items/construct ({totalConstructs * ruleInfo.itemsPerConstruct} items target)</>
+            ) : (
+              <> and {totalItems} items</>
+            )}
+          </div>
+
+          {ruleInfo && ruleInfo.shortfalls.length > 0 && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+              <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-600" />
+              <div className="text-xs text-amber-800 dark:text-amber-400">
+                <p className="font-medium">
+                  {ruleInfo.shortfalls.length} {ruleInfo.shortfalls.length === 1 ? "construct has" : "constructs have"} fewer items than the target ({ruleInfo.itemsPerConstruct})
+                </p>
+                <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                  {ruleInfo.shortfalls.slice(0, 5).map((s) => (
+                    <li key={s.constructId}>
+                      {s.constructName}: {s.available} of {s.target} items available
+                    </li>
+                  ))}
+                  {ruleInfo.shortfalls.length > 5 && (
+                    <li>...and {ruleInfo.shortfalls.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

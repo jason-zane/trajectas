@@ -128,6 +128,7 @@ export async function createItem(formData: FormData) {
     weight: purpose === 'construct' ? Number(formData.get('weight') ?? 1.0) : 1.0,
     status: (formData.get('status') as string) || 'draft',
     displayOrder: Number(formData.get('displayOrder') ?? 0),
+    selectionPriority: Number(formData.get('selectionPriority') ?? 0),
     keyedAnswer: purpose === 'attention_check' ? Number(formData.get('keyedAnswer')) : undefined,
   }
 
@@ -149,6 +150,7 @@ export async function createItem(formData: FormData) {
       weight: parsed.data.weight,
       status: parsed.data.status,
       display_order: parsed.data.displayOrder,
+      selection_priority: parsed.data.selectionPriority,
       keyed_answer: parsed.data.keyedAnswer ?? null,
     })
     .select('id')
@@ -205,6 +207,7 @@ export async function updateItem(id: string, formData: FormData) {
     weight: purpose === 'construct' ? Number(formData.get('weight') ?? 1.0) : 1.0,
     status: (formData.get('status') as string) || 'draft',
     displayOrder: Number(formData.get('displayOrder') ?? 0),
+    selectionPriority: Number(formData.get('selectionPriority') ?? 0),
     keyedAnswer: purpose === 'attention_check' ? Number(formData.get('keyedAnswer')) : undefined,
   }
 
@@ -226,6 +229,7 @@ export async function updateItem(id: string, formData: FormData) {
       weight: parsed.data.weight,
       status: parsed.data.status,
       display_order: parsed.data.displayOrder,
+      selection_priority: parsed.data.selectionPriority,
       keyed_answer: parsed.data.keyedAnswer ?? null,
     })
     .eq('id', id)
@@ -295,6 +299,38 @@ export async function deleteItem(id: string) {
   return { success: true }
 }
 
+export async function deleteItems(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one item.' }
+  }
+
+  const db = createAdminClient()
+  const timestamp = new Date().toISOString()
+  const { error } = await db
+    .from('items')
+    .update({ deleted_at: timestamp })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/items')
+  revalidatePath('/constructs')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.bulk_deleted',
+    targetTable: 'items',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+
+  return { success: true as const, count: uniqueIds.length }
+}
+
 export async function restoreItem(id: string) {
   const scope = await requireAdminScope()
   const db = createAdminClient()
@@ -316,6 +352,37 @@ export async function restoreItem(id: string) {
   })
 
   return { success: true }
+}
+
+export async function restoreItems(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one item.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('items')
+    .update({ deleted_at: null })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/items')
+  revalidatePath('/constructs')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.bulk_restored',
+    targetTable: 'items',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+
+  return { success: true, count: uniqueIds.length }
 }
 
 export async function getItemOptions(itemId: string): Promise<{ label: string; value: number }[]> {

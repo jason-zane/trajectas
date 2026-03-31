@@ -42,6 +42,7 @@ import { generateForcedChoiceBlocks } from "@/lib/forced-choice-generator"
 import type { ForcedChoiceBlockDraft } from "@/lib/forced-choice-generator"
 import type { SectionDraft, FormatGroup, ExistingFCBlock } from "@/app/actions/assessments"
 import type { ItemOrdering, FormatMode } from "@/types/database"
+import type { ConstructShortfall } from "@/app/actions/item-selection-rules"
 
 const FORMAT_ICONS: Record<string, string> = {
   likert: "📊",
@@ -110,6 +111,11 @@ interface SectionConfiguratorProps {
   fcBlocks: ForcedChoiceBlockDraft[]
   onFcBlocksChange: (blocks: ForcedChoiceBlockDraft[]) => void
   existingBlocks?: ExistingFCBlock[]
+  ruleInfo?: {
+    constructCount: number
+    itemsPerConstruct: number | null
+    shortfalls: ConstructShortfall[]
+  } | null
 }
 
 export function SectionConfigurator({
@@ -124,6 +130,7 @@ export function SectionConfigurator({
   fcBlocks,
   onFcBlocksChange,
   existingBlocks,
+  ruleInfo,
 }: SectionConfiguratorProps) {
   const [loading, setLoading] = useState(false)
   const [formatGroups, setFormatGroups] = useState<FormatGroup[]>([])
@@ -175,6 +182,17 @@ export function SectionConfigurator({
 
   return (
     <div className="space-y-6">
+      {/* Active rule info pill */}
+      {ruleInfo?.itemsPerConstruct != null && (
+        <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-4 py-2.5">
+          <ListChecks className="size-4 text-primary shrink-0" />
+          <p className="text-xs text-foreground">
+            <span className="font-medium">{ruleInfo.itemsPerConstruct} items per construct</span>
+            <span className="text-muted-foreground"> ({ruleInfo.constructCount} constructs selected)</span>
+          </p>
+        </div>
+      )}
+
       {/* Format Mode Selector */}
       <FormatModeSelector
         formatMode={formatMode}

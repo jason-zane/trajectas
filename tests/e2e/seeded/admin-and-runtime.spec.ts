@@ -8,17 +8,17 @@ test.describe("seeded admin workspace", () => {
     await expect(page.getByRole("heading", { name: "Campaigns" })).toBeVisible();
     await expect(page.getByText("Seeded Leadership Campaign")).toBeVisible();
     await expect(page.getByText("Seeded Closed Campaign")).toBeVisible();
-    await expect(page.getByText("Technology")).toBeVisible();
+    await expect(page.getByText("Seeded Client Co").first()).toBeVisible();
   });
 
   test("renders seeded campaign overview stats and actions", async ({ page }) => {
     await page.goto(`/campaigns/${seededIds.activeCampaignId}/overview`);
 
-    await expect(page.getByRole("heading", { name: "Overall Completion" })).toBeVisible();
+    await expect(page.getByText("Overall Completion")).toBeVisible();
     await expect(page.getByText("1 of 4 participants completed")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
+    await expect(page.getByText("Timeline")).toBeVisible();
   });
 
   test("lists seeded participants and opens the completed participant detail view", async ({
@@ -35,7 +35,7 @@ test.describe("seeded admin workspace", () => {
     await page.goto(`/participants/${seededIds.completedParticipantId}`);
 
     await expect(page.getByRole("heading", { name: "Casey Completed" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Assessment Sessions" })).toBeVisible();
+    await expect(page.getByText("Assessment Sessions")).toBeVisible();
     await expect(page.getByText("Seeded Leadership Campaign")).toBeVisible();
   });
 });
@@ -55,7 +55,9 @@ test.describe("seeded participant runtime", () => {
     await expect(page).toHaveURL(new RegExp(`/assess/${seededTokens.inProgress}/section/0$`));
     await expect(page.getByText("Seeded Leadership Assessment")).toBeVisible();
     await expect(
-      page.getByText("I actively seek out complex problems that challenge my assumptions.")
+      page.getByText(
+        "I find it easy to see situations from other people's perspectives, even when I disagree with them."
+      )
     ).toBeVisible();
   });
 

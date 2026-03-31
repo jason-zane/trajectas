@@ -5,8 +5,15 @@ export function buildItemGenerationPrompt(params: {
   batchSize:        number
   responseFormatDescription: string
   previousItems:    string[]
+  contrastConstructs?: Array<Pick<ConstructForGeneration, "name" | "definition" | "description">>
 }): string {
-  const { construct, batchSize, responseFormatDescription, previousItems } = params
+  const {
+    construct,
+    batchSize,
+    responseFormatDescription,
+    previousItems,
+    contrastConstructs = [],
+  } = params
 
   const indicatorSection = [
     construct.indicatorsLow  ? `Low scorers: ${construct.indicatorsLow}`  : null,
@@ -14,8 +21,14 @@ export function buildItemGenerationPrompt(params: {
     construct.indicatorsHigh ? `High scorers: ${construct.indicatorsHigh}` : null,
   ].filter(Boolean).join('\n')
 
+  const contrastSection = contrastConstructs.length > 0
+    ? `\n## Keep This Construct Distinct From:\n${contrastConstructs
+        .map((other) => `- ${other.name}${other.definition ? `: ${other.definition}` : other.description ? `: ${other.description}` : ''}`)
+        .join('\n')}`
+    : ''
+
   const previousSection = previousItems.length > 0
-    ? `\n## Previously generated items for this construct (do NOT repeat or closely rephrase):\n${previousItems.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+    ? `\n## Existing or already-generated items for this construct (do NOT repeat, paraphrase, or make a near-neighbour of any of these):\n${previousItems.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
     : ''
 
   return `Generate ${batchSize} NEW psychometric items for the following construct.
@@ -24,10 +37,18 @@ export function buildItemGenerationPrompt(params: {
 ${construct.definition ? `Definition: ${construct.definition}` : ''}
 ${construct.description ? `Description: ${construct.description}` : ''}
 ${indicatorSection ? `\nBehavioural Indicators:\n${indicatorSection}` : ''}
+${contrastSection}
 
 ## Response Format
 ${responseFormatDescription}
 ${previousSection}
+
+## Diversity Requirements
+- Cover different behavioural expressions of the construct rather than repeating one narrow theme.
+- Vary the context, phrasing, and sentence openings across items.
+- Include a mix of observable behaviour, judgement, tendency, and response-to-situation where appropriate.
+- Do not generate generic "good employee" items that could fit several constructs equally well.
+- Make each item specific enough that it clearly fits this construct better than the contrast constructs.
 
 Return a JSON array of exactly ${batchSize} objects:
 [{ "stem": "...", "reverseScored": false, "rationale": "one sentence why this item captures the construct" }]`

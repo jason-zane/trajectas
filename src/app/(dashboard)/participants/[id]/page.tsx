@@ -26,6 +26,7 @@ import {
   getParticipantResponses,
 } from "@/app/actions/participants";
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
+import { AuthorizationError } from "@/lib/auth/authorization";
 import { ParticipantReportsTab } from "./participant-reports-tab";
 
 const statusVariant: Record<
@@ -91,7 +92,13 @@ export default async function ParticipantDetailPage({
   const [sessions, activity, snapshots] = await Promise.all([
     getParticipantSessions(id),
     getParticipantActivity(id),
-    getReportSnapshotsForParticipant(id),
+    getReportSnapshotsForParticipant(id).catch((error) => {
+      if (error instanceof AuthorizationError) {
+        return [];
+      }
+
+      throw error;
+    }),
   ]);
 
   const displayName =

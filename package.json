@@ -7,7 +7,7 @@
     "dev:test": "node scripts/testing/run-next-dev-test.mjs",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=0 --ignore-pattern coverage --ignore-pattern playwright-report --ignore-pattern test-results",
+    "lint": "eslint . --max-warnings=0 --ignore-pattern coverage --ignore-pattern playwright-report --ignore-pattern test-results --ignore-pattern .worktrees",
     "typecheck": "tsc --pretty false --noEmit",
     "test": "vitest",
     "test:unit": "vitest run tests/unit",

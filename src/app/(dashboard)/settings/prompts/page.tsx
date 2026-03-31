@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Braces, Cpu, MessageSquare, ScanSearch, Sparkles, ChevronRight } from "lucide-react"
+import { Braces, Cpu, MessageSquare, ScanSearch, Sparkles, ChevronRight, FileCog, FileText } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -18,20 +18,28 @@ const PROMPT_META: Record<string, { label: string; description: string; icon: Re
   chat: { label: "Chat", description: "Assistant behavior for the chat workspace", icon: MessageSquare },
   item_generation: { label: "Item Generation (Construct)", description: "How new psychometric items are written", icon: Cpu },
   factor_item_generation: { label: "Item Generation (Factor)", description: "How factor-level behavioural items are written", icon: Cpu },
+  library_import_structuring: { label: "Library Import Structuring", description: "How messy library notes are converted into import-ready CSV", icon: FileCog },
   preflight_analysis: { label: "Preflight Analysis", description: "Discrimination check for overlapping constructs", icon: ScanSearch },
   competency_matching: { label: "Competency Matching", description: "Ranking competencies against diagnostic evidence", icon: Sparkles },
   ranking_explanation: { label: "Ranking Explanation", description: "Plain-language explanations for rankings", icon: Braces },
   diagnostic_analysis: { label: "Diagnostic Analysis", description: "Assessment result insights", icon: Braces },
+  report_narrative: { label: "Report Narrative", description: "AI-enhanced narrative guidance for report blocks", icon: FileText },
+  report_strengths_analysis: { label: "Report Strengths Analysis", description: "Cohesive narrative about participant's top strengths", icon: FileText },
+  report_development_advice: { label: "Report Development Advice", description: "Contextual development recommendations from scores", icon: FileText },
 }
 
 const PROMPT_ORDER: AIPromptPurpose[] = [
   "chat",
   "item_generation",
   "factor_item_generation",
+  "library_import_structuring",
   "preflight_analysis",
   "competency_matching",
   "ranking_explanation",
   "diagnostic_analysis",
+  "report_narrative",
+  "report_strengths_analysis",
+  "report_development_advice",
 ]
 
 function timeAgo(dateStr: string): string {

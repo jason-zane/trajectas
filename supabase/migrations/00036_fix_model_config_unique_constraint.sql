@@ -45,8 +45,8 @@ VALUES (
 ON CONFLICT (name) DO NOTHING;
 
 -- 7. Upsert one config row per purpose
--- Note: no explicit ::ai_prompt_purpose cast — PostgreSQL coerces text→enum
--- implicitly on column assignment, avoiding "enum value not yet committed" errors.
+-- The enum values were committed in earlier migrations, so explicit casting is
+-- safe during full replay and avoids text-to-enum inference failures.
 INSERT INTO ai_model_configs (provider_id, model_id, display_name, is_default, config, purpose)
 SELECT
     p.id,
@@ -54,7 +54,7 @@ SELECT
     v.display_name,
     false,
     v.config::jsonb,
-    v.purpose
+    v.purpose::ai_prompt_purpose
 FROM (VALUES
     ('anthropic/claude-sonnet-4-5',  'Claude Sonnet 4.5',      '{"temperature":0.8,"max_tokens":4096}', 'item_generation'),
     ('anthropic/claude-sonnet-4-5',  'Claude Sonnet 4.5',      '{"temperature":0.3,"max_tokens":2048}', 'preflight_analysis'),

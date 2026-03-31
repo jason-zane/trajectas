@@ -139,6 +139,7 @@ export function mapItemRow(row: any): Item {
     status: row.status,
     displayOrder: row.display_order,
     purpose: row.purpose ?? 'construct',
+    selectionPriority: row.selection_priority ?? 0,
     keyedAnswer: row.keyed_answer != null ? Number(row.keyed_answer) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
@@ -280,6 +281,7 @@ export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) 
     weight: i.weight ?? 1.0,
     status: i.status,
     display_order: i.displayOrder,
+    selection_priority: i.selectionPriority ?? 0,
     purpose: i.purpose ?? 'construct',
     keyed_answer: i.keyedAnswer ?? null,
   }
@@ -667,6 +669,8 @@ export function mapGenerationRunRow(row: any): GenerationRun {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapGeneratedItemRow(row: any): GeneratedItem {
+  const initialCommunityId = row.initial_community_id ?? undefined
+  const finalCommunityId = row.final_community_id ?? undefined
   return {
     id: row.id,
     generationRunId: row.generation_run_id,
@@ -675,9 +679,13 @@ export function mapGeneratedItemRow(row: any): GeneratedItem {
     reverseScored: row.reverse_scored,
     rationale: row.rationale ?? undefined,
     embedding: row.embedding ?? [],
-    communityId: row.community_id ?? undefined,
+    communityId: finalCommunityId ?? initialCommunityId ?? row.community_id ?? undefined,
+    initialCommunityId,
+    finalCommunityId,
     wtoMax: row.wto_max != null ? Number(row.wto_max) : undefined,
     bootStability: row.boot_stability != null ? Number(row.boot_stability) : undefined,
+    removalStage: row.removal_stage ?? undefined,
+    removalSweep: row.removal_sweep != null ? Number(row.removal_sweep) : undefined,
     isRedundant: row.is_redundant,
     isUnstable: row.is_unstable,
     isAccepted: row.is_accepted ?? undefined,

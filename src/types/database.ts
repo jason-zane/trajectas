@@ -118,10 +118,13 @@ export type AIPromptPurpose =
   | 'diagnostic_analysis'
   | 'item_generation'
   | 'factor_item_generation'
+  | 'library_import_structuring'
   | 'preflight_analysis'
   | 'embedding'
   | 'chat'
   | 'report_narrative'
+  | 'report_strengths_analysis'
+  | 'report_development_advice'
 
 /** Report assessment type. */
 export type ReportType = 'self_report' | '360'
@@ -221,6 +224,8 @@ export interface Profile {
   authUserId: string
   /** User's email address. */
   email: string
+  /** Optional display name used in staff surfaces. */
+  displayName?: string
   /** Given name. */
   firstName: string
   /** Family name. */
@@ -247,6 +252,8 @@ export interface PartnerMembership {
   role: 'admin' | 'member'
   isDefault: boolean
   createdBy?: string
+  revokedAt?: string
+  revokedByProfileId?: string
   created_at: string
   updated_at?: string
 }
@@ -264,6 +271,29 @@ export interface ClientMembership {
   role: 'admin' | 'member'
   isDefault: boolean
   createdBy?: string
+  revokedAt?: string
+  revokedByProfileId?: string
+  created_at: string
+  updated_at?: string
+}
+
+export interface UserInvite {
+  id: string
+  email: string
+  tenantType: 'platform' | 'partner' | 'client'
+  tenantId?: string
+  role:
+    | 'platform_admin'
+    | 'partner_admin'
+    | 'partner_member'
+    | 'client_admin'
+    | 'client_member'
+  authUserId?: string
+  expiresAt: string
+  acceptedAt?: string
+  revokedAt?: string
+  invitedByProfileId: string
+  metadata: Record<string, unknown>
   created_at: string
   updated_at?: string
 }
@@ -511,8 +541,29 @@ export interface Item {
   keyedAnswer?: number
   created_at: string
   updated_at?: string
+  /** Selection priority — lower values are selected first when rules limit items per construct. */
+  selectionPriority: number
   /** Soft-delete timestamp; NULL means active. */
   deletedAt?: string
+}
+
+/**
+ * Configurable threshold determining how many items per construct
+ * are selected based on total construct count in an assessment.
+ */
+export interface ItemSelectionRule {
+  /** UUID primary key. */
+  id: string
+  /** Minimum construct count for this rule to apply (inclusive). */
+  minConstructs: number
+  /** Maximum construct count (inclusive). NULL means "and above". */
+  maxConstructs: number | null
+  /** Number of items to select per construct when this rule matches. */
+  itemsPerConstruct: number
+  /** Display ordering weight. */
+  displayOrder: number
+  created_at: string
+  updated_at?: string
 }
 
 /**
@@ -653,28 +704,6 @@ export interface AssessmentFactor {
   weight: number
   /** Target number of items to administer for this competency. */
   itemCount: number
-  created_at: string
-  updated_at?: string
-}
-
-/**
- * A configurable rule that governs item selection
- * when the strategy is `rule_based`.
- */
-export interface ItemSelectionRule {
-  /** UUID primary key. */
-  id: string
-  /** The assessment this rule belongs to. */
-  assessmentId: string
-  /** Machine-readable rule type identifier (e.g. "difficulty_range"). */
-  ruleType: string
-  /**
-   * JSON-encoded rule parameters
-   * (e.g. `{ "minDifficulty": -1, "maxDifficulty": 1 }`).
-   */
-  config: Record<string, unknown>
-  /** Evaluation priority — lower numbers are evaluated first. */
-  priority: number
   created_at: string
   updated_at?: string
 }
@@ -1542,14 +1571,24 @@ export type {
 // ---------------------------------------------------------------------------
 
 /** Configuration snapshot stored with a generation run. */
+export interface ConstructConfigOverride {
+  definition?: string
+  description?: string
+  indicatorsLow?: string
+  indicatorsMid?: string
+  indicatorsHigh?: string
+}
+
 export interface GenerationRunConfig {
   constructIds: string[]
   targetItemsPerConstruct: number
   temperature: number
   generationModel: string
   embeddingModel: string
+  networkEstimator?: 'tmfg' | 'ebicglasso'
   responseFormatId?: string
   promptPurpose?: 'item_generation' | 'factor_item_generation'
+  constructOverrides?: Record<string, ConstructConfigOverride>
 }
 
 /** An AI-GENIE item generation run record. */
@@ -1575,6 +1614,12 @@ export interface GenerationRun {
       llmPairCount: number
       pairCount: number
     }
+    embeddingType?: 'full' | 'sparse'
+    networkEstimator?: 'tmfg' | 'ebicglasso'
+    walktrapStep?: number
+    nmiByStage?: Partial<Record<'initial' | 'postEmbeddingSelection' | 'postUva' | 'postBoot' | 'final', number>>
+    uvaSweeps?: number
+    bootSweeps?: number
   }
   tokenUsage?: Record<string, number>
   errorMessage?: string
@@ -1594,8 +1639,12 @@ export interface GeneratedItem {
   rationale?: string
   embedding: number[]
   communityId?: number
+  initialCommunityId?: number
+  finalCommunityId?: number
   wtoMax?: number
   bootStability?: number
+  removalStage?: 'uva' | 'boot_ega' | 'kept'
+  removalSweep?: number
   isRedundant: boolean
   isUnstable: boolean
   isAccepted?: boolean

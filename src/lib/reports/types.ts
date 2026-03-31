@@ -64,7 +64,8 @@ export interface ScoreOverviewConfig {
 
 export interface ScoreDetailConfig {
   displayLevel: 'dimension' | 'factor' | 'construct'
-  entityId: string | null
+  entityIds: string[]                    // multi-entity support
+  entityId?: string | null               // deprecated — kept for backward compat
   showScore?: boolean
   showBandLabel?: boolean
   showDefinition?: boolean
@@ -77,12 +78,14 @@ export interface StrengthsHighlightsConfig {
   topN: number
   displayLevel: 'dimension' | 'factor' | 'construct'
   style: 'cards' | 'list'
+  aiNarrative?: boolean
 }
 
 export interface DevelopmentPlanConfig {
   maxItems: number
   prioritiseByScore?: boolean
   entityIds?: string[]
+  aiNarrative?: boolean
 }
 
 export interface NormComparisonConfig {

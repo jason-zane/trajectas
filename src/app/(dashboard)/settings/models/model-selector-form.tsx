@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Cpu, Layers, Sparkles, MessageSquare, BarChart3, Check, Loader2, ScanSearch, FileText } from "lucide-react"
+import { Cpu, Layers, Sparkles, MessageSquare, BarChart3, Check, Loader2, ScanSearch, FileText, FileCog } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollReveal } from "@/components/scroll-reveal"
@@ -61,6 +61,12 @@ const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: BarChart3,
     glowColor: "var(--primary)",
   },
+  library_import_structuring: {
+    label: "Library Import Structuring",
+    description: "Converts messy source text into review-ready CSV for dimensions, factors, constructs, and items.",
+    icon: FileCog,
+    glowColor: "var(--primary)",
+  },
   preflight_analysis: {
     label: "Preflight Analysis",
     description: "Checks construct similarity before item generation to detect overlap.",
@@ -79,18 +85,33 @@ const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: FileText,
     glowColor: "var(--primary)",
   },
+  report_strengths_analysis: {
+    label: "Report Strengths Analysis",
+    description: "Synthesises a cohesive narrative about the participant's top strengths.",
+    icon: FileText,
+    glowColor: "var(--primary)",
+  },
+  report_development_advice: {
+    label: "Report Development Advice",
+    description: "Generates contextual development recommendations based on score profiles.",
+    icon: FileText,
+    glowColor: "var(--primary)",
+  },
 }
 
 const PURPOSE_ORDER: AIPromptPurpose[] = [
   "chat",
   "item_generation",
   "factor_item_generation",
+  "library_import_structuring",
   "preflight_analysis",
   "embedding",
   "competency_matching",
   "ranking_explanation",
   "diagnostic_analysis",
   "report_narrative",
+  "report_strengths_analysis",
+  "report_development_advice",
 ]
 
 // ---------------------------------------------------------------------------

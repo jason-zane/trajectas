@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Local Development
 
-## Getting Started
-
-First, run the development server:
+Run the normal development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3002`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Safe-To-Deploy Workflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Keep this simple. Before shipping changes:
 
-## Learn More
+1. Run `npm run lint`
+2. Run `npm run typecheck`
+3. Run `npm run test:coverage`
+4. Run the seeded full-stack check when you changed auth, campaigns, participants, or runner flows:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run db:test:start
+npm run db:test:reset
+npm run test:e2e:seeded
+npm run db:test:stop
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+If you only changed general UI or non-seeded flows, the lighter browser check is usually enough:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run test:e2e:smoke
+```
 
-## Deploy on Vercel
+## What GitHub Checks
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+GitHub blocks changes automatically if any of these fail:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- dependency vulnerability audit
+- committed secret scan
+- lint
+- typecheck
+- unit, integration, and component tests
+- production build
+- browser smoke tests
+
+That means the simplest rule is:
+
+- if GitHub is green and your local checks are green, it is safe to deploy
+
+## After Deploy
+
+Do one short manual check in production:
+
+1. open the dashboard
+2. open campaigns
+3. open participants
+4. open one live assessment link
+5. confirm there are no auth or loading errors

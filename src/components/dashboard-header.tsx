@@ -7,8 +7,10 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { BuildPortalSwitcher } from "@/components/build-portal-switcher";
 
 export function DashboardHeader({
+  accountControl,
   workspaceControls,
 }: {
+  accountControl?: React.ReactNode;
   workspaceControls?: React.ReactNode;
 }) {
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -52,7 +54,7 @@ export function DashboardHeader({
         {workspaceControls}
         <BuildPortalSwitcher variant="header" />
         <ThemeToggle />
-        <div className="size-7 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 ring-1 ring-primary/10" />
+        {accountControl}
       </div>
     </header>
   );

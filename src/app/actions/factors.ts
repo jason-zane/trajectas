@@ -294,6 +294,36 @@ export async function deleteFactor(id: string) {
   return { success: true }
 }
 
+export async function deleteFactors(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one factor.' }
+  }
+
+  const db = createAdminClient()
+  const timestamp = new Date().toISOString()
+  const { error } = await db
+    .from('factors')
+    .update({ deleted_at: timestamp })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/factors')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.bulk_deleted',
+    targetTable: 'factors',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+  return { success: true as const, count: uniqueIds.length }
+}
+
 export async function restoreFactor(id: string) {
   const scope = await requireAdminScope()
   const db = createAdminClient()
@@ -313,6 +343,35 @@ export async function restoreFactor(id: string) {
     targetId: id,
   })
   return { success: true }
+}
+
+export async function restoreFactors(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one factor.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('factors')
+    .update({ deleted_at: null })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/factors')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.bulk_restored',
+    targetTable: 'factors',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+  return { success: true, count: uniqueIds.length }
 }
 
 export async function toggleFactorActive(id: string, isActive: boolean) {

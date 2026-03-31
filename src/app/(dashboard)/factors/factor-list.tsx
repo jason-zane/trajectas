@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useTransition } from "react"
 import Link from "next/link"
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
   ArrowRight,
   X,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -34,7 +35,18 @@ import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { TiltCard } from "@/components/tilt-card"
-import type { FactorWithMeta } from "@/app/actions/factors"
+import { LibraryBundleImportButton } from "@/components/library-bundle-import-button"
+import { LibraryBulkImportButton } from "@/components/library-bulk-import-button"
+import { LibraryCardSelectButton } from "@/components/library-card-select-button"
+import { LibraryInlineDeleteButton } from "@/components/library-inline-delete-button"
+import { LibrarySelectionToolbar } from "@/components/library-selection-toolbar"
+import {
+  deleteFactor,
+  deleteFactors,
+  restoreFactor,
+  restoreFactors,
+  type FactorWithMeta,
+} from "@/app/actions/factors"
 
 type StatusFilter = "all" | "active" | "inactive"
 
@@ -47,6 +59,10 @@ export function FactorList({
   const [dimensionFilter, setDimensionFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
   const [ownershipFilter, setOwnershipFilter] = useState("all")
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isDeleting, startDeleteTransition] = useTransition()
 
   const dimensionNames = useMemo(() => {
     const names = new Set<string>()
@@ -107,12 +123,70 @@ export function FactorList({
   }, [filteredFactors])
 
   const allGroupNames = grouped.map(([name]) => name)
+  const allVisibleSelected =
+    filteredFactors.length > 0 && filteredFactors.every((factor) => selectedIds.includes(factor.id))
 
   function clearFilters() {
     setSearchQuery("")
     setDimensionFilter("all")
     setStatusFilter("all")
     setOwnershipFilter("all")
+  }
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) =>
+      checked ? Array.from(new Set([...current, id])) : current.filter((value) => value !== id)
+    )
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((current) =>
+      allVisibleSelected
+        ? current.filter((id) => !filteredFactors.some((factor) => factor.id === id))
+        : Array.from(new Set([...current, ...filteredFactors.map((factor) => factor.id)]))
+    )
+  }
+
+  function clearSelection() {
+    setSelectedIds([])
+  }
+
+  function toggleSelectionMode() {
+    setSelectionMode((current) => {
+      const next = !current
+      if (!next) {
+        setSelectedIds([])
+      }
+      return next
+    })
+  }
+
+  function handleBulkDelete() {
+    const idsToRestore = [...selectedIds]
+    startDeleteTransition(async () => {
+      const result = await deleteFactors(idsToRestore)
+      if (result && "error" in result && result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      setConfirmOpen(false)
+      setSelectedIds([])
+      toast.success(`Deleted ${result?.count ?? idsToRestore.length} factors`, {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const restoreResult = await restoreFactors(idsToRestore)
+            if (restoreResult && "error" in restoreResult && restoreResult.error) {
+              toast.error(restoreResult.error)
+              return
+            }
+            toast.success(`Restored ${restoreResult?.count ?? idsToRestore.length} factors`)
+          },
+        },
+        duration: 5000,
+      })
+    })
   }
 
   return (
@@ -122,12 +196,16 @@ export function FactorList({
         title="Factor Library"
         description="Manage your psychometric factor definitions. Factors are grouped by dimension and linked to constructs and assessment items."
       >
-        <Link href="/factors/create">
-          <Button>
-            <Plus className="size-4" />
-            Create Factor
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <LibraryBundleImportButton />
+          <LibraryBulkImportButton entity="factors" />
+          <Link href="/factors/create">
+            <Button>
+              <Plus className="size-4" />
+              Create Factor
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       {factors.length === 0 ? (
@@ -210,6 +288,22 @@ export function FactorList({
                   Clear filters
                 </Button>
               )}
+              <LibrarySelectionToolbar
+                className="sm:ml-auto"
+                selectionMode={selectionMode}
+                selectedCount={selectedIds.length}
+                visibleCount={filteredFactors.length}
+                allVisibleSelected={allVisibleSelected}
+                itemLabel="factor"
+                itemLabelPlural="factors"
+                deleting={isDeleting}
+                confirmOpen={confirmOpen}
+                onConfirmOpenChange={setConfirmOpen}
+                onToggleSelectionMode={toggleSelectionMode}
+                onToggleAllVisible={toggleAllVisible}
+                onClearSelection={clearSelection}
+                onConfirmDelete={handleBulkDelete}
+              />
             </div>
           </div>
 
@@ -247,103 +341,126 @@ export function FactorList({
                       {groupFactors.map((factor, cardIndex) => (
                         <ScrollReveal key={factor.id} delay={cardIndex * 60}>
                           <TiltCard>
-                          <Link href={`/factors/${factor.slug}/edit`}>
-                            <Card
-                              variant="interactive"
-                              className="flex flex-col h-full"
-                            >
-                              <CardHeader className="flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-2.5">
-                                    <div
-                                      className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-competency-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
-                                      style={{ "--glow-color": "var(--competency-accent)" } as React.CSSProperties}
-                                    >
-                                      <Brain className="size-4 text-competency-accent" />
+                            <div className="group relative">
+                              {selectionMode ? (
+                                <div className="absolute top-3 right-3 z-10">
+                                  <LibraryCardSelectButton
+                                    label={factor.name}
+                                    selected={selectedIds.includes(factor.id)}
+                                    onToggle={() =>
+                                      toggleSelected(factor.id, !selectedIds.includes(factor.id))
+                                    }
+                                  />
+                                </div>
+                              ) : null}
+                              {!selectionMode ? (
+                                <div className="absolute top-3 right-3 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                  <LibraryInlineDeleteButton
+                                    itemLabel="Factor"
+                                    itemName={factor.name}
+                                    onDelete={() => deleteFactor(factor.id)}
+                                    onRestore={() => restoreFactor(factor.id)}
+                                  />
+                                </div>
+                              ) : null}
+                              <Link href={`/factors/${factor.slug}/edit`}>
+                                <Card
+                                  variant="interactive"
+                                  className="flex h-full flex-col"
+                                >
+                                  <CardHeader className="flex-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="flex items-center gap-2.5">
+                                        <div
+                                          className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-competency-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                                          style={{ "--glow-color": "var(--competency-accent)" } as React.CSSProperties}
+                                        >
+                                          <Brain className="size-4 text-competency-accent" />
+                                        </div>
+                                        <CardTitle className="leading-snug">
+                                          {factor.name}
+                                        </CardTitle>
+                                      </div>
+                                      <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100" />
                                     </div>
-                                    <CardTitle className="leading-snug">
-                                      {factor.name}
-                                    </CardTitle>
-                                  </div>
-                                  <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0 mt-0.5" />
-                                </div>
-                                {factor.description && (
-                                  <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
-                                    {factor.description}
-                                  </p>
-                                )}
-                              </CardHeader>
-                              <CardContent>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  {factor.dimensionName && (
-                                    <Badge variant="dimension">
-                                      {factor.dimensionName}
-                                    </Badge>
-                                  )}
-                                  {factor.organizationName && (
-                                    <Badge variant="outline">
-                                      {factor.organizationName}
-                                    </Badge>
-                                  )}
-                                  <Badge variant="dot">
-                                    <span
-                                      className={`size-1.5 rounded-full ${factor.isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
-                                    />
-                                    {factor.isActive ? "Active" : "Inactive"}
-                                  </Badge>
-                                </div>
+                                    {factor.description && (
+                                      <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                                        {factor.description}
+                                      </p>
+                                    )}
+                                  </CardHeader>
+                                  <CardContent>
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      {factor.dimensionName && (
+                                        <Badge variant="dimension">
+                                          {factor.dimensionName}
+                                        </Badge>
+                                      )}
+                                      {factor.organizationName && (
+                                        <Badge variant="outline">
+                                          {factor.organizationName}
+                                        </Badge>
+                                      )}
+                                      <Badge variant="dot">
+                                        <span
+                                          className={`size-1.5 rounded-full ${factor.isActive ? "bg-emerald-500" : "bg-muted-foreground/40"}`}
+                                        />
+                                        {factor.isActive ? "Active" : "Inactive"}
+                                      </Badge>
+                                    </div>
 
-                                <div className="flex items-center gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
-                                  <div className="flex items-center gap-1">
-                                    <Dna className="size-3.5" />
-                                    <span>
-                                      {factor.constructCount}{" "}
-                                      {factor.constructCount === 1
-                                        ? "construct"
-                                        : "constructs"}
-                                    </span>
-                                    <span className="flex items-center gap-0.5 ml-1">
-                                      {Array.from({
-                                        length: Math.min(factor.constructCount, 5),
-                                      }).map((_, i) => (
-                                        <span
-                                          key={i}
-                                          className="size-1.5 rounded-full bg-trait-accent"
-                                        />
-                                      ))}
-                                      {Array.from({
-                                        length: Math.max(
-                                          5 - factor.constructCount,
-                                          0
-                                        ),
-                                      }).map((_, i) => (
-                                        <span
-                                          key={`empty-${i}`}
-                                          className="size-1.5 rounded-full bg-border"
-                                        />
-                                      ))}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <FileQuestion className="size-3.5" />
-                                    <span>
-                                      {factor.itemCount}{" "}
-                                      {factor.itemCount === 1 ? "item" : "items"}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <ClipboardList className="size-3.5" />
-                                    <span>
-                                      {factor.assessmentCount}{" "}
-                                      {factor.assessmentCount === 1
-                                        ? "assessment"
-                                        : "assessments"}
-                                    </span>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </Link>
+                                    <div className="mt-3 flex items-center gap-4 border-t border-border/50 pt-3 text-xs text-muted-foreground">
+                                      <div className="flex items-center gap-1">
+                                        <Dna className="size-3.5" />
+                                        <span>
+                                          {factor.constructCount}{" "}
+                                          {factor.constructCount === 1
+                                            ? "construct"
+                                            : "constructs"}
+                                        </span>
+                                        <span className="ml-1 flex items-center gap-0.5">
+                                          {Array.from({
+                                            length: Math.min(factor.constructCount, 5),
+                                          }).map((_, i) => (
+                                            <span
+                                              key={i}
+                                              className="size-1.5 rounded-full bg-trait-accent"
+                                            />
+                                          ))}
+                                          {Array.from({
+                                            length: Math.max(
+                                              5 - factor.constructCount,
+                                              0
+                                            ),
+                                          }).map((_, i) => (
+                                            <span
+                                              key={`empty-${i}`}
+                                              className="size-1.5 rounded-full bg-border"
+                                            />
+                                          ))}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <FileQuestion className="size-3.5" />
+                                        <span>
+                                          {factor.itemCount}{" "}
+                                          {factor.itemCount === 1 ? "item" : "items"}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <ClipboardList className="size-3.5" />
+                                        <span>
+                                          {factor.assessmentCount}{" "}
+                                          {factor.assessmentCount === 1
+                                            ? "assessment"
+                                            : "assessments"}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              </Link>
+                            </div>
                           </TiltCard>
                         </ScrollReveal>
                       ))}

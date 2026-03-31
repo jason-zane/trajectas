@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { EmptyState } from "@/components/empty-state";
 import { WorkspaceShell } from "@/components/workspace-shell";
@@ -17,18 +18,18 @@ export default async function DashboardLayout({
   ]);
 
   if (adminAccess.status !== "ok") {
+    if (adminAccess.status === "signed_out") {
+      redirect("/login?next=/");
+    }
+
     return (
       <div className="mx-auto flex min-h-screen max-w-3xl items-center px-6 py-16">
         <EmptyState
           title={
-            adminAccess.status === "signed_out"
-              ? "Platform admin access required"
-              : "This surface is restricted to platform admin"
+            "This surface is restricted to platform admin"
           }
           description={
-            adminAccess.status === "signed_out"
-              ? "Sign in with a platform admin account to access settings, psychometrics, AI controls, and platform-wide management."
-              : "Your current actor is authenticated, but it does not have permission to enter the platform admin surface."
+            "Your current actor is authenticated, but it does not have permission to enter the platform admin surface."
           }
           className="w-full"
         />

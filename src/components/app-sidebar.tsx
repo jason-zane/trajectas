@@ -23,6 +23,7 @@ import {
   Users,
   Wand2,
   LayoutTemplate,
+  ListFilter,
 } from "lucide-react";
 import {
   Sidebar,
@@ -114,6 +115,8 @@ const adminNav = [
     items: [
       { title: "Brand", href: "/settings/brand", icon: Palette },
       { title: "Experience", href: "/settings/experience", icon: Users },
+      { title: "Users", href: "/settings/users", icon: Users },
+      { title: "Item Selection", href: "/settings/item-selection", icon: ListFilter },
       { title: "AI Models", href: "/settings/models", icon: Cpu },
       { title: "AI Prompts", href: "/settings/prompts", icon: Braces },
     ],

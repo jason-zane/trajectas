@@ -2,10 +2,15 @@
 // generation.ts — Types for the AI-GENIE item generation pipeline
 // =============================================================================
 
-import type { GenerationRunConfig, GenerationRunStatus } from './database'
+import type {
+  ConstructConfigOverride,
+  GenerationRunConfig,
+  GenerationRunStatus,
+} from './database'
 
 // Re-export for convenience
 export type { GenerationRunConfig, GenerationRunStatus }
+export type { ConstructConfigOverride }
 
 // ---------------------------------------------------------------------------
 // Pipeline types
@@ -29,7 +34,17 @@ export interface ConstructForGeneration {
   indicatorsMid?: string
   indicatorsHigh?: string
   existingItemCount: number
+  existingItems?: string[]
 }
+
+export interface ConstructDraftInput extends ConstructConfigOverride {
+  id: string
+  name: string
+}
+
+export type NetworkEstimator = 'tmfg' | 'ebicglasso'
+export type EmbeddingType = 'full' | 'sparse'
+export type RemovalStage = 'uva' | 'boot_ega' | 'kept'
 
 /** Result of the full pipeline run. */
 export interface PipelineResult {
@@ -38,7 +53,7 @@ export interface PipelineResult {
   itemsAfterUva: number
   itemsAfterBoot: number
   nmiInitial: number
-  nmiFinal: number
+  nmiFinal?: number
   modelUsed: string
   aiSnapshot?: {
     models?: Record<string, string>
@@ -48,6 +63,12 @@ export interface PipelineResult {
       pairCount: number
       llmPairCount: number
     }
+    embeddingType?: EmbeddingType
+    networkEstimator?: NetworkEstimator
+    walktrapStep?: number
+    nmiByStage?: Partial<Record<'initial' | 'postEmbeddingSelection' | 'postUva' | 'postBoot' | 'final', number>>
+    uvaSweeps?: number
+    bootSweeps?: number
   }
   tokenUsage: { inputTokens: number; outputTokens: number }
 }
@@ -64,8 +85,12 @@ export interface CandidateItem {
 export interface ScoredCandidateItem extends CandidateItem {
   embedding: number[]
   communityId?: number
+  initialCommunityId?: number
+  finalCommunityId?: number
   wtoMax?: number
   bootStability?: number
+  removalStage?: RemovalStage
+  removalSweep?: number
   isRedundant: boolean
   isUnstable: boolean
 }
@@ -88,22 +113,28 @@ export interface CommunityAssignment {
 export interface RedundancyResult {
   redundantIndices: Set<number>
   wtoScores: number[]
+  removalSweepByIndex?: Map<number, number>
+  sweepCount?: number
 }
 
 /** Result of bootstrap stability analysis. */
 export interface StabilityResult {
   stabilityScores: number[]
   unstableIndices: Set<number>
+  removalSweepByIndex?: Map<number, number>
 }
 
 /** Interface for network analysis algorithms — swap TypeScript for R/Python later. */
 export interface NetworkAnalyzer {
-  buildNetwork(correlationMatrix: number[][]): AdjacencyMatrix
-  detectCommunities(adjacency: AdjacencyMatrix): CommunityAssignment[]
+  buildNetwork(correlationMatrix: number[][], estimator?: NetworkEstimator): AdjacencyMatrix
+  detectCommunities(adjacency: AdjacencyMatrix, walktrapStep?: number): CommunityAssignment[]
   computeNMI(predicted: number[], actual: number[]): number
   findRedundantItems(adjacency: AdjacencyMatrix, cutoff: number): RedundancyResult
   bootstrapStability(
     embeddings: number[][],
+    originalCommunities: number[],
+    estimator: NetworkEstimator,
+    walktrapStep: number,
     nBootstraps: number,
     cutoff: number,
   ): StabilityResult
@@ -122,8 +153,10 @@ export interface PreflightResult {
 
 export interface PreflightMetadata {
   similarityThreshold: number
+  reviewThreshold?: number
   pairCount: number
   llmPairCount: number
+  topPairsReviewed?: number
   embeddingModel: string
   preflightModel?: string
   promptVersion?: number
@@ -137,8 +170,15 @@ export interface ConstructPairResult {
   constructBName: string
   cosineSimilarity: number
   status: 'green' | 'amber' | 'red'
+  reviewedByLlm?: boolean
+  overlapSummary?: string
+  sharedSignals?: string[]
+  uniqueSignalsA?: string[]
+  uniqueSignalsB?: string[]
   discriminatingItemsA?: string[]
   discriminatingItemsB?: string[]
+  refinementGuidanceA?: string
+  refinementGuidanceB?: string
   llmExplanation?: string
 }
 

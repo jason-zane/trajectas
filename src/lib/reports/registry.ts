@@ -41,20 +41,20 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
   score_detail: {
     label: 'Score Detail',
     category: 'score',
-    description: 'Single entity score with band label, definition, indicators, and development suggestion.',
-    defaultConfig: { displayLevel: 'factor', entityId: null, showScore: true, showBandLabel: true, showDefinition: true, showIndicators: true, showDevelopment: false, showChildBreakdown: false },
+    description: 'One or more entity scores with band labels, definitions, indicators, and development suggestions.',
+    defaultConfig: { displayLevel: 'factor', entityIds: [], showScore: true, showBandLabel: true, showDefinition: true, showIndicators: true, showDevelopment: false, showChildBreakdown: false },
   },
   strengths_highlights: {
     label: 'Strengths Highlights',
     category: 'highlight',
     description: 'Top N entities by score with hero visual treatment.',
-    defaultConfig: { topN: 3, displayLevel: 'factor', style: 'cards' },
+    defaultConfig: { topN: 3, displayLevel: 'factor', style: 'cards', aiNarrative: false },
   },
   development_plan: {
     label: 'Development Plan',
     category: 'highlight',
     description: 'Aggregated development suggestions prioritised by lowest score.',
-    defaultConfig: { maxItems: 3, prioritiseByScore: true },
+    defaultConfig: { maxItems: 3, prioritiseByScore: true, aiNarrative: false },
   },
   norm_comparison: {
     label: 'Norm Comparison',

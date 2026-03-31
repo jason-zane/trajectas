@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useTransition, useMemo } from "react"
+import { useState, useCallback, useTransition, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Trash2, Info } from "lucide-react"
@@ -41,6 +41,10 @@ import {
   restoreAssessment,
   updateAssessmentField,
 } from "@/app/actions/assessments"
+import {
+  getItemsPerConstructLimit,
+  type ConstructShortfall,
+} from "@/app/actions/item-selection-rules"
 import type { Assessment, FormatMode } from "@/types/database"
 import type {
   BuilderFactor,
@@ -214,6 +218,26 @@ export function AssessmentBuilder({
     () => selectedFactors.map((f) => f.id),
     [selectedFactors]
   )
+
+  // Item selection rule lookup
+  const [ruleInfo, setRuleInfo] = useState<{
+    constructCount: number
+    itemsPerConstruct: number | null
+    shortfalls: ConstructShortfall[]
+  } | null>(null)
+
+  useEffect(() => {
+    if (factorIds.length === 0) {
+      setRuleInfo(null)
+      return
+    }
+    let cancelled = false
+    getItemsPerConstructLimit(factorIds).then((info) => {
+      if (!cancelled) setRuleInfo(info)
+    })
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [factorIds.join(",")])
 
   function handleSave() {
     setError(null)
@@ -528,6 +552,7 @@ export function AssessmentBuilder({
             <AssessmentCanvas
               selectedFactors={selectedFactors}
               onRemove={removeFactor}
+              ruleInfo={ruleInfo}
             />
           </div>
         </div>
@@ -546,6 +571,7 @@ export function AssessmentBuilder({
         fcBlocks={fcBlocks}
         onFcBlocksChange={setFcBlocks}
         existingBlocks={existingBlocks}
+        ruleInfo={ruleInfo}
       />
 
       {/* Sticky Action Bar */}

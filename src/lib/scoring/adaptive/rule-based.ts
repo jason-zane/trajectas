@@ -11,7 +11,22 @@
  * @module
  */
 
-import type { ItemSelectionRule, Item } from '@/types/database'
+import type { Item } from '@/types/database'
+
+/**
+ * Legacy per-assessment rule shape used by the `rule_based` item selection
+ * strategy. Kept local to the scoring module since the global
+ * `item_selection_rules` table now stores construct-count thresholds.
+ */
+type LegacyItemSelectionRule = {
+  id: string
+  assessmentId: string
+  ruleType: string
+  config: Record<string, unknown>
+  priority: number
+  created_at: string
+  updated_at?: string
+}
 
 // ---------------------------------------------------------------------------
 // Competency-count rule type
@@ -22,7 +37,7 @@ import type { ItemSelectionRule, Item } from '@/types/database'
  * to select per competency, based on the total number of competencies
  * in an assessment.
  *
- * This is extracted from the generic {@link ItemSelectionRule} shape
+ * This is extracted from the generic {@link LegacyItemSelectionRule} shape
  * in the database, where the `ruleType` is `"competency_count"` and
  * the `config` object contains the threshold fields.
  */
@@ -62,7 +77,7 @@ const DEFAULT_RULES: FactorCountRule[] = [
 
 /**
  * Extract a {@link FactorCountRule} from a generic
- * {@link ItemSelectionRule} whose `ruleType` is `"competency_count"`.
+ * {@link LegacyItemSelectionRule} whose `ruleType` is `"competency_count"`.
  *
  * The `config` object is expected to contain `totalFactorMin`,
  * `totalFactorMax`, and `itemsPerFactor` as numeric fields.
@@ -72,7 +87,7 @@ const DEFAULT_RULES: FactorCountRule[] = [
  *          rule is not of type `"competency_count"` or is malformed.
  */
 export function parseFactorCountRule(
-  rule: ItemSelectionRule,
+  rule: LegacyItemSelectionRule,
 ): FactorCountRule | undefined {
   if (rule.ruleType !== 'competency_count') return undefined
 
@@ -103,7 +118,7 @@ export function parseFactorCountRule(
  * given `totalFactors` count.  Returns the matching rule's
  * `itemsPerFactor` value.
  *
- * If database-backed {@link ItemSelectionRule} objects are passed,
+ * If database-backed {@link LegacyItemSelectionRule} objects are passed,
  * they are first converted via {@link parseFactorCountRule}.
  * Any rules that are not of type `"competency_count"` are silently
  * skipped.
@@ -115,12 +130,12 @@ export function parseFactorCountRule(
  * @param totalFactors - Number of competencies in the assessment.
  * @param rules             - Optional custom rules.  Accepts either
  *                            {@link FactorCountRule} or raw
- *                            {@link ItemSelectionRule} objects from the DB.
+ *                            {@link LegacyItemSelectionRule} objects from the DB.
  * @returns Number of items to select for each competency.
  */
 export function calculateItemsPerFactor(
   totalFactors: number,
-  rules?: (FactorCountRule | ItemSelectionRule)[],
+  rules?: (FactorCountRule | LegacyItemSelectionRule)[],
 ): number {
   // Normalise to FactorCountRule[].
   let effectiveRules: FactorCountRule[]
@@ -133,7 +148,7 @@ export function calculateItemsPerFactor(
         // Already a FactorCountRule?
         if ('totalFactorMin' in r) return r as FactorCountRule
         // Try to parse from a DB rule.
-        return parseFactorCountRule(r as ItemSelectionRule)
+        return parseFactorCountRule(r as LegacyItemSelectionRule)
       })
       .filter((r): r is FactorCountRule => r !== undefined)
 

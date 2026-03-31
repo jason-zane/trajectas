@@ -13,18 +13,13 @@ import {
   Square,
   RefreshCw,
   Download,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
+  BookOpen,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-// Accordion no longer used — items displayed in sortable table
 
 import {
   getGenerationRun,
@@ -35,6 +30,12 @@ import {
   exportRunItemsAsCSV,
 } from "@/app/actions/generation"
 import type { GenerationRun, GeneratedItem } from "@/types/database"
+
+import { constructColor } from "./metric-helpers"
+import { NetworkGraph } from "./network-graph"
+import { SortableItemTable } from "./sortable-item-table"
+import { QualityPanel } from "./quality-panel"
+import { PipelineExplainerSheet } from "./pipeline-explainer-sheet"
 
 // ---------------------------------------------------------------------------
 // Pipeline step definitions
@@ -51,25 +52,6 @@ const PIPELINE_STEPS = [
 ] as const
 
 type PipelineStepKey = (typeof PIPELINE_STEPS)[number]["key"]
-
-// ---------------------------------------------------------------------------
-// Colour helpers for constructs / communities
-// ---------------------------------------------------------------------------
-
-const CONSTRUCT_HUES = [
-  "var(--primary)",
-  "hsl(220 70% 50%)",
-  "hsl(142 70% 50%)",
-  "hsl(38 92% 50%)",
-  "hsl(270 60% 55%)",
-  "hsl(180 60% 40%)",
-  "hsl(340 70% 55%)",
-  "hsl(60 80% 45%)",
-]
-
-function constructColor(index: number): string {
-  return CONSTRUCT_HUES[index % CONSTRUCT_HUES.length]
-}
 
 // ---------------------------------------------------------------------------
 // ProgressView
@@ -175,572 +157,6 @@ function StatBlock({ label, value }: { label: string; value: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Quality funnel bar
-// ---------------------------------------------------------------------------
-
-function FunnelBar({
-  label,
-  count,
-  maxCount,
-  colorClass,
-}: {
-  label: string
-  count: number
-  maxCount: number
-  colorClass: string
-}) {
-  const pct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-caption text-muted-foreground w-28 shrink-0">{label}</span>
-      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all duration-500 ${colorClass}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-      <span className="text-caption font-medium w-8 text-right">{count}</span>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Network Graph — radial layout
-// ---------------------------------------------------------------------------
-
-const SVG_W = 600
-const SVG_H = 450
-const CX = SVG_W / 2
-const CY = SVG_H / 2
-
-interface NodePos {
-  x: number
-  y: number
-  item: GeneratedItem
-  constructIndex: number
-  communityIndex: number
-}
-
-function buildRadialLayout(
-  items: GeneratedItem[],
-  constructIds: string[],
-): NodePos[] {
-  // Group items by communityId
-  const communities = new Map<number, GeneratedItem[]>()
-  for (const item of items) {
-    const cid = item.communityId ?? 0
-    if (!communities.has(cid)) communities.set(cid, [])
-    communities.get(cid)!.push(item)
-  }
-
-  const communityIds = Array.from(communities.keys()).sort((a, b) => a - b)
-  const numCommunities = communityIds.length
-  if (numCommunities === 0) return []
-
-  const outerRadius = Math.min(CX, CY) - 60
-  const innerRadius = Math.min(60, outerRadius * 0.4)
-
-  const positions: NodePos[] = []
-
-  communityIds.forEach((cid, ci) => {
-    const communityItems = communities.get(cid)!
-    // Place community center in a circle
-    const angle = (ci / numCommunities) * 2 * Math.PI - Math.PI / 2
-    const ccx = CX + outerRadius * Math.cos(angle)
-    const ccy = CY + outerRadius * Math.sin(angle)
-
-    communityItems.forEach((item, ii) => {
-      const n = communityItems.length
-      if (n === 1) {
-        positions.push({
-          x: ccx,
-          y: ccy,
-          item,
-          constructIndex: constructIds.indexOf(item.constructId),
-          communityIndex: ci,
-        })
-      } else {
-        const itemAngle = (ii / n) * 2 * Math.PI
-        const r = innerRadius
-        positions.push({
-          x: ccx + r * Math.cos(itemAngle),
-          y: ccy + r * Math.sin(itemAngle),
-          item,
-          constructIndex: constructIds.indexOf(item.constructId),
-          communityIndex: ci,
-        })
-      }
-    })
-  })
-
-  return positions
-}
-
-interface TooltipState {
-  x: number
-  y: number
-  item: GeneratedItem
-}
-
-function NetworkGraph({
-  items,
-  constructIds,
-  onItemClick,
-}: {
-  items: GeneratedItem[]
-  constructIds: string[]
-  onItemClick: (itemId: string) => void
-}) {
-  const [tooltip, setTooltip] = useState<TooltipState | null>(null)
-  const svgRef = useRef<SVGSVGElement>(null)
-
-  const positions = buildRadialLayout(items, constructIds)
-
-  // Build majority communityId per construct for leaking detection
-  const constructCommunityMap = React.useMemo(() => {
-    const map = new Map<string, number>()
-    const constructItemsByConstruct = new Map<string, GeneratedItem[]>()
-    items.forEach(item => {
-      const arr = constructItemsByConstruct.get(item.constructId) ?? []
-      arr.push(item)
-      constructItemsByConstruct.set(item.constructId, arr)
-    })
-    constructItemsByConstruct.forEach((cItems, constructId) => {
-      const counts = new Map<number, number>()
-      cItems.forEach(i => {
-        if (i.communityId != null) {
-          counts.set(i.communityId, (counts.get(i.communityId) ?? 0) + 1)
-        }
-      })
-      let maxCount = 0
-      let modalCommunityId = -1
-      counts.forEach((count, communityId) => {
-        if (count > maxCount) { maxCount = count; modalCommunityId = communityId }
-      })
-      if (modalCommunityId !== -1) map.set(constructId, modalCommunityId)
-    })
-    return map
-  }, [items])
-
-  // Build edges: connect items sharing the same communityId
-  // Keep sparse — just draw community centroid spokes, not all pairs
-  const communityGroups = new Map<number, NodePos[]>()
-  for (const pos of positions) {
-    const cid = pos.item.communityId ?? 0
-    if (!communityGroups.has(cid)) communityGroups.set(cid, [])
-    communityGroups.get(cid)!.push(pos)
-  }
-
-  const edges: Array<{ x1: number; y1: number; x2: number; y2: number; communityIndex: number }> = []
-  communityGroups.forEach((group) => {
-    if (group.length < 2) return
-    // Compute centroid
-    const cx = group.reduce((s, p) => s + p.x, 0) / group.length
-    const cy = group.reduce((s, p) => s + p.y, 0) / group.length
-    group.forEach((pos) => {
-      edges.push({ x1: cx, y1: cy, x2: pos.x, y2: pos.y, communityIndex: pos.communityIndex })
-    })
-  })
-
-  const handleMouseEnter = useCallback(
-    (pos: NodePos, e: React.MouseEvent<SVGCircleElement>) => {
-      const rect = svgRef.current?.getBoundingClientRect()
-      if (!rect) return
-      setTooltip({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        item: pos.item,
-      })
-    },
-    [],
-  )
-
-  const handleMouseLeave = useCallback(() => setTooltip(null), [])
-
-  const handleNodeClick = useCallback(
-    (itemId: string) => {
-      onItemClick(itemId)
-    },
-    [onItemClick],
-  )
-
-  return (
-    <div className="relative rounded-xl bg-card ring-1 ring-foreground/[0.06] shadow-sm overflow-hidden">
-      <div className="px-5 pt-4 pb-2">
-        <p className="text-overline text-primary">Item Network</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {constructIds.length >= 2
-            ? "Items grouped by community — coloured by construct assignment"
-            : "Items grouped by semantic sub-theme within the construct"}
-        </p>
-      </div>
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-        className="w-full"
-        style={{ minHeight: 400 }}
-        aria-label="Item network graph"
-      >
-        {/* Edges */}
-        {edges.map((e, i) => (
-          <line
-            key={i}
-            x1={e.x1}
-            y1={e.y1}
-            x2={e.x2}
-            y2={e.y2}
-            stroke="currentColor"
-            strokeOpacity={0.15}
-            strokeWidth={1}
-          />
-        ))}
-
-        {/* Nodes */}
-        {positions.map((pos) => {
-          const { item, constructIndex } = pos
-          const isProblematic = item.isRedundant || item.isUnstable
-          const isLeaking =
-            item.communityId != null &&
-            constructCommunityMap.has(item.constructId) &&
-            item.communityId !== constructCommunityMap.get(item.constructId)
-
-          const r = isProblematic ? 4 : 6
-          const fill = item.isRedundant ? "hsl(0 84% 60%)" : constructColor(constructIndex)
-          const strokeColor = isLeaking
-            ? "hsl(38 92% 50%)"
-            : "white"
-          const strokeWidth = isLeaking ? 2 : 1
-          const strokeDasharray = item.isUnstable ? "2 2" : undefined
-
-          return (
-            <circle
-              key={item.id}
-              cx={pos.x}
-              cy={pos.y}
-              r={r}
-              fill={fill}
-              stroke={strokeColor}
-              strokeWidth={strokeWidth}
-              strokeDasharray={strokeDasharray}
-              className="cursor-pointer transition-opacity hover:opacity-80"
-              onMouseEnter={(e) => handleMouseEnter(pos, e)}
-              onMouseLeave={handleMouseLeave}
-              onClick={() => handleNodeClick(item.id)}
-              aria-label={item.stem.slice(0, 60)}
-            />
-          )
-        })}
-      </svg>
-
-      {/* Legend */}
-      <div className="px-5 pb-4 flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded-full bg-primary inline-block" />
-          Normal
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded-full inline-block" style={{ background: "hsl(0 84% 60%)" }} />
-          Redundant
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded-full border border-dashed border-foreground/60 inline-block" />
-          Unstable
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="size-3 rounded-full border-2 inline-block" style={{ borderColor: "hsl(38 92% 50%)" }} />
-          Leaking
-        </span>
-      </div>
-
-      {/* SVG Tooltip */}
-      {tooltip && (
-        <div
-          className="pointer-events-none absolute z-10 max-w-xs rounded-lg bg-popover text-popover-foreground border border-border shadow-md px-3 py-2 text-xs"
-          style={{
-            left: Math.min(tooltip.x + 12, SVG_W - 200),
-            top: Math.max(tooltip.y - 60, 0),
-          }}
-        >
-          <p className="font-medium line-clamp-3">{tooltip.item.stem}</p>
-          <div className="mt-1.5 space-y-0.5 text-muted-foreground">
-            {tooltip.item.wtoMax !== undefined && (
-              <p>
-                wTO: {tooltip.item.wtoMax.toFixed(3)}
-                {tooltip.item.wtoMax > 0.2 && " ⚠️"}
-              </p>
-            )}
-            {tooltip.item.bootStability !== undefined && (
-              <p>
-                Stability: {tooltip.item.bootStability.toFixed(3)}
-                {tooltip.item.bootStability < 0.75 && " ⚠️"}
-              </p>
-            )}
-            {tooltip.item.communityId !== undefined && (
-              <p>Community: {tooltip.item.communityId}</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Sortable item table
-// ---------------------------------------------------------------------------
-
-type SortKey = "wto" | "stability" | "community" | "status"
-type SortDir = "asc" | "desc"
-
-function statusRank(item: GeneratedItem): number {
-  if (item.isAccepted) return 3
-  if (item.isRedundant) return 2
-  if (item.isUnstable) return 1
-  return 0 // suggested — best
-}
-
-function statusBadge(item: GeneratedItem): React.ReactNode {
-  if (item.isAccepted) return <Badge variant="outline">Accepted</Badge>
-  if (item.isRedundant) return <Badge variant="destructive">Redundant</Badge>
-  if (item.isUnstable) return <Badge variant="secondary">Unstable</Badge>
-  return <Badge variant="default">Suggested</Badge>
-}
-
-function SortHeader({
-  label,
-  sortKey: key,
-  currentKey,
-  currentDir,
-  onSort,
-  title,
-}: {
-  label: string
-  sortKey: SortKey
-  currentKey: SortKey
-  currentDir: SortDir
-  onSort: (key: SortKey) => void
-  title?: string
-}) {
-  const active = key === currentKey
-  return (
-    <th
-      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
-      onClick={() => onSort(key)}
-      title={title}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {active ? (
-          currentDir === "asc" ? (
-            <ArrowUp className="size-3" />
-          ) : (
-            <ArrowDown className="size-3" />
-          )
-        ) : (
-          <ArrowUpDown className="size-3 opacity-40" />
-        )}
-      </span>
-    </th>
-  )
-}
-
-function SortableItemTable({
-  items,
-  selectedIds,
-  onToggleSelect,
-  isMultiConstruct,
-  itemRefs,
-}: {
-  items: GeneratedItem[]
-  selectedIds: Set<string>
-  onToggleSelect: (id: string) => void
-  isMultiConstruct: boolean
-  itemRefs: React.RefObject<Map<string, HTMLTableRowElement | null>>
-}) {
-  const [sortKey, setSortKey] = useState<SortKey>("wto")
-  const [sortDir, setSortDir] = useState<SortDir>("asc")
-
-  const handleSort = useCallback((key: SortKey) => {
-    setSortKey((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"))
-      } else {
-        // wTO default ascending (lower = better), others descending
-        setSortDir(key === "wto" ? "asc" : key === "stability" ? "desc" : "asc")
-      }
-      return key
-    })
-  }, [])
-
-  const sorted = React.useMemo(() => {
-    const arr = [...items]
-    arr.sort((a, b) => {
-      let cmp = 0
-      switch (sortKey) {
-        case "wto":
-          cmp = (a.wtoMax ?? 0) - (b.wtoMax ?? 0)
-          break
-        case "stability":
-          cmp = (a.bootStability ?? 0) - (b.bootStability ?? 0)
-          break
-        case "community":
-          cmp = (a.communityId ?? 0) - (b.communityId ?? 0)
-          break
-        case "status":
-          cmp = statusRank(a) - statusRank(b)
-          break
-      }
-      return sortDir === "desc" ? -cmp : cmp
-    })
-    return arr
-  }, [items, sortKey, sortDir])
-
-  return (
-    <div className="overflow-x-auto rounded-lg bg-card ring-1 ring-foreground/[0.06]">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border/50 bg-muted/30">
-            <th className="w-10 px-3 py-2" />
-            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
-              Item Stem
-            </th>
-            <th className="w-10 px-3 py-2 text-center text-xs font-medium text-muted-foreground" title="Reverse-scored">
-              Key
-            </th>
-            <SortHeader
-              label="Sub-theme"
-              sortKey="community"
-              currentKey={sortKey}
-              currentDir={sortDir}
-              onSort={handleSort}
-              title="Semantic sub-cluster within the construct"
-            />
-            <SortHeader
-              label="wTO"
-              sortKey="wto"
-              currentKey={sortKey}
-              currentDir={sortDir}
-              onSort={handleSort}
-              title="Topological overlap — lower is more unique"
-            />
-            {isMultiConstruct && (
-              <SortHeader
-                label="Stability"
-                sortKey="stability"
-                currentKey={sortKey}
-                currentDir={sortDir}
-                onSort={handleSort}
-                title="Bootstrap stability — higher is more reliable"
-              />
-            )}
-            <SortHeader
-              label="Status"
-              sortKey="status"
-              currentKey={sortKey}
-              currentDir={sortDir}
-              onSort={handleSort}
-            />
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((item) => {
-            const isSelected = selectedIds.has(item.id)
-            const dimmed = item.isRedundant || item.isUnstable
-            return (
-              <tr
-                key={item.id}
-                ref={(el) => { itemRefs.current?.set(item.id, el) }}
-                className={`border-b border-border/30 last:border-0 transition-colors ${
-                  dimmed ? "opacity-50" : ""
-                } ${isSelected ? "bg-primary/5" : "hover:bg-muted/20"}`}
-              >
-                {/* Checkbox */}
-                <td className="px-3 py-2.5 align-top">
-                  <Checkbox
-                    checked={isSelected}
-                    onCheckedChange={() => onToggleSelect(item.id)}
-                    disabled={!!item.isAccepted}
-                    aria-label="Select item"
-                  />
-                </td>
-
-                {/* Stem */}
-                <td className={`px-3 py-2.5 align-top max-w-md ${item.isRedundant ? "line-through text-muted-foreground" : ""}`}>
-                  <p className="text-sm leading-snug">{item.stem}</p>
-                </td>
-
-                {/* Keying */}
-                <td className="px-3 py-2.5 align-top text-center">
-                  {item.reverseScored && (
-                    <Badge variant="outline" className="text-xs h-5">R</Badge>
-                  )}
-                </td>
-
-                {/* Sub-theme */}
-                <td className="px-3 py-2.5 align-top">
-                  {item.communityId != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className="size-2.5 rounded-full shrink-0 inline-block"
-                        style={{ background: constructColor(item.communityId - 1) }}
-                      />
-                      <span className="text-xs text-muted-foreground tabular-nums">
-                        {item.communityId}
-                      </span>
-                    </span>
-                  )}
-                </td>
-
-                {/* wTO */}
-                <td className="px-3 py-2.5 align-top">
-                  {item.wtoMax !== undefined && (
-                    <span
-                      className={`text-xs tabular-nums ${
-                        item.wtoMax > 0.2
-                          ? "text-destructive font-medium"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {item.wtoMax > 0.2 && (
-                        <AlertTriangle className="size-3 inline mr-0.5" />
-                      )}
-                      {item.wtoMax.toFixed(3)}
-                    </span>
-                  )}
-                </td>
-
-                {/* Stability (multi-construct only) */}
-                {isMultiConstruct && (
-                  <td className="px-3 py-2.5 align-top">
-                    {item.bootStability !== undefined && (
-                      <span
-                        className={`text-xs tabular-nums ${
-                          item.bootStability < 0.75
-                            ? "text-amber-500 font-medium"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {item.bootStability < 0.75 && (
-                          <AlertTriangle className="size-3 inline mr-0.5" />
-                        )}
-                        {item.bootStability.toFixed(3)}
-                      </span>
-                    )}
-                  </td>
-                )}
-
-                {/* Status */}
-                <td className="px-3 py-2.5 align-top">{statusBadge(item)}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // ReviewView
 // ---------------------------------------------------------------------------
 
@@ -809,7 +225,6 @@ function ReviewView({
     startRerun(async () => {
       const result = await rerunGenerationRun(run.id)
       if (result.success && result.newRunId) {
-        // Kick off pipeline via API route so navigation doesn't abort it
         fetch("/api/generation/start", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -841,12 +256,6 @@ function ReviewView({
     })
   }, [run.id])
 
-  // Funnel stats
-  const maxCount = run.itemsGenerated || 1
-  const afterUva = run.itemsAfterUva ?? run.itemsGenerated
-  const afterBoot = run.itemsAfterBoot ?? afterUva
-  const suggested = suggestedItems.length
-
   const hasResponseFormat = !!run.config.responseFormatId
 
   // Group items by construct
@@ -865,143 +274,12 @@ function ReviewView({
     <div className="space-y-6 max-w-6xl">
       {/* Quality summary + network — side by side on large screens */}
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        {/* Quality summary panel */}
-        <div className="rounded-xl bg-card ring-1 ring-foreground/[0.06] shadow-sm p-5 space-y-5">
-          <div>
-            <p className="text-overline text-primary mb-3">Quality Funnel</p>
-            <div className="space-y-3">
-              <FunnelBar
-                label="Generated"
-                count={run.itemsGenerated}
-                maxCount={maxCount}
-                colorClass="bg-primary/60"
-              />
-              <FunnelBar
-                label="After UVA"
-                count={afterUva}
-                maxCount={maxCount}
-                colorClass="bg-primary/70"
-              />
-              <FunnelBar
-                label="Stable"
-                count={afterBoot}
-                maxCount={maxCount}
-                colorClass="bg-primary/80"
-              />
-              <FunnelBar
-                label="Suggested"
-                count={suggested}
-                maxCount={maxCount}
-                colorClass="bg-primary"
-              />
-            </div>
-          </div>
+        <QualityPanel run={run} items={items} suggestedCount={suggestedItems.length} />
 
-          {/* Network quality — adapts to single vs multi-construct */}
-          {run.config.constructIds.length >= 2 ? (
-            /* Multi-construct: NMI compares discovered communities to intended constructs */
-            run.nmiInitial !== undefined &&
-            run.nmiFinal !== undefined && (
-              <div>
-                <p className="text-overline text-primary mb-3">Construct Alignment (NMI)</p>
-                <p className="text-xs text-muted-foreground mb-2">
-                  How well discovered clusters match intended constructs. Higher is better.
-                </p>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-caption text-muted-foreground w-16 shrink-0">Initial</span>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-muted-foreground rounded-full"
-                        style={{ width: `${Math.round(run.nmiInitial * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-caption w-10 text-right tabular-nums">
-                      {run.nmiInitial.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-caption text-muted-foreground w-16 shrink-0">
-                      Final
-                      {run.nmiFinal > run.nmiInitial && (
-                        <span className="ml-1 text-primary">▲</span>
-                      )}
-                    </span>
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full ${
-                          run.nmiFinal > run.nmiInitial ? "bg-primary" : "bg-muted-foreground"
-                        }`}
-                        style={{ width: `${Math.round(run.nmiFinal * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-caption w-10 text-right tabular-nums">
-                      {run.nmiFinal.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )
-          ) : (
-            /* Single-construct: show dimensionality check instead of NMI */
-            <div>
-              <p className="text-overline text-primary mb-3">Dimensionality</p>
-              <p className="text-xs text-muted-foreground mb-2">
-                The algorithm detected{" "}
-                <span className="font-medium text-foreground">
-                  {new Set(items.filter(i => !i.isRedundant).map(i => i.communityId)).size}
-                </span>{" "}
-                semantic sub-theme{new Set(items.filter(i => !i.isRedundant).map(i => i.communityId)).size === 1 ? "" : "s"} within
-                this construct. This is normal — sub-themes represent different facets of the
-                construct. Select items across sub-themes for better content coverage.
-              </p>
-            </div>
-          )}
-
-          {/* Metric guide */}
-          <div>
-            <p className="text-overline text-primary mb-2">Selecting Items</p>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <p>
-                Sort by <span className="font-medium text-foreground">wTO</span> (ascending) to see
-                the most unique items first. Lower wTO = less overlap with other items.
-              </p>
-              <p>
-                Pick items from different <span className="font-medium text-foreground">sub-themes</span> (colour
-                dots) to ensure broad content coverage of the construct.
-              </p>
-              {run.config.constructIds.length >= 2 && (
-                <p>
-                  Check <span className="font-medium text-foreground">Stability</span> — items
-                  below 0.75 flip between constructs across resamples.
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Run meta */}
-          <div className="space-y-2 pt-2 border-t border-border/50">
-            {run.modelUsed && (
-              <div className="flex justify-between">
-                <span className="text-caption text-muted-foreground">Model</span>
-                <span className="text-caption font-medium truncate max-w-40">{run.modelUsed}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-caption text-muted-foreground">Constructs</span>
-              <span className="text-caption font-medium">{run.config.constructIds.length}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-caption text-muted-foreground">Target / construct</span>
-              <span className="text-caption font-medium">{run.config.targetItemsPerConstruct}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Network graph */}
         <NetworkGraph
           items={items}
           constructIds={run.config.constructIds}
+          constructNameMap={constructNameMap}
           onItemClick={handleItemClick}
         />
       </div>
@@ -1197,6 +475,7 @@ export default function GenerationRunPage({
   const [items, setItems] = useState<GeneratedItem[]>([])
   const [constructNameMap, setConstructNameMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
+  const [explainerOpen, setExplainerOpen] = useState(false)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchData = useCallback(async () => {
@@ -1207,7 +486,6 @@ export default function GenerationRunPage({
     setItems(result.items)
     setLoading(false)
 
-    // Stop polling once terminal
     if (TERMINAL_STATUSES.has(result.run.status)) {
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
@@ -1216,7 +494,6 @@ export default function GenerationRunPage({
     }
   }, [runId])
 
-  // Load construct names once
   useEffect(() => {
     getConstructsForGeneration().then((constructs) => {
       const map = new Map<string, string>()
@@ -1227,13 +504,11 @@ export default function GenerationRunPage({
     })
   }, [])
 
-  // Initial fetch + polling
   useEffect(() => {
     const initialFetchTimer = window.setTimeout(() => {
       void fetchData()
     }, 0)
 
-    // Start polling — will be stopped inside fetchData once terminal
     pollingRef.current = setInterval(() => {
       void fetchData()
     }, 2000)
@@ -1276,7 +551,19 @@ export default function GenerationRunPage({
             ? "The generation pipeline encountered an error."
             : "Generation pipeline is running…"
         }
-      />
+      >
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5"
+          onClick={() => setExplainerOpen(true)}
+        >
+          <BookOpen className="size-3.5" />
+          How It Works
+        </Button>
+      </PageHeader>
+
+      <PipelineExplainerSheet open={explainerOpen} onOpenChange={setExplainerOpen} />
 
       {isFailed && <FailedView run={run} />}
       {!isFailed && isReviewing && (

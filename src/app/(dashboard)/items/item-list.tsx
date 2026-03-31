@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useTransition } from "react"
 import Link from "next/link"
 import {
   Plus,
@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Eye,
 } from "lucide-react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -34,13 +35,24 @@ import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"
 import { TiltCard } from "@/components/tilt-card"
+import { LibraryBundleImportButton } from "@/components/library-bundle-import-button"
+import { LibraryBulkImportButton } from "@/components/library-bulk-import-button"
+import { LibraryCardSelectButton } from "@/components/library-card-select-button"
+import { LibraryInlineDeleteButton } from "@/components/library-inline-delete-button"
+import { LibrarySelectionToolbar } from "@/components/library-selection-toolbar"
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip"
 import type { ItemStatus, ActiveResponseFormatType, ItemPurpose } from "@/types/database"
-import type { ItemWithMeta } from "@/app/actions/items"
+import {
+  deleteItem,
+  deleteItems,
+  restoreItem,
+  restoreItems,
+  type ItemWithMeta,
+} from "@/app/actions/items"
 
 type ItemHealthInfo = { status: "healthy" | "review" | "action"; discrimination: number | null }
 
@@ -101,6 +113,10 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
   )
   const [constructFilter, setConstructFilter] = useState("all")
   const [purposeFilter, setPurposeFilter] = useState<ItemPurpose | "all">("all")
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isDeleting, startDeleteTransition] = useTransition()
 
   const constructNames = useMemo(() => {
     const names = new Set<string>()
@@ -155,6 +171,8 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
   }, [filteredItems])
 
   const allGroupNames = grouped.map(([name]) => name)
+  const allVisibleSelected =
+    filteredItems.length > 0 && filteredItems.every((item) => selectedIds.includes(item.id))
   const [expandedGroups, setExpandedGroups] = useState<string[]>([])
 
   // Keep all groups expanded when the group list changes
@@ -171,6 +189,62 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
     setPurposeFilter("all")
   }
 
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((current) =>
+      checked ? Array.from(new Set([...current, id])) : current.filter((value) => value !== id)
+    )
+  }
+
+  function toggleAllVisible() {
+    setSelectedIds((current) =>
+      allVisibleSelected
+        ? current.filter((id) => !filteredItems.some((item) => item.id === id))
+        : Array.from(new Set([...current, ...filteredItems.map((item) => item.id)]))
+    )
+  }
+
+  function clearSelection() {
+    setSelectedIds([])
+  }
+
+  function toggleSelectionMode() {
+    setSelectionMode((current) => {
+      const next = !current
+      if (!next) {
+        setSelectedIds([])
+      }
+      return next
+    })
+  }
+
+  function handleBulkDelete() {
+    const idsToRestore = [...selectedIds]
+    startDeleteTransition(async () => {
+      const result = await deleteItems(idsToRestore)
+      if (result && "error" in result && result.error) {
+        toast.error(result.error)
+        return
+      }
+
+      setConfirmOpen(false)
+      setSelectedIds([])
+      toast.success(`Deleted ${result?.count ?? idsToRestore.length} items`, {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const restoreResult = await restoreItems(idsToRestore)
+            if (restoreResult && "error" in restoreResult && restoreResult.error) {
+              toast.error(restoreResult.error)
+              return
+            }
+            toast.success(`Restored ${restoreResult?.count ?? idsToRestore.length} items`)
+          },
+        },
+        duration: 5000,
+      })
+    })
+  }
+
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader
@@ -178,12 +252,16 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
         title="Items"
         description="Items are individual questions and stimuli that form the building blocks of your assessments. Each item is linked to a construct."
       >
-        <Link href="/items/create">
-          <Button>
-            <Plus className="size-4" />
-            Create Item
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <LibraryBundleImportButton />
+          <LibraryBulkImportButton entity="items" />
+          <Link href="/items/create">
+            <Button>
+              <Plus className="size-4" />
+              Create Item
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       {items.length === 0 ? (
@@ -251,6 +329,22 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                   Clear filters
                 </Button>
               )}
+              <LibrarySelectionToolbar
+                className="sm:ml-auto"
+                selectionMode={selectionMode}
+                selectedCount={selectedIds.length}
+                visibleCount={filteredItems.length}
+                allVisibleSelected={allVisibleSelected}
+                itemLabel="item"
+                itemLabelPlural="items"
+                deleting={isDeleting}
+                confirmOpen={confirmOpen}
+                onConfirmOpenChange={setConfirmOpen}
+                onToggleSelectionMode={toggleSelectionMode}
+                onToggleAllVisible={toggleAllVisible}
+                onClearSelection={clearSelection}
+                onConfirmDelete={handleBulkDelete}
+              />
             </div>
             {/* Purpose filter pills */}
             <div className="flex gap-2 flex-wrap">
@@ -345,75 +439,98 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                         return (
                           <ScrollReveal key={item.id} delay={cardIndex * 60}>
                             <TiltCard>
-                            <Link href={`/items/${item.id}/edit`}>
-                              <Card
-                                variant="interactive"
-                                className={`border-l-[3px] ${hasHealthData ? healthBorderClass : "border-l-transparent hover:border-l-item-accent"}`}
-                              >
-                                <CardContent className="flex items-center gap-4 py-4">
-                                  <div
-                                    className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-item-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
-                                    style={{ "--glow-color": "var(--item-accent)" } as React.CSSProperties}
+                              <div className="group relative">
+                                {selectionMode ? (
+                                  <div className="absolute top-3 right-3 z-10">
+                                    <LibraryCardSelectButton
+                                      label={item.stem}
+                                      selected={selectedIds.includes(item.id)}
+                                      onToggle={() =>
+                                        toggleSelected(item.id, !selectedIds.includes(item.id))
+                                      }
+                                    />
+                                  </div>
+                                ) : null}
+                                {!selectionMode ? (
+                                  <div className="absolute top-3 right-3 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                                    <LibraryInlineDeleteButton
+                                      itemLabel="Item"
+                                      itemName={item.stem}
+                                      onDelete={() => deleteItem(item.id)}
+                                      onRestore={() => restoreItem(item.id)}
+                                    />
+                                  </div>
+                                ) : null}
+                                <Link href={`/items/${item.id}/edit`}>
+                                  <Card
+                                    variant="interactive"
+                                    className={`border-l-[3px] ${hasHealthData ? healthBorderClass : "border-l-transparent hover:border-l-item-accent"}`}
                                   >
-                                    <FileQuestion className="size-5 text-item-accent" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm line-clamp-2">
-                                      {item.stem}
-                                    </p>
-                                    <div className="flex items-center gap-2 mt-1.5">
-                                      <Badge variant="item">
-                                        {format?.label ?? item.responseFormatName}
-                                      </Badge>
-                                      {isValidity && PurposeIcon && (
-                                        <Badge variant="outline" className="gap-1">
-                                          <PurposeIcon className="size-3" />
-                                          {purposeInfo.label}
-                                        </Badge>
-                                      )}
-                                      <Badge variant="dot">
-                                        <span
-                                          className={`size-1.5 rounded-full ${status.dotColor}`}
-                                        />
-                                        {status.label}
-                                      </Badge>
-                                      {health && (
-                                        <Tooltip>
-                                          <TooltipTrigger
-                                            render={
-                                              <span className="inline-flex items-center gap-1 cursor-default" />
-                                            }
-                                          >
+                                    <CardContent className="flex items-center gap-4 py-4">
+                                      <div
+                                        className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-item-bg transition-shadow duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                                        style={{ "--glow-color": "var(--item-accent)" } as React.CSSProperties}
+                                      >
+                                        <FileQuestion className="size-5 text-item-accent" />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="line-clamp-2 text-sm">
+                                          {item.stem}
+                                        </p>
+                                        <div className="mt-1.5 flex items-center gap-2">
+                                          <Badge variant="item">
+                                            {format?.label ?? item.responseFormatName}
+                                          </Badge>
+                                          {isValidity && PurposeIcon && (
+                                            <Badge variant="outline" className="gap-1">
+                                              <PurposeIcon className="size-3" />
+                                              {purposeInfo.label}
+                                            </Badge>
+                                          )}
+                                          <Badge variant="dot">
                                             <span
-                                              className={`size-2 rounded-full ${
-                                                health.status === "healthy"
-                                                  ? "bg-[var(--success)]"
-                                                  : health.status === "review"
-                                                    ? "bg-[var(--warning)]"
-                                                    : "bg-[var(--destructive)]"
-                                              }`}
+                                              className={`size-1.5 rounded-full ${status.dotColor}`}
                                             />
-                                            {health.discrimination !== null && (
-                                              <span className="text-[10px] tabular-nums text-muted-foreground">
-                                                r={health.discrimination.toFixed(2)}
-                                              </span>
-                                            )}
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            {health.status === "healthy"
-                                              ? "Item quality: Good"
-                                              : health.status === "review"
-                                                ? "Item quality: Needs review"
-                                                : "Item quality: Action needed"}
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity shrink-0" />
-                                </CardContent>
-                              </Card>
-                            </Link>
+                                            {status.label}
+                                          </Badge>
+                                          {health && (
+                                            <Tooltip>
+                                              <TooltipTrigger
+                                                render={
+                                                  <span className="inline-flex cursor-default items-center gap-1" />
+                                                }
+                                              >
+                                                <span
+                                                  className={`size-2 rounded-full ${
+                                                    health.status === "healthy"
+                                                      ? "bg-[var(--success)]"
+                                                      : health.status === "review"
+                                                        ? "bg-[var(--warning)]"
+                                                        : "bg-[var(--destructive)]"
+                                                  }`}
+                                                />
+                                                {health.discrimination !== null && (
+                                                  <span className="text-[10px] tabular-nums text-muted-foreground">
+                                                    r={health.discrimination.toFixed(2)}
+                                                  </span>
+                                                )}
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                {health.status === "healthy"
+                                                  ? "Item quality: Good"
+                                                  : health.status === "review"
+                                                    ? "Item quality: Needs review"
+                                                    : "Item quality: Action needed"}
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <ArrowRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/card:opacity-100" />
+                                    </CardContent>
+                                  </Card>
+                                </Link>
+                              </div>
                             </TiltCard>
                           </ScrollReveal>
                         )

@@ -16,7 +16,7 @@ import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappe
 import { parseBlocks } from './registry'
 import { resolveBand, DEFAULT_BAND_GLOBALS } from './band-resolution'
 import { buildDerivedNarrative, buildDevelopmentSuggestion } from './narrative'
-import { enhanceNarrative } from './ai-narrative'
+import { enhanceNarrative, generateStrengthsAnalysis, generateDevelopmentAdvice } from './ai-narrative'
 import type { BlockConfig, ResolvedBlockData } from './types'
 import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig } from './types'
 import type { PersonReferenceType, ReportDisplayLevel } from '@/types/database'
@@ -190,8 +190,25 @@ function extractEntityIds(blocks: BlockConfig[]): string[] {
   return Array.from(ids)
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchTaxonomyEntities(db: any, entityIds: string[]): Promise<Map<string, any>> {
+type TaxonomyLookupClient = {
+  from: (
+    table: string
+  ) => {
+    select: (
+      query: string
+    ) => {
+      in: (
+        column: string,
+        values: string[]
+      ) => Promise<{ data: Record<string, unknown>[] | null }>
+    }
+  }
+}
+
+async function fetchTaxonomyEntities(
+  db: TaxonomyLookupClient,
+  entityIds: string[]
+): Promise<Map<string, Record<string, unknown>>> {
   if (entityIds.length === 0) return new Map()
 
   const [factorsResult, constructsResult, dimensionsResult] = await Promise.all([
@@ -200,15 +217,13 @@ async function fetchTaxonomyEntities(db: any, entityIds: string[]): Promise<Map<
     db.from('dimensions').select('*').in('id', entityIds),
   ])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const map = new Map<string, Record<string, unknown>>()
   for (const row of [
     ...(factorsResult.data ?? []),
     ...(constructsResult.data ?? []),
     ...(dimensionsResult.data ?? []),
   ]) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    map.set((row as any).id, row as Record<string, unknown>)
+    map.set(String(row.id), row)
   }
   return map
 }
@@ -269,68 +284,78 @@ async function resolveBlockData(
 
   if (block.type === 'score_detail') {
     const config = block.config as ScoreDetailConfig
-    const entityId = config.entityId
-    if (!entityId) return { _empty: true, reason: 'entityId not configured' }
+    // Multi-entity support with backward compat for legacy entityId
+    const entityIds = config.entityIds?.length
+      ? config.entityIds
+      : config.entityId
+        ? [config.entityId]
+        : []
+    if (entityIds.length === 0) return { _empty: true, reason: 'no entities configured' }
 
-    const entity = taxonomyMap.get(entityId)
-    if (!entity) return { _empty: true, reason: `entity ${entityId} not found` }
+    const entities: Record<string, unknown>[] = []
+    for (const entityId of entityIds) {
+      const entity = taxonomyMap.get(entityId)
+      if (!entity) continue
 
-    const pompScore = scoreMap[entityId]
-    if (pompScore === undefined) return { _empty: true, reason: `no score for ${entityId}` }
+      const pompScore = scoreMap[entityId]
+      if (pompScore === undefined) continue
 
-    const bandResult = resolveBand(pompScore, {
-      bandLabelLow: entity.band_label_low,
-      bandLabelMid: entity.band_label_mid,
-      bandLabelHigh: entity.band_label_high,
-      pompThresholdLow: entity.pomp_threshold_low,
-      pompThresholdHigh: entity.pomp_threshold_high,
-    })
+      const bandResult = resolveBand(pompScore, {
+        bandLabelLow: entity.band_label_low,
+        bandLabelMid: entity.band_label_mid,
+        bandLabelHigh: entity.band_label_high,
+        pompThresholdLow: entity.pomp_threshold_low,
+        pompThresholdHigh: entity.pomp_threshold_high,
+      })
 
-    let narrative: string | null = null
-    if (config.showIndicators || config.showDefinition) {
-      const derived = buildDerivedNarrative(
-        {
-          name: entity.name,
-          definition: entity.definition,
-          indicatorsLow: entity.indicators_low,
-          indicatorsMid: entity.indicators_mid,
-          indicatorsHigh: entity.indicators_high,
-        },
-        bandResult.band,
-        personReference,
-        session.firstName,
-      )
-      narrative = aiEnhance
-        ? await enhanceNarrative({
-            entityName: entity.name,
-            derivedNarrative: derived,
-            pompScore,
-            bandLabel: bandResult.bandLabel,
-            personReference,
-            firstName: session.firstName,
-          })
-        : derived
-    }
-
-    const developmentSuggestion = config.showDevelopment
-      ? buildDevelopmentSuggestion(
-          { name: entity.name, developmentSuggestion: entity.development_suggestion },
+      let narrative: string | null = null
+      if (config.showIndicators || config.showDefinition) {
+        const derived = buildDerivedNarrative(
+          {
+            name: entity.name,
+            definition: entity.definition,
+            indicatorsLow: entity.indicators_low,
+            indicatorsMid: entity.indicators_mid,
+            indicatorsHigh: entity.indicators_high,
+          },
+          bandResult.band,
           personReference,
           session.firstName,
         )
-      : null
+        narrative = aiEnhance
+          ? await enhanceNarrative({
+              entityName: entity.name,
+              derivedNarrative: derived,
+              pompScore,
+              bandLabel: bandResult.bandLabel,
+              personReference,
+              firstName: session.firstName,
+            })
+          : derived
+      }
 
-    return {
-      entityId,
-      entityName: entity.name,
-      entitySlug: entity.slug,
-      definition: config.showDefinition ? entity.definition : undefined,
-      pompScore,
-      bandResult,
-      narrative,
-      developmentSuggestion,
-      config,
+      const developmentSuggestion = config.showDevelopment
+        ? buildDevelopmentSuggestion(
+            { name: entity.name, developmentSuggestion: entity.development_suggestion },
+            personReference,
+            session.firstName,
+          )
+        : null
+
+      entities.push({
+        entityId,
+        entityName: entity.name,
+        entitySlug: entity.slug,
+        definition: config.showDefinition ? entity.definition : undefined,
+        pompScore,
+        bandResult,
+        narrative,
+        developmentSuggestion,
+      })
     }
+
+    if (entities.length === 0) return { _empty: true, reason: 'no scored entities found' }
+    return { entities, config }
   }
 
   if (block.type === 'score_overview') {
@@ -354,14 +379,43 @@ async function resolveBlockData(
   if (block.type === 'strengths_highlights') {
     const config = block.config as StrengthsHighlightsConfig
     const ranked = Object.entries(scoreMap)
-      .map(([entityId, pompScore]) => ({
-        entityId,
-        entityName: taxonomyMap.get(entityId)?.name ?? entityId,
-        pompScore,
-      }))
+      .map(([entityId, pompScore]) => {
+        const entity = taxonomyMap.get(entityId)
+        const bandResult = entity
+          ? resolveBand(pompScore, {
+              bandLabelLow: entity.band_label_low,
+              bandLabelMid: entity.band_label_mid,
+              bandLabelHigh: entity.band_label_high,
+              pompThresholdLow: entity.pomp_threshold_low,
+              pompThresholdHigh: entity.pomp_threshold_high,
+            })
+          : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
+        return {
+          entityId,
+          entityName: entity?.name ?? entityId,
+          pompScore,
+          bandLabel: bandResult.bandLabel,
+          definition: entity?.definition as string | undefined,
+        }
+      })
       .sort((a, b) => b.pompScore - a.pompScore)
       .slice(0, config.topN)
-    return { highlights: ranked, config }
+
+    let aiNarrative: string | null = null
+    if (config.aiNarrative && aiEnhance) {
+      aiNarrative = await generateStrengthsAnalysis({
+        highlights: ranked.map((h) => ({
+          name: h.entityName,
+          pompScore: h.pompScore,
+          bandLabel: h.bandLabel,
+          definition: h.definition,
+        })),
+        personReference,
+        firstName: session.firstName,
+      })
+    }
+
+    return { highlights: ranked, config, aiNarrative }
   }
 
   if (block.type === 'development_plan') {
@@ -369,10 +423,21 @@ async function resolveBlockData(
     const items = Object.entries(scoreMap)
       .map(([entityId, pompScore]) => {
         const entity = taxonomyMap.get(entityId)
+        const bandResult = entity
+          ? resolveBand(pompScore, {
+              bandLabelLow: entity.band_label_low,
+              bandLabelMid: entity.band_label_mid,
+              bandLabelHigh: entity.band_label_high,
+              pompThresholdLow: entity.pomp_threshold_low,
+              pompThresholdHigh: entity.pomp_threshold_high,
+            })
+          : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
         return {
           entityId,
           entityName: entity?.name ?? entityId,
           pompScore,
+          bandLabel: bandResult.bandLabel,
+          definition: entity?.definition as string | undefined,
           suggestion: entity?.development_suggestion
             ? buildDevelopmentSuggestion(
                 { name: entity.name, developmentSuggestion: entity.development_suggestion },
@@ -380,11 +445,33 @@ async function resolveBlockData(
                 session.firstName,
               )
             : null,
+          aiSuggestion: undefined as string | undefined,
         }
       })
       .filter((item) => item.suggestion)
       .sort((a, b) => a.pompScore - b.pompScore)
       .slice(0, config.maxItems)
+
+    if (config.aiNarrative && aiEnhance && items.length > 0) {
+      const adviceResult = await generateDevelopmentAdvice({
+        items: items.map((item) => ({
+          name: item.entityName,
+          pompScore: item.pompScore,
+          bandLabel: item.bandLabel,
+          definition: item.definition,
+          existingSuggestion: item.suggestion,
+        })),
+        personReference,
+        firstName: session.firstName,
+      })
+      if (adviceResult) {
+        for (const advice of adviceResult) {
+          const match = items.find((i) => i.entityName === advice.entityName)
+          if (match) match.aiSuggestion = advice.aiSuggestion
+        }
+      }
+    }
+
     return { items, config }
   }
 

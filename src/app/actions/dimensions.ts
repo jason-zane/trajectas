@@ -190,6 +190,36 @@ export async function deleteDimension(id: string) {
   return { success: true as const }
 }
 
+export async function deleteDimensions(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one dimension.' }
+  }
+
+  const db = createAdminClient()
+  const timestamp = new Date().toISOString()
+  const { error } = await db
+    .from('dimensions')
+    .update({ deleted_at: timestamp })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dimensions')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.bulk_deleted',
+    targetTable: 'dimensions',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+  return { success: true as const, count: uniqueIds.length }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Restore                                                            */
 /* ------------------------------------------------------------------ */
@@ -213,6 +243,35 @@ export async function restoreDimension(id: string) {
     targetId: id,
   })
   return { success: true as const }
+}
+
+export async function restoreDimensions(ids: string[]) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one dimension.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('dimensions')
+    .update({ deleted_at: null })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/dimensions')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'dimension.bulk_restored',
+    targetTable: 'dimensions',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+    },
+  })
+  return { success: true as const, count: uniqueIds.length }
 }
 
 /* ------------------------------------------------------------------ */
