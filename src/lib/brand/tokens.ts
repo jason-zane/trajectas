@@ -14,6 +14,8 @@ import {
   DEFAULT_TAXONOMY_COLORS,
   DEFAULT_EMAIL_STYLES,
 } from './defaults'
+import { generateReportCSSTokens } from '@/lib/reports/report-tokens'
+import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 
 // ---------------------------------------------------------------------------
 // Color math — hex ↔ OKLCH conversion
@@ -553,6 +555,11 @@ export function generateDashboardCSS(config: BrandConfig): string {
     .map(([k, v]) => `  ${k}: ${v};`)
     .join('\n')
   sections.push(`[data-portal="client"].dark,\n.dark [data-portal="client"] {\n${clientDarkCss}\n}`)
+
+  // --- Report theme ---
+  const reportTheme = config.reportTheme ?? DEFAULT_REPORT_THEME
+  const reportCss = generateReportCSSTokens(reportTheme)
+  sections.push(`:root {\n${reportCss}\n}`)
 
   return sections.join('\n\n')
 }
