@@ -640,3 +640,33 @@
   opacity: 1;
   animation: var(--animate-gradient-shimmer);
 }
+
+/* ============================================================
+   Report print styles
+   ============================================================ */
+@media print {
+  @page {
+    margin: 20mm;
+    size: A4;
+  }
+
+  /* Hide everything that isn't the report */
+  nav,
+  header,
+  aside,
+  [data-sidebar],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Report container fills page */
+  [data-print="true"] {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  /* Prevent awkward page breaks */
+  .break-inside-avoid {
+    break-inside: avoid;
+  }
+}
