@@ -12,6 +12,7 @@ import {
   FileText,
   Activity,
   LayoutGrid,
+  LayoutTemplate,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,8 @@ import {
   getParticipantActivity,
   getParticipantResponses,
 } from "@/app/actions/participants";
+import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
+import { ParticipantReportsTab } from "./participant-reports-tab";
 
 const statusVariant: Record<
   string,
@@ -85,9 +88,10 @@ export default async function ParticipantDetailPage({
   const participant = await getParticipant(id);
   if (!participant) notFound();
 
-  const [sessions, activity] = await Promise.all([
+  const [sessions, activity, snapshots] = await Promise.all([
     getParticipantSessions(id),
     getParticipantActivity(id),
+    getReportSnapshotsForParticipant(id),
   ]);
 
   const displayName =
@@ -168,6 +172,15 @@ export default async function ParticipantDetailPage({
           <TabsTrigger value="responses">
             <FileText className="size-3.5" />
             Responses
+          </TabsTrigger>
+          <TabsTrigger value="reports">
+            <LayoutTemplate className="size-3.5" />
+            Reports
+            {snapshots.length > 0 && (
+              <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-medium text-primary leading-none">
+                {snapshots.length}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
@@ -410,6 +423,11 @@ export default async function ParticipantDetailPage({
           ) : (
             <ResponsesPanel sessions={sessions} />
           )}
+        </TabsContent>
+
+        {/* --- REPORTS TAB --- */}
+        <TabsContent value="reports" className="mt-6">
+          <ParticipantReportsTab snapshots={snapshots} />
         </TabsContent>
       </Tabs>
     </div>

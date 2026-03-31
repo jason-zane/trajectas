@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback } from 'react'
+import { useState, useTransition, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -11,6 +11,8 @@ import {
   Eye,
   ChevronLeft,
   Settings,
+  ChevronsUpDown,
+  X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,13 +20,35 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
 import { cn } from '@/lib/utils'
 import {
   BLOCK_REGISTRY,
   BLOCK_CATEGORIES,
 } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig } from '@/lib/reports/types'
-import { updateReportTemplateBlocks, updateReportTemplateSettings } from '@/app/actions/reports'
+import {
+  updateReportTemplateBlocks,
+  updateReportTemplateSettings,
+  getEntityOptions,
+  type EntityOption,
+} from '@/app/actions/reports'
 
 type ReportType = 'self_report' | '360'
 
@@ -38,6 +62,216 @@ interface Props {
 function generateId(): string {
   return crypto.randomUUID()
 }
+
+// ---------------------------------------------------------------------------
+// EntityCombobox — searchable single-select for entity IDs
+// ---------------------------------------------------------------------------
+
+interface EntityComboboxProps {
+  value: string
+  onChange: (id: string) => void
+  options: EntityOption[]
+}
+
+function EntityCombobox({ value, onChange, options }: EntityComboboxProps) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const filtered = search.trim()
+    ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+    : options
+
+  const selected = options.find((o) => o.id === value)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <button
+            type="button"
+            className={cn(
+              'flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm text-left transition-colors',
+              'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+              open && 'ring-2 ring-primary/30',
+            )}
+          />
+        }
+      >
+        <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
+          {selected ? selected.label : 'Select entity…'}
+        </span>
+        {selected && (
+          <span className="text-xs text-muted-foreground">{selected.type}</span>
+        )}
+        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground ml-auto" />
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0 overflow-hidden" align="start" sideOffset={4}>
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search entities…"
+            value={search}
+            onValueChange={setSearch}
+          />
+          <CommandList className="max-h-60">
+            <CommandEmpty className="py-4 text-sm text-center text-muted-foreground">
+              No entities found.
+            </CommandEmpty>
+            <CommandGroup>
+              {filtered.map((opt) => (
+                <CommandItem
+                  key={opt.id}
+                  value={opt.id}
+                  onSelect={(v) => {
+                    onChange(v)
+                    setOpen(false)
+                    setSearch('')
+                  }}
+                  data-checked={opt.id === value}
+                >
+                  <span className="flex-1">{opt.label}</span>
+                  <span className="text-xs text-muted-foreground">{opt.type}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// EntityMultiSelect — chip list + add combobox for entityIds arrays
+// ---------------------------------------------------------------------------
+
+interface EntityMultiSelectProps {
+  value: string[]
+  onChange: (ids: string[]) => void
+  options: EntityOption[]
+}
+
+function EntityMultiSelect({ value, onChange, options }: EntityMultiSelectProps) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+
+  const selected = value
+    .map((id) => options.find((o) => o.id === id))
+    .filter(Boolean) as EntityOption[]
+
+  const available = options.filter((o) => !value.includes(o.id))
+  const filtered = search.trim()
+    ? available.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
+    : available
+
+  function remove(id: string) {
+    onChange(value.filter((v) => v !== id))
+  }
+
+  return (
+    <div className="space-y-2">
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map((opt) => (
+            <span
+              key={opt.id}
+              className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-xs"
+            >
+              {opt.label}
+              <button
+                type="button"
+                onClick={() => remove(opt.id)}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              className={cn(
+                'flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm text-left transition-colors',
+                'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                open && 'ring-2 ring-primary/30',
+              )}
+            />
+          }
+        >
+          <span className="text-muted-foreground">Add entity…</span>
+          <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-0 overflow-hidden" align="start" sideOffset={4}>
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Search entities…"
+              value={search}
+              onValueChange={setSearch}
+            />
+            <CommandList className="max-h-60">
+              <CommandEmpty className="py-4 text-sm text-center text-muted-foreground">
+                No entities available.
+              </CommandEmpty>
+              <CommandGroup>
+                {filtered.map((opt) => (
+                  <CommandItem
+                    key={opt.id}
+                    value={opt.id}
+                    onSelect={(v) => {
+                      onChange([...value, v])
+                      setOpen(false)
+                      setSearch('')
+                    }}
+                  >
+                    <span className="flex-1">{opt.label}</span>
+                    <span className="text-xs text-muted-foreground">{opt.type}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Numeric field names that should use <Input type="number">
+// ---------------------------------------------------------------------------
+
+const NUMERIC_FIELDS = new Set([
+  'topN',
+  'maxItems',
+  'gapThreshold',
+  'minRatersForDisplay',
+])
+
+// ---------------------------------------------------------------------------
+// Select-based enum fields
+// ---------------------------------------------------------------------------
+
+const ENUM_FIELDS: Record<string, { label: string; options: string[] }> = {
+  displayLevel: {
+    label: 'Display Level',
+    options: ['dimension', 'factor', 'construct'],
+  },
+  chartType: {
+    label: 'Chart Type',
+    options: ['radar', 'bars'],
+  },
+  style: {
+    label: 'Style',
+    options: ['cards', 'list'],
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Main client component
+// ---------------------------------------------------------------------------
 
 export function BlockBuilderClient({
   templateId,
@@ -54,6 +288,11 @@ export function BlockBuilderClient({
   const [isSaving, startSave] = useTransition()
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
+
+  useEffect(() => {
+    getEntityOptions().then(setEntityOptions)
+  }, [])
 
   const selectedBlock = blocks.find((b) => b.id === selectedBlockId) ?? null
 
@@ -284,6 +523,7 @@ export function BlockBuilderClient({
           {selectedBlock ? (
             <BlockConfigPanel
               block={selectedBlock}
+              entityOptions={entityOptions}
               onUpdateConfig={updateConfig}
               onUpdateBlock={(updates) =>
                 setBlocks((prev) =>
@@ -311,11 +551,12 @@ export function BlockBuilderClient({
 
 interface ConfigPanelProps {
   block: BlockConfig
+  entityOptions: EntityOption[]
   onUpdateConfig: (key: string, value: unknown) => void
   onUpdateBlock: (updates: Partial<BlockConfig>) => void
 }
 
-function BlockConfigPanel({ block, onUpdateConfig, onUpdateBlock }: ConfigPanelProps) {
+function BlockConfigPanel({ block, entityOptions, onUpdateConfig, onUpdateBlock }: ConfigPanelProps) {
   const meta = BLOCK_REGISTRY[block.type]
 
   return (
@@ -327,13 +568,14 @@ function BlockConfigPanel({ block, onUpdateConfig, onUpdateBlock }: ConfigPanelP
 
       <Separator />
 
-      {/* Generic config fields from defaultConfig shape */}
+      {/* Type-aware config fields */}
       <div className="space-y-4">
         {Object.entries(block.config as Record<string, unknown>).map(([key, val]) => {
           if (key.startsWith('_')) return null // internal flags
 
           const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
 
+          // Boolean → Switch (no change)
           if (typeof val === 'boolean') {
             return (
               <div key={key} className="flex items-center justify-between gap-2">
@@ -349,19 +591,101 @@ function BlockConfigPanel({ block, onUpdateConfig, onUpdateBlock }: ConfigPanelP
             )
           }
 
-          if (typeof val === 'string' || typeof val === 'number' || val === null) {
+          // entityId → EntityCombobox
+          if (key === 'entityId') {
             return (
               <div key={key} className="space-y-1.5">
-                <Label htmlFor={`config-${key}`} className="text-sm">
-                  {label}
-                </Label>
+                <Label className="text-sm">{label}</Label>
+                <EntityCombobox
+                  value={String(val ?? '')}
+                  onChange={(id) => onUpdateConfig(key, id)}
+                  options={entityOptions}
+                />
+              </div>
+            )
+          }
+
+          // entityIds → EntityMultiSelect
+          if (key === 'entityIds') {
+            const ids = Array.isArray(val) ? (val as string[]) : []
+            return (
+              <div key={key} className="space-y-1.5">
+                <Label className="text-sm">{label}</Label>
+                <EntityMultiSelect
+                  value={ids}
+                  onChange={(ids) => onUpdateConfig(key, ids)}
+                  options={entityOptions}
+                />
+              </div>
+            )
+          }
+
+          // Enum fields → Select
+          if (key in ENUM_FIELDS) {
+            const enumDef = ENUM_FIELDS[key]!
+            return (
+              <div key={key} className="space-y-1.5">
+                <Label className="text-sm">{label}</Label>
+                <Select
+                  value={String(val ?? '')}
+                  onValueChange={(v) => onUpdateConfig(key, v)}
+                >
+                  <SelectTrigger className="w-full h-8 text-sm">
+                    <SelectValue placeholder={`Select ${enumDef.label.toLowerCase()}…`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {enumDef.options.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt.charAt(0).toUpperCase() + opt.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )
+          }
+
+          // content → Textarea
+          if (key === 'content') {
+            return (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`config-${key}`} className="text-sm">{label}</Label>
+                <Textarea
+                  id={`config-${key}`}
+                  value={String(val ?? '')}
+                  onChange={(e) => onUpdateConfig(key, e.target.value)}
+                  className="text-sm min-h-24 resize-y"
+                  placeholder="Markdown supported…"
+                />
+              </div>
+            )
+          }
+
+          // Numeric fields → number Input
+          if (NUMERIC_FIELDS.has(key) || typeof val === 'number') {
+            return (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`config-${key}`} className="text-sm">{label}</Label>
+                <Input
+                  id={`config-${key}`}
+                  type="number"
+                  value={val as number ?? ''}
+                  onChange={(e) => onUpdateConfig(key, Number(e.target.value))}
+                  className="h-8 text-sm"
+                />
+              </div>
+            )
+          }
+
+          // String or null → text Input
+          if (typeof val === 'string' || val === null) {
+            return (
+              <div key={key} className="space-y-1.5">
+                <Label htmlFor={`config-${key}`} className="text-sm">{label}</Label>
                 <Input
                   id={`config-${key}`}
                   value={val ?? ''}
-                  onChange={(e) => {
-                    const v = typeof val === 'number' ? Number(e.target.value) : e.target.value
-                    onUpdateConfig(key, v)
-                  }}
+                  onChange={(e) => onUpdateConfig(key, e.target.value)}
                   className="h-8 text-sm"
                 />
               </div>

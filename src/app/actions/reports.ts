@@ -283,3 +283,49 @@ export async function getAllReadySnapshots(): Promise<ReportSnapshot[]> {
   if (error) throw new Error(error.message)
   return (data ?? []).map(mapReportSnapshotRow)
 }
+
+export async function getReportSnapshotsForParticipant(
+  participantId: string,
+): Promise<ReportSnapshot[]> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const { data: sessions } = await db
+    .from('participant_sessions')
+    .select('id')
+    .eq('campaign_participant_id', participantId)
+  const sessionIds = (sessions ?? []).map((s) => s.id)
+  if (sessionIds.length === 0) return []
+  const { data: snapshots, error } = await db
+    .from('report_snapshots')
+    .select('*')
+    .in('participant_session_id', sessionIds)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (snapshots ?? []).map(mapReportSnapshotRow)
+}
+
+// ---------------------------------------------------------------------------
+// Entity Options (for block builder)
+// ---------------------------------------------------------------------------
+
+export interface EntityOption {
+  id: string
+  label: string
+  type: 'dimension' | 'factor' | 'construct'
+}
+
+export async function getEntityOptions(): Promise<EntityOption[]> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const [{ data: dimensions }, { data: factors }, { data: constructs }] = await Promise.all([
+    db.from('dimensions').select('id, name').is('deleted_at', null).eq('is_active', true),
+    db.from('factors').select('id, name').is('deleted_at', null).eq('is_active', true),
+    db.from('constructs').select('id, name').is('deleted_at', null).eq('is_active', true),
+  ])
+  const options: EntityOption[] = [
+    ...(dimensions ?? []).map((d) => ({ id: d.id, label: d.name, type: 'dimension' as const })),
+    ...(factors ?? []).map((f) => ({ id: f.id, label: f.name, type: 'factor' as const })),
+    ...(constructs ?? []).map((c) => ({ id: c.id, label: c.name, type: 'construct' as const })),
+  ]
+  return options.sort((a, b) => a.label.localeCompare(b.label))
+}
