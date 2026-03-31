@@ -1,10 +1,12 @@
 import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignReportConfig, getReportTemplates } from "@/app/actions/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapOrganizationRow } from "@/lib/supabase/mappers";
 import { notFound } from "next/navigation";
 import { CampaignForm } from "../../campaign-form";
 import { CampaignSettingsToggles } from "./campaign-settings-toggles";
 import { CampaignAccessLinks } from "./campaign-access-links";
+import { ReportConfigPanel } from "./report-config-panel";
 
 export default async function CampaignSettingsPage({
   params,
@@ -12,7 +14,11 @@ export default async function CampaignSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaignById(id);
+  const [campaign, reportConfig, templates] = await Promise.all([
+    getCampaignById(id),
+    getCampaignReportConfig(id),
+    getReportTemplates(),
+  ]);
   if (!campaign) notFound();
 
   const db = createAdminClient();
@@ -39,6 +45,13 @@ export default async function CampaignSettingsPage({
       <CampaignAccessLinks
         campaignId={campaign.id}
         links={campaign.accessLinks}
+      />
+
+      {/* Report template assignment */}
+      <ReportConfigPanel
+        campaignId={campaign.id}
+        config={reportConfig}
+        templates={templates}
       />
 
       {/* Full campaign form (Zone 2 — explicit save) */}

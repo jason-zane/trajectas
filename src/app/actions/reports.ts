@@ -270,3 +270,16 @@ export async function queueSnapshotsForSession(sessionId: string): Promise<void>
     body: JSON.stringify({ sessionId }),
   })
 }
+
+export async function getAllReadySnapshots(): Promise<ReportSnapshot[]> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const { data, error } = await db
+    .from('report_snapshots')
+    .select('*')
+    .in('status', ['ready', 'released', 'failed'])
+    .order('created_at', { ascending: false })
+    .limit(200)
+  if (error) throw new Error(error.message)
+  return (data ?? []).map(mapReportSnapshotRow)
+}
