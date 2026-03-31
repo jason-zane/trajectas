@@ -98,6 +98,7 @@ CREATE INDEX IF NOT EXISTS report_templates_report_type_idx
 CREATE INDEX IF NOT EXISTS report_templates_active_idx
   ON report_templates (is_active) WHERE deleted_at IS NULL;
 
+DROP TRIGGER IF EXISTS set_report_templates_updated_at ON report_templates;
 CREATE TRIGGER set_report_templates_updated_at
   BEFORE UPDATE ON report_templates
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -119,6 +120,7 @@ CREATE TABLE IF NOT EXISTS campaign_report_config (
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+DROP TRIGGER IF EXISTS set_campaign_report_config_updated_at ON campaign_report_config;
 CREATE TRIGGER set_campaign_report_config_updated_at
   BEFORE UPDATE ON campaign_report_config
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -160,6 +162,7 @@ CREATE INDEX IF NOT EXISTS report_snapshots_status_idx
 CREATE INDEX IF NOT EXISTS report_snapshots_pending_idx
   ON report_snapshots (status, created_at) WHERE status = 'pending';
 
+DROP TRIGGER IF EXISTS set_report_snapshots_updated_at ON report_snapshots;
 CREATE TRIGGER set_report_snapshots_updated_at
   BEFORE UPDATE ON report_snapshots
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -178,6 +181,7 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_config RECORD;
+  v_created INTEGER := 0;
 BEGIN
   IF NEW.status <> 'completed' OR OLD.status = 'completed' THEN
     RETURN NEW;
@@ -201,6 +205,7 @@ BEGIN
     VALUES
       (v_config.participant_template_id, NEW.id, NEW.campaign_id, 'participant', 'pending')
     ON CONFLICT (participant_session_id, audience_type) DO NOTHING;
+    IF FOUND THEN v_created := v_created + 1; END IF;
   END IF;
 
   IF v_config.hr_manager_template_id IS NOT NULL THEN
@@ -209,6 +214,7 @@ BEGIN
     VALUES
       (v_config.hr_manager_template_id, NEW.id, NEW.campaign_id, 'hr_manager', 'pending')
     ON CONFLICT (participant_session_id, audience_type) DO NOTHING;
+    IF FOUND THEN v_created := v_created + 1; END IF;
   END IF;
 
   IF v_config.consultant_template_id IS NOT NULL THEN
@@ -217,9 +223,12 @@ BEGIN
     VALUES
       (v_config.consultant_template_id, NEW.id, NEW.campaign_id, 'consultant', 'pending')
     ON CONFLICT (participant_session_id, audience_type) DO NOTHING;
+    IF FOUND THEN v_created := v_created + 1; END IF;
   END IF;
 
-  PERFORM pg_notify('report_generation_queue', NEW.id::text);
+  IF v_created > 0 THEN
+    PERFORM pg_notify('report_generation_queue', NEW.id::text);
+  END IF;
 
   RETURN NEW;
 END;
@@ -276,9 +285,17 @@ CREATE POLICY "campaign_report_config_select" ON campaign_report_config
     )
   );
 
+DROP POLICY IF EXISTS "campaign_report_config_all" ON campaign_report_config;
 CREATE POLICY "campaign_report_config_all" ON campaign_report_config
   FOR ALL TO authenticated
   USING (
+    campaign_id IN (
+      SELECT c.id FROM campaigns c
+      JOIN partner_memberships pm ON pm.partner_id = c.partner_id
+      WHERE pm.profile_id = auth.uid()
+    )
+  )
+  WITH CHECK (
     campaign_id IN (
       SELECT c.id FROM campaigns c
       JOIN partner_memberships pm ON pm.partner_id = c.partner_id
