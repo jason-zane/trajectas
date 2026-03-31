@@ -1,16 +1,24 @@
-import type { CoverPageConfig } from '@/lib/reports/types'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 
-interface CoverPageData extends CoverPageConfig {
+interface CoverPageData {
   participantName?: string
   campaignTitle?: string
-  partnerLogoUrl?: string
   generatedAt?: string
+  organizationName?: string
+  primaryLogoUrl?: string
+  secondaryLogoUrl?: string
+  showDate?: boolean
+  showPrimaryLogo?: boolean
+  showSecondaryLogo?: boolean
+  showPoweredBy?: boolean
+  poweredByText?: string
+  subtitle?: string
 }
 
-export function CoverPageBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
+export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as CoverPageData
-  const date = d.showDate && d.generatedAt
+  const showDate = d.showDate !== false
+  const date = showDate && d.generatedAt
     ? new Date(d.generatedAt).toLocaleDateString('en-AU', {
         day: 'numeric', month: 'long', year: 'numeric',
       })
@@ -18,24 +26,59 @@ export function CoverPageBlock({ data, mode: _mode, chartType: _chartType }: { d
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] py-16 text-center print:min-h-screen print:py-24">
-      {d.showLogo && d.partnerLogoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={d.partnerLogoUrl} alt="Partner logo" className="h-12 mb-12 object-contain" />
+      {/* Primary logo or org name fallback */}
+      {(d.showPrimaryLogo !== false) && (
+        d.primaryLogoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={d.primaryLogoUrl}
+            alt="Logo"
+            className="h-12 mb-12 object-contain"
+          />
+        ) : d.organizationName ? (
+          <p
+            className="text-sm font-semibold uppercase tracking-[3px] mb-12"
+            style={{ color: 'var(--report-featured-accent)' }}
+          >
+            {d.organizationName}
+          </p>
+        ) : null
       )}
+
+      {/* Main content */}
       <div className="space-y-4">
         {d.participantName && (
           <h1 className="text-4xl font-semibold tracking-tight">{d.participantName}</h1>
         )}
         {d.subtitle && (
-          <p className="text-xl text-muted-foreground">{d.subtitle}</p>
+          <p className="text-xl opacity-75">{d.subtitle}</p>
         )}
         {d.campaignTitle && (
-          <p className="text-lg text-muted-foreground">{d.campaignTitle}</p>
+          <p className="text-lg opacity-60">{d.campaignTitle}</p>
         )}
         {date && (
-          <p className="text-sm text-muted-foreground mt-8">{date}</p>
+          <p className="text-sm opacity-50 mt-8">{date}</p>
         )}
       </div>
+
+      {/* Secondary logo / Powered by */}
+      {(d.showSecondaryLogo || d.showPoweredBy) && (
+        <div className="mt-16 flex flex-col items-center gap-2">
+          {d.showPoweredBy && d.poweredByText && (
+            <p className="text-[10px] uppercase tracking-[2px] opacity-40">
+              {d.poweredByText}
+            </p>
+          )}
+          {d.showSecondaryLogo && d.secondaryLogoUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={d.secondaryLogoUrl}
+              alt="Secondary logo"
+              className="h-8 object-contain opacity-60"
+            />
+          )}
+        </div>
+      )}
     </div>
   )
 }
