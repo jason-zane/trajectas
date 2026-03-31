@@ -43,6 +43,8 @@ import {
   BLOCK_CATEGORIES,
 } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig } from '@/lib/reports/types'
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+import { PRESENTATION_MODES, CHART_TYPES } from '@/lib/reports/presentation'
 import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
@@ -326,6 +328,8 @@ export function BlockBuilderClient({
       type,
       order: blocks.length,
       config: { ...meta.defaultConfig } as BlockConfig['config'],
+      presentationMode: meta.defaultMode,
+      chartType: meta.supportedCharts?.[0],
     }
     setBlocks((prev) => [...prev, newBlock])
     setSelectedBlockId(newBlock.id)
@@ -416,7 +420,7 @@ export function BlockBuilderClient({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/reports/preview/${templateId}`, '_blank')}
+            onClick={() => window.open(`/settings/reports/${templateId}/preview`, '_blank')}
           >
             <Eye className="size-3.5" />
             Preview
@@ -497,7 +501,10 @@ export function BlockBuilderClient({
                   >
                     <GripVertical className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground cursor-grab shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm">{meta.label}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-sm">{meta.label}</p>
+                        <ModeTag mode={block.presentationMode ?? meta.defaultMode} />
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {meta.description}
                       </p>
@@ -546,6 +553,29 @@ export function BlockBuilderClient({
 }
 
 // ---------------------------------------------------------------------------
+// ModeTag — small coloured badge for presentation mode
+// ---------------------------------------------------------------------------
+
+const MODE_COLORS: Record<string, string> = {
+  featured: 'bg-emerald-800 text-white',
+  open: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+  carded: 'bg-amber-600 text-white',
+  split: 'bg-violet-600 text-white',
+  inset: 'bg-rose-500 text-white',
+}
+
+function ModeTag({ mode }: { mode: string }) {
+  return (
+    <span className={cn(
+      'inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
+      MODE_COLORS[mode] ?? 'bg-gray-200 text-gray-600'
+    )}>
+      {mode}
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Config panel
 // ---------------------------------------------------------------------------
 
@@ -564,6 +594,96 @@ function BlockConfigPanel({ block, entityOptions, onUpdateConfig, onUpdateBlock 
       <div>
         <p className="font-semibold text-sm">{meta.label}</p>
         <p className="text-xs text-muted-foreground mt-0.5">{meta.description}</p>
+      </div>
+
+      <Separator />
+
+      {/* Presentation mode */}
+      <div className="space-y-4">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Presentation</p>
+
+        {/* Mode selector */}
+        <div className="space-y-1.5">
+          <Label className="text-sm">Mode</Label>
+          <Select
+            value={block.presentationMode ?? meta.defaultMode}
+            onValueChange={(v) => onUpdateBlock({ presentationMode: v as PresentationMode })}
+          >
+            <SelectTrigger className="w-full h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {meta.supportedModes.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  <span className="capitalize">{mode}</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Columns (only for carded mode) */}
+        {(block.presentationMode ?? meta.defaultMode) === 'carded' && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Columns</Label>
+            <Select
+              value={String(block.columns ?? 1)}
+              onValueChange={(v) => onUpdateBlock({ columns: Number(v) as 1 | 2 | 3 })}
+            >
+              <SelectTrigger className="w-full h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 Column</SelectItem>
+                <SelectItem value="2">2 Columns</SelectItem>
+                <SelectItem value="3">3 Columns</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Chart type (only for blocks with supportedCharts) */}
+        {meta.supportedCharts && meta.supportedCharts.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Chart Type</Label>
+            <Select
+              value={block.chartType ?? meta.supportedCharts[0]}
+              onValueChange={(v) => onUpdateBlock({ chartType: v as ChartType })}
+            >
+              <SelectTrigger className="w-full h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {meta.supportedCharts.map((ct) => (
+                  <SelectItem key={ct} value={ct}>
+                    <span className="capitalize">{ct.replace(/_/g, ' ')}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Inset accent (only for inset mode) */}
+        {(block.presentationMode ?? meta.defaultMode) === 'inset' && (
+          <div className="space-y-1.5">
+            <Label className="text-sm">Accent Colour</Label>
+            <Select
+              value={block.insetAccent ?? 'default'}
+              onValueChange={(v) => onUpdateBlock({ insetAccent: v === 'default' ? undefined : v })}
+            >
+              <SelectTrigger className="w-full h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default (Sage)</SelectItem>
+                <SelectItem value="#c9a962">Gold</SelectItem>
+                <SelectItem value="#5b3fc5">Violet</SelectItem>
+                <SelectItem value="#b85c6a">Rose</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       <Separator />
