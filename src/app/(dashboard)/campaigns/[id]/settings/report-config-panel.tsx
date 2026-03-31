@@ -144,7 +144,7 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
         <p className="text-xs text-muted-foreground">
           Controls which brand colours and logos appear on generated reports.
         </p>
-        <Select value={brandMode} onValueChange={setBrandMode}>
+        <Select value={brandMode} onValueChange={(v) => { if (v) setBrandMode(v) }}>
           <SelectTrigger id="brand-mode" className="w-full sm:w-64">
             <SelectValue />
           </SelectTrigger>

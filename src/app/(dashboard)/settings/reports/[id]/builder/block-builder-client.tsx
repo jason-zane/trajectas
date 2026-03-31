@@ -670,7 +670,7 @@ function BlockConfigPanel({ block, entityOptions, onUpdateConfig, onUpdateBlock 
             <Label className="text-sm">Accent Colour</Label>
             <Select
               value={block.insetAccent ?? 'default'}
-              onValueChange={(v) => onUpdateBlock({ insetAccent: v === 'default' ? undefined : v })}
+              onValueChange={(v) => onUpdateBlock({ insetAccent: v === 'default' ? undefined : v ?? undefined })}
             >
               <SelectTrigger className="w-full h-8 text-sm">
                 <SelectValue />
