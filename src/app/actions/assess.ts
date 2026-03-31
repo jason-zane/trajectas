@@ -2,6 +2,10 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  getCampaignAccessError,
+  getParticipantAccessError,
+} from '@/lib/assess/access'
+import {
   ParticipantRuntimeAccessError,
   requireParticipantRuntimeCampaignAssessmentAccess,
   requireParticipantRuntimeSessionAccess,
@@ -104,23 +108,18 @@ export async function validateAccessToken(
 
   const campaign = mapCampaignRow(campaignRow)
 
-  // Check campaign status
-  if (!['active', 'paused'].includes(campaign.status)) {
-    return { error: 'This campaign is not currently accepting responses' }
+  const campaignAccessError = getCampaignAccessError({
+    status: campaign.status,
+    opensAt: campaign.opensAt,
+    closesAt: campaign.closesAt,
+  })
+  if (campaignAccessError) {
+    return { error: campaignAccessError.replace(/\.$/, "") }
   }
 
-  // Check access window
-  const now = new Date()
-  if (campaign.opensAt && new Date(campaign.opensAt) > now) {
-    return { error: 'This campaign has not opened yet' }
-  }
-  if (campaign.closesAt && new Date(campaign.closesAt) < now) {
-    return { error: 'This campaign has closed' }
-  }
-
-  // Check participant status
-  if (['withdrawn', 'expired'].includes(participant.status)) {
-    return { error: 'Your access to this campaign has been revoked' }
+  const participantAccessError = getParticipantAccessError(participant.status)
+  if (participantAccessError) {
+    return { error: participantAccessError.replace(/\.$/, "") }
   }
 
   // Load campaign assessments

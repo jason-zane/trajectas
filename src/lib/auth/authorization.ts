@@ -3,15 +3,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import {
   inferSurfaceFromRequest,
   isLocalDevelopmentHost,
-  resolveSurfaceHeader,
 } from "@/lib/hosts";
 import {
   resolveSessionActor,
-  resolveSignedActiveContext,
+  resolveSignedPreviewContext,
 } from "@/lib/auth/actor";
-import type { Surface } from "@/lib/surfaces";
+import { isSurface, type Surface } from "@/lib/surfaces";
 import type {
   ActiveContext,
+  PreviewContext,
   ResolvedActor,
   SupportSessionRecord,
 } from "@/lib/auth/types";
@@ -33,6 +33,7 @@ export class AuthenticationRequiredError extends Error {
 export interface AuthorizedScope {
   actor: ResolvedActor | null;
   activeContext: ActiveContext | null;
+  previewContext: PreviewContext | null;
   requestSurface: Surface;
   isPlatformAdmin: boolean;
   isLocalDevelopmentBypass: boolean;
@@ -71,13 +72,18 @@ function mapSupportSession(row: Record<string, unknown>): SupportSessionRecord {
 async function getRequestEnvironment() {
   const headerStore = await headers();
   const host = headerStore.get("host");
+  const surfaceHeader = headerStore.get("x-talentfit-surface");
+  const routePrefix = headerStore.get("x-talentfit-route-prefix");
 
   return {
     host,
     isLocalDevelopment: isLocalDevelopmentHost(host),
-    requestSurface:
-      resolveSurfaceHeader(headerStore.get("x-talentfit-surface")) ??
-      inferSurfaceFromRequest({ host }),
+    requestSurface: isSurface(surfaceHeader)
+      ? surfaceHeader
+      : inferSurfaceFromRequest({
+          host,
+          pathname: routePrefix && routePrefix !== "/" ? routePrefix : undefined,
+        }),
   };
 }
 
@@ -172,6 +178,27 @@ async function getValidatedSupportSession(
   return session;
 }
 
+function getPreviewPartnerIdsFromClients(
+  clientRows: { id: string; partner_id: string | null }[]
+) {
+  return dedupe(
+    clientRows
+      .map((row) => (row.partner_id ? String(row.partner_id) : ""))
+      .filter(Boolean)
+  );
+}
+
+function getEffectivePreviewContext(
+  previewContext: PreviewContext | null,
+  requestSurface: Surface
+) {
+  if (!previewContext) {
+    return null;
+  }
+
+  return previewContext.surface === requestSurface ? previewContext : null;
+}
+
 export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
   const requestEnvironment = await getRequestEnvironment();
   const actor = await resolveSessionActor();
@@ -182,36 +209,43 @@ export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
   }
 
   if (!actor && localDevBypass) {
-    const activeContext = await resolveSignedActiveContext();
+    const previewContext = getEffectivePreviewContext(
+      await resolveSignedPreviewContext(),
+      requestEnvironment.requestSurface
+    );
     const allPartners = await loadAllPartnerIds();
-    const allClients = await loadAllClientRows();
+    const allClients = (await loadAllClientRows()).map((row) => ({
+      id: String(row.id),
+      partner_id: row.partner_id ? String(row.partner_id) : null,
+    }));
 
-    let partnerIds = requestEnvironment.requestSurface === "partner" ? allPartners : [];
+    let partnerIds =
+      requestEnvironment.requestSurface === "partner"
+        ? allPartners
+        : getPreviewPartnerIdsFromClients(allClients);
     let clientIds =
       requestEnvironment.requestSurface === "partner" ||
       requestEnvironment.requestSurface === "client"
-        ? allClients.map((row) => String(row.id))
+        ? allClients.map((row) => row.id)
         : [];
 
-    if (activeContext?.tenantType === "partner" && activeContext.tenantId) {
-      partnerIds = [activeContext.tenantId];
+    if (previewContext?.tenantType === "partner" && previewContext.tenantId) {
+      partnerIds = [previewContext.tenantId];
       clientIds = allClients
-        .filter((row) => String(row.partner_id ?? "") === activeContext.tenantId)
+        .filter((row) => row.partner_id === previewContext.tenantId)
         .map((row) => String(row.id));
-    } else if (activeContext?.tenantType === "client" && activeContext.tenantId) {
-      clientIds = [activeContext.tenantId];
+    } else if (previewContext?.tenantType === "client" && previewContext.tenantId) {
+      clientIds = [previewContext.tenantId];
       const selectedClient = allClients.find(
-        (row) => String(row.id) === activeContext.tenantId
+        (row) => row.id === previewContext.tenantId
       );
-      partnerIds =
-        requestEnvironment.requestSurface === "partner" && selectedClient?.partner_id
-          ? [String(selectedClient.partner_id)]
-          : [];
+      partnerIds = selectedClient?.partner_id ? [selectedClient.partner_id] : [];
     }
 
     return {
       actor: null,
-      activeContext,
+      activeContext: null,
+      previewContext,
       requestSurface: requestEnvironment.requestSurface,
       isPlatformAdmin: requestEnvironment.requestSurface === "admin",
       isLocalDevelopmentBypass: true,
@@ -291,6 +325,7 @@ export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
   return {
     actor,
     activeContext,
+    previewContext: null,
     requestSurface: requestEnvironment.requestSurface,
     isPlatformAdmin,
     isLocalDevelopmentBypass: false,

@@ -59,7 +59,7 @@ export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
     organizationId: row.organization_id,
     organizationName: row.organizations?.name ?? '',
     diagnosticSessionId: row.diagnostic_session_id,
-    sessionTitle: row.diagnostic_sessions?.title ?? '',
+    sessionTitle: row.diagnostic_sessions?.title ?? row.diagnostic_sessions?.name ?? '',
     status: row.status,
     resultCount: row.matching_results?.[0]?.count ?? 0,
     startedAt: row.started_at ?? undefined,
@@ -168,7 +168,7 @@ export async function getSessionsForMatchingSelect(organizationId?: string): Pro
   const db = createAdminClient()
   let query = db
     .from('diagnostic_sessions')
-    .select('id, title')
+    .select('*')
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
 
@@ -178,5 +178,13 @@ export async function getSessionsForMatchingSelect(organizationId?: string): Pro
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  return data ?? []
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    id: String(row.id),
+    title:
+      typeof row.title === 'string' && row.title.trim().length > 0
+        ? row.title
+        : typeof row.name === 'string' && row.name.trim().length > 0
+          ? row.name
+          : 'Untitled session',
+  }))
 }

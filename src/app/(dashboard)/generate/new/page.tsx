@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -52,6 +52,7 @@ interface WizardConfig {
   generationModel: string;
   embeddingModel: string;
   responseFormatId?: string;
+  promptPurpose: 'item_generation' | 'factor_item_generation';
 }
 
 interface WizardModelBootstrap {
@@ -496,6 +497,34 @@ function Step3Configure({
       </div>
 
       <div className="space-y-6">
+        {/* Item style */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Item Style</label>
+          <Select
+            value={config.promptPurpose}
+            onValueChange={(v) =>
+              onChange({ promptPurpose: v as WizardConfig['promptPurpose'] })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="item_generation">
+                Construct
+              </SelectItem>
+              <SelectItem value="factor_item_generation">
+                Factor
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {config.promptPurpose === 'item_generation'
+              ? "Narrow construct items — personality-style, measuring dispositions and tendencies."
+              : "Broad factor items — behaviour-focused, measuring observable workplace capabilities."}
+          </p>
+        </div>
+
         {/* Items per construct */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -595,7 +624,7 @@ function Step3Configure({
               <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 Without a response format, generated items cannot be accepted into the library.
-                You can still review them but won't be able to save them.
+                You can still review them but won&apos;t be able to save them.
               </p>
             </div>
           )}
@@ -676,15 +705,23 @@ function Step4Launch({
 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-muted-foreground">Target Items</p>
+              <p className="text-xs text-muted-foreground">Item Style</p>
               <p className="font-semibold">
-                {config.selectedConstructIds.length} constructs × {config.targetItemsPerConstruct} ={" "}
-                <span className="text-primary">{totalItems} total</span>
+                {config.promptPurpose === 'factor_item_generation'
+                  ? 'Factor'
+                  : 'Construct'}
               </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Temperature</p>
               <p className="font-semibold">{config.temperature.toFixed(1)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Target Items</p>
+              <p className="font-semibold">
+                {config.selectedConstructIds.length} constructs × {config.targetItemsPerConstruct} ={" "}
+                <span className="text-primary">{totalItems} total</span>
+              </p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Generation Model</p>
@@ -744,6 +781,7 @@ const DEFAULT_CONFIG: WizardConfig = {
   generationModel: "",
   embeddingModel: "",
   responseFormatId: undefined,
+  promptPurpose: 'item_generation',
 };
 
 export default function NewGenerationPage() {
@@ -759,6 +797,10 @@ export default function NewGenerationPage() {
   const [constructs, setConstructs] = useState<Construct[] | null>(null);
   const [responseFormats, setResponseFormats] = useState<ResponseFormat[] | null>(null);
   const [modelBootstrap, setModelBootstrap] = useState<WizardModelBootstrap | null>(null);
+
+  const patchConfig = useCallback((patch: Partial<WizardConfig>) => {
+    setConfig((prev) => ({ ...prev, ...patch }));
+  }, []);
 
   // Fetch constructs, response formats, and default models on mount
   useEffect(() => {
@@ -784,11 +826,7 @@ export default function NewGenerationPage() {
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : "Failed to load model configuration");
       });
-  }, []);
-
-  function patchConfig(patch: Partial<WizardConfig>) {
-    setConfig((prev) => ({ ...prev, ...patch }));
-  }
+  }, [patchConfig, preselectedConstructId]);
 
   function toggleConstruct(id: string) {
     setConfig((prev) => {
@@ -819,6 +857,7 @@ export default function NewGenerationPage() {
           generationModel: config.generationModel,
           embeddingModel: config.embeddingModel,
           responseFormatId: config.responseFormatId,
+          promptPurpose: config.promptPurpose,
         };
 
         const run = await createGenerationRun(runConfig);

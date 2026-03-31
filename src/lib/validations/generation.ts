@@ -8,6 +8,7 @@ export const generationRunConfigSchema = z.object({
   generationModel: z.string().min(1, 'Generation model is required'),
   embeddingModel: z.string().min(1, 'Embedding model is required'),
   responseFormatId: postgresUuid().optional(),
+  promptPurpose: z.enum(['item_generation', 'factor_item_generation']).default('item_generation'),
 })
 
 export type GenerationRunConfigInput = z.infer<typeof generationRunConfigSchema>

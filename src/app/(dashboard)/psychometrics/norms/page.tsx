@@ -1,11 +1,9 @@
-import Link from "next/link"
 import {
   Users,
   Globe,
   Building2,
   Briefcase,
   Calendar,
-  ArrowRight,
 } from "lucide-react"
 import {
   Card,

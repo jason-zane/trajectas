@@ -49,13 +49,17 @@ export default function PreviewExperiencePage() {
   const [mode, setMode] = useState<PreviewMode>("light")
 
   useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    try {
-      setData(JSON.parse(raw))
-    } catch {
-      // invalid data
-    }
+    const frameId = window.requestAnimationFrame(() => {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      try {
+        setData(JSON.parse(raw))
+      } catch {
+        // invalid data
+      }
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
   }, [])
 
   const enabledPages = useMemo(() => {
@@ -88,10 +92,11 @@ export default function PreviewExperiencePage() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
 
+  const brandConfig = data?.brandConfig ?? null
   const { lightStyles, darkStyles } = useMemo(() => {
-    if (!data?.brandConfig) return { lightStyles: {}, darkStyles: {} }
-    const { tokens } = generateCSSTokens(data.brandConfig)
-    const darkCss = generateDarkCSSTokens(data.brandConfig)
+    if (!brandConfig) return { lightStyles: {}, darkStyles: {} }
+    const { tokens } = generateCSSTokens(brandConfig)
+    const darkCss = generateDarkCSSTokens(brandConfig)
 
     const light: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
@@ -105,7 +110,7 @@ export default function PreviewExperiencePage() {
     }
 
     return { lightStyles: light, darkStyles: dark }
-  }, [data?.brandConfig])
+  }, [brandConfig])
 
   const isDark = mode === "dark"
   const isMobile = mode === "mobile"

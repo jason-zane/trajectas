@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Users, Search, Filter } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";

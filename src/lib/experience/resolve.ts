@@ -43,6 +43,13 @@ function mergeFlowConfig(
 
   for (const key of Object.keys(override) as (keyof FlowConfig)[]) {
     const overrideValue = override[key]
+    if (Array.isArray(overrideValue)) {
+      // Arrays like customPages are replaced wholesale rather than spread into objects.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(result as any)[key] = [...overrideValue]
+      continue
+    }
+
     if (overrideValue) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(result as any)[key] = { ...base[key], ...overrideValue }

@@ -117,6 +117,7 @@ export type AIPromptPurpose =
   | 'ranking_explanation'
   | 'diagnostic_analysis'
   | 'item_generation'
+  | 'factor_item_generation'
   | 'preflight_analysis'
   | 'embedding'
   | 'chat'
@@ -1493,6 +1494,7 @@ export interface GenerationRunConfig {
   generationModel: string
   embeddingModel: string
   responseFormatId?: string
+  promptPurpose?: 'item_generation' | 'factor_item_generation'
 }
 
 /** An AI-GENIE item generation run record. */

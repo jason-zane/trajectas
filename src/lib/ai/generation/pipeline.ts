@@ -47,7 +47,8 @@ export async function runPipeline(
   result: PipelineResult
 }> {
   const taskConfig = await getModelForTask('item_generation')
-  const itemPrompt = await getActiveSystemPrompt('item_generation')
+  const promptPurpose = config.promptPurpose ?? 'item_generation'
+  const itemPrompt = await getActiveSystemPrompt(promptPurpose)
   const model      = config.generationModel ?? taskConfig.modelId
   const embeddingModel = config.embeddingModel || (await getModelForTask('embedding')).modelId
   let totalInputTokens  = 0
@@ -152,23 +153,58 @@ export async function runPipeline(
   // ---------------------------------------------------------------------------
   // Step 4: UVA — redundancy removal
   // ---------------------------------------------------------------------------
-  const { redundantIndices, wtoScores } = findRedundantItemsIterative(
-    embeddings,
-    WTO_CUTOFF,
-    (corrMatrix) => buildNetwork(corrMatrix).adjacency,
-  )
+  const redundantIndices = new Set<number>()
+  const wtoScores = new Array<number>(rawCandidates.length).fill(0)
+
+  for (const construct of constructs) {
+    const constructItemIndices = rawCandidates
+      .map((c, i) => c.constructId === construct.id ? i : -1)
+      .filter(i => i !== -1)
+
+    if (constructItemIndices.length < 2) continue
+
+    const constructEmbeddings = constructItemIndices.map(i => embeddings[i])
+    const { redundantIndices: subRedundant, wtoScores: subWto } =
+      findRedundantItemsIterative(
+        constructEmbeddings,
+        WTO_CUTOFF,
+        (corrMatrix) => buildNetwork(corrMatrix).adjacency,
+      )
+
+    for (let si = 0; si < constructItemIndices.length; si++) {
+      const gi = constructItemIndices[si]
+      wtoScores[gi] = subWto[si]
+      if (subRedundant.has(si)) redundantIndices.add(gi)
+    }
+  }
 
   await onProgress('boot_ega', 75)
 
   // ---------------------------------------------------------------------------
   // Step 5: bootEGA — stability
   // ---------------------------------------------------------------------------
-  const { stabilityScores, unstableIndices } = bootstrapStability(
-    embeddings,
-    constructLabels,
-    N_BOOTSTRAPS,
-    STABILITY_CUTOFF,
-  )
+  const stabilityScores = new Array<number>(rawCandidates.length).fill(1.0)
+  const unstableIndices = new Set<number>()
+
+  for (const construct of constructs) {
+    const constructItemIndices = rawCandidates
+      .map((c, i) => c.constructId === construct.id ? i : -1)
+      .filter(i => i !== -1)
+
+    if (constructItemIndices.length < 2) continue
+
+    const constructEmbeddings = constructItemIndices.map(i => embeddings[i])
+    const constructLabelsForBoot = constructItemIndices.map(i => constructLabels[i])
+
+    const { stabilityScores: subStability, unstableIndices: subUnstable } =
+      bootstrapStability(constructEmbeddings, constructLabelsForBoot, N_BOOTSTRAPS, STABILITY_CUTOFF)
+
+    for (let si = 0; si < constructItemIndices.length; si++) {
+      const gi = constructItemIndices[si]
+      stabilityScores[gi] = subStability[si]
+      if (subUnstable.has(si)) unstableIndices.add(gi)
+    }
+  }
 
   await onProgress('leakage', 90)
 
@@ -227,7 +263,7 @@ export async function runPipeline(
           embedding: embeddingModel,
         },
         prompts: {
-          item_generation: { id: itemPrompt.id, version: itemPrompt.version },
+          [promptPurpose]: { id: itemPrompt.id, version: itemPrompt.version },
         },
       },
       tokenUsage:  { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },

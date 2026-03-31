@@ -60,7 +60,6 @@ export default async function CompletePage({
 
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- server-generated CSS from validated brand config */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 

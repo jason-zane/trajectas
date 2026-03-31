@@ -8,7 +8,8 @@ import type { AIPromptPurpose } from "@/types/database"
 
 const VALID_PURPOSES: Record<string, { label: string }> = {
   chat: { label: "Chat" },
-  item_generation: { label: "Item Generation" },
+  item_generation: { label: "Item Generation (Construct)" },
+  factor_item_generation: { label: "Item Generation (Factor)" },
   preflight_analysis: { label: "Preflight Analysis" },
   competency_matching: { label: "Competency Matching" },
   ranking_explanation: { label: "Ranking Explanation" },

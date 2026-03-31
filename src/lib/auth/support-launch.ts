@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
   ACTIVE_CONTEXT_COOKIE,
+  PREVIEW_CONTEXT_COOKIE,
   encodeActiveContext,
   getActiveContextCookieOptions,
 } from "@/lib/auth/active-context";
@@ -68,6 +69,7 @@ export async function completeSupportLaunch(
     }),
     getActiveContextCookieOptions()
   );
+  response.cookies.delete(PREVIEW_CONTEXT_COOKIE);
 
   await logAuditEvent({
     actorProfileId: supportSession.actorProfileId,

@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Plus, X, Dna, LayoutGrid, ClipboardList, Building2 } from "lucide-react"
+import { X, Dna, LayoutGrid, ClipboardList } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -155,7 +155,7 @@ export function FactorForm({
   const [error, setError] = useState<string | null>(null)
 
   // --- Dirty tracking (structural fields only) ---
-  const initialStructural = useRef({
+  const [savedStructural, setSavedStructural] = useState(() => ({
     name: initialData?.name ?? "",
     slug: initialData?.slug ?? "",
     dimensionId: initialData?.dimensionId ?? "",
@@ -168,23 +168,23 @@ export function FactorForm({
         weight: c.weight,
       }))
     ),
-  })
+  }))
 
   const isStructuralDirty =
     mode === "create"
       ? name.trim() !== ""
-      : name !== initialStructural.current.name ||
-        slug !== initialStructural.current.slug ||
-        dimensionId !== initialStructural.current.dimensionId ||
-        isActive !== initialStructural.current.isActive ||
-        isMatchEligible !== initialStructural.current.isMatchEligible ||
-        organizationId !== initialStructural.current.organizationId ||
+      : name !== savedStructural.name ||
+        slug !== savedStructural.slug ||
+        dimensionId !== savedStructural.dimensionId ||
+        isActive !== savedStructural.isActive ||
+        isMatchEligible !== savedStructural.isMatchEligible ||
+        organizationId !== savedStructural.organizationId ||
         JSON.stringify(
           linkedConstructs.map((c) => ({
             constructId: c.constructId,
             weight: c.weight,
           }))
-        ) !== initialStructural.current.linkedConstructs
+        ) !== savedStructural.linkedConstructs
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(isStructuralDirty)
@@ -274,7 +274,7 @@ export function FactorForm({
       toast.success(mode === "create" ? "Factor created" : "Changes saved")
       setSaveState("saved")
       setTimeout(() => setSaveState("idle"), 2000)
-      initialStructural.current = {
+      setSavedStructural({
         name,
         slug,
         dimensionId,
@@ -287,7 +287,7 @@ export function FactorForm({
             weight: c.weight,
           }))
         ),
-      }
+      })
       if (mode === "create" && result.slug) {
         router.replace(`/factors/${result.slug}/edit`, { scroll: false })
       }

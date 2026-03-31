@@ -4,7 +4,6 @@
  * Implements the NetworkAnalyzer interface from @/types/generation using
  * the TypeScript algorithms in this directory.
  */
-import { cosineSimilarityMatrix }        from './correlation'
 import { buildNetwork }                  from './network-builder'
 import { walktrap }                      from './walktrap'
 import { computeNMI }                    from './nmi'

@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from "crypto";
-import type { ActiveContext } from "@/lib/auth/types";
+import type { ActiveContext, PreviewContext } from "@/lib/auth/types";
 
 export const ACTIVE_CONTEXT_COOKIE = "tf_active_context";
+export const PREVIEW_CONTEXT_COOKIE = "tf_preview_context";
 const ACTIVE_CONTEXT_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 function getSigningSecret(): string {
@@ -14,15 +15,15 @@ function signPayload(encodedPayload: string): string {
     .digest("base64url");
 }
 
-export function encodeActiveContext(context: ActiveContext): string {
+function encodeSignedContext<T extends object>(context: T): string {
   const payload = Buffer.from(JSON.stringify(context)).toString("base64url");
   const signature = signPayload(payload);
   return `${payload}.${signature}`;
 }
 
-export function decodeActiveContext(
+function decodeSignedContext<T extends object>(
   signedContext: string | null | undefined
-): ActiveContext | null {
+): T | null {
   if (!signedContext) return null;
 
   const [payload, signature] = signedContext.split(".");
@@ -41,13 +42,13 @@ export function decodeActiveContext(
 
   try {
     const decoded = Buffer.from(payload, "base64url").toString("utf8");
-    return JSON.parse(decoded) as ActiveContext;
+    return JSON.parse(decoded) as T;
   } catch {
     return null;
   }
 }
 
-export function getActiveContextCookieOptions() {
+function getContextCookieOptions() {
   return {
     httpOnly: true,
     sameSite: "lax" as const,
@@ -55,4 +56,32 @@ export function getActiveContextCookieOptions() {
     path: "/",
     maxAge: ACTIVE_CONTEXT_MAX_AGE_SECONDS,
   };
+}
+
+export function encodeActiveContext(context: ActiveContext): string {
+  return encodeSignedContext(context);
+}
+
+export function decodeActiveContext(
+  signedContext: string | null | undefined
+): ActiveContext | null {
+  return decodeSignedContext<ActiveContext>(signedContext);
+}
+
+export function encodePreviewContext(context: PreviewContext): string {
+  return encodeSignedContext(context);
+}
+
+export function decodePreviewContext(
+  signedContext: string | null | undefined
+): PreviewContext | null {
+  return decodeSignedContext<PreviewContext>(signedContext);
+}
+
+export function getActiveContextCookieOptions() {
+  return getContextCookieOptions();
+}
+
+export function getPreviewContextCookieOptions() {
+  return getContextCookieOptions();
 }

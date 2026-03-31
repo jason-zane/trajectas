@@ -57,7 +57,6 @@ export default async function ReportPage({
 
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- server-generated CSS from validated brand hex colors */}
       <style dangerouslySetInnerHTML={{ __html: safeCSS }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 

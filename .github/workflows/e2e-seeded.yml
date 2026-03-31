@@ -1,0 +1,57 @@
+name: Seeded E2E
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 16 * * 1"
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  seeded-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase stack
+        run: npm run db:test:start
+
+      - name: Reset local Supabase database
+        run: npm run db:test:reset
+
+      - name: Export local Supabase environment
+        run: npm run db:test:env >> "$GITHUB_ENV"
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run seeded Playwright suite
+        run: npm run test:e2e:seeded
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-seeded
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: npm run db:test:stop

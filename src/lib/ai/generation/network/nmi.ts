@@ -10,8 +10,6 @@ export function computeNMI(predicted: number[], actual: number[]): number {
   if (n === 0) return 0
 
   // Count contingency table
-  const predLabels  = new Set(predicted)
-  const actLabels   = new Set(actual)
   const contingency = new Map<string, number>()
   for (let i = 0; i < n; i++) {
     const key = `${predicted[i]},${actual[i]}`

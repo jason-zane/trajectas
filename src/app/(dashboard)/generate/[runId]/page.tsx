@@ -8,13 +8,14 @@ import {
   Circle,
   Loader2,
   AlertCircle,
-  ChevronDown,
-  ChevronUp,
   AlertTriangle,
   CheckSquare,
   Square,
   RefreshCw,
   Download,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react"
 
 import { PageHeader } from "@/components/page-header"
@@ -23,12 +24,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionPanel,
-} from "@/components/ui/accordion"
+// Accordion no longer used — items displayed in sortable table
 
 import {
   getGenerationRun,
@@ -336,7 +332,7 @@ function NetworkGraph({
   }
 
   const edges: Array<{ x1: number; y1: number; x2: number; y2: number; communityIndex: number }> = []
-  communityGroups.forEach((group, _cid) => {
+  communityGroups.forEach((group) => {
     if (group.length < 2) return
     // Compute centroid
     const cx = group.reduce((s, p) => s + p.x, 0) / group.length
@@ -373,7 +369,9 @@ function NetworkGraph({
       <div className="px-5 pt-4 pb-2">
         <p className="text-overline text-primary">Item Network</p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Items grouped by community — coloured by construct assignment
+          {constructIds.length >= 2
+            ? "Items grouped by community — coloured by construct assignment"
+            : "Items grouped by semantic sub-theme within the construct"}
         </p>
       </div>
       <svg
@@ -399,7 +397,7 @@ function NetworkGraph({
 
         {/* Nodes */}
         {positions.map((pos) => {
-          const { item, constructIndex, communityIndex } = pos
+          const { item, constructIndex } = pos
           const isProblematic = item.isRedundant || item.isUnstable
           const isLeaking =
             item.communityId != null &&
@@ -488,127 +486,256 @@ function NetworkGraph({
 }
 
 // ---------------------------------------------------------------------------
-// Item row in the review table
+// Sortable item table
 // ---------------------------------------------------------------------------
 
-function ItemRow({
-  item,
-  isSelected,
-  onToggleSelect,
-  constructIndex,
-  onRegisterRef,
-}: {
-  item: GeneratedItem
-  isSelected: boolean
-  onToggleSelect: (id: string) => void
-  constructIndex: number
-  onRegisterRef?: (el: HTMLDivElement | null) => void
-}) {
-  const [expanded, setExpanded] = useState(false)
+type SortKey = "wto" | "stability" | "community" | "status"
+type SortDir = "asc" | "desc"
 
-  let statusBadge: React.ReactNode
-  if (item.isAccepted) {
-    statusBadge = <Badge variant="outline">Already Accepted</Badge>
-  } else if (item.isRedundant) {
-    statusBadge = <Badge variant="destructive">Redundant</Badge>
-  } else if (item.isUnstable) {
-    statusBadge = <Badge variant="secondary">Unstable</Badge>
-  } else {
-    statusBadge = <Badge variant="default">Suggested</Badge>
-  }
+function statusRank(item: GeneratedItem): number {
+  if (item.isAccepted) return 3
+  if (item.isRedundant) return 2
+  if (item.isUnstable) return 1
+  return 0 // suggested — best
+}
+
+function statusBadge(item: GeneratedItem): React.ReactNode {
+  if (item.isAccepted) return <Badge variant="outline">Accepted</Badge>
+  if (item.isRedundant) return <Badge variant="destructive">Redundant</Badge>
+  if (item.isUnstable) return <Badge variant="secondary">Unstable</Badge>
+  return <Badge variant="default">Suggested</Badge>
+}
+
+function SortHeader({
+  label,
+  sortKey: key,
+  currentKey,
+  currentDir,
+  onSort,
+  title,
+}: {
+  label: string
+  sortKey: SortKey
+  currentKey: SortKey
+  currentDir: SortDir
+  onSort: (key: SortKey) => void
+  title?: string
+}) {
+  const active = key === currentKey
+  return (
+    <th
+      className="px-3 py-2 text-left text-xs font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground transition-colors whitespace-nowrap"
+      onClick={() => onSort(key)}
+      title={title}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {active ? (
+          currentDir === "asc" ? (
+            <ArrowUp className="size-3" />
+          ) : (
+            <ArrowDown className="size-3" />
+          )
+        ) : (
+          <ArrowUpDown className="size-3 opacity-40" />
+        )}
+      </span>
+    </th>
+  )
+}
+
+function SortableItemTable({
+  items,
+  selectedIds,
+  onToggleSelect,
+  isMultiConstruct,
+  itemRefs,
+}: {
+  items: GeneratedItem[]
+  selectedIds: Set<string>
+  onToggleSelect: (id: string) => void
+  isMultiConstruct: boolean
+  itemRefs: React.RefObject<Map<string, HTMLTableRowElement | null>>
+}) {
+  const [sortKey, setSortKey] = useState<SortKey>("wto")
+  const [sortDir, setSortDir] = useState<SortDir>("asc")
+
+  const handleSort = useCallback((key: SortKey) => {
+    setSortKey((prev) => {
+      if (prev === key) {
+        setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+      } else {
+        // wTO default ascending (lower = better), others descending
+        setSortDir(key === "wto" ? "asc" : key === "stability" ? "desc" : "asc")
+      }
+      return key
+    })
+  }, [])
+
+  const sorted = React.useMemo(() => {
+    const arr = [...items]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortKey) {
+        case "wto":
+          cmp = (a.wtoMax ?? 0) - (b.wtoMax ?? 0)
+          break
+        case "stability":
+          cmp = (a.bootStability ?? 0) - (b.bootStability ?? 0)
+          break
+        case "community":
+          cmp = (a.communityId ?? 0) - (b.communityId ?? 0)
+          break
+        case "status":
+          cmp = statusRank(a) - statusRank(b)
+          break
+      }
+      return sortDir === "desc" ? -cmp : cmp
+    })
+    return arr
+  }, [items, sortKey, sortDir])
 
   return (
-    <div
-      ref={onRegisterRef}
-      className={`flex items-start gap-3 px-4 py-3 border-b border-border/50 last:border-0 transition-colors ${
-        item.isRedundant || item.isUnstable ? "opacity-60" : ""
-      } ${isSelected ? "bg-primary/5" : "hover:bg-muted/30"}`}
-    >
-      {/* Checkbox */}
-      <div className="mt-0.5 shrink-0">
-        <Checkbox
-          checked={isSelected}
-          onCheckedChange={() => onToggleSelect(item.id)}
-          disabled={!!item.isAccepted}
-          aria-label="Select item"
-        />
-      </div>
-
-      {/* Stem */}
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-sm leading-snug cursor-pointer ${
-            expanded ? "" : "line-clamp-2"
-          } ${item.isRedundant ? "line-through text-muted-foreground" : ""}`}
-          onClick={() => setExpanded((v) => !v)}
-        >
-          {item.stem}
-        </p>
-        {item.stem.length > 120 && (
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-xs text-primary mt-0.5 flex items-center gap-0.5"
-          >
-            {expanded ? (
-              <>
-                <ChevronUp className="size-3" />
-                Less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="size-3" />
-                More
-              </>
+    <div className="overflow-x-auto rounded-lg bg-card ring-1 ring-foreground/[0.06]">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border/50 bg-muted/30">
+            <th className="w-10 px-3 py-2" />
+            <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+              Item Stem
+            </th>
+            <th className="w-10 px-3 py-2 text-center text-xs font-medium text-muted-foreground" title="Reverse-scored">
+              Key
+            </th>
+            <SortHeader
+              label="Sub-theme"
+              sortKey="community"
+              currentKey={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+              title="Semantic sub-cluster within the construct"
+            />
+            <SortHeader
+              label="wTO"
+              sortKey="wto"
+              currentKey={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+              title="Topological overlap — lower is more unique"
+            />
+            {isMultiConstruct && (
+              <SortHeader
+                label="Stability"
+                sortKey="stability"
+                currentKey={sortKey}
+                currentDir={sortDir}
+                onSort={handleSort}
+                title="Bootstrap stability — higher is more reliable"
+              />
             )}
-          </button>
-        )}
-      </div>
+            <SortHeader
+              label="Status"
+              sortKey="status"
+              currentKey={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+            />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((item) => {
+            const isSelected = selectedIds.has(item.id)
+            const dimmed = item.isRedundant || item.isUnstable
+            return (
+              <tr
+                key={item.id}
+                ref={(el) => { itemRefs.current?.set(item.id, el) }}
+                className={`border-b border-border/30 last:border-0 transition-colors ${
+                  dimmed ? "opacity-50" : ""
+                } ${isSelected ? "bg-primary/5" : "hover:bg-muted/20"}`}
+              >
+                {/* Checkbox */}
+                <td className="px-3 py-2.5 align-top">
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect(item.id)}
+                    disabled={!!item.isAccepted}
+                    aria-label="Select item"
+                  />
+                </td>
 
-      {/* Metadata */}
-      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-        {item.reverseScored && (
-          <Badge variant="outline" className="text-xs h-5">
-            R
-          </Badge>
-        )}
+                {/* Stem */}
+                <td className={`px-3 py-2.5 align-top max-w-md ${item.isRedundant ? "line-through text-muted-foreground" : ""}`}>
+                  <p className="text-sm leading-snug">{item.stem}</p>
+                </td>
 
-        {/* Community dot */}
-        {item.communityId !== undefined && item.communityId !== null && (
-          <span
-            className="size-2.5 rounded-full shrink-0 inline-block"
-            style={{ background: constructColor(item.communityId - 1) }}
-            title={`Community ${item.communityId}`}
-          />
-        )}
+                {/* Keying */}
+                <td className="px-3 py-2.5 align-top text-center">
+                  {item.reverseScored && (
+                    <Badge variant="outline" className="text-xs h-5">R</Badge>
+                  )}
+                </td>
 
-        {/* wTO */}
-        {item.wtoMax !== undefined && (
-          <span
-            className={`text-xs tabular-nums ${
-              item.wtoMax > 0.2 ? "text-destructive font-medium" : "text-muted-foreground"
-            }`}
-            title="Within-community Topological Overlap (wTO)"
-          >
-            {item.wtoMax > 0.2 && <AlertTriangle className="size-3 inline mr-0.5" />}
-            {item.wtoMax.toFixed(3)}
-          </span>
-        )}
+                {/* Sub-theme */}
+                <td className="px-3 py-2.5 align-top">
+                  {item.communityId != null && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className="size-2.5 rounded-full shrink-0 inline-block"
+                        style={{ background: constructColor(item.communityId - 1) }}
+                      />
+                      <span className="text-xs text-muted-foreground tabular-nums">
+                        {item.communityId}
+                      </span>
+                    </span>
+                  )}
+                </td>
 
-        {/* Stability */}
-        {item.bootStability !== undefined && (
-          <span
-            className={`text-xs tabular-nums ${
-              item.bootStability < 0.75 ? "text-amber-500 font-medium" : "text-muted-foreground"
-            }`}
-            title="Bootstrap EGA stability"
-          >
-            {item.bootStability < 0.75 && <AlertTriangle className="size-3 inline mr-0.5" />}
-            {item.bootStability.toFixed(3)}
-          </span>
-        )}
+                {/* wTO */}
+                <td className="px-3 py-2.5 align-top">
+                  {item.wtoMax !== undefined && (
+                    <span
+                      className={`text-xs tabular-nums ${
+                        item.wtoMax > 0.2
+                          ? "text-destructive font-medium"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {item.wtoMax > 0.2 && (
+                        <AlertTriangle className="size-3 inline mr-0.5" />
+                      )}
+                      {item.wtoMax.toFixed(3)}
+                    </span>
+                  )}
+                </td>
 
-        {statusBadge}
-      </div>
+                {/* Stability (multi-construct only) */}
+                {isMultiConstruct && (
+                  <td className="px-3 py-2.5 align-top">
+                    {item.bootStability !== undefined && (
+                      <span
+                        className={`text-xs tabular-nums ${
+                          item.bootStability < 0.75
+                            ? "text-amber-500 font-medium"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {item.bootStability < 0.75 && (
+                          <AlertTriangle className="size-3 inline mr-0.5" />
+                        )}
+                        {item.bootStability.toFixed(3)}
+                      </span>
+                    )}
+                  </td>
+                )}
+
+                {/* Status */}
+                <td className="px-3 py-2.5 align-top">{statusBadge(item)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -631,7 +758,7 @@ function ReviewView({
   const [isAccepting, setIsAccepting] = useState(false)
   const [isRerunning, startRerun] = useTransition()
   const [isExporting, startExport] = useTransition()
-  const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map())
+  const itemRefs = useRef<Map<string, HTMLTableRowElement | null>>(new Map())
 
   const suggestedItems = items.filter((i) => !i.isRedundant && !i.isUnstable)
 
@@ -770,45 +897,87 @@ function ReviewView({
             </div>
           </div>
 
-          {/* NMI comparison */}
-          {run.nmiInitial !== undefined && run.nmiFinal !== undefined && (
-            <div>
-              <p className="text-overline text-primary mb-3">Network Quality (NMI)</p>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-caption text-muted-foreground w-16 shrink-0">Initial</span>
-                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-muted-foreground rounded-full"
-                      style={{ width: `${Math.round(run.nmiInitial * 100)}%` }}
-                    />
+          {/* Network quality — adapts to single vs multi-construct */}
+          {run.config.constructIds.length >= 2 ? (
+            /* Multi-construct: NMI compares discovered communities to intended constructs */
+            run.nmiInitial !== undefined &&
+            run.nmiFinal !== undefined && (
+              <div>
+                <p className="text-overline text-primary mb-3">Construct Alignment (NMI)</p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  How well discovered clusters match intended constructs. Higher is better.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-caption text-muted-foreground w-16 shrink-0">Initial</span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-muted-foreground rounded-full"
+                        style={{ width: `${Math.round(run.nmiInitial * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-caption w-10 text-right tabular-nums">
+                      {run.nmiInitial.toFixed(2)}
+                    </span>
                   </div>
-                  <span className="text-caption w-10 text-right tabular-nums">
-                    {run.nmiInitial.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-caption text-muted-foreground w-16 shrink-0">
-                    Final
-                    {run.nmiFinal > run.nmiInitial && (
-                      <span className="ml-1 text-primary">▲</span>
-                    )}
-                  </span>
-                  <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${
-                        run.nmiFinal > run.nmiInitial ? "bg-primary" : "bg-muted-foreground"
-                      }`}
-                      style={{ width: `${Math.round(run.nmiFinal * 100)}%` }}
-                    />
+                  <div className="flex items-center gap-2">
+                    <span className="text-caption text-muted-foreground w-16 shrink-0">
+                      Final
+                      {run.nmiFinal > run.nmiInitial && (
+                        <span className="ml-1 text-primary">▲</span>
+                      )}
+                    </span>
+                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${
+                          run.nmiFinal > run.nmiInitial ? "bg-primary" : "bg-muted-foreground"
+                        }`}
+                        style={{ width: `${Math.round(run.nmiFinal * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-caption w-10 text-right tabular-nums">
+                      {run.nmiFinal.toFixed(2)}
+                    </span>
                   </div>
-                  <span className="text-caption w-10 text-right tabular-nums">
-                    {run.nmiFinal.toFixed(2)}
-                  </span>
                 </div>
               </div>
+            )
+          ) : (
+            /* Single-construct: show dimensionality check instead of NMI */
+            <div>
+              <p className="text-overline text-primary mb-3">Dimensionality</p>
+              <p className="text-xs text-muted-foreground mb-2">
+                The algorithm detected{" "}
+                <span className="font-medium text-foreground">
+                  {new Set(items.filter(i => !i.isRedundant).map(i => i.communityId)).size}
+                </span>{" "}
+                semantic sub-theme{new Set(items.filter(i => !i.isRedundant).map(i => i.communityId)).size === 1 ? "" : "s"} within
+                this construct. This is normal — sub-themes represent different facets of the
+                construct. Select items across sub-themes for better content coverage.
+              </p>
             </div>
           )}
+
+          {/* Metric guide */}
+          <div>
+            <p className="text-overline text-primary mb-2">Selecting Items</p>
+            <div className="space-y-2 text-xs text-muted-foreground">
+              <p>
+                Sort by <span className="font-medium text-foreground">wTO</span> (ascending) to see
+                the most unique items first. Lower wTO = less overlap with other items.
+              </p>
+              <p>
+                Pick items from different <span className="font-medium text-foreground">sub-themes</span> (colour
+                dots) to ensure broad content coverage of the construct.
+              </p>
+              {run.config.constructIds.length >= 2 && (
+                <p>
+                  Check <span className="font-medium text-foreground">Stability</span> — items
+                  below 0.75 flip between constructs across resamples.
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* Run meta */}
           <div className="space-y-2 pt-2 border-t border-border/50">
@@ -871,57 +1040,44 @@ function ReviewView({
         )}
       </div>
 
-      {/* Item review table grouped by construct */}
-      <Accordion multiple defaultValue={run.config.constructIds}>
-        {run.config.constructIds.map((constructId, ci) => {
-          const constructItems = byConstruct.get(constructId) ?? []
-          const passing = constructItems.filter((i) => !i.isRedundant && !i.isUnstable).length
-          const passPct =
-            constructItems.length > 0
-              ? Math.round((passing / constructItems.length) * 100)
-              : 0
-          const name = constructNameMap.get(constructId) ?? constructId
+      {/* Item review table(s) grouped by construct */}
+      {run.config.constructIds.map((constructId, ci) => {
+        const constructItems = byConstruct.get(constructId) ?? []
+        const passing = constructItems.filter((i) => !i.isRedundant && !i.isUnstable).length
+        const passPct =
+          constructItems.length > 0
+            ? Math.round((passing / constructItems.length) * 100)
+            : 0
+        const name = constructNameMap.get(constructId) ?? constructId
 
-          return (
-            <AccordionItem key={constructId} value={constructId}>
-              <AccordionTrigger>
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <span
-                    className="size-2.5 rounded-full shrink-0 inline-block"
-                    style={{ background: constructColor(ci) }}
-                  />
-                  <span className="font-semibold text-sm">{name}</span>
-                  <span className="text-caption text-muted-foreground ml-auto mr-4">
-                    {constructItems.length} items · {passPct}% passing
-                  </span>
-                </div>
-              </AccordionTrigger>
-              <AccordionPanel>
-                <div className="divide-y divide-border/30 rounded-b-lg overflow-hidden bg-card">
-                  {constructItems.length === 0 ? (
-                    <p className="text-sm text-muted-foreground px-4 py-3">
-                      No items generated for this construct.
-                    </p>
-                  ) : (
-                    constructItems.map((item) => (
-                      <ItemRow
-                        key={item.id}
-                        item={item}
-                        isSelected={selectedIds.has(item.id)}
-                        onToggleSelect={handleToggleSelect}
-                        constructIndex={ci}
-                        onRegisterRef={(el) => {
-                          itemRefs.current.set(item.id, el)
-                        }}
-                      />
-                    ))
-                  )}
-                </div>
-              </AccordionPanel>
-            </AccordionItem>
-          )
-        })}
-      </Accordion>
+        return (
+          <div key={constructId} className="space-y-2">
+            <div className="flex items-center gap-3">
+              <span
+                className="size-2.5 rounded-full shrink-0 inline-block"
+                style={{ background: constructColor(ci) }}
+              />
+              <span className="font-semibold text-sm">{name}</span>
+              <span className="text-caption text-muted-foreground">
+                {constructItems.length} items · {passing} suggested ({passPct}%)
+              </span>
+            </div>
+            {constructItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-4 py-3">
+                No items generated for this construct.
+              </p>
+            ) : (
+              <SortableItemTable
+                items={constructItems}
+                selectedIds={selectedIds}
+                onToggleSelect={handleToggleSelect}
+                isMultiConstruct={run.config.constructIds.length >= 2}
+                itemRefs={itemRefs}
+              />
+            )}
+          </div>
+        )
+      })}
 
       {/* Sticky accept bar */}
       <div className="sticky bottom-0 z-10 mt-4">
@@ -1024,6 +1180,8 @@ function FailedView({ run }: { run: GenerationRun }) {
   )
 }
 
+const TERMINAL_STATUSES = new Set(["reviewing", "completed", "failed"])
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -1040,8 +1198,6 @@ export default function GenerationRunPage({
   const [constructNameMap, setConstructNameMap] = useState<Map<string, string>>(new Map())
   const [loading, setLoading] = useState(true)
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const TERMINAL_STATUSES = new Set(["reviewing", "completed", "failed"])
 
   const fetchData = useCallback(async () => {
     const result = await getGenerationRun(runId)
@@ -1073,12 +1229,17 @@ export default function GenerationRunPage({
 
   // Initial fetch + polling
   useEffect(() => {
-    fetchData()
+    const initialFetchTimer = window.setTimeout(() => {
+      void fetchData()
+    }, 0)
 
     // Start polling — will be stopped inside fetchData once terminal
-    pollingRef.current = setInterval(fetchData, 2000)
+    pollingRef.current = setInterval(() => {
+      void fetchData()
+    }, 2000)
 
     return () => {
+      window.clearTimeout(initialFetchTimer)
       if (pollingRef.current) clearInterval(pollingRef.current)
     }
   }, [fetchData])

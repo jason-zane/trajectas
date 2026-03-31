@@ -59,7 +59,6 @@ export default async function WelcomePage({
   return (
     <>
       {/* Server-generated CSS custom properties from trusted DB brand config */}
-      {/* eslint-disable-next-line react/no-danger -- CSS generated server-side from validated brand config, not user HTML */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 

@@ -1,4 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  getCampaignAccessError,
+  getParticipantAccessError,
+} from '@/lib/assess/access'
 
 export class ParticipantRuntimeAccessError extends Error {
   constructor(message = 'You do not have access to this assessment session.') {
@@ -41,29 +45,23 @@ export async function requireParticipantRuntimeAccess(
     .eq('id', participant.campaign_id)
     .single()
 
-  if (campaignError || !campaign || campaign.deleted_at) {
+  if (campaignError || !campaign) {
     throw new ParticipantRuntimeAccessError('Campaign not found or unavailable.')
   }
 
-  if (!['active', 'paused'].includes(campaign.status)) {
-    throw new ParticipantRuntimeAccessError(
-      'This campaign is not currently accepting responses.'
-    )
+  const campaignAccessError = getCampaignAccessError({
+    status: campaign.status,
+    opensAt: campaign.opens_at,
+    closesAt: campaign.closes_at,
+    deletedAt: campaign.deleted_at,
+  })
+  if (campaignAccessError) {
+    throw new ParticipantRuntimeAccessError(campaignAccessError)
   }
 
-  const now = new Date()
-  if (campaign.opens_at && new Date(campaign.opens_at) > now) {
-    throw new ParticipantRuntimeAccessError('This campaign has not opened yet.')
-  }
-
-  if (campaign.closes_at && new Date(campaign.closes_at) < now) {
-    throw new ParticipantRuntimeAccessError('This campaign has closed.')
-  }
-
-  if (['withdrawn', 'expired'].includes(participant.status)) {
-    throw new ParticipantRuntimeAccessError(
-      'Your access to this campaign has been revoked.'
-    )
+  const participantAccessError = getParticipantAccessError(participant.status)
+  if (participantAccessError) {
+    throw new ParticipantRuntimeAccessError(participantAccessError)
   }
 
   return {

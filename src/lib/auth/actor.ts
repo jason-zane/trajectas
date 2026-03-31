@@ -1,9 +1,15 @@
 import { cookies } from "next/headers";
-import { decodeActiveContext, ACTIVE_CONTEXT_COOKIE } from "@/lib/auth/active-context";
+import {
+  ACTIVE_CONTEXT_COOKIE,
+  PREVIEW_CONTEXT_COOKIE,
+  decodeActiveContext,
+  decodePreviewContext,
+} from "@/lib/auth/active-context";
 import type {
   ActiveContext,
   ClientMembershipRecord,
   PartnerMembershipRecord,
+  PreviewContext,
   ResolvedActor,
 } from "@/lib/auth/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -33,6 +39,12 @@ export async function resolveSignedActiveContext(): Promise<ActiveContext | null
   const cookieStore = await cookies();
   const token = cookieStore.get(ACTIVE_CONTEXT_COOKIE)?.value;
   return decodeActiveContext(token);
+}
+
+export async function resolveSignedPreviewContext(): Promise<PreviewContext | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(PREVIEW_CONTEXT_COOKIE)?.value;
+  return decodePreviewContext(token);
 }
 
 export async function resolveSessionActor(): Promise<ResolvedActor | null> {

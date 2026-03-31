@@ -2,7 +2,6 @@
 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Play, Pause, XCircle } from "lucide-react";
 import {
   activateCampaign,

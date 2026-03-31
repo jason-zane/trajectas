@@ -64,7 +64,6 @@ export default async function ConsentPage({
 
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- server-generated CSS custom properties from validated brand config hex colors */}
       <style dangerouslySetInnerHTML={{ __html: brandCssText }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 

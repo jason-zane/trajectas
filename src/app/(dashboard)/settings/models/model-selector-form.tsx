@@ -31,6 +31,12 @@ const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: Cpu,
     glowColor: "var(--primary)",
   },
+  factor_item_generation: {
+    label: "Factor Item Generation",
+    description: "Writes psychometric items using factor-based prompts for structured constructs.",
+    icon: Cpu,
+    glowColor: "var(--primary)",
+  },
   embedding: {
     label: "Embeddings",
     description: "Computes vector embeddings for network analysis and redundancy detection.",
@@ -72,6 +78,7 @@ const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
 const PURPOSE_ORDER: AIPromptPurpose[] = [
   "chat",
   "item_generation",
+  "factor_item_generation",
   "preflight_analysis",
   "embedding",
   "competency_matching",

@@ -38,7 +38,7 @@ export function ClientBrandEditor({
     name: organization.name,
   })
   const [saveState, setSaveState] = useState<SaveState>("idle")
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isDirty = JSON.stringify(config) !== JSON.stringify(savedConfig)

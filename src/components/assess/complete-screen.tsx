@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight, ExternalLink } from "lucide-react";
 import type { CompleteContent } from "@/lib/experience/types";
@@ -54,10 +55,13 @@ export function CompleteScreen({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
-            <img
+            <Image
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}
+              width={140}
+              height={28}
               className="h-7 w-auto object-contain"
+              unoptimized
             />
           ) : (
             <div className="flex items-center gap-2">

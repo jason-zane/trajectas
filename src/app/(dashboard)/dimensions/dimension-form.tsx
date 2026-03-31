@@ -111,18 +111,18 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
   const childFactors = dimension?.childFactors ?? []
 
   // --- Dirty tracking (structural fields only) ---
-  const initialStructural = useRef({
+  const [savedStructural, setSavedStructural] = useState(() => ({
     name: dimension?.name ?? "",
     slug: dimension?.slug ?? "",
     isActive: dimension?.isActive ?? true,
-  })
+  }))
 
   const isStructuralDirty =
     mode === "create"
       ? name.trim() !== ""
-      : name !== initialStructural.current.name ||
-        slug !== initialStructural.current.slug ||
-        isActive !== initialStructural.current.isActive
+      : name !== savedStructural.name ||
+        slug !== savedStructural.slug ||
+        isActive !== savedStructural.isActive
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(isStructuralDirty)
@@ -178,7 +178,7 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
       toast.success(mode === "create" ? "Dimension created" : "Changes saved")
       setSaveState("saved")
       setTimeout(() => setSaveState("idle"), 2000)
-      initialStructural.current = { name, slug, isActive }
+      setSavedStructural({ name, slug, isActive })
       if (mode === "create" && result.slug) {
         router.replace(`/dimensions/${result.slug}/edit`, { scroll: false })
       }

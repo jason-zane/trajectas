@@ -114,7 +114,6 @@ export function PageContentEditor({
   if (isCustom) {
     return (
       <CustomPageEditor
-        pageId={pageId}
         content={customPageContent[pageId] ?? { heading: "", body: "", buttonLabel: "Continue" }}
         customLabel={flowConfig.customPages?.find((cp) => cp.id === pageId)?.label ?? pageId}
         onUpdate={(content) => onUpdateCustomPage(pageId, content)}
@@ -373,13 +372,11 @@ export function PageContentEditor({
 
 /** Editor for custom pages. */
 function CustomPageEditor({
-  pageId,
   content,
   customLabel,
   onUpdate,
   onDelete,
 }: {
-  pageId: string
   content: CustomPageContent
   customLabel: string
   onUpdate: (content: CustomPageContent) => void

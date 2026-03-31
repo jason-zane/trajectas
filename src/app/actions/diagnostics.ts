@@ -27,7 +27,50 @@ export type DiagnosticSessionWithMeta = DiagnosticSession & {
   respondentCount: number
 }
 
+export type DiagnosticSessionDetail = DiagnosticSessionWithMeta & {
+  description?: string
+  department?: string
+  startedAt?: string
+  completedAt?: string
+  snapshotCount: number
+}
+
+export type DiagnosticRespondentWithMeta = {
+  id: string
+  profileId?: string
+  email: string
+  name: string
+  relationship: string
+  roleTitle?: string
+  department?: string
+  seniorityLevel?: string
+  completedAt?: string
+  created_at: string
+  status: 'completed' | 'pending'
+  responseCount: number
+}
+
 export type SelectOption = { id: string; name: string }
+
+function getDiagnosticSessionTitle(
+  row: Record<string, unknown> | null | undefined
+) {
+  if (!row) {
+    return 'Untitled session'
+  }
+
+  const title = row.title
+  if (typeof title === 'string' && title.trim().length > 0) {
+    return title
+  }
+
+  const name = row.name
+  if (typeof name === 'string' && name.trim().length > 0) {
+    return name
+  }
+
+  return 'Untitled session'
+}
 
 // =============================================================================
 // Templates
@@ -215,7 +258,7 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
       organizationId: r.organization_id,
       templateId: r.template_id,
       subjectProfileId: r.subject_profile_id,
-      title: r.title,
+      title: getDiagnosticSessionTitle(r),
       status: r.status,
       expiresAt: r.expires_at ?? undefined,
       created_at: r.created_at,
@@ -247,12 +290,129 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
     organizationId: data.organization_id,
     templateId: data.template_id,
     subjectProfileId: data.subject_profile_id,
-    title: data.title,
+    title: getDiagnosticSessionTitle(data),
     status: data.status,
     expiresAt: data.expires_at ?? undefined,
     created_at: data.created_at,
     updated_at: data.updated_at ?? undefined,
   }
+}
+
+export async function getDiagnosticSessionDetail(
+  id: string
+): Promise<DiagnosticSessionDetail | null> {
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('diagnostic_sessions')
+    .select('*, organizations(name), diagnostic_templates(name), diagnostic_respondents(count), diagnostic_snapshots(count)')
+    .eq('id', id)
+    .single()
+
+  if (error || !data) return null
+
+  try {
+    await requireOrganizationAccess(data.organization_id)
+  } catch {
+    return null
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    templateId: row.template_id,
+    subjectProfileId: row.subject_profile_id ?? '',
+    title: getDiagnosticSessionTitle(row),
+    status: row.status,
+    expiresAt: row.expires_at ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+    organizationName: row.organizations?.name ?? 'Unknown',
+    templateName: row.diagnostic_templates?.name ?? 'Unknown',
+    respondentCount: row.diagnostic_respondents?.[0]?.count ?? 0,
+    description: row.description ?? undefined,
+    department: row.department ?? undefined,
+    startedAt: row.started_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    snapshotCount: row.diagnostic_snapshots?.[0]?.count ?? 0,
+  }
+}
+
+export async function getDiagnosticRespondents(
+  sessionId: string
+): Promise<DiagnosticRespondentWithMeta[]> {
+  const db = createAdminClient()
+  const { data: session, error: sessionError } = await db
+    .from('diagnostic_sessions')
+    .select('organization_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (sessionError || !session) {
+    return []
+  }
+
+  try {
+    await requireOrganizationAccess(session.organization_id)
+  } catch {
+    return []
+  }
+
+  const { data, error } = await db
+    .from('diagnostic_respondents')
+    .select('*, diagnostic_responses(count)')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
+    const completedAt =
+      typeof row.completed_at === 'string' ? row.completed_at : undefined
+    const legacyCompleted =
+      typeof row.has_completed === 'boolean' ? row.has_completed : undefined
+    const status =
+      completedAt || legacyCompleted ? 'completed' : 'pending'
+    const responseCount = Array.isArray(row.diagnostic_responses)
+      ? Number((row.diagnostic_responses[0] as { count?: number } | undefined)?.count ?? 0)
+      : 0
+
+    return {
+      id: String(row.id),
+      profileId: row.profile_id ? String(row.profile_id) : undefined,
+      email: typeof row.email === 'string' ? row.email : 'Unknown',
+      name:
+        typeof row.name === 'string' && row.name.trim().length > 0
+          ? row.name
+          : typeof row.email === 'string'
+            ? row.email
+            : 'Respondent',
+      relationship:
+        typeof row.relationship === 'string' && row.relationship.trim().length > 0
+          ? row.relationship
+          : typeof row.role_title === 'string' && row.role_title.trim().length > 0
+            ? row.role_title
+            : 'Respondent',
+      roleTitle:
+        typeof row.role_title === 'string' && row.role_title.trim().length > 0
+          ? row.role_title
+          : undefined,
+      department:
+        typeof row.department === 'string' && row.department.trim().length > 0
+          ? row.department
+          : undefined,
+      seniorityLevel:
+        typeof row.seniority_level === 'string' && row.seniority_level.trim().length > 0
+          ? row.seniority_level
+          : undefined,
+      completedAt,
+      created_at:
+        typeof row.created_at === 'string' ? row.created_at : new Date().toISOString(),
+      status,
+      responseCount,
+    }
+  })
 }
 
 export async function createDiagnosticSession(formData: FormData) {

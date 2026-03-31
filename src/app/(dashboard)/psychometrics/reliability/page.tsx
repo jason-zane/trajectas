@@ -1,7 +1,5 @@
-import Link from "next/link"
 import { Dna, Info, TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
 import { ScrollReveal } from "@/components/scroll-reveal"

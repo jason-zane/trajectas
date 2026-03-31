@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -102,7 +103,7 @@ export function WorkspaceContextSwitcher({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         {groupedOptions.all.length > 0 ? (
-          <>
+          <DropdownMenuGroup>
             <DropdownMenuLabel>Scope</DropdownMenuLabel>
             {groupedOptions.all.map((option) => {
               return (
@@ -121,54 +122,58 @@ export function WorkspaceContextSwitcher({
                 </DropdownMenuItem>
               );
             })}
-          </>
+          </DropdownMenuGroup>
         ) : null}
 
         {groupedOptions.partner.length > 0 ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Partners</DropdownMenuLabel>
-            {groupedOptions.partner.map((option) => {
-              return (
-                <DropdownMenuItem
-                  key={option.key}
-                  onClick={() => handleSelect(option)}
-                  className={option.selected ? "bg-accent" : ""}
-                >
-                  <ContextOptionIcon kind={option.kind} className="size-4" />
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm">{option.label}</span>
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-              );
-            })}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Partners</DropdownMenuLabel>
+              {groupedOptions.partner.map((option) => {
+                return (
+                  <DropdownMenuItem
+                    key={option.key}
+                    onClick={() => handleSelect(option)}
+                    className={option.selected ? "bg-accent" : ""}
+                  >
+                    <ContextOptionIcon kind={option.kind} className="size-4" />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm">{option.label}</span>
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
           </>
         ) : null}
 
         {groupedOptions.client.length > 0 ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Clients</DropdownMenuLabel>
-            {groupedOptions.client.map((option) => {
-              return (
-                <DropdownMenuItem
-                  key={option.key}
-                  onClick={() => handleSelect(option)}
-                  className={option.selected ? "bg-accent" : ""}
-                >
-                  <ContextOptionIcon kind={option.kind} className="size-4" />
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm">{option.label}</span>
-                    <span className="truncate text-[11px] text-muted-foreground">
-                      {option.description}
-                    </span>
-                  </div>
-                </DropdownMenuItem>
-              );
-            })}
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Clients</DropdownMenuLabel>
+              {groupedOptions.client.map((option) => {
+                return (
+                  <DropdownMenuItem
+                    key={option.key}
+                    onClick={() => handleSelect(option)}
+                    className={option.selected ? "bg-accent" : ""}
+                  >
+                    <ContextOptionIcon kind={option.kind} className="size-4" />
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm">{option.label}</span>
+                      <span className="truncate text-[11px] text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </div>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
           </>
         ) : null}
       </DropdownMenuContent>

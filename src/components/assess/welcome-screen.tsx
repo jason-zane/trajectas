@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,6 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({
-  token,
   hasInProgressSession,
   brandLogoUrl,
   brandName,
@@ -49,10 +49,13 @@ export function WelcomeScreen({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
-            <img
+            <Image
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}
+              width={140}
+              height={28}
               className="h-7 w-auto object-contain"
+              unoptimized
             />
           ) : (
             <div className="flex items-center gap-2">

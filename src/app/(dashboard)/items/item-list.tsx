@@ -110,14 +110,6 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
     return Array.from(names).sort()
   }, [items])
 
-  const constructSlugMap = useMemo(() => {
-    const map: Record<string, string> = {}
-    items.forEach((i) => {
-      if (i.constructName && i.constructSlug) map[i.constructName] = i.constructSlug
-    })
-    return map
-  }, [items])
-
   const hasFilters =
     searchQuery !== "" ||
     statusFilter !== "all" ||

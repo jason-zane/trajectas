@@ -5,8 +5,11 @@ import type { TenantType } from '@/lib/auth/types'
 import type { WorkspaceSurface } from '@/lib/surfaces'
 import {
   ACTIVE_CONTEXT_COOKIE,
+  PREVIEW_CONTEXT_COOKIE,
   encodeActiveContext,
+  encodePreviewContext,
   getActiveContextCookieOptions,
+  getPreviewContextCookieOptions,
 } from '@/lib/auth/active-context'
 import {
   assertAdminOnly,
@@ -27,15 +30,18 @@ type ContextTargetInput = {
 export async function clearActiveWorkspaceContext() {
   const cookieStore = await cookies()
   cookieStore.delete(ACTIVE_CONTEXT_COOKIE)
+  cookieStore.delete(PREVIEW_CONTEXT_COOKIE)
   return { success: true as const }
 }
 
 export async function setActiveWorkspaceContext(input: ContextTargetInput) {
   const scope = await resolveAuthorizedScope()
   const cookieStore = await cookies()
+  const isPreviewSelection = scope.isLocalDevelopmentBypass && !scope.actor
 
   if (input.surface === 'admin' && !input.tenantType && !input.tenantId) {
     cookieStore.delete(ACTIVE_CONTEXT_COOKIE)
+    cookieStore.delete(PREVIEW_CONTEXT_COOKIE)
     return { success: true as const, surface: 'admin' as const }
   }
 
@@ -58,11 +64,32 @@ export async function setActiveWorkspaceContext(input: ContextTargetInput) {
     membershipId: input.membershipId,
   }
 
-  cookieStore.set(
-    ACTIVE_CONTEXT_COOKIE,
-    encodeActiveContext(nextContext),
-    getActiveContextCookieOptions()
-  )
+  if (isPreviewSelection) {
+    if (input.surface !== 'partner' && input.surface !== 'client') {
+      return { error: 'Local preview is only available for partner and client portals.' }
+    }
+
+    const previewContext = {
+      surface: input.surface,
+      tenantType: input.tenantType,
+      tenantId: input.tenantId,
+      membershipId: input.membershipId,
+    }
+
+    cookieStore.delete(ACTIVE_CONTEXT_COOKIE)
+    cookieStore.set(
+      PREVIEW_CONTEXT_COOKIE,
+      encodePreviewContext(previewContext),
+      getPreviewContextCookieOptions()
+    )
+  } else {
+    cookieStore.delete(PREVIEW_CONTEXT_COOKIE)
+    cookieStore.set(
+      ACTIVE_CONTEXT_COOKIE,
+      encodeActiveContext(nextContext),
+      getActiveContextCookieOptions()
+    )
+  }
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -123,6 +150,7 @@ export async function startAuditedSupportLaunch(input: {
     }),
     getActiveContextCookieOptions()
   )
+  cookieStore.delete(PREVIEW_CONTEXT_COOKIE)
 
   return {
     success: true as const,

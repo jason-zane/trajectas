@@ -77,9 +77,6 @@ export function CampaignForm({
     enabled: mode === "edit" && !!campaign,
   })
 
-  const description =
-    mode === "edit" ? descriptionAutoSave.value : createDescription
-
   // --- Save button state ---
   const [saving, setSaving] = useState(false)
   const [saveState, setSaveState] = useState<"idle" | "saved">("idle")

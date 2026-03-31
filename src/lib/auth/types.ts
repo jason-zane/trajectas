@@ -28,6 +28,13 @@ export interface ActiveContext {
   supportSessionId?: string;
 }
 
+export interface PreviewContext {
+  surface: Extract<WorkspaceSurface, "partner" | "client">;
+  tenantType?: TenantType;
+  tenantId?: string;
+  membershipId?: string;
+}
+
 export interface ResolvedActor {
   id: string;
   email: string;

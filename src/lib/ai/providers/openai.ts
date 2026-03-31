@@ -13,9 +13,6 @@ import type { AIProvider } from './base'
 /** Default model used when not overridden. */
 const DEFAULT_MODEL = 'gpt-4o'
 
-/** Default maximum tokens if not provided in the request. */
-const DEFAULT_MAX_TOKENS = 4096
-
 export class OpenAIProvider implements AIProvider {
   readonly type: AIProviderType = 'openai'
   readonly name = 'OpenAI'

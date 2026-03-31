@@ -16,7 +16,8 @@ import type { AIPromptPurpose } from "@/types/database"
 
 const PROMPT_META: Record<string, { label: string; description: string; icon: React.ElementType }> = {
   chat: { label: "Chat", description: "Assistant behavior for the chat workspace", icon: MessageSquare },
-  item_generation: { label: "Item Generation", description: "How new psychometric items are written", icon: Cpu },
+  item_generation: { label: "Item Generation (Construct)", description: "How new psychometric items are written", icon: Cpu },
+  factor_item_generation: { label: "Item Generation (Factor)", description: "How factor-level behavioural items are written", icon: Cpu },
   preflight_analysis: { label: "Preflight Analysis", description: "Discrimination check for overlapping constructs", icon: ScanSearch },
   competency_matching: { label: "Competency Matching", description: "Ranking competencies against diagnostic evidence", icon: Sparkles },
   ranking_explanation: { label: "Ranking Explanation", description: "Plain-language explanations for rankings", icon: Braces },
@@ -26,6 +27,7 @@ const PROMPT_META: Record<string, { label: string; description: string; icon: Re
 const PROMPT_ORDER: AIPromptPurpose[] = [
   "chat",
   "item_generation",
+  "factor_item_generation",
   "preflight_analysis",
   "competency_matching",
   "ranking_explanation",

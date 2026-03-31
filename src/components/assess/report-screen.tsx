@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, ArrowRight, ExternalLink } from "lucide-react";
@@ -55,10 +56,13 @@ export function ReportScreen({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
-            <img
+            <Image
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}
+              width={140}
+              height={28}
               className="h-7 w-auto object-contain"
+              unoptimized
             />
           ) : (
             <div className="flex items-center gap-2">

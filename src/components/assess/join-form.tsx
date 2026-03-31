@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -74,10 +75,13 @@ export function JoinForm({
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
-            <img
+            <Image
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}
+              width={140}
+              height={28}
               className="h-7 w-auto object-contain"
+              unoptimized
             />
           ) : (
             <div className="flex items-center gap-2">

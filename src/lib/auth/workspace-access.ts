@@ -2,6 +2,7 @@ import type {
   ActiveContext,
   ClientMembershipRecord,
   PartnerMembershipRecord,
+  PreviewContext,
   ResolvedActor,
   TenantType,
 } from "@/lib/auth/types";
@@ -23,10 +24,12 @@ export interface WorkspaceAccessResult {
   status: WorkspaceAccessStatus;
   actor: ResolvedActor | null;
   activeContext: ActiveContext | null;
+  previewContext: PreviewContext | null;
   partnerMembershipCount: number;
   clientMembershipCount: number;
   accessiblePartnerCount: number;
   accessibleClientCount: number;
+  canExportReports: boolean;
   hasSupportSession: boolean;
   isLocalDevelopmentBypass: boolean;
 }
@@ -76,10 +79,12 @@ export async function resolveWorkspaceAccess(
         status: "signed_out",
         actor: null,
         activeContext: null,
+        previewContext: null,
         partnerMembershipCount: 0,
         clientMembershipCount: 0,
         accessiblePartnerCount: 0,
         accessibleClientCount: 0,
+        canExportReports: false,
         hasSupportSession: false,
         isLocalDevelopmentBypass: false,
       };
@@ -92,11 +97,18 @@ export async function resolveWorkspaceAccess(
 
   const result = {
     actor,
-    activeContext: actor?.activeContext ?? null,
+    activeContext: scope.activeContext,
+    previewContext: scope.previewContext,
     partnerMembershipCount: actor?.partnerMemberships.length ?? 0,
     clientMembershipCount: actor?.clientMemberships.length ?? 0,
     accessiblePartnerCount: scope.partnerIds.length,
     accessibleClientCount: scope.clientIds.length,
+    canExportReports:
+      scope.isLocalDevelopmentBypass ||
+      scope.isPlatformAdmin ||
+      (surface === "partner"
+        ? scope.partnerAdminIds.length > 0
+        : scope.clientAdminIds.length > 0),
     hasSupportSession: Boolean(scope.supportSession),
     isLocalDevelopmentBypass: scope.isLocalDevelopmentBypass,
   };
@@ -153,22 +165,22 @@ export async function resolveAdminWorkspaceAccess(): Promise<AdminWorkspaceAcces
 }
 
 function findSelectedOption(
-  activeContext: ActiveContext | null,
+  context: Pick<ActiveContext, "surface" | "tenantType" | "tenantId"> | Pick<PreviewContext, "surface" | "tenantType" | "tenantId"> | null,
   option: Pick<WorkspaceContextOption, "tenantType" | "tenantId" | "kind">
 ) {
-  if (!activeContext) {
+  if (!context) {
     return option.kind === "all";
   }
 
   if (!option.tenantType || !option.tenantId) {
-    return activeContext.surface === "partner" || activeContext.surface === "client"
-      ? !activeContext.tenantType && !activeContext.tenantId
+    return context.surface === "partner" || context.surface === "client"
+      ? !context.tenantType && !context.tenantId
       : false;
   }
 
   return (
-    activeContext.tenantType === option.tenantType &&
-    activeContext.tenantId === option.tenantId
+    context.tenantType === option.tenantType &&
+    context.tenantId === option.tenantId
   );
 }
 
@@ -269,18 +281,29 @@ export async function getWorkspaceContextOptions(
 
   const partnerMembershipMap = membershipByPartnerId(scope.actor);
   const clientMembershipMap = membershipByClientId(scope.actor);
+  const selectedContext = scope.isLocalDevelopmentBypass
+    ? scope.previewContext
+    : scope.activeContext;
   const options: WorkspaceContextOption[] = [];
 
   if ((surface === "partner" && (partners.length > 1 || clients.length > 0)) || (surface === "client" && clients.length > 1)) {
     options.push({
       key: `${surface}-all`,
-      label: surface === "partner" ? "All assigned clients" : "All accessible clients",
+      label: scope.isLocalDevelopmentBypass
+        ? surface === "partner"
+          ? "Preview all partner data"
+          : "Preview all client data"
+        : surface === "partner"
+          ? "All assigned clients"
+          : "All accessible clients",
       description:
-        surface === "partner"
+        scope.isLocalDevelopmentBypass
+          ? "Local development preview across all seeded workspace data."
+          : surface === "partner"
           ? "View all accessible client data in this portal."
           : "View all accessible client scopes in this portal.",
       kind: "all",
-      selected: findSelectedOption(scope.activeContext, { kind: "all" }),
+      selected: findSelectedOption(selectedContext, { kind: "all" }),
     });
   }
 
@@ -303,7 +326,7 @@ export async function getWorkspaceContextOptions(
         tenantId: partnerId,
         membershipId: membership?.id,
         kind: "partner",
-        selected: findSelectedOption(scope.activeContext, {
+        selected: findSelectedOption(selectedContext, {
           tenantType: "partner",
           tenantId: partnerId,
           kind: "partner",
@@ -330,7 +353,7 @@ export async function getWorkspaceContextOptions(
       tenantId: clientId,
       membershipId: membership?.id,
       kind: "client",
-      selected: findSelectedOption(scope.activeContext, {
+      selected: findSelectedOption(selectedContext, {
         tenantType: "client",
         tenantId: clientId,
         kind: "client",

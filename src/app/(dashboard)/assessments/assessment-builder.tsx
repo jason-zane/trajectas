@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useTransition, useMemo, useRef } from "react"
+import { useState, useCallback, useTransition, useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Trash2, Info } from "lucide-react"
@@ -163,7 +163,7 @@ export function AssessmentBuilder({
   const descValue = isEditing ? descAutoSave.value : description
 
   // Dirty tracking
-  const initialStructural = useRef({
+  const [savedStructural, setSavedStructural] = useState(() => ({
     title: assessment?.title ?? "",
     status: assessment?.status ?? "draft",
     scoringMethod: assessment?.scoringMethod ?? "ctt",
@@ -172,17 +172,17 @@ export function AssessmentBuilder({
     formatMode: assessment?.formatMode ?? "traditional",
     fcBlockSize: assessment?.fcBlockSize ?? 3,
     factorIds: existingFactors?.map((c) => c.factorId).sort().join(",") ?? "",
-  })
+  }))
 
   const isStructuralDirty = isEditing
-    ? title !== initialStructural.current.title ||
-      status !== initialStructural.current.status ||
-      scoringMethod !== initialStructural.current.scoringMethod ||
-      itemSelectionStrategy !== initialStructural.current.itemSelectionStrategy ||
-      creationMode !== initialStructural.current.creationMode ||
-      formatMode !== initialStructural.current.formatMode ||
-      fcBlockSize !== initialStructural.current.fcBlockSize ||
-      selectedFactors.map((f) => f.id).sort().join(",") !== initialStructural.current.factorIds
+    ? title !== savedStructural.title ||
+      status !== savedStructural.status ||
+      scoringMethod !== savedStructural.scoringMethod ||
+      itemSelectionStrategy !== savedStructural.itemSelectionStrategy ||
+      creationMode !== savedStructural.creationMode ||
+      formatMode !== savedStructural.formatMode ||
+      fcBlockSize !== savedStructural.fcBlockSize ||
+      selectedFactors.map((f) => f.id).sort().join(",") !== savedStructural.factorIds
     : title.trim() !== ""
 
   const { showDialog, confirmNavigation, cancelNavigation } =
@@ -254,7 +254,7 @@ export function AssessmentBuilder({
         toast.success(isEditing ? "Changes saved" : "Assessment created")
         setSaveState("saved")
         setTimeout(() => setSaveState("idle"), 2000)
-        initialStructural.current = {
+        setSavedStructural({
           title,
           status,
           scoringMethod,
@@ -263,7 +263,7 @@ export function AssessmentBuilder({
           formatMode,
           fcBlockSize,
           factorIds: selectedFactors.map((f) => f.id).sort().join(","),
-        }
+        })
         if (!isEditing && result.id) {
           router.replace(`/assessments/${result.id}/edit`, { scroll: false })
         }

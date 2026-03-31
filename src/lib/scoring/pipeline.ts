@@ -255,7 +255,6 @@ export function aggregateToFactors(
     let totalWeight = 0
     let totalItems = 0
     let rawSum = 0
-    let rawMaxSum = 0
 
     for (const link of links) {
       const cs = constructScoreMap.get(link.constructId)
@@ -265,7 +264,6 @@ export function aggregateToFactors(
       totalWeight += link.weight
       totalItems += cs.itemCount
       rawSum += cs.scores.raw
-      rawMaxSum += cs.scores.rawMax
     }
 
     if (totalWeight === 0) continue

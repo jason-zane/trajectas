@@ -374,7 +374,7 @@ export async function startGenerationRun(
         itemsAfterUva:   pipelineResult.itemsAfterUva,
         itemsAfterBoot:  pipelineResult.itemsAfterBoot,
         modelUsed:       pipelineResult.modelUsed,
-        promptVersion:   pipelineResult.aiSnapshot?.prompts?.item_generation?.version,
+        promptVersion:   pipelineResult.aiSnapshot?.prompts?.[config.promptPurpose ?? 'item_generation']?.version,
         aiSnapshot:      pipelineResult.aiSnapshot,
         tokenUsage:      pipelineResult.tokenUsage,
       })

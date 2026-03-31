@@ -21,12 +21,18 @@ import {
 } from "lucide-react";
 import { getWorkspaceAssessmentSummaries } from "@/app/actions/assessments";
 import { getCampaignById, getCampaigns } from "@/app/actions/campaigns";
-import { getDiagnosticSessions, getOrganizationsForDiagnosticSelect } from "@/app/actions/diagnostics";
+import {
+  getDiagnosticRespondents,
+  getDiagnosticSessionDetail,
+  getDiagnosticSessions,
+  getOrganizationsForDiagnosticSelect,
+} from "@/app/actions/diagnostics";
 import { getWorkspaceMatchingRuns } from "@/app/actions/matching";
 import { getOrganizations } from "@/app/actions/organizations";
 import {
   getParticipant,
   getParticipantActivity,
+  getParticipants,
   getParticipantSessions,
 } from "@/app/actions/participants";
 import { PageHeader } from "@/components/page-header";
@@ -67,6 +73,14 @@ interface WorkspacePortalLivePageProps {
   routePrefix: string;
   surface: Extract<WorkspaceSurface, "partner" | "client">;
   pageKey: string;
+}
+
+function getParticipantReportHref(routePrefix: string, participantId: string) {
+  return applyRoutePrefix(routePrefix, `/reports/participants/${participantId}`);
+}
+
+function getParticipantExportHref(routePrefix: string, participantId: string) {
+  return applyRoutePrefix(routePrefix, `/exports/participants/${participantId}`);
 }
 
 function formatDate(value?: string) {
@@ -146,9 +160,17 @@ function HeaderActions({
 }
 
 function WorkspaceAccessCard({ access }: { access: WorkspaceAccessResult }) {
-  const contextLabel = access.activeContext?.tenantType
-    ? `${access.activeContext.tenantType}:${access.activeContext.tenantId ?? "unknown"}`
-    : "Global workspace scope";
+  const selectedContext = access.isLocalDevelopmentBypass
+    ? access.previewContext
+    : access.activeContext;
+  const contextHeading = access.isLocalDevelopmentBypass
+    ? "Preview scope"
+    : "Active context";
+  const contextLabel = selectedContext?.tenantType
+    ? `${selectedContext.tenantType}:${selectedContext.tenantId ?? "unknown"}`
+    : access.isLocalDevelopmentBypass
+      ? "Preview all accessible data"
+      : "Global workspace scope";
 
   return (
     <Card>
@@ -169,7 +191,7 @@ function WorkspaceAccessCard({ access }: { access: WorkspaceAccessResult }) {
           </p>
         </div>
         <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Active context</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{contextHeading}</p>
           <p className="mt-1 font-medium text-foreground">{contextLabel}</p>
         </div>
         <div>
@@ -728,7 +750,31 @@ async function WorkspaceCampaignDetailPage({
                           </Badge>
                         </TableCell>
                         <TableCell>{formatDate(participant.invitedAt)}</TableCell>
-                        <TableCell>{formatDate(participant.completedAt)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>{formatDate(participant.completedAt)}</span>
+                            {participant.status === "completed" ? (
+                              <div className="flex items-center gap-3">
+                                <Link
+                                  href={getParticipantReportHref(routePrefix, participant.id)}
+                                  className="inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
+                                >
+                                  Open report
+                                  <ExternalLink className="size-3" />
+                                </Link>
+                                {access.canExportReports ? (
+                                  <Link
+                                    href={getParticipantExportHref(routePrefix, participant.id)}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-foreground transition-colors hover:text-primary"
+                                  >
+                                    Export
+                                    <ExternalLink className="size-3" />
+                                  </Link>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -796,13 +842,33 @@ async function WorkspaceParticipantDetailPage({
         title={displayName}
         description="Participant detail is visible here because it belongs to the active campaign and workspace scope."
       >
-        <Link
-          href={applyRoutePrefix(routePrefix, `/campaigns/${campaignId}`)}
-          className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-        >
-          <ArrowLeft className="size-4" />
-          Back to campaign
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={applyRoutePrefix(routePrefix, `/campaigns/${campaignId}`)}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="size-4" />
+            Back to campaign
+          </Link>
+          {participant.status === "completed" ? (
+            <>
+              <Link
+                href={getParticipantReportHref(routePrefix, participant.id)}
+                className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                Open participant report
+              </Link>
+              {access.canExportReports ? (
+                <Link
+                  href={getParticipantExportHref(routePrefix, participant.id)}
+                  className="inline-flex items-center rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Export report
+                </Link>
+              ) : null}
+            </>
+          ) : null}
+        </div>
       </PageHeader>
 
       <WorkspaceAccessCard access={access} />
@@ -1137,7 +1203,13 @@ async function WorkspaceDiagnosticsPage({
                   <TableRow key={session.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{session.title}</p>
+                        <Link
+                          href={applyRoutePrefix(routePrefix, `/diagnostics/${session.id}`)}
+                          className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                        >
+                          {session.title}
+                          <ExternalLink className="size-3.5 opacity-60" />
+                        </Link>
                         <p className="text-xs text-muted-foreground">{formatDate(session.created_at)}</p>
                       </div>
                     </TableCell>
@@ -1158,20 +1230,270 @@ async function WorkspaceDiagnosticsPage({
   );
 }
 
+async function WorkspaceDiagnosticDetailPage({
+  access,
+  config,
+  routePrefix,
+  sessionId,
+  surface,
+  resultsMode = false,
+}: {
+  access: WorkspaceAccessResult;
+  config: WorkspacePortalPageConfig;
+  routePrefix: string;
+  sessionId: string;
+  surface: Extract<WorkspaceSurface, "partner" | "client">;
+  resultsMode?: boolean;
+}) {
+  const [session, respondents] = await Promise.all([
+    getDiagnosticSessionDetail(sessionId),
+    getDiagnosticRespondents(sessionId),
+  ]);
+
+  const backHref = resultsMode ? "/diagnostic-results" : "/diagnostics";
+
+  if (!session) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          eyebrow={config.eyebrow}
+          title="Diagnostic session detail"
+          description="Diagnostic visibility remains scoped through the active client boundary."
+        >
+          <Link
+            href={applyRoutePrefix(routePrefix, backHref)}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Link>
+        </PageHeader>
+        <WorkspaceAccessCard access={access} />
+        <EmptyState
+          title="Diagnostic session not available"
+          description="This diagnostic session is either outside the current workspace scope or no longer exists."
+        />
+      </div>
+    );
+  }
+
+  const completedRespondents = respondents.filter(
+    (respondent) => respondent.status === "completed"
+  ).length;
+  const totalResponses = respondents.reduce(
+    (sum, respondent) => sum + respondent.responseCount,
+    0
+  );
+
+  return (
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow={config.eyebrow}
+        title={session.title}
+        description={
+          session.description ||
+          `${session.templateName} for ${session.organizationName}`
+        }
+      >
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href={applyRoutePrefix(routePrefix, backHref)}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </Link>
+          {resultsMode || surface !== "client" || session.status !== "completed" ? null : (
+            <Link
+              href={applyRoutePrefix(routePrefix, `/diagnostic-results/${session.id}`)}
+              className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Open result view
+            </Link>
+          )}
+        </div>
+      </PageHeader>
+
+      <WorkspaceAccessCard access={access} />
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <MetricCard
+          label="Respondents"
+          value={respondents.length}
+          description="Visible in the current workspace scope"
+          icon={Users}
+        />
+        <MetricCard
+          label="Completed"
+          value={completedRespondents}
+          description={`${Math.max(0, respondents.length - completedRespondents)} pending`}
+          icon={CheckCircle2}
+        />
+        <MetricCard
+          label="Responses"
+          value={totalResponses}
+          description="Captured rating rows across respondents"
+          icon={ClipboardList}
+        />
+        <MetricCard
+          label="Snapshots"
+          value={session.snapshotCount}
+          description="Stored result snapshots"
+          icon={Sparkles}
+        />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Session overview</CardTitle>
+            <CardDescription>
+              This diagnostic session is rendered through the same tenant-aware access layer as the rest of the portal.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  Client
+                </div>
+                <p className="font-medium">{session.organizationName}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  Template
+                </div>
+                <p className="font-medium">{session.templateName}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  Status
+                </div>
+                <Badge variant={statusBadgeVariant(session.status)}>{session.status}</Badge>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  Department
+                </div>
+                <p className="font-medium">{session.department || "Not set"}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <Calendar className="size-3.5" />
+                  Created
+                </div>
+                <p className="font-medium">{formatDateTime(session.created_at)}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <Timer className="size-3.5" />
+                  Started
+                </div>
+                <p className="font-medium">{formatDateTime(session.startedAt)}</p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <div className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
+                  <CheckCircle2 className="size-3.5" />
+                  Completed
+                </div>
+                <p className="font-medium">{formatDateTime(session.completedAt)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Respondents</CardTitle>
+            <CardDescription>
+              Respondent visibility remains inside the authorised client boundary for this session.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {respondents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No respondents are visible for this diagnostic session yet.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Respondent</TableHead>
+                    <TableHead>Relationship</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Responses</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {respondents.map((respondent) => (
+                    <TableRow key={respondent.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{respondent.name}</p>
+                          <p className="text-xs text-muted-foreground">{respondent.email}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p>{respondent.relationship}</p>
+                          {respondent.roleTitle ? (
+                            <p className="text-xs text-muted-foreground">{respondent.roleTitle}</p>
+                          ) : null}
+                        </div>
+                      </TableCell>
+                      <TableCell>{respondent.department || "Not set"}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <Badge
+                            variant={
+                              respondent.status === "completed" ? "default" : "secondary"
+                            }
+                          >
+                            {respondent.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {respondent.completedAt
+                              ? `Completed ${formatDate(respondent.completedAt)}`
+                              : `Invited ${formatDate(respondent.created_at)}`}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{respondent.responseCount}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
 async function WorkspaceResultsPage({
   access,
   config,
   routePrefix,
   diagnosticsOnly = false,
+  surface,
 }: {
   access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
   diagnosticsOnly?: boolean;
+  surface: Extract<WorkspaceSurface, "partner" | "client">;
 }) {
-  const [campaigns, diagnostics] = await Promise.all([
+  const [campaigns, diagnostics, completedParticipants] = await Promise.all([
     diagnosticsOnly ? Promise.resolve([]) : getCampaigns(),
     getDiagnosticSessions(),
+    diagnosticsOnly
+      ? Promise.resolve({ data: [], total: 0 })
+      : getParticipants({ status: "completed", perPage: 12 }),
   ]);
 
   const campaignsWithResults = campaigns.filter((campaign) => campaign.completedCount > 0);
@@ -1186,43 +1508,113 @@ async function WorkspaceResultsPage({
       <WorkspaceAccessCard access={access} />
 
       {!diagnosticsOnly ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Assessment results in scope</CardTitle>
-            <CardDescription>Campaigns with at least one completed participant in the visible workspace.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {campaignsWithResults.length === 0 ? (
-              <EmptyState
-                title="No assessment results yet"
-                description="Visible campaigns do not have completed participant results yet."
-              />
-            ) : (
-              <div className="space-y-3">
-                {campaignsWithResults.map((campaign) => (
-                  <div key={campaign.id} className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3">
-                    <div>
-                      <Link
-                        href={applyRoutePrefix(routePrefix, `/campaigns/${campaign.id}`)}
-                        className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+        <div className="grid gap-4 xl:grid-cols-[1fr_1.05fr]">
+          <Card>
+            <CardHeader>
+              <CardTitle>Assessment results in scope</CardTitle>
+              <CardDescription>Campaigns with at least one completed participant in the visible workspace.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {campaignsWithResults.length === 0 ? (
+                <EmptyState
+                  title="No assessment results yet"
+                  description="Visible campaigns do not have completed participant results yet."
+                />
+              ) : (
+                <div className="space-y-3">
+                  {campaignsWithResults.map((campaign) => (
+                    <div key={campaign.id} className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3">
+                      <div>
+                        <Link
+                          href={applyRoutePrefix(routePrefix, `/campaigns/${campaign.id}`)}
+                          className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                        >
+                          {campaign.title}
+                          <ExternalLink className="size-3.5 opacity-60" />
+                        </Link>
+                        <p className="text-xs text-muted-foreground">
+                          {campaign.organizationName || "Client not set"} • {campaign.completedCount} completed
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={statusBadgeVariant(campaign.status)}>{campaign.status}</Badge>
+                        <span className="text-xs text-muted-foreground">{campaign.assessmentCount} assessments</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Participant reports in scope</CardTitle>
+              <CardDescription>
+                Completed participants can be launched into the runtime report through an audited, tenant-scoped handoff.
+                {access.canExportReports
+                  ? " Export remains a separate audited action."
+                  : " Export actions remain hidden until you are in an admin-level workspace context."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {completedParticipants.data.length === 0 ? (
+                <EmptyState
+                  title="No participant reports yet"
+                  description="Completed participant reports will appear here once assessments finish inside the current scope."
+                />
+              ) : (
+                <div className="space-y-3">
+                  {completedParticipants.data.map((participant) => {
+                    const label =
+                      participant.firstName || participant.lastName
+                        ? `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim()
+                        : participant.email;
+
+                    return (
+                      <div
+                        key={participant.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-border/70 px-4 py-3"
                       >
-                        {campaign.title}
-                        <ExternalLink className="size-3.5 opacity-60" />
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {campaign.organizationName || "Client not set"} • {campaign.completedCount} completed
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={statusBadgeVariant(campaign.status)}>{campaign.status}</Badge>
-                      <span className="text-xs text-muted-foreground">{campaign.assessmentCount} assessments</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        <div className="min-w-0">
+                          <Link
+                            href={applyRoutePrefix(
+                              routePrefix,
+                              `/campaigns/${participant.campaignId}/participants/${participant.id}`
+                            )}
+                            className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                          >
+                            {label}
+                            <ExternalLink className="size-3.5 opacity-60" />
+                          </Link>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {participant.campaignTitle} • Completed {formatDate(participant.completedAt)}
+                          </p>
+                        </div>
+                        <Link
+                          href={getParticipantReportHref(routePrefix, participant.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                        >
+                          Open report
+                          <ExternalLink className="size-3.5 opacity-70" />
+                        </Link>
+                        {access.canExportReports ? (
+                          <Link
+                            href={getParticipantExportHref(routePrefix, participant.id)}
+                            className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            Export
+                            <ExternalLink className="size-3.5 opacity-70" />
+                          </Link>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       ) : null}
 
       <Card>
@@ -1241,7 +1633,18 @@ async function WorkspaceResultsPage({
               {completedDiagnostics.map((session) => (
                 <div key={session.id} className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3">
                   <div>
-                    <p className="font-medium">{session.title}</p>
+                    <Link
+                      href={applyRoutePrefix(
+                        routePrefix,
+                        surface === "client"
+                          ? `/diagnostic-results/${session.id}`
+                          : `/diagnostics/${session.id}`
+                      )}
+                      className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                    >
+                      {session.title}
+                      <ExternalLink className="size-3.5 opacity-60" />
+                    </Link>
                     <p className="text-xs text-muted-foreground">
                       {session.organizationName} • {session.templateName}
                     </p>
@@ -1335,7 +1738,13 @@ async function WorkspaceMatchingPage({
                     <TableRow key={run.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{run.sessionTitle || "Matching run"}</p>
+                          <Link
+                            href={applyRoutePrefix(routePrefix, `/diagnostics/${run.diagnosticSessionId}`)}
+                            className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                          >
+                            {run.sessionTitle || "Matching run"}
+                            <ExternalLink className="size-3.5 opacity-60" />
+                          </Link>
                           <p className="text-xs text-muted-foreground">
                             Created {formatDate(run.created_at)}{run.completedAt ? ` • Completed ${formatDate(run.completedAt)}` : ""}
                           </p>
@@ -1411,6 +1820,31 @@ export async function WorkspacePortalLivePage({
     );
   }
 
+  if (supportedKey === "diagnostics" && segments.length === 2) {
+    return (
+      <WorkspaceDiagnosticDetailPage
+        access={access}
+        config={config}
+        routePrefix={routePrefix}
+        sessionId={segments[1]}
+        surface={surface}
+      />
+    );
+  }
+
+  if (supportedKey === "diagnostic-results" && surface === "client" && segments.length === 2) {
+    return (
+      <WorkspaceDiagnosticDetailPage
+        access={access}
+        config={config}
+        routePrefix={routePrefix}
+        sessionId={segments[1]}
+        surface={surface}
+        resultsMode
+      />
+    );
+  }
+
   switch (supportedKey) {
     case "":
       return (
@@ -1462,6 +1896,7 @@ export async function WorkspacePortalLivePage({
           access={access}
           config={config}
           routePrefix={routePrefix}
+          surface={surface}
         />
       );
     case "diagnostic-results":
@@ -1472,6 +1907,7 @@ export async function WorkspacePortalLivePage({
             config={config}
             routePrefix={routePrefix}
             diagnosticsOnly
+            surface={surface}
           />
         );
       }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Brain, FileQuestion, ArrowRight, Plus, Wand2 } from "lucide-react"
@@ -124,18 +124,18 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
   })
 
   // Dirty tracking (structural fields only)
-  const initialStructural = useRef({
+  const [savedStructural, setSavedStructural] = useState(() => ({
     name: construct?.name ?? "",
     slug: construct?.slug ?? "",
     isActive: construct?.isActive ?? true,
-  })
+  }))
 
   const isStructuralDirty =
     mode === "create"
       ? name.trim() !== ""
-      : name !== initialStructural.current.name ||
-        slug !== initialStructural.current.slug ||
-        isActive !== initialStructural.current.isActive
+      : name !== savedStructural.name ||
+        slug !== savedStructural.slug ||
+        isActive !== savedStructural.isActive
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(isStructuralDirty)
@@ -198,7 +198,7 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
       toast.success(mode === "create" ? "Construct created" : "Changes saved")
       setSaveState("saved")
       setTimeout(() => setSaveState("idle"), 2000)
-      initialStructural.current = { name, slug, isActive }
+      setSavedStructural({ name, slug, isActive })
       if (mode === "create" && result.slug) {
         router.replace(`/constructs/${result.slug}/edit`, { scroll: false })
       }
