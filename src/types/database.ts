@@ -133,7 +133,16 @@ export type ReportType = 'self_report' | '360'
 export type ReportDisplayLevel = 'dimension' | 'factor' | 'construct'
 
 /** How the report refers to the participant in narrative text. */
-export type PersonReferenceType = 'you' | 'first_name' | 'participant' | 'the_participant'
+export type PersonReferenceType = 'you' | 'first_name' | 'participant' | 'the_participant' | 'neutral'
+
+/** Presentation layout mode for a report block. */
+export type PresentationMode = 'featured' | 'open' | 'carded' | 'split' | 'inset'
+
+/** Chart visualisation variant for score blocks. */
+export type ChartType = 'bar' | 'radar' | 'gauges' | 'segment' | 'scorecard' | 'grouped_bar' | 'radar_360' | 'gap'
+
+/** Controls which brand layer is applied to a report. */
+export type BrandModeType = 'platform' | 'client' | 'custom'
 
 /** Lifecycle status of a report snapshot. */
 export type ReportSnapshotStatus = 'pending' | 'generating' | 'ready' | 'released' | 'failed'
@@ -1698,6 +1707,7 @@ export interface CampaignReportConfig {
   participantTemplateId?: string
   hrManagerTemplateId?: string
   consultantTemplateId?: string
+  brandMode?: BrandModeType
   created_at: string
   updated_at?: string
 }

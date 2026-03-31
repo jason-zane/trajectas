@@ -19,18 +19,30 @@ export interface NarrativeEntity {
 /**
  * Resolve the {{person}} token to the appropriate reference string.
  * firstName is only used when personReference === 'first_name'.
+ *
+ * neutral: removes the token entirely and collapses any resulting double spaces.
+ * participant: no article ("participant demonstrates...")
+ * the_participant: with article ("the participant demonstrates...")
  */
 export function resolvePersonToken(
   text: string,
   personReference: PersonReferenceType,
   firstName?: string,
 ): string {
+  if (personReference === 'neutral') {
+    return text
+      .replace(/\{\{person\}\}\s*/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim()
+  }
   const ref =
     personReference === 'you'
       ? 'you'
       : personReference === 'first_name'
         ? (firstName ?? 'the participant')
-        : 'the participant'
+        : personReference === 'participant'
+          ? 'participant'
+          : 'the participant'
   return text.replace(/\{\{person\}\}/g, ref)
 }
 

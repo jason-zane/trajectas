@@ -12,9 +12,15 @@ import { NormComparisonBlock } from './blocks/norm-comparison'
 import { RaterComparisonBlock } from './blocks/rater-comparison'
 import { GapAnalysisBlock } from './blocks/gap-analysis'
 import { OpenCommentsBlock } from './blocks/open-comments'
+import { ModeWrapper } from './modes/mode-wrapper'
 import type { ResolvedBlockData, BlockType } from '@/lib/reports/types'
+import type { PresentationMode, ChartType, ReportTheme } from '@/lib/reports/presentation'
 
-type BlockComponent = (props: { data: Record<string, unknown> }) => React.ReactElement | null
+type BlockComponent = (props: {
+  data: Record<string, unknown>
+  mode?: PresentationMode
+  chartType?: ChartType
+}) => React.ReactElement | null
 
 const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   cover_page: CoverPageBlock,
@@ -30,6 +36,15 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   open_comments: OpenCommentsBlock,
 }
 
+function themeToStyle(theme: ReportTheme): React.CSSProperties {
+  const style: Record<string, string> = {}
+  for (const [key, value] of Object.entries(theme)) {
+    const cssVar = `--${key.replace(/([A-Z])/g, '-$1').toLowerCase()}`
+    style[cssVar] = value
+  }
+  return style as React.CSSProperties
+}
+
 interface ReportRendererProps {
   blocks: ResolvedBlockData[]
   className?: string
@@ -39,25 +54,34 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
   const searchParams = useSearchParams()
   const isPrint = searchParams.get('format') === 'print'
 
+  // Extract resolved brand theme from the first block that has it
+  const brandTheme = blocks.find((b) => b.resolvedBrandTheme)?.resolvedBrandTheme
+
   return (
     <div
       data-print={isPrint ? 'true' : undefined}
-      className={`space-y-8 ${className ?? ''}`}
+      className={className}
+      style={brandTheme ? themeToStyle(brandTheme) : undefined}
     >
       {blocks
         .filter((block) => !block.skipped)
-        .filter((block) => isPrint ? !block.printHide : !block.screenHide)
+        .filter((block) => (isPrint ? !block.printHide : !block.screenHide))
         .map((block) => {
           const Component = BLOCK_COMPONENTS[block.type]
           if (!Component) return null
 
+          const mode = block.presentationMode ?? 'open'
+
           return (
-            <div
+            <ModeWrapper
               key={block.blockId}
-              className={block.printBreakBefore ? 'print:break-before-page' : ''}
+              mode={mode}
+              columns={block.columns}
+              insetAccent={block.insetAccent}
+              className={block.printBreakBefore ? 'print:break-before-page' : undefined}
             >
-              <Component data={block.data} />
-            </div>
+              <Component data={block.data} mode={mode} chartType={block.chartType} />
+            </ModeWrapper>
           )
         })}
     </div>

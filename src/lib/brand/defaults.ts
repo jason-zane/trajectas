@@ -1,4 +1,5 @@
 import type { BrandConfig, PortalAccents, SemanticColors, TaxonomyColors, EmailStyleColors } from './types'
+import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 
 /** Default portal accent colors. */
 export const DEFAULT_PORTAL_ACCENTS: Readonly<PortalAccents> = {
@@ -46,6 +47,7 @@ export const TALENT_FIT_DEFAULTS: Readonly<BrandConfig> = {
   semanticColors: { ...DEFAULT_SEMANTIC_COLORS },
   taxonomyColors: { ...DEFAULT_TAXONOMY_COLORS },
   emailStyles: { ...DEFAULT_EMAIL_STYLES },
+  reportTheme: { ...DEFAULT_REPORT_THEME },
   headingFont: 'Plus Jakarta Sans',
   bodyFont: 'Plus Jakarta Sans',
   monoFont: 'Geist Mono',

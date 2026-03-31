@@ -2,6 +2,8 @@
 // src/lib/reports/types.ts — Block engine type system
 // =============================================================================
 
+import type { PresentationMode, ChartType, ReportTheme } from './presentation'
+
 // ---------------------------------------------------------------------------
 // Block type registry key
 // ---------------------------------------------------------------------------
@@ -136,6 +138,10 @@ export interface BlockConfig<T extends BlockType = BlockType> {
   printBreakBefore?: boolean
   printHide?: boolean
   screenHide?: boolean
+  presentationMode?: PresentationMode
+  columns?: 1 | 2 | 3
+  chartType?: ChartType
+  insetAccent?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -153,6 +159,11 @@ export interface ResolvedBlockData {
   data: Record<string, unknown>
   skipped?: boolean
   skipReason?: string
+  presentationMode?: PresentationMode
+  columns?: 1 | 2 | 3
+  chartType?: ChartType
+  insetAccent?: string
+  resolvedBrandTheme?: ReportTheme
 }
 
 // ---------------------------------------------------------------------------

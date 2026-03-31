@@ -82,6 +82,7 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
   const [participantId, setParticipantId] = useState(config?.participantTemplateId ?? NONE)
   const [hrManagerId, setHrManagerId] = useState(config?.hrManagerTemplateId ?? NONE)
   const [consultantId, setConsultantId] = useState(config?.consultantTemplateId ?? NONE)
+  const [brandMode, setBrandMode] = useState(config?.brandMode ?? 'platform')
   const [isPending, startTransition] = useTransition()
 
   const selfReportTemplates = templates.filter((t) => t.reportType === 'self_report')
@@ -94,6 +95,7 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
           participantTemplateId: participantId === NONE ? null : participantId,
           hrManagerTemplateId: hrManagerId === NONE ? null : hrManagerId,
           consultantTemplateId: consultantId === NONE ? null : consultantId,
+          brandMode,
         }
         await upsertCampaignReportConfig(campaignId, input)
         toast.success('Report config saved')
@@ -146,6 +148,24 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
           selfReportTemplates={selfReportTemplates}
           templates360={templates360}
         />
+      </div>
+
+      {/* Brand mode */}
+      <div className="space-y-1.5">
+        <Label htmlFor="brand-mode">Report brand</Label>
+        <p className="text-xs text-muted-foreground">
+          Controls which brand colours and logos appear on generated reports.
+        </p>
+        <Select value={brandMode} onValueChange={(v) => { if (v) setBrandMode(v) }}>
+          <SelectTrigger id="brand-mode" className="w-full sm:w-64">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="platform">Platform — your brand colours</SelectItem>
+            <SelectItem value="client">Client — organisation brand colours</SelectItem>
+            <SelectItem value="custom" disabled>Custom — coming soon</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex justify-end">

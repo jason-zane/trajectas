@@ -669,4 +669,19 @@
   .break-inside-avoid {
     break-inside: avoid;
   }
+
+  /* Report presentation mode print styles */
+  [data-mode="featured"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  [data-mode="carded"],
+  [data-mode="inset"] {
+    break-inside: avoid;
+  }
+
+  [data-mode="carded"] > div {
+    break-inside: avoid;
+  }
 }

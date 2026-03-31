@@ -16,6 +16,7 @@ import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { PortalAccentEditor } from "@/components/brand-editor/portal-accent-editor"
 import { TaxonomyColorEditor } from "@/components/brand-editor/taxonomy-color-editor"
 import { EmailStyleEditor } from "@/components/brand-editor/email-style-editor"
+import { ReportThemeEditor } from "@/components/brand-editor/report-theme-editor"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { upsertBrandConfig } from "@/app/actions/brand"
 import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
@@ -29,6 +30,8 @@ import type {
   TaxonomyColors,
   EmailStyleColors,
 } from "@/lib/brand/types"
+import type { ReportTheme } from "@/lib/reports/presentation"
+import { DEFAULT_REPORT_THEME } from "@/lib/reports/presentation"
 import { cn } from "@/lib/utils"
 
 interface BrandEditorProps {
@@ -167,6 +170,7 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           <TabsTrigger value="typography">Typography</TabsTrigger>
           <TabsTrigger value="shape">Shape</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
@@ -506,6 +510,14 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* --- Report Theme --- */}
+        <TabsContent value="reports" className="space-y-6">
+          <ReportThemeEditor
+            value={config.reportTheme ?? { ...DEFAULT_REPORT_THEME }}
+            onChange={(reportTheme) => setConfig((prev) => ({ ...prev, reportTheme }))}
+          />
         </TabsContent>
 
         {/* --- Preview --- */}

@@ -1,4 +1,10 @@
-import type { ScoreDetailConfig, BandResult, Band } from '@/lib/reports/types'
+import type { ScoreDetailConfig, BandResult } from '@/lib/reports/types'
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+import { BandBadge } from '../charts/band-badge'
+import { BarChart } from '../charts/bar-chart'
+import { SegmentBar } from '../charts/segment-bar'
+import { MiniBar } from '../charts/mini-bar'
+import { ScorecardTable } from '../charts/scorecard-table'
 
 interface ScoreDetailEntity {
   entityId: string
@@ -24,16 +30,11 @@ interface ScoreDetailData {
   bandResult?: BandResult
   narrative?: string | null
   developmentSuggestion?: string | null
+  parentName?: string
   _empty?: boolean
 }
 
-const BAND_STYLES: Record<Band, string> = {
-  low: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
-  mid: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
-  high: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-}
-
-export function ScoreDetailBlock({ data }: { data: Record<string, unknown> }) {
+export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as ScoreDetailData
   if (d._empty) return null
 
@@ -55,60 +56,225 @@ export function ScoreDetailBlock({ data }: { data: Record<string, unknown> }) {
 
   if (entities.length === 0) return null
 
+  const resolvedMode = mode ?? 'open'
+  const resolvedChart = chartType ?? 'bar'
   const { config } = d
 
+  // Scorecard mode — renders all entities in a single table
+  if (resolvedChart === 'scorecard') {
+    return (
+      <ScorecardTable
+        items={entities.map((entity) => ({
+          name: entity.entityName,
+          parentName: d.parentName ?? '',
+          value: entity.pompScore,
+          band: entity.bandResult.band,
+          bandLabel: entity.bandResult.bandLabel,
+        }))}
+      />
+    )
+  }
+
+  // Render each entity through the appropriate layout
   return (
     <div className="space-y-6">
-      {entities.map((entity) => (
-        <div key={entity.entityId} className="space-y-4 py-2 break-inside-avoid">
-          {/* Header: entity name + score */}
-          <div className="flex items-start justify-between gap-4">
-            <h3 className="text-lg font-semibold">{entity.entityName}</h3>
-            {config.showScore && (
-              <div className="flex items-center gap-2 shrink-0">
-                {config.showBandLabel && (
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${BAND_STYLES[entity.bandResult.band]}`}
-                  >
-                    {entity.bandResult.bandLabel}
-                  </span>
-                )}
-                <span className="text-2xl font-bold tabular-nums text-primary">
-                  {Math.round(entity.pompScore)}
-                </span>
-              </div>
+      {entities.map((entity) => {
+        if (resolvedMode === 'featured') {
+          return <FeaturedLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} />
+        }
+        if (resolvedMode === 'carded') {
+          return <CardedLayout key={entity.entityId} entity={entity} config={config} />
+        }
+        return <OpenLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} />
+      })}
+    </div>
+  )
+}
+
+/* ---------- Open layout ---------- */
+function OpenLayout({
+  entity,
+  config,
+  resolvedChart,
+}: {
+  entity: ScoreDetailEntity
+  config: ScoreDetailConfig
+  resolvedChart: string
+}) {
+  return (
+    <div className="space-y-4 py-2 break-inside-avoid">
+      {/* Header: entity name + band badge */}
+      <div className="flex items-start justify-between gap-4">
+        <h3
+          className="text-lg font-semibold"
+          style={{ color: 'var(--report-heading-colour)' }}
+        >
+          {entity.entityName}
+        </h3>
+        {config.showScore && (
+          <div className="flex items-center gap-2 shrink-0">
+            {config.showBandLabel && (
+              <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
             )}
+            <span
+              className="text-2xl font-bold tabular-nums"
+              style={{ color: 'var(--report-heading-colour)' }}
+            >
+              {Math.round(entity.pompScore)}
+            </span>
           </div>
+        )}
+      </div>
 
-          {/* Score bar */}
-          {config.showScore && (
-            <div className="h-2 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-primary transition-all"
-                style={{ width: `${entity.pompScore}%` }}
-              />
-            </div>
-          )}
+      {/* Score visualisation */}
+      {config.showScore && (
+        resolvedChart === 'segment' ? (
+          <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
+        ) : (
+          <BarChart
+            items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
+          />
+        )
+      )}
 
-          {/* Definition */}
-          {config.showDefinition && entity.definition && (
-            <p className="text-sm text-muted-foreground italic">{entity.definition}</p>
-          )}
+      {/* Definition */}
+      {config.showDefinition && entity.definition && (
+        <p className="text-sm italic" style={{ color: 'var(--report-muted-colour)' }}>
+          {entity.definition}
+        </p>
+      )}
 
-          {/* Narrative */}
-          {(config.showIndicators || config.showDefinition) && entity.narrative && (
-            <p className="text-sm leading-relaxed">{entity.narrative}</p>
-          )}
+      {/* Narrative */}
+      {(config.showIndicators || config.showDefinition) && entity.narrative && (
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
+          {entity.narrative}
+        </p>
+      )}
 
-          {/* Development suggestion */}
-          {config.showDevelopment && entity.developmentSuggestion && (
-            <div className="rounded-lg border border-border bg-muted/50 p-4">
-              <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Development</p>
-              <p className="text-sm">{entity.developmentSuggestion}</p>
-            </div>
-          )}
+      {/* Development suggestion */}
+      {config.showDevelopment && entity.developmentSuggestion && (
+        <div
+          className="rounded-lg border p-4"
+          style={{
+            borderColor: 'var(--report-divider)',
+            background: 'var(--report-card-bg)',
+          }}
+        >
+          <p
+            className="text-xs font-medium mb-1 uppercase tracking-wide"
+            style={{ color: 'var(--report-label-colour)' }}
+          >
+            Development
+          </p>
+          <p className="text-sm" style={{ color: 'var(--report-body-colour)' }}>
+            {entity.developmentSuggestion}
+          </p>
         </div>
-      ))}
+      )}
+
+      {/* Divider at bottom for open-mode stacking */}
+      <div className="pt-2" style={{ borderBottom: '1px solid var(--report-divider)' }} />
+    </div>
+  )
+}
+
+/* ---------- Carded layout ---------- */
+function CardedLayout({
+  entity,
+  config,
+}: {
+  entity: ScoreDetailEntity
+  config: ScoreDetailConfig
+}) {
+  return (
+    <div
+      className="border rounded-xl p-5 break-inside-avoid"
+      style={{
+        background: 'var(--report-card-bg)',
+        borderColor: 'var(--report-card-border)',
+      }}
+    >
+      {/* Name */}
+      <h3
+        className="text-[15px] font-semibold mb-2"
+        style={{ color: 'var(--report-heading-colour)' }}
+      >
+        {entity.entityName}
+      </h3>
+
+      {/* Band badge + score row */}
+      {config.showScore && (
+        <div className="flex items-center gap-2 mb-3">
+          {config.showBandLabel && (
+            <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
+          )}
+          <span
+            className="text-lg font-bold tabular-nums"
+            style={{ color: 'var(--report-heading-colour)' }}
+          >
+            {Math.round(entity.pompScore)}
+          </span>
+        </div>
+      )}
+
+      {/* Mini bar */}
+      {config.showScore && (
+        <MiniBar value={entity.pompScore} band={entity.bandResult.band} className="mb-3" />
+      )}
+
+      {/* Short narrative */}
+      {entity.narrative && (
+        <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
+          {entity.narrative}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/* ---------- Featured layout ---------- */
+function FeaturedLayout({
+  entity,
+  config,
+  resolvedChart,
+}: {
+  entity: ScoreDetailEntity
+  config: ScoreDetailConfig
+  resolvedChart: string
+}) {
+  return (
+    <div className="space-y-4 break-inside-avoid">
+      {/* Large heading */}
+      <h3 className="text-2xl font-semibold text-current">{entity.entityName}</h3>
+
+      {/* Band label in accent colour */}
+      {config.showBandLabel && (
+        <span
+          className="text-[11px] font-semibold uppercase tracking-wider"
+          style={{ color: 'var(--report-featured-accent)' }}
+        >
+          {entity.bandResult.bandLabel}
+        </span>
+      )}
+
+      {/* Score bar */}
+      {config.showScore && (
+        resolvedChart === 'segment' ? (
+          <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
+        ) : (
+          <BarChart
+            items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
+            variant="dark"
+          />
+        )
+      )}
+
+      {/* Narrative */}
+      {entity.narrative && (
+        <p className="text-sm leading-relaxed text-current opacity-80">
+          {entity.narrative}
+        </p>
+      )}
     </div>
   )
 }

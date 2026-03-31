@@ -2,6 +2,8 @@
 // Brand configuration types
 // =============================================================================
 
+import type { ReportTheme } from '@/lib/reports/presentation'
+
 /** Neutral tone temperature — controls the hue tint of all gray/neutral tones. */
 export type NeutralTemperature = 'warm' | 'neutral' | 'cool'
 
@@ -98,6 +100,9 @@ export interface BrandConfig {
 
   /** Email template style overrides. */
   emailStyles?: EmailStyleColors
+
+  /** Report rendering theme colors. */
+  reportTheme?: ReportTheme
 
   // -- Typography -----------------------------------------------------------
 

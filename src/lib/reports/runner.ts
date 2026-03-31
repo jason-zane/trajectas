@@ -17,6 +17,8 @@ import { parseBlocks } from './registry'
 import { resolveBand, DEFAULT_BAND_GLOBALS } from './band-resolution'
 import { buildDerivedNarrative, buildDevelopmentSuggestion } from './narrative'
 import { enhanceNarrative, generateStrengthsAnalysis, generateDevelopmentAdvice } from './ai-narrative'
+import { DEFAULT_REPORT_THEME } from './presentation'
+import type { ReportTheme } from './presentation'
 import type { BlockConfig, ResolvedBlockData } from './types'
 import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig } from './types'
 import type { PersonReferenceType, ReportDisplayLevel } from '@/types/database'
@@ -101,6 +103,11 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       lastName: sessionRow.profiles?.last_name,
     }
 
+    // Resolve brand theme for the report
+    // TODO: when brand_mode support is fully wired, resolve from campaign_report_config.brand_mode
+    // For now, use the platform default report theme
+    const resolvedBrandTheme: ReportTheme = DEFAULT_REPORT_THEME
+
     // Fetch all taxonomy entities needed by score blocks
     const entityIds = extractEntityIds(blocks)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -123,6 +130,10 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
           printBreakBefore: block.printBreakBefore,
           printHide: block.printHide,
           screenHide: block.screenHide,
+          presentationMode: block.presentationMode,
+          columns: block.columns,
+          chartType: block.chartType,
+          insetAccent: block.insetAccent,
           data: {},
           skipped: true,
           skipReason: conditionResult.reason,
@@ -148,8 +159,18 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         printBreakBefore: block.printBreakBefore,
         printHide: block.printHide,
         screenHide: block.screenHide,
+        presentationMode: block.presentationMode,
+        columns: block.columns,
+        chartType: block.chartType,
+        insetAccent: block.insetAccent,
         data,
       })
+    }
+
+    // Attach resolved brand theme to the first non-skipped block
+    const firstActive = resolvedBlocks.find((b) => !b.skipped)
+    if (firstActive) {
+      firstActive.resolvedBrandTheme = resolvedBrandTheme
     }
 
     // -----------------------------------------------------------------------

@@ -3,12 +3,16 @@
 // =============================================================================
 
 import type { BlockType, BlockCategory, BlockConfig } from './types'
+import type { PresentationMode, ChartType } from './presentation'
 
 export interface BlockMeta {
   label: string
   category: BlockCategory
   description: string
   defaultConfig: Record<string, unknown>
+  supportedModes: PresentationMode[]
+  supportedCharts?: ChartType[]
+  defaultMode: PresentationMode
   is360Only?: boolean
   isDeferred?: boolean
 }
@@ -18,49 +22,69 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     label: 'Cover Page',
     category: 'meta',
     description: 'Participant name, campaign title, date, and partner logo.',
-    defaultConfig: { showDate: true, showLogo: true },
+    defaultConfig: { showDate: true, subtitle: null, showPrimaryLogo: true, showSecondaryLogo: false, showPoweredBy: false, poweredByText: 'Powered by Talent Fit' },
+    supportedModes: ['featured'],
+    defaultMode: 'featured',
   },
   custom_text: {
     label: 'Custom Text',
     category: 'meta',
     description: 'Admin-authored freeform text or instructions. Supports markdown.',
     defaultConfig: { heading: '', content: '' },
+    supportedModes: ['open', 'inset'],
+    defaultMode: 'open',
   },
   section_divider: {
     label: 'Section Divider',
     category: 'meta',
     description: 'Visual break with title and optional subtitle.',
     defaultConfig: { title: 'Section Title' },
+    supportedModes: ['open'],
+    defaultMode: 'open',
   },
   score_overview: {
     label: 'Score Overview',
     category: 'score',
     description: 'Radar or bar chart across all factors or dimensions.',
     defaultConfig: { chartType: 'radar', displayLevel: 'factor', groupByDimension: true, showDimensionScore: true },
+    supportedModes: ['featured', 'open', 'split'],
+    supportedCharts: ['bar', 'radar', 'gauges', 'radar_360'],
+    defaultMode: 'open',
   },
   score_detail: {
     label: 'Score Detail',
     category: 'score',
     description: 'One or more entity scores with band labels, definitions, indicators, and development suggestions.',
     defaultConfig: { displayLevel: 'factor', entityIds: [], showScore: true, showBandLabel: true, showDefinition: true, showIndicators: true, showDevelopment: false, showChildBreakdown: false },
+    supportedModes: ['featured', 'open', 'carded', 'split'],
+    supportedCharts: ['bar', 'segment', 'scorecard'],
+    defaultMode: 'open',
   },
   strengths_highlights: {
     label: 'Strengths Highlights',
     category: 'highlight',
     description: 'Top N entities by score with hero visual treatment.',
     defaultConfig: { topN: 3, displayLevel: 'factor', style: 'cards', aiNarrative: false },
+    supportedModes: ['featured', 'open', 'carded', 'split'],
+    supportedCharts: ['bar', 'segment'],
+    defaultMode: 'carded',
   },
   development_plan: {
     label: 'Development Plan',
     category: 'highlight',
     description: 'Aggregated development suggestions prioritised by lowest score.',
     defaultConfig: { maxItems: 3, prioritiseByScore: true, aiNarrative: false },
+    supportedModes: ['open', 'carded', 'split'],
+    defaultMode: 'carded',
   },
   norm_comparison: {
     label: 'Norm Comparison',
     category: 'score',
     description: 'Percentile/sten rank against norm group. Deferred — requires norm group assignment.',
     defaultConfig: { _deferred: true },
+    supportedModes: ['open', 'carded', 'split'],
+    supportedCharts: ['bar', 'segment', 'scorecard'],
+    defaultMode: 'carded',
     isDeferred: true,
   },
   rater_comparison: {
@@ -68,6 +92,9 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     category: '360',
     description: 'Grouped bars: self vs manager vs peers vs direct reports.',
     defaultConfig: { raterGroups: ['self', 'manager', 'peers', 'direct_reports'] },
+    supportedModes: ['open', 'carded', 'split'],
+    supportedCharts: ['grouped_bar', 'radar_360'],
+    defaultMode: 'open',
     is360Only: true,
   },
   gap_analysis: {
@@ -75,6 +102,9 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     category: '360',
     description: 'Blind spots (self high, others low) and hidden strengths (self low, others high).',
     defaultConfig: { gapThreshold: 20, showBlindSpots: true, showHiddenStrengths: true },
+    supportedModes: ['open', 'split', 'inset'],
+    supportedCharts: ['gap'],
+    defaultMode: 'open',
     is360Only: true,
   },
   open_comments: {
@@ -82,6 +112,8 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     category: '360',
     description: 'Aggregated qualitative feedback from raters. Anonymity floor: min 3 raters.',
     defaultConfig: { minRatersForDisplay: 3, groupByFactor: true },
+    supportedModes: ['open', 'inset'],
+    defaultMode: 'open',
     is360Only: true,
   },
 }
@@ -97,6 +129,19 @@ export const BLOCK_CATEGORIES: Record<BlockCategory, { label: string; order: num
 export function parseBlocks(raw: Record<string, unknown>[]): BlockConfig[] {
   return raw
     .filter((b) => typeof b.type === 'string' && b.type in BLOCK_REGISTRY)
-    .map((b) => b as unknown as BlockConfig)
+    .map((b) => {
+      const block = b as unknown as BlockConfig
+      const meta = BLOCK_REGISTRY[block.type]
+      // Set default presentation mode if missing
+      if (!block.presentationMode) {
+        block.presentationMode = meta.defaultMode
+      }
+      // Set default chart type if missing and block supports charts
+      if (!block.chartType && meta.supportedCharts?.length) {
+        block.chartType = (block.config as Record<string, unknown>)?.chartType as ChartType
+          ?? meta.supportedCharts[0]
+      }
+      return block
+    })
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 }
