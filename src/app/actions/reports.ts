@@ -173,6 +173,7 @@ export interface UpsertCampaignReportConfigInput {
   participantTemplateId?: string | null
   hrManagerTemplateId?: string | null
   consultantTemplateId?: string | null
+  brandMode?: string
 }
 
 export async function upsertCampaignReportConfig(
@@ -189,6 +190,7 @@ export async function upsertCampaignReportConfig(
         participant_template_id: input.participantTemplateId ?? null,
         hr_manager_template_id: input.hrManagerTemplateId ?? null,
         consultant_template_id: input.consultantTemplateId ?? null,
+        brand_mode: input.brandMode ?? 'platform',
       },
       { onConflict: 'campaign_id' },
     )

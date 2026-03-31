@@ -1658,6 +1658,7 @@ export interface CampaignReportConfig {
   participantTemplateId?: string
   hrManagerTemplateId?: string
   consultantTemplateId?: string
+  brandMode?: BrandModeType
   created_at: string
   updated_at?: string
 }
