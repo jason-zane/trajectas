@@ -1,5 +1,8 @@
 import type { ScoreOverviewConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+import { BarChart } from '../charts/bar-chart'
+import { RadarChart } from '../charts/radar-chart'
+import { GaugeChart } from '../charts/gauge-chart'
 
 interface ScoreEntry {
   entityId: string
@@ -13,32 +16,52 @@ interface ScoreOverviewData {
   config: ScoreOverviewConfig
 }
 
-export function ScoreOverviewBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
+export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as ScoreOverviewData
   if (!d.scores?.length) return null
 
-  return (
-    <div className="space-y-2">
-      {d.scores.map((s) => (
-        <ScoreBarRow key={s.entityId} entry={s} />
-      ))}
-    </div>
-  )
-}
+  const isFeatured = mode === 'featured'
+  const resolvedChart = chartType ?? 'bar'
 
-function ScoreBarRow({ entry }: { entry: ScoreEntry }) {
   return (
-    <div className="grid grid-cols-[200px_1fr_60px] items-center gap-4">
-      <span className="text-sm font-medium truncate">{entry.entityName}</span>
-      <div className="h-2 rounded-full bg-muted overflow-hidden">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${entry.pompScore}%` }}
-        />
+    <div>
+      <div
+        className="text-[10px] uppercase tracking-[2px] mb-5"
+        style={{ color: isFeatured ? 'rgba(255,255,255,0.5)' : 'var(--report-label-colour)' }}
+      >
+        Score Overview
       </div>
-      <span className="text-sm tabular-nums text-right text-muted-foreground">
-        {Math.round(entry.pompScore)}
-      </span>
+
+      {resolvedChart === 'radar' && (
+        <RadarChart
+          items={d.scores.map((s) => ({ name: s.entityName, value: s.pompScore }))}
+          variant={isFeatured ? 'dark' : 'light'}
+        />
+      )}
+
+      {resolvedChart === 'gauges' && (
+        <GaugeChart
+          items={d.scores.map((s) => ({
+            name: s.entityName,
+            value: s.pompScore,
+            band: s.bandResult.band,
+            bandLabel: s.bandResult.bandLabel,
+          }))}
+        />
+      )}
+
+      {resolvedChart === 'bar' && (
+        <BarChart
+          items={d.scores.map((s) => ({
+            name: s.entityName,
+            value: s.pompScore,
+            band: s.bandResult.band,
+          }))}
+          showBandLabels
+          showScore
+          variant={isFeatured ? 'dark' : 'light'}
+        />
+      )}
     </div>
   )
 }
