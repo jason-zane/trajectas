@@ -24,6 +24,9 @@ import type {
   GenerationRun,
   GeneratedItem,
   GenerationRunLog,
+  ReportTemplate,
+  CampaignReportConfig,
+  ReportSnapshot,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
 import type { ExperienceTemplateRecord } from '@/lib/experience/types'
@@ -47,6 +50,12 @@ export function mapDimensionRow(row: any): Dimension {
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
+    bandLabelLow: row.band_label_low ?? undefined,
+    bandLabelMid: row.band_label_mid ?? undefined,
+    bandLabelHigh: row.band_label_high ?? undefined,
+    pompThresholdLow: row.pomp_threshold_low ?? undefined,
+    pompThresholdHigh: row.pomp_threshold_high ?? undefined,
+    developmentSuggestion: row.development_suggestion ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -69,6 +78,12 @@ export function mapFactorRow(row: any): Factor {
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
+    bandLabelLow: row.band_label_low ?? undefined,
+    bandLabelMid: row.band_label_mid ?? undefined,
+    bandLabelHigh: row.band_label_high ?? undefined,
+    pompThresholdLow: row.pomp_threshold_low ?? undefined,
+    pompThresholdHigh: row.pomp_threshold_high ?? undefined,
+    developmentSuggestion: row.development_suggestion ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -88,6 +103,12 @@ export function mapConstructRow(row: any): Construct {
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
+    bandLabelLow: row.band_label_low ?? undefined,
+    bandLabelMid: row.band_label_mid ?? undefined,
+    bandLabelHigh: row.band_label_high ?? undefined,
+    pompThresholdLow: row.pomp_threshold_low ?? undefined,
+    pompThresholdHigh: row.pomp_threshold_high ?? undefined,
+    developmentSuggestion: row.development_suggestion ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -675,5 +696,59 @@ export function mapGenerationRunLogRow(row: any): GenerationRunLog {
     details: row.details ?? undefined,
     durationMs: row.duration_ms ?? undefined,
     created_at: row.created_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapReportTemplateRow(row: any): ReportTemplate {
+  return {
+    id: row.id,
+    partnerId: row.partner_id ?? undefined,
+    name: row.name,
+    description: row.description ?? undefined,
+    reportType: row.report_type,
+    displayLevel: row.display_level,
+    groupByDimension: row.group_by_dimension,
+    personReference: row.person_reference,
+    autoRelease: row.auto_release,
+    blocks: Array.isArray(row.blocks) ? row.blocks : [],
+    isActive: row.is_active,
+    deletedAt: row.deleted_at ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCampaignReportConfigRow(row: any): CampaignReportConfig {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    participantTemplateId: row.participant_template_id ?? undefined,
+    hrManagerTemplateId: row.hr_manager_template_id ?? undefined,
+    consultantTemplateId: row.consultant_template_id ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapReportSnapshotRow(row: any): ReportSnapshot {
+  return {
+    id: row.id,
+    templateId: row.template_id,
+    participantSessionId: row.participant_session_id,
+    campaignId: row.campaign_id,
+    audienceType: row.audience_type,
+    status: row.status,
+    narrativeMode: row.narrative_mode,
+    renderedData: row.rendered_data ?? undefined,
+    pdfUrl: row.pdf_url ?? undefined,
+    releasedAt: row.released_at ?? undefined,
+    releasedBy: row.released_by ?? undefined,
+    generatedAt: row.generated_at ?? undefined,
+    errorMessage: row.error_message ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
   }
 }

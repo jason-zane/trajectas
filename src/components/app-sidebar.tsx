@@ -67,6 +67,7 @@ const adminNav = [
       },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
+      { title: "Reports", href: "/reports", icon: FileText },
     ],
   },
   {
@@ -109,6 +110,7 @@ const adminNav = [
       { title: "Experience", href: "/settings/experience", icon: Users },
       { title: "AI Models", href: "/settings/models", icon: Cpu },
       { title: "AI Prompts", href: "/settings/prompts", icon: Braces },
+      { title: "Report Templates", href: "/settings/reports", icon: FileText },
     ],
   },
 ];
