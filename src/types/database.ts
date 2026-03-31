@@ -120,6 +120,25 @@ export type AIPromptPurpose =
   | 'preflight_analysis'
   | 'embedding'
   | 'chat'
+  | 'report_narrative'
+
+/** Report assessment type. */
+export type ReportType = 'self_report' | '360'
+
+/** Score resolution depth for a report block. */
+export type ReportDisplayLevel = 'dimension' | 'factor' | 'construct'
+
+/** How the report refers to the participant in narrative text. */
+export type PersonReferenceType = 'you' | 'first_name' | 'participant' | 'the_participant'
+
+/** Lifecycle status of a report snapshot. */
+export type ReportSnapshotStatus = 'pending' | 'generating' | 'ready' | 'released' | 'failed'
+
+/** The intended audience for a report snapshot. */
+export type ReportAudienceType = 'participant' | 'hr_manager' | 'consultant'
+
+/** How report narrative text was produced. */
+export type NarrativeModeType = 'derived' | 'ai_enhanced'
 
 /** Execution status for an AI-GENIE item generation run. */
 export type GenerationRunStatus =
@@ -310,6 +329,18 @@ export interface Dimension {
   indicatorsMid?: string
   /** Behavioural indicators for high performance. */
   indicatorsHigh?: string
+  /** Label for the low performance band. Null = global default ("Developing"). */
+  bandLabelLow?: string
+  /** Label for the mid performance band. Null = global default ("Effective"). */
+  bandLabelMid?: string
+  /** Label for the high performance band. Null = global default ("Highly Effective"). */
+  bandLabelHigh?: string
+  /** POMP upper boundary for low band. Null = global default (40). */
+  pompThresholdLow?: number
+  /** POMP lower boundary for high band. Null = global default (70). */
+  pompThresholdHigh?: number
+  /** Development suggestion text for reports. AI-generated when blank. */
+  developmentSuggestion?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -347,6 +378,18 @@ export interface Factor {
   indicatorsMid?: string
   /** Behavioural indicators for high performance. */
   indicatorsHigh?: string
+  /** Label for the low performance band. Null = global default ("Developing"). */
+  bandLabelLow?: string
+  /** Label for the mid performance band. Null = global default ("Effective"). */
+  bandLabelMid?: string
+  /** Label for the high performance band. Null = global default ("Highly Effective"). */
+  bandLabelHigh?: string
+  /** POMP upper boundary for low band. Null = global default (40). */
+  pompThresholdLow?: number
+  /** POMP lower boundary for high band. Null = global default (70). */
+  pompThresholdHigh?: number
+  /** Development suggestion text for reports. AI-generated when blank. */
+  developmentSuggestion?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -378,6 +421,18 @@ export interface Construct {
   indicatorsMid?: string
   /** Behavioural indicators for high performance. */
   indicatorsHigh?: string
+  /** Label for the low performance band. Null = global default ("Developing"). */
+  bandLabelLow?: string
+  /** Label for the mid performance band. Null = global default ("Effective"). */
+  bandLabelMid?: string
+  /** Label for the high performance band. Null = global default ("Highly Effective"). */
+  bandLabelHigh?: string
+  /** POMP upper boundary for low band. Null = global default (40). */
+  pompThresholdLow?: number
+  /** POMP lower boundary for high band. Null = global default (70). */
+  pompThresholdHigh?: number
+  /** Development suggestion text for reports. AI-generated when blank. */
+  developmentSuggestion?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -1555,4 +1610,64 @@ export interface GenerationRunLog {
   details?: Record<string, unknown>
   durationMs?: number
   created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Report generation tables
+// ---------------------------------------------------------------------------
+
+/**
+ * Reusable report layout for a single audience.
+ * Blocks are an ordered JSONB array of BlockConfig objects.
+ */
+export interface ReportTemplate {
+  id: string
+  partnerId?: string
+  name: string
+  description?: string
+  reportType: ReportType
+  displayLevel: ReportDisplayLevel
+  groupByDimension: boolean
+  personReference: PersonReferenceType
+  autoRelease: boolean
+  blocks: Record<string, unknown>[]  // BlockConfig[] — typed in src/lib/reports/types.ts
+  isActive: boolean
+  deletedAt?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Maps audience types to report templates for a campaign.
+ * One row per campaign.
+ */
+export interface CampaignReportConfig {
+  id: string
+  campaignId: string
+  participantTemplateId?: string
+  hrManagerTemplateId?: string
+  consultantTemplateId?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * A point-in-time rendered report for one participant session + audience.
+ */
+export interface ReportSnapshot {
+  id: string
+  templateId: string
+  participantSessionId: string
+  campaignId: string
+  audienceType: ReportAudienceType
+  status: ReportSnapshotStatus
+  narrativeMode: NarrativeModeType
+  renderedData?: Record<string, unknown>  // ResolvedBlockData[] — typed in runner
+  pdfUrl?: string
+  releasedAt?: string
+  releasedBy?: string
+  generatedAt?: string
+  errorMessage?: string
+  created_at: string
+  updated_at?: string
 }

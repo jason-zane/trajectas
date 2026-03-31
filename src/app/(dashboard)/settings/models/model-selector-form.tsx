@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Cpu, Layers, Sparkles, MessageSquare, BarChart3, Check, Loader2, ScanSearch } from "lucide-react"
+import { Cpu, Layers, Sparkles, MessageSquare, BarChart3, Check, Loader2, ScanSearch, FileText } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollReveal } from "@/components/scroll-reveal"
@@ -67,6 +67,12 @@ const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: MessageSquare,
     glowColor: "var(--primary)",
   },
+  report_narrative: {
+    label: "Report Narrative",
+    description: "Generates AI-enhanced narrative text for participant and manager reports.",
+    icon: FileText,
+    glowColor: "var(--primary)",
+  },
 }
 
 const PURPOSE_ORDER: AIPromptPurpose[] = [
@@ -77,6 +83,7 @@ const PURPOSE_ORDER: AIPromptPurpose[] = [
   "competency_matching",
   "ranking_explanation",
   "diagnostic_analysis",
+  "report_narrative",
 ]
 
 // ---------------------------------------------------------------------------
