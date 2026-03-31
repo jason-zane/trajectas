@@ -1,3 +1,5 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 interface DevelopmentItem {
   entityId: string
   entityName: string
@@ -10,7 +12,7 @@ interface DevelopmentData {
   config: { maxItems: number }
 }
 
-export function DevelopmentPlanBlock({ data }: { data: Record<string, unknown> }) {
+export function DevelopmentPlanBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as DevelopmentData
   if (!d.items?.length) return null
 

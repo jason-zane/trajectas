@@ -1,3 +1,5 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 const RATER_LABELS: Record<string, string> = {
   self: 'Self',
   manager: 'Manager',
@@ -23,7 +25,7 @@ interface RaterComparisonData {
   _360?: boolean
 }
 
-export function RaterComparisonBlock({ data }: { data: Record<string, unknown> }) {
+export function RaterComparisonBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as RaterComparisonData
 
   if (d._360 || !d.entries?.length) {

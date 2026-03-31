@@ -1,3 +1,5 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 interface CommentGroup {
   factorName?: string
   comments: string[]
@@ -9,7 +11,7 @@ interface OpenCommentsData {
   _360?: boolean
 }
 
-export function OpenCommentsBlock({ data }: { data: Record<string, unknown> }) {
+export function OpenCommentsBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as OpenCommentsData
 
   if (d._360 || !d.groups?.length) {

@@ -1,9 +1,11 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 interface CustomTextData {
   heading?: string
   content: string
 }
 
-export function CustomTextBlock({ data }: { data: Record<string, unknown> }) {
+export function CustomTextBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as CustomTextData
   return (
     <div className="space-y-3">

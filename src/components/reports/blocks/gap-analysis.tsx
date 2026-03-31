@@ -1,3 +1,5 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 interface GapItem {
   entityName: string
   selfScore: number
@@ -12,7 +14,7 @@ interface GapAnalysisData {
   _360?: boolean
 }
 
-export function GapAnalysisBlock({ data }: { data: Record<string, unknown> }) {
+export function GapAnalysisBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as GapAnalysisData
 
   if (d._360 || (!d.blindSpots?.length && !d.hiddenStrengths?.length)) {

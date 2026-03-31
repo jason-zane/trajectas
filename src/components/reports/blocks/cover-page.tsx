@@ -1,4 +1,5 @@
 import type { CoverPageConfig } from '@/lib/reports/types'
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 
 interface CoverPageData extends CoverPageConfig {
   participantName?: string
@@ -7,7 +8,7 @@ interface CoverPageData extends CoverPageConfig {
   generatedAt?: string
 }
 
-export function CoverPageBlock({ data }: { data: Record<string, unknown> }) {
+export function CoverPageBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as CoverPageData
   const date = d.showDate && d.generatedAt
     ? new Date(d.generatedAt).toLocaleDateString('en-AU', {

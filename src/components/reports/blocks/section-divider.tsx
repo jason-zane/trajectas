@@ -1,9 +1,11 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 interface SectionDividerData {
   title: string
   subtitle?: string
 }
 
-export function SectionDividerBlock({ data }: { data: Record<string, unknown> }) {
+export function SectionDividerBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as SectionDividerData
   return (
     <div className="py-8 border-b border-border">

@@ -1,4 +1,5 @@
 import type { ScoreDetailConfig, BandResult, Band } from '@/lib/reports/types'
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 
 interface ScoreDetailData {
   entityId: string
@@ -19,7 +20,7 @@ const BAND_STYLES: Record<Band, string> = {
   high: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
 }
 
-export function ScoreDetailBlock({ data }: { data: Record<string, unknown> }) {
+export function ScoreDetailBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as ScoreDetailData
   if (d._empty) return null
 

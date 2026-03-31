@@ -1,3 +1,5 @@
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+
 interface StrengthEntry {
   entityId: string
   entityName: string
@@ -9,7 +11,7 @@ interface StrengthsData {
   config: { topN: number; style: 'cards' | 'list' }
 }
 
-export function StrengthsHighlightsBlock({ data }: { data: Record<string, unknown> }) {
+export function StrengthsHighlightsBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as StrengthsData
   if (!d.highlights?.length) return null
 

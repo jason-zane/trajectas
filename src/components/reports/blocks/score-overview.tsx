@@ -1,4 +1,5 @@
 import type { ScoreOverviewConfig, BandResult } from '@/lib/reports/types'
+import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 
 interface ScoreEntry {
   entityId: string
@@ -12,7 +13,7 @@ interface ScoreOverviewData {
   config: ScoreOverviewConfig
 }
 
-export function ScoreOverviewBlock({ data }: { data: Record<string, unknown> }) {
+export function ScoreOverviewBlock({ data, mode: _mode, chartType: _chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
   const d = data as unknown as ScoreOverviewData
   if (!d.scores?.length) return null
 
