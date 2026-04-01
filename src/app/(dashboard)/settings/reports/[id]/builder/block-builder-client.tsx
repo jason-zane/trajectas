@@ -67,6 +67,7 @@ import {
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AutoSaveIndicator } from '@/components/auto-save-indicator'
 import { AddBlockDropdown } from './add-block-dropdown'
+import { BlockContentPanel } from './block-content-panels'
 import type { ReportDisplayLevel, PersonReferenceType } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -594,7 +595,12 @@ export function BlockBuilderClient({
                         {/* Tab content */}
                         <div className="px-4 py-4">
                           {activeTab === 'content' && (
-                            <div className="text-sm text-muted-foreground">Content panel placeholder</div>
+                            <BlockContentPanel
+                              block={block}
+                              entityOptions={entityOptions}
+                              promptOptions={promptOptions}
+                              onUpdateConfig={updateConfig}
+                            />
                           )}
                           {activeTab === 'headers' && (
                             <div className="text-sm text-muted-foreground">Headers panel placeholder</div>
