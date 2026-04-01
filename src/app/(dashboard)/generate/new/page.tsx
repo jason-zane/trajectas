@@ -39,7 +39,7 @@ import {
 } from "@/app/actions/generation";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
 import type { GenerationRunConfig } from "@/types/database";
-import type { ConstructDraftInput, PreflightResult } from "@/types/generation";
+import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult } from "@/types/generation";
 import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -68,15 +68,6 @@ interface WizardModelBootstrap {
   embeddingModels: OpenRouterModel[];
 }
 
-interface ConstructDraftState {
-  definition: string;
-  description: string;
-  indicatorsLow: string;
-  indicatorsMid: string;
-  indicatorsHigh: string;
-}
-
-type DraftField = keyof ConstructDraftState;
 type ConstructDraftMap = Record<string, ConstructDraftState>;
 
 function createConstructDraftState(construct?: Partial<Construct>): ConstructDraftState {
@@ -330,7 +321,7 @@ function Step2ReadinessCheck({
   constructs: Construct[] | null;
   selectedIds: string[];
   constructDrafts: ConstructDraftMap;
-  onDraftChange: (constructId: string, field: DraftField, value: string) => void;
+  onDraftChange: (constructId: string, field: ConstructDraftField, value: string) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -1232,7 +1223,7 @@ export default function NewGenerationPage() {
   }
 
   const patchConstructDraft = useCallback(
-    (constructId: string, field: DraftField, value: string) => {
+    (constructId: string, field: ConstructDraftField, value: string) => {
       setConstructDrafts((prev) => ({
         ...prev,
         [constructId]: {

@@ -50,6 +50,17 @@ export interface ConstructDraftInput extends ConstructConfigOverride {
   name: string
 }
 
+/** Draft state for construct fields during the generation wizard refinement flow. */
+export interface ConstructDraftState {
+  definition: string
+  description: string
+  indicatorsLow: string
+  indicatorsMid: string
+  indicatorsHigh: string
+}
+
+export type ConstructDraftField = keyof ConstructDraftState
+
 export type NetworkEstimator = 'tmfg' | 'ebicglasso'
 export type EmbeddingType = 'full' | 'sparse'
 export type RemovalStage = 'uva' | 'boot_ega' | 'kept'
