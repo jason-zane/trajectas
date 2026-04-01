@@ -1,8 +1,8 @@
 -- =============================================================================
--- Migration 00045: Seed library_import_structuring AI system prompt
+-- Migration 00060: Seed library_import_structuring AI system prompt
 --
--- Separated from 00044 because PostgreSQL does not allow a newly added enum
--- value (ALTER TYPE ... ADD VALUE, done in 00044) to be referenced in the
+-- Separated from 00059 because PostgreSQL does not allow a newly added enum
+-- value (ALTER TYPE ... ADD VALUE, done in 00059) to be referenced in the
 -- same transaction.
 -- =============================================================================
 

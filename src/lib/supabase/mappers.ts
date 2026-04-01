@@ -17,6 +17,7 @@ import type {
   NormTable,
   FactorAnalysisResult,
   DIFResult,
+  Partner,
   Campaign,
   CampaignAssessment,
   CampaignParticipant,
@@ -193,6 +194,19 @@ export function mapOrganizationRow(row: any): Organization {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapPartnerRow(row: any): Partner {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    isActive: row.is_active ?? true,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+    deletedAt: row.deleted_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapBrandConfigRow(row: any): BrandConfigRecord {
   return {
     id: row.id,
@@ -305,6 +319,18 @@ export function toOrganizationInsert(o: {
     industry: o.industry ?? null,
     size_range: o.sizeRange ?? null,
     is_active: o.isActive,
+  }
+}
+
+export function toPartnerInsert(p: {
+  name: string
+  slug: string
+  isActive: boolean
+}) {
+  return {
+    name: p.name,
+    slug: p.slug,
+    is_active: p.isActive,
   }
 }
 

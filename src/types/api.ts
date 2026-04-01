@@ -70,14 +70,13 @@ export interface ListQueryParams {
 export interface CreatePartnerRequest {
   name: string
   slug: string
-  logoUrl?: string
+  isActive?: boolean
 }
 
 /** Request body for updating an existing partner. */
 export interface UpdatePartnerRequest {
   name?: string
   slug?: string
-  logoUrl?: string
   isActive?: boolean
 }
 
@@ -86,10 +85,10 @@ export interface PartnerResponse {
   id: string
   name: string
   slug: string
-  logoUrl?: string
   isActive: boolean
   created_at: string
   updated_at?: string
+  deletedAt?: string
 }
 
 /** Paginated list of partners. */
@@ -101,7 +100,7 @@ export type PartnerListResponse = ApiListResponse<PartnerResponse>
 
 /** Request body for creating a new organisation. */
 export interface CreateOrganizationRequest {
-  partnerId: string
+  partnerId?: string
   name: string
   slug: string
   industry?: string
@@ -110,6 +109,7 @@ export interface CreateOrganizationRequest {
 
 /** Request body for updating an existing organisation. */
 export interface UpdateOrganizationRequest {
+  partnerId?: string
   name?: string
   slug?: string
   industry?: string
@@ -120,7 +120,7 @@ export interface UpdateOrganizationRequest {
 /** Single organisation returned from the API. */
 export interface OrganizationResponse {
   id: string
-  partnerId: string
+  partnerId?: string
   name: string
   slug: string
   industry?: string
@@ -128,6 +128,7 @@ export interface OrganizationResponse {
   isActive: boolean
   created_at: string
   updated_at?: string
+  deletedAt?: string
 }
 
 /** Paginated list of organisations. */

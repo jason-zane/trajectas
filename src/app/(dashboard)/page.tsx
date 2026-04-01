@@ -78,7 +78,7 @@ const statCards = [
     title: "Clients",
     icon: Building2,
     description: "Managed client accounts",
-    href: "/organizations",
+    href: "/directory",
     bgClass: "bg-muted",
     iconClass: "text-muted-foreground",
     accentClass: "bg-muted-foreground/30",

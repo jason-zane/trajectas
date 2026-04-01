@@ -4,8 +4,10 @@ import {
   assertAdminOnly,
   canAccessClient,
   canAccessPartner,
+  canManageClientAssignment,
   canManageClient,
   canManageClientDirectory,
+  canManagePartnerDirectory,
   getPreferredPartnerIdForClientCreation,
   type AuthorizedScope,
 } from "@/lib/auth/authorization";
@@ -36,6 +38,8 @@ describe("authorization rules", () => {
     expect(canAccessClient(scope, "client-1")).toBe(true);
     expect(canManageClient(scope, "client-1")).toBe(true);
     expect(canManageClientDirectory(scope)).toBe(true);
+    expect(canManageClientAssignment(scope)).toBe(true);
+    expect(canManagePartnerDirectory(scope)).toBe(true);
     expect(canAccessPartner(scope, "partner-1")).toBe(true);
     expect(getPreferredPartnerIdForClientCreation(scope)).toBeNull();
     expect(() => assertAdminOnly(scope)).not.toThrow();
@@ -54,6 +58,8 @@ describe("authorization rules", () => {
 
     expect(canManageClient(scope, "client-1")).toBe(true);
     expect(canManageClientDirectory(scope)).toBe(true);
+    expect(canManageClientAssignment(scope)).toBe(false);
+    expect(canManagePartnerDirectory(scope)).toBe(false);
     expect(canAccessPartner(scope, "partner-1")).toBe(true);
     expect(getPreferredPartnerIdForClientCreation(scope)).toBe("partner-1");
     expect(() => assertAdminOnly(scope)).toThrow(AuthorizationError);
@@ -70,16 +76,29 @@ describe("authorization rules", () => {
     expect(canManageClient(scope, "client-1")).toBe(true);
     expect(canManageClient(scope, "client-2")).toBe(false);
     expect(canManageClientDirectory(scope)).toBe(false);
+    expect(canManageClientAssignment(scope)).toBe(false);
+    expect(canManagePartnerDirectory(scope)).toBe(false);
     expect(canAccessPartner(scope, "partner-1")).toBe(false);
   });
 
   it("requires an active partner context when a non-platform user has multiple partners", () => {
     const scope = createScope({
       partnerIds: ["partner-1", "partner-2"],
+      partnerAdminIds: ["partner-1", "partner-2"],
     });
 
     expect(() => getPreferredPartnerIdForClientCreation(scope)).toThrow(
       "Select an active partner context before creating a client."
     );
+  });
+
+  it("does not grant client directory management to partner members without admin membership", () => {
+    const scope = createScope({
+      partnerIds: ["partner-1"],
+      partnerAdminIds: [],
+    });
+
+    expect(canManageClientDirectory(scope)).toBe(false);
+    expect(canManageClient(scope, "client-1")).toBe(false);
   });
 });

@@ -443,6 +443,8 @@ function Step2ReadinessCheck({
       });
   }, []);
 
+  // Track whether constructs have loaded (null → data) to trigger initial check
+  const constructsLoaded = constructs != null;
   useEffect(() => {
     if (selectedConstructInputs.length === 0) {
       setPreflightLoading(false);
@@ -454,7 +456,7 @@ function Step2ReadinessCheck({
 
     runReadinessCheck(selectedConstructInputs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds.join(","), constructs]);
+  }, [selectedIds.join(","), constructsLoaded]);
 
   const overallStatus = preflightResult?.overallStatus ?? "green";
   const metadata = preflightResult?.metadata;

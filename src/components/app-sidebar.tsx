@@ -85,11 +85,11 @@ const adminNav = [
     ],
   },
   {
-    label: "Clients",
+    label: "Directory",
     items: [
       {
-        title: "Manage Clients",
-        href: "/organizations",
+        title: "Directory",
+        href: "/directory",
         icon: Building2,
       },
     ],
@@ -131,7 +131,7 @@ const partnerNav = [
   {
     label: "Clients",
     items: [
-      { title: "Clients", href: "/organizations", icon: Building2 },
+      { title: "Clients", href: "/directory?tab=clients", icon: Building2 },
     ],
   },
   {

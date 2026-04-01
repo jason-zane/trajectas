@@ -78,6 +78,7 @@ ${factorSection}
 2. For each problematic field, suggest a revised version that preserves the original meaning while removing the overlap territory.
 3. Do NOT suggest changes to fields that are already distinct — omit them from the suggestions array.
 4. In your analysis, explain what is driving the overlap and what sharpening direction you recommend.
+5. Do NOT use markdown formatting (bold, italic, headers) in suggested text — return plain text only.
 
 Respond in JSON:
 {
@@ -94,6 +95,15 @@ Respond in JSON:
 }
 
 const VALID_FIELDS = new Set(['definition', 'description', 'indicatorsLow', 'indicatorsMid', 'indicatorsHigh'])
+
+/** Strip markdown bold/italic from plain-text fields. */
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')   // **bold**
+    .replace(/\*(.+?)\*/g, '$1')        // *italic*
+    .replace(/__(.+?)__/g, '$1')        // __bold__
+    .replace(/_(.+?)_/g, '$1')          // _italic_
+}
 
 export function parseRefinementResponse(jsonContent: string): RefinementResult | null {
   try {
@@ -118,8 +128,13 @@ export function parseRefinementResponse(jsonContent: string): RefinementResult |
       : []
 
     return {
-      analysis: parsed.analysis,
-      suggestions,
+      analysis: stripMarkdown(parsed.analysis),
+      suggestions: suggestions.map((s) => ({
+        ...s,
+        original: stripMarkdown(s.original),
+        suggested: stripMarkdown(s.suggested),
+        reason: stripMarkdown(s.reason),
+      })),
     }
   } catch {
     return null

@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Card,
   CardContent,
   CardHeader,
@@ -37,14 +44,19 @@ function slugify(text: string): string {
 }
 
 type SaveState = "idle" | "saving" | "saved";
+const PLATFORM_OWNED_VALUE = "__platform__";
 
 export function OrganizationEditForm({
   organization,
+  partnerOptions = [],
+  canAssignPartner = false,
   canLaunchClientPortal = false,
   clientLaunchEndpoint = null,
   clientLaunchNextPath = "/",
 }: {
   organization: Organization;
+  partnerOptions?: Array<{ id: string; name: string }>;
+  canAssignPartner?: boolean;
   canLaunchClientPortal?: boolean;
   clientLaunchEndpoint?: string | null;
   clientLaunchNextPath?: string;
@@ -56,6 +68,9 @@ export function OrganizationEditForm({
   const [slugTouched, setSlugTouched] = useState(true);
   const [industry, setIndustry] = useState(organization.industry ?? "");
   const [sizeRange, setSizeRange] = useState(organization.sizeRange ?? "");
+  const [partnerId, setPartnerId] = useState(
+    organization.partnerId ?? PLATFORM_OWNED_VALUE
+  );
   const [isActive, setIsActive] = useState(organization.isActive);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [deleting, setDeleting] = useState(false);
@@ -70,6 +85,7 @@ export function OrganizationEditForm({
     slug: organization.slug,
     industry: organization.industry ?? "",
     sizeRange: organization.sizeRange ?? "",
+    partnerId: organization.partnerId ?? PLATFORM_OWNED_VALUE,
     isActive: organization.isActive,
   }));
 
@@ -78,6 +94,7 @@ export function OrganizationEditForm({
     slug !== initialStructural.slug ||
     industry !== initialStructural.industry ||
     sizeRange !== initialStructural.sizeRange ||
+    partnerId !== initialStructural.partnerId ||
     isActive !== initialStructural.isActive;
 
   const { showDialog, confirmNavigation, cancelNavigation } =
@@ -118,7 +135,7 @@ export function OrganizationEditForm({
       toast.success("Changes saved");
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
-      setInitialStructural({ name, slug, industry, sizeRange, isActive });
+      setInitialStructural({ name, slug, industry, sizeRange, partnerId, isActive });
       if (result.slug !== organization.slug) {
         router.replace(`/organizations/${result.slug}/edit`, { scroll: false });
       }
@@ -126,6 +143,23 @@ export function OrganizationEditForm({
   }
 
   async function handleDelete() {
+    if (organization.deletedAt) {
+      setDeleting(true);
+      const result = await restoreOrganization(organization.id);
+      if (result && "error" in result) {
+        toast.error(
+          typeof result.error === "string" ? result.error : "Failed to restore"
+        );
+        setDeleting(false);
+        return;
+      }
+
+      toast.success("Client restored");
+      router.refresh();
+      setDeleting(false);
+      return;
+    }
+
     setDeleting(true);
     setShowDeleteDialog(false);
     const result = await deleteOrganization(organization.id);
@@ -139,7 +173,7 @@ export function OrganizationEditForm({
 
     let undone = false;
     const timer = setTimeout(() => {
-      if (!undone) router.push("/organizations");
+      if (!undone) router.push("/directory?tab=clients");
     }, 5000);
 
     toast.success("Client deleted", {
@@ -162,7 +196,7 @@ export function OrganizationEditForm({
       {/* Header */}
       <div>
         <Link
-          href="/organizations"
+          href="/directory?tab=clients"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
         >
           <ArrowLeft className="size-3.5" />
@@ -173,6 +207,16 @@ export function OrganizationEditForm({
         </h1>
         <p className="text-sm text-muted-foreground mt-1.5">
           Update the details for &ldquo;{organization.name}&rdquo;.
+        </p>
+        {organization.deletedAt ? (
+          <p className="mt-2 text-xs font-medium text-destructive">
+            This client is currently archived.
+          </p>
+        ) : null}
+        <p className="text-xs text-muted-foreground mt-2">
+          {organization.partnerId
+            ? `Owned by ${partnerOptions.find((option) => option.id === organization.partnerId)?.name ?? "a partner"}`
+            : "Platform-owned client"}
         </p>
         {canLaunchClientPortal ? (
           <div className="mt-4">
@@ -264,6 +308,33 @@ export function OrganizationEditForm({
               </p>
             </div>
 
+            {canAssignPartner ? (
+              <div className="space-y-2">
+                <Label htmlFor="partnerId">Ownership</Label>
+                <Select
+                  value={partnerId}
+                  onValueChange={(value) => setPartnerId(value ?? PLATFORM_OWNED_VALUE)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PLATFORM_OWNED_VALUE}>
+                      Talent Fit / platform-owned
+                    </SelectItem>
+                    {partnerOptions.map((partner) => (
+                      <SelectItem key={partner.id} value={partner.id}>
+                        {partner.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Platform-owned clients can be assigned to a partner later.
+                </p>
+              </div>
+            ) : null}
+
             <Separator />
 
             {/* Active toggle */}
@@ -282,6 +353,11 @@ export function OrganizationEditForm({
             </div>
             <input
               type="hidden"
+              name="partnerId"
+              value={partnerId === PLATFORM_OWNED_VALUE ? "" : partnerId}
+            />
+            <input
+              type="hidden"
               name="isActive"
               value={isActive ? "true" : "false"}
             />
@@ -290,18 +366,30 @@ export function OrganizationEditForm({
 
         {/* Actions */}
         <div className="flex items-center justify-between mt-8">
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            onClick={() => setShowDeleteDialog(true)}
-            disabled={deleting}
-          >
-            <Trash2 className="size-4" />
-            Delete Client
-          </Button>
+          {organization.deletedAt ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              Restore Client
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={deleting}
+            >
+              <Trash2 className="size-4" />
+              Archive Client
+            </Button>
+          )}
           <div className="flex items-center gap-3">
-            <Link href="/organizations">
+            <Link href="/directory?tab=clients">
               <Button type="button" variant="outline">Cancel</Button>
             </Link>
             <Button type="submit" disabled={!name.trim() || pending}>
@@ -315,9 +403,9 @@ export function OrganizationEditForm({
       <ConfirmDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
-        title="Delete Client"
-        description={`This will soft-delete "${organization.name}". You can undo this action for a few seconds after deletion.`}
-        confirmLabel="Delete"
+        title="Archive Client"
+        description={`This will archive "${organization.name}". You can undo this action for a few seconds after archiving.`}
+        confirmLabel="Archive"
         variant="destructive"
         onConfirm={handleDelete}
         loading={deleting}

@@ -20,10 +20,16 @@ export default async function SettingsUsersPage() {
   await requireAdminScope();
   const db = createAdminClient();
   const [{ data: partners }, { data: clients }, directory] = await Promise.all([
-    db.from("partners").select("id, name").order("name", { ascending: true }),
+    db
+      .from("partners")
+      .select("id, name")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("name", { ascending: true }),
     db
       .from("organizations")
       .select("id, name")
+      .eq("is_active", true)
       .is("deleted_at", null)
       .order("name", { ascending: true }),
     listStaffUsers(),

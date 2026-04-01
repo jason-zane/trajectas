@@ -194,6 +194,8 @@ export interface Partner {
   isActive: boolean
   created_at: string
   updated_at?: string
+  /** Soft-delete timestamp; NULL means active. */
+  deletedAt?: string
 }
 
 /**
@@ -204,8 +206,8 @@ export interface Partner {
 export interface Organization {
   /** UUID primary key. */
   id: string
-  /** Owning partner. */
-  partnerId: string
+  /** Owning partner; omitted when the client is platform-owned. */
+  partnerId?: string
   /** Organisation display name. */
   name: string
   /** URL-safe slug. */

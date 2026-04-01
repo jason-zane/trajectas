@@ -356,20 +356,55 @@ export function canManageClient(scope: AuthorizedScope, clientId: string) {
   return (
     scope.isPlatformAdmin ||
     scope.clientAdminIds.includes(clientId) ||
-    scope.partnerIds.length > 0
+    scope.partnerAdminIds.length > 0
   );
 }
 
 export function canManageClientDirectory(scope: AuthorizedScope) {
-  return scope.isPlatformAdmin || scope.partnerIds.length > 0;
+  return scope.isPlatformAdmin || scope.partnerAdminIds.length > 0;
+}
+
+export function canManageClientAssignment(scope: AuthorizedScope) {
+  return scope.isPlatformAdmin;
 }
 
 export function canAccessPartner(scope: AuthorizedScope, partnerId: string) {
   return scope.isPlatformAdmin || scope.partnerIds.includes(partnerId);
 }
 
+export function canManagePartnerDirectory(scope: AuthorizedScope) {
+  return scope.isPlatformAdmin;
+}
+
+export async function requirePartnerAccess(
+  partnerId: string,
+  options: { includeArchived?: boolean } = {}
+) {
+  const scope = await resolveAuthorizedScope();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("partners")
+    .select("id, deleted_at")
+    .eq("id", partnerId)
+    .single();
+
+  if (error || !data || (!options.includeArchived && data.deleted_at)) {
+    throw new AuthorizationError("Partner not found or inaccessible.");
+  }
+
+  if (!canAccessPartner(scope, String(data.id))) {
+    throw new AuthorizationError("You do not have access to this partner.");
+  }
+
+  return {
+    scope,
+    partnerId: String(data.id),
+  };
+}
+
 export async function requireOrganizationAccess(
-  organizationId: string
+  organizationId: string,
+  options: { includeArchived?: boolean } = {}
 ) {
   const scope = await resolveAuthorizedScope();
   const db = createAdminClient();
@@ -379,7 +414,7 @@ export async function requireOrganizationAccess(
     .eq("id", organizationId)
     .single();
 
-  if (error || !data || data.deleted_at) {
+  if (error || !data || (!options.includeArchived && data.deleted_at)) {
     throw new AuthorizationError("Client not found or inaccessible.");
   }
 
@@ -508,13 +543,13 @@ export function getPreferredPartnerIdForClientCreation(scope: AuthorizedScope) {
   }
 
   if (scope.activeContext?.tenantType === "partner" && scope.activeContext.tenantId) {
-    if (scope.partnerIds.includes(scope.activeContext.tenantId)) {
+    if (scope.partnerAdminIds.includes(scope.activeContext.tenantId)) {
       return scope.activeContext.tenantId;
     }
   }
 
-  if (scope.partnerIds.length === 1) {
-    return scope.partnerIds[0];
+  if (scope.partnerAdminIds.length === 1) {
+    return scope.partnerAdminIds[0];
   }
 
   throw new AuthorizationError(
