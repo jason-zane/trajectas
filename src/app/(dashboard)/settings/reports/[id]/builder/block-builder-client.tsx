@@ -68,6 +68,9 @@ import { useAutoSave } from '@/hooks/use-auto-save'
 import { AutoSaveIndicator } from '@/components/auto-save-indicator'
 import { AddBlockDropdown } from './add-block-dropdown'
 import { BlockContentPanel } from './block-content-panels'
+import { BlockHeadersPanel } from './block-headers-panel'
+import { BlockPresentationPanel } from './block-presentation-panel'
+import { BlockPrintPanel } from './block-print-panel'
 import type { ReportDisplayLevel, PersonReferenceType } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -603,13 +606,13 @@ export function BlockBuilderClient({
                             />
                           )}
                           {activeTab === 'headers' && (
-                            <div className="text-sm text-muted-foreground">Headers panel placeholder</div>
+                            <BlockHeadersPanel block={block} onUpdateBlock={updateBlock} />
                           )}
                           {activeTab === 'presentation' && (
-                            <div className="text-sm text-muted-foreground">Presentation panel placeholder</div>
+                            <BlockPresentationPanel block={block} onUpdateBlock={updateBlock} />
                           )}
                           {activeTab === 'print' && (
-                            <div className="text-sm text-muted-foreground">Print panel placeholder</div>
+                            <BlockPrintPanel block={block} onUpdateBlock={updateBlock} />
                           )}
                         </div>
                       </div>
