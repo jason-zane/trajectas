@@ -5,7 +5,7 @@ import { X, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/rich-text-editor'
 import {
   Select,
   SelectContent,
@@ -260,11 +260,10 @@ function CustomTextContent({ block, onUpdateConfig }: BlockContentPanelProps) {
   const config = block.config as Record<string, unknown>
   return (
     <div className="space-y-4">
-      <Field label="Content" help="Markdown supported">
-        <Textarea
-          value={String(config.content ?? '')}
-          onChange={(e) => onUpdateConfig('content', e.target.value)}
-          className="text-sm min-h-32 resize-y"
+      <Field label="Content">
+        <RichTextEditor
+          content={String(config.content ?? '')}
+          onChange={(html) => onUpdateConfig('content', html)}
           placeholder="Write your content here\u2026"
         />
       </Field>
