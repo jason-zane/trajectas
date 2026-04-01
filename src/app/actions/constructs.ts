@@ -362,6 +362,8 @@ const ALLOWED_FIELDS: Record<string, string> = {
   indicators_mid: 'indicators_mid',
   indicatorsHigh: 'indicators_high',
   indicators_high: 'indicators_high',
+  developmentSuggestion: 'development_suggestion',
+  strengthCommentary: 'strength_commentary',
 }
 
 export async function updateConstructField(id: string, field: string, value: string) {

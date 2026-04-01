@@ -31,6 +31,15 @@ export function buildItemGenerationPrompt(params: {
     ? `\n## Existing or already-generated items for this construct (do NOT repeat, paraphrase, or make a near-neighbour of any of these):\n${previousItems.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
     : ''
 
+  const parentFactorSection = construct.parentFactors && construct.parentFactors.length > 0
+    ? `\n## Criterion Linkage — Parent Factors\nThis construct sits beneath the following higher-order factor(s). Items should be behaviourally consistent with these factors while remaining specific to the construct.\n${construct.parentFactors.map((f) => {
+        const parts = [`- **${f.name}**`]
+        if (f.definition) parts.push(`  Definition: ${f.definition}`)
+        if (f.indicatorsHigh) parts.push(`  High-performer indicators: ${f.indicatorsHigh}`)
+        return parts.join('\n')
+      }).join('\n')}`
+    : ''
+
   return `Generate ${batchSize} NEW psychometric items for the following construct.
 
 ## Construct: ${construct.name}
@@ -38,10 +47,17 @@ ${construct.definition ? `Definition: ${construct.definition}` : ''}
 ${construct.description ? `Description: ${construct.description}` : ''}
 ${indicatorSection ? `\nBehavioural Indicators:\n${indicatorSection}` : ''}
 ${contrastSection}
+${parentFactorSection}
 
 ## Response Format
 ${responseFormatDescription}
 ${previousSection}
+
+## Per-Item Metadata
+For each item, also provide:
+- **difficultyTier**: How easy the item is to endorse. "easy" = most people agree, "moderate" = typical spread, "hard" = only strong scorers agree. For factor-level items use "foundation" / "applied" / "demanding" instead.
+- **sdRisk**: Social desirability risk. "low" = neutral, "moderate" = somewhat desirable, "high" = strongly desirable or undesirable.
+- **facet**: A 2–4 word label for the narrow behavioural facet this item taps (e.g. "conflict initiation", "schedule adherence").
 
 ## Diversity Requirements
 - Cover different behavioural expressions of the construct rather than repeating one narrow theme.
@@ -51,14 +67,20 @@ ${previousSection}
 - Make each item specific enough that it clearly fits this construct better than the contrast constructs.
 
 Return a JSON array of exactly ${batchSize} objects:
-[{ "stem": "...", "reverseScored": false, "rationale": "one sentence why this item captures the construct" }]`
+[{ "stem": "...", "reverseScored": false, "rationale": "one sentence why this item captures the construct", "difficultyTier": "moderate", "sdRisk": "low", "facet": "narrow facet label" }]`
 }
 
 export interface GeneratedItemRaw {
-  stem:          string
-  reverseScored: boolean
-  rationale:     string
+  stem:           string
+  reverseScored:  boolean
+  rationale:      string
+  difficultyTier?: string
+  sdRisk?:        string
+  facet?:         string
 }
+
+const VALID_DIFFICULTY_TIERS = new Set(['easy', 'moderate', 'hard', 'foundation', 'applied', 'demanding'])
+const VALID_SD_RISKS = new Set(['low', 'moderate', 'high'])
 
 export function parseGeneratedItems(jsonContent: string): GeneratedItemRaw[] {
   // Strip markdown fences if present
@@ -82,9 +104,24 @@ export function parseGeneratedItems(jsonContent: string): GeneratedItemRaw[] {
       item !== null &&
       typeof (item as Record<string, unknown>).stem === 'string' &&
       typeof (item as Record<string, unknown>).reverseScored === 'boolean',
-  ).map(item => ({
-    stem:          item.stem,
-    reverseScored: item.reverseScored,
-    rationale:     typeof item.rationale === 'string' ? item.rationale : '',
-  }))
+  ).map(item => {
+    const raw = item as unknown as Record<string, unknown>
+    const difficultyTier = typeof raw.difficultyTier === 'string' && VALID_DIFFICULTY_TIERS.has(raw.difficultyTier)
+      ? raw.difficultyTier
+      : undefined
+    const sdRisk = typeof raw.sdRisk === 'string' && VALID_SD_RISKS.has(raw.sdRisk)
+      ? raw.sdRisk
+      : undefined
+    const facet = typeof raw.facet === 'string' && raw.facet.length > 0
+      ? raw.facet
+      : undefined
+    return {
+      stem:           item.stem,
+      reverseScored:  item.reverseScored,
+      rationale:      typeof item.rationale === 'string' ? item.rationale : '',
+      difficultyTier,
+      sdRisk,
+      facet,
+    }
+  })
 }

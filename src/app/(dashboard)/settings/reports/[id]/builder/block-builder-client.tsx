@@ -13,6 +13,9 @@ import {
   Settings,
   ChevronsUpDown,
   X,
+  ChevronUp,
+  ChevronDown,
+  HelpCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,6 +40,14 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import {
   BLOCK_REGISTRY,
@@ -44,7 +55,6 @@ import {
 } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig } from '@/lib/reports/types'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
-import { PRESENTATION_MODES, CHART_TYPES } from '@/lib/reports/presentation'
 import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
@@ -55,34 +65,30 @@ import {
   type TemplateUsageEntry,
   type AudienceType,
 } from '@/app/actions/reports'
+import { useAutoSave } from '@/hooks/use-auto-save'
+import { AutoSaveIndicator } from '@/components/auto-save-indicator'
+import {
+  BlockConfigContent,
+  getBlockSummary,
+  getConfigPills,
+  BLOCK_HELP,
+} from './block-config-panels'
+
+import type { ReportDisplayLevel, PersonReferenceType } from '@/types/database'
 
 type ReportType = 'self_report' | '360'
 
 // ---------------------------------------------------------------------------
-// Friendly label overrides for config field keys
+// Template settings type (exported for page.tsx)
 // ---------------------------------------------------------------------------
 
-const FIELD_LABEL_OVERRIDES: Record<string, string> = {
-  entityIds: 'Entities',
-  entityId: 'Entity',
-  aiNarrative: 'AI-enhanced narrative',
-  topN: 'Show top',
-  maxItems: 'Max items',
-  showScore: 'Show score',
-  showBandLabel: 'Show band label',
-  showDefinition: 'Show definition',
-  showIndicators: 'Show indicators',
-  showDevelopment: 'Show development',
-  showChildBreakdown: 'Show child breakdown',
-  showDate: 'Show date',
-  showLogo: 'Show logo',
-  groupByDimension: 'Group by dimension',
-  showDimensionScore: 'Show dimension score',
-  prioritiseByScore: 'Prioritise by score',
-  groupByFactor: 'Group by factor',
-  showBlindSpots: 'Show blind spots',
-  showHiddenStrengths: 'Show hidden strengths',
-  printBreakBefore: 'Page break before',
+export interface TemplateSettings {
+  description?: string
+  displayLevel: ReportDisplayLevel
+  groupByDimension: boolean
+  personReference: PersonReferenceType
+  autoRelease: boolean
+  pageHeaderLogo: 'primary' | 'secondary' | 'none'
 }
 
 // ---------------------------------------------------------------------------
@@ -102,216 +108,11 @@ interface Props {
   initialBlocks: BlockConfig[]
   initialUsage?: TemplateUsageEntry[]
   campaigns?: { id: string; title: string }[]
+  templateSettings: TemplateSettings
 }
 
 function generateId(): string {
   return crypto.randomUUID()
-}
-
-// ---------------------------------------------------------------------------
-// EntityCombobox — searchable single-select for entity IDs
-// ---------------------------------------------------------------------------
-
-interface EntityComboboxProps {
-  value: string
-  onChange: (id: string) => void
-  options: EntityOption[]
-}
-
-function EntityCombobox({ value, onChange, options }: EntityComboboxProps) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-
-  const filtered = search.trim()
-    ? options.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options
-
-  const selected = options.find((o) => o.id === value)
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm text-left transition-colors',
-              'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-              open && 'ring-2 ring-primary/30',
-            )}
-          />
-        }
-      >
-        <span className={selected ? 'text-foreground' : 'text-muted-foreground'}>
-          {selected ? selected.label : 'Select entity…'}
-        </span>
-        {selected && (
-          <span className="text-xs text-muted-foreground">{selected.type}</span>
-        )}
-        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground ml-auto" />
-      </PopoverTrigger>
-      <PopoverContent className="w-64 p-0 overflow-hidden" align="start" sideOffset={4}>
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder="Search entities…"
-            value={search}
-            onValueChange={setSearch}
-          />
-          <CommandList className="max-h-60">
-            <CommandEmpty className="py-4 text-sm text-center text-muted-foreground">
-              No entities found.
-            </CommandEmpty>
-            <CommandGroup>
-              {filtered.map((opt) => (
-                <CommandItem
-                  key={opt.id}
-                  value={opt.id}
-                  onSelect={(v) => {
-                    onChange(v)
-                    setOpen(false)
-                    setSearch('')
-                  }}
-                  data-checked={opt.id === value}
-                >
-                  <span className="flex-1">{opt.label}</span>
-                  <span className="text-xs text-muted-foreground">{opt.type}</span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// EntityMultiSelect — chip list + add combobox for entityIds arrays
-// ---------------------------------------------------------------------------
-
-interface EntityMultiSelectProps {
-  value: string[]
-  onChange: (ids: string[]) => void
-  options: EntityOption[]
-}
-
-function EntityMultiSelect({ value, onChange, options }: EntityMultiSelectProps) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-
-  const selected = value
-    .map((id) => options.find((o) => o.id === id))
-    .filter(Boolean) as EntityOption[]
-
-  const available = options.filter((o) => !value.includes(o.id))
-  const filtered = search.trim()
-    ? available.filter((o) => o.label.toLowerCase().includes(search.toLowerCase()))
-    : available
-
-  function remove(id: string) {
-    onChange(value.filter((v) => v !== id))
-  }
-
-  return (
-    <div className="space-y-2">
-      {selected.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {selected.map((opt) => (
-            <span
-              key={opt.id}
-              className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-xs"
-            >
-              {opt.label}
-              <button
-                type="button"
-                onClick={() => remove(opt.id)}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <X className="size-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              className={cn(
-                'flex w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm text-left transition-colors',
-                'hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
-                open && 'ring-2 ring-primary/30',
-              )}
-            />
-          }
-        >
-          <span className="text-muted-foreground">Add entity…</span>
-          <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
-        </PopoverTrigger>
-        <PopoverContent className="w-64 p-0 overflow-hidden" align="start" sideOffset={4}>
-          <Command shouldFilter={false}>
-            <CommandInput
-              placeholder="Search entities…"
-              value={search}
-              onValueChange={setSearch}
-            />
-            <CommandList className="max-h-60">
-              <CommandEmpty className="py-4 text-sm text-center text-muted-foreground">
-                No entities available.
-              </CommandEmpty>
-              <CommandGroup>
-                {filtered.map((opt) => (
-                  <CommandItem
-                    key={opt.id}
-                    value={opt.id}
-                    onSelect={(v) => {
-                      onChange([...value, v])
-                      setOpen(false)
-                      setSearch('')
-                    }}
-                  >
-                    <span className="flex-1">{opt.label}</span>
-                    <span className="text-xs text-muted-foreground">{opt.type}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Numeric field names that should use <Input type="number">
-// ---------------------------------------------------------------------------
-
-const NUMERIC_FIELDS = new Set([
-  'topN',
-  'maxItems',
-  'gapThreshold',
-  'minRatersForDisplay',
-])
-
-// ---------------------------------------------------------------------------
-// Select-based enum fields
-// ---------------------------------------------------------------------------
-
-const ENUM_FIELDS: Record<string, { label: string; options: string[] }> = {
-  displayLevel: {
-    label: 'Display Level',
-    options: ['dimension', 'factor', 'construct'],
-  },
-  chartType: {
-    label: 'Chart Type',
-    options: ['radar', 'bars'],
-  },
-  style: {
-    label: 'Style',
-    options: ['cards', 'list'],
-  },
 }
 
 // ---------------------------------------------------------------------------
@@ -325,12 +126,11 @@ export function BlockBuilderClient({
   initialBlocks,
   initialUsage,
   campaigns: allCampaigns,
+  templateSettings: initialSettings,
 }: Props) {
   const router = useRouter()
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks)
-  const [selectedBlockId, setSelectedBlockId] = useState<string | null>(
-    initialBlocks[0]?.id ?? null,
-  )
+  const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
   const [name, setName] = useState(initialName)
   const [isSaving, startSave] = useTransition()
   const [dragOverId, setDragOverId] = useState<string | null>(null)
@@ -339,14 +139,28 @@ export function BlockBuilderClient({
   const [usage, setUsage] = useState<TemplateUsageEntry[]>(initialUsage ?? [])
   const [isLinking, startLinking] = useTransition()
 
+  // Template settings state
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settings, setSettings] = useState<TemplateSettings>(initialSettings)
+  const [isSavingSettings, startSaveSettings] = useTransition()
+
+  // Auto-save for description field
+  const descriptionAutoSave = useAutoSave({
+    initialValue: initialSettings.description ?? '',
+    onSave: async (value) => {
+      await updateReportTemplateSettings(templateId, { description: value })
+    },
+    enabled: true,
+  })
+
   useEffect(() => {
     getEntityOptions().then(setEntityOptions)
   }, [])
 
-  const selectedBlock = blocks.find((b) => b.id === selectedBlockId) ?? null
+  const expandedBlock = blocks.find((b) => b.id === expandedBlockId) ?? null
 
   // ---------------------------------------------------------------------------
-  // Save
+  // Save blocks + name
   // ---------------------------------------------------------------------------
   function handleSave() {
     startSave(async () => {
@@ -359,6 +173,26 @@ export function BlockBuilderClient({
             : Promise.resolve(),
         ])
         toast.success('Template saved')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Save failed')
+      }
+    })
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save template settings (from sheet)
+  // ---------------------------------------------------------------------------
+  function handleSaveSettings() {
+    startSaveSettings(async () => {
+      try {
+        await updateReportTemplateSettings(templateId, {
+          displayLevel: settings.displayLevel,
+          groupByDimension: settings.groupByDimension,
+          personReference: settings.personReference,
+          autoRelease: settings.autoRelease,
+          pageHeaderLogo: settings.pageHeaderLogo,
+        })
+        toast.success('Settings saved')
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Save failed')
       }
@@ -379,7 +213,7 @@ export function BlockBuilderClient({
       chartType: meta.supportedCharts?.[0],
     }
     setBlocks((prev) => [...prev, newBlock])
-    setSelectedBlockId(newBlock.id)
+    setExpandedBlockId(newBlock.id)
   }
 
   // ---------------------------------------------------------------------------
@@ -387,7 +221,7 @@ export function BlockBuilderClient({
   // ---------------------------------------------------------------------------
   function removeBlock(id: string) {
     setBlocks((prev) => prev.filter((b) => b.id !== id))
-    if (selectedBlockId === id) setSelectedBlockId(null)
+    if (expandedBlockId === id) setExpandedBlockId(null)
   }
 
   // ---------------------------------------------------------------------------
@@ -396,15 +230,21 @@ export function BlockBuilderClient({
   const updateConfig = useCallback((key: string, value: unknown) => {
     setBlocks((prev) =>
       prev.map((b) =>
-        b.id === selectedBlockId
+        b.id === expandedBlockId
           ? { ...b, config: { ...b.config, [key]: value } }
           : b,
       ),
     )
-  }, [selectedBlockId])
+  }, [expandedBlockId])
+
+  const updateBlock = useCallback((updates: Partial<BlockConfig>) => {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === expandedBlockId ? { ...b, ...updates } : b)),
+    )
+  }, [expandedBlockId])
 
   // ---------------------------------------------------------------------------
-  // Drag to reorder (simple index-swap approach)
+  // Drag to reorder
   // ---------------------------------------------------------------------------
   function handleDragStart(id: string) {
     setDraggingId(id)
@@ -474,6 +314,13 @@ export function BlockBuilderClient({
     .filter(([cat]) => reportType === '360' || cat !== '360')
 
   // ---------------------------------------------------------------------------
+  // Toggle expand
+  // ---------------------------------------------------------------------------
+  function toggleExpand(id: string) {
+    setExpandedBlockId((prev) => (prev === id ? null : id))
+  }
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   return (
@@ -497,6 +344,14 @@ export function BlockBuilderClient({
           {reportType === '360' ? '360' : 'Self-report'}
         </Badge>
         <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings className="size-4" />
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -558,46 +413,212 @@ export function BlockBuilderClient({
             <div className="mx-auto max-w-2xl space-y-2">
               {blocks.map((block) => {
                 const meta = BLOCK_REGISTRY[block.type]
+                const isExpanded = expandedBlockId === block.id
+                const summary = getBlockSummary(block, entityOptions)
+                const pills = getConfigPills(block)
+
                 return (
                   <div
                     key={block.id}
-                    draggable
+                    draggable={!isExpanded}
                     onDragStart={() => handleDragStart(block.id)}
                     onDragOver={(e) => handleDragOver(e, block.id)}
                     onDrop={() => handleDrop(block.id)}
                     onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
-                    onClick={() => setSelectedBlockId(block.id)}
                     className={cn(
-                      'group flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 transition-all',
-                      'bg-card hover:border-primary/40',
-                      selectedBlockId === block.id
+                      'group rounded-xl border transition-all bg-card',
+                      isExpanded
                         ? 'border-primary shadow-sm'
-                        : 'border-border',
+                        : 'border-border hover:border-primary/40',
                       dragOverId === block.id && draggingId !== block.id
                         ? 'border-primary/60 bg-primary/5'
                         : '',
                       draggingId === block.id ? 'opacity-50' : '',
                     )}
                   >
-                    <GripVertical className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground cursor-grab shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm">{meta.label}</p>
-                        <ModeTag mode={block.presentationMode ?? meta.defaultMode} />
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {meta.description}
-                      </p>
-                    </div>
-                    {block.printBreakBefore && (
-                      <Badge variant="outline" className="text-xs text-muted-foreground">Page break</Badge>
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); removeBlock(block.id) }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    {/* Card header — always visible */}
+                    <div
+                      className="flex cursor-pointer items-center gap-3 px-4 py-3"
+                      onClick={() => toggleExpand(block.id)}
                     >
-                      <Trash2 className="size-4 text-muted-foreground hover:text-destructive transition-colors" />
-                    </button>
+                      <GripVertical className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground cursor-grab shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-sm">{meta.label}</p>
+                          <ModeTag mode={block.presentationMode ?? meta.defaultMode} />
+                          {block.chartType && meta.supportedCharts && (
+                            <Badge variant="outline" className="text-[10px] capitalize">
+                              {block.chartType.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {summary}
+                        </p>
+                        {pills.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {pills.map((pill) => (
+                              <span
+                                key={pill}
+                                className="inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
+                              >
+                                {pill}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {block.printBreakBefore && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">Page break</Badge>
+                      )}
+                      {isExpanded ? (
+                        <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeBlock(block.id) }}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                      >
+                        <Trash2 className="size-4 text-muted-foreground hover:text-destructive transition-colors" />
+                      </button>
+                    </div>
+
+                    {/* Expanded inline detail */}
+                    {isExpanded && (
+                      <div className="border-t border-border px-4 py-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Left: Content config */}
+                          <div className="space-y-4">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Content</p>
+                            <BlockConfigContent
+                              block={block}
+                              entityOptions={entityOptions}
+                              onUpdateConfig={updateConfig}
+                            />
+                          </div>
+
+                          {/* Right: Presentation + Print */}
+                          <div className="space-y-4">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Presentation</p>
+
+                            {/* Mode selector */}
+                            <div className="space-y-1.5">
+                              <Label className="text-sm">Mode</Label>
+                              <Select
+                                value={block.presentationMode ?? meta.defaultMode}
+                                onValueChange={(v) => updateBlock({ presentationMode: v as PresentationMode })}
+                              >
+                                <SelectTrigger className="w-full h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {meta.supportedModes.map((mode) => (
+                                    <SelectItem key={mode} value={mode}>
+                                      <span className="capitalize">{mode}</span>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            {/* Columns (carded mode) */}
+                            {(block.presentationMode ?? meta.defaultMode) === 'carded' && (
+                              <div className="space-y-1.5">
+                                <Label className="text-sm">Columns</Label>
+                                <Select
+                                  value={String(block.columns ?? 1)}
+                                  onValueChange={(v) => updateBlock({ columns: Number(v) as 1 | 2 | 3 })}
+                                >
+                                  <SelectTrigger className="w-full h-8 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1">1 Column</SelectItem>
+                                    <SelectItem value="2">2 Columns</SelectItem>
+                                    <SelectItem value="3">3 Columns</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {/* Chart type (single source of truth) */}
+                            {meta.supportedCharts && meta.supportedCharts.length > 0 && (
+                              <div className="space-y-1.5">
+                                <Label className="text-sm">Chart Type</Label>
+                                <Select
+                                  value={block.chartType ?? meta.supportedCharts[0]}
+                                  onValueChange={(v) => updateBlock({ chartType: v as ChartType })}
+                                >
+                                  <SelectTrigger className="w-full h-8 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {meta.supportedCharts.map((ct) => (
+                                      <SelectItem key={ct} value={ct}>
+                                        <span className="capitalize">{ct.replace(/_/g, ' ')}</span>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            {/* Inset accent */}
+                            {(block.presentationMode ?? meta.defaultMode) === 'inset' && (
+                              <div className="space-y-1.5">
+                                <Label className="text-sm">Accent Colour</Label>
+                                <Select
+                                  value={block.insetAccent ?? 'default'}
+                                  onValueChange={(v) => updateBlock({ insetAccent: v === 'default' ? undefined : v ?? undefined })}
+                                >
+                                  <SelectTrigger className="w-full h-8 text-sm">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="default">Default (Sage)</SelectItem>
+                                    <SelectItem value="#c9a962">Gold</SelectItem>
+                                    <SelectItem value="#5b3fc5">Violet</SelectItem>
+                                    <SelectItem value="#b85c6a">Rose</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
+
+                            <Separator />
+
+                            {/* Print options */}
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Print</p>
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <Label htmlFor={`print-break-${block.id}`} className="text-sm font-normal">Page break before</Label>
+                                <Switch
+                                  id={`print-break-${block.id}`}
+                                  checked={block.printBreakBefore ?? false}
+                                  onCheckedChange={(v) => updateBlock({ printBreakBefore: v })}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <Label htmlFor={`print-hide-${block.id}`} className="text-sm font-normal">Hide in PDF</Label>
+                                <Switch
+                                  id={`print-hide-${block.id}`}
+                                  checked={block.printHide ?? false}
+                                  onCheckedChange={(v) => updateBlock({ printHide: v })}
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-2">
+                                <Label htmlFor={`screen-hide-${block.id}`} className="text-sm font-normal">Hide on screen</Label>
+                                <Switch
+                                  id={`screen-hide-${block.id}`}
+                                  checked={block.screenHide ?? false}
+                                  onCheckedChange={(v) => updateBlock({ screenHide: v })}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -605,7 +626,7 @@ export function BlockBuilderClient({
           )}
         </div>
 
-        {/* Right: Config panel */}
+        {/* Right: Context panel */}
         <div className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4 space-y-5">
           {/* Campaign linkage panel */}
           {allCampaigns && (
@@ -618,27 +639,147 @@ export function BlockBuilderClient({
             />
           )}
 
-          {selectedBlock ? (
-            <BlockConfigPanel
-              block={selectedBlock}
-              entityOptions={entityOptions}
-              onUpdateConfig={updateConfig}
-              onUpdateBlock={(updates) =>
-                setBlocks((prev) =>
-                  prev.map((b) => (b.id === selectedBlock.id ? { ...b, ...updates } : b)),
-                )
-              }
-            />
+          {expandedBlock ? (
+            // Contextual help for the expanded block type
+            <BlockHelpPanel blockType={expandedBlock.type} />
           ) : (
             <div className="flex flex-col items-center justify-center gap-2 text-center py-8">
               <Settings className="size-8 text-muted-foreground/30" />
               <p className="text-sm text-muted-foreground">
-                Select a block to configure it.
+                Click a block to expand and configure it.
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings className="size-3.5" />
+                Template Settings
+              </Button>
             </div>
           )}
         </div>
       </div>
+
+      {/* Template Settings Sheet */}
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Template Settings</SheetTitle>
+            <SheetDescription>Configure template-level defaults that apply across all blocks.</SheetDescription>
+          </SheetHeader>
+
+          <div className="space-y-6 px-4">
+            {/* Description — auto-save */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Description</Label>
+              <Textarea
+                value={descriptionAutoSave.value}
+                onChange={descriptionAutoSave.handleChange}
+                onBlur={descriptionAutoSave.handleBlur}
+                className="text-sm min-h-20 resize-y"
+                placeholder="Brief description of this template…"
+              />
+              <AutoSaveIndicator status={descriptionAutoSave.status} onRetry={descriptionAutoSave.retry} />
+            </div>
+
+            <Separator />
+
+            {/* Display Level */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Display Level</Label>
+              <Select
+                value={settings.displayLevel}
+                onValueChange={(v) => setSettings((s) => ({ ...s, displayLevel: v as ReportDisplayLevel }))}
+              >
+                <SelectTrigger className="w-full h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dimension">Dimension</SelectItem>
+                  <SelectItem value="factor">Factor</SelectItem>
+                  <SelectItem value="construct">Construct</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Which taxonomy level is the primary unit across score blocks</p>
+            </div>
+
+            {/* Group by Dimension */}
+            <div className="space-y-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="settings-groupByDimension" className="text-sm font-normal">Group by dimension</Label>
+                <Switch
+                  id="settings-groupByDimension"
+                  checked={settings.groupByDimension}
+                  onCheckedChange={(v) => setSettings((s) => ({ ...s, groupByDimension: v }))}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Group factors under their parent dimension heading</p>
+            </div>
+
+            {/* Person Reference */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Person Reference</Label>
+              <Select
+                value={settings.personReference}
+                onValueChange={(v) => setSettings((s) => ({ ...s, personReference: v as PersonReferenceType }))}
+              >
+                <SelectTrigger className="w-full h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="you">You</SelectItem>
+                  <SelectItem value="first_name">First name</SelectItem>
+                  <SelectItem value="participant">Participant</SelectItem>
+                  <SelectItem value="the_participant">The participant</SelectItem>
+                  <SelectItem value="neutral">Neutral</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">How the report refers to the participant in narrative text</p>
+            </div>
+
+            {/* Auto Release */}
+            <div className="space-y-0.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="settings-autoRelease" className="text-sm font-normal">Auto release</Label>
+                <Switch
+                  id="settings-autoRelease"
+                  checked={settings.autoRelease}
+                  onCheckedChange={(v) => setSettings((s) => ({ ...s, autoRelease: v }))}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Automatically make report available when generation completes</p>
+            </div>
+
+            {/* Page Header Logo */}
+            <div className="space-y-1.5">
+              <Label className="text-sm">Page Header Logo</Label>
+              <Select
+                value={settings.pageHeaderLogo}
+                onValueChange={(v) => setSettings((s) => ({ ...s, pageHeaderLogo: v as 'primary' | 'secondary' | 'none' }))}
+              >
+                <SelectTrigger className="w-full h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="primary">Primary</SelectItem>
+                  <SelectItem value="secondary">Secondary</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Logo in the header of each printed page</p>
+            </div>
+          </div>
+
+          <SheetFooter>
+            <Button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full">
+              <Save className="size-3.5" />
+              {isSavingSettings ? 'Saving…' : 'Save Settings'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
@@ -667,275 +808,28 @@ function ModeTag({ mode }: { mode: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Config panel
+// Block Help Panel — contextual help shown in the right sidebar
 // ---------------------------------------------------------------------------
 
-interface ConfigPanelProps {
-  block: BlockConfig
-  entityOptions: EntityOption[]
-  onUpdateConfig: (key: string, value: unknown) => void
-  onUpdateBlock: (updates: Partial<BlockConfig>) => void
-}
-
-function BlockConfigPanel({ block, entityOptions, onUpdateConfig, onUpdateBlock }: ConfigPanelProps) {
-  const meta = BLOCK_REGISTRY[block.type]
+function BlockHelpPanel({ blockType }: { blockType: BlockType }) {
+  const help = BLOCK_HELP[blockType]
+  if (!help) return null
 
   return (
-    <div className="space-y-5">
-      <div>
-        <p className="font-semibold text-sm">{meta.label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{meta.description}</p>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <HelpCircle className="size-4 text-primary" />
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Block Guide</p>
       </div>
-
-      <Separator />
-
-      {/* Presentation mode */}
-      <div className="space-y-4">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Presentation</p>
-
-        {/* Mode selector */}
-        <div className="space-y-1.5">
-          <Label className="text-sm">Mode</Label>
-          <Select
-            value={block.presentationMode ?? meta.defaultMode}
-            onValueChange={(v) => onUpdateBlock({ presentationMode: v as PresentationMode })}
-          >
-            <SelectTrigger className="w-full h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {meta.supportedModes.map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  <span className="capitalize">{mode}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Columns (only for carded mode) */}
-        {(block.presentationMode ?? meta.defaultMode) === 'carded' && (
-          <div className="space-y-1.5">
-            <Label className="text-sm">Columns</Label>
-            <Select
-              value={String(block.columns ?? 1)}
-              onValueChange={(v) => onUpdateBlock({ columns: Number(v) as 1 | 2 | 3 })}
-            >
-              <SelectTrigger className="w-full h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">1 Column</SelectItem>
-                <SelectItem value="2">2 Columns</SelectItem>
-                <SelectItem value="3">3 Columns</SelectItem>
-              </SelectContent>
-            </Select>
+      <div className="space-y-2">
+        <p className="text-sm font-semibold">{help.title}</p>
+        <p className="text-sm text-muted-foreground leading-relaxed">{help.description}</p>
+        {help.tips && (
+          <div className="rounded-lg bg-muted/50 p-3 mt-2">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Tip</p>
+            <p className="text-xs text-muted-foreground">{help.tips}</p>
           </div>
         )}
-
-        {/* Chart type (only for blocks with supportedCharts) */}
-        {meta.supportedCharts && meta.supportedCharts.length > 0 && (
-          <div className="space-y-1.5">
-            <Label className="text-sm">Chart Type</Label>
-            <Select
-              value={block.chartType ?? meta.supportedCharts[0]}
-              onValueChange={(v) => onUpdateBlock({ chartType: v as ChartType })}
-            >
-              <SelectTrigger className="w-full h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {meta.supportedCharts.map((ct) => (
-                  <SelectItem key={ct} value={ct}>
-                    <span className="capitalize">{ct.replace(/_/g, ' ')}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {/* Inset accent (only for inset mode) */}
-        {(block.presentationMode ?? meta.defaultMode) === 'inset' && (
-          <div className="space-y-1.5">
-            <Label className="text-sm">Accent Colour</Label>
-            <Select
-              value={block.insetAccent ?? 'default'}
-              onValueChange={(v) => onUpdateBlock({ insetAccent: v === 'default' ? undefined : v ?? undefined })}
-            >
-              <SelectTrigger className="w-full h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Default (Sage)</SelectItem>
-                <SelectItem value="#c9a962">Gold</SelectItem>
-                <SelectItem value="#5b3fc5">Violet</SelectItem>
-                <SelectItem value="#b85c6a">Rose</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Type-aware config fields */}
-      <div className="space-y-4">
-        {Object.entries(block.config as Record<string, unknown>).map(([key, val]) => {
-          if (key.startsWith('_')) return null // internal flags
-
-          const label = FIELD_LABEL_OVERRIDES[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())
-
-          // Boolean → Switch (no change)
-          if (typeof val === 'boolean') {
-            return (
-              <div key={key} className="flex items-center justify-between gap-2">
-                <Label htmlFor={`config-${key}`} className="text-sm font-normal">
-                  {label}
-                </Label>
-                <Switch
-                  id={`config-${key}`}
-                  checked={val}
-                  onCheckedChange={(checked) => onUpdateConfig(key, checked)}
-                />
-              </div>
-            )
-          }
-
-          // entityId → EntityCombobox
-          if (key === 'entityId') {
-            return (
-              <div key={key} className="space-y-1.5">
-                <Label className="text-sm">{label}</Label>
-                <EntityCombobox
-                  value={String(val ?? '')}
-                  onChange={(id) => onUpdateConfig(key, id)}
-                  options={entityOptions}
-                />
-              </div>
-            )
-          }
-
-          // entityIds → EntityMultiSelect
-          if (key === 'entityIds') {
-            const ids = Array.isArray(val) ? (val as string[]) : []
-            return (
-              <div key={key} className="space-y-1.5">
-                <Label className="text-sm">{label}</Label>
-                <EntityMultiSelect
-                  value={ids}
-                  onChange={(ids) => onUpdateConfig(key, ids)}
-                  options={entityOptions}
-                />
-              </div>
-            )
-          }
-
-          // Enum fields → Select
-          if (key in ENUM_FIELDS) {
-            const enumDef = ENUM_FIELDS[key]!
-            return (
-              <div key={key} className="space-y-1.5">
-                <Label className="text-sm">{label}</Label>
-                <Select
-                  value={String(val ?? '')}
-                  onValueChange={(v) => onUpdateConfig(key, v)}
-                >
-                  <SelectTrigger className="w-full h-8 text-sm">
-                    <SelectValue placeholder={`Select ${enumDef.label.toLowerCase()}…`} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {enumDef.options.map((opt) => (
-                      <SelectItem key={opt} value={opt}>
-                        {opt.charAt(0).toUpperCase() + opt.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )
-          }
-
-          // content → Textarea
-          if (key === 'content') {
-            return (
-              <div key={key} className="space-y-1.5">
-                <Label htmlFor={`config-${key}`} className="text-sm">{label}</Label>
-                <Textarea
-                  id={`config-${key}`}
-                  value={String(val ?? '')}
-                  onChange={(e) => onUpdateConfig(key, e.target.value)}
-                  className="text-sm min-h-24 resize-y"
-                  placeholder="Markdown supported…"
-                />
-              </div>
-            )
-          }
-
-          // Numeric fields → number Input
-          if (NUMERIC_FIELDS.has(key) || typeof val === 'number') {
-            return (
-              <div key={key} className="space-y-1.5">
-                <Label htmlFor={`config-${key}`} className="text-sm">{label}</Label>
-                <Input
-                  id={`config-${key}`}
-                  type="number"
-                  value={val as number ?? ''}
-                  onChange={(e) => onUpdateConfig(key, Number(e.target.value))}
-                  className="h-8 text-sm"
-                />
-              </div>
-            )
-          }
-
-          // String or null → text Input
-          if (typeof val === 'string' || val === null) {
-            return (
-              <div key={key} className="space-y-1.5">
-                <Label htmlFor={`config-${key}`} className="text-sm">{label}</Label>
-                <Input
-                  id={`config-${key}`}
-                  value={val ?? ''}
-                  onChange={(e) => onUpdateConfig(key, e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-            )
-          }
-
-          return null
-        })}
-      </div>
-
-      <Separator />
-
-      {/* Print options */}
-      <div className="space-y-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Print</p>
-        <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="print-break" className="text-sm font-normal">Page break before</Label>
-          <Switch
-            id="print-break"
-            checked={block.printBreakBefore ?? false}
-            onCheckedChange={(v) => onUpdateBlock({ printBreakBefore: v })}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="print-hide" className="text-sm font-normal">Hide in PDF</Label>
-          <Switch
-            id="print-hide"
-            checked={block.printHide ?? false}
-            onCheckedChange={(v) => onUpdateBlock({ printHide: v })}
-          />
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <Label htmlFor="screen-hide" className="text-sm font-normal">Hide on screen</Label>
-          <Switch
-            id="screen-hide"
-            checked={block.screenHide ?? false}
-            onCheckedChange={(v) => onUpdateBlock({ screenHide: v })}
-          />
-        </div>
       </div>
     </div>
   )

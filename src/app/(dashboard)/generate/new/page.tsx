@@ -16,6 +16,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionPanel,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Select,
   SelectContent,
@@ -32,7 +39,7 @@ import {
 } from "@/app/actions/generation";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
 import type { GenerationRunConfig } from "@/types/database";
-import type { PreflightResult } from "@/types/generation";
+import type { ConstructDraftInput, PreflightResult } from "@/types/generation";
 import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -59,6 +66,79 @@ interface WizardModelBootstrap {
   configuredModels: Partial<Record<string, string>>;
   textModels: OpenRouterModel[];
   embeddingModels: OpenRouterModel[];
+}
+
+interface ConstructDraftState {
+  definition: string;
+  description: string;
+  indicatorsLow: string;
+  indicatorsMid: string;
+  indicatorsHigh: string;
+}
+
+type DraftField = keyof ConstructDraftState;
+type ConstructDraftMap = Record<string, ConstructDraftState>;
+
+function createConstructDraftState(construct?: Partial<Construct>): ConstructDraftState {
+  return {
+    definition: construct?.definition ?? "",
+    description: construct?.description ?? "",
+    indicatorsLow: construct?.indicatorsLow ?? "",
+    indicatorsMid: construct?.indicatorsMid ?? "",
+    indicatorsHigh: construct?.indicatorsHigh ?? "",
+  };
+}
+
+function normalizeDraftText(value: string): string | undefined {
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function buildPreflightConstructs(
+  constructs: Construct[] | null,
+  selectedIds: string[],
+  drafts: ConstructDraftMap,
+): ConstructDraftInput[] {
+  return (constructs ?? [])
+    .filter((construct) => selectedIds.includes(construct.id))
+    .map((construct) => {
+      const draft = drafts[construct.id] ?? createConstructDraftState(construct);
+      return {
+        id: construct.id,
+        name: construct.name,
+        definition: normalizeDraftText(draft.definition),
+        description: normalizeDraftText(draft.description),
+        indicatorsLow: normalizeDraftText(draft.indicatorsLow),
+        indicatorsMid: normalizeDraftText(draft.indicatorsMid),
+        indicatorsHigh: normalizeDraftText(draft.indicatorsHigh),
+      };
+    });
+}
+
+function buildConstructOverrides(
+  constructs: Construct[] | null,
+  selectedIds: string[],
+  drafts: ConstructDraftMap,
+): GenerationRunConfig["constructOverrides"] {
+  const overrides: NonNullable<GenerationRunConfig["constructOverrides"]> = {};
+
+  for (const construct of constructs ?? []) {
+    if (!selectedIds.includes(construct.id)) continue;
+    const draft = drafts[construct.id] ?? createConstructDraftState(construct);
+    const patch: NonNullable<GenerationRunConfig["constructOverrides"]>[string] = {};
+
+    if (draft.definition !== (construct.definition ?? "")) patch.definition = draft.definition;
+    if (draft.description !== (construct.description ?? "")) patch.description = draft.description;
+    if (draft.indicatorsLow !== (construct.indicatorsLow ?? "")) patch.indicatorsLow = draft.indicatorsLow;
+    if (draft.indicatorsMid !== (construct.indicatorsMid ?? "")) patch.indicatorsMid = draft.indicatorsMid;
+    if (draft.indicatorsHigh !== (construct.indicatorsHigh ?? "")) patch.indicatorsHigh = draft.indicatorsHigh;
+
+    if (Object.keys(patch).length > 0) {
+      overrides[construct.id] = patch;
+    }
+  }
+
+  return Object.keys(overrides).length > 0 ? overrides : undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -242,11 +322,15 @@ function Step1SelectConstructs({
 function Step2ReadinessCheck({
   constructs,
   selectedIds,
+  constructDrafts,
+  onDraftChange,
   onBack,
   onNext,
 }: {
   constructs: Construct[] | null;
   selectedIds: string[];
+  constructDrafts: ConstructDraftMap;
+  onDraftChange: (constructId: string, field: DraftField, value: string) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -254,10 +338,15 @@ function Step2ReadinessCheck({
     () => (constructs ?? []).filter((c) => selectedIds.includes(c.id)),
     [constructs, selectedIds],
   );
+  const selectedConstructInputs = React.useMemo(
+    () => buildPreflightConstructs(constructs, selectedIds, constructDrafts),
+    [constructs, selectedIds, constructDrafts],
+  );
 
   const [preflightResult, setPreflightResult] = React.useState<PreflightResult | null>(null);
   const [preflightError, setPreflightError] = React.useState<string | null>(null);
   const [preflightLoading, setPreflightLoading] = React.useState(true);
+  const [lastCheckedSignature, setLastCheckedSignature] = React.useState("");
 
   // Map construct IDs to their preflight status from pairs
   const constructStatus = React.useMemo((): Map<string, "green" | "amber" | "red"> => {
@@ -280,14 +369,28 @@ function Step2ReadinessCheck({
     return map;
   }, [preflightResult]);
 
-  useEffect(() => {
+  const readinessSignature = React.useMemo(
+    () => JSON.stringify(selectedConstructInputs),
+    [selectedConstructInputs],
+  );
+  const readinessNeedsRefresh = readinessSignature !== lastCheckedSignature;
+  const reviewedPairs = React.useMemo(
+    () => [...(preflightResult?.pairs ?? [])]
+      .filter((pair) => pair.reviewedByLlm || pair.status !== "green")
+      .sort((left, right) => right.cosineSimilarity - left.cosineSimilarity),
+    [preflightResult],
+  );
+
+  const runReadinessCheck = React.useCallback((constructInputs: ConstructDraftInput[]) => {
     setPreflightLoading(true);
     setPreflightError(null);
     setPreflightResult(null);
-    checkConstructReadiness(selectedIds)
+    const signature = JSON.stringify(constructInputs);
+    checkConstructReadiness(constructInputs)
       .then((res) => {
         if (res.success) {
           setPreflightResult(res.result);
+          setLastCheckedSignature(signature);
         } else {
           setPreflightError(res.error ?? "Readiness check failed");
         }
@@ -298,8 +401,20 @@ function Step2ReadinessCheck({
       .finally(() => {
         setPreflightLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    if (selectedConstructInputs.length === 0) {
+      setPreflightLoading(false);
+      setPreflightResult(null);
+      setPreflightError(null);
+      setLastCheckedSignature("");
+      return;
+    }
+
+    runReadinessCheck(selectedConstructInputs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedIds.join(",")]);
+  }, [selectedIds.join(","), constructs]);
 
   const overallStatus = preflightResult?.overallStatus ?? "green";
   const metadata = preflightResult?.metadata;
@@ -421,12 +536,19 @@ function Step2ReadinessCheck({
               {metadata && (
                 <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
                   <p>
-                    Similarity threshold: <span className="font-medium text-foreground">{metadata.similarityThreshold.toFixed(2)}</span>
+                    Review threshold: <span className="font-medium text-foreground">{metadata.reviewThreshold?.toFixed(2) ?? metadata.similarityThreshold.toFixed(2)}</span>
+                    {" · "}
+                    Escalation threshold: <span className="font-medium text-foreground">{metadata.similarityThreshold.toFixed(2)}</span>
                   </p>
                   <p>
                     Pair checks: <span className="font-medium text-foreground">{metadata.pairCount}</span>
                     {" · "}
                     LLM-reviewed pairs: <span className="font-medium text-foreground">{metadata.llmPairCount}</span>
+                    {metadata.topPairsReviewed ? (
+                      <>
+                        {" · "}Top pairs reviewed: <span className="font-medium text-foreground">{metadata.topPairsReviewed}</span>
+                      </>
+                    ) : null}
                   </p>
                   <p>
                     Embedding model: <span className="font-medium text-foreground">{metadata.embeddingModel}</span>
@@ -441,6 +563,235 @@ function Step2ReadinessCheck({
                   </p>
                 </div>
               )}
+
+              {reviewedPairs.length > 0 && (
+                <div className="space-y-2">
+                  <div>
+                    <h3 className="text-sm font-semibold">Pair Diagnostics</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Review the closest construct pairs before you proceed. If you edit definitions below,
+                      rerun the readiness check to refresh these diagnostics.
+                    </p>
+                  </div>
+                  <Accordion multiple defaultValue={reviewedPairs.slice(0, 2).map((pair) => `${pair.constructAId}:${pair.constructBId}`)}>
+                    {reviewedPairs.map((pair) => (
+                      <AccordionItem
+                        key={`${pair.constructAId}:${pair.constructBId}`}
+                        value={`${pair.constructAId}:${pair.constructBId}`}
+                        className="rounded-lg border border-border bg-card"
+                      >
+                        <AccordionTrigger>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {pair.constructAName} vs {pair.constructBName}
+                            </span>
+                            <Badge variant="outline" className="text-caption">
+                              cosine {pair.cosineSimilarity.toFixed(3)}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={
+                                pair.status === "red"
+                                  ? "border-red-200 text-red-700 dark:border-red-800 dark:text-red-400"
+                                  : pair.status === "amber"
+                                    ? "border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400"
+                                    : "border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
+                              }
+                            >
+                              {pair.status === "red" ? "At risk" : pair.status === "amber" ? "Refine" : "Distinct"}
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionPanel className="px-4 pb-4 space-y-3">
+                          {pair.overlapSummary && (
+                            <p className="text-sm text-muted-foreground">{pair.overlapSummary}</p>
+                          )}
+                          {(pair.bigFiveMappingA || pair.bigFiveMappingB) && (
+                            <div className="grid gap-3 md:grid-cols-2">
+                              {[
+                                { name: pair.constructAName, mapping: pair.bigFiveMappingA },
+                                { name: pair.constructBName, mapping: pair.bigFiveMappingB },
+                              ].map(({ name, mapping }) =>
+                                mapping ? (
+                                  <div key={name} className="rounded-lg border border-border/70 bg-muted/20 p-2.5 space-y-1">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="text-xs font-medium">{name}</span>
+                                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                                        {mapping.primaryDomain}
+                                      </Badge>
+                                    </div>
+                                    {mapping.knownFacetMatch && (
+                                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                                        Covered by NEO-PI-R: {mapping.knownFacetMatch}
+                                      </p>
+                                    )}
+                                    {mapping.intersectionDomains && mapping.intersectionDomains.length >= 2 && (
+                                      <p className="text-xs text-green-600 dark:text-green-400">
+                                        Novel intersection: {mapping.intersectionDomains.join(" + ")}
+                                      </p>
+                                    )}
+                                    {mapping.note && (
+                                      <p className="text-xs text-muted-foreground">{mapping.note}</p>
+                                    )}
+                                  </div>
+                                ) : null,
+                              )}
+                            </div>
+                          )}
+                          {pair.sharedSignals && pair.sharedSignals.length > 0 && (
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Shared signals</p>
+                              <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+                                {pair.sharedSignals.map((signal) => (
+                                  <li key={signal}>{signal}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                              <p className="text-sm font-medium">{pair.constructAName}</p>
+                              {pair.uniqueSignalsA && pair.uniqueSignalsA.length > 0 && (
+                                <ul className="mt-2 list-disc pl-5 text-sm text-muted-foreground">
+                                  {pair.uniqueSignalsA.map((signal) => (
+                                    <li key={signal}>{signal}</li>
+                                  ))}
+                                </ul>
+                              )}
+                              {pair.refinementGuidanceA && (
+                                <p className="mt-2 text-xs text-muted-foreground">{pair.refinementGuidanceA}</p>
+                              )}
+                            </div>
+                            <div className="rounded-lg border border-border/70 bg-muted/20 p-3">
+                              <p className="text-sm font-medium">{pair.constructBName}</p>
+                              {pair.uniqueSignalsB && pair.uniqueSignalsB.length > 0 && (
+                                <ul className="mt-2 list-disc pl-5 text-sm text-muted-foreground">
+                                  {pair.uniqueSignalsB.map((signal) => (
+                                    <li key={signal}>{signal}</li>
+                                  ))}
+                                </ul>
+                              )}
+                              {pair.refinementGuidanceB && (
+                                <p className="mt-2 text-xs text-muted-foreground">{pair.refinementGuidanceB}</p>
+                              )}
+                            </div>
+                          </div>
+                          {(pair.discriminatingItemsA?.length || pair.discriminatingItemsB?.length) ? (
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Only {pair.constructAName}</p>
+                                <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+                                  {(pair.discriminatingItemsA ?? []).map((item) => (
+                                    <li key={item}>{item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Only {pair.constructBName}</p>
+                                <ul className="mt-1 list-disc pl-5 text-sm text-muted-foreground">
+                                  {(pair.discriminatingItemsB ?? []).map((item) => (
+                                    <li key={item}>{item}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          ) : null}
+                          {pair.llmExplanation && (
+                            <p className="text-xs text-muted-foreground">{pair.llmExplanation}</p>
+                          )}
+                        </AccordionPanel>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div>
+                  <h3 className="text-sm font-semibold">Refine Definitions</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Edit the wording used for the readiness check and for this generation run. These edits
+                    do not overwrite the library definition unless you save them elsewhere later.
+                  </p>
+                </div>
+                <Accordion multiple defaultValue={selected.slice(0, 2).map((construct) => construct.id)}>
+                  {selected.map((construct) => {
+                    const draft = constructDrafts[construct.id] ?? createConstructDraftState(construct);
+                    const status = constructStatus.get(construct.id) ?? "green";
+                    return (
+                      <AccordionItem
+                        key={construct.id}
+                        value={construct.id}
+                        className="rounded-lg border border-border bg-card"
+                      >
+                        <AccordionTrigger>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="text-sm font-medium">{construct.name}</span>
+                            <Badge
+                              variant="outline"
+                              className={
+                                status === "red"
+                                  ? "border-red-200 text-red-700 dark:border-red-800 dark:text-red-400"
+                                  : status === "amber"
+                                    ? "border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400"
+                                    : "border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
+                              }
+                            >
+                              {status === "red" ? "At risk" : status === "amber" ? "Review" : "Ready"}
+                            </Badge>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionPanel className="space-y-3 px-4 pb-4">
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Definition</label>
+                            <Textarea
+                              value={draft.definition}
+                              onChange={(event) => onDraftChange(construct.id, "definition", event.target.value)}
+                              placeholder="Describe the narrow, stable tendency this construct should capture."
+                              rows={4}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</label>
+                            <Textarea
+                              value={draft.description}
+                              onChange={(event) => onDraftChange(construct.id, "description", event.target.value)}
+                              placeholder="Add the boundary, centre of gravity, and what this construct is not."
+                              rows={5}
+                            />
+                          </div>
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Low indicators</label>
+                              <Textarea
+                                value={draft.indicatorsLow}
+                                onChange={(event) => onDraftChange(construct.id, "indicatorsLow", event.target.value)}
+                                rows={5}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mid indicators</label>
+                              <Textarea
+                                value={draft.indicatorsMid}
+                                onChange={(event) => onDraftChange(construct.id, "indicatorsMid", event.target.value)}
+                                rows={5}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">High indicators</label>
+                              <Textarea
+                                value={draft.indicatorsHigh}
+                                onChange={(event) => onDraftChange(construct.id, "indicatorsHigh", event.target.value)}
+                                rows={5}
+                              />
+                            </div>
+                          </div>
+                        </AccordionPanel>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
             </div>
           )}
         </>
@@ -453,11 +804,31 @@ function Step2ReadinessCheck({
         </Button>
         <div className="flex items-center gap-2">
           <Button
+            variant="outline"
+            onClick={() => runReadinessCheck(selectedConstructInputs)}
+            disabled={preflightLoading || selectedConstructInputs.length === 0}
+          >
+            {preflightLoading ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Running…
+              </>
+            ) : readinessNeedsRefresh ? (
+              "Re-run readiness check"
+            ) : (
+              "Run again"
+            )}
+          </Button>
+          <Button
             variant={preflightError ? "outline" : "default"}
             onClick={onNext}
-            disabled={preflightLoading}
+            disabled={preflightLoading || readinessNeedsRefresh}
           >
-            {preflightError ? "Continue Anyway" : "Proceed to Configuration"}
+            {readinessNeedsRefresh
+              ? "Re-run check to continue"
+              : preflightError
+                ? "Continue Anyway"
+                : "Proceed to Configuration"}
             <ChevronRight className="size-4" />
           </Button>
         </div>
@@ -652,6 +1023,7 @@ function Step3Configure({
 function Step4Launch({
   config,
   constructs,
+  constructDrafts,
   textModels,
   embeddingModels,
   responseFormats,
@@ -661,6 +1033,7 @@ function Step4Launch({
 }: {
   config: WizardConfig;
   constructs: Construct[] | null;
+  constructDrafts: ConstructDraftMap;
   textModels: OpenRouterModel[];
   embeddingModels: OpenRouterModel[];
   responseFormats: ResponseFormat[] | null;
@@ -677,6 +1050,9 @@ function Step4Launch({
   const selectedGenerationModel = textModels.find((m) => m.id === config.generationModel);
   const selectedEmbeddingModel = embeddingModels.find((m) => m.id === config.embeddingModel);
   const totalItems = config.selectedConstructIds.length * config.targetItemsPerConstruct;
+  const overrideCount = Object.keys(
+    buildConstructOverrides(constructs, config.selectedConstructIds, constructDrafts) ?? {},
+  ).length;
 
   return (
     <div className="space-y-6">
@@ -739,6 +1115,14 @@ function Step4Launch({
               <p className="text-xs text-muted-foreground">Response Format</p>
               <p className="font-semibold">{selectedFormat?.name ?? "None"}</p>
             </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Refined Definitions</p>
+              <p className="font-semibold">
+                {overrideCount === 0
+                  ? "None"
+                  : `${overrideCount} construct${overrideCount !== 1 ? "s" : ""}`}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -793,6 +1177,7 @@ export default function NewGenerationPage() {
   const [step, setStep] = useState(1);
   const [maxReached, setMaxReached] = useState(1);
   const [config, setConfig] = useState<WizardConfig>(DEFAULT_CONFIG);
+  const [constructDrafts, setConstructDrafts] = useState<ConstructDraftMap>({});
 
   const [constructs, setConstructs] = useState<Construct[] | null>(null);
   const [responseFormats, setResponseFormats] = useState<ResponseFormat[] | null>(null);
@@ -807,6 +1192,15 @@ export default function NewGenerationPage() {
     getConstructsForGeneration()
       .then((list) => {
         setConstructs(list);
+        setConstructDrafts((prev) => {
+          const next = { ...prev };
+          for (const construct of list) {
+            if (!next[construct.id]) {
+              next[construct.id] = createConstructDraftState(construct);
+            }
+          }
+          return next;
+        });
         if (preselectedConstructId && list.some((c) => c.id === preselectedConstructId)) {
           patchConfig({ selectedConstructIds: [preselectedConstructId] });
         }
@@ -837,6 +1231,19 @@ export default function NewGenerationPage() {
     });
   }
 
+  const patchConstructDraft = useCallback(
+    (constructId: string, field: DraftField, value: string) => {
+      setConstructDrafts((prev) => ({
+        ...prev,
+        [constructId]: {
+          ...(prev[constructId] ?? createConstructDraftState(constructs?.find((construct) => construct.id === constructId))),
+          [field]: value,
+        },
+      }));
+    },
+    [constructs],
+  );
+
   function goToStep(n: number) {
     setStep(n);
     if (n > maxReached) setMaxReached(n);
@@ -858,6 +1265,11 @@ export default function NewGenerationPage() {
           embeddingModel: config.embeddingModel,
           responseFormatId: config.responseFormatId,
           promptPurpose: config.promptPurpose,
+          constructOverrides: buildConstructOverrides(
+            constructs,
+            config.selectedConstructIds,
+            constructDrafts,
+          ),
         };
 
         const run = await createGenerationRun(runConfig);
@@ -908,6 +1320,8 @@ export default function NewGenerationPage() {
             <Step2ReadinessCheck
               constructs={constructs}
               selectedIds={config.selectedConstructIds}
+              constructDrafts={constructDrafts}
+              onDraftChange={patchConstructDraft}
               onBack={() => goToStep(1)}
               onNext={() => goToStep(3)}
             />
@@ -927,6 +1341,7 @@ export default function NewGenerationPage() {
             <Step4Launch
               config={config}
               constructs={constructs}
+              constructDrafts={constructDrafts}
               textModels={modelBootstrap?.textModels ?? []}
               embeddingModels={modelBootstrap?.embeddingModels ?? []}
               responseFormats={responseFormats}

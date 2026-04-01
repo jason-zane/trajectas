@@ -23,6 +23,13 @@ export interface PipelineInput {
   constructs: ConstructForGeneration[]
 }
 
+/** Parent factor context injected for criterion linkage during construct-level generation. */
+export interface ParentFactorContext {
+  name: string
+  definition?: string
+  indicatorsHigh?: string
+}
+
 /** Construct data assembled for use in generation prompts. */
 export interface ConstructForGeneration {
   id: string
@@ -35,6 +42,7 @@ export interface ConstructForGeneration {
   indicatorsHigh?: string
   existingItemCount: number
   existingItems?: string[]
+  parentFactors?: ParentFactorContext[]
 }
 
 export interface ConstructDraftInput extends ConstructConfigOverride {
@@ -79,6 +87,9 @@ export interface CandidateItem {
   reverseScored: boolean
   rationale: string
   constructId: string
+  difficultyTier?: 'easy' | 'moderate' | 'hard' | 'foundation' | 'applied' | 'demanding'
+  sdRisk?: 'low' | 'moderate' | 'high'
+  facet?: string
 }
 
 /** A candidate item with computed psychometric metrics. */
@@ -180,6 +191,16 @@ export interface ConstructPairResult {
   refinementGuidanceA?: string
   refinementGuidanceB?: string
   llmExplanation?: string
+  bigFiveMappingA?: BigFiveMapping
+  bigFiveMappingB?: BigFiveMapping
+}
+
+/** Big Five domain mapping for a construct, returned by preflight analysis. */
+export interface BigFiveMapping {
+  primaryDomain: string
+  knownFacetMatch?: string | null
+  intersectionDomains?: string[]
+  note?: string
 }
 
 // ---------------------------------------------------------------------------

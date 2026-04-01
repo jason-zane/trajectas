@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowUp, ArrowDown, ArrowUpDown, Info } from "lucide-rea
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { subthemeColor, wtoInterpretation } from "./metric-helpers"
+import { subthemeColor, wtoInterpretation, difficultyColor, sdRiskColor, difficultyOrdinal, sdRiskOrdinal } from "./metric-helpers"
 import type { GeneratedItem } from "@/types/database"
 
 // ---------------------------------------------------------------------------
@@ -47,7 +47,7 @@ function finalCommunityId(item: GeneratedItem): number | undefined {
 // Sort header
 // ---------------------------------------------------------------------------
 
-type SortKey = "wto" | "stability" | "community" | "status"
+type SortKey = "wto" | "stability" | "community" | "status" | "facet" | "difficulty" | "sdRisk"
 type SortDir = "asc" | "desc"
 
 function SortHeader({
@@ -196,6 +196,15 @@ export function SortableItemTable({
         case "status":
           cmp = statusRank(a) - statusRank(b)
           break
+        case "facet":
+          cmp = (a.facet ?? "").localeCompare(b.facet ?? "")
+          break
+        case "difficulty":
+          cmp = difficultyOrdinal(a.difficultyTier) - difficultyOrdinal(b.difficultyTier)
+          break
+        case "sdRisk":
+          cmp = sdRiskOrdinal(a.sdRisk) - sdRiskOrdinal(b.sdRisk)
+          break
       }
       return sortDir === "desc" ? -cmp : cmp
     })
@@ -221,6 +230,30 @@ export function SortableItemTable({
               currentDir={sortDir}
               onSort={handleSort}
               tooltip="Semantic sub-cluster discovered by network analysis. Items in the same sub-theme measure related facets of the construct."
+            />
+            <SortHeader
+              label="Facet"
+              sortKey="facet"
+              currentKey={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+              tooltip="The narrow behavioural facet this item taps, as labelled by the LLM during generation."
+            />
+            <SortHeader
+              label="Diff."
+              sortKey="difficulty"
+              currentKey={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+              tooltip="Difficulty tier: how easy the item is to endorse. Easy = most agree, Hard = only strong scorers agree."
+            />
+            <SortHeader
+              label="SD"
+              sortKey="sdRisk"
+              currentKey={sortKey}
+              currentDir={sortDir}
+              onSort={handleSort}
+              tooltip="Social desirability risk. Low = neutral, High = strongly desirable/undesirable wording."
             />
             <SortHeader
               label="wTO"
@@ -303,6 +336,37 @@ export function SortableItemTable({
                 {/* Sub-theme — numbered pill */}
                 <td className="px-3 py-2.5 align-top">
                   <SubthemePill item={item} />
+                </td>
+
+                {/* Facet */}
+                <td className="px-3 py-2.5 align-top">
+                  {item.facet && (
+                    <span className="text-xs text-muted-foreground">{item.facet}</span>
+                  )}
+                </td>
+
+                {/* Difficulty */}
+                <td className="px-3 py-2.5 align-top">
+                  {item.difficultyTier && (() => {
+                    const d = difficultyColor(item.difficultyTier)
+                    return (
+                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${d.className}`}>
+                        {d.label}
+                      </span>
+                    )
+                  })()}
+                </td>
+
+                {/* SD Risk */}
+                <td className="px-3 py-2.5 align-top">
+                  {item.sdRisk && (() => {
+                    const s = sdRiskColor(item.sdRisk)
+                    return (
+                      <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium ${s.className}`}>
+                        {s.label}
+                      </span>
+                    )
+                  })()}
                 </td>
 
                 {/* wTO — colour-coded */}

@@ -82,6 +82,9 @@ export async function runPipeline(
     stem: string
     reverseScored: boolean
     rationale: string
+    difficultyTier?: string
+    sdRisk?: string
+    facet?: string
   }> = []
   const seenByConstruct = new Map<string, Set<string>>()
   const MAX_CONSECUTIVE_FAILURES = 5
@@ -141,6 +144,9 @@ export async function runPipeline(
             stem: item.stem,
             reverseScored: item.reverseScored,
             rationale: item.rationale,
+            difficultyTier: item.difficultyTier,
+            sdRisk: item.sdRisk,
+            facet: item.facet,
           })
           if (accumulated.length >= target) break
         }
@@ -328,6 +334,9 @@ export async function runPipeline(
       stem: candidate.stem,
       reverseScored: candidate.reverseScored,
       rationale: candidate.rationale,
+      difficultyTier: candidate.difficultyTier as ScoredCandidateItem['difficultyTier'],
+      sdRisk: candidate.sdRisk as ScoredCandidateItem['sdRisk'],
+      facet: candidate.facet,
       embedding: fullEmbeddings[index] ?? [],
       communityId: finalCommunityIds[index] ?? initialCommunityIds[index],
       initialCommunityId: initialCommunityIds[index],

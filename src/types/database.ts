@@ -381,6 +381,8 @@ export interface Dimension {
   pompThresholdHigh?: number
   /** Development suggestion text for reports. AI-generated when blank. */
   developmentSuggestion?: string
+  /** Strength commentary text shown when this entity is a top-scoring area. */
+  strengthCommentary?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -430,6 +432,8 @@ export interface Factor {
   pompThresholdHigh?: number
   /** Development suggestion text for reports. AI-generated when blank. */
   developmentSuggestion?: string
+  /** Strength commentary text shown when this entity is a top-scoring area. */
+  strengthCommentary?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -473,6 +477,8 @@ export interface Construct {
   pompThresholdHigh?: number
   /** Development suggestion text for reports. AI-generated when blank. */
   developmentSuggestion?: string
+  /** Strength commentary text shown when this entity is a top-scoring area. */
+  strengthCommentary?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -1658,6 +1664,9 @@ export interface GeneratedItem {
   isUnstable: boolean
   isAccepted?: boolean
   savedItemId?: string
+  difficultyTier?: 'easy' | 'moderate' | 'hard' | 'foundation' | 'applied' | 'demanding'
+  sdRisk?: 'low' | 'moderate' | 'high'
+  facet?: string
   created_at: string
 }
 
@@ -1690,6 +1699,7 @@ export interface ReportTemplate {
   groupByDimension: boolean
   personReference: PersonReferenceType
   autoRelease: boolean
+  pageHeaderLogo: 'primary' | 'secondary' | 'none'
   blocks: Record<string, unknown>[]  // BlockConfig[] — typed in src/lib/reports/types.ts
   isActive: boolean
   deletedAt?: string

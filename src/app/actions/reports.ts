@@ -54,6 +54,7 @@ export interface CreateReportTemplateInput {
   groupByDimension?: boolean
   personReference?: PersonReferenceType
   autoRelease?: boolean
+  pageHeaderLogo?: 'primary' | 'secondary' | 'none'
   partnerId?: string
 }
 
@@ -72,6 +73,7 @@ export async function createReportTemplate(
       group_by_dimension: input.groupByDimension ?? false,
       person_reference: input.personReference ?? 'the_participant',
       auto_release: input.autoRelease ?? false,
+      page_header_logo: input.pageHeaderLogo ?? 'none',
       partner_id: input.partnerId ?? null,
       blocks: [],
     })
@@ -97,6 +99,7 @@ export async function cloneReportTemplate(id: string): Promise<ReportTemplate> {
       group_by_dimension: source.groupByDimension,
       person_reference: source.personReference,
       auto_release: false,  // never auto-release a clone by default
+      page_header_logo: source.pageHeaderLogo ?? 'none',
       partner_id: source.partnerId ?? null,
       blocks: source.blocks,
     })
@@ -134,6 +137,7 @@ export async function updateReportTemplateSettings(
   if (updates.groupByDimension !== undefined) row.group_by_dimension = updates.groupByDimension
   if (updates.personReference !== undefined) row.person_reference = updates.personReference
   if (updates.autoRelease !== undefined) row.auto_release = updates.autoRelease
+  if (updates.pageHeaderLogo !== undefined) row.page_header_logo = updates.pageHeaderLogo
   const { error } = await db.from('report_templates').update(row).eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/settings/reports')

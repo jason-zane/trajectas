@@ -7,6 +7,7 @@ import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapGenerationRunRow, mapGeneratedItemRow, mapResponseFormatRow } from '@/lib/supabase/mappers'
 import { createGenerationRunSchema, acceptItemsSchema } from '@/lib/validations/generation'
 import type {
+  ConstructConfigOverride,
   GenerationRun,
   GeneratedItem,
   GenerationRunStatus,
@@ -14,7 +15,11 @@ import type {
   ResponseFormat,
 } from '@/types/database'
 import { runPipeline } from '@/lib/ai/generation'
-import type { ScoredCandidateItem, ConstructForGeneration } from '@/types/generation'
+import type {
+  ConstructDraftInput,
+  ScoredCandidateItem,
+  ConstructForGeneration,
+} from '@/types/generation'
 import type { ProgressCallback } from '@/lib/ai/generation/types'
 
 
@@ -111,6 +116,9 @@ async function insertMockGeneratedItems(
     is_redundant: boolean
     is_unstable: boolean
     is_accepted: boolean
+    difficulty_tier: string
+    sd_risk: string
+    facet: string
   }[] = []
 
   const totalPerConstruct = targetItemsPerConstruct
@@ -142,6 +150,9 @@ async function insertMockGeneratedItems(
         removal_stage: wtoMax > 0.20 ? 'uva' : bootStability < 0.75 ? 'boot_ega' : 'kept',
         removal_sweep: wtoMax > 0.20 || bootStability < 0.75 ? 1 : null,
         is_accepted: false,
+        difficulty_tier: ['easy', 'moderate', 'hard'][i % 3],
+        sd_risk: ['low', 'moderate', 'high'][i % 3],
+        facet: `facet-${(i % 4) + 1}`,
       })
     }
   }
@@ -335,7 +346,7 @@ export async function startGenerationRun(
     }
 
     // Fetch construct data for the run
-    const constructs = await fetchConstructsForRun(config.constructIds)
+    const constructs = await fetchConstructsForRun(config.constructIds, config.constructOverrides)
     const responseFormatDescription = await fetchResponseFormatDescription(config.responseFormatId)
 
     const onProgress: ProgressCallback = async (step, pct, details) => {
@@ -384,6 +395,9 @@ export async function startGenerationRun(
           removal_sweep:     item.removalSweep ?? null,
           is_redundant:      item.isRedundant,
           is_unstable:       item.isUnstable,
+          difficulty_tier:   item.difficultyTier ?? null,
+          sd_risk:           item.sdRisk ?? null,
+          facet:             item.facet ?? null,
         }))
       )
       if (insertError) throw new Error(`Failed to insert items: ${insertError.message}`)
@@ -600,10 +614,13 @@ export async function deleteGenerationRun(runId: string): Promise<void> {
 // Private helper — fetch construct data for a specific set of IDs
 // ---------------------------------------------------------------------------
 
-async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructForGeneration[]> {
+async function fetchConstructsForRun(
+  constructIds: string[],
+  constructOverrides?: Record<string, ConstructConfigOverride>,
+): Promise<ConstructForGeneration[]> {
   const db = createAdminClient()
 
-  const [constructsResult, itemsResult] = await Promise.all([
+  const [constructsResult, itemsResult, factorLinksResult] = await Promise.all([
     db
       .from('constructs')
       .select('*')
@@ -615,6 +632,10 @@ async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructF
       .in('construct_id', constructIds)
       .is('deleted_at', null)
       .eq('purpose', 'construct'),
+    db
+      .from('factor_constructs')
+      .select('construct_id, factors!inner(name, definition, indicators_high)')
+      .in('construct_id', constructIds),
   ])
 
   if (constructsResult.error) throw new Error(constructsResult.error.message)
@@ -627,19 +648,38 @@ async function fetchConstructsForRun(constructIds: string[]): Promise<ConstructF
     existingItemsByConstruct.set(row.construct_id, stems)
   }
 
+  // Build parent factor map from factor_constructs join
+  const parentFactorsByConstruct = new Map<string, Array<{ name: string; definition?: string; indicatorsHigh?: string }>>()
+  if (!factorLinksResult.error && factorLinksResult.data) {
+    for (const row of factorLinksResult.data) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const factor = (row as any).factors as { name: string; definition?: string; indicators_high?: string } | null
+      if (!factor) continue
+      const existing = parentFactorsByConstruct.get(row.construct_id) ?? []
+      existing.push({
+        name: factor.name,
+        definition: factor.definition ?? undefined,
+        indicatorsHigh: factor.indicators_high ?? undefined,
+      })
+      parentFactorsByConstruct.set(row.construct_id, existing)
+    }
+  }
+
   return (constructsResult.data ?? []).map((row) => {
     const existingItems = existingItemsByConstruct.get(row.id) ?? []
+    const override = constructOverrides?.[row.id]
     return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    definition: row.definition ?? undefined,
-    description: row.description ?? undefined,
-    indicatorsLow: row.indicators_low ?? undefined,
-    indicatorsMid: row.indicators_mid ?? undefined,
-    indicatorsHigh: row.indicators_high ?? undefined,
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      definition: override && 'definition' in override ? override.definition : row.definition ?? undefined,
+      description: override && 'description' in override ? override.description : row.description ?? undefined,
+      indicatorsLow: override && 'indicatorsLow' in override ? override.indicatorsLow : row.indicators_low ?? undefined,
+      indicatorsMid: override && 'indicatorsMid' in override ? override.indicatorsMid : row.indicators_mid ?? undefined,
+      indicatorsHigh: override && 'indicatorsHigh' in override ? override.indicatorsHigh : row.indicators_high ?? undefined,
       existingItemCount: existingItems.length,
       existingItems,
+      parentFactors: parentFactorsByConstruct.get(row.id),
     }
   })
 }
@@ -716,11 +756,10 @@ function extractAnchors(config: Record<string, unknown>): string[] {
 // Pre-flight check action
 // ---------------------------------------------------------------------------
 
-/** Run construct readiness pre-flight check for the given construct IDs. */
-export async function checkConstructReadiness(constructIds: string[]) {
+/** Run construct readiness pre-flight check for the given construct drafts. */
+export async function checkConstructReadiness(constructs: ConstructDraftInput[]) {
   await requireAdminScope()
   try {
-    const constructs = await fetchConstructsForRun(constructIds)
     const { runConstructPreflight } = await import('@/lib/ai/generation')
     const result = await runConstructPreflight(constructs)
     return { success: true as const, result }

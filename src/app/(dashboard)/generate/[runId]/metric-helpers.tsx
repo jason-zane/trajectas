@@ -52,6 +52,63 @@ export function wtoInterpretation(value: number): MetricInterpretation {
 }
 
 // ---------------------------------------------------------------------------
+// Difficulty tier interpretation
+// ---------------------------------------------------------------------------
+
+export function difficultyColor(tier: string): { label: string; className: string } {
+  switch (tier) {
+    case 'easy':
+    case 'foundation':
+      return { label: tier === 'easy' ? 'Easy' : 'Foundation', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' }
+    case 'moderate':
+    case 'applied':
+      return { label: tier === 'moderate' ? 'Moderate' : 'Applied', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' }
+    case 'hard':
+    case 'demanding':
+      return { label: tier === 'hard' ? 'Hard' : 'Demanding', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' }
+    default:
+      return { label: tier, className: 'bg-muted text-muted-foreground' }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// SD risk interpretation
+// ---------------------------------------------------------------------------
+
+export function sdRiskColor(risk: string): { label: string; className: string } {
+  switch (risk) {
+    case 'low':
+      return { label: 'Low', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' }
+    case 'moderate':
+      return { label: 'Mod', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' }
+    case 'high':
+      return { label: 'High', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' }
+    default:
+      return { label: risk, className: 'bg-muted text-muted-foreground' }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Difficulty tier ordinal sort
+// ---------------------------------------------------------------------------
+
+const DIFFICULTY_ORDER: Record<string, number> = {
+  easy: 0, foundation: 0,
+  moderate: 1, applied: 1,
+  hard: 2, demanding: 2,
+}
+
+export function difficultyOrdinal(tier?: string): number {
+  return tier ? (DIFFICULTY_ORDER[tier] ?? 1) : 1
+}
+
+const SD_RISK_ORDER: Record<string, number> = { low: 0, moderate: 1, high: 2 }
+
+export function sdRiskOrdinal(risk?: string): number {
+  return risk ? (SD_RISK_ORDER[risk] ?? 1) : 1
+}
+
+// ---------------------------------------------------------------------------
 // NMI interpretation
 // ---------------------------------------------------------------------------
 
