@@ -24,7 +24,6 @@ export default async function BlockBuilderPage({ params }: Props) {
     displayLevel: template.displayLevel,
     groupByDimension: template.groupByDimension,
     personReference: template.personReference,
-    autoRelease: template.autoRelease,
     pageHeaderLogo: template.pageHeaderLogo,
   }
 

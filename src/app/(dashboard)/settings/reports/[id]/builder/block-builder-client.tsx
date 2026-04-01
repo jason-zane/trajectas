@@ -87,7 +87,6 @@ export interface TemplateSettings {
   displayLevel: ReportDisplayLevel
   groupByDimension: boolean
   personReference: PersonReferenceType
-  autoRelease: boolean
   pageHeaderLogo: 'primary' | 'secondary' | 'none'
 }
 
@@ -189,7 +188,6 @@ export function BlockBuilderClient({
           displayLevel: settings.displayLevel,
           groupByDimension: settings.groupByDimension,
           personReference: settings.personReference,
-          autoRelease: settings.autoRelease,
           pageHeaderLogo: settings.pageHeaderLogo,
         })
         toast.success('Settings saved')
@@ -737,19 +735,6 @@ export function BlockBuilderClient({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">How the report refers to the participant in narrative text</p>
-            </div>
-
-            {/* Auto Release */}
-            <div className="space-y-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="settings-autoRelease" className="text-sm font-normal">Auto release</Label>
-                <Switch
-                  id="settings-autoRelease"
-                  checked={settings.autoRelease}
-                  onCheckedChange={(v) => setSettings((s) => ({ ...s, autoRelease: v }))}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Automatically make report available when generation completes</p>
             </div>
 
             {/* Page Header Logo */}
