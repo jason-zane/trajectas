@@ -391,3 +391,53 @@ export async function updateConstructField(id: string, field: string, value: str
   })
   return { success: true }
 }
+
+// ---------------------------------------------------------------------------
+// Bulk field save from generation wizard refinement
+// ---------------------------------------------------------------------------
+
+export async function saveConstructDraftToLibrary(
+  constructId: string,
+  fields: Partial<Record<string, string>>,
+): Promise<
+  | { success: true; updatedFields: string[]; savedValues: Record<string, string> }
+  | { success: false; error: string }
+> {
+  const scope = await requireAdminScope()
+
+  // Validate and map field names
+  const updatePayload: Record<string, string | null> = {}
+  const updatedFields: string[] = []
+  const savedValues: Record<string, string> = {}
+
+  for (const [field, value] of Object.entries(fields)) {
+    const dbField = ALLOWED_FIELDS[field]
+    if (!dbField) continue
+    updatePayload[dbField] = value || null
+    updatedFields.push(field)
+    savedValues[field] = value ?? ''
+  }
+
+  if (updatedFields.length === 0) {
+    return { success: false, error: 'No valid fields to update' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('constructs')
+    .update(updatePayload)
+    .eq('id', constructId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/constructs')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'construct.draft_saved_to_library',
+    targetTable: 'constructs',
+    targetId: constructId,
+    metadata: { updatedFields },
+  })
+
+  return { success: true, updatedFields, savedValues }
+}
