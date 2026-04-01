@@ -15,12 +15,14 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
 import { parseBlocks } from './registry'
 import { resolveBand, DEFAULT_BAND_GLOBALS } from './band-resolution'
-import { buildDerivedNarrative, buildDevelopmentSuggestion } from './narrative'
-import { enhanceNarrative, generateStrengthsAnalysis, generateDevelopmentAdvice } from './ai-narrative'
+import { buildDerivedNarrative, buildDevelopmentSuggestion, resolvePersonToken } from './narrative'
+import { enhanceNarrative } from './ai-narrative'
+import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
+import { getModelForTask } from '@/lib/ai/model-config'
 import { DEFAULT_REPORT_THEME } from './presentation'
 import type { ReportTheme } from './presentation'
-import type { BlockConfig, ResolvedBlockData } from './types'
-import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig } from './types'
+import type { BlockConfig, ResolvedBlockData, BandResult } from './types'
+import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig } from './types'
 import type { PersonReferenceType, ReportDisplayLevel } from '@/types/database'
 
 interface SessionData {
@@ -239,12 +241,14 @@ async function fetchTaxonomyEntities(
   ])
 
   const map = new Map<string, Record<string, unknown>>()
-  for (const row of [
-    ...(factorsResult.data ?? []),
-    ...(constructsResult.data ?? []),
-    ...(dimensionsResult.data ?? []),
-  ]) {
-    map.set(String(row.id), row)
+  for (const row of factorsResult.data ?? []) {
+    map.set(String(row.id), { ...row, _taxonomy_level: 'factor' })
+  }
+  for (const row of constructsResult.data ?? []) {
+    map.set(String(row.id), { ...row, _taxonomy_level: 'construct' })
+  }
+  for (const row of dimensionsResult.data ?? []) {
+    map.set(String(row.id), { ...row, _taxonomy_level: 'dimension' })
   }
   return map
 }
@@ -399,103 +403,231 @@ async function resolveBlockData(
 
   if (block.type === 'strengths_highlights') {
     const config = block.config as StrengthsHighlightsConfig
-    const ranked = Object.entries(scoreMap)
-      .map(([entityId, pompScore]) => {
-        const entity = taxonomyMap.get(entityId)
-        const bandResult = entity
-          ? resolveBand(pompScore, {
-              bandLabelLow: entity.band_label_low,
-              bandLabelMid: entity.band_label_mid,
-              bandLabelHigh: entity.band_label_high,
-              pompThresholdLow: entity.pomp_threshold_low,
-              pompThresholdHigh: entity.pomp_threshold_high,
-            })
-          : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
-        return {
-          entityId,
-          entityName: entity?.name ?? entityId,
-          pompScore,
-          bandLabel: bandResult.bandLabel,
-          definition: entity?.definition as string | undefined,
-        }
-      })
-      .sort((a, b) => b.pompScore - a.pompScore)
-      .slice(0, config.topN)
-
-    let aiNarrative: string | null = null
-    if (config.aiNarrative && aiEnhance) {
-      aiNarrative = await generateStrengthsAnalysis({
-        highlights: ranked.map((h) => ({
-          name: h.entityName,
-          pompScore: h.pompScore,
-          bandLabel: h.bandLabel,
-          definition: h.definition,
-        })),
-        personReference,
-        firstName: session.firstName,
-      })
-    }
-
-    return { highlights: ranked, config, aiNarrative }
+    return resolveStrengthsHighlights(scoreMap, taxonomyMap, config)
   }
 
   if (block.type === 'development_plan') {
     const config = block.config as DevelopmentPlanConfig
-    const items = Object.entries(scoreMap)
-      .map(([entityId, pompScore]) => {
-        const entity = taxonomyMap.get(entityId)
-        const bandResult = entity
-          ? resolveBand(pompScore, {
-              bandLabelLow: entity.band_label_low,
-              bandLabelMid: entity.band_label_mid,
-              bandLabelHigh: entity.band_label_high,
-              pompThresholdLow: entity.pomp_threshold_low,
-              pompThresholdHigh: entity.pomp_threshold_high,
-            })
-          : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
-        return {
-          entityId,
-          entityName: entity?.name ?? entityId,
-          pompScore,
-          bandLabel: bandResult.bandLabel,
-          definition: entity?.definition as string | undefined,
-          suggestion: entity?.development_suggestion
-            ? buildDevelopmentSuggestion(
-                { name: entity.name, developmentSuggestion: entity.development_suggestion },
-                personReference,
-                session.firstName,
-              )
-            : null,
-          aiSuggestion: undefined as string | undefined,
-        }
-      })
-      .filter((item) => item.suggestion)
-      .sort((a, b) => a.pompScore - b.pompScore)
-      .slice(0, config.maxItems)
+    return resolveDevelopmentPlan(scoreMap, taxonomyMap, config)
+  }
 
-    if (config.aiNarrative && aiEnhance && items.length > 0) {
-      const adviceResult = await generateDevelopmentAdvice({
-        items: items.map((item) => ({
-          name: item.entityName,
-          pompScore: item.pompScore,
-          bandLabel: item.bandLabel,
-          definition: item.definition,
-          existingSuggestion: item.suggestion,
-        })),
-        personReference,
-        firstName: session.firstName,
-      })
-      if (adviceResult) {
-        for (const advice of adviceResult) {
-          const match = items.find((i) => i.entityName === advice.entityName)
-          if (match) match.aiSuggestion = advice.aiSuggestion
-        }
-      }
-    }
-
-    return { items, config }
+  if (block.type === 'ai_text') {
+    const config = block.config as AiTextConfig
+    return resolveAiText(config, scoreMap, taxonomyMap, personReference, session)
   }
 
   // 360 blocks — return raw config for now; full resolution requires rater data
   return { config: block.config, _360: true }
+}
+
+// ---------------------------------------------------------------------------
+// Exported resolution helpers (testable without DB)
+// ---------------------------------------------------------------------------
+
+/** Map displayLevel config value to the internal _taxonomy_level tag. */
+function mapDisplayLevel(level: string): string {
+  // The types use 'factor' in the config but the DB tag is also 'factor'
+  return level
+}
+
+export interface StrengthHighlight {
+  entityId: string
+  entityName: string
+  pompScore: number
+  bandResult: BandResult
+  strengthCommentary: string
+}
+
+/**
+ * Resolve strengths highlights: rank entities by POMP descending, take topN,
+ * include strengthCommentary from taxonomy library.
+ */
+export function resolveStrengthsHighlights(
+  scoreMap: Record<string, number>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  taxonomyMap: Map<string, any>,
+  config: StrengthsHighlightsConfig,
+): { highlights: StrengthHighlight[]; config: StrengthsHighlightsConfig } {
+  const targetLevel = mapDisplayLevel(config.displayLevel)
+
+  const highlights = Object.entries(scoreMap)
+    .map(([entityId, pompScore]) => {
+      const entity = taxonomyMap.get(entityId)
+      if (!entity) return null
+      // Filter by taxonomy level when entity has the tag
+      const entityLevel = entity._taxonomy_level ?? entity.taxonomy_level
+      if (entityLevel && entityLevel !== targetLevel) return null
+
+      const bandResult = resolveBand(pompScore, {
+        bandLabelLow: entity.band_label_low,
+        bandLabelMid: entity.band_label_mid,
+        bandLabelHigh: entity.band_label_high,
+        pompThresholdLow: entity.pomp_threshold_low,
+        pompThresholdHigh: entity.pomp_threshold_high,
+      })
+      return {
+        entityId,
+        entityName: entity.name ?? entityId,
+        pompScore,
+        bandResult,
+        strengthCommentary: (entity.strength_commentary as string) ?? '',
+      }
+    })
+    .filter((item): item is StrengthHighlight => item !== null)
+    .sort((a, b) => b.pompScore - a.pompScore)
+    .slice(0, config.topN)
+
+  return { highlights, config }
+}
+
+export interface DevelopmentItem {
+  entityId: string
+  entityName: string
+  pompScore: number
+  bandResult: BandResult
+  developmentSuggestion: string
+}
+
+/**
+ * Resolve development plan: rank entities by POMP ascending (when prioritised),
+ * take bottom N, include developmentSuggestion from taxonomy library.
+ */
+export function resolveDevelopmentPlan(
+  scoreMap: Record<string, number>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  taxonomyMap: Map<string, any>,
+  config: DevelopmentPlanConfig,
+): { items: DevelopmentItem[]; config: DevelopmentPlanConfig } {
+  // Determine which entity IDs to consider
+  const entityFilter = config.entityIds?.length ? new Set(config.entityIds) : null
+
+  let items = Object.entries(scoreMap)
+    .map(([entityId, pompScore]) => {
+      if (entityFilter && !entityFilter.has(entityId)) return null
+      const entity = taxonomyMap.get(entityId)
+      if (!entity) return null
+
+      const bandResult = resolveBand(pompScore, {
+        bandLabelLow: entity.band_label_low,
+        bandLabelMid: entity.band_label_mid,
+        bandLabelHigh: entity.band_label_high,
+        pompThresholdLow: entity.pomp_threshold_low,
+        pompThresholdHigh: entity.pomp_threshold_high,
+      })
+      return {
+        entityId,
+        entityName: entity.name ?? entityId,
+        pompScore,
+        bandResult,
+        developmentSuggestion: (entity.development_suggestion as string) ?? '',
+      }
+    })
+    .filter((item): item is DevelopmentItem => item !== null)
+
+  if (config.prioritiseByScore) {
+    items = items.sort((a, b) => a.pompScore - b.pompScore)
+  }
+
+  items = items.slice(0, config.maxItems)
+
+  return { items, config }
+}
+
+// ---------------------------------------------------------------------------
+// AI Text block resolution
+// ---------------------------------------------------------------------------
+
+async function resolveAiText(
+  config: AiTextConfig,
+  scoreMap: Record<string, number>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  taxonomyMap: Map<string, any>,
+  personReference: PersonReferenceType,
+  session: SessionData,
+): Promise<Record<string, unknown>> {
+  if (!config.promptId) {
+    return { generatedText: '', isPreview: true, promptName: 'None' }
+  }
+
+  const db = createAdminClient()
+
+  try {
+    // Fetch the prompt template by ID
+    const { data: promptRow, error: promptError } = await db
+      .from('ai_system_prompts')
+      .select('id, name, purpose, content, version')
+      .eq('id', config.promptId)
+      .single()
+
+    if (promptError || !promptRow?.content) {
+      return { generatedText: '', isPreview: true, promptName: 'Unknown', error: true }
+    }
+
+    const promptName = promptRow.name as string
+    const promptContent = promptRow.content as string
+    const promptPurpose = promptRow.purpose as string
+
+    // Fetch model config for the prompt's purpose
+    const taskConfig = await getModelForTask(promptPurpose as Parameters<typeof getModelForTask>[0])
+    const model = taskConfig.modelId
+
+    // Assemble full data context
+    const participantName = session.firstName
+      ? `${session.firstName} ${session.lastName ?? ''}`.trim()
+      : 'the participant'
+
+    const entityContext = Object.entries(scoreMap).map(([entityId, pompScore]) => {
+      const entity = taxonomyMap.get(entityId)
+      if (!entity) return { entityId, pompScore }
+      const bandResult = resolveBand(pompScore, {
+        bandLabelLow: entity.band_label_low,
+        bandLabelMid: entity.band_label_mid,
+        bandLabelHigh: entity.band_label_high,
+        pompThresholdLow: entity.pomp_threshold_low,
+        pompThresholdHigh: entity.pomp_threshold_high,
+      })
+      return {
+        entityId,
+        entityName: entity.name,
+        definition: entity.definition,
+        pompScore,
+        band: bandResult.band,
+        bandLabel: bandResult.bandLabel,
+        strengthCommentary: entity.strength_commentary ?? null,
+        developmentSuggestion: entity.development_suggestion ?? null,
+      }
+    })
+
+    const userMessage = JSON.stringify({
+      participant: {
+        name: participantName,
+        firstName: session.firstName ?? null,
+        personReference,
+      },
+      scores: entityContext,
+    })
+
+    const provider = new OpenRouterProvider()
+    const response = await provider.complete({
+      model,
+      systemPrompt: promptContent,
+      prompt: userMessage,
+    })
+
+    const text = response.content
+    if (!text || text.trim().length < 5) {
+      return { generatedText: '', error: true, promptName }
+    }
+
+    const generatedText = resolvePersonToken(text.trim(), personReference, session.firstName)
+    return { generatedText, promptName, model: response.model }
+  } catch (err) {
+    console.error('[runner] AI Text generation failed:', err)
+    const promptName = config.promptId ? 'Unknown' : 'None'
+    return {
+      generatedText: 'Unable to generate narrative. Please try again.',
+      error: true,
+      promptName,
+    }
+  }
 }
