@@ -17,6 +17,7 @@ import type {
 import { runPipeline } from '@/lib/ai/generation'
 import type {
   ConstructDraftInput,
+  ConstructDraftState,
   ScoredCandidateItem,
   ConstructForGeneration,
 } from '@/types/generation'
@@ -978,4 +979,103 @@ export async function getResponseFormatsForGeneration(): Promise<
 
   if (error) throw new Error(error.message)
   return (data ?? []).map((r) => ({ id: r.id, name: r.name, type: r.type }))
+}
+
+// ---------------------------------------------------------------------------
+// Parent factor context for refinement suggestions
+// ---------------------------------------------------------------------------
+
+export async function fetchParentFactorsForConstruct(
+  constructId: string,
+): Promise<Array<{ name: string; definition?: string; indicatorsHigh?: string }>> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const { data, error } = await db
+    .from('factor_constructs')
+    .select('factors!inner(name, definition, indicators_high)')
+    .eq('construct_id', constructId)
+
+  if (error || !data) return []
+
+  return data.map((row) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const factor = (row as any).factors as { name: string; definition?: string; indicators_high?: string }
+    return {
+      name: factor.name,
+      definition: factor.definition ?? undefined,
+      indicatorsHigh: factor.indicators_high ?? undefined,
+    }
+  })
+}
+
+// ---------------------------------------------------------------------------
+// AI-assisted construct refinement
+// ---------------------------------------------------------------------------
+
+export async function suggestConstructRefinements(params: {
+  constructId: string
+  constructName: string
+  currentDraft: ConstructDraftState
+  overlappingPairs: Array<{
+    otherConstructName: string
+    cosineSimilarity: number
+    overlapSummary?: string
+    sharedSignals?: string[]
+    uniqueSignalsForTarget?: string[]
+    refinementGuidance?: string
+  }>
+  parentFactors: Array<{
+    name: string
+    definition?: string
+    indicatorsHigh?: string
+  }>
+}): Promise<
+  | { success: true; analysis: string; suggestions: Array<{ field: string; original: string; suggested: string; reason: string }> }
+  | { success: false; error: string }
+> {
+  await requireAdminScope()
+
+  try {
+    const { getModelForTask } = await import('@/lib/ai/model-config')
+    const { openRouterProvider } = await import('@/lib/ai/providers/openrouter')
+    const { buildRefinementPrompt, parseRefinementResponse } = await import(
+      '@/lib/ai/generation/prompts/construct-refinement'
+    )
+
+    const taskConfig = await getModelForTask('preflight_analysis')
+
+    const prompt = buildRefinementPrompt({
+      constructName: params.constructName,
+      currentDraft: params.currentDraft,
+      overlappingPairs: params.overlappingPairs,
+      parentFactors: params.parentFactors,
+    })
+
+    const response = await openRouterProvider.complete({
+      model: taskConfig.modelId,
+      systemPrompt:
+        'You are an expert psychometrician specialising in construct definition and discriminant validity. Your task is to suggest targeted improvements to construct definitions to reduce overlap with neighbouring constructs while preserving meaning.',
+      prompt,
+      temperature: taskConfig.config.temperature,
+      maxTokens: taskConfig.config.max_tokens,
+      responseFormat: 'json',
+    })
+
+    const result = parseRefinementResponse(response.content)
+    if (!result) {
+      return { success: false, error: 'Could not parse refinement suggestions' }
+    }
+
+    return {
+      success: true,
+      analysis: result.analysis,
+      suggestions: result.suggestions,
+    }
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Refinement suggestion failed',
+    }
+  }
 }
