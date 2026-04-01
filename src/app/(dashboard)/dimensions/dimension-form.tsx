@@ -63,6 +63,8 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
   const [createIndicatorsLow, setCreateIndicatorsLow] = useState(dimension?.indicatorsLow ?? "")
   const [createIndicatorsMid, setCreateIndicatorsMid] = useState(dimension?.indicatorsMid ?? "")
   const [createIndicatorsHigh, setCreateIndicatorsHigh] = useState(dimension?.indicatorsHigh ?? "")
+  const [createStrengthCommentary, setCreateStrengthCommentary] = useState(dimension?.strengthCommentary ?? "")
+  const [createDevelopmentSuggestion, setCreateDevelopmentSuggestion] = useState(dimension?.developmentSuggestion ?? "")
 
   // --- Auto-save hooks for text fields (edit mode only) ---
   const descriptionAutoSave = useAutoSave({
@@ -95,12 +97,26 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
     enabled: mode === "edit" && !!dimension,
   })
 
+  const strengthCommentaryAutoSave = useAutoSave({
+    initialValue: dimension?.strengthCommentary ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "strengthCommentary", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  const developmentSuggestionAutoSave = useAutoSave({
+    initialValue: dimension?.developmentSuggestion ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "developmentSuggestion", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
   // --- Resolve text field values based on mode ---
   const description = mode === "edit" ? descriptionAutoSave.value : createDescription
   const definition = mode === "edit" ? definitionAutoSave.value : createDefinition
   const indicatorsLow = mode === "edit" ? indicatorsLowAutoSave.value : createIndicatorsLow
   const indicatorsMid = mode === "edit" ? indicatorsMidAutoSave.value : createIndicatorsMid
   const indicatorsHigh = mode === "edit" ? indicatorsHighAutoSave.value : createIndicatorsHigh
+  const strengthCommentary = mode === "edit" ? strengthCommentaryAutoSave.value : createStrengthCommentary
+  const developmentSuggestion = mode === "edit" ? developmentSuggestionAutoSave.value : createDevelopmentSuggestion
 
   // --- Form state ---
   const [pending, setPending] = useState(false)
@@ -413,6 +429,62 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
                     ) : undefined
                   }
                 />
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Report Commentary</CardTitle>
+                <CardDescription>
+                  Narrative text used when generating reports for this dimension.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="dim-strength-commentary">Strength Commentary</Label>
+                  <Textarea
+                    id="dim-strength-commentary"
+                    name="strengthCommentary"
+                    placeholder="What to say when this dimension is a top-scoring area…"
+                    value={strengthCommentary}
+                    onChange={
+                      mode === "edit"
+                        ? strengthCommentaryAutoSave.handleChange
+                        : (e) => setCreateStrengthCommentary(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? strengthCommentaryAutoSave.handleBlur : undefined}
+                    className="min-h-20"
+                  />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={strengthCommentaryAutoSave.status}
+                      onRetry={strengthCommentaryAutoSave.retry}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="dim-development-suggestion">Development Suggestion</Label>
+                  <Textarea
+                    id="dim-development-suggestion"
+                    name="developmentSuggestion"
+                    placeholder="What to say when this dimension is an area for development…"
+                    value={developmentSuggestion}
+                    onChange={
+                      mode === "edit"
+                        ? developmentSuggestionAutoSave.handleChange
+                        : (e) => setCreateDevelopmentSuggestion(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? developmentSuggestionAutoSave.handleBlur : undefined}
+                    className="min-h-20"
+                  />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={developmentSuggestionAutoSave.status}
+                      onRetry={developmentSuggestionAutoSave.retry}
+                    />
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
