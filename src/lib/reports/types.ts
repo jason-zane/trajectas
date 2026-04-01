@@ -19,12 +19,14 @@ export type BlockType =
   | 'strengths_highlights'
   | 'development_plan'
   | 'norm_comparison'   // registered but deferred — runner skips if included
+  // AI
+  | 'ai_text'
   // 360-only
   | 'rater_comparison'
   | 'gap_analysis'
   | 'open_comments'
 
-export type BlockCategory = 'meta' | 'score' | 'highlight' | '360'
+export type BlockCategory = 'meta' | 'score' | 'highlight' | 'ai' | '360'
 
 // ---------------------------------------------------------------------------
 // Block condition
@@ -52,15 +54,15 @@ export interface CustomTextConfig {
 }
 
 export interface SectionDividerConfig {
-  title: string
-  subtitle?: string
+  style: 'thin_rule' | 'thick_rule' | 'whitespace' | 'dot_break'
 }
 
 export interface ScoreOverviewConfig {
-  chartType: 'radar' | 'bars'
   displayLevel: 'dimension' | 'factor' | 'construct'
   groupByDimension?: boolean
   showDimensionScore?: boolean
+  showScore?: boolean
+  showBandLabel?: boolean
   entityIds?: string[]  // null/empty = all scored entities
 }
 
@@ -73,21 +75,22 @@ export interface ScoreDetailConfig {
   showDefinition?: boolean
   showIndicators?: boolean
   showDevelopment?: boolean
-  showChildBreakdown?: boolean
+  showNestedScores?: boolean
 }
 
 export interface StrengthsHighlightsConfig {
   topN: number
   displayLevel: 'dimension' | 'factor' | 'construct'
-  style: 'cards' | 'list'
-  aiNarrative?: boolean
 }
 
 export interface DevelopmentPlanConfig {
   maxItems: number
   prioritiseByScore?: boolean
   entityIds?: string[]
-  aiNarrative?: boolean
+}
+
+export interface AiTextConfig {
+  promptId: string
 }
 
 export interface NormComparisonConfig {
@@ -123,6 +126,7 @@ export type BlockConfigMap = {
   score_detail: ScoreDetailConfig
   strengths_highlights: StrengthsHighlightsConfig
   development_plan: DevelopmentPlanConfig
+  ai_text: AiTextConfig
   norm_comparison: NormComparisonConfig
   rater_comparison: RaterComparisonConfig
   gap_analysis: GapAnalysisConfig
@@ -134,6 +138,9 @@ export interface BlockConfig<T extends BlockType = BlockType> {
   type: T
   order: number
   config: BlockConfigMap[T]
+  eyebrow?: string
+  heading?: string
+  blockDescription?: string
   condition?: BlockCondition
   printBreakBefore?: boolean
   printHide?: boolean
