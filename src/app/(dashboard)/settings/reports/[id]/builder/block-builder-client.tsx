@@ -11,10 +11,9 @@ import {
   Eye,
   ChevronLeft,
   Settings,
-  ChevronsUpDown,
-  X,
   ChevronUp,
   ChevronDown,
+  X,
   HelpCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -67,20 +66,16 @@ import {
 } from '@/app/actions/reports'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AutoSaveIndicator } from '@/components/auto-save-indicator'
-import {
-  BlockConfigContent,
-  getBlockSummary,
-  getConfigPills,
-  BLOCK_HELP,
-} from './block-config-panels'
-
+import { AddBlockDropdown } from './add-block-dropdown'
 import type { ReportDisplayLevel, PersonReferenceType } from '@/types/database'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type ReportType = 'self_report' | '360'
 
-// ---------------------------------------------------------------------------
-// Template settings type (exported for page.tsx)
-// ---------------------------------------------------------------------------
+export type PromptOption = { id: string; name: string; purpose: string }
 
 export interface TemplateSettings {
   description?: string
@@ -100,6 +95,10 @@ const AUDIENCE_LABELS: Record<AudienceType, string> = {
   consultant: 'Consultant',
 }
 
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
+
 interface Props {
   templateId: string
   templateName: string
@@ -108,11 +107,102 @@ interface Props {
   initialUsage?: TemplateUsageEntry[]
   campaigns?: { id: string; title: string }[]
   templateSettings: TemplateSettings
+  promptOptions?: PromptOption[]
 }
 
 function generateId(): string {
   return crypto.randomUUID()
 }
+
+// ---------------------------------------------------------------------------
+// Block summary helper
+// ---------------------------------------------------------------------------
+
+function getBlockSummary(
+  block: BlockConfig,
+  entityOptions: EntityOption[],
+  promptOptions: PromptOption[],
+): string {
+  const config = block.config as Record<string, unknown>
+
+  function resolveEntityNames(ids: unknown): string {
+    if (!Array.isArray(ids) || ids.length === 0) return 'All entities'
+    const names = ids
+      .map((id) => entityOptions.find((o) => o.id === id)?.label)
+      .filter(Boolean)
+    return names.length > 0 ? names.join(', ') : `${ids.length} entities`
+  }
+
+  switch (block.type) {
+    case 'cover_page': {
+      const parts: string[] = []
+      if (config.showDate !== false) parts.push('Date')
+      if (config.showPrimaryLogo !== false) parts.push('Logo')
+      return parts.length > 0 ? parts.join(' \u00b7 ') : 'Cover page'
+    }
+    case 'custom_text': {
+      const content = String(config.content ?? '')
+      return content
+        ? content.slice(0, 60) + (content.length > 60 ? '\u2026' : '')
+        : 'Empty text block'
+    }
+    case 'section_divider': {
+      const styleLabels: Record<string, string> = {
+        thin_rule: 'Thin rule',
+        thick_rule: 'Thick accent rule',
+        whitespace: 'Whitespace',
+        dot_break: 'Dot break',
+      }
+      return styleLabels[String(config.style)] ?? 'Divider'
+    }
+    case 'score_overview': {
+      const chartLabel = block.chartType ?? config.chartType ?? 'chart'
+      const entityIds = Array.isArray(config.entityIds) ? config.entityIds : []
+      return `${String(chartLabel).replace(/_/g, ' ')} \u00b7 ${entityIds.length || 'All'} entities`
+    }
+    case 'score_detail': {
+      const toggleNames: string[] = []
+      if (config.showScore) toggleNames.push('Score')
+      if (config.showBandLabel) toggleNames.push('Band')
+      if (config.showDefinition) toggleNames.push('Definition')
+      if (config.showIndicators) toggleNames.push('Indicators')
+      if (config.showDevelopment) toggleNames.push('Development')
+      return toggleNames.length > 0
+        ? toggleNames.join(' \u00b7 ')
+        : resolveEntityNames(config.entityIds)
+    }
+    case 'strengths_highlights':
+      return `Top ${config.topN ?? 3} strengths`
+    case 'development_plan': {
+      let text = `${config.maxItems ?? 3} areas`
+      if (config.prioritiseByScore) text += ' \u00b7 By score'
+      return text
+    }
+    case 'ai_text': {
+      const prompt = promptOptions.find((p) => p.id === config.promptId)
+      return prompt ? prompt.name : 'No prompt selected'
+    }
+    case 'norm_comparison':
+    case 'rater_comparison':
+    case 'gap_analysis':
+    case 'open_comments':
+      return 'Coming soon'
+    default:
+      return ''
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tab types
+// ---------------------------------------------------------------------------
+
+type BlockTab = 'content' | 'headers' | 'presentation' | 'print'
+const BLOCK_TABS: { id: BlockTab; label: string }[] = [
+  { id: 'content', label: 'Content' },
+  { id: 'headers', label: 'Headers' },
+  { id: 'presentation', label: 'Presentation' },
+  { id: 'print', label: 'Print' },
+]
 
 // ---------------------------------------------------------------------------
 // Main client component
@@ -126,21 +216,26 @@ export function BlockBuilderClient({
   initialUsage,
   campaigns: allCampaigns,
   templateSettings: initialSettings,
+  promptOptions: initialPromptOptions = [],
 }: Props) {
   const router = useRouter()
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks)
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<BlockTab>('content')
   const [name, setName] = useState(initialName)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [isSaving, startSave] = useTransition()
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [entityOptions, setEntityOptions] = useState<EntityOption[]>([])
   const [usage, setUsage] = useState<TemplateUsageEntry[]>(initialUsage ?? [])
   const [isLinking, startLinking] = useTransition()
+  const [promptOptions] = useState<PromptOption[]>(initialPromptOptions)
 
   // Template settings state
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settings, setSettings] = useState<TemplateSettings>(initialSettings)
+  const [settingsSaveState, setSettingsSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [isSavingSettings, startSaveSettings] = useTransition()
 
   // Auto-save for description field
@@ -156,12 +251,11 @@ export function BlockBuilderClient({
     getEntityOptions().then(setEntityOptions)
   }, [])
 
-  const expandedBlock = blocks.find((b) => b.id === expandedBlockId) ?? null
-
   // ---------------------------------------------------------------------------
   // Save blocks + name
   // ---------------------------------------------------------------------------
   function handleSave() {
+    setSaveState('saving')
     startSave(async () => {
       try {
         const ordered = blocks.map((b, i) => ({ ...b, order: i }))
@@ -172,8 +266,11 @@ export function BlockBuilderClient({
             : Promise.resolve(),
         ])
         toast.success('Template saved')
+        setSaveState('saved')
+        setTimeout(() => setSaveState('idle'), 2000)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Save failed')
+        setSaveState('idle')
       }
     })
   }
@@ -182,6 +279,7 @@ export function BlockBuilderClient({
   // Save template settings (from sheet)
   // ---------------------------------------------------------------------------
   function handleSaveSettings() {
+    setSettingsSaveState('saving')
     startSaveSettings(async () => {
       try {
         await updateReportTemplateSettings(templateId, {
@@ -191,16 +289,19 @@ export function BlockBuilderClient({
           pageHeaderLogo: settings.pageHeaderLogo,
         })
         toast.success('Settings saved')
+        setSettingsSaveState('saved')
+        setTimeout(() => setSettingsSaveState('idle'), 2000)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Save failed')
+        setSettingsSaveState('idle')
       }
     })
   }
 
   // ---------------------------------------------------------------------------
-  // Add block from palette
+  // Add block (at position or end)
   // ---------------------------------------------------------------------------
-  function addBlock(type: BlockType) {
+  function addBlock(type: BlockType, atIndex?: number) {
     const meta = BLOCK_REGISTRY[type]
     const newBlock: BlockConfig = {
       id: generateId(),
@@ -210,8 +311,16 @@ export function BlockBuilderClient({
       presentationMode: meta.defaultMode,
       chartType: meta.supportedCharts?.[0],
     }
-    setBlocks((prev) => [...prev, newBlock])
+    setBlocks((prev) => {
+      if (atIndex !== undefined) {
+        const list = [...prev]
+        list.splice(atIndex, 0, newBlock)
+        return list
+      }
+      return [...prev, newBlock]
+    })
     setExpandedBlockId(newBlock.id)
+    setActiveTab('content')
   }
 
   // ---------------------------------------------------------------------------
@@ -220,6 +329,17 @@ export function BlockBuilderClient({
   function removeBlock(id: string) {
     setBlocks((prev) => prev.filter((b) => b.id !== id))
     if (expandedBlockId === id) setExpandedBlockId(null)
+  }
+
+  // ---------------------------------------------------------------------------
+  // Toggle expand
+  // ---------------------------------------------------------------------------
+  function toggleExpand(id: string) {
+    setExpandedBlockId((prev) => {
+      if (prev === id) return null
+      setActiveTab('content')
+      return id
+    })
   }
 
   // ---------------------------------------------------------------------------
@@ -305,18 +425,10 @@ export function BlockBuilderClient({
   }
 
   // ---------------------------------------------------------------------------
-  // Palette — group blocks by category, filter 360 if self_report template
+  // Save button label
   // ---------------------------------------------------------------------------
-  const paletteCategories = Object.entries(BLOCK_CATEGORIES)
-    .sort(([, a], [, b]) => a.order - b.order)
-    .filter(([cat]) => reportType === '360' || cat !== '360')
-
-  // ---------------------------------------------------------------------------
-  // Toggle expand
-  // ---------------------------------------------------------------------------
-  function toggleExpand(id: string) {
-    setExpandedBlockId((prev) => (prev === id ? null : id))
-  }
+  const saveLabel = saveState === 'saving' ? 'Saving\u2026' : saveState === 'saved' ? 'Saved' : 'Save'
+  const settingsSaveLabel = settingsSaveState === 'saving' ? 'Saving\u2026' : settingsSaveState === 'saved' ? 'Saved' : 'Save Settings'
 
   // ---------------------------------------------------------------------------
   // Render
@@ -342,6 +454,7 @@ export function BlockBuilderClient({
           {reportType === '360' ? '360' : 'Self-report'}
         </Badge>
         <div className="ml-auto flex items-center gap-2">
+          <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
           <Button
             variant="ghost"
             size="icon"
@@ -358,66 +471,45 @@ export function BlockBuilderClient({
             <Eye className="size-3.5" />
             Preview
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaving || saveState === 'saved'}
+          >
             <Save className="size-3.5" />
-            {isSaving ? 'Saving…' : 'Save'}
+            {saveLabel}
           </Button>
         </div>
       </div>
 
-      {/* Three-panel body */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: Block palette */}
-        <div className="w-56 shrink-0 overflow-y-auto border-r border-border bg-card p-3 space-y-4">
-          {paletteCategories.map(([cat, { label }]) => {
-            const categoryBlocks = Object.entries(BLOCK_REGISTRY).filter(
-              ([, meta]) => meta.category === cat,
-            )
-            if (categoryBlocks.length === 0) return null
-            return (
-              <div key={cat}>
-                <p className="text-overline text-primary mb-1.5">{label}</p>
-                <div className="space-y-1">
-                  {categoryBlocks.map(([type, meta]) => (
-                    <button
-                      key={type}
-                      onClick={() => addBlock(type as BlockType)}
-                      disabled={meta.isDeferred}
-                      className={cn(
-                        'w-full rounded-lg px-2.5 py-2 text-left text-sm transition-colors',
-                        'hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed',
-                        'flex items-start gap-2',
-                      )}
-                    >
-                      <Plus className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                      <span className="font-medium leading-snug">{meta.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Centre: Canvas */}
-        <div className="flex-1 overflow-y-auto bg-background p-6">
-          {blocks.length === 0 ? (
-            <div className="flex h-full items-center justify-center">
+      {/* Full-width canvas */}
+      <div className="flex-1 overflow-y-auto bg-background p-6">
+        {blocks.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center space-y-3">
               <p className="text-sm text-muted-foreground">
-                Add blocks from the panel on the left.
+                No blocks yet. Add your first block to get started.
               </p>
+              <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
             </div>
-          ) : (
-            <div className="mx-auto max-w-2xl space-y-2">
-              {blocks.map((block) => {
-                const meta = BLOCK_REGISTRY[block.type]
-                const isExpanded = expandedBlockId === block.id
-                const summary = getBlockSummary(block, entityOptions)
-                const pills = getConfigPills(block)
+          </div>
+        ) : (
+          <div className="mx-auto max-w-3xl space-y-0">
+            {blocks.map((block, index) => {
+              const meta = BLOCK_REGISTRY[block.type]
+              const isExpanded = expandedBlockId === block.id
+              const summary = getBlockSummary(block, entityOptions, promptOptions)
 
-                return (
+              return (
+                <div key={block.id}>
+                  {/* Inline add button between blocks */}
+                  <InlineAddButton
+                    reportType={reportType}
+                    onAdd={(type) => addBlock(type, index)}
+                  />
+
+                  {/* Block card */}
                   <div
-                    key={block.id}
                     draggable={!isExpanded}
                     onDragStart={() => handleDragStart(block.id)}
                     onDragOver={(e) => handleDragOver(e, block.id)}
@@ -434,12 +526,15 @@ export function BlockBuilderClient({
                       draggingId === block.id ? 'opacity-50' : '',
                     )}
                   >
-                    {/* Card header — always visible */}
+                    {/* Collapsed header — always visible */}
                     <div
                       className="flex cursor-pointer items-center gap-3 px-4 py-3"
                       onClick={() => toggleExpand(block.id)}
                     >
                       <GripVertical className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground cursor-grab shrink-0" />
+                      <span className="text-xs font-mono text-muted-foreground/50 shrink-0 w-5 text-right">
+                        {index + 1}
+                      </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-sm">{meta.label}</p>
@@ -453,26 +548,11 @@ export function BlockBuilderClient({
                         <p className="text-xs text-muted-foreground truncate mt-0.5">
                           {summary}
                         </p>
-                        {pills.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1.5">
-                            {pills.map((pill) => (
-                              <span
-                                key={pill}
-                                className="inline-block rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground"
-                              >
-                                {pill}
-                              </span>
-                            ))}
-                          </div>
-                        )}
                       </div>
                       {block.printBreakBefore && (
-                        <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">Page break</Badge>
-                      )}
-                      {isExpanded ? (
-                        <ChevronUp className="size-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronDown className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                        <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
+                          Page break
+                        </Badge>
                       )}
                       <button
                         onClick={(e) => { e.stopPropagation(); removeBlock(block.id) }}
@@ -480,184 +560,66 @@ export function BlockBuilderClient({
                       >
                         <Trash2 className="size-4 text-muted-foreground hover:text-destructive transition-colors" />
                       </button>
+                      {isExpanded ? (
+                        <ChevronUp className="size-4 text-muted-foreground shrink-0" />
+                      ) : (
+                        <ChevronDown className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                      )}
                     </div>
 
-                    {/* Expanded inline detail */}
+                    {/* Expanded block detail with tabs */}
                     {isExpanded && (
-                      <div className="border-t border-border px-4 py-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Left: Content config */}
-                          <div className="space-y-4">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Content</p>
-                            <BlockConfigContent
-                              block={block}
-                              entityOptions={entityOptions}
-                              onUpdateConfig={updateConfig}
-                            />
-                          </div>
+                      <div className="border-t border-border">
+                        {/* Tab bar */}
+                        <div className="flex gap-0 border-b border-border px-4">
+                          {BLOCK_TABS.map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => setActiveTab(tab.id)}
+                              className={cn(
+                                'px-3 py-2.5 text-sm font-medium transition-colors relative',
+                                activeTab === tab.id
+                                  ? 'text-foreground'
+                                  : 'text-muted-foreground hover:text-foreground',
+                              )}
+                            >
+                              {tab.label}
+                              {activeTab === tab.id && (
+                                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary rounded-full" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
 
-                          {/* Right: Presentation + Print */}
-                          <div className="space-y-4">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Presentation</p>
-
-                            {/* Mode selector */}
-                            <div className="space-y-1.5">
-                              <Label className="text-sm">Mode</Label>
-                              <Select
-                                value={block.presentationMode ?? meta.defaultMode}
-                                onValueChange={(v) => updateBlock({ presentationMode: v as PresentationMode })}
-                              >
-                                <SelectTrigger className="w-full h-8 text-sm">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {meta.supportedModes.map((mode) => (
-                                    <SelectItem key={mode} value={mode}>
-                                      <span className="capitalize">{mode}</span>
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Columns (carded mode) */}
-                            {(block.presentationMode ?? meta.defaultMode) === 'carded' && (
-                              <div className="space-y-1.5">
-                                <Label className="text-sm">Columns</Label>
-                                <Select
-                                  value={String(block.columns ?? 1)}
-                                  onValueChange={(v) => updateBlock({ columns: Number(v) as 1 | 2 | 3 })}
-                                >
-                                  <SelectTrigger className="w-full h-8 text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="1">1 Column</SelectItem>
-                                    <SelectItem value="2">2 Columns</SelectItem>
-                                    <SelectItem value="3">3 Columns</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-
-                            {/* Chart type (single source of truth) */}
-                            {meta.supportedCharts && meta.supportedCharts.length > 0 && (
-                              <div className="space-y-1.5">
-                                <Label className="text-sm">Chart Type</Label>
-                                <Select
-                                  value={block.chartType ?? meta.supportedCharts[0]}
-                                  onValueChange={(v) => updateBlock({ chartType: v as ChartType })}
-                                >
-                                  <SelectTrigger className="w-full h-8 text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {meta.supportedCharts.map((ct) => (
-                                      <SelectItem key={ct} value={ct}>
-                                        <span className="capitalize">{ct.replace(/_/g, ' ')}</span>
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-
-                            {/* Inset accent */}
-                            {(block.presentationMode ?? meta.defaultMode) === 'inset' && (
-                              <div className="space-y-1.5">
-                                <Label className="text-sm">Accent Colour</Label>
-                                <Select
-                                  value={block.insetAccent ?? 'default'}
-                                  onValueChange={(v) => updateBlock({ insetAccent: v === 'default' ? undefined : v ?? undefined })}
-                                >
-                                  <SelectTrigger className="w-full h-8 text-sm">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="default">Default (Sage)</SelectItem>
-                                    <SelectItem value="#c9a962">Gold</SelectItem>
-                                    <SelectItem value="#5b3fc5">Violet</SelectItem>
-                                    <SelectItem value="#b85c6a">Rose</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            )}
-
-                            <Separator />
-
-                            {/* Print options */}
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Print</p>
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <Label htmlFor={`print-break-${block.id}`} className="text-sm font-normal">Page break before</Label>
-                                <Switch
-                                  id={`print-break-${block.id}`}
-                                  checked={block.printBreakBefore ?? false}
-                                  onCheckedChange={(v) => updateBlock({ printBreakBefore: v })}
-                                />
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <Label htmlFor={`print-hide-${block.id}`} className="text-sm font-normal">Hide in PDF</Label>
-                                <Switch
-                                  id={`print-hide-${block.id}`}
-                                  checked={block.printHide ?? false}
-                                  onCheckedChange={(v) => updateBlock({ printHide: v })}
-                                />
-                              </div>
-                              <div className="flex items-center justify-between gap-2">
-                                <Label htmlFor={`screen-hide-${block.id}`} className="text-sm font-normal">Hide on screen</Label>
-                                <Switch
-                                  id={`screen-hide-${block.id}`}
-                                  checked={block.screenHide ?? false}
-                                  onCheckedChange={(v) => updateBlock({ screenHide: v })}
-                                />
-                              </div>
-                            </div>
-                          </div>
+                        {/* Tab content */}
+                        <div className="px-4 py-4">
+                          {activeTab === 'content' && (
+                            <div className="text-sm text-muted-foreground">Content panel placeholder</div>
+                          )}
+                          {activeTab === 'headers' && (
+                            <div className="text-sm text-muted-foreground">Headers panel placeholder</div>
+                          )}
+                          {activeTab === 'presentation' && (
+                            <div className="text-sm text-muted-foreground">Presentation panel placeholder</div>
+                          )}
+                          {activeTab === 'print' && (
+                            <div className="text-sm text-muted-foreground">Print panel placeholder</div>
+                          )}
                         </div>
                       </div>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                </div>
+              )
+            })}
 
-        {/* Right: Context panel */}
-        <div className="w-72 shrink-0 overflow-y-auto border-l border-border bg-card p-4 space-y-5">
-          {/* Campaign linkage panel */}
-          {allCampaigns && (
-            <CampaignLinkagePanel
-              usage={usage}
-              campaigns={allCampaigns}
-              isLinking={isLinking}
-              onLink={handleLinkCampaign}
-              onUnlink={handleUnlinkCampaign}
+            {/* Trailing inline add button */}
+            <InlineAddButton
+              reportType={reportType}
+              onAdd={(type) => addBlock(type, blocks.length)}
             />
-          )}
-
-          {expandedBlock ? (
-            // Contextual help for the expanded block type
-            <BlockHelpPanel blockType={expandedBlock.type} />
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-2 text-center py-8">
-              <Settings className="size-8 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                Click a block to expand and configure it.
-              </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings className="size-3.5" />
-                Template Settings
-              </Button>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Template Settings Sheet */}
@@ -677,7 +639,7 @@ export function BlockBuilderClient({
                 onChange={descriptionAutoSave.handleChange}
                 onBlur={descriptionAutoSave.handleBlur}
                 className="text-sm min-h-20 resize-y"
-                placeholder="Brief description of this template…"
+                placeholder="Brief description of this template\u2026"
               />
               <AutoSaveIndicator status={descriptionAutoSave.status} onRetry={descriptionAutoSave.retry} />
             </div>
@@ -755,12 +717,29 @@ export function BlockBuilderClient({
               </Select>
               <p className="text-xs text-muted-foreground">Logo in the header of each printed page</p>
             </div>
+
+            <Separator />
+
+            {/* Campaign Linkage */}
+            {allCampaigns && (
+              <CampaignLinkagePanel
+                usage={usage}
+                campaigns={allCampaigns}
+                isLinking={isLinking}
+                onLink={handleLinkCampaign}
+                onUnlink={handleUnlinkCampaign}
+              />
+            )}
           </div>
 
           <SheetFooter>
-            <Button onClick={handleSaveSettings} disabled={isSavingSettings} className="w-full">
+            <Button
+              onClick={handleSaveSettings}
+              disabled={isSavingSettings || settingsSaveState === 'saved'}
+              className="w-full"
+            >
               <Save className="size-3.5" />
-              {isSavingSettings ? 'Saving…' : 'Save Settings'}
+              {settingsSaveLabel}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -785,7 +764,7 @@ function ModeTag({ mode }: { mode: string }) {
   return (
     <span className={cn(
       'inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
-      MODE_COLORS[mode] ?? 'bg-gray-200 text-gray-600'
+      MODE_COLORS[mode] ?? 'bg-gray-200 text-gray-600',
     )}>
       {mode}
     </span>
@@ -793,35 +772,28 @@ function ModeTag({ mode }: { mode: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// Block Help Panel — contextual help shown in the right sidebar
+// InlineAddButton — appears between block cards on hover
 // ---------------------------------------------------------------------------
 
-function BlockHelpPanel({ blockType }: { blockType: BlockType }) {
-  const help = BLOCK_HELP[blockType]
-  if (!help) return null
-
+function InlineAddButton({
+  reportType,
+  onAdd,
+}: {
+  reportType: ReportType
+  onAdd: (type: BlockType) => void
+}) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <HelpCircle className="size-4 text-primary" />
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Block Guide</p>
-      </div>
-      <div className="space-y-2">
-        <p className="text-sm font-semibold">{help.title}</p>
-        <p className="text-sm text-muted-foreground leading-relaxed">{help.description}</p>
-        {help.tips && (
-          <div className="rounded-lg bg-muted/50 p-3 mt-2">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Tip</p>
-            <p className="text-xs text-muted-foreground">{help.tips}</p>
-          </div>
-        )}
+    <div className="group/add relative flex items-center justify-center py-1">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent group-hover/add:bg-border transition-colors" />
+      <div className="relative z-10 opacity-0 group-hover/add:opacity-100 transition-opacity">
+        <AddBlockDropdown reportType={reportType} onAdd={onAdd} />
       </div>
     </div>
   )
 }
 
 // ---------------------------------------------------------------------------
-// Campaign Linkage Panel
+// Campaign Linkage Panel — moved into template settings sheet
 // ---------------------------------------------------------------------------
 
 interface CampaignLinkagePanelProps {
@@ -904,7 +876,7 @@ function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }:
         <PopoverContent className="w-64 p-3 space-y-3" align="start" sideOffset={4}>
           <Command shouldFilter={false}>
             <CommandInput
-              placeholder="Search campaigns…"
+              placeholder="Search campaigns\u2026"
               value={linkSearch}
               onValueChange={setLinkSearch}
             />
@@ -946,8 +918,6 @@ function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }:
           )}
         </PopoverContent>
       </Popover>
-
-      <Separator />
     </div>
   )
 }

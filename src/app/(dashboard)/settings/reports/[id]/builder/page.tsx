@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getReportTemplate, getTemplateUsage, getAllCampaigns } from '@/app/actions/reports'
+import { getReportTemplate, getTemplateUsage, getAllCampaigns, getReportPrompts } from '@/app/actions/reports'
 import { parseBlocks } from '@/lib/reports/registry'
 import { BlockBuilderClient } from './block-builder-client'
 import type { TemplateSettings } from './block-builder-client'
@@ -10,10 +10,11 @@ interface Props {
 
 export default async function BlockBuilderPage({ params }: Props) {
   const { id } = await params
-  const [template, usage, campaigns] = await Promise.all([
+  const [template, usage, campaigns, promptOptions] = await Promise.all([
     getReportTemplate(id),
     getTemplateUsage(id),
     getAllCampaigns(),
+    getReportPrompts(),
   ])
   if (!template) notFound()
 
@@ -36,6 +37,7 @@ export default async function BlockBuilderPage({ params }: Props) {
       initialUsage={usage}
       campaigns={campaigns}
       templateSettings={templateSettings}
+      promptOptions={promptOptions}
     />
   )
 }
