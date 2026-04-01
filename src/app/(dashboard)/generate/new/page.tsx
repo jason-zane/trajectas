@@ -36,10 +36,13 @@ import {
   getResponseFormatsForGeneration,
   createGenerationRun,
   checkConstructReadiness,
+  suggestConstructRefinements,
+  fetchParentFactorsForConstruct,
 } from "@/app/actions/generation";
+import { saveConstructDraftToLibrary } from "@/app/actions/constructs";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
 import type { GenerationRunConfig } from "@/types/database";
-import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult } from "@/types/generation";
+import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult, ConstructPairResult } from "@/types/generation";
 import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -130,6 +133,32 @@ function buildConstructOverrides(
   }
 
   return Object.keys(overrides).length > 0 ? overrides : undefined;
+}
+
+function resolveOverlappingPairs(
+  constructId: string,
+  pairs: ConstructPairResult[],
+): Array<{
+  otherConstructName: string
+  cosineSimilarity: number
+  overlapSummary?: string
+  sharedSignals?: string[]
+  uniqueSignalsForTarget?: string[]
+  refinementGuidance?: string
+}> {
+  return pairs
+    .filter((pair) => pair.reviewedByLlm && (pair.constructAId === constructId || pair.constructBId === constructId))
+    .map((pair) => {
+      const isA = pair.constructAId === constructId;
+      return {
+        otherConstructName: isA ? pair.constructBName : pair.constructAName,
+        cosineSimilarity: pair.cosineSimilarity,
+        overlapSummary: pair.overlapSummary,
+        sharedSignals: pair.sharedSignals,
+        uniqueSignalsForTarget: isA ? pair.uniqueSignalsA : pair.uniqueSignalsB,
+        refinementGuidance: isA ? pair.refinementGuidanceA : pair.refinementGuidanceB,
+      };
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -315,6 +344,7 @@ function Step2ReadinessCheck({
   selectedIds,
   constructDrafts,
   onDraftChange,
+  onConstructUpdate,
   onBack,
   onNext,
 }: {
@@ -322,6 +352,7 @@ function Step2ReadinessCheck({
   selectedIds: string[];
   constructDrafts: ConstructDraftMap;
   onDraftChange: (constructId: string, field: ConstructDraftField, value: string) => void;
+  onConstructUpdate: (constructId: string, updates: Partial<Construct>) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
@@ -338,6 +369,23 @@ function Step2ReadinessCheck({
   const [preflightError, setPreflightError] = React.useState<string | null>(null);
   const [preflightLoading, setPreflightLoading] = React.useState(true);
   const [lastCheckedSignature, setLastCheckedSignature] = React.useState("");
+
+  const [refinementState, setRefinementState] = React.useState<Record<string, {
+    loading: boolean
+    analysis?: string
+    fieldSuggestions?: Array<{
+      field: ConstructDraftField
+      original: string
+      suggested: string
+      reason: string
+    }>
+    error?: string
+  }>>({});
+
+  const [saveState, setSaveState] = React.useState<Record<string, {
+    saving: boolean
+    saved: boolean
+  }>>({});
 
   // Map construct IDs to their preflight status from pairs
   const constructStatus = React.useMemo((): Map<string, "green" | "amber" | "red"> => {
@@ -374,6 +422,7 @@ function Step2ReadinessCheck({
 
   const runReadinessCheck = React.useCallback((constructInputs: ConstructDraftInput[]) => {
     setPreflightLoading(true);
+    setRefinementState({});
     setPreflightError(null);
     setPreflightResult(null);
     const signature = JSON.stringify(constructInputs);
@@ -409,6 +458,159 @@ function Step2ReadinessCheck({
 
   const overallStatus = preflightResult?.overallStatus ?? "green";
   const metadata = preflightResult?.metadata;
+
+  const handleSuggestImprovements = React.useCallback(async (constructId: string, constructName: string) => {
+    const draft = constructDrafts[constructId] ?? createConstructDraftState(
+      (constructs ?? []).find((c) => c.id === constructId)
+    );
+    const pairs = resolveOverlappingPairs(constructId, preflightResult?.pairs ?? []);
+
+    setRefinementState((prev) => ({
+      ...prev,
+      [constructId]: { loading: true },
+    }));
+
+    try {
+      let parentFactors: Array<{ name: string; definition?: string; indicatorsHigh?: string }> = [];
+      try {
+        parentFactors = await fetchParentFactorsForConstruct(constructId);
+      } catch {
+        // Proceed without factor context
+      }
+
+      const result = await suggestConstructRefinements({
+        constructId,
+        constructName,
+        currentDraft: draft,
+        overlappingPairs: pairs,
+        parentFactors,
+      });
+
+      if (result.success) {
+        setRefinementState((prev) => ({
+          ...prev,
+          [constructId]: {
+            loading: false,
+            analysis: result.analysis,
+            fieldSuggestions: result.suggestions as Array<{
+              field: ConstructDraftField
+              original: string
+              suggested: string
+              reason: string
+            }>,
+          },
+        }));
+      } else {
+        setRefinementState((prev) => ({
+          ...prev,
+          [constructId]: { loading: false, error: result.error },
+        }));
+        toast.error("Refinement suggestion failed", { description: result.error });
+      }
+    } catch (err) {
+      setRefinementState((prev) => ({
+        ...prev,
+        [constructId]: { loading: false, error: err instanceof Error ? err.message : "Unknown error" },
+      }));
+    }
+  }, [constructDrafts, constructs, preflightResult]);
+
+  const handleAcceptSuggestion = React.useCallback((constructId: string, field: ConstructDraftField, suggested: string) => {
+    onDraftChange(constructId, field, suggested);
+    setRefinementState((prev) => {
+      const current = prev[constructId];
+      if (!current?.fieldSuggestions) return prev;
+      return {
+        ...prev,
+        [constructId]: {
+          ...current,
+          fieldSuggestions: current.fieldSuggestions.filter((s) => s.field !== field),
+        },
+      };
+    });
+  }, [onDraftChange]);
+
+  const handleDismissSuggestion = React.useCallback((constructId: string, field: ConstructDraftField) => {
+    setRefinementState((prev) => {
+      const current = prev[constructId];
+      if (!current?.fieldSuggestions) return prev;
+      return {
+        ...prev,
+        [constructId]: {
+          ...current,
+          fieldSuggestions: current.fieldSuggestions.filter((s) => s.field !== field),
+        },
+      };
+    });
+  }, []);
+
+  const handleAcceptAll = React.useCallback((constructId: string) => {
+    const state = refinementState[constructId];
+    if (!state?.fieldSuggestions) return;
+    for (const suggestion of state.fieldSuggestions) {
+      onDraftChange(constructId, suggestion.field, suggestion.suggested);
+    }
+    setRefinementState((prev) => ({
+      ...prev,
+      [constructId]: { ...prev[constructId]!, loading: false, fieldSuggestions: [] },
+    }));
+  }, [refinementState, onDraftChange]);
+
+  const hasConstructDraftChanges = React.useCallback((constructId: string) => {
+    const construct = (constructs ?? []).find((c) => c.id === constructId);
+    if (!construct) return false;
+    const draft = constructDrafts[constructId] ?? createConstructDraftState(construct);
+    return (
+      draft.definition !== (construct.definition ?? "") ||
+      draft.description !== (construct.description ?? "") ||
+      draft.indicatorsLow !== (construct.indicatorsLow ?? "") ||
+      draft.indicatorsMid !== (construct.indicatorsMid ?? "") ||
+      draft.indicatorsHigh !== (construct.indicatorsHigh ?? "")
+    );
+  }, [constructs, constructDrafts]);
+
+  const handleSaveToLibrary = React.useCallback(async (constructId: string, constructName: string) => {
+    const construct = (constructs ?? []).find((c) => c.id === constructId);
+    if (!construct) return;
+
+    const draft = constructDrafts[constructId] ?? createConstructDraftState(construct);
+    const changedFields: Record<string, string> = {};
+
+    if (draft.definition !== (construct.definition ?? "")) changedFields.definition = draft.definition;
+    if (draft.description !== (construct.description ?? "")) changedFields.description = draft.description;
+    if (draft.indicatorsLow !== (construct.indicatorsLow ?? "")) changedFields.indicatorsLow = draft.indicatorsLow;
+    if (draft.indicatorsMid !== (construct.indicatorsMid ?? "")) changedFields.indicatorsMid = draft.indicatorsMid;
+    if (draft.indicatorsHigh !== (construct.indicatorsHigh ?? "")) changedFields.indicatorsHigh = draft.indicatorsHigh;
+
+    if (Object.keys(changedFields).length === 0) return;
+
+    setSaveState((prev) => ({ ...prev, [constructId]: { saving: true, saved: false } }));
+
+    try {
+      const result = await saveConstructDraftToLibrary(constructId, changedFields);
+      if (result.success) {
+        onConstructUpdate(constructId, Object.fromEntries(
+          Object.entries(result.savedValues).map(([k, v]) => [k, v || undefined])
+        ));
+
+        setSaveState((prev) => ({ ...prev, [constructId]: { saving: false, saved: true } }));
+        const fieldLabels = result.updatedFields
+          .map((f) => f.replace(/([A-Z])/g, ' $1').toLowerCase())
+          .join(', ');
+        toast.success(`${constructName} saved to library`, { description: `Updated: ${fieldLabels}` });
+
+        setTimeout(() => {
+          setSaveState((prev) => ({ ...prev, [constructId]: { saving: false, saved: false } }));
+        }, 2000);
+      } else {
+        setSaveState((prev) => ({ ...prev, [constructId]: { saving: false, saved: false } }));
+        toast.error("Failed to save", { description: result.error });
+      }
+    } catch (err) {
+      setSaveState((prev) => ({ ...prev, [constructId]: { saving: false, saved: false } }));
+      toast.error("Failed to save", { description: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }, [constructs, constructDrafts, onConstructUpdate]);
 
   return (
     <div className="space-y-6">
@@ -554,6 +756,26 @@ function Step2ReadinessCheck({
                   </p>
                 </div>
               )}
+
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-2">
+                <p className="text-overline">Understanding cosine similarity</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {[
+                    { range: "< 0.30", label: "Clearly distinct", color: "bg-green-500" },
+                    { range: "0.30 – < 0.50", label: "Low overlap", color: "bg-green-500" },
+                    { range: "0.50 – < 0.75", label: "Review recommended", color: "bg-amber-500" },
+                    { range: "≥ 0.75", label: "High overlap — refine", color: "bg-red-500" },
+                  ].map(({ range, label, color }) => (
+                    <span key={range} className="inline-flex items-center gap-1.5">
+                      <span className={`size-2 rounded-full ${color}`} />
+                      <span><strong className="text-foreground">{range}</strong> — {label}</span>
+                    </span>
+                  ))}
+                </div>
+                <p>
+                  Cosine similarity measures how close two construct definitions are in meaning. Lower is more distinct. Pairs at 0.50 or above are reviewed by AI; 0.75 or above usually indicates genuine overlap.
+                </p>
+              </div>
 
               {reviewedPairs.length > 0 && (
                 <div className="space-y-2">
@@ -732,7 +954,137 @@ function Step2ReadinessCheck({
                             </Badge>
                           </div>
                         </AccordionTrigger>
+                        <div className="flex items-center gap-2 px-4 pb-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSuggestImprovements(construct.id, construct.name)}
+                            disabled={refinementState[construct.id]?.loading}
+                            className="text-xs h-7"
+                          >
+                            {refinementState[construct.id]?.loading ? (
+                              <>
+                                <Loader2 className="size-3 animate-spin" />
+                                Analysing…
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="size-3" />
+                                Suggest improvements
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleSaveToLibrary(construct.id, construct.name)}
+                            disabled={
+                              saveState[construct.id]?.saving ||
+                              saveState[construct.id]?.saved ||
+                              !hasConstructDraftChanges(construct.id)
+                            }
+                            className="text-xs h-7"
+                          >
+                            {saveState[construct.id]?.saving ? (
+                              <>
+                                <Loader2 className="size-3 animate-spin" />
+                                Saving…
+                              </>
+                            ) : saveState[construct.id]?.saved ? (
+                              <>
+                                <CheckCircle2 className="size-3 text-green-600" />
+                                Saved
+                              </>
+                            ) : (
+                              "Save to library"
+                            )}
+                          </Button>
+                        </div>
                         <AccordionPanel className="space-y-3 px-4 pb-4">
+                          {refinementState[construct.id]?.analysis && (
+                            <div className="space-y-3 mb-4">
+                              <div className="rounded-lg border border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30 p-3">
+                                <p className="text-overline text-indigo-600 dark:text-indigo-400 mb-1">AI Analysis</p>
+                                <p className="text-sm text-foreground/80 leading-relaxed">{refinementState[construct.id]!.analysis}</p>
+                              </div>
+
+                              {(refinementState[construct.id]!.fieldSuggestions ?? []).map((suggestion) => (
+                                <div key={suggestion.field} className="space-y-1">
+                                  <div className="flex items-center justify-between">
+                                    <label className="text-overline">{suggestion.field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</label>
+                                    <div className="flex gap-1.5">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs h-6 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                                        onClick={() => handleAcceptSuggestion(construct.id, suggestion.field, suggestion.suggested)}
+                                      >
+                                        Accept
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="text-xs h-6"
+                                        onClick={() => handleDismissSuggestion(construct.id, suggestion.field)}
+                                      >
+                                        Keep original
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="rounded-t-md border border-b-0 border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20 p-2.5">
+                                    <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">BEFORE</span>
+                                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{suggestion.original}</p>
+                                  </div>
+                                  <div className="rounded-b-md border border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20 p-2.5">
+                                    <span className="text-[10px] font-semibold text-green-600 dark:text-green-400">AFTER</span>
+                                    <p className="text-xs text-foreground/80 mt-1 leading-relaxed">{suggestion.suggested}</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground italic">{suggestion.reason}</p>
+                                </div>
+                              ))}
+
+                              {(['definition', 'description', 'indicatorsLow', 'indicatorsMid', 'indicatorsHigh'] as const)
+                                .filter((field) => !(refinementState[construct.id]!.fieldSuggestions ?? []).some((s) => s.field === field))
+                                .filter((field) => draft[field])
+                                .map((field) => (
+                                  <div key={field} className="flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>{field.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase())}</span>
+                                    <span className="italic">No change needed</span>
+                                  </div>
+                                ))}
+
+                              {(refinementState[construct.id]!.fieldSuggestions ?? []).length > 0 && (
+                                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-7"
+                                    onClick={() => handleSuggestImprovements(construct.id, construct.name)}
+                                    disabled={refinementState[construct.id]?.loading}
+                                  >
+                                    <Wand2 className="size-3" />
+                                    Re-suggest
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs h-7 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                                    onClick={() => handleAcceptAll(construct.id)}
+                                  >
+                                    Accept all suggestions
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {refinementState[construct.id]?.error && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-3 mb-4 flex items-start gap-2">
+                              <AlertCircle className="size-4 shrink-0 text-red-600 mt-0.5" />
+                              <p className="text-xs text-red-700 dark:text-red-400">{refinementState[construct.id]!.error}</p>
+                            </div>
+                          )}
+
                           <div className="space-y-1.5">
                             <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Definition</label>
                             <Textarea
@@ -1313,6 +1665,11 @@ export default function NewGenerationPage() {
               selectedIds={config.selectedConstructIds}
               constructDrafts={constructDrafts}
               onDraftChange={patchConstructDraft}
+              onConstructUpdate={(constructId, updates) => {
+                setConstructs((prev) =>
+                  (prev ?? []).map((c) => (c.id === constructId ? { ...c, ...updates } : c))
+                );
+              }}
               onBack={() => goToStep(1)}
               onNext={() => goToStep(3)}
             />
