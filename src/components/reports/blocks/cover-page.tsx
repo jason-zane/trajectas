@@ -8,11 +8,9 @@ interface CoverPageData {
   primaryLogoUrl?: string
   secondaryLogoUrl?: string
   showDate?: boolean
-  showPrimaryLogo?: boolean
-  showSecondaryLogo?: boolean
+  showLogo?: boolean
   showPoweredBy?: boolean
   poweredByText?: string
-  subtitle?: string
 }
 
 export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
@@ -25,9 +23,9 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
     : null
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] py-16 text-center print:min-h-screen print:py-24">
-      {/* Primary logo or org name fallback */}
-      {(d.showPrimaryLogo !== false) && (
+    <div className="flex flex-col items-center justify-center min-h-[300px] py-16 text-center print:min-h-screen print:py-24">
+      {/* Logo or org name fallback */}
+      {d.showLogo !== false && (
         d.primaryLogoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -50,9 +48,6 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
         {d.participantName && (
           <h1 className="text-4xl font-semibold tracking-tight">{d.participantName}</h1>
         )}
-        {d.subtitle && (
-          <p className="text-xl opacity-75">{d.subtitle}</p>
-        )}
         {d.campaignTitle && (
           <p className="text-lg opacity-60">{d.campaignTitle}</p>
         )}
@@ -62,14 +57,14 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
       </div>
 
       {/* Secondary logo / Powered by */}
-      {(d.showSecondaryLogo || d.showPoweredBy) && (
+      {(d.showLogo !== false || d.showPoweredBy) && (
         <div className="mt-16 flex flex-col items-center gap-2">
           {d.showPoweredBy && d.poweredByText && (
             <p className="text-[10px] uppercase tracking-[2px] opacity-40">
               {d.poweredByText}
             </p>
           )}
-          {d.showSecondaryLogo && d.secondaryLogoUrl && (
+          {d.showLogo !== false && d.secondaryLogoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={d.secondaryLogoUrl}
