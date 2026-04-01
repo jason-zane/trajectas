@@ -13,7 +13,7 @@ interface StrengthEntry {
 
 interface StrengthsData {
   highlights: StrengthEntry[]
-  config: { topN: number; style: 'cards' | 'list' }
+  config: { topN: number }
 }
 
 export function StrengthsHighlightsBlock({ data, mode }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
