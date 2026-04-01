@@ -86,6 +86,8 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
   const [indicatorsLow, setIndicatorsLow] = useState(construct?.indicatorsLow ?? "")
   const [indicatorsMid, setIndicatorsMid] = useState(construct?.indicatorsMid ?? "")
   const [indicatorsHigh, setIndicatorsHigh] = useState(construct?.indicatorsHigh ?? "")
+  const [strengthCommentary, setStrengthCommentary] = useState(construct?.strengthCommentary ?? "")
+  const [developmentSuggestion, setDevelopmentSuggestion] = useState(construct?.developmentSuggestion ?? "")
   const [parentFactorId, setParentFactorId] = useState("")
   const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
@@ -122,6 +124,16 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
     onSave: (val) => updateConstructField(construct!.id, "indicatorsHigh", val),
     enabled: mode === "edit" && !!construct,
   })
+  const strengthAutoSave = useAutoSave({
+    initialValue: construct?.strengthCommentary ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "strengthCommentary", val),
+    enabled: mode === "edit" && !!construct,
+  })
+  const devSuggestionAutoSave = useAutoSave({
+    initialValue: construct?.developmentSuggestion ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "developmentSuggestion", val),
+    enabled: mode === "edit" && !!construct,
+  })
 
   // Dirty tracking (structural fields only)
   const [savedStructural, setSavedStructural] = useState(() => ({
@@ -143,6 +155,8 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
   // Auto-save field values (edit mode uses hooks, create uses state)
   const descValue = mode === "edit" ? descAutoSave.value : description
   const defValue = mode === "edit" ? defAutoSave.value : definition
+  const strengthValue = mode === "edit" ? strengthAutoSave.value : strengthCommentary
+  const devSuggestionValue = mode === "edit" ? devSuggestionAutoSave.value : developmentSuggestion
 
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -402,6 +416,62 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
                   statusMid={mode === "edit" ? <AutoSaveIndicator status={indMidAutoSave.status} onRetry={indMidAutoSave.retry} /> : undefined}
                   statusHigh={mode === "edit" ? <AutoSaveIndicator status={indHighAutoSave.status} onRetry={indHighAutoSave.retry} /> : undefined}
                 />
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Report Commentary</CardTitle>
+                <CardDescription>
+                  Narrative text used when generating reports for this construct.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="construct-strength-commentary">Strength Commentary</Label>
+                  <Textarea
+                    id="construct-strength-commentary"
+                    name="strengthCommentary"
+                    placeholder="What to say when this construct is a top-scoring area…"
+                    value={strengthValue}
+                    onChange={
+                      mode === "edit"
+                        ? strengthAutoSave.handleChange
+                        : (e) => setStrengthCommentary(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? strengthAutoSave.handleBlur : undefined}
+                    className="min-h-20"
+                  />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={strengthAutoSave.status}
+                      onRetry={strengthAutoSave.retry}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="construct-development-suggestion">Development Suggestion</Label>
+                  <Textarea
+                    id="construct-development-suggestion"
+                    name="developmentSuggestion"
+                    placeholder="What to say when this construct is an area for development…"
+                    value={devSuggestionValue}
+                    onChange={
+                      mode === "edit"
+                        ? devSuggestionAutoSave.handleChange
+                        : (e) => setDevelopmentSuggestion(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? devSuggestionAutoSave.handleBlur : undefined}
+                    className="min-h-20"
+                  />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={devSuggestionAutoSave.status}
+                      onRetry={devSuggestionAutoSave.retry}
+                    />
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

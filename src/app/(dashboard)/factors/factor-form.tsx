@@ -76,6 +76,8 @@ interface FactorFormProps {
     indicatorsLow?: string
     indicatorsMid?: string
     indicatorsHigh?: string
+    strengthCommentary?: string
+    developmentSuggestion?: string
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
@@ -109,6 +111,8 @@ export function FactorForm({
   const [createIndicatorsLow, setCreateIndicatorsLow] = useState(initialData?.indicatorsLow ?? "")
   const [createIndicatorsMid, setCreateIndicatorsMid] = useState(initialData?.indicatorsMid ?? "")
   const [createIndicatorsHigh, setCreateIndicatorsHigh] = useState(initialData?.indicatorsHigh ?? "")
+  const [createStrengthCommentary, setCreateStrengthCommentary] = useState(initialData?.strengthCommentary ?? "")
+  const [createDevelopmentSuggestion, setCreateDevelopmentSuggestion] = useState(initialData?.developmentSuggestion ?? "")
 
   // --- Auto-save hooks for text fields (edit mode only) ---
   const descriptionAutoSave = useAutoSave({
@@ -141,12 +145,26 @@ export function FactorForm({
     enabled: mode === "edit" && !!factorId,
   })
 
+  const strengthCommentaryAutoSave = useAutoSave({
+    initialValue: initialData?.strengthCommentary ?? "",
+    onSave: (val) => updateFactorField(factorId!, "strengthCommentary", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
+  const developmentSuggestionAutoSave = useAutoSave({
+    initialValue: initialData?.developmentSuggestion ?? "",
+    onSave: (val) => updateFactorField(factorId!, "developmentSuggestion", val),
+    enabled: mode === "edit" && !!factorId,
+  })
+
   // --- Resolve text field values based on mode ---
   const description = mode === "edit" ? descriptionAutoSave.value : createDescription
   const definition = mode === "edit" ? definitionAutoSave.value : createDefinition
   const indicatorsLow = mode === "edit" ? indicatorsLowAutoSave.value : createIndicatorsLow
   const indicatorsMid = mode === "edit" ? indicatorsMidAutoSave.value : createIndicatorsMid
   const indicatorsHigh = mode === "edit" ? indicatorsHighAutoSave.value : createIndicatorsHigh
+  const strengthCommentary = mode === "edit" ? strengthCommentaryAutoSave.value : createStrengthCommentary
+  const developmentSuggestion = mode === "edit" ? developmentSuggestionAutoSave.value : createDevelopmentSuggestion
 
   // --- Form state ---
   const [pending, setPending] = useState(false)
@@ -518,6 +536,62 @@ export function FactorForm({
                     ) : undefined
                   }
                 />
+              </CardContent>
+            </Card>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Report Commentary</CardTitle>
+                <CardDescription>
+                  Narrative text used when generating reports for this factor.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="factor-strength-commentary">Strength Commentary</Label>
+                  <Textarea
+                    id="factor-strength-commentary"
+                    name="strengthCommentary"
+                    placeholder="What to say when this factor is a top-scoring area…"
+                    value={strengthCommentary}
+                    onChange={
+                      mode === "edit"
+                        ? strengthCommentaryAutoSave.handleChange
+                        : (e) => setCreateStrengthCommentary(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? strengthCommentaryAutoSave.handleBlur : undefined}
+                    className="min-h-20"
+                  />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={strengthCommentaryAutoSave.status}
+                      onRetry={strengthCommentaryAutoSave.retry}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="factor-development-suggestion">Development Suggestion</Label>
+                  <Textarea
+                    id="factor-development-suggestion"
+                    name="developmentSuggestion"
+                    placeholder="What to say when this factor is an area for development…"
+                    value={developmentSuggestion}
+                    onChange={
+                      mode === "edit"
+                        ? developmentSuggestionAutoSave.handleChange
+                        : (e) => setCreateDevelopmentSuggestion(e.target.value)
+                    }
+                    onBlur={mode === "edit" ? developmentSuggestionAutoSave.handleBlur : undefined}
+                    className="min-h-20"
+                  />
+                  {mode === "edit" && (
+                    <AutoSaveIndicator
+                      status={developmentSuggestionAutoSave.status}
+                      onRetry={developmentSuggestionAutoSave.retry}
+                    />
+                  )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

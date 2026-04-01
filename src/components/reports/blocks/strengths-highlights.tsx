@@ -6,14 +6,14 @@ interface StrengthEntry {
   entityId: string
   entityName: string
   pompScore: number
-  narrative?: string
+  strengthCommentary?: string
+  definition?: string
   bandResult?: BandResult
 }
 
 interface StrengthsData {
   highlights: StrengthEntry[]
-  config: { topN: number; style: 'cards' | 'list' }
-  aiNarrative?: string | null
+  config: { topN: number }
 }
 
 export function StrengthsHighlightsBlock({ data, mode }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
@@ -23,36 +23,22 @@ export function StrengthsHighlightsBlock({ data, mode }: { data: Record<string, 
   const resolvedMode = mode ?? 'open'
 
   if (resolvedMode === 'featured') {
-    return <FeaturedLayout highlights={d.highlights} aiNarrative={d.aiNarrative} />
+    return <FeaturedLayout highlights={d.highlights} />
   }
 
   if (resolvedMode === 'carded') {
-    return <CardedLayout highlights={d.highlights} aiNarrative={d.aiNarrative} />
+    return <CardedLayout highlights={d.highlights} />
   }
 
-  return <OpenLayout highlights={d.highlights} aiNarrative={d.aiNarrative} />
+  return <OpenLayout highlights={d.highlights} />
 }
 
-/* ---------- AI Narrative Callout ---------- */
-function AiNarrativeCallout({ aiNarrative }: { aiNarrative?: string | null }) {
-  if (!aiNarrative) return null
-  return (
-    <div
-      className="rounded-xl border p-4 mb-5"
-      style={{
-        borderColor: 'var(--report-divider)',
-        background: 'var(--report-card-bg)',
-      }}
-    >
-      <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
-        {aiNarrative}
-      </p>
-    </div>
-  )
+function getCommentary(h: StrengthEntry): string {
+  return h.strengthCommentary || h.definition || 'No commentary available'
 }
 
 /* ---------- Open: numbered insight columns ---------- */
-function OpenLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]; aiNarrative?: string | null }) {
+function OpenLayout({ highlights }: { highlights: StrengthEntry[] }) {
   return (
     <div>
       <div
@@ -61,7 +47,6 @@ function OpenLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]; 
       >
         Key Strengths
       </div>
-      <AiNarrativeCallout aiNarrative={aiNarrative} />
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {highlights.map((h, i) => (
           <div key={h.entityId} className="space-y-2">
@@ -77,11 +62,9 @@ function OpenLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]; 
             >
               {h.entityName}
             </p>
-            {h.narrative && (
-              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
-                {h.narrative}
-              </p>
-            )}
+            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
+              {getCommentary(h)}
+            </p>
           </div>
         ))}
       </div>
@@ -90,10 +73,9 @@ function OpenLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]; 
 }
 
 /* ---------- Carded: ranked cards ---------- */
-function CardedLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]; aiNarrative?: string | null }) {
+function CardedLayout({ highlights }: { highlights: StrengthEntry[] }) {
   return (
     <div>
-      <AiNarrativeCallout aiNarrative={aiNarrative} />
       <div className="space-y-3">
         {highlights.map((h, i) => (
           <div
@@ -123,11 +105,9 @@ function CardedLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]
                   <BandBadge band={h.bandResult.band} label={h.bandResult.bandLabel} />
                 )}
               </div>
-              {h.narrative && (
-                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
-                  {h.narrative}
-                </p>
-              )}
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
+                {getCommentary(h)}
+              </p>
             </div>
           </div>
         ))}
@@ -137,7 +117,7 @@ function CardedLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]
 }
 
 /* ---------- Featured: headline list ---------- */
-function FeaturedLayout({ highlights, aiNarrative }: { highlights: StrengthEntry[]; aiNarrative?: string | null }) {
+function FeaturedLayout({ highlights }: { highlights: StrengthEntry[] }) {
   const names = highlights.map((h) => h.entityName)
   const summary =
     names.length > 1
@@ -152,15 +132,17 @@ function FeaturedLayout({ highlights, aiNarrative }: { highlights: StrengthEntry
       >
         Key Strengths
       </div>
-      <AiNarrativeCallout aiNarrative={aiNarrative} />
       <p className="text-lg font-semibold text-current">
         {summary}
       </p>
-      <ul className="space-y-1">
+      <ul className="space-y-2">
         {highlights.map((h) => (
-          <li key={h.entityId} className="flex items-center gap-2 text-current opacity-80">
-            <span className="text-[13px]">{h.entityName}</span>
-            <span className="text-[11px] tabular-nums opacity-60">{Math.round(h.pompScore)}</span>
+          <li key={h.entityId} className="text-current">
+            <span className="text-[13px] font-medium">{h.entityName}</span>
+            <span className="text-[11px] tabular-nums opacity-60 ml-2">{Math.round(h.pompScore)}</span>
+            <p className="text-[12px] leading-relaxed opacity-75 mt-0.5">
+              {getCommentary(h)}
+            </p>
           </li>
         ))}
       </ul>

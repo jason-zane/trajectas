@@ -53,7 +53,6 @@ export interface CreateReportTemplateInput {
   displayLevel: ReportDisplayLevel
   groupByDimension?: boolean
   personReference?: PersonReferenceType
-  autoRelease?: boolean
   pageHeaderLogo?: 'primary' | 'secondary' | 'none'
   partnerId?: string
 }
@@ -72,7 +71,6 @@ export async function createReportTemplate(
       display_level: input.displayLevel,
       group_by_dimension: input.groupByDimension ?? false,
       person_reference: input.personReference ?? 'the_participant',
-      auto_release: input.autoRelease ?? false,
       page_header_logo: input.pageHeaderLogo ?? 'none',
       partner_id: input.partnerId ?? null,
       blocks: [],
@@ -136,7 +134,6 @@ export async function updateReportTemplateSettings(
   if (updates.displayLevel !== undefined) row.display_level = updates.displayLevel
   if (updates.groupByDimension !== undefined) row.group_by_dimension = updates.groupByDimension
   if (updates.personReference !== undefined) row.person_reference = updates.personReference
-  if (updates.autoRelease !== undefined) row.auto_release = updates.autoRelease
   if (updates.pageHeaderLogo !== undefined) row.page_header_logo = updates.pageHeaderLogo
   const { error } = await db.from('report_templates').update(row).eq('id', id)
   if (error) throw new Error(error.message)
@@ -452,6 +449,23 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
     .select('id, title')
     .is('deleted_at', null)
     .order('title')
+  if (error) throw new Error(error.message)
+  return data ?? []
+}
+
+// ---------------------------------------------------------------------------
+// AI Prompts (for block builder)
+// ---------------------------------------------------------------------------
+
+export async function getReportPrompts(): Promise<{ id: string; name: string; purpose: string }[]> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const { data, error } = await db
+    .from('ai_system_prompts')
+    .select('id, name, purpose')
+    .eq('is_active', true)
+    .like('purpose', 'report_%')
+    .order('name')
   if (error) throw new Error(error.message)
   return data ?? []
 }

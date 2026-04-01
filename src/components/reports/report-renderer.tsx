@@ -12,6 +12,7 @@ import { NormComparisonBlock } from './blocks/norm-comparison'
 import { RaterComparisonBlock } from './blocks/rater-comparison'
 import { GapAnalysisBlock } from './blocks/gap-analysis'
 import { OpenCommentsBlock } from './blocks/open-comments'
+import { AiTextBlock } from './blocks/ai-text'
 import { ModeWrapper } from './modes/mode-wrapper'
 import type { ResolvedBlockData, BlockType } from '@/lib/reports/types'
 import type { PresentationMode, ChartType, ReportTheme } from '@/lib/reports/presentation'
@@ -34,6 +35,7 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   rater_comparison: RaterComparisonBlock,
   gap_analysis: GapAnalysisBlock,
   open_comments: OpenCommentsBlock,
+  ai_text: AiTextBlock,
 }
 
 function themeToStyle(theme: ReportTheme): React.CSSProperties {
@@ -71,6 +73,18 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
           if (!Component) return null
 
           const mode = block.presentationMode ?? 'open'
+
+          // Section dividers render directly without mode wrapper
+          if (block.type === 'section_divider') {
+            return (
+              <Component
+                key={block.blockId}
+                data={block.data}
+                mode={mode}
+                chartType={block.chartType}
+              />
+            )
+          }
 
           return (
             <ModeWrapper
