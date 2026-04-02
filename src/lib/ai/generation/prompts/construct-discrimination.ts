@@ -1,3 +1,5 @@
+import type { ConstructChange } from '@/types/generation'
+
 export function buildDiscriminationPrompt(
   constructA: {
     name: string
@@ -14,6 +16,10 @@ export function buildDiscriminationPrompt(
     indicatorsLow?: string
     indicatorsMid?: string
     indicatorsHigh?: string
+  },
+  context?: {
+    otherConstructs?: Array<{ name: string; definition?: string }>
+    changes?: ConstructChange[]
   },
 ): string {
   const renderConstruct = (
@@ -37,12 +43,20 @@ export function buildDiscriminationPrompt(
     ].filter(Boolean).join('\n')
   }
 
+  const landscapeSection = context?.otherConstructs?.length
+    ? `\n## Construct Landscape\n\nThe full set of constructs in this generation run is listed below. When assessing overlap between Construct A and Construct B, consider whether behavioural territory you might suggest moving toward is already occupied by another construct in the set.\n\n${context.otherConstructs.map((c) => `- **${c.name}**: ${c.definition ?? '(no definition)'}`).join('\n')}\n`
+    : ''
+
+  const changesSection = context?.changes?.length
+    ? `\n## Changes Since Last Check\n\nThe following constructs were recently refined. Evaluate the current definitions on their own merit — do not re-litigate changes that were intentionally made unless they have created a genuine new problem.\n\n${context.changes.map((c) => `**${c.constructName}** — ${c.field} was updated:\n- Previous: "${c.previousValue}"\n- Current: "${c.currentValue}"`).join('\n\n')}\n`
+    : ''
+
   return `Assess whether these two constructs can produce clearly discriminating self-report items.
 
 ${renderConstruct('Construct A', constructA)}
 
 ${renderConstruct('Construct B', constructB)}
-
+${landscapeSection}${changesSection}
 Focus on the behavioural boundary between the constructs.
 - "green" means the constructs are clearly distinct and should support independent item generation.
 - "amber" means the constructs are distinguishable, but their current wording is close enough that definitions should be sharpened before generation.
