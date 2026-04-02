@@ -110,7 +110,7 @@ export async function createPromptVersion(
     return { error: error.message }
   }
 
-  revalidatePath('/settings/prompts')
+  revalidatePath('/settings/ai')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_prompt.created',
@@ -150,7 +150,7 @@ export async function activatePromptVersion(
 
   if (activateError) return { error: activateError.message }
 
-  revalidatePath('/settings/prompts')
+  revalidatePath('/settings/ai')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_prompt.activated',

@@ -92,6 +92,78 @@ export async function getDefaultModelIdForPurpose(
   return (data?.model_id as string | undefined) ?? null
 }
 
+/** All non-embedding purposes that the global selector applies to. */
+const TEXT_PURPOSES: AIPromptPurpose[] = [
+  'chat',
+  'item_generation',
+  'factor_item_generation',
+  'library_import_structuring',
+  'preflight_analysis',
+  'competency_matching',
+  'ranking_explanation',
+  'diagnostic_analysis',
+  'report_narrative',
+  'report_strengths_analysis',
+  'report_development_advice',
+]
+
+/**
+ * Applies the same model to all non-embedding purposes in one operation.
+ */
+export async function applyModelToAllPurposes(
+  modelId: string,
+): Promise<{ success: true } | { error: string }> {
+  const scope = await requireAdminScope()
+  const supabase = createAdminClient()
+
+  const { data: provider, error: providerError } = await supabase
+    .from('ai_providers')
+    .select('id')
+    .eq('name', 'OpenRouter')
+    .single()
+
+  if (providerError || !provider) {
+    return { error: 'OpenRouter provider not found in database' }
+  }
+
+  // Upsert all text purposes in parallel
+  const results = await Promise.all(
+    TEXT_PURPOSES.map(async (purpose) => {
+      const { data: existing } = await supabase
+        .from('ai_model_configs')
+        .select('id, config')
+        .eq('purpose', purpose)
+        .maybeSingle()
+
+      const payload = {
+        provider_id: provider.id as string,
+        purpose,
+        model_id: modelId,
+        display_name: modelId,
+        is_default: false,
+        config: (existing?.config as { temperature?: number; max_tokens?: number } | null) ?? {},
+      }
+
+      return existing?.id
+        ? supabase.from('ai_model_configs').update(payload).eq('id', existing.id as string)
+        : supabase.from('ai_model_configs').insert(payload)
+    }),
+  )
+
+  const failed = results.find((r) => r.error)
+  if (failed?.error) return { error: failed.error.message }
+
+  revalidatePath('/settings/ai')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'ai_model.bulk_updated',
+    targetTable: 'ai_model_configs',
+    targetId: null,
+    metadata: { modelId, purposes: TEXT_PURPOSES },
+  })
+  return { success: true }
+}
+
 /**
  * Updates or inserts the model_id for a given purpose.
  */
@@ -144,7 +216,7 @@ export async function updateModelForPurpose(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/settings/models')
+  revalidatePath('/settings/ai')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_model.updated',
