@@ -48,7 +48,7 @@ export async function createStaffInviteAction(
     }
   }
 
-  revalidatePath('/settings/users')
+  revalidatePath('/users')
 
   return {
     success: `Invite created for ${result.data.email}. Copy the acceptance link below.`,
@@ -71,7 +71,7 @@ export async function revokeInviteAction(formData: FormData) {
   }
 
   await revokeInvite(parsed.data.inviteId, scope.actor?.id ?? '')
-  revalidatePath('/settings/users')
+  revalidatePath('/users')
 }
 
 const membershipActionSchema = z.object({
@@ -95,7 +95,7 @@ export async function revokeMembershipAction(formData: FormData) {
     membershipType: parsed.data.membershipType,
     actorProfileId: scope.actor?.id ?? '',
   })
-  revalidatePath('/settings/users')
+  revalidatePath('/users')
 }
 
 const activeStateSchema = z.object({
@@ -119,5 +119,5 @@ export async function setStaffUserActiveStateAction(formData: FormData) {
     isActive: parsed.data.isActive === 'true',
     actorProfileId: scope.actor?.id ?? '',
   })
-  revalidatePath('/settings/users')
+  revalidatePath('/users')
 }
