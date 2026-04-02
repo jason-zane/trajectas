@@ -1,0 +1,4 @@
+-- Create brand-assets storage bucket for logo uploads
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('brand-assets', 'brand-assets', true)
+ON CONFLICT (id) DO NOTHING;
