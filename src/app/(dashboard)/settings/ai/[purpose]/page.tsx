@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { getModelConfigs } from "@/app/actions/model-config"
 import { getPromptVersions } from "@/app/actions/prompts"
 import { openRouterProvider } from "@/lib/ai/providers/openrouter"
-import { PURPOSE_META, PURPOSE_ORDER } from "@/lib/ai/purpose-meta"
+import { PURPOSE_ORDER } from "@/lib/ai/purpose-meta"
 import { AiPurposeDetail } from "./ai-purpose-detail"
 import type { AIPromptPurpose } from "@/types/database"
 
@@ -19,7 +19,6 @@ export default async function AiPurposeDetailPage({
   }
 
   const typedPurpose = purpose as AIPromptPurpose
-  const meta = PURPOSE_META[typedPurpose]
   const isEmbedding = typedPurpose === "embedding"
 
   const [configs, versions, models] = await Promise.all([
@@ -35,7 +34,6 @@ export default async function AiPurposeDetailPage({
   return (
     <AiPurposeDetail
       purpose={typedPurpose}
-      purposeMeta={meta}
       currentModelConfig={currentConfig}
       promptVersions={versions}
       availableModels={models}

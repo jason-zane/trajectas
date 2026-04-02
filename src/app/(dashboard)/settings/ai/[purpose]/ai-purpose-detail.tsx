@@ -25,7 +25,7 @@ import {
   type PromptVersionRow,
 } from "@/app/actions/prompts"
 import type { ModelConfigRow } from "@/app/actions/model-config"
-import type { PurposeMeta } from "@/lib/ai/purpose-meta"
+import { PURPOSE_META } from "@/lib/ai/purpose-meta"
 import type { AIPromptPurpose } from "@/types/database"
 import type { OpenRouterModel } from "@/types/generation"
 
@@ -49,7 +49,6 @@ function formatDate(dateStr: string): string {
 
 interface AiPurposeDetailProps {
   purpose: AIPromptPurpose
-  purposeMeta: PurposeMeta
   currentModelConfig: ModelConfigRow | null
   promptVersions: PromptVersionRow[]
   availableModels: OpenRouterModel[]
@@ -61,12 +60,12 @@ interface AiPurposeDetailProps {
 
 export function AiPurposeDetail({
   purpose,
-  purposeMeta,
   currentModelConfig,
   promptVersions,
   availableModels,
 }: AiPurposeDetailProps) {
   const router = useRouter()
+  const purposeMeta = PURPOSE_META[purpose]
   const Icon = purposeMeta.icon
   const isEmbedding = purpose === "embedding"
 
