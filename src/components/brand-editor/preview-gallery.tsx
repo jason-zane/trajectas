@@ -5,7 +5,9 @@ import { Expand, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
 import type { BrandConfig } from "@/lib/brand/types"
-import { PreviewRunner } from "./preview-runner"
+import { PreviewQuestions } from "./preview-questions"
+import { PreviewComplete } from "./preview-complete"
+import { PreviewWelcome } from "./preview-welcome"
 import { PreviewReport } from "./preview-report"
 import { PreviewEmail } from "./preview-email"
 import { PreviewDashboard } from "./preview-dashboard"
@@ -16,25 +18,35 @@ interface PreviewGalleryProps {
   config: BrandConfig
   /** If true, only shows the runner preview (used for client editor). */
   compact?: boolean
+  /** Explicit list of surfaces to show. Overrides compact if provided. */
+  surfaces?: PreviewSurface[]
+  brandName?: string
+  logoUrl?: string
 }
 
-type PreviewSurface = "runner" | "report" | "email" | "dashboard"
+type PreviewSurface = "runner" | "welcome" | "questions" | "complete" | "report" | "email" | "dashboard"
 
 const SURFACE_LABELS: Record<PreviewSurface, string> = {
   runner: "Assessment Runner",
+  welcome: "Welcome Page",
+  questions: "Assessment Questions",
+  complete: "Completion Page",
   report: "Report Cover",
   email: "Email Invitation",
   dashboard: "Dashboard Card",
 }
 
-const SURFACE_COMPONENTS: Record<PreviewSurface, React.FC> = {
-  runner: PreviewRunner,
+const SURFACE_COMPONENTS: Record<PreviewSurface, React.FC<{ brandName?: string; logoUrl?: string }>> = {
+  runner: PreviewQuestions,
+  welcome: PreviewWelcome,
+  questions: PreviewQuestions,
+  complete: PreviewComplete,
   report: PreviewReport,
   email: PreviewEmail,
   dashboard: PreviewDashboard,
 }
 
-export function PreviewGallery({ config, compact = false }: PreviewGalleryProps) {
+export function PreviewGallery({ config, compact = false, surfaces, brandName, logoUrl }: PreviewGalleryProps) {
   const [mode, setMode] = useState<PreviewMode>("light")
   const [fullScreenSurface, setFullScreenSurface] = useState<PreviewSurface | null>(null)
 
@@ -118,23 +130,14 @@ export function PreviewGallery({ config, compact = false }: PreviewGalleryProps)
           }}
         >
           <div className="space-y-8">
-            {/* Each preview has an expand button */}
-            <PreviewCard surface="dashboard" onExpand={setFullScreenSurface}>
-              <PreviewDashboard />
-            </PreviewCard>
-            <PreviewCard surface="runner" onExpand={setFullScreenSurface}>
-              <PreviewRunner />
-            </PreviewCard>
-            {!compact && (
-              <>
-                <PreviewCard surface="report" onExpand={setFullScreenSurface}>
-                  <PreviewReport />
+            {(surfaces ?? (compact ? ["dashboard", "runner"] : ["dashboard", "runner", "report", "email"])).map((surface) => {
+              const Component = SURFACE_COMPONENTS[surface as PreviewSurface]
+              return (
+                <PreviewCard key={surface} surface={surface as PreviewSurface} onExpand={setFullScreenSurface}>
+                  <Component brandName={brandName} logoUrl={logoUrl} />
                 </PreviewCard>
-                <PreviewCard surface="email" onExpand={setFullScreenSurface}>
-                  <PreviewEmail />
-                </PreviewCard>
-              </>
-            )}
+              )
+            })}
           </div>
         </div>
       </div>
@@ -191,7 +194,7 @@ export function PreviewGallery({ config, compact = false }: PreviewGalleryProps)
                   fontFamily: "var(--brand-font-body)",
                 }}
               >
-                <FullScreenComponent />
+                <FullScreenComponent brandName={brandName} logoUrl={logoUrl} />
               </div>
             </div>
           </div>
