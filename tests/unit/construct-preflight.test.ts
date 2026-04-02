@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest"
 
 import {
   PREFLIGHT_REVIEW_SIMILARITY_THRESHOLD,
+  PREFLIGHT_FULL_CONTEXT_THRESHOLD,
   selectPairsForLlmReview,
+  buildLandscapeContext,
 } from "@/lib/ai/generation/construct-preflight"
 import { buildDiscriminationPrompt } from "@/lib/ai/generation/prompts/construct-discrimination"
 import { buildRefinementPrompt } from "@/lib/ai/generation/prompts/construct-refinement"
@@ -152,5 +154,55 @@ describe("buildRefinementPrompt context", () => {
 
     expect(prompt).toContain("## Changes Since Last Check")
     expect(prompt).toContain("**Adaptability**")
+  })
+})
+
+describe("buildLandscapeContext", () => {
+  it("excludes the two evaluated constructs", () => {
+    const constructs = [
+      { id: "1", name: "A", definition: "def A" },
+      { id: "2", name: "B", definition: "def B" },
+      { id: "3", name: "C", definition: "def C" },
+    ]
+
+    const landscape = buildLandscapeContext(constructs, 0, 1)
+    expect(landscape).toHaveLength(1)
+    expect(landscape[0].name).toBe("C")
+  })
+
+  it("returns all others with name + definition for small sets", () => {
+    const constructs = Array.from({ length: 5 }, (_, i) => ({
+      id: String(i),
+      name: `Construct ${i}`,
+      definition: `Definition ${i}`,
+      description: `Description ${i}`,
+      dimensionId: i < 3 ? "dim-1" : "dim-2",
+    }))
+
+    const landscape = buildLandscapeContext(constructs, 0, 1)
+    expect(landscape).toHaveLength(3)
+    // Small set: description should NOT be merged into definition
+    expect(landscape[0].definition).toBe("Definition 2")
+  })
+
+  it("uses dimension-based grouping for large sets", () => {
+    const constructs = Array.from({ length: PREFLIGHT_FULL_CONTEXT_THRESHOLD + 2 }, (_, i) => ({
+      id: String(i),
+      name: `Construct ${i}`,
+      definition: `Definition ${i}`,
+      description: `Description ${i}`,
+      dimensionId: i < 3 ? "dim-1" : "dim-2",
+    }))
+
+    // Evaluate pair from dim-1 (indices 0 and 1)
+    const landscape = buildLandscapeContext(constructs, 0, 1)
+
+    // Construct 2 is same dimension (dim-1) — should have description merged
+    const sameDim = landscape.find((c) => c.name === "Construct 2")
+    expect(sameDim?.definition).toBe("Definition 2. Description 2")
+
+    // Construct 5 is cross-dimension (dim-2) — definition only
+    const crossDim = landscape.find((c) => c.name === "Construct 5")
+    expect(crossDim?.definition).toBe("Definition 5")
   })
 })

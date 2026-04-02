@@ -15,6 +15,7 @@ import { buildDiscriminationPrompt } from './prompts/construct-discrimination'
 import type {
   ConstructDraftInput,
   ConstructForGeneration,
+  ConstructChange,
   PreflightResult,
   ConstructPairResult,
   BigFiveMapping,
@@ -23,6 +24,7 @@ import type {
 export const PREFLIGHT_SIMILARITY_THRESHOLD = 0.75
 export const PREFLIGHT_REVIEW_SIMILARITY_THRESHOLD = 0.5
 export const PREFLIGHT_TOP_PAIR_COUNT = 5
+export const PREFLIGHT_FULL_CONTEXT_THRESHOLD = 15
 
 export interface PreflightPairCandidate {
   constructAIndex: number
@@ -41,8 +43,42 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return dot / (Math.sqrt(normA) * Math.sqrt(normB))
 }
 
+/**
+ * Builds the landscape context for a discrimination call, excluding the two
+ * constructs being evaluated. For large sets (>PREFLIGHT_FULL_CONTEXT_THRESHOLD),
+ * same-dimension constructs get fuller context.
+ */
+export function buildLandscapeContext(
+  constructs: Array<{ id: string; name: string; definition?: string; description?: string; dimensionId?: string }>,
+  indexA: number,
+  indexB: number,
+): Array<{ name: string; definition?: string }> {
+  const excluded = new Set([indexA, indexB])
+  const others = constructs.filter((_, i) => !excluded.has(i))
+
+  if (constructs.length <= PREFLIGHT_FULL_CONTEXT_THRESHOLD) {
+    return others.map((c) => ({ name: c.name, definition: c.definition }))
+  }
+
+  // Dimension-based grouping for large sets
+  const dimA = constructs[indexA]?.dimensionId
+  const dimB = constructs[indexB]?.dimensionId
+  const sameDimIds = new Set([dimA, dimB].filter(Boolean))
+
+  return others.map((c) => {
+    if (c.dimensionId && sameDimIds.has(c.dimensionId)) {
+      // Same dimension: include description for richer context
+      const def = [c.definition, c.description].filter(Boolean).join('. ')
+      return { name: c.name, definition: def || undefined }
+    }
+    // Cross-dimension: name + definition only
+    return { name: c.name, definition: c.definition }
+  })
+}
+
 export async function runConstructPreflight(
   constructs: Array<ConstructForGeneration | ConstructDraftInput>,
+  changes?: ConstructChange[],
 ): Promise<PreflightResult> {
   if (constructs.length < 2) {
     const embeddingModel = (await getModelForTask('embedding')).modelId
@@ -123,6 +159,12 @@ export async function runConstructPreflight(
             indicatorsLow: 'indicatorsLow' in constructs[j] ? constructs[j].indicatorsLow : undefined,
             indicatorsMid: 'indicatorsMid' in constructs[j] ? constructs[j].indicatorsMid : undefined,
             indicatorsHigh: 'indicatorsHigh' in constructs[j] ? constructs[j].indicatorsHigh : undefined,
+          },
+          {
+            otherConstructs: buildLandscapeContext(constructs, i, j),
+            changes: changes?.filter((c) =>
+              c.constructId === constructs[i].id || c.constructId === constructs[j].id
+            ),
           },
         ),
         temperature: preflightTask.config.temperature,

@@ -18,6 +18,7 @@ import { runPipeline } from '@/lib/ai/generation'
 import type {
   ConstructDraftInput,
   ConstructDraftState,
+  ConstructChange,
   ScoredCandidateItem,
   ConstructForGeneration,
 } from '@/types/generation'
@@ -758,11 +759,14 @@ function extractAnchors(config: Record<string, unknown>): string[] {
 // ---------------------------------------------------------------------------
 
 /** Run construct readiness pre-flight check for the given construct drafts. */
-export async function checkConstructReadiness(constructs: ConstructDraftInput[]) {
+export async function checkConstructReadiness(
+  constructs: ConstructDraftInput[],
+  changes?: ConstructChange[],
+) {
   await requireAdminScope()
   try {
     const { runConstructPreflight } = await import('@/lib/ai/generation')
-    const result = await runConstructPreflight(constructs)
+    const result = await runConstructPreflight(constructs, changes)
     return { success: true as const, result }
   } catch (error) {
     return {
