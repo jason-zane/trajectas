@@ -23,8 +23,9 @@ import {
   Users,
   Wand2,
   LayoutTemplate,
-  ListFilter,
+  type LucideIcon,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
   SidebarContent,
@@ -43,7 +44,19 @@ import {
   portalConfig,
 } from "@/components/build-portal-switcher";
 
-const adminNav = [
+type NavItem = {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  comingSoon?: boolean;
+};
+
+type NavSection = {
+  label: string;
+  items: NavItem[];
+};
+
+const adminNav: NavSection[] = [
   {
     label: "Overview",
     items: [{ title: "Dashboard", href: "/", icon: Home }],
@@ -54,53 +67,33 @@ const adminNav = [
       { title: "Dimensions", href: "/dimensions", icon: LayoutGrid },
       { title: "Factors", href: "/factors", icon: Brain },
       { title: "Constructs", href: "/constructs", icon: Dna },
-      { title: "Item Generator", href: "/generate", icon: Wand2 },
       { title: "Items", href: "/items", icon: FileQuestion },
+      { title: "Item Generator", href: "/generate", icon: Wand2 },
       { title: "Response Formats", href: "/response-formats", icon: Settings2 },
+      { title: "Psychometrics", href: "/psychometrics", icon: BarChart3 },
     ],
   },
   {
     label: "Assessments",
     items: [
-      {
-        title: "Assessment Builder",
-        href: "/assessments",
-        icon: ClipboardList,
-      },
+      { title: "Assessment Builder", href: "/assessments", icon: ClipboardList },
+      { title: "Report Templates", href: "/report-templates", icon: LayoutTemplate },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
     ],
   },
   {
-    label: "Reports",
-    items: [
-      { title: "Report Templates", href: "/settings/reports", icon: LayoutTemplate },
-    ],
-  },
-  {
     label: "Diagnostics",
     items: [
-      { title: "Templates", href: "/diagnostic-templates", icon: FileText },
-      { title: "Sessions", href: "/diagnostics", icon: Layers },
+      { title: "Templates", href: "/diagnostic-templates", icon: FileText, comingSoon: true },
+      { title: "Sessions", href: "/diagnostics", icon: Layers, comingSoon: true },
     ],
   },
   {
-    label: "Directory",
+    label: "People",
     items: [
-      {
-        title: "Directory",
-        href: "/directory",
-        icon: Building2,
-      },
-    ],
-  },
-  {
-    label: "Psychometrics",
-    items: [
-      { title: "Overview", href: "/psychometrics", icon: BarChart3 },
-      { title: "Item Health", href: "/psychometrics/items", icon: FileQuestion },
-      { title: "Reliability", href: "/psychometrics/reliability", icon: Dna },
-      { title: "Norms", href: "/psychometrics/norms", icon: Layers },
+      { title: "Directory", href: "/directory", icon: Building2 },
+      { title: "Users", href: "/users", icon: Users },
     ],
   },
   {
@@ -110,20 +103,9 @@ const adminNav = [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
     ],
   },
-  {
-    label: "Settings",
-    items: [
-      { title: "Brand", href: "/settings/brand", icon: Palette },
-      { title: "Experience", href: "/settings/experience", icon: Users },
-      { title: "Users", href: "/settings/users", icon: Users },
-      { title: "Item Selection", href: "/settings/item-selection", icon: ListFilter },
-      { title: "AI Models", href: "/settings/models", icon: Cpu },
-      { title: "AI Prompts", href: "/settings/prompts", icon: Braces },
-    ],
-  },
 ];
 
-const partnerNav = [
+const partnerNav: NavSection[] = [
   {
     label: "Overview",
     items: [{ title: "Dashboard", href: "/", icon: Home }],
@@ -154,7 +136,7 @@ const partnerNav = [
   },
 ];
 
-const clientNav = [
+const clientNav: NavSection[] = [
   {
     label: "Overview",
     items: [{ title: "Dashboard", href: "/", icon: Home }],
@@ -180,7 +162,7 @@ const clientNav = [
   },
 ];
 
-const navByPortal: Record<PortalType, typeof adminNav> = {
+const navByPortal: Record<PortalType, NavSection[]> = {
   admin: adminNav,
   partner: partnerNav,
   client: clientNav,
@@ -243,6 +225,31 @@ export function AppSidebar() {
                     resolvedHref === "/"
                       ? pathname === "/"
                       : pathname === resolvedHref || pathname.startsWith(`${resolvedHref}/`);
+                  if (item.comingSoon) {
+                    return (
+                      <SidebarMenuItem key={resolvedHref} className="relative">
+                        <SidebarMenuButton
+                          isActive={false}
+                          tooltip="This feature is coming soon"
+                          render={
+                            <div
+                              className="opacity-40 cursor-default"
+                              title="This feature is coming soon"
+                            />
+                          }
+                        >
+                          <item.icon className="size-4" />
+                          <span>{item.title}</span>
+                          <Badge
+                            variant="outline"
+                            className="ml-auto text-[10px] px-1.5 py-0"
+                          >
+                            Coming soon
+                          </Badge>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  }
                   return (
                     <SidebarMenuItem key={resolvedHref} className="relative">
                       {isActive && (
