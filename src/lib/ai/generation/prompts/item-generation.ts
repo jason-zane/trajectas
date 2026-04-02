@@ -5,6 +5,7 @@ export function buildItemGenerationPrompt(params: {
   batchSize:        number
   responseFormatDescription: string
   previousItems:    string[]
+  previousFacets?:  string[]
   contrastConstructs?: Array<Pick<ConstructForGeneration, "name" | "definition" | "description">>
 }): string {
   const {
@@ -12,6 +13,7 @@ export function buildItemGenerationPrompt(params: {
     batchSize,
     responseFormatDescription,
     previousItems,
+    previousFacets = [],
     contrastConstructs = [],
   } = params
 
@@ -29,6 +31,10 @@ export function buildItemGenerationPrompt(params: {
 
   const previousSection = previousItems.length > 0
     ? `\n## Existing or already-generated items for this construct (do NOT repeat, paraphrase, or make a near-neighbour of any of these):\n${previousItems.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+    : ''
+
+  const facetCoverageSection = previousFacets.length > 0
+    ? `\n## Facet Coverage\nPrevious batches covered these facets: ${previousFacets.join(', ')}.\nExplore different behavioural expressions of the construct that are not yet represented.`
     : ''
 
   const parentFactorSection = construct.parentFactors && construct.parentFactors.length > 0
@@ -52,6 +58,7 @@ ${parentFactorSection}
 ## Response Format
 ${responseFormatDescription}
 ${previousSection}
+${facetCoverageSection}
 
 ## Per-Item Metadata
 For each item, also provide:

@@ -104,11 +104,21 @@ export async function runPipeline(
       const contrastConstructs = constructs
         .filter(other => other.id !== construct.id)
         .slice(0, 6)
+      // Collect facets from already-generated items for this construct
+      const accumulatedFacets = rawCandidates
+        .filter((c) => c.constructId === construct.id && c.facet)
+        .map((c) => c.facet!)
+      // Only include facet guidance if we have enough data (>50% of items have facets)
+      const previousFacets = accumulatedFacets.length >= accumulated.length * 0.5
+        ? [...new Set(accumulatedFacets)]
+        : []
+
       const prompt = buildItemGenerationPrompt({
         construct,
         batchSize: needed,
         responseFormatDescription: responseFormatDesc,
         previousItems: [...(construct.existingItems ?? []), ...accumulated],
+        previousFacets,
         contrastConstructs,
       })
 
