@@ -16,8 +16,7 @@
 
 **Files:**
 - Modify: `src/types/generation.ts:241-256` (OpenRouterModel interface)
-- Modify: `src/lib/ai/providers/openrouter.ts:105-123` (listModels method)
-- Test: `tests/unit/construct-preflight.test.ts` (or a new test file)
+- Verify: `src/lib/ai/providers/openrouter.ts:105-123` (confirm listModels passes field through)
 
 - [ ] **Step 1: Add `supported_parameters` to `OpenRouterModel`**
 
@@ -43,9 +42,9 @@ export interface OpenRouterModel {
 }
 ```
 
-- [ ] **Step 2: Verify the OpenRouter provider doesn't strip extra fields**
+- [ ] **Step 2: Confirm no mapping exists in the OpenRouter provider — field passes through automatically**
 
-Read `src/lib/ai/providers/openrouter.ts` line 118. The `listModels` method casts the API response directly: `const data = await response.json() as { data?: OpenRouterModel[] }`. Since there's no field-by-field mapping, adding `supported_parameters` to the type is sufficient — the field will flow through from the API response automatically. No code changes needed in this file.
+Read `src/lib/ai/providers/openrouter.ts` line 118. The `listModels` method casts the API response directly: `const data = await response.json() as { data?: OpenRouterModel[] }`. Since there's no field-by-field mapping or destructuring, adding `supported_parameters` to the type is sufficient — the field flows through from the API response automatically. No code changes needed in this file.
 
 - [ ] **Step 3: Verify types compile**
 
@@ -68,7 +67,7 @@ git commit -m "feat(pipeline): add supported_parameters to OpenRouterModel type"
 
 - [ ] **Step 1: Find the selected generation model's supported_parameters**
 
-In the `Step3ConfigureGeneration` component (around line 1260), the component receives `textModels: OpenRouterModel[]` and `config.generationModel` (the selected model ID). Look up the selected model to check temperature support.
+In the `Step3Configure` component (around line 1260), the component receives `textModels: OpenRouterModel[]` and `config.generationModel` (the selected model ID). Look up the selected model to check temperature support.
 
 Add this before the return statement of the component:
 
@@ -188,11 +187,11 @@ git commit -m "feat(pipeline): increase attempt ceiling to +8 and always request
 **Files:**
 - Modify: `src/lib/ai/generation/prompts/item-generation.ts:3-9` (params type), `43-71` (prompt template)
 - Modify: `src/lib/ai/generation/pipeline.ts:107-113` (prompt builder call)
-- Test: `tests/unit/construct-preflight.test.ts`
+- Test: `tests/unit/item-generation.test.ts`
 
 - [ ] **Step 1: Write a test for facet coverage section**
 
-In `tests/unit/construct-preflight.test.ts`, add:
+Create `tests/unit/item-generation.test.ts`:
 
 ```typescript
 import { buildItemGenerationPrompt } from "@/lib/ai/generation/prompts/item-generation"
@@ -216,10 +215,10 @@ describe("buildItemGenerationPrompt facet diversity", () => {
     })
 
     expect(prompt).toContain("## Facet Coverage")
+    expect(prompt).toContain("Previous batches covered these facets")
     expect(prompt).toContain("emotional recovery")
     expect(prompt).toContain("persistence")
     expect(prompt).toContain("stress tolerance")
-    expect(prompt).toContain("different behavioural expressions")
   })
 
   it("omits facet coverage section when no previousFacets", () => {
@@ -249,7 +248,7 @@ describe("buildItemGenerationPrompt facet diversity", () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `npx vitest run tests/unit/construct-preflight.test.ts`
+Run: `npx vitest run tests/unit/item-generation.test.ts`
 Expected: FAIL — `buildItemGenerationPrompt` doesn't accept `previousFacets`
 
 - [ ] **Step 3: Add `previousFacets` to the prompt builder**
@@ -287,7 +286,7 @@ Then insert `${facetCoverageSection}` into the template string, after `${previou
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `npx vitest run tests/unit/construct-preflight.test.ts`
+Run: `npx vitest run tests/unit/item-generation.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Thread facets from the pipeline into the prompt builder**
@@ -314,17 +313,17 @@ In `src/lib/ai/generation/pipeline.ts`, update the `buildItemGenerationPrompt` c
       })
 ```
 
-Note: the `previousFacets` is deduplicated with `new Set()` and only included when ≥50% of accumulated items have facet data, preventing misleadingly sparse lists.
+Note: the `previousFacets` is deduplicated with `new Set()` and only included when ≥50% of accumulated items have facet data, preventing misleadingly sparse lists. On batch 1, `rawCandidates` has 0 items for this construct, so `previousFacets` will be `[]` and the facet section will be correctly omitted.
 
 - [ ] **Step 6: Run tests and type-check**
 
-Run: `npx vitest run tests/unit/construct-preflight.test.ts && npx tsc --noEmit 2>&1 | head -20`
+Run: `npx vitest run tests/unit/item-generation.test.ts && npx tsc --noEmit 2>&1 | head -20`
 Expected: All tests pass, no type errors
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/ai/generation/prompts/item-generation.ts src/lib/ai/generation/pipeline.ts tests/unit/construct-preflight.test.ts
+git add src/lib/ai/generation/prompts/item-generation.ts src/lib/ai/generation/pipeline.ts tests/unit/item-generation.test.ts
 git commit -m "feat(pipeline): add facet diversity guidance to batch 2+ prompts"
 ```
 
@@ -334,9 +333,9 @@ git commit -m "feat(pipeline): add facet diversity guidance to batch 2+ prompts"
 
 **Files:** None (verification only)
 
-- [ ] **Step 1: Run all preflight/pipeline tests**
+- [ ] **Step 1: Run all pipeline-related tests**
 
-Run: `npx vitest run tests/unit/construct-preflight.test.ts`
+Run: `npx vitest run tests/unit/construct-preflight.test.ts tests/unit/item-generation.test.ts`
 Expected: All tests pass
 
 - [ ] **Step 2: Run full type check**
