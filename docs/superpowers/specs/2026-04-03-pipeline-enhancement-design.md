@@ -36,8 +36,9 @@ Four optional pipeline stages, toggled per run:
 
 **Change:**
 - Add `supported_parameters?: string[]` to the `OpenRouterModel` type in `src/types/generation.ts`. OpenRouter already returns this field in its `/api/v1/models` response — we're currently discarding it.
+- Update the model list fetching in `src/lib/ai/providers/openrouter.ts` (`listModels` method) to include `supported_parameters` in the mapped response. Currently the mapping may discard extra fields — ensure the field is preserved through the mapping.
 - In the generation wizard Step 3, check whether the selected generation model includes `"temperature"` in its `supported_parameters`. If not, disable the temperature slider and show an inline note: "This model does not support temperature adjustment."
-- No backend changes. The API call already sends temperature and OpenRouter handles unsupported params. This is a UX honesty fix.
+- No backend pipeline changes. The API call already sends temperature and OpenRouter handles unsupported params. This is a UX honesty fix.
 
 ### 1b. Increased Attempt Ceiling
 
@@ -67,7 +68,7 @@ to simply:
 const needed = BATCH_SIZE
 ```
 
-The pipeline already stops accumulating at the target (`if (accumulated.length >= target) break`), so requesting more than needed is safe — surplus items are simply not added.
+The pipeline already stops accumulating at the target (`if (accumulated.length >= target) break`), so requesting more than needed is safe — surplus items are simply not added. Note: the prompt will always say "Generate 20 NEW psychometric items" regardless of how many are needed — this is intentional as it gives the model a full creative run and maximises the pool available for deduplication.
 
 ### 1d. Facet Diversity Guidance
 
@@ -83,8 +84,10 @@ Explore different behavioural expressions of the construct that are not yet repr
 
 This requires threading the facet metadata from previously generated items into `buildItemGenerationPrompt`. The pipeline already tracks generated items with their facets in `rawCandidates` — pass the facet list alongside `previousItems`.
 
+**Graceful degradation:** If fewer than 50% of accumulated items have a `facet` value (the field is optional and some models may not return it), skip the facet coverage section rather than providing a misleadingly sparse list.
+
 **Files to modify:**
-- `src/lib/ai/generation/prompts/item-generation.ts` — add `previousFacets?: string[]` param, append facet coverage section
+- `src/lib/ai/generation/prompts/item-generation.ts` — add `previousFacets?: string[]` field to the params object, append facet coverage section when non-empty
 - `src/lib/ai/generation/pipeline.ts` — collect facets from accumulated items, pass to prompt builder
 
 ## Tier 2: Next-Generation Pipeline
@@ -111,6 +114,75 @@ enableLeakageGuard?: boolean        // default: true
 enableDifficultyTargeting?: boolean // default: false
 enableSyntheticValidation?: boolean // default: false
 ```
+
+**Single-construct runs:** Leakage Guard requires multiple constructs (no other centroids to compare against). When only one construct is selected, the Leakage Guard toggle should be auto-disabled in the wizard UI.
+
+### Intra-Batch Processing Order
+
+When multiple Tier 2 stages are enabled, each batch flows through them in this fixed order:
+
+```
+Generate batch (20 items)
+  → Item Critique (drop/revise — no embedding needed)
+  → Embed surviving items
+  → Leakage Guard (drop leakers using embeddings)
+  → Difficulty analysis (uses same embeddings)
+  → Deduplication
+  → Accumulate into pool
+```
+
+This ordering minimises waste: critique removes items before they're embedded, and leakage guard + difficulty targeting share the same batch embeddings.
+
+### Embedding Caching
+
+Leakage Guard and Difficulty Targeting require per-item embeddings during generation, but the pipeline also needs embeddings for the full pool post-generation (for EGA/UVA/bootEGA). To avoid double-embedding:
+
+- Maintain a `Map<number, number[]>` of item index → embedding computed during generation
+- When the post-generation bulk embedding step runs, skip items that already have cached embeddings
+- This is managed by a shared `EmbeddingCache` that both the per-batch and bulk stages read from
+
+### Construct Centroid Management
+
+Both Leakage Guard and Difficulty Targeting use construct centroids. They share a single `ConstructCentroidCache`:
+
+- **Seeded from construct definitions** before generation begins (embed each construct's name + definition + description text). If preflight embeddings are available from the readiness check, reuse them.
+- **Incrementally updated** as items are generated — each new item's embedding is incorporated into its construct's centroid via running average.
+- Both Leakage Guard and Difficulty Targeting read from this shared cache.
+
+### Pipeline Funnel Metadata
+
+The `PipelineResult.aiSnapshot` object is extended with Tier 2 stage statistics:
+
+```typescript
+aiSnapshot.pipelineStages?: {
+  critique?: { itemsReviewed: number; kept: number; revised: number; dropped: number }
+  leakageGuard?: { itemsChecked: number; flagged: number }
+  difficultyTargeting?: { enabled: true }
+  syntheticValidation?: { respondentsGenerated: number; estimatedAlpha?: Record<string, number> }
+}
+```
+
+### Progress Reporting
+
+New `onProgress` step keys for Tier 2 stages: `'item_critique'`, `'leakage_check'`, `'synthetic_validation'`. The review UI's progress steps should be dynamically generated based on which stages were enabled for the run, rather than showing all steps for every run.
+
+### Removal Stage Extension
+
+The existing `RemovalStage` type (`'uva' | 'boot_ega' | 'kept'`) is extended with two new values:
+
+```typescript
+type RemovalStage = 'critique' | 'leakage' | 'uva' | 'boot_ega' | 'kept'
+```
+
+Items dropped by critique get `removalStage: 'critique'`. Items dropped by leakage guard get `removalStage: 'leakage'`. This flows through to the review UI and the funnel summary.
+
+### Per-Item Data Storage
+
+New per-item fields (critiqueVerdict, leakageScore, difficultyEstimate, etc.) are stored in a JSONB `pipeline_metadata` column on the `generated_items` table. This avoids adding many nullable columns and keeps the schema flexible as new stages are added. A migration adds this column.
+
+### Critique Model Failure Fallback
+
+If the critique model returns an unparseable response or times out: treat all items in the batch as "kept" and log a warning. The pipeline continues — critique is a quality enhancement, not a gate. The funnel summary will show `critiqueError: true` for that batch so the user knows critique was unavailable.
 
 ### 2a. Item Critique (Multi-Agent Review)
 
@@ -155,7 +227,7 @@ enableSyntheticValidation?: boolean // default: false
 
 **Key details:**
 - No LLM calls — pure embedding math, very fast
-- For the first construct generated, there are no other construct items yet — leakage guard contributes from construct 2 onward
+- Definition-based centroids are seeded before generation begins (see Construct Centroid Management above), so leakage guard works from construct 1 onward — every item can be compared against all other constructs' definition centroids
 - If a construct produces many leaking items, surface this as a warning in the review UI ("12 items were dropped due to cross-construct leakage — consider sharpening this construct's definition")
 
 **Data stored per item:**
@@ -175,6 +247,8 @@ enableSyntheticValidation?: boolean // default: false
 
 **Key details:**
 - No separate model or LLM call — embedding math between batches plus a prompt modifier
+- The embedding-based estimate is a **semantic proxy** for difficulty, not a calibrated IRT parameter. It measures semantic specificity (how peripheral the item is to the construct's core meaning). This correlates with endorsement difficulty but is not identical — an item could be semantically peripheral but psychometrically easy. The review UI should label this as "estimated difficulty (semantic)" to set appropriate expectations.
+- The target distribution (20% easy, 50% moderate, 30% hard) follows conventional psychometric practice for broad measurement across the ability range. This can be adjusted via constants if a different distribution is desired.
 - The embedding-based estimate is stored alongside the LLM's self-reported `difficultyTier` — the review UI can show when they disagree ("the model thought this was moderate, but embedding analysis suggests it's easy")
 
 **Data stored per item:**
@@ -194,12 +268,14 @@ enableSyntheticValidation?: boolean // default: false
 2. Generate 50-100 synthetic respondent personas varying on demographics, role level, and expected trait levels (e.g., "Senior manager, 15 years experience, high conscientiousness, moderate agreeableness, low neuroticism")
 3. Each persona "completes" the items on a 1-5 Likert scale — the LLM responds as that persona, rating each item
 4. This produces a synthetic response matrix (respondents × items)
-5. Run psychometric analyses on the synthetic data:
-   - **Factor structure** — does the intended dimensionality emerge?
-   - **Internal consistency** — estimated Cronbach's alpha per construct
-   - **Item-total correlations** — which items correlate poorly with their construct?
-   - **Cross-loading detection** — which items load onto multiple factors?
+5. Run psychometric analyses on the synthetic response matrix using the **existing EGA infrastructure** (not traditional factor analysis — reuse the same network-based approach already in the pipeline):
+   - **Factor structure** — feed synthetic correlations through EGA to check if intended dimensionality emerges
+   - **Internal consistency** — compute Cronbach's alpha per construct from the synthetic response matrix (simple formula, no new library needed)
+   - **Item-total correlations** — correlate each item's synthetic responses with the construct total score
+   - **Cross-loading detection** — items that EGA assigns to a different community than their intended construct
 6. Surface results in the review UI before the human reviews items
+
+**Cost estimate:** For 5 constructs with 50 respondent personas, this is ~250 LLM calls. At typical model pricing this adds meaningful cost and ~2-5 minutes of processing time — hence the default-off toggle.
 
 **Important caveats (from research):**
 - LLM-simulated data replicates group-level latent structures well (factor structure, configural/metric invariance) but does NOT approximate individual-level response distributions
@@ -244,8 +320,9 @@ Two new entries in `ai_model_configs`:
 | File | Change |
 |------|--------|
 | `src/types/generation.ts` | Add `supported_parameters?: string[]` to `OpenRouterModel` |
+| `src/lib/ai/providers/openrouter.ts` | Preserve `supported_parameters` in `listModels` response mapping |
 | `src/lib/ai/generation/pipeline.ts` | Increase attempt ceiling, always request full batch, pass facets to prompt builder |
-| `src/lib/ai/generation/prompts/item-generation.ts` | Add `previousFacets` param, append facet coverage section |
+| `src/lib/ai/generation/prompts/item-generation.ts` | Add `previousFacets` field to params object, append facet coverage section when non-empty |
 | `src/app/(dashboard)/generate/new/page.tsx` | Disable temperature slider when model doesn't support it |
 
 ## Files to Create/Modify (Tier 2)
@@ -262,7 +339,7 @@ Two new entries in `ai_model_configs`:
 | `src/lib/ai/generation/synthetic-validation.ts` | New file — persona generation, response simulation, psychometric analysis |
 | `src/app/(dashboard)/generate/new/page.tsx` | Pipeline options toggle UI in Step 3 |
 | `src/app/(dashboard)/generate/[runId]/page.tsx` | Review UI enhancements — critique verdicts, leakage scores, difficulty estimates, synthetic flags, funnel summary |
-| `supabase/migrations/` | New migration: extend `ai_prompt_purpose` enum, seed critique and synthetic respondent prompts and model configs |
+| `supabase/migrations/` | New migration: extend `ai_prompt_purpose` enum, seed critique and synthetic respondent prompts and model configs, add `pipeline_metadata` JSONB column to `generated_items`, extend `RemovalStage` check constraint |
 
 ## What This Does NOT Change
 
