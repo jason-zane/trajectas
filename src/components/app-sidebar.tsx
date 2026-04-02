@@ -11,7 +11,6 @@ import {
   Building2,
   Sparkles,
   Cpu,
-  Braces,
   MessageSquare,
   Settings2,
   Home,
@@ -231,12 +230,8 @@ export function AppSidebar() {
                         <SidebarMenuButton
                           isActive={false}
                           tooltip="This feature is coming soon"
-                          render={
-                            <div
-                              className="opacity-40 cursor-default"
-                              title="This feature is coming soon"
-                            />
-                          }
+                          className="opacity-40 cursor-default pointer-events-none"
+                          render={<div />}
                         >
                           <item.icon className="size-4" />
                           <span>{item.title}</span>
