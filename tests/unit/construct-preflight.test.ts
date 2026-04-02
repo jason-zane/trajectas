@@ -90,3 +90,67 @@ describe("buildDiscriminationPrompt context", () => {
     expect(prompt).not.toContain("## Changes Since Last Check")
   })
 })
+
+describe("buildRefinementPrompt context", () => {
+  const baseParams = {
+    constructName: "Resilience",
+    currentDraft: {
+      definition: "Ability to recover from setbacks",
+      description: "Bouncing back",
+      indicatorsLow: "Gives up easily",
+      indicatorsMid: "Recovers with support",
+      indicatorsHigh: "Thrives under pressure",
+    },
+    overlappingPairs: [
+      {
+        otherConstructName: "Adaptability",
+        cosineSimilarity: 0.72,
+        overlapSummary: "Both relate to coping with change",
+      },
+    ],
+    parentFactors: [],
+  }
+
+  it("includes other constructs section excluding target and overlapping", () => {
+    const prompt = buildRefinementPrompt({
+      ...baseParams,
+      allConstructs: [
+        { name: "Resilience", definition: "Ability to recover" },
+        { name: "Adaptability", definition: "Adjust to change" },
+        { name: "Empathy", definition: "Understanding others" },
+        { name: "Initiative", definition: "Taking action" },
+      ],
+    })
+
+    expect(prompt).toContain("## Other Constructs in Set")
+    expect(prompt).toContain("**Empathy**")
+    expect(prompt).toContain("**Initiative**")
+    // Target and overlapping constructs should be excluded from landscape
+    expect(prompt).not.toMatch(/## Other Constructs in Set[\s\S]*\*\*Resilience\*\*/)
+    expect(prompt).not.toMatch(/## Other Constructs in Set[\s\S]*\*\*Adaptability\*\*/)
+  })
+
+  it("includes conservatism instruction", () => {
+    const prompt = buildRefinementPrompt(baseParams)
+    expect(prompt).toContain("surgical precision")
+    expect(prompt).toContain("smallest edit")
+  })
+
+  it("includes changes section when provided", () => {
+    const prompt = buildRefinementPrompt({
+      ...baseParams,
+      changes: [
+        {
+          constructId: "2",
+          constructName: "Adaptability",
+          field: "definition",
+          previousValue: "Old def",
+          currentValue: "Adjust to change",
+        },
+      ],
+    })
+
+    expect(prompt).toContain("## Changes Since Last Check")
+    expect(prompt).toContain("**Adaptability**")
+  })
+})

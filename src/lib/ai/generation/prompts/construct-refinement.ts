@@ -1,4 +1,4 @@
-import type { ConstructDraftState } from '@/types/generation'
+import type { ConstructChange, ConstructDraftState } from '@/types/generation'
 
 interface RefinementPairContext {
   otherConstructName: string
@@ -32,8 +32,10 @@ export function buildRefinementPrompt(params: {
   currentDraft: ConstructDraftState
   overlappingPairs: RefinementPairContext[]
   parentFactors: ParentFactorContext[]
+  allConstructs?: Array<{ name: string; definition?: string }>
+  changes?: ConstructChange[]
 }): string {
-  const { constructName, currentDraft, overlappingPairs, parentFactors } = params
+  const { constructName, currentDraft, overlappingPairs, parentFactors, allConstructs, changes } = params
 
   const pairsSection = overlappingPairs.map((pair) => {
     const parts = [`- **${pair.otherConstructName}** (cosine: ${pair.cosineSimilarity.toFixed(3)})`]
@@ -53,6 +55,19 @@ export function buildRefinementPrompt(params: {
       }).join('\n')}\n\nIf the construct sits under multiple factors, look for a sharpening direction that serves all of them, or note where the factor contexts suggest different directions.`
     : ''
 
+  const overlappingNames = new Set(overlappingPairs.map((p) => p.otherConstructName))
+  const landscapeConstructs = (allConstructs ?? []).filter(
+    (c) => c.name !== constructName && !overlappingNames.has(c.name),
+  )
+
+  const landscapeSection = landscapeConstructs.length > 0
+    ? `\n## Other Constructs in Set\n\nEach construct must maintain a unique behavioural lane. When revising fields to reduce overlap with the flagged constructs, ensure your suggestions do not drift toward any other construct in the set.\n\n${landscapeConstructs.map((c) => `- **${c.name}**: ${c.definition ?? '(no definition)'}`).join('\n')}`
+    : ''
+
+  const changesSection = changes?.length
+    ? `\n\n## Changes Since Last Check\n\nThe following constructs were recently refined. Evaluate the current definitions on their own merit — do not re-litigate changes that were intentionally made unless they have created a genuine new problem.\n\n${changes.map((c) => `**${c.constructName}** — ${c.field} was updated:\n- Previous: "${c.previousValue}"\n- Current: "${c.currentValue}"`).join('\n\n')}`
+    : ''
+
   const fieldsSection = [
     `Definition: ${currentDraft.definition || '(empty)'}`,
     `Description: ${currentDraft.description || '(empty)'}`,
@@ -70,15 +85,17 @@ ${fieldsSection}
 
 ## Overlapping Constructs
 ${pairsSection}
-${factorSection}
+${factorSection}${landscapeSection}${changesSection}
 
 ## Instructions
 
 1. Identify which fields (definition, description, indicatorsLow, indicatorsMid, indicatorsHigh) are driving the overlap.
 2. For each problematic field, suggest a revised version that preserves the original meaning while removing the overlap territory.
 3. Do NOT suggest changes to fields that are already distinct — omit them from the suggestions array.
-4. In your analysis, explain what is driving the overlap and what sharpening direction you recommend.
-5. Do NOT use markdown formatting (bold, italic, headers) in suggested text — return plain text only.
+4. Only suggest changes to fields where the overlap is genuinely problematic. Prefer the smallest edit that resolves the issue. Do not rewrite fields that are already distinct — omit them from the suggestions array.
+5. Your goal is surgical precision, not comprehensive rewriting.
+6. In your analysis, explain what is driving the overlap and what sharpening direction you recommend.
+7. Do NOT use markdown formatting (bold, italic, headers) in suggested text — return plain text only.
 
 Respond in JSON:
 {
