@@ -450,8 +450,8 @@ export function AssessmentBuilder({
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(scoringMethodInfo).map(([value, info]) => (
-                        <SelectItem key={value} value={value}>
-                          {info.label}
+                        <SelectItem key={value} value={value} disabled={value !== "ctt"}>
+                          {info.label}{value !== "ctt" ? " (coming soon)" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -478,8 +478,8 @@ export function AssessmentBuilder({
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(itemSelectionInfo).map(([value, info]) => (
-                        <SelectItem key={value} value={value}>
-                          {info.label}
+                        <SelectItem key={value} value={value} disabled={value === "cat"}>
+                          {info.label}{value === "cat" ? " (coming soon)" : ""}
                         </SelectItem>
                       ))}
                     </SelectContent>

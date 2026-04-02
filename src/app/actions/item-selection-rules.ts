@@ -64,7 +64,7 @@ export async function upsertItemSelectionRules(
 
   if (insertErr) return { error: { _form: [insertErr.message] } }
 
-  revalidatePath('/settings/item-selection')
+  revalidatePath('/assessments')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item_selection_rules.updated',
