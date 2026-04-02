@@ -98,9 +98,9 @@ export async function runPipeline(
     let attempts = 0
     let consecutiveFailures = 0
 
-    while (accumulated.length < target && attempts < Math.ceil(target / BATCH_SIZE) + 4) {
+    while (accumulated.length < target && attempts < Math.ceil(target / BATCH_SIZE) + 8) {
       attempts++
-      const needed = Math.min(BATCH_SIZE, target - accumulated.length)
+      const needed = BATCH_SIZE
       const contrastConstructs = constructs
         .filter(other => other.id !== construct.id)
         .slice(0, 6)
@@ -128,15 +128,20 @@ export async function runPipeline(
         const parsed = parseGeneratedItems(response.content)
         if (parsed.length === 0) {
           consecutiveFailures++
+          console.warn(`[pipeline] ${construct.name} batch ${attempts}: 0 items parsed (consecutive failures: ${consecutiveFailures})`)
           continue
         }
 
         consecutiveFailures = 0
         const constructSeen = seenByConstruct.get(construct.id) ?? new Set<string>(existingNormalized)
+        let duplicatesInBatch = 0
 
         for (const item of parsed) {
           const normalizedStem = normalizeStem(item.stem)
-          if (!normalizedStem || constructSeen.has(normalizedStem)) continue
+          if (!normalizedStem || constructSeen.has(normalizedStem)) {
+            duplicatesInBatch++
+            continue
+          }
           constructSeen.add(normalizedStem)
           accumulated.push(item.stem)
           rawCandidates.push({
@@ -151,14 +156,21 @@ export async function runPipeline(
           if (accumulated.length >= target) break
         }
 
+        console.log(`[pipeline] ${construct.name} batch ${attempts}: ${parsed.length} parsed, ${duplicatesInBatch} duplicates, ${accumulated.length}/${target} accumulated`)
         seenByConstruct.set(construct.id, constructSeen)
       } catch {
         consecutiveFailures++
+        console.warn(`[pipeline] ${construct.name} batch ${attempts}: parse error (consecutive failures: ${consecutiveFailures})`)
       }
 
       if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        console.warn(`[pipeline] ${construct.name}: stopping after ${MAX_CONSECUTIVE_FAILURES} consecutive failures (${accumulated.length}/${target} items)`)
         break
       }
+    }
+
+    if (accumulated.length < target) {
+      console.warn(`[pipeline] ${construct.name}: finished with ${accumulated.length}/${target} items after ${attempts} attempts`)
     }
   }
 
