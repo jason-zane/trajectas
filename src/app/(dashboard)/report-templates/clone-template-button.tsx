@@ -22,7 +22,7 @@ export function CloneTemplateButton({ templateId }: { templateId: string }) {
           try {
             const cloned = await cloneReportTemplate(templateId)
             toast.success('Template cloned')
-            router.push(`/settings/reports/${cloned.id}/builder`)
+            router.push(`/report-templates/${cloned.id}/builder`)
           } catch (err) {
             toast.error(err instanceof Error ? err.message : 'Failed to clone template')
           }

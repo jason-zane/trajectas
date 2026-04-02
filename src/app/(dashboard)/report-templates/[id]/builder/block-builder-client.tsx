@@ -288,7 +288,6 @@ export function BlockBuilderClient({
       try {
         await updateReportTemplateSettings(templateId, {
           displayLevel: settings.displayLevel,
-          groupByDimension: settings.groupByDimension,
           personReference: settings.personReference,
           pageHeaderLogo: settings.pageHeaderLogo,
         })
@@ -445,18 +444,39 @@ export function BlockBuilderClient({
           variant="ghost"
           size="icon"
           className="size-8"
-          onClick={() => router.push('/settings/reports')}
+          onClick={() => router.push('/report-templates')}
         >
           <ChevronLeft className="size-4" />
         </Button>
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="h-8 w-56 text-sm font-semibold bg-transparent border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+          className="h-8 w-56 text-sm font-semibold border border-transparent hover:border-border focus-visible:border-primary rounded-md px-2 transition-colors"
         />
-        <Badge variant="outline" className="text-xs hidden sm:flex">
-          {reportType === '360' ? '360' : 'Self-report'}
-        </Badge>
+        <Select
+          value={reportType}
+          onValueChange={(v) => {
+            if (v) {
+              startSave(async () => {
+                try {
+                  await updateReportTemplateSettings(templateId, { reportType: v as ReportType })
+                  toast.success('Report type updated')
+                  router.refresh()
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : 'Update failed')
+                }
+              })
+            }
+          }}
+        >
+          <SelectTrigger className="h-7 w-auto text-xs border-dashed gap-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="self_report">Self-report</SelectItem>
+            <SelectItem value="360">360</SelectItem>
+          </SelectContent>
+        </Select>
         <div className="ml-auto flex items-center gap-2">
           <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
           <Button
@@ -470,7 +490,7 @@ export function BlockBuilderClient({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/settings/reports/${templateId}/preview`, '_blank')}
+            onClick={() => window.open(`/report-templates/${templateId}/preview`, '_blank')}
           >
             <Eye className="size-3.5" />
             Preview
@@ -674,19 +694,6 @@ export function BlockBuilderClient({
               <p className="text-xs text-muted-foreground">Which taxonomy level is the primary unit across score blocks</p>
             </div>
 
-            {/* Group by Dimension */}
-            <div className="space-y-0.5">
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="settings-groupByDimension" className="text-sm font-normal">Group by dimension</Label>
-                <Switch
-                  id="settings-groupByDimension"
-                  checked={settings.groupByDimension}
-                  onCheckedChange={(v) => setSettings((s) => ({ ...s, groupByDimension: v }))}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">Group factors under their parent dimension heading</p>
-            </div>
-
             {/* Person Reference */}
             <div className="space-y-1.5">
               <Label className="text-sm">Person Reference</Label>
@@ -792,9 +799,9 @@ function InlineAddButton({
   onAdd: (type: BlockType) => void
 }) {
   return (
-    <div className="group/add relative flex items-center justify-center py-1">
-      <div className="absolute inset-x-0 top-1/2 h-px bg-transparent group-hover/add:bg-border transition-colors" />
-      <div className="relative z-10 opacity-0 group-hover/add:opacity-100 transition-opacity">
+    <div className="relative flex items-center justify-center py-2">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
+      <div className="relative z-10">
         <AddBlockDropdown reportType={reportType} onAdd={onAdd} />
       </div>
     </div>

@@ -3,7 +3,7 @@ import { PageHeader } from '@/components/page-header'
 export default function ReportTemplatesLoading() {
   return (
     <div className="flex flex-col gap-8 p-6">
-      <PageHeader eyebrow="Settings" title="Report Templates" />
+      <PageHeader eyebrow="Assessments" title="Report Templates" />
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         {[...Array(4)].map((_, i) => (
           <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border last:border-0">

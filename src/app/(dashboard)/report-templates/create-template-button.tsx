@@ -41,7 +41,7 @@ export function CreateTemplateButton() {
         })
         toast.success('Template created')
         setOpen(false)
-        router.push(`/settings/reports/${template.id}/builder`)
+        router.push(`/report-templates/${template.id}/builder`)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to create template')
       }

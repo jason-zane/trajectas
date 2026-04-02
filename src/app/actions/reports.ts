@@ -78,7 +78,7 @@ export async function createReportTemplate(
     .select('*')
     .single()
   if (error) throw new Error(error.message)
-  revalidatePath('/settings/reports')
+  revalidatePath('/report-templates')
   return mapReportTemplateRow(data)
 }
 
@@ -104,7 +104,7 @@ export async function cloneReportTemplate(id: string): Promise<ReportTemplate> {
     .select('*')
     .single()
   if (error) throw new Error(error.message)
-  revalidatePath('/settings/reports')
+  revalidatePath('/report-templates')
   return mapReportTemplateRow(data)
 }
 
@@ -119,7 +119,7 @@ export async function updateReportTemplateBlocks(
     .update({ blocks })
     .eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath(`/settings/reports/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/builder`)
 }
 
 export async function updateReportTemplateSettings(
@@ -131,14 +131,15 @@ export async function updateReportTemplateSettings(
   const row: Record<string, unknown> = {}
   if (updates.name !== undefined) row.name = updates.name
   if (updates.description !== undefined) row.description = updates.description
+  if (updates.reportType !== undefined) row.report_type = updates.reportType
   if (updates.displayLevel !== undefined) row.display_level = updates.displayLevel
   if (updates.groupByDimension !== undefined) row.group_by_dimension = updates.groupByDimension
   if (updates.personReference !== undefined) row.person_reference = updates.personReference
   if (updates.pageHeaderLogo !== undefined) row.page_header_logo = updates.pageHeaderLogo
   const { error } = await db.from('report_templates').update(row).eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/settings/reports')
-  revalidatePath(`/settings/reports/${id}/builder`)
+  revalidatePath('/report-templates')
+  revalidatePath(`/report-templates/${id}/builder`)
 }
 
 export async function deleteReportTemplate(id: string): Promise<void> {
@@ -149,7 +150,21 @@ export async function deleteReportTemplate(id: string): Promise<void> {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
-  revalidatePath('/settings/reports')
+  revalidatePath('/report-templates')
+}
+
+export async function toggleReportTemplateActive(
+  id: string,
+  isActive: boolean,
+): Promise<void> {
+  await requireAdminScope()
+  const db = await createAdminClient()
+  const { error } = await db
+    .from('report_templates')
+    .update({ is_active: isActive })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/report-templates')
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +410,7 @@ export async function linkTemplateToCampaign(
       { onConflict: 'campaign_id' },
     )
   if (error) throw new Error(error.message)
-  revalidatePath('/settings/reports')
+  revalidatePath('/report-templates')
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
@@ -415,7 +430,7 @@ export async function unlinkTemplateFromCampaign(
     .eq('campaign_id', campaignId)
     .eq(column, templateId)
   if (error) throw new Error(error.message)
-  revalidatePath('/settings/reports')
+  revalidatePath('/report-templates')
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
@@ -464,7 +479,7 @@ export async function getReportPrompts(): Promise<{ id: string; name: string; pu
     .from('ai_system_prompts')
     .select('id, name, purpose')
     .eq('is_active', true)
-    .like('purpose', 'report_%')
+    .in('purpose', ['report_narrative', 'report_strengths_analysis', 'report_development_advice'])
     .order('name')
   if (error) throw new Error(error.message)
   return data ?? []
