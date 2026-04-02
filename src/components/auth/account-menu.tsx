@@ -45,9 +45,9 @@ export function AccountMenu({
           <p className="text-xs font-normal text-muted-foreground">{email}</p>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
+        <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User2 className="size-4" />
-          Signed in
+          Profile
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/logout")}>
           <LogOut className="size-4" />
