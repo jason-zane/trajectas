@@ -42,7 +42,7 @@ import {
 import { saveConstructDraftToLibrary } from "@/app/actions/constructs";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
 import type { GenerationRunConfig } from "@/types/database";
-import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult, ConstructPairResult } from "@/types/generation";
+import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult, ConstructPairResult, ConstructSnapshot, ConstructChange } from "@/types/generation";
 import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -100,6 +100,7 @@ function buildPreflightConstructs(
       return {
         id: construct.id,
         name: construct.name,
+        dimensionId: construct.dimensionId,
         definition: normalizeDraftText(draft.definition),
         description: normalizeDraftText(draft.description),
         indicatorsLow: normalizeDraftText(draft.indicatorsLow),
@@ -107,6 +108,47 @@ function buildPreflightConstructs(
         indicatorsHigh: normalizeDraftText(draft.indicatorsHigh),
       };
     });
+}
+
+function buildSnapshot(constructInputs: ConstructDraftInput[]): ConstructSnapshot {
+  return Object.fromEntries(
+    constructInputs.map((c) => [
+      c.id,
+      {
+        definition: c.definition,
+        description: c.description,
+        indicatorsLow: c.indicatorsLow,
+        indicatorsMid: c.indicatorsMid,
+        indicatorsHigh: c.indicatorsHigh,
+      },
+    ]),
+  )
+}
+
+function computeChanges(
+  currentInputs: ConstructDraftInput[],
+  snapshot: ConstructSnapshot,
+): ConstructChange[] {
+  const changes: ConstructChange[] = []
+  for (const construct of currentInputs) {
+    const prev = snapshot[construct.id]
+    if (!prev) continue
+    const fields = ['definition', 'description', 'indicatorsLow', 'indicatorsMid', 'indicatorsHigh'] as const
+    for (const field of fields) {
+      const prevVal = prev[field] ?? ''
+      const curVal = construct[field] ?? ''
+      if (prevVal !== curVal && prevVal !== '') {
+        changes.push({
+          constructId: construct.id,
+          constructName: construct.name,
+          field,
+          previousValue: prevVal,
+          currentValue: curVal,
+        })
+      }
+    }
+  }
+  return changes
 }
 
 function buildConstructOverrides(
@@ -369,6 +411,7 @@ function Step2ReadinessCheck({
   const [preflightError, setPreflightError] = React.useState<string | null>(null);
   const [preflightLoading, setPreflightLoading] = React.useState(true);
   const [lastCheckedSignature, setLastCheckedSignature] = React.useState("");
+  const [preflightSnapshot, setPreflightSnapshot] = React.useState<ConstructSnapshot>({});
 
   const [refinementState, setRefinementState] = React.useState<Record<string, {
     loading: boolean
@@ -426,11 +469,13 @@ function Step2ReadinessCheck({
     setPreflightError(null);
     setPreflightResult(null);
     const signature = JSON.stringify(constructInputs);
-    checkConstructReadiness(constructInputs)
+    const changes = computeChanges(constructInputs, preflightSnapshot);
+    checkConstructReadiness(constructInputs, changes.length > 0 ? changes : undefined)
       .then((res) => {
         if (res.success) {
           setPreflightResult(res.result);
           setLastCheckedSignature(signature);
+          setPreflightSnapshot(buildSnapshot(constructInputs));
         } else {
           setPreflightError(res.error ?? "Readiness check failed");
         }
@@ -441,7 +486,10 @@ function Step2ReadinessCheck({
       .finally(() => {
         setPreflightLoading(false);
       });
-  }, []);
+  // preflightSnapshot is a dependency because we need the latest snapshot
+  // to compute changes. The effect that triggers initial/auto runs intentionally
+  // does NOT include runReadinessCheck — reruns are triggered by button click only.
+  }, [preflightSnapshot]);
 
   // Track whether constructs have loaded (null → data) to trigger initial check
   const constructsLoaded = constructs != null;
@@ -480,12 +528,26 @@ function Step2ReadinessCheck({
         // Proceed without factor context
       }
 
+      // Filter changes to only those relevant to this construct and its overlapping pairs
+      const relevantIds = new Set([constructId, ...pairs.map((p) => {
+        // Find the ID of the overlapping construct by name
+        const match = selectedConstructInputs.find((c) => c.name === p.otherConstructName);
+        return match?.id;
+      }).filter(Boolean)]);
+      const allChanges = computeChanges(selectedConstructInputs, preflightSnapshot);
+      const relevantChanges = allChanges.filter((c) => relevantIds.has(c.constructId));
+
       const result = await suggestConstructRefinements({
         constructId,
         constructName,
         currentDraft: draft,
         overlappingPairs: pairs,
         parentFactors,
+        allConstructs: selectedConstructInputs.map((c) => ({
+          name: c.name,
+          definition: c.definition,
+        })),
+        changes: relevantChanges.length > 0 ? relevantChanges : undefined,
       });
 
       if (result.success) {
@@ -515,7 +577,7 @@ function Step2ReadinessCheck({
         [constructId]: { loading: false, error: err instanceof Error ? err.message : "Unknown error" },
       }));
     }
-  }, [constructDrafts, constructs, preflightResult]);
+  }, [constructDrafts, constructs, preflightResult, preflightSnapshot, selectedConstructInputs]);
 
   const handleAcceptSuggestion = React.useCallback((constructId: string, field: ConstructDraftField, suggested: string) => {
     onDraftChange(constructId, field, suggested);
