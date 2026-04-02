@@ -253,4 +253,5 @@ export interface OpenRouterModel {
     output_modalities?: string[]
     tokenizer?: string
   }
+  supported_parameters?: string[]
 }
