@@ -48,6 +48,7 @@ export interface ConstructForGeneration {
 export interface ConstructDraftInput extends ConstructConfigOverride {
   id: string
   name: string
+  dimensionId?: string
 }
 
 /** Draft state for construct fields during the generation wizard refinement flow. */
@@ -60,6 +61,24 @@ export interface ConstructDraftState {
 }
 
 export type ConstructDraftField = keyof ConstructDraftState
+
+/** A single field change between preflight runs, used for change-tracking context. */
+export interface ConstructChange {
+  constructId: string
+  constructName: string
+  field: string
+  previousValue: string
+  currentValue: string
+}
+
+/** Snapshot of all construct fields at the time of a preflight run. Keyed by construct ID. */
+export type ConstructSnapshot = Record<string, {
+  definition?: string
+  description?: string
+  indicatorsLow?: string
+  indicatorsMid?: string
+  indicatorsHigh?: string
+}>
 
 export type NetworkEstimator = 'tmfg' | 'ebicglasso'
 export type EmbeddingType = 'full' | 'sparse'
