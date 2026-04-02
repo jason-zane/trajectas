@@ -22,6 +22,8 @@ import {
   Users,
   Wand2,
   LayoutTemplate,
+  Settings,
+  ArrowLeft,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -161,6 +163,17 @@ const clientNav: NavSection[] = [
   },
 ];
 
+const settingsNav: NavSection[] = [
+  {
+    label: "Platform Settings",
+    items: [
+      { title: "Brand", href: "/settings/brand", icon: Palette },
+      { title: "Experience", href: "/settings/experience", icon: Users },
+      { title: "AI Configuration", href: "/settings/ai", icon: Cpu },
+    ],
+  },
+];
+
 const navByPortal: Record<PortalType, NavSection[]> = {
   admin: adminNav,
   partner: partnerNav,
@@ -173,6 +186,8 @@ export function AppSidebar() {
   const config = portalConfig[portal];
   const PortalIcon = config.icon;
   const navSections = navByPortal[portal];
+  const isSettingsArea = pathname.startsWith("/settings");
+  const displayNav = isSettingsArea && portal === "admin" ? settingsNav : navSections;
 
   return (
     <Sidebar>
@@ -211,7 +226,18 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent>
-        {navSections.map((section) => (
+        {isSettingsArea && portal === "admin" && (
+          <div className="px-3 py-2">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+            >
+              <ArrowLeft className="size-4" />
+              <span>Back to platform</span>
+            </Link>
+          </div>
+        )}
+        {displayNav.map((section) => (
           <SidebarGroup key={section.label}>
             <SidebarGroupLabel className="text-overline text-sidebar-foreground/60">
               {section.label}
@@ -267,7 +293,22 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      <SidebarFooter />
+      {!(isSettingsArea && portal === "admin") && (
+        <SidebarFooter className="px-3 pb-3">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.startsWith("/settings")}
+                tooltip="Platform Settings"
+                render={<Link href="/settings/brand" />}
+              >
+                <Settings className="size-4" />
+                <span>Platform Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      )}
     </Sidebar>
   );
 }
