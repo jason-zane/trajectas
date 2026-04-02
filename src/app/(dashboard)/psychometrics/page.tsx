@@ -4,12 +4,10 @@ import {
   FileQuestion,
   Dna,
   BarChart3,
-  Shield,
   Clock,
   CheckCircle2,
   AlertTriangle,
   AlertCircle,
-  ArrowRight,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -243,37 +241,6 @@ const statCards: StatCardConfig[] = [
 ];
 
 /* ------------------------------------------------------------------ */
-/*  Quick links                                                        */
-/* ------------------------------------------------------------------ */
-
-const quickLinks = [
-  {
-    title: "View Item Health",
-    href: "/psychometrics/items",
-    icon: FileQuestion,
-    description: "Inspect difficulty, discrimination & flag status per item",
-    bgClass: "bg-item-bg",
-    iconClass: "text-item-accent",
-  },
-  {
-    title: "View Reliability",
-    href: "/psychometrics/reliability",
-    icon: Shield,
-    description: "Cronbach\u2019s \u03B1, omega, split-half & SEM by construct",
-    bgClass: "bg-trait-bg",
-    iconClass: "text-trait-accent",
-  },
-  {
-    title: "Explore Norms",
-    href: "/psychometrics/norms",
-    icon: BarChart3,
-    description: "Norm groups, percentile tables & reference data",
-    bgClass: "bg-dimension-bg",
-    iconClass: "text-dimension-accent",
-  },
-];
-
-/* ------------------------------------------------------------------ */
 /*  Page                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -409,42 +376,6 @@ export default async function PsychometricsPage() {
         })}
       </div>
 
-      {/* Quick Links */}
-      <div>
-        <h2 className="text-title font-semibold tracking-tight mb-5">
-          Quick Links
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {quickLinks.map((action, index) => (
-            <ScrollReveal key={action.href} delay={index * 60}>
-              <TiltCard>
-                <Link href={action.href}>
-                  <Card variant="interactive">
-                    <CardContent className="py-4 px-5">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${action.bgClass} transition-colors`}
-                        >
-                          <action.icon
-                            className={`size-5 ${action.iconClass}`}
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{action.title}</p>
-                          <p className="text-caption text-muted-foreground truncate">
-                            {action.description}
-                          </p>
-                        </div>
-                        <ArrowRight className="size-4 text-muted-foreground opacity-0 -translate-x-1 group-hover/card:opacity-100 group-hover/card:translate-x-0 transition-all" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </TiltCard>
-            </ScrollReveal>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
