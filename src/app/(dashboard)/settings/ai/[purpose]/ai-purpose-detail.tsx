@@ -89,6 +89,9 @@ export function AiPurposeDetail({
   const activeContent = activeVersion?.content ?? ""
   const [draft, setDraft] = useState(activeContent)
   const [persistedDraft, setPersistedDraft] = useState(activeContent)
+  const [promptSaveState, setPromptSaveState] = useState<
+    "idle" | "saving" | "saved"
+  >("idle")
   const [isPromptPending, startPromptTransition] = useTransition()
   const [activatingId, setActivatingId] = useState<string | null>(null)
   const isPromptDirty = draft.trim() !== persistedDraft.trim()
@@ -116,6 +119,7 @@ export function AiPurposeDetail({
   // ---- Prompt handlers ----
   function handlePromptSave() {
     startPromptTransition(async () => {
+      setPromptSaveState("saving")
       const result = await createPromptVersion(
         purpose,
         draft,
@@ -123,11 +127,14 @@ export function AiPurposeDetail({
       )
       if ("error" in result) {
         toast.error(result.error)
+        setPromptSaveState("idle")
         return
       }
       setPersistedDraft(draft)
       toast.success(`${purposeMeta.label} prompt saved as new active version`)
+      setPromptSaveState("saved")
       router.refresh()
+      setTimeout(() => setPromptSaveState("idle"), 2000)
     })
   }
 
@@ -316,14 +323,22 @@ export function AiPurposeDetail({
                 <Button
                   onClick={handlePromptSave}
                   disabled={
-                    !draft.trim() || !isPromptDirty || isPromptPending
+                    !draft.trim() ||
+                    !isPromptDirty ||
+                    isPromptPending ||
+                    promptSaveState === "saved"
                   }
                   size="sm"
                 >
-                  {isPromptPending && !activatingId ? (
+                  {promptSaveState === "saving" ? (
                     <>
                       <Loader2 className="size-3 animate-spin mr-1.5" />
                       Saving...
+                    </>
+                  ) : promptSaveState === "saved" ? (
+                    <>
+                      <Check className="size-3 mr-1.5" />
+                      Saved
                     </>
                   ) : (
                     "Save as new version"
