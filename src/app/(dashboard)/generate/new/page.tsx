@@ -35,7 +35,6 @@ import {
   getConstructsForGeneration,
   getResponseFormatsForGeneration,
   createGenerationRun,
-  checkConstructReadiness,
   suggestConstructRefinements,
   fetchParentFactorsForConstruct,
 } from "@/app/actions/generation";
@@ -470,9 +469,19 @@ function Step2ReadinessCheck({
     setPreflightResult(null);
     const signature = JSON.stringify(constructInputs);
     const changes = computeChanges(constructInputs, preflightSnapshot);
-    checkConstructReadiness(constructInputs, changes.length > 0 ? changes : undefined)
-      .then((res) => {
-        if (res.success) {
+    // Use API route instead of server action — server actions get killed by
+    // dev-mode HMR and have no maxDuration config for long-running LLM calls.
+    fetch("/api/generation/readiness", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        constructs: constructInputs,
+        changes: changes.length > 0 ? changes : undefined,
+      }),
+    })
+      .then((res) => res.json())
+      .then((res: { success: boolean; result?: PreflightResult; error?: string }) => {
+        if (res.success && res.result) {
           setPreflightResult(res.result);
           setLastCheckedSignature(signature);
           setPreflightSnapshot(buildSnapshot(constructInputs));
@@ -1265,6 +1274,9 @@ function Step3Configure({
   onBack: () => void;
   onNext: () => void;
 }) {
+  const selectedGenModel = textModels.find((m) => m.id === config.generationModel);
+  const supportsTemperature = selectedGenModel?.supported_parameters?.includes("temperature") ?? true;
+
   return (
     <div className="space-y-6">
       <div>
@@ -1330,7 +1342,7 @@ function Step3Configure({
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium">Generation Temperature</label>
             <span className="text-sm font-semibold text-primary tabular-nums">
-              {config.temperature.toFixed(1)}
+              {supportsTemperature ? config.temperature.toFixed(1) : "N/A"}
             </span>
           </div>
           <Slider
@@ -1342,15 +1354,22 @@ function Step3Configure({
               const n = Array.isArray(v) ? v[0] : v;
               onChange({ temperature: Math.round(n * 10) / 10 });
             }}
+            disabled={!supportsTemperature}
           />
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>0.5 — Focused</span>
             <span>1.5 — Diverse</span>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Higher values produce more diverse items but may increase redundancy. The pipeline
-            filters redundant items automatically.
-          </p>
+          {supportsTemperature ? (
+            <p className="text-xs text-muted-foreground">
+              Higher values produce more diverse items but may increase redundancy. The pipeline
+              filters redundant items automatically.
+            </p>
+          ) : (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              This model does not support temperature adjustment.
+            </p>
+          )}
         </div>
 
         {/* Generation model */}
