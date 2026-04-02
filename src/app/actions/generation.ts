@@ -1034,6 +1034,8 @@ export async function suggestConstructRefinements(params: {
     definition?: string
     indicatorsHigh?: string
   }>
+  allConstructs?: Array<{ name: string; definition?: string }>
+  changes?: ConstructChange[]
 }): Promise<
   | { success: true; analysis: string; suggestions: Array<{ field: string; original: string; suggested: string; reason: string }> }
   | { success: false; error: string }
@@ -1054,6 +1056,8 @@ export async function suggestConstructRefinements(params: {
       currentDraft: params.currentDraft,
       overlappingPairs: params.overlappingPairs,
       parentFactors: params.parentFactors,
+      allConstructs: params.allConstructs,
+      changes: params.changes,
     })
 
     const response = await openRouterProvider.complete({
