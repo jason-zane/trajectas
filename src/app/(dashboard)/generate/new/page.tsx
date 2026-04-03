@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion,
@@ -62,6 +63,10 @@ interface WizardConfig {
   embeddingModel: string;
   responseFormatId?: string;
   promptPurpose: 'item_generation' | 'factor_item_generation';
+  enableItemCritique: boolean;
+  enableLeakageGuard: boolean;
+  enableDifficultyTargeting: boolean;
+  enableSyntheticValidation: boolean;
 }
 
 interface WizardModelBootstrap {
@@ -1426,6 +1431,66 @@ function Step3Configure({
             </div>
           )}
         </div>
+
+        {/* Pipeline Options */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium">Pipeline Options</label>
+          <p className="text-xs text-muted-foreground">
+            Optional quality stages that run during generation. Enabled stages improve item quality but increase processing time.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {[
+              {
+                key: "enableItemCritique" as const,
+                label: "Item Critique",
+                description: "A second AI model reviews each batch for construct purity, inflation risk, and readability.",
+                cost: "+1 LLM call per batch",
+              },
+              {
+                key: "enableLeakageGuard" as const,
+                label: "Leakage Guard",
+                description: "Checks each item's embedding against other constructs to catch cross-loading during generation.",
+                cost: "Embedding comparison (fast)",
+                requiresMultiple: true,
+              },
+              {
+                key: "enableDifficultyTargeting" as const,
+                label: "Difficulty Targeting",
+                description: "Steers generation toward difficulty gaps so the item pool covers easy, moderate, and hard items.",
+                cost: "Embedding analysis between batches",
+              },
+              {
+                key: "enableSyntheticValidation" as const,
+                label: "Synthetic Validation",
+                description: "Simulates respondent data to estimate factor structure and reliability before human testing.",
+                cost: "+50-100 LLM calls per construct",
+              },
+            ].map((option) => {
+              const isDisabled = option.requiresMultiple && config.selectedConstructIds.length < 2;
+              const isChecked = isDisabled ? false : config[option.key];
+              return (
+                <Card key={option.key} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold">{option.label}</p>
+                      <p className="text-caption text-muted-foreground mt-0.5">
+                        {option.description}
+                      </p>
+                      <p className="text-caption text-muted-foreground/70 mt-1">
+                        {isDisabled ? "Requires 2+ constructs" : option.cost}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={isChecked}
+                      onCheckedChange={(checked) => onChange({ [option.key]: checked } as Partial<WizardConfig>)}
+                      disabled={isDisabled}
+                    />
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center justify-between pt-2">
@@ -1592,6 +1657,10 @@ const DEFAULT_CONFIG: WizardConfig = {
   embeddingModel: "",
   responseFormatId: undefined,
   promptPurpose: 'item_generation',
+  enableItemCritique: true,
+  enableLeakageGuard: true,
+  enableDifficultyTargeting: false,
+  enableSyntheticValidation: false,
 };
 
 export default function NewGenerationPage() {
@@ -1691,6 +1760,10 @@ export default function NewGenerationPage() {
           embeddingModel: config.embeddingModel,
           responseFormatId: config.responseFormatId,
           promptPurpose: config.promptPurpose,
+          enableItemCritique: config.enableItemCritique,
+          enableLeakageGuard: config.enableLeakageGuard,
+          enableDifficultyTargeting: config.enableDifficultyTargeting,
+          enableSyntheticValidation: config.enableSyntheticValidation,
           constructOverrides: buildConstructOverrides(
             constructs,
             config.selectedConstructIds,
