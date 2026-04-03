@@ -82,7 +82,7 @@ export type ConstructSnapshot = Record<string, {
 
 export type NetworkEstimator = 'tmfg' | 'ebicglasso'
 export type EmbeddingType = 'full' | 'sparse'
-export type RemovalStage = 'uva' | 'boot_ega' | 'kept'
+export type RemovalStage = 'critique' | 'leakage' | 'uva' | 'boot_ega' | 'kept'
 
 /** Result of the full pipeline run. */
 export interface PipelineResult {
@@ -107,6 +107,12 @@ export interface PipelineResult {
     nmiByStage?: Partial<Record<'initial' | 'postEmbeddingSelection' | 'postUva' | 'postBoot' | 'final', number>>
     uvaSweeps?: number
     bootSweeps?: number
+    pipelineStages?: {
+      critique?: { itemsReviewed: number; kept: number; revised: number; dropped: number; critiqueFailed?: boolean }
+      leakageGuard?: { itemsChecked: number; flagged: number }
+      difficultyTargeting?: { enabled: true }
+      syntheticValidation?: { respondentsGenerated: number; estimatedAlpha?: Record<string, number> }
+    }
   }
   tokenUsage: { inputTokens: number; outputTokens: number }
 }
@@ -134,6 +140,13 @@ export interface ScoredCandidateItem extends CandidateItem {
   removalSweep?: number
   isRedundant: boolean
   isUnstable: boolean
+  // Tier 2 pipeline stage data
+  critiqueVerdict?: 'kept' | 'revised' | 'dropped'
+  critiqueReason?: string
+  critiqueOriginalStem?: string
+  leakageScore?: number
+  leakageTarget?: string
+  difficultyEstimate?: number
 }
 
 // ---------------------------------------------------------------------------

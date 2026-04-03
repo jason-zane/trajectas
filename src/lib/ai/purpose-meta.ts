@@ -105,6 +105,20 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: FileText,
     glowColor: "var(--primary)",
   },
+  item_critique: {
+    label: "Item Critique",
+    description:
+      "Reviews generated items for construct purity, discriminant validity, and readability.",
+    icon: ScanSearch,
+    glowColor: "var(--primary)",
+  },
+  synthetic_respondent: {
+    label: "Synthetic Respondent",
+    description:
+      "Simulates persona-conditioned respondents for in silico scale validation.",
+    icon: MessageSquare,
+    glowColor: "var(--primary)",
+  },
 }
 
 export const PURPOSE_ORDER: AIPromptPurpose[] = [
@@ -113,6 +127,8 @@ export const PURPOSE_ORDER: AIPromptPurpose[] = [
   "factor_item_generation",
   "library_import_structuring",
   "preflight_analysis",
+  "item_critique",
+  "synthetic_respondent",
   "embedding",
   "competency_matching",
   "ranking_explanation",

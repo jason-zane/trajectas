@@ -125,6 +125,8 @@ export type AIPromptPurpose =
   | 'report_narrative'
   | 'report_strengths_analysis'
   | 'report_development_advice'
+  | 'item_critique'
+  | 'synthetic_respondent'
 
 /** Report assessment type. */
 export type ReportType = 'self_report' | '360'
@@ -1606,6 +1608,10 @@ export interface GenerationRunConfig {
   responseFormatId?: string
   promptPurpose?: 'item_generation' | 'factor_item_generation'
   constructOverrides?: Record<string, ConstructConfigOverride>
+  enableItemCritique?: boolean
+  enableLeakageGuard?: boolean
+  enableDifficultyTargeting?: boolean
+  enableSyntheticValidation?: boolean
 }
 
 /** An AI-GENIE item generation run record. */
@@ -1637,6 +1643,12 @@ export interface GenerationRun {
     nmiByStage?: Partial<Record<'initial' | 'postEmbeddingSelection' | 'postUva' | 'postBoot' | 'final', number>>
     uvaSweeps?: number
     bootSweeps?: number
+    pipelineStages?: {
+      critique?: { itemsReviewed: number; kept: number; revised: number; dropped: number; critiqueFailed?: boolean }
+      leakageGuard?: { itemsChecked: number; flagged: number }
+      difficultyTargeting?: { enabled: true }
+      syntheticValidation?: { respondentsGenerated: number; estimatedAlpha?: Record<string, number> }
+    }
   }
   tokenUsage?: Record<string, number>
   errorMessage?: string
@@ -1660,7 +1672,7 @@ export interface GeneratedItem {
   finalCommunityId?: number
   wtoMax?: number
   bootStability?: number
-  removalStage?: 'uva' | 'boot_ega' | 'kept'
+  removalStage?: 'critique' | 'leakage' | 'uva' | 'boot_ega' | 'kept'
   removalSweep?: number
   isRedundant: boolean
   isUnstable: boolean
@@ -1669,6 +1681,14 @@ export interface GeneratedItem {
   difficultyTier?: 'easy' | 'moderate' | 'hard' | 'foundation' | 'applied' | 'demanding'
   sdRisk?: 'low' | 'moderate' | 'high'
   facet?: string
+  pipeline_metadata?: {
+    critiqueVerdict?: 'kept' | 'revised' | 'dropped'
+    critiqueReason?: string
+    critiqueOriginalStem?: string
+    leakageScore?: number
+    leakageTarget?: string
+    difficultyEstimate?: number
+  }
   created_at: string
 }
 
