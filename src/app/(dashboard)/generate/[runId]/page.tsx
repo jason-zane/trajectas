@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   CheckCircle2,
+  ChevronRight,
   Circle,
   Loader2,
   AlertCircle,
@@ -18,6 +19,7 @@ import {
 
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
@@ -29,7 +31,7 @@ import {
   cancelGenerationRun,
   exportRunItemsAsCSV,
 } from "@/app/actions/generation"
-import type { GenerationRun, GeneratedItem } from "@/types/database"
+import type { GenerationRun, GeneratedItem, GenerationRunConfig } from "@/types/database"
 
 import { constructColor } from "./metric-helpers"
 import { NetworkGraph } from "./network-graph"
@@ -41,7 +43,7 @@ import { PipelineExplainerSheet } from "./pipeline-explainer-sheet"
 // Pipeline step definitions
 // ---------------------------------------------------------------------------
 
-const PIPELINE_STEPS = [
+const PIPELINE_STEPS_DEFAULT = [
   { key: "preflight", label: "Pre-flight Check", description: "Validate constructs and config" },
   { key: "item_generation", label: "Item Generation", description: "Generate candidate items with LLM" },
   { key: "embedding", label: "Embedding", description: "Compute semantic embeddings" },
@@ -51,17 +53,51 @@ const PIPELINE_STEPS = [
   { key: "final", label: "Review Ready", description: "Items ready for human review" },
 ] as const
 
-type PipelineStepKey = (typeof PIPELINE_STEPS)[number]["key"]
+type PipelineStepKey = (typeof PIPELINE_STEPS_DEFAULT)[number]["key"]
+
+function buildPipelineSteps(config?: GenerationRunConfig) {
+  const steps: Array<{ key: string; label: string; description: string }> = [
+    { key: "preflight", label: "Pre-flight Check", description: "Validate constructs and config" },
+    { key: "item_generation", label: "Item Generation", description: "Generate candidate items with LLM" },
+  ]
+
+  if (config?.enableItemCritique !== false) {
+    steps.push({ key: "item_critique", label: "Item Critique", description: "AI review of generated items" })
+  }
+
+  steps.push(
+    { key: "embedding", label: "Embedding", description: "Compute semantic embeddings" },
+  )
+
+  if (config?.enableLeakageGuard !== false) {
+    steps.push({ key: "leakage_check", label: "Leakage Guard", description: "Cross-construct leakage detection" })
+  }
+
+  steps.push(
+    { key: "initial_ega", label: "Network Analysis (EGA)", description: "Exploratory graph analysis" },
+    { key: "uva", label: "Redundancy Removal", description: "Unique variable analysis (UVA)" },
+    { key: "boot_ega", label: "Stability Check", description: "Bootstrap EGA for stability" },
+  )
+
+  if (config?.enableSyntheticValidation) {
+    steps.push({ key: "synthetic_validation", label: "Synthetic Validation", description: "In silico respondent simulation" })
+  }
+
+  steps.push({ key: "final", label: "Review Ready", description: "Items ready for human review" })
+
+  return steps
+}
 
 // ---------------------------------------------------------------------------
 // ProgressView
 // ---------------------------------------------------------------------------
 
 function ProgressView({ run, onCancel }: { run: GenerationRun; onCancel: () => void }) {
+  const pipelineSteps = run.config ? buildPipelineSteps(run.config) : PIPELINE_STEPS_DEFAULT
   const currentStepKey = run.currentStep as PipelineStepKey | undefined
 
   const currentStepIndex = currentStepKey
-    ? PIPELINE_STEPS.findIndex((s) => s.key === currentStepKey)
+    ? pipelineSteps.findIndex((s) => s.key === currentStepKey)
     : -1
 
   function stepState(index: number): "done" | "current" | "future" {
@@ -75,7 +111,7 @@ function ProgressView({ run, onCancel }: { run: GenerationRun; onCancel: () => v
       {/* Step indicator panel */}
       <div className="w-56 shrink-0 rounded-xl bg-card ring-1 ring-foreground/[0.06] shadow-sm p-5 space-y-1">
         <p className="text-overline text-primary mb-4">Pipeline Steps</p>
-        {PIPELINE_STEPS.map((step, i) => {
+        {pipelineSteps.map((step, i) => {
           const state = stepState(i)
           return (
             <div key={step.key} className="flex items-start gap-3 py-2">
@@ -176,6 +212,22 @@ function ReviewView({
   const [isExporting, startExport] = useTransition()
   const itemRefs = useRef<Map<string, HTMLTableRowElement | null>>(new Map())
 
+  // Pipeline funnel stats
+  const funnelStats = React.useMemo(() => {
+    const total = items.length;
+    const stages = run.aiSnapshot?.pipelineStages;
+    // Critique drops happen before items enter the DB, so use the aiSnapshot count
+    const droppedByCritique = stages?.critique?.dropped ?? 0;
+    const droppedByLeakage = items.filter((i) => i.removalStage === 'leakage').length;
+    const droppedByUva = items.filter((i) => i.removalStage === 'uva').length;
+    const droppedByBoot = items.filter((i) => i.removalStage === 'boot_ega').length;
+    const kept = items.filter((i) => i.removalStage === 'kept').length;
+    // Total generated includes critique drops (which aren't in the items array)
+    const totalGenerated = total + droppedByCritique;
+
+    return { totalGenerated, droppedByCritique, droppedByLeakage, droppedByUva, droppedByBoot, kept, stages };
+  }, [items, run.aiSnapshot]);
+
   const suggestedItems = items.filter((i) => !i.isRedundant && !i.isUnstable)
 
   const handleSelectAllSuggested = useCallback(() => {
@@ -272,6 +324,40 @@ function ReviewView({
 
   return (
     <div className="space-y-6 max-w-6xl">
+      {/* Pipeline Funnel Summary */}
+      <Card className="p-5">
+        <p className="text-sm font-semibold mb-3">Pipeline Funnel</p>
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          <span className="tabular-nums font-medium">{funnelStats.totalGenerated} generated</span>
+          {funnelStats.droppedByCritique > 0 && (
+            <>
+              <ChevronRight className="size-3 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                −{funnelStats.droppedByCritique} critique
+              </span>
+            </>
+          )}
+          {funnelStats.droppedByLeakage > 0 && (
+            <>
+              <ChevronRight className="size-3 text-muted-foreground" />
+              <span className="text-muted-foreground">
+                −{funnelStats.droppedByLeakage} leakage
+              </span>
+            </>
+          )}
+          <ChevronRight className="size-3 text-muted-foreground" />
+          <span className="text-muted-foreground">
+            −{funnelStats.droppedByUva} redundancy
+          </span>
+          <ChevronRight className="size-3 text-muted-foreground" />
+          <span className="text-muted-foreground">
+            −{funnelStats.droppedByBoot} instability
+          </span>
+          <ChevronRight className="size-3 text-muted-foreground" />
+          <span className="tabular-nums font-semibold text-primary">{funnelStats.kept} kept</span>
+        </div>
+      </Card>
+
       {/* Quality summary + network — side by side on large screens */}
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <QualityPanel run={run} items={items} suggestedCount={suggestedItems.length} />
