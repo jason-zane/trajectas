@@ -85,6 +85,18 @@ In `src/types/generation.ts`, update:
 export type RemovalStage = 'critique' | 'leakage' | 'uva' | 'boot_ega' | 'kept'
 ```
 
+Also update `GeneratedItem.removalStage` in `src/types/database.ts` (line 1663) — it uses a hardcoded literal union instead of referencing the `RemovalStage` type. Change:
+
+```typescript
+  removalStage?: 'uva' | 'boot_ega' | 'kept'
+```
+
+to:
+
+```typescript
+  removalStage?: 'critique' | 'leakage' | 'uva' | 'boot_ega' | 'kept'
+```
+
 - [ ] **Step 5: Add pipeline stage metadata to `ScoredCandidateItem`**
 
 In `src/types/generation.ts`, add fields to `ScoredCandidateItem` (after `isUnstable`):
@@ -131,7 +143,7 @@ In `src/types/generation.ts`, extend the `aiSnapshot` type in `PipelineResult`:
     uvaSweeps?: number
     bootSweeps?: number
     pipelineStages?: {
-      critique?: { itemsReviewed: number; kept: number; revised: number; dropped: number }
+      critique?: { itemsReviewed: number; kept: number; revised: number; dropped: number; critiqueFailed?: boolean }
       leakageGuard?: { itemsChecked: number; flagged: number }
       difficultyTargeting?: { enabled: true }
       syntheticValidation?: { respondentsGenerated: number; estimatedAlpha?: Record<string, number> }
@@ -196,13 +208,10 @@ COMMENT ON COLUMN generated_items.pipeline_metadata IS
 -- 3. Update removal_stage check constraint
 -- ---------------------------------------------------------------------------
 
--- Drop existing constraint if it exists (may be named differently)
-DO $$
-BEGIN
-  ALTER TABLE generated_items DROP CONSTRAINT IF EXISTS generated_items_removal_stage_check;
-EXCEPTION WHEN undefined_object THEN
-  NULL;
-END $$;
+-- IMPORTANT: This migration must NOT be wrapped in BEGIN/COMMIT because
+-- ALTER TYPE ADD VALUE cannot run inside a transaction block in PostgreSQL.
+
+ALTER TABLE generated_items DROP CONSTRAINT IF EXISTS generated_items_removal_stage_check;
 
 ALTER TABLE generated_items
   ADD CONSTRAINT generated_items_removal_stage_check
@@ -463,7 +472,7 @@ In the `Step3Configure` component, after the Response Format section (around lin
                     </div>
                     <Switch
                       checked={isChecked}
-                      onCheckedChange={(checked) => onChange({ [option.key]: checked })}
+                      onCheckedChange={(checked) => onChange({ [option.key]: checked } as Partial<WizardConfig>)}
                       disabled={isDisabled}
                     />
                   </div>
@@ -523,14 +532,17 @@ Compute the funnel data from items and run:
   // Pipeline funnel stats
   const funnelStats = React.useMemo(() => {
     const total = items.length;
-    const droppedByCritique = items.filter((i) => i.pipeline_metadata?.critiqueVerdict === 'dropped').length;
+    const stages = run.aiSnapshot?.pipelineStages;
+    // Critique drops happen before items enter the DB, so use the aiSnapshot count
+    const droppedByCritique = stages?.critique?.dropped ?? 0;
     const droppedByLeakage = items.filter((i) => i.removalStage === 'leakage').length;
     const droppedByUva = items.filter((i) => i.removalStage === 'uva').length;
     const droppedByBoot = items.filter((i) => i.removalStage === 'boot_ega').length;
     const kept = items.filter((i) => i.removalStage === 'kept').length;
-    const stages = run.aiSnapshot?.pipelineStages;
+    // Total generated includes critique drops (which aren't in the items array)
+    const totalGenerated = total + droppedByCritique;
 
-    return { total, droppedByCritique, droppedByLeakage, droppedByUva, droppedByBoot, kept, stages };
+    return { totalGenerated, droppedByCritique, droppedByLeakage, droppedByUva, droppedByBoot, kept, stages };
   }, [items, run.aiSnapshot]);
 ```
 
@@ -541,7 +553,7 @@ Then in the JSX, add the funnel card at the top of the review content:
       <Card className="p-5">
         <p className="text-sm font-semibold mb-3">Pipeline Funnel</p>
         <div className="flex items-center gap-2 text-sm flex-wrap">
-          <span className="tabular-nums font-medium">{funnelStats.total} generated</span>
+          <span className="tabular-nums font-medium">{funnelStats.totalGenerated} generated</span>
           {funnelStats.droppedByCritique > 0 && (
             <>
               <ChevronRight className="size-3 text-muted-foreground" />
@@ -618,7 +630,13 @@ function buildPipelineSteps(config?: GenerationRunConfig) {
 }
 ```
 
-Update `ProgressView` to use `buildPipelineSteps(run.config)` instead of the static `PIPELINE_STEPS` constant. Keep the old `PIPELINE_STEPS` as a fallback for runs without config data:
+Update `ProgressView` to use `buildPipelineSteps(run.config)` instead of the static `PIPELINE_STEPS` constant. Also update the `PipelineStepKey` type to derive from the default array:
+
+```typescript
+type PipelineStepKey = (typeof PIPELINE_STEPS_DEFAULT)[number]["key"]
+```
+
+Keep the old `PIPELINE_STEPS` as a fallback renamed to `PIPELINE_STEPS_DEFAULT`:
 
 ```typescript
 const PIPELINE_STEPS_DEFAULT = [
@@ -653,13 +671,14 @@ git commit -m "feat(pipeline-tier2): add pipeline funnel summary and dynamic pro
 
 ### Task 6: Update Model Settings Purpose Metadata
 
+**IMPORTANT:** This task is compile-blocking after Task 1. `PURPOSE_META` is typed as `Record<AIPromptPurpose, PurposeMeta>` — once Task 1 adds `item_critique` and `synthetic_respondent` to `AIPromptPurpose`, TypeScript will error until this task adds the corresponding entries.
+
 **Files:**
-- Modify: `src/lib/ai/purpose-meta.ts` (or wherever PURPOSE_META is defined for the model settings page)
-- Modify: `src/app/(dashboard)/settings/models/model-selector-form.tsx` (or equivalent settings page)
+- Modify: `src/lib/ai/purpose-meta.ts` (PURPOSE_META record and PURPOSE_ORDER array)
 
 - [ ] **Step 1: Add purpose metadata for new model configs**
 
-Find where `PURPOSE_META` is defined (likely in the model settings form). Add entries for the two new purposes:
+In `src/lib/ai/purpose-meta.ts`, add entries for the two new purposes to the `PURPOSE_META` record:
 
 ```typescript
   item_critique: {
@@ -686,7 +705,7 @@ Expected: No errors
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/app/\(dashboard\)/settings/models/model-selector-form.tsx
+git add src/lib/ai/purpose-meta.ts
 git commit -m "feat(pipeline-tier2): add item_critique and synthetic_respondent to model settings"
 ```
 
