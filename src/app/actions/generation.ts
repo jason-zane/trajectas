@@ -400,6 +400,18 @@ export async function startGenerationRun(
           difficulty_tier:   item.difficultyTier ?? null,
           sd_risk:           item.sdRisk ?? null,
           facet:             item.facet ?? null,
+          pipeline_metadata: {
+            ...(item.critiqueVerdict ? {
+              critiqueVerdict: item.critiqueVerdict,
+              ...(item.critiqueReason ? { critiqueReason: item.critiqueReason } : {}),
+              ...(item.critiqueOriginalStem ? { critiqueOriginalStem: item.critiqueOriginalStem } : {}),
+            } : {}),
+            ...(item.leakageScore !== undefined ? {
+              leakageScore: item.leakageScore,
+              ...(item.leakageTarget ? { leakageTarget: item.leakageTarget } : {}),
+            } : {}),
+            ...(item.difficultyEstimate !== undefined ? { difficultyEstimate: item.difficultyEstimate } : {}),
+          },
         }))
       )
       if (insertError) throw new Error(`Failed to insert items: ${insertError.message}`)
