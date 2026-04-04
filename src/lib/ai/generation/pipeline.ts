@@ -18,6 +18,7 @@ import {
   parseGeneratedItems,
 } from './prompts/item-generation'
 import { buildCritiquePrompt, parseCritiqueResponse } from './prompts/item-critique'
+import { ConstructCentroidCache, checkItemLeakage } from './leakage-guard'
 import {
   itemCorrelationMatrix,
   sparsifyEmbeddings,
@@ -109,6 +110,23 @@ export async function runPipeline(
   // Tier 2: Critique stage tracking
   const critiqueStats = { itemsReviewed: 0, kept: 0, revised: 0, dropped: 0, critiqueFailed: false }
   const critiqueVerdicts = new Map<string, { verdict: 'kept' | 'revised' | 'dropped'; reason?: string; originalStem?: string }>()
+
+  // Tier 2: Leakage Guard — seed construct centroids from definitions
+  const leakageEnabled = config.enableLeakageGuard !== false && constructs.length >= 2
+  const centroidCache = new ConstructCentroidCache()
+  const leakageStats = { itemsChecked: 0, flagged: 0 }
+  const stemEmbeddingCache = new Map<string, number[]>()
+
+  if (leakageEnabled) {
+    // Embed construct definitions to seed centroids
+    const definitionTexts = constructs.map((c) =>
+      [c.name, c.definition ?? '', c.description ?? ''].filter(Boolean).join('. ')
+    )
+    const definitionEmbeddings = await embedTexts(definitionTexts, embeddingModel)
+    constructs.forEach((c, i) => {
+      centroidCache.seed(c.id, definitionEmbeddings[i])
+    })
+  }
 
   for (const construct of constructs) {
     const target = config.targetItemsPerConstruct
@@ -237,10 +255,35 @@ export async function runPipeline(
           }
         }
 
+        // Tier 2: Leakage Guard — embed and check items before deduplication
+        let leakagePassedItems = critiquedItems
+        if (leakageEnabled && critiquedItems.length > 0) {
+          const batchStems = critiquedItems.map((item) => item.stem)
+          const batchEmbeddings = await embedTexts(batchStems, embeddingModel)
+
+          const passedItems: typeof critiquedItems = []
+          for (let i = 0; i < critiquedItems.length; i++) {
+            leakageStats.itemsChecked++
+            const result = checkItemLeakage(batchEmbeddings[i], construct.id, centroidCache)
+
+            if (result.isLeaking) {
+              leakageStats.flagged++
+              console.log(`[pipeline] ${construct.name}: item leaked toward ${result.leakageTarget}`)
+            } else {
+              centroidCache.addItem(construct.id, batchEmbeddings[i])
+              passedItems.push(critiquedItems[i])
+              // Cache embedding keyed by stem for reuse in bulk embedding step
+              stemEmbeddingCache.set(critiquedItems[i].stem, batchEmbeddings[i])
+            }
+          }
+
+          leakagePassedItems = passedItems
+        }
+
         const constructSeen = seenByConstruct.get(construct.id) ?? new Set<string>(existingNormalized)
         let duplicatesInBatch = 0
 
-        for (const item of critiquedItems) {
+        for (const item of leakagePassedItems) {
           const normalizedStem = normalizeStem(item.stem)
           if (!normalizedStem || constructSeen.has(normalizedStem)) {
             duplicatesInBatch++
@@ -284,8 +327,32 @@ export async function runPipeline(
 
   await onProgress('embedding', 30, { itemsGenerated: rawCandidates.length })
 
+  if (leakageEnabled) {
+    await onProgress('leakage_check', 35)
+  }
+
+  // Use cached embeddings from leakage guard where available
   const stems = rawCandidates.map(candidate => candidate.stem)
-  const fullEmbeddings = await embedTexts(stems, embeddingModel)
+  let fullEmbeddings: number[][]
+  if (leakageEnabled) {
+    const uncachedIndices: number[] = []
+    const uncachedTexts: string[] = []
+    for (let i = 0; i < stems.length; i++) {
+      if (!stemEmbeddingCache.has(stems[i])) {
+        uncachedIndices.push(i)
+        uncachedTexts.push(stems[i])
+      }
+    }
+    const newEmbeddings = uncachedTexts.length > 0 ? await embedTexts(uncachedTexts, embeddingModel) : []
+    let uncachedIdx = 0
+    fullEmbeddings = stems.map((stem) => {
+      const cached = stemEmbeddingCache.get(stem)
+      if (cached) return cached
+      return newEmbeddings[uncachedIdx++]
+    })
+  } else {
+    fullEmbeddings = await embedTexts(stems, embeddingModel)
+  }
   const sparseEmbeddings = sparsifyEmbeddings(fullEmbeddings)
   const constructLabels = rawCandidates.map(candidate =>
     constructs.findIndex(construct => construct.id === candidate.constructId)
@@ -470,6 +537,8 @@ export async function runPipeline(
       critiqueVerdict: critiqueVerdicts.get(candidate.stem)?.verdict,
       critiqueReason: critiqueVerdicts.get(candidate.stem)?.reason,
       critiqueOriginalStem: critiqueVerdicts.get(candidate.stem)?.originalStem,
+      leakageScore: undefined,
+      leakageTarget: undefined,
     }
   })
 
@@ -505,6 +574,7 @@ export async function runPipeline(
         bootSweeps,
         pipelineStages: {
           ...(critiqueEnabled ? { critique: critiqueStats } : {}),
+          ...(leakageEnabled ? { leakageGuard: leakageStats } : {}),
         },
       },
       tokenUsage: {
