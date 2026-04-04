@@ -601,7 +601,7 @@ export async function registerViaLink(
   // Check campaign status
   const { data: campaign } = await db
     .from('campaigns')
-    .select('status, opens_at, closes_at')
+    .select('status, opens_at, closes_at, organization_id')
     .eq('id', link.campaign_id)
     .is('deleted_at', null)
     .single()
@@ -621,6 +621,40 @@ export async function registerViaLink(
   if (existing) {
     // Already registered — return their token
     return { accessToken: existing.access_token }
+  }
+
+  // Quota check: only applies when campaign belongs to an organization
+  if (campaign.organization_id) {
+    const { data: campaignAssessments } = await db
+      .from('campaign_assessments')
+      .select('assessment_id')
+      .eq('campaign_id', link.campaign_id)
+
+    const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
+
+    if (assessmentIds.length > 0) {
+      // Get assignments with quota limits for these assessments
+      const { data: assignments } = await db
+        .from('client_assessment_assignments')
+        .select('*')
+        .eq('organization_id', campaign.organization_id)
+        .eq('is_active', true)
+        .in('assessment_id', assessmentIds)
+
+      for (const assignment of assignments ?? []) {
+        if (assignment.quota_limit === null) continue
+
+        const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
+          p_org_id: campaign.organization_id,
+          p_assessment_id: assignment.assessment_id,
+        })
+
+        const quotaUsed = typeof usageData === 'number' ? usageData : 0
+        if (quotaUsed >= assignment.quota_limit) {
+          return { error: 'This campaign is currently full.' }
+        }
+      }
+    }
   }
 
   // Create new participant

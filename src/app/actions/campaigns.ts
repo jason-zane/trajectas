@@ -19,6 +19,7 @@ import {
   mapCampaignAccessLinkRow,
 } from '@/lib/supabase/mappers'
 import { campaignSchema, inviteParticipantSchema, accessLinkSchema } from '@/lib/validations/campaigns'
+import { checkQuotaAvailability } from '@/app/actions/client-entitlements'
 import type { Campaign, CampaignAssessment, CampaignParticipant, CampaignAccessLink } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -694,6 +695,26 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
       return { error: { _form: [error.message] } }
     }
     throw error
+  }
+
+  // Quota check: only applies when campaign belongs to an organization
+  if (access.organizationId) {
+    const db = createAdminClient()
+    const { data: campaignAssessments } = await db
+      .from('campaign_assessments')
+      .select('assessment_id')
+      .eq('campaign_id', campaignId)
+
+    const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
+
+    if (assessmentIds.length > 0) {
+      const quota = await checkQuotaAvailability(access.organizationId, assessmentIds)
+      if (!quota.allowed) {
+        return {
+          error: { _form: ['Assessment quota reached. Cannot invite more participants.'] },
+        }
+      }
+    }
   }
 
   const db = createAdminClient()
