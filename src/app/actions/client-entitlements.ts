@@ -116,6 +116,11 @@ export async function checkQuotaAvailability(
   violations: { assessmentId: string; quotaLimit: number; quotaUsed: number }[]
 }> {
   await requireOrganizationAccess(organizationId)
+
+  if (assessmentIds.length === 0) {
+    return { allowed: true, violations: [] };
+  }
+
   const db = createAdminClient()
 
   // Get assignments that have quota limits for the requested assessments
@@ -163,6 +168,9 @@ export async function assignAssessment(
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can assign assessments.' }
   }
+  if (!scope.actor?.id) {
+    return { error: "Unable to determine the acting user" };
+  }
 
   const db = createAdminClient()
   const { data, error } = await db
@@ -171,7 +179,7 @@ export async function assignAssessment(
       organization_id: organizationId,
       assessment_id: input.assessmentId,
       quota_limit: input.quotaLimit ?? null,
-      assigned_by: scope.actor?.id ?? '',
+      assigned_by: scope.actor.id,
     })
     .select('id')
     .single()
@@ -238,6 +246,9 @@ export async function toggleReportTemplateAssignment(
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage report template assignments.' }
   }
+  if (!scope.actor?.id) {
+    return { error: "Unable to determine the acting user" };
+  }
 
   const db = createAdminClient()
 
@@ -250,7 +261,7 @@ export async function toggleReportTemplateAssignment(
           organization_id: organizationId,
           report_template_id: reportTemplateId,
           is_active: true,
-          assigned_by: scope.actor?.id ?? '',
+          assigned_by: scope.actor.id,
         },
         { onConflict: 'organization_id,report_template_id' },
       )
