@@ -42,12 +42,18 @@ interface CampaignFormProps {
   mode: "create" | "edit"
   campaign?: Campaign
   organizations?: Organization[]
+  /** Pre-set org ID (hides the org selector, e.g. client portal) */
+  defaultOrganizationId?: string
+  /** Route prefix for redirects (e.g. "/client") */
+  routePrefix?: string
 }
 
 export function CampaignForm({
   mode,
   campaign,
   organizations = [],
+  defaultOrganizationId,
+  routePrefix = "",
 }: CampaignFormProps) {
   const router = useRouter()
 
@@ -56,7 +62,7 @@ export function CampaignForm({
   const [slug, setSlug] = useState(campaign?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
   const [organizationId, setOrganizationId] = useState(
-    campaign?.organizationId ?? "",
+    defaultOrganizationId ?? campaign?.organizationId ?? "",
   )
   const [opensAt, setOpensAt] = useState(
     campaign?.opensAt ? campaign.opensAt.slice(0, 16) : "",
@@ -131,7 +137,7 @@ export function CampaignForm({
 
     if (mode === "create") {
       toast.success("Campaign created")
-      router.replace(`/campaigns/${result.id}/overview`)
+      router.replace(`${routePrefix}/campaigns/${result.id}/overview`)
     } else {
       toast.success("Campaign saved")
       setSaveState("saved")
@@ -159,7 +165,7 @@ export function CampaignForm({
       },
       duration: 5000,
     })
-    router.push("/campaigns")
+    router.push(`${routePrefix}/campaigns`)
   }
 
   const saveLabel =
@@ -250,7 +256,7 @@ export function CampaignForm({
             </div>
 
             {/* Organisation */}
-            {organizations.length > 0 && (
+            {organizations.length > 0 && !defaultOrganizationId && (
               <div className="space-y-1.5">
                 <Label htmlFor="organizationId">Organisation</Label>
                 <select
