@@ -41,6 +41,7 @@ import type {
   PipelineResult,
   GenerationRunConfig,
 } from '@/types/generation'
+import { runSyntheticValidation } from './synthetic-validation'
 import type { ProgressCallback } from './types'
 
 const BATCH_SIZE = 20
@@ -554,8 +555,6 @@ export async function runPipeline(
     }
   }
 
-  await onProgress('final', 100)
-
   const itemsAfterUva = rawCandidates.length - redundantIndices.size
   const itemsAfterBoot = itemsAfterUva - [...unstableIndices].filter(index => !redundantIndices.has(index)).length
 
@@ -597,6 +596,32 @@ export async function runPipeline(
     }
   })
 
+  // Tier 2: Synthetic Validation
+  let syntheticResult: { respondentsGenerated: number; estimatedAlpha?: Record<string, number> } | undefined
+  if (config.enableSyntheticValidation) {
+    await onProgress('synthetic_validation', 95)
+    try {
+      const constructInfos = constructs.map((c) => ({ id: c.id, name: c.name }))
+      const result = await runSyntheticValidation(
+        scoredItems,
+        constructInfos,
+        50,
+        (msg) => console.log(`[pipeline] synthetic: ${msg}`),
+      )
+      syntheticResult = {
+        respondentsGenerated: result.respondentsGenerated,
+        estimatedAlpha: result.estimatedAlpha,
+      }
+      if (result.warnings.length > 0) {
+        console.warn(`[pipeline] synthetic validation warnings:\n${result.warnings.join('\n')}`)
+      }
+    } catch (err) {
+      console.warn(`[pipeline] synthetic validation failed: ${err instanceof Error ? err.message : 'unknown'}`)
+    }
+  }
+
+  await onProgress('final', 100)
+
   return {
     items: scoredItems,
     result: {
@@ -631,6 +656,7 @@ export async function runPipeline(
           ...(critiqueEnabled ? { critique: critiqueStats } : {}),
           ...(leakageEnabled ? { leakageGuard: leakageStats } : {}),
           ...(difficultyEnabled ? { difficultyTargeting: { enabled: true as const } } : {}),
+          ...(syntheticResult ? { syntheticValidation: syntheticResult } : {}),
         },
       },
       tokenUsage: {
