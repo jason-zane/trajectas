@@ -20,6 +20,7 @@ export type OrganizationWithCounts = Organization & {
   assessmentCount: number
   sessionCount: number
   partnerName?: string
+  canCustomizeBranding?: boolean
 }
 
 function getRelatedRecord(value: unknown): Record<string, unknown> | null {

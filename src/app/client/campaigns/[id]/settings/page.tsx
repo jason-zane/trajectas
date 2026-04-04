@@ -1,35 +1,16 @@
 import { getCampaignById } from "@/app/actions/campaigns";
-import { getCampaignReportConfig, getReportTemplates } from "@/app/actions/reports";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { mapOrganizationRow } from "@/lib/supabase/mappers";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CampaignForm } from "../../campaign-form";
-import { CampaignSettingsToggles } from "./campaign-settings-toggles";
-import { ReportConfigPanel } from "./report-config-panel";
+import { CampaignSettingsToggles } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-settings-toggles";
 
-export default async function CampaignSettingsPage({
+export default async function ClientCampaignSettingsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [campaign, reportConfig, templates] = await Promise.all([
-    getCampaignById(id),
-    getCampaignReportConfig(id),
-    getReportTemplates(),
-  ]);
+  const campaign = await getCampaignById(id);
   if (!campaign) notFound();
-
-  const db = createAdminClient();
-  const { data } = await db
-    .from("organizations")
-    .select("*")
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .order("name");
-
-  const organizations = (data ?? []).map(mapOrganizationRow);
 
   return (
     <div className="space-y-8">
@@ -40,48 +21,23 @@ export default async function CampaignSettingsPage({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-3 text-sm">
-            <TimelineItem
-              label="Created"
-              date={campaign.created_at}
-            />
+            <TimelineItem label="Created" date={campaign.created_at} />
             {campaign.opensAt && (
-              <TimelineItem
-                label="Opens"
-                date={campaign.opensAt}
-                future
-              />
+              <TimelineItem label="Opens" date={campaign.opensAt} future />
             )}
             {campaign.closesAt && (
-              <TimelineItem
-                label="Closes"
-                date={campaign.closesAt}
-                future
-              />
+              <TimelineItem label="Closes" date={campaign.closesAt} future />
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Toggle switches (Zone 1 — immediate) */}
+      {/* Toggle switches (Zone 1 -- immediate) */}
       <CampaignSettingsToggles
         campaignId={campaign.id}
         allowResume={campaign.allowResume}
         showProgress={campaign.showProgress}
         randomizeAssessmentOrder={campaign.randomizeAssessmentOrder}
-      />
-
-      {/* Report template assignment */}
-      <ReportConfigPanel
-        campaignId={campaign.id}
-        config={reportConfig}
-        templates={templates}
-      />
-
-      {/* Full campaign form (Zone 2 — explicit save) */}
-      <CampaignForm
-        mode="edit"
-        campaign={campaign}
-        organizations={organizations}
       />
     </div>
   );

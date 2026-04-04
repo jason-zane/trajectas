@@ -99,7 +99,7 @@ export async function runPipeline(
   let totalInputTokens = 0
   let totalOutputTokens = 0
 
-  await onProgress('item_generation', 10)
+  await onProgress('item_generation', 10, { progressDetail: 'Starting item generation…' })
 
   const rawCandidates: Array<{
     constructId: string
@@ -138,7 +138,9 @@ export async function runPipeline(
     })
   }
 
-  for (const construct of constructs) {
+  const totalConstructs = constructs.length
+  for (let constructIdx = 0; constructIdx < totalConstructs; constructIdx++) {
+    const construct = constructs[constructIdx]
     const target = config.targetItemsPerConstruct
     const existingNormalized = new Set(
       (construct.existingItems ?? []).map(stem => normalizeStem(stem))
@@ -146,6 +148,13 @@ export async function runPipeline(
     const accumulated: string[] = []
     let attempts = 0
     let consecutiveFailures = 0
+
+    // Report construct-level progress: generation spans 10-25% (15 points across constructs)
+    const constructPctBase = 10 + Math.round((constructIdx / totalConstructs) * 15)
+    await onProgress('item_generation', constructPctBase, {
+      progressDetail: `${construct.name}: starting generation (construct ${constructIdx + 1}/${totalConstructs})`,
+      itemsGenerated: rawCandidates.length,
+    })
 
     while (accumulated.length < target && attempts < Math.ceil(target / BATCH_SIZE) + 8) {
       attempts++
@@ -338,6 +347,15 @@ export async function runPipeline(
 
         console.log(`[pipeline] ${construct.name} batch ${attempts}: ${parsed.length} parsed, ${duplicatesInBatch} duplicates, ${accumulated.length}/${target} accumulated`)
         seenByConstruct.set(construct.id, constructSeen)
+
+        // Report batch-level progress within the construct's allocation
+        const batchPct = constructPctBase + Math.round((accumulated.length / target) * (15 / totalConstructs))
+        const critiqueLabel = critiqueEnabled && critiqueModel ? ` · critique: ${critiqueStats.kept}✓ ${critiqueStats.dropped}✗` : ''
+        const leakageLabel = leakageEnabled ? ` · leakage: ${leakageStats.flagged} flagged` : ''
+        await onProgress('item_generation', Math.min(batchPct, 24), {
+          progressDetail: `${construct.name}: ${accumulated.length}/${target} items (batch ${attempts})${critiqueLabel}${leakageLabel}`,
+          itemsGenerated: rawCandidates.length,
+        })
       } catch {
         consecutiveFailures++
         console.warn(`[pipeline] ${construct.name} batch ${attempts}: parse error (consecutive failures: ${consecutiveFailures})`)
@@ -355,13 +373,21 @@ export async function runPipeline(
   }
 
   if (critiqueEnabled) {
-    await onProgress('item_critique', 25, { itemsGenerated: rawCandidates.length })
+    await onProgress('item_critique', 25, {
+      itemsGenerated: rawCandidates.length,
+      progressDetail: `Critique complete: ${critiqueStats.kept} kept, ${critiqueStats.revised} revised, ${critiqueStats.dropped} dropped`,
+    })
   }
 
-  await onProgress('embedding', 30, { itemsGenerated: rawCandidates.length })
+  await onProgress('embedding', 30, {
+    itemsGenerated: rawCandidates.length,
+    progressDetail: `Computing embeddings for ${rawCandidates.length} items…`,
+  })
 
   if (leakageEnabled) {
-    await onProgress('leakage_check', 35)
+    await onProgress('leakage_check', 35, {
+      progressDetail: `Leakage check complete: ${leakageStats.flagged} items flagged across ${leakageStats.itemsChecked} checked`,
+    })
   }
 
   // Use cached embeddings from leakage guard where available
@@ -414,12 +440,12 @@ export async function runPipeline(
   )
   const isMultiConstruct = new Set(constructLabels).size > 1
 
-  await onProgress('initial_ega', 50)
+  await onProgress('initial_ega', 50, { progressDetail: 'Running exploratory graph analysis on full item pool…' })
 
   const initialEga = runEga(fullEmbeddings, constructLabels, estimator, isMultiConstruct)
   const initialCommunityIds = initialEga.alignedCommunities
 
-  await onProgress('uva', 62)
+  await onProgress('uva', 62, { progressDetail: 'Removing redundant items via weighted topological overlap…' })
 
   const {
     redundantIndices,
@@ -472,7 +498,7 @@ export async function runPipeline(
     }
   }
 
-  await onProgress('boot_ega', 78)
+  await onProgress('boot_ega', 78, { progressDetail: 'Bootstrap stability analysis — iterating until all items are stable…' })
 
   const bootRemovalSweeps = new Map<number, number>()
   const stabilityScores = new Array<number | undefined>(rawCandidates.length).fill(undefined)
@@ -599,7 +625,7 @@ export async function runPipeline(
   // Tier 2: Synthetic Validation
   let syntheticResult: { respondentsGenerated: number; estimatedAlpha?: Record<string, number> } | undefined
   if (config.enableSyntheticValidation) {
-    await onProgress('synthetic_validation', 95)
+    await onProgress('synthetic_validation', 95, { progressDetail: 'Simulating respondent data for in silico validation…' })
     try {
       const constructInfos = constructs.map((c) => ({ id: c.id, name: c.name }))
       const result = await runSyntheticValidation(
@@ -620,7 +646,7 @@ export async function runPipeline(
     }
   }
 
-  await onProgress('final', 100)
+  await onProgress('final', 100, { progressDetail: 'Pipeline complete — items ready for review' })
 
   return {
     items: scoredItems,

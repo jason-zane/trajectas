@@ -6,8 +6,6 @@ import {
   canManageClientAssignment,
   resolveAuthorizedScope,
 } from "@/lib/auth/authorization";
-import { buildSurfaceUrl } from "@/lib/hosts";
-import { getWorkspaceRequestContext } from "@/lib/workspace-request";
 import { OrganizationEditForm } from "./organization-edit-form";
 
 export default async function EditOrganizationPage({
@@ -16,10 +14,9 @@ export default async function EditOrganizationPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [organization, scope, requestContext] = await Promise.all([
+  const [organization, scope] = await Promise.all([
     getOrganizationBySlug(slug, { includeArchived: true }),
     resolveAuthorizedScope(),
-    getWorkspaceRequestContext("client"),
   ]);
   if (!organization) notFound();
   if (!canManageClient(scope, organization.id)) {
@@ -29,11 +26,6 @@ export default async function EditOrganizationPage({
   const canAssignPartner = canManageClientAssignment(scope);
   const partners = canAssignPartner ? await getAssignablePartners() : [];
 
-  const clientLaunchEndpoint = requestContext.isLocalDev
-    ? "/client/support/launch"
-    : buildSurfaceUrl("client", "/support/launch")?.toString() ?? null;
-  const clientLaunchNextPath = requestContext.isLocalDev ? "/client" : "/";
-
   return (
     <OrganizationEditForm
       organization={organization}
@@ -42,9 +34,6 @@ export default async function EditOrganizationPage({
         name: partner.name,
       }))}
       canAssignPartner={canAssignPartner}
-      canLaunchClientPortal={scope.isPlatformAdmin && Boolean(scope.actor)}
-      clientLaunchEndpoint={clientLaunchEndpoint}
-      clientLaunchNextPath={clientLaunchNextPath}
     />
   );
 }

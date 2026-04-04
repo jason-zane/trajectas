@@ -140,25 +140,13 @@ const partnerNav: NavSection[] = [
 const clientNav: NavSection[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", href: "/", icon: Home }],
+    items: [{ title: "Dashboard", href: "/dashboard", icon: Home }],
   },
   {
     label: "Assessments",
     items: [
-      { title: "Assessments", href: "/assessments", icon: ClipboardList },
-      {
-        title: "Assessment Results",
-        href: "/results",
-        icon: BarChart3,
-      },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
-    ],
-  },
-  {
-    label: "Diagnostics",
-    items: [
-      { title: "Complete Diagnostic", href: "/diagnostics", icon: Layers },
-      { title: "Results", href: "/diagnostic-results", icon: BarChart3 },
+      { title: "Participants", href: "/participants", icon: Users },
     ],
   },
 ];
@@ -293,7 +281,7 @@ export function AppSidebar() {
         ))}
       </SidebarContent>
 
-      {!(isSettingsArea && portal === "admin") && (
+      {portal === "admin" && !isSettingsArea && (
         <SidebarFooter className="px-3 pb-3">
           <SidebarMenu>
             <SidebarMenuItem>

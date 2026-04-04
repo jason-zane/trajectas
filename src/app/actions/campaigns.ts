@@ -8,6 +8,7 @@ import {
   canAccessClient,
   getAccessibleCampaignIds,
   requireCampaignAccess,
+  requireOrganizationAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -18,6 +19,7 @@ import {
   mapCampaignAccessLinkRow,
 } from '@/lib/supabase/mappers'
 import { campaignSchema, inviteParticipantSchema, accessLinkSchema } from '@/lib/validations/campaigns'
+import { checkQuotaAvailability } from '@/app/actions/client-entitlements'
 import type { Campaign, CampaignAssessment, CampaignParticipant, CampaignAccessLink } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -571,6 +573,21 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
     throw error
   }
 
+  if (!access.scope.isPlatformAdmin && access.organizationId) {
+    const supabase = createAdminClient()
+    const { data: assignment } = await supabase
+      .from('client_assessment_assignments')
+      .select('id')
+      .eq('organization_id', access.organizationId)
+      .eq('assessment_id', assessmentId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!assignment) {
+      return { error: 'This assessment is not available for your organization' }
+    }
+  }
+
   const db = createAdminClient()
 
   // Get max display order
@@ -693,6 +710,26 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
       return { error: { _form: [error.message] } }
     }
     throw error
+  }
+
+  // Quota check: only applies when campaign belongs to an organization
+  if (access.organizationId) {
+    const db = createAdminClient()
+    const { data: campaignAssessments } = await db
+      .from('campaign_assessments')
+      .select('assessment_id')
+      .eq('campaign_id', campaignId)
+
+    const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
+
+    if (assessmentIds.length > 0) {
+      const quota = await checkQuotaAvailability(access.organizationId, assessmentIds)
+      if (!quota.allowed) {
+        return {
+          error: { _form: ['Assessment quota reached. Cannot invite more participants.'] },
+        }
+      }
+    }
   }
 
   const db = createAdminClient()
@@ -973,6 +1010,65 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
   })
 
   revalidatePath(`/campaigns/${campaignId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Cross-campaign participant view (client portal)
+// ---------------------------------------------------------------------------
+
+export type OrganizationParticipant = {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  status: string
+  startedAt: string | null
+  completedAt: string | null
+  campaignId: string
+  campaignTitle: string
+  created_at: string
+}
+
+export async function getParticipantsForOrganization(
+  organizationId: string,
+): Promise<OrganizationParticipant[]> {
+  await requireOrganizationAccess(organizationId)
+  const db = createAdminClient()
+
+  // First get all non-deleted campaigns for this organization
+  const { data: campaigns, error: campaignsError } = await db
+    .from('campaigns')
+    .select('id, title')
+    .eq('organization_id', organizationId)
+    .is('deleted_at', null)
+
+  if (campaignsError) throw new Error(campaignsError.message)
+  if (!campaigns || campaigns.length === 0) return []
+
+  const campaignIds = campaigns.map((c) => c.id)
+  const campaignMap = new Map(campaigns.map((c) => [c.id, c.title]))
+
+  // Then get all participants for those campaigns
+  const { data: participants, error: participantsError } = await db
+    .from('campaign_participants')
+    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at')
+    .in('campaign_id', campaignIds)
+    .order('created_at', { ascending: false })
+
+  if (participantsError) throw new Error(participantsError.message)
+
+  return (participants ?? []).map((row) => ({
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    status: row.status,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    campaignId: row.campaign_id,
+    campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+    created_at: row.created_at,
+  }))
 }
 
 // ---------------------------------------------------------------------------

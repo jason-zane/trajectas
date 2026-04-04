@@ -220,6 +220,8 @@ export interface Organization {
   sizeRange?: string
   /** Whether the organisation account is currently active. */
   isActive: boolean
+  /** Whether this client can customise their own branding in the client portal. */
+  canCustomizeBranding?: boolean
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -1619,6 +1621,7 @@ export interface GenerationRun {
   id: string
   status: GenerationRunStatus
   currentStep?: string
+  progressDetail?: string
   progressPct: number
   config: GenerationRunConfig
   itemsGenerated: number
@@ -1763,4 +1766,33 @@ export interface ReportSnapshot {
   errorMessage?: string
   created_at: string
   updated_at?: string
+}
+
+// --- Client Entitlements ---
+
+export interface ClientAssessmentAssignment {
+  id: string
+  organizationId: string
+  assessmentId: string
+  quotaLimit: number | null // null = unlimited
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ClientReportTemplateAssignment {
+  id: string
+  organizationId: string
+  reportTemplateId: string
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
+
+/** Assessment assignment enriched with usage data and assessment metadata */
+export interface AssessmentAssignmentWithUsage extends ClientAssessmentAssignment {
+  assessmentName: string
+  quotaUsed: number
 }

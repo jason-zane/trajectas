@@ -7,10 +7,10 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCampaignById } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
-import { CampaignStatusActions } from "./campaign-status-actions";
-import { CampaignAccessLinks } from "../settings/campaign-access-links";
+import { CampaignStatusActions } from "@/app/(dashboard)/campaigns/[id]/overview/campaign-status-actions";
+import { CampaignAccessLinks } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-access-links";
 
-export default async function CampaignOverviewPage({
+export default async function ClientCampaignOverviewPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -27,7 +27,9 @@ export default async function CampaignOverviewPage({
     (c) => c.status === "completed",
   ).length;
   const completionPct =
-    totalParticipants > 0 ? Math.round((completedCount / totalParticipants) * 100) : 0;
+    totalParticipants > 0
+      ? Math.round((completedCount / totalParticipants) * 100)
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -39,16 +41,8 @@ export default async function CampaignOverviewPage({
 
       {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-4">
-        <StatCard
-          icon={Users}
-          label="Invited"
-          value={totalParticipants}
-        />
-        <StatCard
-          icon={PlayCircle}
-          label="Started"
-          value={startedCount}
-        />
+        <StatCard icon={Users} label="Invited" value={totalParticipants} />
+        <StatCard icon={PlayCircle} label="Started" value={startedCount} />
         <StatCard
           icon={CheckCircle2}
           label="Completed"
@@ -122,4 +116,3 @@ function StatCard({
     </Card>
   );
 }
-

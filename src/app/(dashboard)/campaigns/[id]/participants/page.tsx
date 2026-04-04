@@ -1,6 +1,7 @@
 import { getCampaignById } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { CampaignParticipantManager } from "./campaign-participant-manager";
+import { CampaignAccessLinks } from "../settings/campaign-access-links";
 
 export default async function CampaignParticipantsPage({
   params,
@@ -12,9 +13,15 @@ export default async function CampaignParticipantsPage({
   if (!campaign) notFound();
 
   return (
-    <CampaignParticipantManager
-      campaignId={campaign.id}
-      participants={campaign.participants}
-    />
+    <div className="space-y-6">
+      <CampaignAccessLinks
+        campaignId={campaign.id}
+        links={campaign.accessLinks}
+      />
+      <CampaignParticipantManager
+        campaignId={campaign.id}
+        participants={campaign.participants}
+      />
+    </div>
   );
 }

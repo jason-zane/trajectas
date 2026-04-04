@@ -28,6 +28,8 @@ import type {
   ReportTemplate,
   CampaignReportConfig,
   ReportSnapshot,
+  ClientAssessmentAssignment,
+  ClientReportTemplateAssignment,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
 import type { ExperienceTemplateRecord } from '@/lib/experience/types'
@@ -187,6 +189,7 @@ export function mapOrganizationRow(row: any): Organization {
     industry: row.industry ?? undefined,
     sizeRange: row.size_range ?? undefined,
     isActive: row.is_active,
+    canCustomizeBranding: row.can_customize_branding ?? false,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -676,6 +679,7 @@ export function mapGenerationRunRow(row: any): GenerationRun {
     id: row.id,
     status: row.status,
     currentStep: row.current_step ?? undefined,
+    progressDetail: row.progress_detail ?? undefined,
     progressPct: row.progress_pct,
     config: row.config ?? {},
     itemsGenerated: row.items_generated,
@@ -791,5 +795,32 @@ export function mapReportSnapshotRow(row: any): ReportSnapshot {
     errorMessage: row.error_message ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapClientAssessmentAssignmentRow(row: any): ClientAssessmentAssignment {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    assessmentId: row.assessment_id,
+    quotaLimit: row.quota_limit ?? null,
+    isActive: row.is_active,
+    assignedBy: row.assigned_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapClientReportTemplateAssignmentRow(row: any): ClientReportTemplateAssignment {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    reportTemplateId: row.report_template_id,
+    isActive: row.is_active,
+    assignedBy: row.assigned_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   }
 }

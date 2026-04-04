@@ -1,21 +1,24 @@
 import { getCampaignById } from "@/app/actions/campaigns";
+import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
+import { notFound, redirect } from "next/navigation";
+import { CampaignDetailShell } from "@/app/(dashboard)/campaigns/[id]/campaign-detail-shell";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound } from "next/navigation";
-import { CampaignDetailShell } from "./campaign-detail-shell";
 
-export default async function CampaignDetailLayout({
+export default async function ClientCampaignDetailLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
+  const access = await resolveWorkspaceAccess("client");
+  if (access.status !== "ok") redirect("/unauthorized");
+
   const { id } = await params;
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  let canCustomizeBranding = true;
-
+  let canCustomizeBranding = false;
   if (campaign.organizationId) {
     const db = createAdminClient();
     const { data } = await db
