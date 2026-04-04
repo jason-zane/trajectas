@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { buttonVariants } from "@/components/ui/button";
+import { UnauthorizedActions } from "./unauthorized-actions";
 
 const reasonCopy: Record<string, string> = {
   invite: "That invite is invalid, expired, or was accepted with the wrong email address.",
@@ -25,16 +24,8 @@ export default async function UnauthorizedPage({
           <CardTitle>Access not available</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-3">
-          <Link href="/login" className={buttonVariants()}>
-            Back to sign in
-          </Link>
-          <Link
-            href="/logout"
-            className={buttonVariants({ variant: "outline" })}
-          >
-            Sign out
-          </Link>
+        <CardContent>
+          <UnauthorizedActions />
         </CardContent>
       </Card>
     </div>

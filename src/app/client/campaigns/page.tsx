@@ -1,15 +1,9 @@
-import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { redirect } from "next/navigation";
+import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import { getCampaigns } from "@/app/actions/campaigns";
 import { ClientCampaignList } from "./client-campaign-list";
 
 export default async function ClientCampaignsPage() {
-  const access = await resolveWorkspaceAccess("client");
-  if (access.status === "signed_out") redirect("/login?next=/client/campaigns");
-  if (access.status !== "ok") redirect("/unauthorized");
-
-  const orgId = access.activeContext?.tenantId;
-  if (!orgId) redirect("/unauthorized");
+  await resolveClientOrg("/client/campaigns");
 
   const campaigns = await getCampaigns();
 
