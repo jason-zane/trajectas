@@ -678,6 +678,7 @@ export function mapGenerationRunRow(row: any): GenerationRun {
     id: row.id,
     status: row.status,
     currentStep: row.current_step ?? undefined,
+    progressDetail: row.progress_detail ?? undefined,
     progressPct: row.progress_pct,
     config: row.config ?? {},
     itemsGenerated: row.items_generated,

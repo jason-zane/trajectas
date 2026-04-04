@@ -274,6 +274,7 @@ export async function updateGenerationRunProgress(
   update: {
     status?: GenerationRunStatus
     currentStep?: string
+    progressDetail?: string
     progressPct?: number
     itemsGenerated?: number
     itemsAfterUva?: number
@@ -296,6 +297,7 @@ export async function updateGenerationRunProgress(
   const patch: Record<string, any> = {}
   if (update.status !== undefined) patch.status = update.status
   if (update.currentStep !== undefined) patch.current_step = update.currentStep
+  if (update.progressDetail !== undefined) patch.progress_detail = update.progressDetail
   if (update.progressPct !== undefined) patch.progress_pct = update.progressPct
   if (update.itemsGenerated !== undefined) patch.items_generated = update.itemsGenerated
   if (update.itemsAfterUva !== undefined) patch.items_after_uva = update.itemsAfterUva
@@ -356,6 +358,7 @@ export async function startGenerationRun(
         currentStep: step,
         progressPct: pct,
         ...(details?.itemsGenerated ? { itemsGenerated: details.itemsGenerated as number } : {}),
+        ...(details?.progressDetail !== undefined ? { progressDetail: details.progressDetail as string } : {}),
       })
     }
 

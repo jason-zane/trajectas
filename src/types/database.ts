@@ -1619,6 +1619,7 @@ export interface GenerationRun {
   id: string
   status: GenerationRunStatus
   currentStep?: string
+  progressDetail?: string
   progressPct: number
   config: GenerationRunConfig
   itemsGenerated: number

@@ -140,7 +140,7 @@ function ProgressView({ run, onCancel }: { run: GenerationRun; onCancel: () => v
                 </p>
                 {state === "current" && (
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {step.description}
+                    {run.progressDetail || step.description}
                   </p>
                 )}
               </div>
@@ -165,14 +165,20 @@ function ProgressView({ run, onCancel }: { run: GenerationRun; onCancel: () => v
             <StatBlock label="Status" value={run.status} />
             <StatBlock label="Items Generated" value={String(run.itemsGenerated)} />
             {run.modelUsed && <StatBlock label="Model" value={run.modelUsed} />}
-            {run.currentStep && <StatBlock label="Current Step" value={run.currentStep} />}
+            <StatBlock label="Progress" value={`${run.progressPct}%`} />
           </div>
         </div>
+
+        {run.progressDetail && (
+          <div className="rounded-lg bg-primary/5 ring-1 ring-primary/10 p-3">
+            <p className="text-sm text-foreground">{run.progressDetail}</p>
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin shrink-0" />
-            <span>Generation pipeline is running… polling every 2 seconds.</span>
+            <span>Pipeline running…</span>
           </div>
           <Button variant="outline" size="sm" onClick={onCancel}>
             Cancel Run
