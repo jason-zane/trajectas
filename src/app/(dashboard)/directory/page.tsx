@@ -118,7 +118,7 @@ export default async function DirectoryPage({
             {organizations.map((org, index) => (
               <ScrollReveal key={org.id} delay={index * 60}>
                 <TiltCard>
-                  <Link href={`/organizations/${org.slug}/edit`}>
+                  <Link href={`/organizations/${org.slug}/overview`}>
                     <Card variant="interactive">
                       <CardHeader>
                         <div className="flex items-start justify-between gap-3">

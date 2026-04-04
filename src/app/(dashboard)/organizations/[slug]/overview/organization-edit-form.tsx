@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,6 @@ import {
   deleteOrganization,
   restoreOrganization,
 } from "@/app/actions/organizations";
-import { SupportLaunchButton } from "@/components/support-launch-button";
 import type { Organization } from "@/types/database";
 
 function slugify(text: string): string {
@@ -50,16 +49,10 @@ export function OrganizationEditForm({
   organization,
   partnerOptions = [],
   canAssignPartner = false,
-  canLaunchClientPortal = false,
-  clientLaunchEndpoint = null,
-  clientLaunchNextPath = "/",
 }: {
   organization: Organization;
   partnerOptions?: Array<{ id: string; name: string }>;
   canAssignPartner?: boolean;
-  canLaunchClientPortal?: boolean;
-  clientLaunchEndpoint?: string | null;
-  clientLaunchNextPath?: string;
 }) {
   const router = useRouter();
 
@@ -137,7 +130,7 @@ export function OrganizationEditForm({
       setTimeout(() => setSaveState("idle"), 2000);
       setInitialStructural({ name, slug, industry, sizeRange, partnerId, isActive });
       if (result.slug !== organization.slug) {
-        router.replace(`/organizations/${result.slug}/edit`, { scroll: false });
+        router.replace(`/organizations/${result.slug}/overview`, { scroll: false });
       }
     }
   }
@@ -193,46 +186,6 @@ export function OrganizationEditForm({
 
   return (
     <div className="space-y-8 max-w-2xl">
-      {/* Header */}
-      <div>
-        <Link
-          href="/directory?tab=clients"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
-        >
-          <ArrowLeft className="size-3.5" />
-          Back to Clients
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Edit Client
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1.5">
-          Update the details for &ldquo;{organization.name}&rdquo;.
-        </p>
-        {organization.deletedAt ? (
-          <p className="mt-2 text-xs font-medium text-destructive">
-            This client is currently archived.
-          </p>
-        ) : null}
-        <p className="text-xs text-muted-foreground mt-2">
-          {organization.partnerId
-            ? `Owned by ${partnerOptions.find((option) => option.id === organization.partnerId)?.name ?? "a partner"}`
-            : "Platform-owned client"}
-        </p>
-        {canLaunchClientPortal ? (
-          <div className="mt-4">
-            <SupportLaunchButton
-              targetSurface="client"
-              targetTenantId={organization.id}
-              targetLabel={organization.name}
-              launchEndpoint={clientLaunchEndpoint}
-              nextPath={clientLaunchNextPath}
-            />
-          </div>
-        ) : null}
-      </div>
-
-      <Separator />
-
       {/* Form */}
       <form action={handleSubmit}>
         <Card>
