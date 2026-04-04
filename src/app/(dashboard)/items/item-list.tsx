@@ -51,6 +51,7 @@ import {
   deleteItems,
   restoreItem,
   restoreItems,
+  bulkUpdateItemStatus,
   type ItemWithMeta,
 } from "@/app/actions/items"
 
@@ -245,6 +246,21 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
     })
   }
 
+  function handleBulkStatusChange(status: string) {
+    const ids = [...selectedIds]
+    const typedStatus = status as "draft" | "active" | "archived"
+    const label = status.charAt(0).toUpperCase() + status.slice(1)
+    startDeleteTransition(async () => {
+      const result = await bulkUpdateItemStatus(ids, typedStatus)
+      if (result && "error" in result && result.error) {
+        toast.error(result.error)
+        return
+      }
+      setSelectedIds([])
+      toast.success(`Set ${result?.count ?? ids.length} items to ${label.toLowerCase()}`)
+    })
+  }
+
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader
@@ -344,6 +360,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                 onToggleAllVisible={toggleAllVisible}
                 onClearSelection={clearSelection}
                 onConfirmDelete={handleBulkDelete}
+                onSetStatus={handleBulkStatusChange}
               />
             </div>
             {/* Purpose filter pills */}

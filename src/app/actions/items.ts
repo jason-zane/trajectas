@@ -354,6 +354,41 @@ export async function restoreItem(id: string) {
   return { success: true }
 }
 
+export async function bulkUpdateItemStatus(
+  ids: string[],
+  status: 'draft' | 'active' | 'archived',
+) {
+  const scope = await requireAdminScope()
+  const uniqueIds = Array.from(new Set(ids.filter(Boolean)))
+  if (uniqueIds.length === 0) {
+    return { error: 'Select at least one item.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('items')
+    .update({ status })
+    .in('id', uniqueIds)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/items')
+  revalidatePath('/constructs')
+  revalidatePath('/')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'item.bulk_status_updated',
+    targetTable: 'items',
+    metadata: {
+      ids: uniqueIds,
+      count: uniqueIds.length,
+      status,
+    },
+  })
+
+  return { success: true as const, count: uniqueIds.length }
+}
+
 export async function restoreItems(ids: string[]) {
   const scope = await requireAdminScope()
   const uniqueIds = Array.from(new Set(ids.filter(Boolean)))

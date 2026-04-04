@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckSquare2, ChevronDown, Trash2 } from "lucide-react"
+import { CheckSquare2, ChevronDown, Trash2, Circle, CircleCheck, Archive } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -26,6 +27,7 @@ interface LibrarySelectionToolbarProps {
   onToggleAllVisible: () => void
   onClearSelection: () => void
   onConfirmDelete: () => void
+  onSetStatus?: (status: string) => void
 }
 
 export function LibrarySelectionToolbar({
@@ -43,6 +45,7 @@ export function LibrarySelectionToolbar({
   onToggleAllVisible,
   onClearSelection,
   onConfirmDelete,
+  onSetStatus,
 }: LibrarySelectionToolbarProps) {
   const hasVisibleRows = visibleCount > 0
 
@@ -79,6 +82,33 @@ export function LibrarySelectionToolbar({
                 <DropdownMenuItem onClick={onClearSelection} disabled={selectedCount === 0}>
                   Clear selection
                 </DropdownMenuItem>
+                {onSetStatus && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => onSetStatus("active")}
+                      disabled={selectedCount === 0}
+                    >
+                      <CircleCheck className="size-4 text-emerald-500" />
+                      Set active
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onSetStatus("draft")}
+                      disabled={selectedCount === 0}
+                    >
+                      <Circle className="size-4 text-amber-500" />
+                      Set draft
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onSetStatus("archived")}
+                      disabled={selectedCount === 0}
+                    >
+                      <Archive className="size-4 text-muted-foreground" />
+                      Set archived
+                    </DropdownMenuItem>
+                  </>
+                )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => onConfirmOpenChange(true)}
