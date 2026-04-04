@@ -466,10 +466,7 @@ Replace it with:
         let critiquedItems = parsed
         if (critiqueEnabled && critiqueModel && critiqueSystemPrompt) {
           try {
-            const contrastConstructs = constructs
-              .filter(other => other.id !== construct.id)
-              .slice(0, 6)
-
+            // Reuse the contrastConstructs already computed at the top of the batch loop
             const critiquePrompt = buildCritiquePrompt({
               items: parsed,
               constructName: construct.name,
@@ -522,6 +519,10 @@ Replace it with:
               }
 
               critiquedItems = survivingItems
+              // If critique emptied the batch, count it as a failure to prevent infinite loops
+              if (critiquedItems.length === 0) {
+                consecutiveFailures++
+              }
               console.log(`[pipeline] ${construct.name} batch ${attempts} critique: ${parsed.length} reviewed, ${critiqueStats.dropped} dropped, ${critiqueStats.revised} revised`)
             } else {
               console.warn(`[pipeline] ${construct.name} batch ${attempts}: critique response unparseable, keeping all items`)
@@ -549,6 +550,8 @@ to:
 ```
 
 - [ ] **Step 5: Add critique data to scored items**
+
+**Note:** Critique-dropped items never enter `rawCandidates` (they are filtered before the dedup loop), so they won't appear as `ScoredCandidateItem` records. The `critiqueStats.dropped` count in `aiSnapshot.pipelineStages` is how they surface in the funnel. The fields below apply to items that were kept or revised.
 
 Find the `scoredItems` mapping at the end of the pipeline (around line 343). In the returned object, after `isUnstable`, add:
 
@@ -598,6 +601,8 @@ git commit -m "feat(pipeline-tier2): integrate item critique into generation bat
 **Files:**
 - Modify: `src/lib/ai/generation/pipeline.ts`
 
+The spec's intra-batch ordering is: Generate → Critique → Embed → Leakage Guard → Dedup → Accumulate. Leaking items must be filtered BEFORE the dedup loop so they never enter `rawCandidates`.
+
 - [ ] **Step 1: Add imports**
 
 At the top of `src/lib/ai/generation/pipeline.ts`, add:
@@ -606,7 +611,7 @@ At the top of `src/lib/ai/generation/pipeline.ts`, add:
 import { ConstructCentroidCache, checkItemLeakage } from './leakage-guard'
 ```
 
-- [ ] **Step 2: Seed construct centroids before generation loop**
+- [ ] **Step 2: Seed construct centroids and set up tracking before generation loop**
 
 After the critique model resolution code (added in Task 3), before the `for (const construct of constructs)` loop, add:
 
@@ -615,7 +620,7 @@ After the critique model resolution code (added in Task 3), before the `for (con
   const leakageEnabled = config.enableLeakageGuard !== false && constructs.length >= 2
   const centroidCache = new ConstructCentroidCache()
   const leakageStats = { itemsChecked: 0, flagged: 0 }
-  const itemEmbeddingCache = new Map<number, number[]>()
+  const stemEmbeddingCache = new Map<string, number[]>()
 
   if (leakageEnabled) {
     // Embed construct definitions to seed centroids
@@ -629,94 +634,46 @@ After the critique model resolution code (added in Task 3), before the `for (con
   }
 ```
 
-- [ ] **Step 3: Add leakage check after deduplication in the batch loop**
+- [ ] **Step 3: Add leakage check BEFORE deduplication in the batch loop**
 
-After the deduplication loop (the `for (const item of critiquedItems)` loop), and after `seenByConstruct.set(...)`, add leakage checking. The items have already been accumulated into `rawCandidates` at this point.
-
-Find the line `seenByConstruct.set(construct.id, constructSeen)` and add after it:
+Find the line `const constructSeen = seenByConstruct.get(construct.id) ?? ...` (which is after the critique block). Insert the leakage guard BETWEEN the end of the critique block and the start of the dedup — between critique's closing and `const constructSeen`:
 
 ```typescript
-        // Tier 2: Leakage Guard — check new items against other construct centroids
-        if (leakageEnabled) {
-          const newItemIndices = []
-          for (let idx = rawCandidates.length - (accumulated.length - accLengthBefore); idx < rawCandidates.length; idx++) {
-            newItemIndices.push(idx)
-          }
+        // Tier 2: Leakage Guard — embed and check items before deduplication
+        let leakagePassedItems = critiquedItems
+        if (leakageEnabled && critiquedItems.length > 0) {
+          const batchStems = critiquedItems.map((item) => item.stem)
+          const batchEmbeddings = await embedTexts(batchStems, embeddingModel)
 
-          if (newItemIndices.length > 0) {
-            // Embed new items for leakage checking
-            const newStems = newItemIndices.map((idx) => rawCandidates[idx].stem)
-            const newEmbeddings = await embedTexts(newStems, embeddingModel)
-
-            for (let i = 0; i < newItemIndices.length; i++) {
-              const globalIdx = newItemIndices[i]
-              const embedding = newEmbeddings[i]
-              itemEmbeddingCache.set(globalIdx, embedding) // Cache for bulk embedding reuse
-
-              leakageStats.itemsChecked++
-              const result = checkItemLeakage(embedding, construct.id, centroidCache)
-
-              if (result.isLeaking) {
-                leakageStats.flagged++
-                // Mark item as leaking — will be reflected in removalStage during scoring
-                rawCandidates[globalIdx] = {
-                  ...rawCandidates[globalIdx],
-                  _leakageScore: result.leakageScore,
-                  _leakageTarget: result.leakageTarget,
-                  _isLeaking: true,
-                } as typeof rawCandidates[number] & { _leakageScore: number; _leakageTarget?: string; _isLeaking: boolean }
-                console.log(`[pipeline] ${construct.name}: item "${rawCandidates[globalIdx].stem.slice(0, 50)}..." leaked toward ${result.leakageTarget}`)
-              } else {
-                // Update centroid with non-leaking item
-                centroidCache.addItem(construct.id, embedding)
-              }
-            }
-          }
-        }
-```
-
-Wait — this approach of mutating rawCandidates with underscore-prefixed fields is messy. Let me use a cleaner approach with a separate Set to track leaking indices.
-
-Actually, let me restructure. We need to track `accLengthBefore` to know which items were added in this batch. Add this before the deduplication loop:
-
-Find `const constructSeen = ...` and add before it:
-
-```typescript
-        const accLengthBefore = accumulated.length
-```
-
-Then after `seenByConstruct.set(construct.id, constructSeen)`, add:
-
-```typescript
-        // Tier 2: Leakage Guard — check new items against other construct centroids
-        if (leakageEnabled && accumulated.length > accLengthBefore) {
-          const batchStartIdx = rawCandidates.length - (accumulated.length - accLengthBefore)
-          const newStems = rawCandidates.slice(batchStartIdx).map((c) => c.stem)
-          const newEmbeddings = await embedTexts(newStems, embeddingModel)
-
-          for (let i = 0; i < newEmbeddings.length; i++) {
-            const globalIdx = batchStartIdx + i
-            itemEmbeddingCache.set(globalIdx, newEmbeddings[i])
+          const passedItems: typeof critiquedItems = []
+          for (let i = 0; i < critiquedItems.length; i++) {
             leakageStats.itemsChecked++
+            const result = checkItemLeakage(batchEmbeddings[i], construct.id, centroidCache)
 
-            const result = checkItemLeakage(newEmbeddings[i], construct.id, centroidCache)
             if (result.isLeaking) {
               leakageStats.flagged++
-              leakingIndices.add(globalIdx)
-              leakingMeta.set(globalIdx, { score: result.leakageScore, target: result.leakageTarget })
               console.log(`[pipeline] ${construct.name}: item leaked toward ${result.leakageTarget}`)
             } else {
-              centroidCache.addItem(construct.id, newEmbeddings[i])
+              centroidCache.addItem(construct.id, batchEmbeddings[i])
+              passedItems.push(critiquedItems[i])
+              // Cache embedding keyed by stem for reuse in bulk embedding step
+              stemEmbeddingCache.set(critiquedItems[i].stem, batchEmbeddings[i])
             }
           }
+
+          leakagePassedItems = passedItems
         }
 ```
 
-Add the tracking sets near the `leakageStats` declaration:
+Then update the dedup loop to iterate `leakagePassedItems` instead of `critiquedItems`:
 
+Change:
 ```typescript
-  const leakingIndices = new Set<number>()
-  const leakingMeta = new Map<number, { score: number; target?: string }>()
+        for (const item of critiquedItems) {
+```
+to:
+```typescript
+        for (const item of leakagePassedItems) {
 ```
 
 - [ ] **Step 4: Use cached embeddings in the bulk embedding step**
@@ -734,55 +691,39 @@ Replace with:
   // Use cached embeddings from leakage guard where available
   const stems = rawCandidates.map(candidate => candidate.stem)
   let fullEmbeddings: number[][]
-  if (itemEmbeddingCache.size > 0) {
+  if (leakageEnabled) {
     const uncachedIndices: number[] = []
     const uncachedTexts: string[] = []
     for (let i = 0; i < stems.length; i++) {
-      if (!itemEmbeddingCache.has(i)) {
+      if (!stemEmbeddingCache.has(stems[i])) {
         uncachedIndices.push(i)
         uncachedTexts.push(stems[i])
       }
     }
     const newEmbeddings = uncachedTexts.length > 0 ? await embedTexts(uncachedTexts, embeddingModel) : []
-    fullEmbeddings = stems.map((_, i) => {
-      const cached = itemEmbeddingCache.get(i)
+    let uncachedIdx = 0
+    fullEmbeddings = stems.map((stem, i) => {
+      const cached = stemEmbeddingCache.get(stem)
       if (cached) return cached
-      const uncachedPos = uncachedIndices.indexOf(i)
-      return newEmbeddings[uncachedPos]
+      return newEmbeddings[uncachedIdx++]
     })
   } else {
     fullEmbeddings = await embedTexts(stems, embeddingModel)
   }
 ```
 
-- [ ] **Step 5: Add leakage data to scored items**
+Note: using `leakageEnabled` (not `stemEmbeddingCache.size > 0`) as the condition to avoid re-embedding when leakage guard ran but happened to flag everything.
 
-In the `scoredItems` mapping, update the `removalStage` logic to include leakage:
+- [ ] **Step 5: Add leakage metadata to scored items**
 
-```typescript
-    const removalStage = leakingIndices.has(index)
-      ? 'leakage'
-      : redundantIndices.has(index)
-        ? 'uva'
-        : unstableIndices.has(index)
-          ? 'boot_ega'
-          : 'kept'
-```
-
-And add leakage metadata:
+In the `scoredItems` mapping, add leakage metadata fields. Since leaking items were excluded from `rawCandidates` before dedup, all scored items are non-leaking. But we still store the leakage score for UI display. For items that passed leakage, their score is available from the centroid cache:
 
 ```typescript
-      leakageScore: leakingMeta.get(index)?.score,
-      leakageTarget: leakingMeta.get(index)?.target,
+      leakageScore: undefined, // Leaking items were already excluded; detailed per-item scores are a Phase 3 enhancement
+      leakageTarget: undefined,
 ```
 
-Also exclude leaking items from UVA/bootEGA processing. In the `keptAfterUvaIndices` calculation (around line 192), filter out leaking items:
-
-```typescript
-  const keptAfterUvaIndices = rawCandidates
-    .map((_, index) => index)
-    .filter(index => !redundantIndices.has(index) && !leakingIndices.has(index))
-```
+Note: leaking items don't appear in `rawCandidates` at all (they were filtered before dedup). The `leakageStats.flagged` count in `aiSnapshot` is how they surface in the funnel. Per-item leakage scores for surviving items are not critical for Phase 2 — the value is in blocking bad items, not in scoring good ones.
 
 - [ ] **Step 6: Add leakage stats to aiSnapshot.pipelineStages**
 
