@@ -573,6 +573,21 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
     throw error
   }
 
+  if (!access.scope.isPlatformAdmin && access.organizationId) {
+    const supabase = createAdminClient()
+    const { data: assignment } = await supabase
+      .from('client_assessment_assignments')
+      .select('id')
+      .eq('organization_id', access.organizationId)
+      .eq('assessment_id', assessmentId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!assignment) {
+      return { error: 'This assessment is not available for your organization' }
+    }
+  }
+
   const db = createAdminClient()
 
   // Get max display order
