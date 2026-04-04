@@ -4,9 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
+import { usePortal } from "@/components/portal-context";
 import type { CampaignDetail } from "@/app/actions/campaigns";
 
-const tabs = [
+const allTabs = [
   { label: "Overview", segment: "overview" },
   { label: "Assessments", segment: "assessments" },
   { label: "Participants", segment: "participants" },
@@ -29,14 +30,27 @@ const statusVariant: Record<
 
 export function CampaignDetailShell({
   campaign,
+  canCustomizeBranding,
   children,
 }: {
   campaign: CampaignDetail;
+  canCustomizeBranding?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { portal, href } = usePortal();
+
+  const tabs = allTabs.filter((tab) => {
+    if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
+      return false;
+    }
+    return true;
+  });
+
   const activeSegment =
     tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
+
+  const basePath = href(`/campaigns/${campaign.id}`);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -50,14 +64,13 @@ export function CampaignDetailShell({
         </Badge>
       </PageHeader>
 
-      {/* Route-based tabs */}
       <nav className="flex gap-1 border-b border-border">
         {tabs.map((tab) => {
           const isActive = activeSegment === tab.segment;
           return (
             <Link
               key={tab.segment}
-              href={`/campaigns/${campaign.id}/${tab.segment}`}
+              href={`${basePath}/${tab.segment}`}
               className={`px-4 py-2 text-sm font-medium transition-colors relative ${
                 isActive
                   ? "text-foreground"
