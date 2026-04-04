@@ -28,6 +28,8 @@ import type {
   ReportTemplate,
   CampaignReportConfig,
   ReportSnapshot,
+  ClientAssessmentAssignment,
+  ClientReportTemplateAssignment,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
 import type { ExperienceTemplateRecord } from '@/lib/experience/types'
@@ -791,5 +793,32 @@ export function mapReportSnapshotRow(row: any): ReportSnapshot {
     errorMessage: row.error_message ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapClientAssessmentAssignmentRow(row: any): ClientAssessmentAssignment {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    assessmentId: row.assessment_id,
+    quotaLimit: row.quota_limit ?? null,
+    isActive: row.is_active,
+    assignedBy: row.assigned_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapClientReportTemplateAssignmentRow(row: any): ClientReportTemplateAssignment {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    reportTemplateId: row.report_template_id,
+    isActive: row.is_active,
+    assignedBy: row.assigned_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
   }
 }

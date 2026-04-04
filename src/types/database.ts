@@ -1764,3 +1764,32 @@ export interface ReportSnapshot {
   created_at: string
   updated_at?: string
 }
+
+// --- Client Entitlements ---
+
+export interface ClientAssessmentAssignment {
+  id: string
+  organizationId: string
+  assessmentId: string
+  quotaLimit: number | null // null = unlimited
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ClientReportTemplateAssignment {
+  id: string
+  organizationId: string
+  reportTemplateId: string
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
+
+/** Assessment assignment enriched with usage data and assessment metadata */
+export interface AssessmentAssignmentWithUsage extends ClientAssessmentAssignment {
+  assessmentName: string
+  quotaUsed: number
+}
