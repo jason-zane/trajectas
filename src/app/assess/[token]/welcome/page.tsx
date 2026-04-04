@@ -26,7 +26,7 @@ export default async function WelcomePage({
   const { campaign, participant, assessments, sessions } = result.data!;
 
   // Load brand config for the campaign's organization
-  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const brandConfig = await getEffectiveBrand(campaign.organizationId, campaign.id);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
   // Load experience template

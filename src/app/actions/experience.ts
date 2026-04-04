@@ -332,7 +332,6 @@ export async function resetExperienceToDefault(
 export async function saveConsent(
   token: string,
   participantId: string,
-  ip: string
 ): Promise<{ error?: string }> {
   try {
     await requireParticipantRuntimeParticipantAccess(token, participantId)
@@ -342,6 +341,14 @@ export async function saveConsent(
     }
     throw error
   }
+
+  // Capture client IP server-side from request headers
+  const { headers } = await import('next/headers')
+  const headersList = await headers()
+  const ip =
+    headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    headersList.get('x-real-ip') ??
+    'unknown'
 
   const db = createAdminClient()
   const { error } = await db

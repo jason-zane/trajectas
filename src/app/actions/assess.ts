@@ -492,7 +492,73 @@ export async function submitSession(token: string, sessionId: string) {
     }
   }
 
+  // Trigger report generation for any pending snapshots created by DB trigger.
+  // Fire-and-forget — don't block the participant response.
+  triggerReportGeneration(sessionId)
+
   return { success: true as const }
+}
+
+/**
+ * Fire-and-forget: trigger report generation for all pending snapshots
+ * created by the DB trigger after session completion.
+ *
+ * Uses internal API key to bypass admin auth since this runs in
+ * participant context (no admin session).
+ */
+export async function triggerReportGeneration(sessionId: string): Promise<void> {
+  const apiKey = process.env.INTERNAL_API_KEY
+  if (!apiKey) {
+    console.warn('[reports] INTERNAL_API_KEY not set — skipping auto-generation')
+    return
+  }
+
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-key': apiKey,
+      },
+      body: JSON.stringify({ sessionId }),
+    })
+  } catch (error) {
+    // Non-fatal — snapshots remain pending for manual retry
+    console.error('[reports] Auto-generation trigger failed:', error)
+  }
+}
+
+/**
+ * Get the participant-facing report snapshot for completed sessions.
+ * Called from the participant runtime — no admin auth required,
+ * validated via access token ownership of the session.
+ */
+export async function getParticipantReportSnapshot(
+  token: string,
+): Promise<{ renderedData: unknown[]; status: string } | null> {
+  const result = await validateAccessToken(token)
+  if (result.error || !result.data) return null
+
+  const completedSessions = result.data.sessions.filter(
+    (s) => s.status === 'completed',
+  )
+  if (completedSessions.length === 0) return null
+
+  const db = createAdminClient()
+  const sessionIds = completedSessions.map((s) => s.id)
+
+  const { data } = await db
+    .from('report_snapshots')
+    .select('rendered_data, status')
+    .in('participant_session_id', sessionIds)
+    .eq('audience_type', 'participant')
+    .in('status', ['ready', 'released'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return null
+  return { renderedData: data.rendered_data ?? [], status: data.status }
 }
 
 // ---------------------------------------------------------------------------

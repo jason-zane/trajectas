@@ -1,7 +1,9 @@
 "use client";
 
 import { Download, Printer } from "lucide-react";
+import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
+import type { ResolvedBlockData } from "@/lib/reports/types";
 
 interface ReportExportScreenProps {
   content: ReportContent;
@@ -11,6 +13,8 @@ interface ReportExportScreenProps {
   brandLogoUrl?: string;
   generatedAt: string;
   isReady: boolean;
+  /** When provided, renders the actual generated report for print/export */
+  renderedData?: unknown[];
 }
 
 export function ReportExportScreen({
@@ -21,7 +25,10 @@ export function ReportExportScreen({
   brandLogoUrl,
   generatedAt,
   isReady,
+  renderedData,
 }: ReportExportScreenProps) {
+  const hasReport = isReady && renderedData && renderedData.length > 0;
+
   return (
     <div className="min-h-dvh bg-[var(--brand-neutral-50,hsl(var(--background)))] px-4 py-8 sm:px-6 lg:px-8 print:bg-white print:px-0 print:py-0">
       <div className="mx-auto max-w-4xl space-y-6 print:max-w-none print:space-y-0">
@@ -35,15 +42,16 @@ export function ReportExportScreen({
               {content.heading}
             </h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-              {isReady
-                ? "This export surface is separate from the interactive report view. Use your browser print dialog to save a PDF while the dedicated export pipeline is being built."
-                : "Export access is separate from report viewing, but the report content is still in holding mode. The final PDF/export pipeline will replace this interim page."}
+              {hasReport
+                ? "Use your browser print dialog to save a PDF, or download from the admin dashboard."
+                : "The report is still being generated. Please check back shortly."}
             </p>
           </div>
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            disabled={!hasReport}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Printer className="size-4" />
             Print / Save PDF
@@ -55,7 +63,7 @@ export function ReportExportScreen({
             <div className="flex items-start justify-between gap-6">
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  Talent Fit export
+                  {brandName ?? "TalentFit"} report
                 </p>
                 <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                   {content.heading}
@@ -107,18 +115,24 @@ export function ReportExportScreen({
             </div>
           </section>
 
-          <section className="border-t border-border/70 px-8 py-8 print:px-0">
-            <h3 className="text-lg font-semibold text-foreground">
-              Export readiness
-            </h3>
-            <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 p-5">
-              <p className="text-sm leading-6 text-muted-foreground">
-                {isReady
-                  ? "This report is currently using the shared report-content contract. A dedicated PDF/export renderer can replace this page later without changing portal permissions or audit behavior."
-                  : "The participant report content is still configured in holding mode. Export access is now separated and auditable, but the final exported narrative and PDF composition have not been connected yet."}
-              </p>
-            </div>
-          </section>
+          {hasReport ? (
+            <section className="border-t border-border/70 px-8 py-8 print:px-0">
+              <ReportRenderer blocks={renderedData as ResolvedBlockData[]} />
+            </section>
+          ) : (
+            <section className="border-t border-border/70 px-8 py-8 print:px-0">
+              <h3 className="text-lg font-semibold text-foreground">
+                Export readiness
+              </h3>
+              <div className="mt-4 rounded-2xl border border-border/70 bg-muted/20 p-5">
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {isReady
+                    ? "Report data is ready but contains no rendered blocks. This may indicate a template configuration issue."
+                    : "The report is still being generated. Once complete, the full report content will appear here for export."}
+                </p>
+              </div>
+            </section>
+          )}
         </article>
       </div>
     </div>

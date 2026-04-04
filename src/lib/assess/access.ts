@@ -13,7 +13,11 @@ export function getCampaignAccessError(
     return "Campaign not found or unavailable.";
   }
 
-  if (!["active", "paused"].includes(campaign.status)) {
+  if (campaign.status === "paused") {
+    return "This campaign is currently paused. Please try again later.";
+  }
+
+  if (campaign.status !== "active") {
     return "This campaign is not currently accepting responses.";
   }
 

@@ -21,16 +21,22 @@ export const maxDuration = 300
  * background generation. Admin/retry calls await the response.
  */
 export async function POST(request: Request) {
-  try {
-    await requireAdminScope()
-  } catch (error) {
-    if (error instanceof AuthenticationRequiredError) {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
+  // Allow internal server-to-server calls (e.g. from submitSession in participant context)
+  const internalKey = request.headers.get('x-internal-key')
+  const isInternal = internalKey && internalKey === process.env.INTERNAL_API_KEY
+
+  if (!isInternal) {
+    try {
+      await requireAdminScope()
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        return Response.json({ error: 'Authentication required' }, { status: 401 })
+      }
+      if (error instanceof AuthorizationError) {
+        return Response.json({ error: error.message }, { status: 403 })
+      }
+      throw error
     }
-    if (error instanceof AuthorizationError) {
-      return Response.json({ error: error.message }, { status: 403 })
-    }
-    throw error
   }
 
   try {

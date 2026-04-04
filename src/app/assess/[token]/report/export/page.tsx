@@ -39,7 +39,7 @@ export default async function ReportExportPage({
     redirect(`/assess/${token}/complete`);
   }
 
-  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const brandConfig = await getEffectiveBrand(campaign.organizationId, campaign.id);
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {
     participantName: participant.firstName,

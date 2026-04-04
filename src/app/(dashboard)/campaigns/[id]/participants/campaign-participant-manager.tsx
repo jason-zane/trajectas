@@ -26,6 +26,7 @@ import {
   inviteParticipant,
   bulkInviteParticipants,
   removeParticipant,
+  sendParticipantInviteEmail,
 } from "@/app/actions/campaigns";
 import type { CampaignParticipant } from "@/types/database";
 
@@ -114,6 +115,15 @@ export function CampaignParticipantManager({
     toast.success("Assessment link copied");
   }
 
+  async function handleSendEmail(participantId: string, email: string) {
+    const result = await sendParticipantInviteEmail(campaignId, participantId);
+    if (!result.success) {
+      toast.error(result.error ?? "Failed to send invite email");
+      return;
+    }
+    toast.success(`Invite sent to ${email}`);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -185,6 +195,15 @@ export function CampaignParticipantManager({
                   onClick={() => copyLink(c.accessToken)}
                 >
                   <Copy className="size-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8"
+                  title={c.status === "invited" ? "Send invite email" : "Resend invite email"}
+                  onClick={() => handleSendEmail(c.id, c.email)}
+                >
+                  <Mail className="size-3.5" />
                 </Button>
                 <Button
                   size="icon"

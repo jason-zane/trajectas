@@ -37,6 +37,8 @@ interface SectionWrapperProps {
   sectionIntroContent?: SectionIntroContent;
   privacyUrl?: string;
   termsUrl?: string;
+  /** Whether to show the progress bar. Defaults to true. */
+  showProgress?: boolean;
 }
 
 /** Formats that auto-advance on selection (single-select). */
@@ -86,6 +88,7 @@ export function SectionWrapper({
   sectionIntroContent,
   privacyUrl,
   termsUrl,
+  showProgress = true,
 }: SectionWrapperProps) {
   const router = useRouter();
 
@@ -316,7 +319,7 @@ export function SectionWrapper({
       </header>
 
       {/* Progress bar */}
-      <ProgressBar currentIndex={globalIndex} totalItems={totalItems} />
+      {showProgress && <ProgressBar currentIndex={globalIndex} totalItems={totalItems} />}
 
       {/* Main content area */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">

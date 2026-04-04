@@ -25,9 +25,9 @@ export default async function TokenPage({
   // Load experience template for flow routing
   const experience = await getEffectiveExperience(campaign.id);
 
-  // Check for in-progress session to resume
+  // Check for in-progress session to resume (only if campaign allows resume)
   const inProgress = sessions.find((s) => s.status === "in_progress");
-  if (inProgress) {
+  if (inProgress && campaign.allowResume) {
     redirect(`/assess/${token}/section/0`);
   }
 

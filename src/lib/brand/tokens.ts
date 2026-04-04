@@ -143,7 +143,13 @@ const SCALE_STEPS: Record<string, { l: number; chromaScale: number }> = {
   '900': { l: 0.25, chromaScale: 0.7 },
 }
 
-/** Generate a 10-step OKLCH scale from a base color. */
+/**
+ * Generate a 10-step OKLCH scale from a base color.
+ *
+ * Uses fixed lightness steps so that surface/text/border tokens always
+ * land at predictable positions regardless of the input color's lightness.
+ * Chroma and hue are inherited from the base color.
+ */
 function generateScale(base: OKLCH): Record<string, OKLCH> {
   const scale: Record<string, OKLCH> = {}
   for (const [step, { l, chromaScale }] of Object.entries(SCALE_STEPS)) {
@@ -302,7 +308,7 @@ export function generateCSSTokens(config: BrandConfig): CSSTokens {
   tokens['--brand-text-muted'] = oklchCss(primaryScale['600'])
   tokens['--brand-border'] = oklchCss(primaryScale['200'])
   tokens['--brand-ring'] = oklchCss(primaryScale['500'])
-  tokens['--brand-primary'] = oklchCss(primaryScale['600'])
+  tokens['--brand-primary'] = oklchCss(primary)
   tokens['--brand-primary-foreground'] = oklchCss({ l: 0.99, c: 0, h: 0 })
 
   // Neutral tokens

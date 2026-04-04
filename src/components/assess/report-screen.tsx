@@ -4,7 +4,9 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Clock, ArrowRight, ExternalLink } from "lucide-react";
+import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
+import type { ResolvedBlockData } from "@/lib/reports/types";
 
 interface ReportScreenProps {
   content: ReportContent;
@@ -14,6 +16,8 @@ interface ReportScreenProps {
   nextUrl?: string | null;
   privacyUrl?: string;
   termsUrl?: string;
+  /** When provided, renders the actual generated report instead of placeholder */
+  renderedData?: unknown[];
 }
 
 export function ReportScreen({
@@ -24,7 +28,9 @@ export function ReportScreen({
   nextUrl,
   privacyUrl,
   termsUrl,
+  renderedData,
 }: ReportScreenProps) {
+  const hasReport = renderedData && renderedData.length > 0;
   const isHolding = content.reportMode === "holding";
   const [countdown, setCountdown] = useState(5);
 
@@ -46,6 +52,88 @@ export function ReportScreen({
     return () => clearInterval(interval);
   }, [content.redirectUrl]);
 
+  // Render the actual report when data is available
+  if (hasReport) {
+    return (
+      <div className="flex min-h-dvh flex-col">
+        <header
+          className="flex h-14 items-center px-4 sm:px-6 border-b"
+          style={{
+            background: "var(--brand-neutral-50, hsl(var(--background)))",
+            borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
+          }}
+        >
+          <div className="flex items-center gap-2.5">
+            {brandLogoUrl ? (
+              <Image
+                src={brandLogoUrl}
+                alt={brandName ?? "Logo"}
+                width={140}
+                height={28}
+                className="h-7 w-auto object-contain"
+                unoptimized
+              />
+            ) : (
+              <div className="flex items-center gap-2">
+                <div
+                  className="flex size-7 items-center justify-center rounded-lg"
+                  style={{
+                    background:
+                      "var(--brand-surface, hsl(var(--primary) / 0.1))",
+                  }}
+                >
+                  <svg
+                    className="size-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                      color: "var(--brand-primary, hsl(var(--primary)))",
+                    }}
+                  >
+                    <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <span
+                  className="text-sm font-semibold tracking-tight"
+                  style={{
+                    color: "var(--brand-text, hsl(var(--foreground)))",
+                  }}
+                >
+                  {brandName ?? "TalentFit"}
+                </span>
+              </div>
+            )}
+          </div>
+        </header>
+
+        <main className="flex-1 px-4 py-8 sm:px-6">
+          <div className="mx-auto max-w-3xl">
+            <ReportRenderer blocks={renderedData as ResolvedBlockData[]} />
+          </div>
+        </main>
+
+        <footer className="flex items-center justify-center gap-3 px-4 py-4">
+          <span
+            className="text-xs"
+            style={{
+              color:
+                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            }}
+          >
+            {content.footerText ??
+              (isCustomBrand ? "Powered by TalentFit" : "TalentFit")}
+          </span>
+        </footer>
+      </div>
+    );
+  }
+
+  // Placeholder / holding screen when report is not yet available
   return (
     <div className="flex min-h-dvh flex-col">
       <header
@@ -159,7 +247,7 @@ export function ReportScreen({
                   "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
               }}
             >
-              Results view will be available once the scoring pipeline is connected.
+              Your report is being prepared. This usually takes a moment.
             </p>
           )}
 

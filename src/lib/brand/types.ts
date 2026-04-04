@@ -11,7 +11,7 @@ export type NeutralTemperature = 'warm' | 'neutral' | 'cool'
 export type BorderRadiusPreset = 'sharp' | 'soft' | 'round'
 
 /** Who owns a brand config. */
-export type BrandOwnerType = 'platform' | 'organization'
+export type BrandOwnerType = 'platform' | 'organization' | 'campaign'
 
 /** Portal accent colors — one hex per portal context. */
 export interface PortalAccents {

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { validateAccessToken } from "@/app/actions/assess";
+import { validateAccessToken, getParticipantReportSnapshot } from "@/app/actions/assess";
 import { getEffectiveBrand } from "@/app/actions/brand";
 import { getEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
@@ -30,7 +30,10 @@ export default async function ReportPage({
     redirect(`/assess/${token}/complete`);
   }
 
-  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const [brandConfig, snapshot] = await Promise.all([
+    getEffectiveBrand(campaign.organizationId, campaign.id),
+    getParticipantReportSnapshot(token),
+  ]);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "report");
@@ -68,6 +71,7 @@ export default async function ReportPage({
         nextUrl={nextUrl}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
+        renderedData={snapshot?.renderedData}
       />
     </>
   );

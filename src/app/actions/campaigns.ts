@@ -728,6 +728,90 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
   return { success: true as const, id: data.id, accessToken: data.access_token }
 }
 
+/**
+ * Send (or re-send) the invite email for a participant.
+ * Separate from inviteParticipant so we can resend without re-creating the row.
+ */
+export async function sendParticipantInviteEmail(
+  campaignId: string,
+  participantId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { success: false, error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+
+  const [participantResult, campaignResult] = await Promise.all([
+    db
+      .from('campaign_participants')
+      .select('email, first_name, access_token')
+      .eq('id', participantId)
+      .eq('campaign_id', campaignId)
+      .single(),
+    db
+      .from('campaigns')
+      .select('title, description, organization_id')
+      .eq('id', campaignId)
+      .single(),
+  ])
+
+  if (participantResult.error || !participantResult.data) {
+    return { success: false, error: 'Participant not found' }
+  }
+  if (campaignResult.error || !campaignResult.data) {
+    return { success: false, error: 'Campaign not found' }
+  }
+
+  const participant = participantResult.data
+  const campaign = campaignResult.data
+
+  const { getEffectiveBrand } = await import('@/app/actions/brand')
+  const brand = await getEffectiveBrand(campaign.organization_id, campaignId)
+  const assessmentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/assess/${participant.access_token}`
+
+  try {
+    const { sendEmail } = await import('@/lib/email/provider')
+    const { InviteEmail } = await import('@/lib/email/templates/invite')
+
+    await sendEmail({
+      to: participant.email,
+      subject: `You've been invited: ${campaign.title}`,
+      react: InviteEmail({
+        participantFirstName: participant.first_name ?? undefined,
+        campaignTitle: campaign.title,
+        campaignDescription: campaign.description ?? undefined,
+        assessmentUrl,
+        brandName: brand.name ?? 'TalentFit',
+        brandLogoUrl: brand.logoUrl ?? undefined,
+        primaryColor: brand.primaryColor,
+        textColor: brand.emailStyles?.textColor,
+        footerTextColor: brand.emailStyles?.footerTextColor,
+      }),
+    })
+
+    // Update invited_at to track last send time
+    await db
+      .from('campaign_participants')
+      .update({ invited_at: new Date().toISOString() })
+      .eq('id', participantId)
+
+    revalidatePath(`/campaigns/${campaignId}`)
+    return { success: true }
+  } catch (error) {
+    console.error('[email] Failed to send invite:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Email delivery failed',
+    }
+  }
+}
+
 export async function bulkInviteParticipants(
   campaignId: string,
   participants: { email: string; firstName?: string; lastName?: string }[],

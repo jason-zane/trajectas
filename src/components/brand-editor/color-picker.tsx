@@ -13,8 +13,8 @@ interface ColorPickerProps {
 }
 
 /**
- * Generate a 10-step lightness scale from a hex color for preview chips.
- * Mirrors the SCALE_STEPS in tokens.ts.
+ * Generate a 10-step lightness scale preview using fixed lightness positions.
+ * Matches the `generateScale()` algorithm in tokens.ts exactly.
  */
 function generateScalePreview(hex: string): { step: string; color: string }[] {
   const HEX_REGEX = /^#[0-9a-fA-F]{6}$/
@@ -22,17 +22,18 @@ function generateScalePreview(hex: string): { step: string; color: string }[] {
 
   try {
     const base = hexToOklch(hex)
+
     const steps: { step: string; l: number; chromaScale: number }[] = [
       { step: "50", l: 0.97, chromaScale: 0.25 },
       { step: "100", l: 0.93, chromaScale: 0.35 },
       { step: "200", l: 0.88, chromaScale: 0.5 },
-      { step: "300", l: 0.8, chromaScale: 0.65 },
-      { step: "400", l: 0.7, chromaScale: 0.85 },
-      { step: "500", l: 0.6, chromaScale: 1.0 },
+      { step: "300", l: 0.80, chromaScale: 0.65 },
+      { step: "400", l: 0.70, chromaScale: 0.85 },
+      { step: "500", l: 0.60, chromaScale: 1.0 },
       { step: "600", l: 0.52, chromaScale: 1.0 },
       { step: "700", l: 0.44, chromaScale: 0.95 },
       { step: "800", l: 0.35, chromaScale: 0.85 },
-      { step: "900", l: 0.25, chromaScale: 0.7 },
+      { step: "900", l: 0.25, chromaScale: 0.70 },
     ]
 
     return steps.map(({ step, l, chromaScale }) => ({
@@ -51,7 +52,6 @@ export function ColorPicker({ label, description, value, onChange }: ColorPicker
   const handleHexInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       let v = e.target.value
-      // Ensure it starts with #
       if (v && !v.startsWith("#")) {
         v = "#" + v
       }
@@ -97,7 +97,7 @@ export function ColorPicker({ label, description, value, onChange }: ColorPicker
         </label>
       </div>
 
-      {/* 10-step scale preview */}
+      {/* Scale preview — fixed lightness steps */}
       {scale.length > 0 && (
         <div className="flex gap-1 pt-1">
           {scale.map(({ step, color }) => (

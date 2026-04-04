@@ -18,15 +18,21 @@ describe("assessment access helpers", () => {
       getCampaignAccessError({ status: "active", opensAt: "2026-04-01T00:00:00.000Z" }, now)
     ).toBe("This campaign has not opened yet.");
     expect(
-      getCampaignAccessError({ status: "paused", closesAt: "2026-03-01T00:00:00.000Z" }, now)
+      getCampaignAccessError({ status: "active", closesAt: "2026-03-01T00:00:00.000Z" }, now)
     ).toBe("This campaign has closed.");
   });
 
-  it("allows active or paused campaigns and flags revoked participant states", () => {
+  it("blocks paused campaigns with a specific message", () => {
+    const now = new Date("2026-03-31T12:00:00.000Z");
+    expect(getCampaignAccessError({ status: "paused" }, now)).toBe(
+      "This campaign is currently paused. Please try again later."
+    );
+  });
+
+  it("allows active campaigns and flags revoked participant states", () => {
     const now = new Date("2026-03-31T12:00:00.000Z");
 
     expect(getCampaignAccessError({ status: "active" }, now)).toBeNull();
-    expect(getCampaignAccessError({ status: "paused" }, now)).toBeNull();
     expect(getParticipantAccessError("withdrawn")).toBe(
       "Your access to this campaign has been revoked."
     );

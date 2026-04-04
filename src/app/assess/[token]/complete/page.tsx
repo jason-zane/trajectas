@@ -28,7 +28,8 @@ export default async function CompletePage({
       campaignId = result.data.campaign.id;
       if (result.data.campaign.organizationId) {
         brandConfig = await getEffectiveBrand(
-          result.data.campaign.organizationId
+          result.data.campaign.organizationId,
+          result.data.campaign.id,
         );
         isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
       }

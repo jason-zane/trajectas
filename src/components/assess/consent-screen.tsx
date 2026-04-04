@@ -41,7 +41,7 @@ export function ConsentScreen({
     setSubmitting(true);
 
     // Save consent — IP will be captured server-side
-    await saveConsent(token, participantId, "client");
+    await saveConsent(token, participantId);
 
     router.push(nextUrl);
   }

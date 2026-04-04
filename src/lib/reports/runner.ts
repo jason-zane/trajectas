@@ -20,6 +20,7 @@ import { enhanceNarrative } from './ai-narrative'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { DEFAULT_REPORT_THEME } from './presentation'
+import { getEffectiveBrand } from '@/app/actions/brand'
 import type { ReportTheme } from './presentation'
 import type { BlockConfig, ResolvedBlockData, BandResult } from './types'
 import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig } from './types'
@@ -105,10 +106,39 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       lastName: sessionRow.profiles?.last_name,
     }
 
-    // Resolve brand theme for the report
-    // TODO: when brand_mode support is fully wired, resolve from campaign_report_config.brand_mode
-    // For now, use the platform default report theme
-    const resolvedBrandTheme: ReportTheme = DEFAULT_REPORT_THEME
+    // Resolve brand theme for the report based on campaign_report_config.brand_mode
+    let resolvedBrandTheme: ReportTheme = DEFAULT_REPORT_THEME
+
+    if (sessionData.campaignId) {
+      const { data: reportConfig } = await db
+        .from('campaign_report_config')
+        .select('brand_mode')
+        .eq('campaign_id', sessionData.campaignId)
+        .maybeSingle()
+
+      const brandMode = reportConfig?.brand_mode ?? 'platform'
+
+      if (brandMode === 'client') {
+        // Resolve from organisation brand
+        const { data: campaign } = await db
+          .from('campaigns')
+          .select('organization_id')
+          .eq('id', sessionData.campaignId)
+          .single()
+        if (campaign?.organization_id) {
+          const brand = await getEffectiveBrand(campaign.organization_id)
+          if (brand.reportTheme) {
+            resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
+          }
+        }
+      } else if (brandMode === 'custom') {
+        // Resolve from campaign-specific brand
+        const brand = await getEffectiveBrand(null, sessionData.campaignId)
+        if (brand.reportTheme) {
+          resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
+        }
+      }
+    }
 
     // Fetch all taxonomy entities needed by score blocks
     const entityIds = extractEntityIds(blocks)

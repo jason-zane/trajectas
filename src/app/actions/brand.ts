@@ -58,15 +58,25 @@ export async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
 }
 
 /**
- * Resolve the effective brand for a given organization.
+ * Resolve the effective brand for a given context.
  *
  * Resolution order:
- * 1. Organization-specific config (if exists)
- * 2. Platform default config
- * 3. Hardcoded defaults (fallback)
+ * 1. Campaign-specific config (if campaignId provided)
+ * 2. Organization-specific config (if orgId provided)
+ * 3. Platform default config
+ * 4. Hardcoded defaults (fallback)
  */
-export async function getEffectiveBrand(orgId?: string | null): Promise<BrandConfig> {
-  // Try org-specific first
+export async function getEffectiveBrand(
+  orgId?: string | null,
+  campaignId?: string | null,
+): Promise<BrandConfig> {
+  // Try campaign-specific first
+  if (campaignId) {
+    const campaignBrand = await getBrandConfig('campaign', campaignId)
+    if (campaignBrand) return campaignBrand.config
+  }
+
+  // Try org-specific
   if (orgId) {
     const orgBrand = await getBrandConfig('organization', orgId)
     if (orgBrand) return orgBrand.config

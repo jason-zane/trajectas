@@ -84,7 +84,7 @@ export default async function SectionPage({
   const section = sections[clampedIdx];
 
   // Load brand config for the campaign's organization
-  const brandConfig = await getEffectiveBrand(campaign.organizationId);
+  const brandConfig = await getEffectiveBrand(campaign.organizationId, campaign.id);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
   // Load experience template for runner content + flow routing
@@ -136,6 +136,7 @@ export default async function SectionPage({
         sectionIntroContent={sectionIntroContent}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
+        showProgress={campaign.showProgress}
       />
     </>
   );
