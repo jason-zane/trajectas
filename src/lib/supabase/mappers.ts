@@ -189,6 +189,7 @@ export function mapOrganizationRow(row: any): Organization {
     industry: row.industry ?? undefined,
     sizeRange: row.size_range ?? undefined,
     isActive: row.is_active,
+    canCustomizeBranding: row.can_customize_branding ?? false,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,

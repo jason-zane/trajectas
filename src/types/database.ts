@@ -220,6 +220,8 @@ export interface Organization {
   sizeRange?: string
   /** Whether the organisation account is currently active. */
   isActive: boolean
+  /** Whether this client can customise their own branding in the client portal. */
+  canCustomizeBranding?: boolean
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
