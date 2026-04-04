@@ -8,6 +8,7 @@ import {
   canAccessClient,
   getAccessibleCampaignIds,
   requireCampaignAccess,
+  requireOrganizationAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -973,6 +974,65 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
   })
 
   revalidatePath(`/campaigns/${campaignId}`)
+}
+
+// ---------------------------------------------------------------------------
+// Cross-campaign participant view (client portal)
+// ---------------------------------------------------------------------------
+
+export type OrganizationParticipant = {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  status: string
+  startedAt: string | null
+  completedAt: string | null
+  campaignId: string
+  campaignTitle: string
+  created_at: string
+}
+
+export async function getParticipantsForOrganization(
+  organizationId: string,
+): Promise<OrganizationParticipant[]> {
+  await requireOrganizationAccess(organizationId)
+  const db = createAdminClient()
+
+  // First get all non-deleted campaigns for this organization
+  const { data: campaigns, error: campaignsError } = await db
+    .from('campaigns')
+    .select('id, title')
+    .eq('organization_id', organizationId)
+    .is('deleted_at', null)
+
+  if (campaignsError) throw new Error(campaignsError.message)
+  if (!campaigns || campaigns.length === 0) return []
+
+  const campaignIds = campaigns.map((c) => c.id)
+  const campaignMap = new Map(campaigns.map((c) => [c.id, c.title]))
+
+  // Then get all participants for those campaigns
+  const { data: participants, error: participantsError } = await db
+    .from('campaign_participants')
+    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at')
+    .in('campaign_id', campaignIds)
+    .order('created_at', { ascending: false })
+
+  if (participantsError) throw new Error(participantsError.message)
+
+  return (participants ?? []).map((row) => ({
+    id: row.id,
+    email: row.email,
+    firstName: row.first_name,
+    lastName: row.last_name,
+    status: row.status,
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    campaignId: row.campaign_id,
+    campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+    created_at: row.created_at,
+  }))
 }
 
 // ---------------------------------------------------------------------------
