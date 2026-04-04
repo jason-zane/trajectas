@@ -17,6 +17,7 @@ import {
   buildItemGenerationPrompt,
   parseGeneratedItems,
 } from './prompts/item-generation'
+import { buildCritiquePrompt, parseCritiqueResponse } from './prompts/item-critique'
 import {
   itemCorrelationMatrix,
   sparsifyEmbeddings,
@@ -67,6 +68,22 @@ export async function runPipeline(
   const itemPrompt = await getActiveSystemPrompt(promptPurpose)
   const model = config.generationModel ?? taskConfig.modelId
   const embeddingModel = config.embeddingModel || (await getModelForTask('embedding')).modelId
+
+  // Tier 2: Item Critique model (separate from generation)
+  const critiqueEnabled = config.enableItemCritique !== false
+  let critiqueModel: string | undefined
+  let critiqueSystemPrompt: string | undefined
+  if (critiqueEnabled) {
+    try {
+      const critiqueTask = await getModelForTask('item_critique')
+      const critiquePromptData = await getActiveSystemPrompt('item_critique')
+      critiqueModel = critiqueTask.modelId
+      critiqueSystemPrompt = critiquePromptData.content
+    } catch {
+      console.warn('[pipeline] Item critique model/prompt not configured, skipping critique stage')
+    }
+  }
+
   const estimator: NetworkEstimator = config.networkEstimator ?? 'tmfg'
   const responseFormatDesc =
     options.responseFormatDescription ??
@@ -88,6 +105,10 @@ export async function runPipeline(
   }> = []
   const seenByConstruct = new Map<string, Set<string>>()
   const MAX_CONSECUTIVE_FAILURES = 5
+
+  // Tier 2: Critique stage tracking
+  const critiqueStats = { itemsReviewed: 0, kept: 0, revised: 0, dropped: 0, critiqueFailed: false }
+  const critiqueVerdicts = new Map<string, { verdict: 'kept' | 'revised' | 'dropped'; reason?: string; originalStem?: string }>()
 
   for (const construct of constructs) {
     const target = config.targetItemsPerConstruct
@@ -143,10 +164,83 @@ export async function runPipeline(
         }
 
         consecutiveFailures = 0
+
+        // Tier 2: Item Critique — review batch before deduplication
+        let critiquedItems = parsed
+        if (critiqueEnabled && critiqueModel && critiqueSystemPrompt) {
+          try {
+            // Reuse the contrastConstructs already computed at the top of the batch loop
+            const critiquePrompt = buildCritiquePrompt({
+              items: parsed,
+              constructName: construct.name,
+              constructDefinition: construct.definition,
+              constructDescription: construct.description,
+              constructIndicatorsLow: construct.indicatorsLow,
+              constructIndicatorsMid: construct.indicatorsMid,
+              constructIndicatorsHigh: construct.indicatorsHigh,
+              contrastConstructs: contrastConstructs.map((c) => ({
+                name: c.name,
+                definition: c.definition,
+              })),
+            })
+
+            const critiqueResponse = await openRouterProvider.complete({
+              model: critiqueModel,
+              systemPrompt: critiqueSystemPrompt,
+              prompt: critiquePrompt,
+              temperature: 0.3,
+              maxTokens: 4096,
+              responseFormat: 'json',
+            })
+
+            totalInputTokens += critiqueResponse.usage.inputTokens
+            totalOutputTokens += critiqueResponse.usage.outputTokens
+
+            const verdicts = parseCritiqueResponse(critiqueResponse.content)
+            if (verdicts) {
+              critiqueStats.itemsReviewed += parsed.length
+              const survivingItems: typeof parsed = []
+
+              for (const item of parsed) {
+                const verdict = verdicts.find((v) => v.originalStem === item.stem)
+                if (!verdict || verdict.verdict === 'keep') {
+                  critiqueStats.kept++
+                  critiqueVerdicts.set(item.stem, { verdict: 'kept' })
+                  survivingItems.push(item)
+                } else if (verdict.verdict === 'revise' && verdict.revisedStem) {
+                  critiqueStats.revised++
+                  critiqueVerdicts.set(verdict.revisedStem, {
+                    verdict: 'revised',
+                    reason: verdict.reason,
+                    originalStem: item.stem,
+                  })
+                  survivingItems.push({ ...item, stem: verdict.revisedStem })
+                } else {
+                  critiqueStats.dropped++
+                  critiqueVerdicts.set(item.stem, { verdict: 'dropped', reason: verdict.reason })
+                }
+              }
+
+              critiquedItems = survivingItems
+              // If critique emptied the batch, count it as a failure to prevent infinite loops
+              if (critiquedItems.length === 0) {
+                consecutiveFailures++
+              }
+              console.log(`[pipeline] ${construct.name} batch ${attempts} critique: ${parsed.length} reviewed, ${critiqueStats.dropped} dropped, ${critiqueStats.revised} revised`)
+            } else {
+              console.warn(`[pipeline] ${construct.name} batch ${attempts}: critique response unparseable, keeping all items`)
+              critiqueStats.critiqueFailed = true
+            }
+          } catch (err) {
+            console.warn(`[pipeline] ${construct.name} batch ${attempts}: critique failed (${err instanceof Error ? err.message : 'unknown'}), keeping all items`)
+            critiqueStats.critiqueFailed = true
+          }
+        }
+
         const constructSeen = seenByConstruct.get(construct.id) ?? new Set<string>(existingNormalized)
         let duplicatesInBatch = 0
 
-        for (const item of parsed) {
+        for (const item of critiquedItems) {
           const normalizedStem = normalizeStem(item.stem)
           if (!normalizedStem || constructSeen.has(normalizedStem)) {
             duplicatesInBatch++
@@ -182,6 +276,10 @@ export async function runPipeline(
     if (accumulated.length < target) {
       console.warn(`[pipeline] ${construct.name}: finished with ${accumulated.length}/${target} items after ${attempts} attempts`)
     }
+  }
+
+  if (critiqueEnabled) {
+    await onProgress('item_critique', 25, { itemsGenerated: rawCandidates.length })
   }
 
   await onProgress('embedding', 30, { itemsGenerated: rawCandidates.length })
@@ -369,6 +467,9 @@ export async function runPipeline(
       removalSweep,
       isRedundant: redundantIndices.has(index),
       isUnstable: unstableIndices.has(index),
+      critiqueVerdict: critiqueVerdicts.get(candidate.stem)?.verdict,
+      critiqueReason: critiqueVerdicts.get(candidate.stem)?.reason,
+      critiqueOriginalStem: critiqueVerdicts.get(candidate.stem)?.originalStem,
     }
   })
 
@@ -402,6 +503,9 @@ export async function runPipeline(
         },
         uvaSweeps: uvaSweepCount,
         bootSweeps,
+        pipelineStages: {
+          ...(critiqueEnabled ? { critique: critiqueStats } : {}),
+        },
       },
       tokenUsage: {
         inputTokens: totalInputTokens,
