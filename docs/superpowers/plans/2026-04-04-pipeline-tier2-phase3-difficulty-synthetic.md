@@ -488,13 +488,13 @@ export function computeCronbachAlpha(matrix: number[][]): number {
     for (let i = 0; i < n; i++) {
       itemVariances[j] += (matrix[i][j] - itemMeans[j]) ** 2
     }
-    itemVariances[j] /= n
+    itemVariances[j] /= (n - 1)
   }
 
   // Total score variance
   const totalScores = matrix.map((row) => row.reduce((a, b) => a + b, 0))
   const totalMean = totalScores.reduce((a, b) => a + b, 0) / n
-  const totalVariance = totalScores.reduce((sum, s) => sum + (s - totalMean) ** 2, 0) / n
+  const totalVariance = totalScores.reduce((sum, s) => sum + (s - totalMean) ** 2, 0) / (n - 1)
 
   if (totalVariance === 0) return 0
 
@@ -544,7 +544,7 @@ export interface SyntheticValidationResult {
   respondentsGenerated: number
   estimatedAlpha: Record<string, number>
   itemTotalCorrelations: Record<string, number[]>
-  dimensionalityMatch: boolean
+  constructsAnalyzed: number
   warnings: string[]
 }
 
@@ -570,7 +570,7 @@ export async function runSyntheticValidation(
       respondentsGenerated: 0,
       estimatedAlpha: {},
       itemTotalCorrelations: {},
-      dimensionalityMatch: false,
+      constructsAnalyzed: 0,
       warnings: ['Synthetic respondent model/prompt not configured'],
     }
   }
@@ -582,7 +582,7 @@ export async function runSyntheticValidation(
       respondentsGenerated: 0,
       estimatedAlpha: {},
       itemTotalCorrelations: {},
-      dimensionalityMatch: false,
+      constructsAnalyzed: 0,
       warnings: ['Too few items for synthetic validation (need at least 3)'],
     }
   }
@@ -608,7 +608,7 @@ export async function runSyntheticValidation(
       })
 
       const ratings = parseSyntheticResponses(response.content)
-      if (ratings && ratings.length === keptItems.length) {
+      if (ratings && ratings.length > 0) {
         // Build row in item order
         const row = new Array(keptItems.length).fill(3) // default to neutral
         for (const r of ratings) {
@@ -632,7 +632,7 @@ export async function runSyntheticValidation(
       respondentsGenerated: responseMatrix.length,
       estimatedAlpha: {},
       itemTotalCorrelations: {},
-      dimensionalityMatch: false,
+      constructsAnalyzed: 0,
       warnings: [`Only ${responseMatrix.length} respondents completed — too few for reliable analysis`],
     }
   }
@@ -677,10 +677,11 @@ export async function runSyntheticValidation(
     })
   }
 
-  // Dimensionality check — do the intended number of constructs emerge?
-  // We reuse the existing EGA infrastructure by checking if the number of
-  // unique communities from EGA matches the number of constructs
-  const dimensionalityMatch = Object.keys(estimatedAlpha).length === constructs.length
+  // Dimensionality check via EGA on synthetic correlation matrix is deferred
+  // to a future phase — requires building a synthetic correlation matrix and
+  // feeding it through the existing EGA infrastructure. For now, we track
+  // how many constructs were successfully analyzed.
+  const constructsAnalyzed = Object.keys(estimatedAlpha).length
 
   onProgress?.(`Synthetic validation complete: ${responseMatrix.length} respondents, ${Object.keys(estimatedAlpha).length} constructs analyzed`)
 
@@ -688,7 +689,7 @@ export async function runSyntheticValidation(
     respondentsGenerated: responseMatrix.length,
     estimatedAlpha,
     itemTotalCorrelations,
-    dimensionalityMatch,
+    constructsAnalyzed,
     warnings,
   }
 }
@@ -819,8 +820,12 @@ For the per-batch steering (the spec's primary intent), add this inside the batc
 
 ```typescript
       // Tier 2: Difficulty Targeting — steer based on current pool skew
+      // Per-batch steering requires cached embeddings from leakage guard
       let difficultySteering = ''
-      if (difficultyEnabled && accumulated.length >= BATCH_SIZE) {
+      if (difficultyEnabled && !leakageEnabled && attempts === 1) {
+        console.log(`[pipeline] ${construct.name}: difficulty targeting enabled but leakage guard off — per-batch steering unavailable, post-generation estimates will still be computed`)
+      }
+      if (difficultyEnabled && leakageEnabled && accumulated.length >= BATCH_SIZE) {
         // Get embeddings for accumulated items from cache
         const accEstimates: number[] = []
         for (const stem of accumulated) {
@@ -855,11 +860,13 @@ Note: Difficulty steering only kicks in after the first batch (when `accumulated
 
 - [ ] **Step 5: Add difficulty estimates to scored items**
 
-In the `scoredItems` mapping, update `difficultyEstimate`:
+In the `scoredItems` mapping, update `difficultyEstimate`. Also fix the `leakageScore` and `leakageTarget` fields which are currently hardcoded to `undefined` — they should read from the stemEmbeddingCache/centroidCache to provide per-item leakage proximity data for the review UI:
 
 ```typescript
       difficultyEstimate: difficultyEstimates.get(index),
 ```
+
+For the leakage fields, since leaking items were excluded from rawCandidates, all surviving items are non-leaking. But we can still store the similarity to the nearest non-target construct as informational data. For now, leave as `undefined` — the `leakageStats` in `pipelineStages` captures the aggregate data.
 
 - [ ] **Step 6: Add difficulty targeting to pipelineStages**
 
