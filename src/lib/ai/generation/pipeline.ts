@@ -20,6 +20,11 @@ import {
 import { buildCritiquePrompt, parseCritiqueResponse } from './prompts/item-critique'
 import { ConstructCentroidCache, checkItemLeakage } from './leakage-guard'
 import {
+  computeDifficultyEstimate,
+  analyzeDifficultyDistribution,
+  buildDifficultySteering,
+} from './difficulty-targeting'
+import {
   itemCorrelationMatrix,
   sparsifyEmbeddings,
 } from './network/correlation'
@@ -117,6 +122,10 @@ export async function runPipeline(
   const leakageStats = { itemsChecked: 0, flagged: 0 }
   const stemEmbeddingCache = new Map<string, number[]>()
 
+  // Tier 2: Difficulty Targeting
+  const difficultyEnabled = config.enableDifficultyTargeting === true
+  const difficultyEstimates = new Map<number, number>()
+
   if (leakageEnabled) {
     // Embed construct definitions to seed centroids
     const definitionTexts = constructs.map((c) =>
@@ -152,12 +161,35 @@ export async function runPipeline(
         ? [...new Set(accumulatedFacets)]
         : []
 
+      // Tier 2: Difficulty Targeting — steer based on current pool skew
+      // Per-batch steering requires cached embeddings from leakage guard
+      let difficultySteering = ''
+      if (difficultyEnabled && !leakageEnabled && attempts === 1) {
+        console.log(`[pipeline] ${construct.name}: difficulty targeting enabled but leakage guard off — per-batch steering unavailable, post-generation estimates will still be computed`)
+      }
+      if (difficultyEnabled && leakageEnabled && accumulated.length >= BATCH_SIZE) {
+        // Get embeddings for accumulated items from cache
+        const accEstimates: number[] = []
+        for (const stem of accumulated) {
+          const embedding = stemEmbeddingCache.get(stem)
+          const centroid = centroidCache.getCentroid(construct.id)
+          if (embedding && centroid) {
+            accEstimates.push(computeDifficultyEstimate(embedding, centroid))
+          }
+        }
+        if (accEstimates.length > 0) {
+          const distribution = analyzeDifficultyDistribution(accEstimates)
+          difficultySteering = buildDifficultySteering(distribution.skew)
+        }
+      }
+
       const prompt = buildItemGenerationPrompt({
         construct,
         batchSize: needed,
         responseFormatDescription: responseFormatDesc,
         previousItems: [...(construct.existingItems ?? []), ...accumulated],
         previousFacets,
+        difficultySteering,
         contrastConstructs,
       })
 
@@ -354,6 +386,28 @@ export async function runPipeline(
     fullEmbeddings = await embedTexts(stems, embeddingModel)
   }
   const sparseEmbeddings = sparsifyEmbeddings(fullEmbeddings)
+
+  // Tier 2: Difficulty Targeting — compute per-item difficulty estimates
+  if (difficultyEnabled) {
+    // Seed centroids if not already done by leakage guard
+    if (!leakageEnabled) {
+      const definitionTexts = constructs.map((c) =>
+        [c.name, c.definition ?? '', c.description ?? ''].filter(Boolean).join('. ')
+      )
+      const definitionEmbeddings = await embedTexts(definitionTexts, embeddingModel)
+      constructs.forEach((c, i) => {
+        centroidCache.seed(c.id, definitionEmbeddings[i])
+      })
+    }
+
+    for (let i = 0; i < rawCandidates.length; i++) {
+      const centroid = centroidCache.getCentroid(rawCandidates[i].constructId)
+      if (centroid && fullEmbeddings[i]) {
+        difficultyEstimates.set(i, computeDifficultyEstimate(fullEmbeddings[i], centroid))
+      }
+    }
+  }
+
   const constructLabels = rawCandidates.map(candidate =>
     constructs.findIndex(construct => construct.id === candidate.constructId)
   )
@@ -539,6 +593,7 @@ export async function runPipeline(
       critiqueOriginalStem: critiqueVerdicts.get(candidate.stem)?.originalStem,
       leakageScore: undefined,
       leakageTarget: undefined,
+      difficultyEstimate: difficultyEstimates.get(index),
     }
   })
 
@@ -575,6 +630,7 @@ export async function runPipeline(
         pipelineStages: {
           ...(critiqueEnabled ? { critique: critiqueStats } : {}),
           ...(leakageEnabled ? { leakageGuard: leakageStats } : {}),
+          ...(difficultyEnabled ? { difficultyTargeting: { enabled: true as const } } : {}),
         },
       },
       tokenUsage: {

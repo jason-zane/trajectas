@@ -6,6 +6,7 @@ export function buildItemGenerationPrompt(params: {
   responseFormatDescription: string
   previousItems:    string[]
   previousFacets?:  string[]
+  difficultySteering?: string
   contrastConstructs?: Array<Pick<ConstructForGeneration, "name" | "definition" | "description">>
 }): string {
   const {
@@ -14,6 +15,7 @@ export function buildItemGenerationPrompt(params: {
     responseFormatDescription,
     previousItems,
     previousFacets = [],
+    difficultySteering = '',
     contrastConstructs = [],
   } = params
 
@@ -59,7 +61,7 @@ ${parentFactorSection}
 ${responseFormatDescription}
 ${previousSection}
 ${facetCoverageSection}
-
+${difficultySteering}
 ## Per-Item Metadata
 For each item, also provide:
 - **difficultyTier**: How easy the item is to endorse. "easy" = most people agree, "moderate" = typical spread, "hard" = only strong scorers agree. For factor-level items use "foundation" / "applied" / "demanding" instead.
