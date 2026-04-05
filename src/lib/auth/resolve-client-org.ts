@@ -15,7 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export async function resolveClientOrg(
   redirectPath: string
-): Promise<{ orgId: string }> {
+): Promise<{ orgId: string | null }> {
   let scope;
   try {
     scope = await resolveAuthorizedScope();
@@ -58,9 +58,5 @@ export async function resolveClientOrg(
     orgId = data?.id;
   }
 
-  if (!orgId) {
-    redirect("/unauthorized?reason=membership");
-  }
-
-  return { orgId };
+  return { orgId: orgId ?? null };
 }
