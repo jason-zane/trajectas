@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -40,10 +41,12 @@ export function AccountMenu({
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="space-y-1">
-          <p className="text-sm font-medium text-foreground">{displayName || "Staff account"}</p>
-          <p className="text-xs font-normal text-muted-foreground">{email}</p>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="space-y-1">
+            <p className="text-sm font-medium text-foreground">{displayName || "Staff account"}</p>
+            <p className="text-xs font-normal text-muted-foreground">{email}</p>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User2 className="size-4" />
