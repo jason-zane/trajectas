@@ -1,32 +1,52 @@
 import { redirect } from "next/navigation";
-import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
+import { resolveAuthorizedScope, AuthenticationRequiredError } from "@/lib/auth/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Resolves the active client organization ID for client portal pages.
  *
- * Handles three cases:
- * 1. Active context has a tenantId → use it
- * 2. Local dev bypass with no context → auto-select first org
- * 3. No access → redirect to login or unauthorized
+ * Uses resolveAuthorizedScope directly (not resolveWorkspaceAccess) so that
+ * platform admins can access the client portal regardless of surface gating.
+ *
+ * Resolution order:
+ * 1. Active context tenantId (if set)
+ * 2. First client membership (if any)
+ * 3. First org in database (platform admin / local dev fallback)
  */
 export async function resolveClientOrg(
   redirectPath: string
-): Promise<{ orgId: string; access: Awaited<ReturnType<typeof resolveWorkspaceAccess>> }> {
-  const access = await resolveWorkspaceAccess("client");
-
-  if (access.status === "signed_out") {
-    redirect(`/login?next=${encodeURIComponent(redirectPath)}`);
+): Promise<{ orgId: string }> {
+  let scope;
+  try {
+    scope = await resolveAuthorizedScope();
+  } catch (error) {
+    if (error instanceof AuthenticationRequiredError) {
+      redirect(`/login?next=${encodeURIComponent(redirectPath)}`);
+    }
+    throw error;
   }
-  if (access.status !== "ok") {
-    redirect("/unauthorized");
+
+  const actor = scope.actor;
+  const hasPlatformAdminRole = actor?.isActive && actor.role === "platform_admin";
+  const hasClientAccess =
+    scope.isLocalDevelopmentBypass ||
+    hasPlatformAdminRole ||
+    scope.clientIds.length > 0;
+
+  if (!hasClientAccess) {
+    redirect("/unauthorized?reason=membership");
   }
 
-  // Try active context first
-  let orgId = access.activeContext?.tenantId;
+  // 1. Try active context
+  let orgId = scope.activeContext?.tenantId;
 
-  // Local dev bypass without a selected org — auto-select first available
-  if (!orgId && access.isLocalDevelopmentBypass) {
+  // 2. Try first client membership
+  if (!orgId && scope.clientIds.length > 0) {
+    orgId = scope.clientIds[0];
+  }
+
+  // 3. Platform admin / local dev fallback — pick first org
+  if (!orgId && (hasPlatformAdminRole || scope.isLocalDevelopmentBypass)) {
     const db = createAdminClient();
     const { data } = await db
       .from("organizations")
@@ -42,5 +62,5 @@ export async function resolveClientOrg(
     redirect("/unauthorized?reason=membership");
   }
 
-  return { orgId, access };
+  return { orgId };
 }

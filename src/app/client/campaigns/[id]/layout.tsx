@@ -1,6 +1,6 @@
 import { getCampaignById } from "@/app/actions/campaigns";
-import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { notFound, redirect } from "next/navigation";
+import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
+import { notFound } from "next/navigation";
 import { CampaignDetailShell } from "@/app/(dashboard)/campaigns/[id]/campaign-detail-shell";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -11,8 +11,7 @@ export default async function ClientCampaignDetailLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  const access = await resolveWorkspaceAccess("client");
-  if (access.status !== "ok") redirect("/unauthorized");
+  await resolveClientOrg("/client/campaigns");
 
   const { id } = await params;
   const campaign = await getCampaignById(id);
