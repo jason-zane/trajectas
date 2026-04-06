@@ -245,7 +245,7 @@ export async function updateClient(id: string, formData: FormData) {
     throw error
   }
 
-  if (!canManageClient(access.scope, id)) {
+  if (!canManageClient(access.scope, id, access.partnerId)) {
     return { error: { _form: ['You do not have permission to update this client'] } }
   }
 
@@ -308,7 +308,7 @@ export async function deleteClient(id: string) {
     throw error
   }
 
-  if (!canManageClient(access.scope, id)) {
+  if (!canManageClient(access.scope, id, access.partnerId)) {
     return { error: 'You do not have permission to delete this client' }
   }
 
@@ -399,7 +399,7 @@ export async function restoreClient(id: string) {
     throw error
   }
 
-  if (!canManageClient(access.scope, id)) {
+  if (!canManageClient(access.scope, id, access.partnerId)) {
     return { error: 'You do not have permission to restore this client' }
   }
 

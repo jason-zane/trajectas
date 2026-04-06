@@ -20,7 +20,7 @@ export default async function EditClientPage({
     resolveAuthorizedScope(),
   ]);
   if (!client) notFound();
-  if (!canManageClient(scope, client.id)) {
+  if (!canManageClient(scope, client.id, client.partnerId)) {
     redirect("/unauthorized?reason=client-directory");
   }
 

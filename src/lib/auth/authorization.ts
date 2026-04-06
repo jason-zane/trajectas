@@ -352,11 +352,15 @@ export function canAccessClient(scope: AuthorizedScope, clientId: string) {
   return scope.isPlatformAdmin || scope.clientIds.includes(clientId);
 }
 
-export function canManageClient(scope: AuthorizedScope, clientId: string) {
+export function canManageClient(
+  scope: AuthorizedScope,
+  clientId: string,
+  clientPartnerId?: string | null
+) {
   return (
     scope.isPlatformAdmin ||
     scope.clientAdminIds.includes(clientId) ||
-    scope.partnerAdminIds.length > 0
+    (clientPartnerId != null && scope.partnerAdminIds.includes(clientPartnerId))
   );
 }
 
