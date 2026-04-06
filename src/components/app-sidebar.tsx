@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Brain,
+  Briefcase,
   FileQuestion,
   ClipboardList,
   Layers,
   FileText,
   Building2,
+  Shield,
   Sparkles,
   Cpu,
   MessageSquare,
@@ -40,7 +42,27 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { usePortal, type PortalType } from "@/components/portal-context";
-import { portalConfig } from "@/components/build-portal-switcher";
+
+const portalConfig: Record<
+  PortalType,
+  { label: string; description: string; icon: typeof Shield }
+> = {
+  admin: {
+    label: "Platform Admin",
+    description: "Full platform control",
+    icon: Shield,
+  },
+  partner: {
+    label: "Partner Portal",
+    description: "Partner-scoped operations",
+    icon: Briefcase,
+  },
+  client: {
+    label: "Client Portal",
+    description: "Client-scoped operations",
+    icon: Building2,
+  },
+};
 
 type NavItem = {
   title: string;
