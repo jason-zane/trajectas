@@ -299,7 +299,7 @@ export async function getPartnerStats(partnerId: string): Promise<{
   totalAssessmentsAssigned: number
 }> {
   await requirePartnerAccess(partnerId)
-  const db = createAdminClient()
+  const db = await createClient()
 
   // Clients under this partner
   const { count: clientCount } = await db
