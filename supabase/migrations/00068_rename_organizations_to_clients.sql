@@ -513,22 +513,9 @@ CREATE POLICY assessments_manage_org_admin ON assessments
         AND client_id = auth_user_client_id()
     );
 
--- Assessment sub-tables (assessment_competencies removed — table does not exist)
-DROP POLICY IF EXISTS item_selection_rules_select ON item_selection_rules;
-CREATE POLICY item_selection_rules_select ON item_selection_rules
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM assessments a WHERE a.id = assessment_id
-            AND (
-                is_platform_admin()
-                OR a.client_id IS NULL
-                OR a.client_id = auth_user_client_id()
-                OR a.client_id IN (
-                    SELECT c.id FROM clients c WHERE c.partner_id = auth_user_partner_id()
-                )
-            )
-        )
-    );
+-- Assessment sub-tables: assessment_competencies and item_selection_rules
+-- policies removed — those tables either don't exist or no longer have
+-- assessment_id columns.
 
 -- =========================================================================
 -- 14. DROP & RECREATE RLS POLICIES ON diagnostic_sessions
