@@ -12,6 +12,7 @@ interface ClientSettingsPanelProps {
   clientId: string;
   clientSlug: string;
   canCustomizeBranding: boolean;
+  partnerBrandingDisabled?: boolean;
   integrationSettings: ClientInternalIntegrationSettings;
 }
 
@@ -19,6 +20,7 @@ export function ClientSettingsPanel({
   clientId,
   clientSlug,
   canCustomizeBranding: initialValue,
+  partnerBrandingDisabled = false,
   integrationSettings,
 }: ClientSettingsPanelProps) {
   const router = useRouter();
@@ -56,11 +58,16 @@ export function ClientSettingsPanel({
               Allow this client to customise their own brand settings in their
               portal
             </p>
+            {partnerBrandingDisabled && (
+              <p className="text-xs text-muted-foreground">
+                Brand customisation is controlled by the partner. Contact the partner admin to enable.
+              </p>
+            )}
           </div>
           <Switch
             checked={canCustomizeBranding}
             onCheckedChange={handleBrandingToggle}
-            disabled={isPending}
+            disabled={isPending || partnerBrandingDisabled}
           />
         </div>
       </div>

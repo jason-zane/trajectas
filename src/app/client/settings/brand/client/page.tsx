@@ -1,6 +1,7 @@
 import { Building2 } from "lucide-react"
 import { redirect, notFound } from "next/navigation"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
+import { isClientBrandingEnabled } from "@/app/actions/client-entitlements"
 import { canManageClient, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -33,7 +34,8 @@ export default async function ClientPortalBrandPage() {
     notFound()
   }
 
-  if (!client.can_customize_branding) {
+  const brandingEnabled = await isClientBrandingEnabled(clientId)
+  if (!brandingEnabled) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="max-w-sm space-y-3 text-center">

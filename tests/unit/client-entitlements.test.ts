@@ -192,10 +192,11 @@ describe("client entitlement actions", () => {
 
     it("creates an assignment for admin callers", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
-      queryBuilder.single.mockResolvedValueOnce({
-        data: { id: "new-assign-1" },
-        error: null,
-      });
+      // Partner check: client has no partner
+      queryBuilder.single
+        .mockResolvedValueOnce({ data: { partner_id: null }, error: null })
+        // INSERT result
+        .mockResolvedValueOnce({ data: { id: "new-assign-1" }, error: null });
 
       const result = await assignAssessment("org-1", {
         assessmentId: "assess-1",
@@ -208,10 +209,14 @@ describe("client entitlement actions", () => {
 
     it("returns a friendly error on duplicate assignment", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
-      queryBuilder.single.mockResolvedValueOnce({
-        data: null,
-        error: { code: "23505", message: "unique violation" },
-      });
+      // Partner check: client has no partner
+      queryBuilder.single
+        .mockResolvedValueOnce({ data: { partner_id: null }, error: null })
+        // INSERT result: duplicate
+        .mockResolvedValueOnce({
+          data: null,
+          error: { code: "23505", message: "unique violation" },
+        });
 
       const result = await assignAssessment("org-1", {
         assessmentId: "assess-1",

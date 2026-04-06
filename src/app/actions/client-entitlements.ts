@@ -194,6 +194,39 @@ export async function checkQuotaAvailability(
     }
   }
 
+  // Partner-level quota check (if client belongs to a partner)
+  const { data: clientForPartner } = await db.from('clients')
+    .select('partner_id')
+    .eq('id', clientId)
+    .single()
+
+  if (clientForPartner?.partner_id) {
+    for (const assessmentId of assessmentIds) {
+      const { data: partnerAssignment } = await db
+        .from('partner_assessment_assignments')
+        .select('quota_limit')
+        .eq('partner_id', clientForPartner.partner_id)
+        .eq('assessment_id', assessmentId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (partnerAssignment?.quota_limit != null) {
+        const { data: usage } = await db.rpc('get_partner_assessment_quota_usage', {
+          p_partner_id: clientForPartner.partner_id,
+          p_assessment_id: assessmentId,
+        })
+
+        if ((usage ?? 0) >= partnerAssignment.quota_limit) {
+          violations.push({
+            assessmentId,
+            quotaLimit: partnerAssignment.quota_limit,
+            quotaUsed: usage ?? 0,
+          })
+        }
+      }
+    }
+  }
+
   return { allowed: violations.length === 0, violations }
 }
 
@@ -214,6 +247,27 @@ export async function assignAssessment(
   }
 
   const db = createAdminClient()
+
+  // If client belongs to a partner, verify assessment is in partner's pool
+  const { data: clientRow } = await db.from('clients')
+    .select('partner_id')
+    .eq('id', clientId)
+    .single()
+
+  if (clientRow?.partner_id) {
+    const { data: partnerAssignment } = await db
+      .from('partner_assessment_assignments')
+      .select('id')
+      .eq('partner_id', clientRow.partner_id)
+      .eq('assessment_id', input.assessmentId)
+      .eq('is_active', true)
+      .maybeSingle()
+
+    if (!partnerAssignment) {
+      return { error: "This assessment is not available through the partner's allocation." }
+    }
+  }
+
   const { data, error } = await db
     .from('client_assessment_assignments')
     .insert({
@@ -326,6 +380,35 @@ export async function toggleReportTemplateAssignment(
     revalidatePath('/clients')
     return { success: true, id: data.id }
   }
+}
+
+/**
+ * Check if branding is enabled for a client, respecting partner cascade.
+ * Returns false if the client's own flag is off OR if the client's partner has branding disabled.
+ */
+export async function isClientBrandingEnabled(clientId: string): Promise<boolean> {
+  const db = await createClient()
+
+  const { data: client } = await db
+    .from('clients')
+    .select('can_customize_branding, partner_id')
+    .eq('id', clientId)
+    .single()
+
+  if (!client?.can_customize_branding) return false
+
+  // If client has a partner, check partner's flag too
+  if (client.partner_id) {
+    const { data: partner } = await db
+      .from('partners')
+      .select('can_customize_branding')
+      .eq('id', client.partner_id)
+      .single()
+
+    if (!partner?.can_customize_branding) return false
+  }
+
+  return true
 }
 
 export async function toggleClientBranding(
