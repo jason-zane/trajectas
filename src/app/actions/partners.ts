@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { mapPartnerRow, toPartnerInsert } from '@/lib/supabase/mappers'
 import {
   AuthorizationError,
@@ -16,6 +17,7 @@ import {
   revokeInvite,
   type InviteRole,
 } from '@/lib/auth/staff-auth'
+import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { partnerSchema } from '@/lib/validations/partners'
 import type { Partner } from '@/types/database'
 
@@ -37,13 +39,15 @@ export async function getPartners(): Promise<PartnerWithCounts[]> {
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('partners')
     .select('*, clients(count)')
     .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getPartners', 'Unable to load partners.', error)
+  }
 
   return (data ?? []).map((row) => ({
     ...mapPartnerRow(row),
@@ -60,7 +64,7 @@ export async function getAssignablePartners(): Promise<Partner[]> {
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('partners')
     .select('*')
@@ -68,7 +72,13 @@ export async function getAssignablePartners(): Promise<Partner[]> {
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getAssignablePartners',
+      'Unable to load partners.',
+      error
+    )
+  }
 
   return (data ?? []).map(mapPartnerRow)
 }
@@ -79,7 +89,7 @@ export async function getPartnerBySlug(
 ): Promise<Partner | null> {
   await requireAdminScope()
 
-  const db = createAdminClient()
+  const db = await createClient()
   let query = db
     .from('partners')
     .select('*')
@@ -116,7 +126,10 @@ export async function createPartner(formData: FormData) {
     .select('id')
     .single()
 
-  if (error) return { error: { _form: [error.message] } }
+  if (error) {
+    logActionError('createPartner', error)
+    return { error: { _form: ['Unable to create partner.'] } }
+  }
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -171,7 +184,10 @@ export async function updatePartner(id: string, formData: FormData) {
     })
     .eq('id', id)
 
-  if (error) return { error: { _form: [error.message] } }
+  if (error) {
+    logActionError('updatePartner', error)
+    return { error: { _form: ['Unable to update partner.'] } }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -211,7 +227,10 @@ export async function deletePartner(id: string) {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('deletePartner', error)
+    return { error: 'Unable to archive partner.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -249,7 +268,10 @@ export async function restorePartner(id: string) {
     .update({ deleted_at: null })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('restorePartner', error)
+    return { error: 'Unable to restore partner.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -360,7 +382,7 @@ export async function getPartnerMembers(partnerId: string): Promise<PartnerMembe
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('partner_memberships')
     .select('id, profile_id, role, created_at, profiles!profile_id(id, email, first_name, last_name)')
@@ -368,7 +390,13 @@ export async function getPartnerMembers(partnerId: string): Promise<PartnerMembe
     .is('revoked_at', null)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getPartnerMembers',
+      'Unable to load partner users.',
+      error
+    )
+  }
 
   return (data ?? []).map((row) => {
     const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
@@ -390,7 +418,7 @@ export async function getPartnerPendingInvites(partnerId: string): Promise<Partn
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('user_invites')
     .select('id, email, role, created_at, expires_at')
@@ -401,7 +429,13 @@ export async function getPartnerPendingInvites(partnerId: string): Promise<Partn
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getPartnerPendingInvites',
+      'Unable to load pending invites.',
+      error
+    )
+  }
 
   return (data ?? []).map((row) => ({
     id: String(row.id),
@@ -499,7 +533,10 @@ export async function changePartnerMemberRole(
     .eq('partner_id', partnerId)
     .is('revoked_at', null)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('changePartnerMemberRole', error)
+    return { error: 'Unable to change member role.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -544,7 +581,10 @@ export async function removePartnerMember(
     .eq('partner_id', partnerId)
     .is('revoked_at', null)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('removePartnerMember', error)
+    return { error: 'Unable to remove member.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
