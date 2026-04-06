@@ -1,6 +1,6 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import {
   AuthorizationError,
   getAccessibleCampaignIds,
@@ -9,6 +9,10 @@ import {
   requireSessionAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
+import {
+  logSupportSessionDataAccess,
+} from '@/lib/auth/support-sessions'
+import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
 import type { CampaignParticipant, CampaignParticipantStatus } from '@/types/database'
 
@@ -82,7 +86,7 @@ export async function getParticipants(filters?: {
   perPage?: number
 }): Promise<{ data: ParticipantWithMeta[]; total: number }> {
   const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const page = filters?.page ?? 1
   const perPage = filters?.perPage ?? 50
   const offset = (page - 1) * perPage
@@ -131,7 +135,9 @@ export async function getParticipants(filters?: {
 
   const { data: rows, error, count } = await query
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getParticipants', 'Unable to load participants.', error)
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const participants: ParticipantWithMeta[] = (rows ?? []).map((row: any) => {
@@ -165,8 +171,9 @@ export async function getParticipants(filters?: {
 // ---------------------------------------------------------------------------
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
+  let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
-    await requireParticipantAccess(id)
+    access = await requireParticipantAccess(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return null
@@ -174,7 +181,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     throw error
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
 
   const { data: row, error } = await db
     .from('campaign_participants')
@@ -189,12 +196,27 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = row as any
-  return {
+  const participant = {
     ...mapCampaignParticipantRow(r),
     campaignTitle: r.campaigns?.title ?? 'Unknown',
     campaignSlug: r.campaigns?.slug ?? '',
     clientName: r.campaigns?.clients?.name ?? undefined,
   }
+
+  try {
+    await logSupportSessionDataAccess({
+      scope: access.scope,
+      resourceType: 'campaign_participants',
+      resourceId: id,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      metadata: { action: 'detail' },
+    })
+  } catch (error) {
+    logActionError('getParticipant.audit', error)
+  }
+
+  return participant
 }
 
 // ---------------------------------------------------------------------------
@@ -202,8 +224,9 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 // ---------------------------------------------------------------------------
 
 export async function getParticipantSessions(participantId: string): Promise<ParticipantSession[]> {
+  let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
-    await requireParticipantAccess(participantId)
+    access = await requireParticipantAccess(participantId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return []
@@ -211,7 +234,7 @@ export async function getParticipantSessions(participantId: string): Promise<Par
     throw error
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
 
   const { data: sessionRows, error } = await db
     .from('participant_sessions')
@@ -234,10 +257,16 @@ export async function getParticipantSessions(participantId: string): Promise<Par
     .eq('campaign_participant_id', participantId)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getParticipantSessions',
+      'Unable to load participant sessions.',
+      error
+    )
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (sessionRows ?? []).map((s: any) => ({
+  const sessions = (sessionRows ?? []).map((s: any) => ({
     id: s.id,
     assessmentId: s.assessment_id,
     assessmentTitle: s.assessments?.name ?? 'Untitled',
@@ -255,6 +284,21 @@ export async function getParticipantSessions(participantId: string): Promise<Par
       itemsUsed: 0,
     })),
   }))
+
+  try {
+    await logSupportSessionDataAccess({
+      scope: access.scope,
+      resourceType: 'participant_sessions',
+      resourceId: participantId,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      metadata: { action: 'list_for_participant' },
+    })
+  } catch (error) {
+    logActionError('getParticipantSessions.audit', error)
+  }
+
+  return sessions
 }
 
 // ---------------------------------------------------------------------------
@@ -262,8 +306,9 @@ export async function getParticipantSessions(participantId: string): Promise<Par
 // ---------------------------------------------------------------------------
 
 export async function getParticipantActivity(participantId: string): Promise<ActivityEvent[]> {
+  let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
-    await requireParticipantAccess(participantId)
+    access = await requireParticipantAccess(participantId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return []
@@ -271,7 +316,7 @@ export async function getParticipantActivity(participantId: string): Promise<Act
     throw error
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
 
   // Get participant record
   const { data: participant } = await db
@@ -339,6 +384,19 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   // Sort by timestamp ascending
   events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
 
+  try {
+    await logSupportSessionDataAccess({
+      scope: access.scope,
+      resourceType: 'campaign_participants',
+      resourceId: participantId,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      metadata: { action: 'activity' },
+    })
+  } catch (error) {
+    logActionError('getParticipantActivity.audit', error)
+  }
+
   return events
 }
 
@@ -347,8 +405,9 @@ export async function getParticipantActivity(participantId: string): Promise<Act
 // ---------------------------------------------------------------------------
 
 export async function getParticipantResponses(sessionId: string): Promise<ParticipantResponseGroup[]> {
+  let access: Awaited<ReturnType<typeof requireSessionAccess>>
   try {
-    await requireSessionAccess(sessionId)
+    access = await requireSessionAccess(sessionId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return []
@@ -356,7 +415,7 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
     throw error
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
 
   // Get session's assessment
   const { data: session } = await db
@@ -396,7 +455,7 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (sections ?? []).map((s: any) => ({
+  const groups = (sections ?? []).map((s: any) => ({
     sectionId: s.id,
     sectionTitle: s.title,
     displayOrder: s.display_order,
@@ -415,4 +474,19 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
         }
       }),
   }))
+
+  try {
+    await logSupportSessionDataAccess({
+      scope: access.scope,
+      resourceType: 'participant_responses',
+      resourceId: sessionId,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      metadata: { action: 'responses' },
+    })
+  } catch (error) {
+    logActionError('getParticipantResponses.audit', error)
+  }
+
+  return groups
 }

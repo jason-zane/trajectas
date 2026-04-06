@@ -5,15 +5,21 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { toggleClientBranding } from "@/app/actions/client-entitlements";
+import type { ClientInternalIntegrationSettings } from "@/app/actions/integrations";
+import { ClientIntegrationsPanel } from "./client-integrations-panel";
 
 interface ClientSettingsPanelProps {
   clientId: string;
+  clientSlug: string;
   canCustomizeBranding: boolean;
+  integrationSettings: ClientInternalIntegrationSettings;
 }
 
 export function ClientSettingsPanel({
   clientId,
+  clientSlug,
   canCustomizeBranding: initialValue,
+  integrationSettings,
 }: ClientSettingsPanelProps) {
   const router = useRouter();
   const [canCustomizeBranding, setCanCustomizeBranding] =
@@ -63,6 +69,12 @@ export function ClientSettingsPanel({
         Even when disabled, you can still configure branding for this client on
         the Branding tab.
       </p>
+
+      <ClientIntegrationsPanel
+        clientId={clientId}
+        clientSlug={clientSlug}
+        settings={integrationSettings}
+      />
     </div>
   );
 }

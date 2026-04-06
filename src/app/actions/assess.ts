@@ -1,6 +1,8 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { logReportViewed } from '@/lib/auth/support-sessions'
+import { logActionError } from '@/lib/security/action-errors'
 import {
   getCampaignAccessError,
   getParticipantAccessError,
@@ -16,6 +18,7 @@ import {
   mapCampaignParticipantRow,
   mapCampaignAssessmentRow,
 } from '@/lib/supabase/mappers'
+import { enqueueAssessmentCompletedEvent } from '@/lib/integrations/events'
 import type {
   Campaign,
   CampaignParticipant,
@@ -123,11 +126,16 @@ export async function validateAccessToken(
   }
 
   // Load campaign assessments
-  const { data: caRows } = await db
+  const { data: caRows, error: campaignAssessmentsError } = await db
     .from('campaign_assessments')
     .select('*, assessments(id, name, description, assessment_sections(count))')
     .eq('campaign_id', campaign.id)
     .order('display_order', { ascending: true })
+
+  if (campaignAssessmentsError) {
+    logActionError('validateAccessToken.campaignAssessments', campaignAssessmentsError)
+    return { error: 'Unable to load this assessment right now' }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const assessments = (caRows ?? []).map((r: any) => ({
@@ -139,10 +147,15 @@ export async function validateAccessToken(
   }))
 
   // Load existing sessions for this participant
-  const { data: sessionRows } = await db
+  const { data: sessionRows, error: sessionRowsError } = await db
     .from('participant_sessions')
     .select('*')
     .eq('campaign_participant_id', participant.id)
+
+  if (sessionRowsError) {
+    logActionError('validateAccessToken.sessions', sessionRowsError)
+    return { error: 'Unable to load this assessment right now' }
+  }
 
   const sessions: SessionForRunner[] = (sessionRows ?? []).map((s) => ({
     id: s.id,
@@ -210,7 +223,10 @@ export async function startSession(
     .select('id')
     .single()
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('startSession.insert', error)
+    return { error: 'Unable to start this assessment right now' }
+  }
 
   // Update participant status to in_progress
   await db
@@ -246,7 +262,7 @@ export async function getSessionState(token: string, sessionId: string) {
   if (error || !session) return { error: 'Session not found' }
 
   // Load sections with items
-  const { data: sectionRows } = await db
+  const { data: sectionRows, error: sectionRowsError } = await db
     .from('assessment_sections')
     .select(`
       *,
@@ -260,6 +276,11 @@ export async function getSessionState(token: string, sessionId: string) {
     `)
     .eq('assessment_id', session.assessment_id)
     .order('display_order', { ascending: true })
+
+  if (sectionRowsError) {
+    logActionError('getSessionState.sections', sectionRowsError)
+    return { error: 'Unable to load this assessment right now' }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sections: SectionForRunner[] = (sectionRows ?? []).map((s: any) => ({
@@ -296,10 +317,15 @@ export async function getSessionState(token: string, sessionId: string) {
   }))
 
   // Load existing responses
-  const { data: responseRows } = await db
+  const { data: responseRows, error: responseRowsError } = await db
     .from('participant_responses')
     .select('item_id, response_value, response_data')
     .eq('session_id', sessionId)
+
+  if (responseRowsError) {
+    logActionError('getSessionState.responses', responseRowsError)
+    return { error: 'Unable to load this assessment right now' }
+  }
 
   const responses: Record<string, { value: number; data: Record<string, unknown> }> = {}
   for (const r of responseRows ?? []) {
@@ -369,7 +395,10 @@ export async function saveResponse({
       { onConflict: 'session_id,item_id' },
     )
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('saveResponse.upsert', error)
+    return { error: 'Unable to save your response right now' }
+  }
   return { success: true as const }
 }
 
@@ -412,7 +441,10 @@ export async function updateSessionProgress(
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('updateSessionProgress.update', error)
+    return { error: 'Unable to save your progress right now' }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -434,24 +466,32 @@ export async function submitSession(token: string, sessionId: string) {
 
   const { data: session, error: fetchErr } = await db
     .from('participant_sessions')
-    .select('campaign_participant_id')
+    .select('campaign_participant_id, assessment_id, campaign_id')
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
     .single()
 
-  if (fetchErr) return { error: fetchErr.message }
+  if (fetchErr) {
+    logActionError('submitSession.fetch', fetchErr)
+    return { error: 'Unable to submit this assessment right now' }
+  }
+
+  const completedAt = new Date().toISOString()
 
   // Mark session complete
   const { error: updateErr } = await db
     .from('participant_sessions')
     .update({
       status: 'completed',
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt,
     })
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
 
-  if (updateErr) return { error: updateErr.message }
+  if (updateErr) {
+    logActionError('submitSession.update', updateErr)
+    return { error: 'Unable to submit this assessment right now' }
+  }
 
   // Run CTT scoring (synchronous — simple mean POMP per factor)
   await scoreSessionCTT(sessionId)
@@ -490,9 +530,22 @@ export async function submitSession(token: string, sessionId: string) {
           .from('campaign_participants')
           .update({
             status: 'completed',
-            completed_at: new Date().toISOString(),
+            completed_at: completedAt,
           })
           .eq('id', session.campaign_participant_id)
+      }
+
+      try {
+        await enqueueAssessmentCompletedEvent({
+          sessionId,
+          campaignId: String(session.campaign_id),
+          participantId: String(session.campaign_participant_id),
+          assessmentId: String(session.assessment_id),
+          allRequiredAssessmentsCompleted: allDone,
+          completedAt,
+        })
+      } catch (eventError) {
+        console.error('[integrations] Failed to enqueue assessment.completed event:', eventError)
       }
     }
   }
@@ -540,7 +593,8 @@ export async function triggerReportGeneration(sessionId: string): Promise<void> 
  */
 export async function getParticipantReportSnapshot(
   token: string,
-): Promise<{ renderedData: unknown[]; status: string } | null> {
+  snapshotId?: string,
+): Promise<{ renderedData: unknown[]; status: string; pdfUrl?: string } | null> {
   const result = await validateAccessToken(token)
   if (result.error || !result.data) return null
 
@@ -552,18 +606,56 @@ export async function getParticipantReportSnapshot(
   const db = createAdminClient()
   const sessionIds = completedSessions.map((s) => s.id)
 
-  const { data } = await db
+  let query = db
     .from('report_snapshots')
-    .select('rendered_data, status')
+    .select(
+      'id, rendered_data, status, pdf_url, audience_type, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)'
+    )
     .in('participant_session_id', sessionIds)
     .eq('audience_type', 'participant')
     .eq('status', 'released')
     .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  if (snapshotId) {
+    query = query.eq('id', snapshotId)
+  } else {
+    query = query.limit(1)
+  }
+
+  const { data, error } = await query.maybeSingle()
+
+  if (error) {
+    logActionError('getParticipantReportSnapshot', error)
+    return null
+  }
 
   if (!data) return null
-  return { renderedData: data.rendered_data ?? [], status: data.status }
+
+  try {
+    const campaign = Array.isArray(data.campaigns) ? data.campaigns[0] : data.campaigns
+    await logReportViewed({
+      snapshotId: String(data.id),
+      participantId: result.data.participant.id,
+      audienceType: String(data.audience_type),
+      partnerId:
+        campaign && typeof campaign === 'object' && campaign.partner_id
+          ? String(campaign.partner_id)
+          : null,
+      clientId:
+        campaign && typeof campaign === 'object' && campaign.client_id
+          ? String(campaign.client_id)
+          : result.data.campaign.clientId ?? null,
+      metadata: { surface: 'assess' },
+    })
+  } catch (auditError) {
+    logActionError('getParticipantReportSnapshot.audit', auditError)
+  }
+
+  return {
+    renderedData: data.rendered_data ?? [],
+    status: data.status,
+    pdfUrl: data.pdf_url ?? undefined,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -650,7 +742,7 @@ export async function registerViaLink(
         if (assignment.quota_limit === null) continue
 
         const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
-          p_org_id: campaign.client_id,
+          p_client_id: campaign.client_id,
           p_assessment_id: assignment.assessment_id,
         })
 
@@ -676,7 +768,10 @@ export async function registerViaLink(
     .select('id, access_token')
     .single()
 
-  if (insertErr) return { error: insertErr.message }
+  if (insertErr) {
+    logActionError('registerViaLink.insert', insertErr)
+    return { error: 'Unable to register right now' }
+  }
 
   // Atomically increment the use_count with a conditional update that re-checks
   // capacity and active/expiry constraints. This prevents TOCTOU races where

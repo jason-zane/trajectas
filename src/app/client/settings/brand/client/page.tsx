@@ -1,31 +1,18 @@
 import { Building2 } from "lucide-react"
 import { redirect, notFound } from "next/navigation"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
-import {
-  AuthenticationRequiredError,
-  canManageClient,
-  resolveAuthorizedScope,
-} from "@/lib/auth/authorization"
+import { canManageClient, resolveAuthorizedScope } from "@/lib/auth/authorization"
+import { resolveClientOrg } from "@/lib/auth/resolve-client-org"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig } from "@/lib/brand/types"
 import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/client-brand-editor"
 
 export default async function ClientPortalBrandPage() {
-  let scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>
-  try {
-    scope = await resolveAuthorizedScope()
-  } catch (error) {
-    if (error instanceof AuthenticationRequiredError) {
-      redirect(`/login?next=${encodeURIComponent("/client/settings/brand/client")}`)
-    }
-
-    throw error
-  }
-
-  const clientId = scope.activeContext?.tenantType === "client"
-    ? scope.activeContext.tenantId
-    : scope.clientIds[0]
+  const [{ clientId }, scope] = await Promise.all([
+    resolveClientOrg("/client/settings/brand/client"),
+    resolveAuthorizedScope(),
+  ])
 
   if (!clientId) {
     redirect("/client/dashboard")

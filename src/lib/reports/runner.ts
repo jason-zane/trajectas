@@ -21,6 +21,7 @@ import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { DEFAULT_REPORT_THEME } from './presentation'
 import { getEffectiveBrand } from '@/app/actions/brand'
+import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import type { ReportTheme } from './presentation'
 import type { BlockConfig, ResolvedBlockData, BandResult } from './types'
 import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig } from './types'
@@ -209,13 +210,31 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     // Step 6: Write snapshot
     // -----------------------------------------------------------------------
 
+    const generatedAt = new Date().toISOString()
+    const releasedAt = template.autoRelease ? generatedAt : null
+    const nextStatus = template.autoRelease ? 'released' : 'ready'
+
     await db.from('report_snapshots').update({
-      status: template.autoRelease ? 'released' : 'ready',
-      released_at: template.autoRelease ? new Date().toISOString() : null,
-      generated_at: new Date().toISOString(),
+      status: nextStatus,
+      released_at: releasedAt,
+      generated_at: generatedAt,
       rendered_data: resolvedBlocks,
       error_message: null,
     }).eq('id', snapshotId)
+
+    try {
+      await enqueueReportSnapshotEvent({
+        snapshotId,
+        campaignId: snapshot.campaignId,
+        participantSessionId: snapshot.participantSessionId,
+        audienceType: snapshot.audienceType,
+        status: nextStatus,
+        generatedAt,
+        releasedAt,
+      })
+    } catch (eventError) {
+      console.error(`[integrations] Failed to enqueue report event for ${snapshotId}:`, eventError)
+    }
 
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

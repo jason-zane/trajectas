@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ReportRenderer } from '@/components/reports/report-renderer'
-import { getReportSnapshot } from '@/app/actions/reports'
+import { getParticipantReportSnapshot } from '@/app/actions/assess'
 import type { ResolvedBlockData } from '@/lib/reports/types'
 
 interface Props {
@@ -11,10 +11,9 @@ interface Props {
 }
 
 export default async function ParticipantReportPage({ params }: Props) {
-  const { snapshotId } = await params
-  // Token validation is handled by the assess layout — assume participant is authenticated
-  const snapshot = await getReportSnapshot(snapshotId)
-  if (!snapshot || !snapshot.releasedAt || snapshot.audienceType !== 'participant') {
+  const { token, snapshotId } = await params
+  const snapshot = await getParticipantReportSnapshot(token, snapshotId)
+  if (!snapshot || snapshot.status !== 'released') {
     notFound()
   }
 

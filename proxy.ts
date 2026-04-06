@@ -8,26 +8,54 @@ import {
   inferSurfaceFromRequest,
   isLocalDevelopmentHost,
 } from "@/lib/hosts";
+import { checkRequestRateLimit } from "@/lib/security/rate-limit";
 import { isAllowedOriginHost } from "@/lib/security/request-origin";
 import type { Surface } from "@/lib/surfaces";
 
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const unimplementedHostedSurfaces = new Set<Surface>(["public"]);
 
-function buildContentSecurityPolicy() {
+function buildContentSecurityPolicy(surface: Surface) {
   const isDevelopment = process.env.NODE_ENV !== "production";
-
-  return [
+  const sharedDirectives = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isDevelopment ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "img-src 'self' data: blob: https:",
     "font-src 'self' data: https://fonts.gstatic.com",
-    "connect-src 'self' https:",
+    "img-src 'self' data: blob: https:",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
+  ];
+
+  if (surface === "admin") {
+    return [
+      ...sharedDirectives,
+      `script-src 'self' 'unsafe-inline'${
+        isDevelopment ? " 'unsafe-eval'" : ""
+      }`,
+      "connect-src 'self' https: wss:",
+      "worker-src 'self' blob:",
+    ].join("; ");
+  }
+
+  if (surface === "partner" || surface === "client") {
+    return [
+      ...sharedDirectives,
+      `script-src 'self' 'unsafe-inline'${
+        isDevelopment ? " 'unsafe-eval'" : ""
+      }`,
+      "connect-src 'self' https:",
+      "worker-src 'self'",
+    ].join("; ");
+  }
+
+  return [
+    ...sharedDirectives,
+    `script-src 'self' 'unsafe-inline'${
+      isDevelopment ? " 'unsafe-eval'" : ""
+    }`,
+    "connect-src 'self' https:",
   ].join("; ");
 }
 
@@ -37,7 +65,10 @@ function applySecurityHeaders(
   pathname: string
 ) {
   response.headers.set("x-talentfit-surface", surface);
-  response.headers.set("Content-Security-Policy", buildContentSecurityPolicy());
+  response.headers.set(
+    "Content-Security-Policy",
+    buildContentSecurityPolicy(surface)
+  );
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
   response.headers.set("Cross-Origin-Resource-Policy", "same-site");
 
@@ -86,6 +117,18 @@ export function proxy(request: NextRequest) {
     isLocalDev,
     routePrefix
   );
+  const rateLimit = checkRequestRateLimit(request);
+
+  if (rateLimit && !rateLimit.allowed) {
+    const response = NextResponse.json(
+      { error: "Too many requests. Try again later." },
+      { status: 429 }
+    );
+    response.headers.set("Retry-After", String(rateLimit.retryAfterSeconds));
+    response.headers.set("X-RateLimit-Limit", String(rateLimit.limit));
+    response.headers.set("X-RateLimit-Remaining", "0");
+    return applySecurityHeaders(response, configuredSurface, pathname);
+  }
 
   if (
     mutationMethods.has(request.method) &&

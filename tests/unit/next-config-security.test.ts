@@ -42,5 +42,9 @@ describe("next config security helpers", () => {
         headers: [...SECURITY_HEADERS],
       },
     ]);
+    expect(SECURITY_HEADERS).toContainEqual({
+      key: "Strict-Transport-Security",
+      value: "max-age=31536000; includeSubDomains",
+    });
   });
 });

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient as createSupabaseClient } from '@/lib/supabase/server'
 import { mapClientRow, toClientInsert } from '@/lib/supabase/mappers'
 import {
   AuthorizationError,
@@ -18,6 +19,7 @@ import {
   revokeInvite,
   type InviteRole,
 } from '@/lib/auth/staff-auth'
+import { throwActionError } from '@/lib/security/action-errors'
 import { clientSchema } from '@/lib/validations/clients'
 import type { Client } from '@/types/database'
 
@@ -78,7 +80,7 @@ async function validateAssignablePartner(partnerId: string) {
 
 export async function getClients(): Promise<ClientWithCounts[]> {
   const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
+  const db = await createSupabaseClient()
   let query = db
     .from('clients')
     .select('*, partners(name), assessments(count), diagnostic_sessions(count)')
@@ -94,14 +96,16 @@ export async function getClients(): Promise<ClientWithCounts[]> {
 
   const { data, error } = await query
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getClients', 'Unable to load clients.', error)
+  }
 
   return (data ?? []).map((row) => mapClientWithCounts(row as Record<string, unknown>))
 }
 
 export async function getClientDirectoryEntries(): Promise<ClientWithCounts[]> {
   const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
+  const db = await createSupabaseClient()
   let query = db
     .from('clients')
     .select('*, partners(name), assessments(count), diagnostic_sessions(count)')
@@ -116,7 +120,13 @@ export async function getClientDirectoryEntries(): Promise<ClientWithCounts[]> {
 
   const { data, error } = await query
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getClientDirectoryEntries',
+      'Unable to load clients.',
+      error
+    )
+  }
 
   return (data ?? []).map((row) => mapClientWithCounts(row as Record<string, unknown>))
 }
@@ -125,7 +135,7 @@ export async function getClientBySlug(
   slug: string,
   options: { includeArchived?: boolean } = {}
 ): Promise<Client | null> {
-  const db = createAdminClient()
+  const db = await createSupabaseClient()
   let query = db
     .from('clients')
     .select('*')
@@ -342,7 +352,7 @@ export async function getClientStats(clientId: string): Promise<{
   teamMemberCount: number
 }> {
   await requireClientAccess(clientId)
-  const db = createAdminClient()
+  const db = await createSupabaseClient()
 
   const { count: activeCampaignCount } = await db
     .from('campaigns')
@@ -454,7 +464,7 @@ export async function getClientMembers(clientId: string): Promise<ClientMember[]
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createSupabaseClient()
   const { data, error } = await db
     .from('client_memberships')
     .select('id, profile_id, role, created_at, profiles!profile_id(id, email, first_name, last_name)')
@@ -462,7 +472,9 @@ export async function getClientMembers(clientId: string): Promise<ClientMember[]
     .is('revoked_at', null)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getClientMembers', 'Unable to load client users.', error)
+  }
 
   return (data ?? []).map((row) => {
     const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
@@ -484,7 +496,7 @@ export async function getClientPendingInvites(clientId: string): Promise<ClientP
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createSupabaseClient()
   const { data, error } = await db
     .from('user_invites')
     .select('id, email, role, created_at, expires_at')
@@ -495,7 +507,13 @@ export async function getClientPendingInvites(clientId: string): Promise<ClientP
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getClientPendingInvites',
+      'Unable to load pending invites.',
+      error
+    )
+  }
 
   return (data ?? []).map((row) => ({
     id: String(row.id),

@@ -3,12 +3,14 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import {
   requireAdminScope,
   requireClientAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { throwActionError } from '@/lib/security/action-errors'
 import { diagnosticTemplateSchema, diagnosticSessionSchema } from '@/lib/validations/diagnostics'
 import type { DiagnosticTemplate, DiagnosticSession } from '@/types/database'
 
@@ -78,13 +80,19 @@ function getDiagnosticSessionTitle(
 
 export async function getDiagnosticTemplates(): Promise<DiagnosticTemplateWithCounts[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('diagnostic_templates')
     .select('*, diagnostic_template_dimensions(count), diagnostic_sessions(count)')
     .order('name')
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getDiagnosticTemplates',
+      'Unable to load diagnostic templates.',
+      error
+    )
+  }
 
   return (data ?? []).map((row) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,7 +113,7 @@ export async function getDiagnosticTemplates(): Promise<DiagnosticTemplateWithCo
 
 export async function getDiagnosticTemplateById(id: string): Promise<DiagnosticTemplate | null> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('diagnostic_templates')
     .select('*')
@@ -236,7 +244,7 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   let query = db
     .from('diagnostic_sessions')
     .select('*, clients(name), diagnostic_templates(name), diagnostic_respondents(count)')
@@ -248,7 +256,13 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
 
   const { data, error } = await query
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getDiagnosticSessions',
+      'Unable to load diagnostic sessions.',
+      error
+    )
+  }
 
   return (data ?? []).map((row) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -271,7 +285,7 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
 }
 
 export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSession | null> {
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
     .select('*')
@@ -279,11 +293,6 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
     .single()
 
   if (error) return null
-  try {
-    await requireClientAccess(data.client_id)
-  } catch {
-    return null
-  }
 
   return {
     id: data.id,
@@ -301,7 +310,7 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
 export async function getDiagnosticSessionDetail(
   id: string
 ): Promise<DiagnosticSessionDetail | null> {
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
     .select('*, clients(name), diagnostic_templates(name), diagnostic_respondents(count), diagnostic_snapshots(count)')
@@ -309,12 +318,6 @@ export async function getDiagnosticSessionDetail(
     .single()
 
   if (error || !data) return null
-
-  try {
-    await requireClientAccess(data.client_id)
-  } catch {
-    return null
-  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = data as any
@@ -342,7 +345,7 @@ export async function getDiagnosticSessionDetail(
 export async function getDiagnosticRespondents(
   sessionId: string
 ): Promise<DiagnosticRespondentWithMeta[]> {
-  const db = createAdminClient()
+  const db = await createClient()
   const { data: session, error: sessionError } = await db
     .from('diagnostic_sessions')
     .select('client_id')
@@ -353,19 +356,19 @@ export async function getDiagnosticRespondents(
     return []
   }
 
-  try {
-    await requireClientAccess(session.client_id)
-  } catch {
-    return []
-  }
-
   const { data, error } = await db
     .from('diagnostic_respondents')
     .select('*, diagnostic_responses(count)')
     .eq('session_id', sessionId)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getDiagnosticRespondents',
+      'Unable to load diagnostic respondents.',
+      error
+    )
+  }
 
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
     const completedAt =

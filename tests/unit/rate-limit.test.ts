@@ -1,0 +1,67 @@
+import { beforeEach, describe, expect, it } from "vitest";
+import { NextRequest } from "next/server";
+import { checkRequestRateLimit } from "@/lib/security/rate-limit";
+
+function createRequest(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
+  return new NextRequest(url, init);
+}
+
+describe("request rate limiting", () => {
+  beforeEach(() => {
+    const globalStore = globalThis as typeof globalThis & {
+      __talentFitRateLimitStore?: Map<string, number[]>;
+    };
+
+    globalStore.__talentFitRateLimitStore?.clear();
+  });
+
+  it("blocks repeated login attempts from the same IP", () => {
+    const request = createRequest("https://talentfit.test/login", {
+      method: "POST",
+      headers: {
+        "x-forwarded-for": "203.0.113.10",
+      },
+    });
+
+    let result = null;
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      result = checkRequestRateLimit(request);
+    }
+
+    expect(result).toMatchObject({
+      allowed: false,
+      limit: 10,
+      remaining: 0,
+    });
+    expect(result?.retryAfterSeconds).toBeGreaterThan(0);
+  });
+
+  it("keys server actions by the authenticated session cookies", () => {
+    const request = createRequest("https://talentfit.test/client", {
+      method: "POST",
+      headers: {
+        "next-action": "action-id",
+        cookie:
+          "sb-talent-fit-auth-token=access-token; sb-refresh-token=refresh-token",
+      },
+    });
+
+    let lastResult = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      lastResult = checkRequestRateLimit(request);
+    }
+
+    expect(lastResult).toMatchObject({
+      allowed: true,
+      limit: 60,
+      remaining: 0,
+    });
+
+    const blocked = checkRequestRateLimit(request);
+    expect(blocked).toMatchObject({
+      allowed: false,
+      limit: 60,
+      remaining: 0,
+    });
+  });
+});

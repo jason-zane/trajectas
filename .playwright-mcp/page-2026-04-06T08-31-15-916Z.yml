@@ -1,0 +1,375 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e5]:
+      - generic [ref=e7]:
+        - img [ref=e9]
+        - generic [ref=e17]:
+          - generic [ref=e18]: Talent Fit
+          - generic [ref=e19]: Assessment Platform
+      - generic [ref=e21]:
+        - img [ref=e22]
+        - generic [ref=e26]:
+          - generic [ref=e27]: Client Portal
+          - generic [ref=e28]: Client-scoped operations
+      - generic [ref=e29]:
+        - link "Back to dashboard" [ref=e31] [cursor=pointer]:
+          - /url: /client/dashboard
+          - img [ref=e32]
+          - generic [ref=e34]: Back to dashboard
+        - generic [ref=e35]:
+          - generic [ref=e36]: Settings
+          - list [ref=e38]:
+            - listitem [ref=e39]:
+              - link "Brand" [ref=e41] [cursor=pointer]:
+                - /url: /client/settings/brand/client
+                - img [ref=e42]
+                - generic [ref=e48]: Brand
+    - main [ref=e49]:
+      - link "Skip to content" [ref=e50] [cursor=pointer]:
+        - /url: "#main-content"
+      - generic [ref=e51]:
+        - button "Toggle Sidebar" [ref=e52]:
+          - img
+          - generic [ref=e53]: Toggle Sidebar
+        - navigation "Breadcrumb" [ref=e54]:
+          - link [ref=e55] [cursor=pointer]:
+            - /url: /
+            - img [ref=e56]
+          - generic [ref=e59]:
+            - img [ref=e60]
+            - link "Settings" [ref=e62] [cursor=pointer]:
+              - /url: /client/settings
+          - generic [ref=e63]:
+            - img [ref=e64]
+            - generic [ref=e66]: Brand
+          - generic [ref=e67]:
+            - img [ref=e68]
+            - generic [ref=e70]: Client
+        - generic [ref=e71]:
+          - button "Test Org" [ref=e72]:
+            - generic [ref=e73]:
+              - img
+              - generic [ref=e74]: Test Org
+            - img
+          - button "Toggle theme" [ref=e75]:
+            - img [ref=e76]
+            - generic [ref=e82]: Toggle theme
+      - main [ref=e83]:
+        - generic [ref=e87]:
+          - generic [ref=e88]:
+            - generic [ref=e91]:
+              - img [ref=e93]
+              - generic [ref=e97]:
+                - paragraph [ref=e98]: Editing client brand
+                - paragraph [ref=e99]: Test Org
+                - paragraph [ref=e100]: Inherits from TalentFit (platform default)
+            - generic [ref=e101]:
+              - generic [ref=e103]: Identity
+              - generic [ref=e104]:
+                - generic [ref=e105]:
+                  - generic [ref=e106]: Display Name
+                  - textbox "Display Name" [active] [ref=e107]:
+                    - /placeholder: Test Org
+                    - text: TalentFit SmokeTalentFit
+                  - paragraph [ref=e108]: Shown in the dashboard, reports, and portal surfaces.
+                - generic [ref=e109]:
+                  - generic [ref=e110]: Logo
+                  - paragraph [ref=e111]: Displayed in preview headers and report surfaces.
+                  - button "Drop image or click to upload PNG or JPG — max 2MB" [ref=e112] [cursor=pointer]:
+                    - img [ref=e113]
+                    - paragraph [ref=e116]: Drop image or click to upload
+                    - paragraph [ref=e117]: PNG or JPG — max 2MB
+            - generic [ref=e118]:
+              - generic [ref=e120]: Colors
+              - generic [ref=e121]:
+                - generic [ref=e122]:
+                  - generic [ref=e123]: Primary Color
+                  - paragraph [ref=e124]: Buttons, progress bars, and selection states.
+                  - generic [ref=e125]:
+                    - textbox "Primary Color" [ref=e126]:
+                      - /placeholder: "#2d6a5a"
+                      - text: "#24d6a6"
+                    - textbox [ref=e128] [cursor=pointer]: "#24d6a6"
+                  - generic [ref=e130]:
+                    - generic [ref=e131]:
+                      - 'generic "50: #defef0" [ref=e132]'
+                      - paragraph [ref=e133]: "50"
+                    - generic [ref=e134]:
+                      - 'generic "100: #c7f4e1" [ref=e135]'
+                      - paragraph [ref=e136]: "100"
+                    - generic [ref=e137]:
+                      - 'generic "200: #a6e8ce" [ref=e138]'
+                      - paragraph [ref=e139]: "200"
+                    - generic [ref=e140]:
+                      - 'generic "300: #7ad2b2" [ref=e141]'
+                      - paragraph [ref=e142]: "300"
+                    - generic [ref=e143]:
+                      - 'generic "400: #2fb890" [ref=e144]'
+                      - paragraph [ref=e145]: "400"
+                    - generic [ref=e146]:
+                      - 'generic "500: #009b6f" [ref=e147]'
+                      - paragraph [ref=e148]: "500"
+                    - generic [ref=e149]:
+                      - 'generic "600: #008359" [ref=e150]'
+                      - paragraph [ref=e151]: "600"
+                    - generic [ref=e152]:
+                      - 'generic "700: #006943" [ref=e153]'
+                      - paragraph [ref=e154]: "700"
+                    - generic [ref=e155]:
+                      - 'generic "800: #004d2e" [ref=e156]'
+                      - paragraph [ref=e157]: "800"
+                    - generic [ref=e158]:
+                      - 'generic "900: #003018" [ref=e159]'
+                      - paragraph [ref=e160]: "900"
+                - generic [ref=e161]:
+                  - generic [ref=e162]: Accent Color
+                  - paragraph [ref=e163]: Secondary highlights and decorative elements.
+                  - generic [ref=e164]:
+                    - textbox "Accent Color" [ref=e165]:
+                      - /placeholder: "#2d6a5a"
+                      - text: "#c9a962"
+                    - textbox [ref=e167] [cursor=pointer]: "#c9a962"
+                  - generic [ref=e169]:
+                    - generic [ref=e170]:
+                      - 'generic "50: #fdf4e3" [ref=e171]'
+                      - paragraph [ref=e172]: "50"
+                    - generic [ref=e173]:
+                      - 'generic "100: #f2e7cf" [ref=e174]'
+                      - paragraph [ref=e175]: "100"
+                    - generic [ref=e176]:
+                      - 'generic "200: #e6d6b4" [ref=e177]'
+                      - paragraph [ref=e178]: "200"
+                    - generic [ref=e179]:
+                      - 'generic "300: #d0bb8f" [ref=e180]'
+                      - paragraph [ref=e181]: "300"
+                    - generic [ref=e182]:
+                      - 'generic "400: #b69b61" [ref=e183]'
+                      - paragraph [ref=e184]: "400"
+                    - generic [ref=e185]:
+                      - 'generic "500: #9a7c34" [ref=e186]'
+                      - paragraph [ref=e187]: "500"
+                    - generic [ref=e188]:
+                      - 'generic "600: #826417" [ref=e189]'
+                      - paragraph [ref=e190]: "600"
+                    - generic [ref=e191]:
+                      - 'generic "700: #694e00" [ref=e192]'
+                      - paragraph [ref=e193]: "700"
+                    - generic [ref=e194]:
+                      - 'generic "800: #4e3600" [ref=e195]'
+                      - paragraph [ref=e196]: "800"
+                    - generic [ref=e197]:
+                      - 'generic "900: #301e00" [ref=e198]'
+                      - paragraph [ref=e199]: "900"
+            - generic [ref=e200]:
+              - generic [ref=e202]: Surfaces
+              - generic [ref=e203]:
+                - generic [ref=e204]:
+                  - generic [ref=e205]: Neutral Temperature
+                  - paragraph [ref=e206]: Controls the hue tint of backgrounds, borders, and muted text.
+                  - generic [ref=e207]:
+                    - button "Warm" [ref=e208]
+                    - button "Neutral" [ref=e209]
+                    - button "Cool" [ref=e210]
+                - generic [ref=e212]:
+                  - generic [ref=e213]: Page Background
+                  - paragraph [ref=e214]: Main page surface color. Leave empty to derive from neutral temperature.
+                  - generic [ref=e215]:
+                    - textbox "Page Background" [ref=e216]:
+                      - /placeholder: "#2d6a5a"
+                      - text: "#f5f5f4"
+                    - textbox [ref=e218] [cursor=pointer]: "#f5f5f4"
+                  - generic [ref=e220]:
+                    - generic [ref=e221]:
+                      - 'generic "50: #f5f5f5" [ref=e222]'
+                      - paragraph [ref=e223]: "50"
+                    - generic [ref=e224]:
+                      - 'generic "100: #e8e8e7" [ref=e225]'
+                      - paragraph [ref=e226]: "100"
+                    - generic [ref=e227]:
+                      - 'generic "200: #d7d7d7" [ref=e228]'
+                      - paragraph [ref=e229]: "200"
+                    - generic [ref=e230]:
+                      - 'generic "300: #bebebd" [ref=e231]'
+                      - paragraph [ref=e232]: "300"
+                    - generic [ref=e233]:
+                      - 'generic "400: #9e9e9e" [ref=e234]'
+                      - paragraph [ref=e235]: "400"
+                    - generic [ref=e236]:
+                      - 'generic "500: #80807f" [ref=e237]'
+                      - paragraph [ref=e238]: "500"
+                    - generic [ref=e239]:
+                      - 'generic "600: #696968" [ref=e240]'
+                      - paragraph [ref=e241]: "600"
+                    - generic [ref=e242]:
+                      - 'generic "700: #525252" [ref=e243]'
+                      - paragraph [ref=e244]: "700"
+                    - generic [ref=e245]:
+                      - 'generic "800: #3a3a3a" [ref=e246]'
+                      - paragraph [ref=e247]: "800"
+                    - generic [ref=e248]:
+                      - 'generic "900: #222221" [ref=e249]'
+                      - paragraph [ref=e250]: "900"
+                - generic [ref=e252]:
+                  - generic [ref=e253]: Card Background
+                  - paragraph [ref=e254]: Card and popover surfaces. Leave empty for white.
+                  - generic [ref=e255]:
+                    - textbox "Card Background" [ref=e256]:
+                      - /placeholder: "#2d6a5a"
+                      - text: "#ffffff"
+                    - textbox [ref=e258] [cursor=pointer]: "#ffffff"
+                  - generic [ref=e260]:
+                    - generic [ref=e261]:
+                      - 'generic "50: #f5f5f5" [ref=e262]'
+                      - paragraph [ref=e263]: "50"
+                    - generic [ref=e264]:
+                      - 'generic "100: #e8e8e8" [ref=e265]'
+                      - paragraph [ref=e266]: "100"
+                    - generic [ref=e267]:
+                      - 'generic "200: #d7d7d7" [ref=e268]'
+                      - paragraph [ref=e269]: "200"
+                    - generic [ref=e270]:
+                      - 'generic "300: #bebebe" [ref=e271]'
+                      - paragraph [ref=e272]: "300"
+                    - generic [ref=e273]:
+                      - 'generic "400: #9e9e9e" [ref=e274]'
+                      - paragraph [ref=e275]: "400"
+                    - generic [ref=e276]:
+                      - 'generic "500: #808080" [ref=e277]'
+                      - paragraph [ref=e278]: "500"
+                    - generic [ref=e279]:
+                      - 'generic "600: #696969" [ref=e280]'
+                      - paragraph [ref=e281]: "600"
+                    - generic [ref=e282]:
+                      - 'generic "700: #525252" [ref=e283]'
+                      - paragraph [ref=e284]: "700"
+                    - generic [ref=e285]:
+                      - 'generic "800: #3a3a3a" [ref=e286]'
+                      - paragraph [ref=e287]: "800"
+                    - generic [ref=e288]:
+                      - 'generic "900: #222222" [ref=e289]'
+                      - paragraph [ref=e290]: "900"
+            - generic [ref=e291]:
+              - generic [ref=e293]: Typography
+              - generic [ref=e294]:
+                - generic [ref=e295]:
+                  - generic [ref=e296]: Heading Font
+                  - combobox "Heading Font" [ref=e297]:
+                    - generic [ref=e298]: Plus Jakarta Sans
+                    - img: ▼
+                  - textbox [ref=e299]: Plus Jakarta Sans
+                  - generic [ref=e300]: The quick brown fox jumps over the lazy dog
+                - generic [ref=e301]:
+                  - generic [ref=e302]: Body Font
+                  - combobox "Body Font" [ref=e303]:
+                    - generic [ref=e304]: Plus Jakarta Sans
+                    - img: ▼
+                  - textbox [ref=e305]: Plus Jakarta Sans
+                  - generic [ref=e306]: The quick brown fox jumps over the lazy dog
+            - generic [ref=e307]:
+              - generic [ref=e309]: Shape
+              - generic [ref=e310]:
+                - generic [ref=e311]:
+                  - generic [ref=e312]: Border Radius
+                  - generic [ref=e313]:
+                    - button "Sharp 4px" [ref=e314]:
+                      - generic [ref=e316]: Sharp
+                      - generic [ref=e317]: 4px
+                    - button "Soft 8px" [ref=e318]:
+                      - generic [ref=e320]: Soft
+                      - generic [ref=e321]: 8px
+                    - button "Round 16px" [ref=e322]:
+                      - generic [ref=e324]: Round
+                      - generic [ref=e325]: 16px
+                - generic [ref=e326]:
+                  - generic [ref=e327]:
+                    - generic [ref=e328]: Dark Mode
+                    - paragraph [ref=e329]: Allow the client portal to adapt to system dark mode.
+                  - switch [checked] [ref=e330]
+                  - checkbox [checked] [ref=e331]
+            - generic [ref=e332]:
+              - button "Save Changes" [disabled]
+          - generic [ref=e334]:
+            - generic [ref=e335]:
+              - button "Light" [ref=e336]
+              - button "Dark" [ref=e337]
+              - button "Mobile" [ref=e338]
+            - generic [ref=e340]:
+              - generic [ref=e341]:
+                - button "Expand" [ref=e342]:
+                  - img [ref=e343]
+                  - text: Expand
+                - generic [ref=e352]:
+                  - heading "Dashboard Card" [level=3] [ref=e353]
+                  - generic [ref=e360]:
+                    - generic [ref=e361]:
+                      - generic [ref=e362]:
+                        - paragraph [ref=e363]: "24"
+                        - paragraph [ref=e364]: Active
+                      - generic [ref=e365]:
+                        - paragraph [ref=e366]: "156"
+                        - paragraph [ref=e367]: Completed
+                      - generic [ref=e368]:
+                        - paragraph [ref=e369]: "8"
+                        - paragraph [ref=e370]: Pending
+                    - generic [ref=e371]:
+                      - generic [ref=e372]:
+                        - generic [ref=e373]: Leadership Assessment
+                        - generic [ref=e374]: Active
+                      - generic [ref=e375]:
+                        - generic [ref=e376]: Cognitive Battery
+                        - generic [ref=e377]: Draft
+                      - generic [ref=e378]:
+                        - generic [ref=e379]: Culture Fit
+                        - generic [ref=e380]: Archived
+              - generic [ref=e381]:
+                - button "Expand" [ref=e382]:
+                  - img [ref=e383]
+                  - text: Expand
+                - generic [ref=e392]:
+                  - heading "Assessment Questions" [level=3] [ref=e393]
+                  - generic [ref=e394]:
+                    - generic [ref=e395]:
+                      - generic [ref=e396]:
+                        - img [ref=e398]
+                        - generic [ref=e401]: TalentFit
+                      - button "Back" [ref=e402]:
+                        - img [ref=e403]
+                        - text: Back
+                    - paragraph [ref=e408]: TalentFit
+                    - paragraph [ref=e410]: I naturally take charge when a team lacks direction.
+                    - generic [ref=e412]:
+                      - button "Strongly Disagree" [ref=e413]
+                      - button "Disagree" [ref=e414]
+                      - button "Neutral" [ref=e415]
+                      - button "Agree" [ref=e416]
+                      - button "Strongly Agree" [ref=e417]
+                    - generic [ref=e420]: Responses saved automatically
+              - generic [ref=e421]:
+                - button "Expand" [ref=e422]:
+                  - img [ref=e423]
+                  - text: Expand
+                - generic [ref=e432]:
+                  - heading "Report Cover" [level=3] [ref=e433]
+                  - generic [ref=e434]:
+                    - generic [ref=e435]:
+                      - generic [ref=e438]: TalentFit
+                      - paragraph [ref=e439]: Assessment Report
+                      - heading "Leadership Competency Profile" [level=2] [ref=e440]
+                    - generic [ref=e441]:
+                      - generic [ref=e442]:
+                        - generic [ref=e443]: Participant
+                        - generic [ref=e444]: Alex Morgan
+                      - generic [ref=e445]:
+                        - generic [ref=e446]: Assessment
+                        - generic [ref=e447]: Senior Leadership Suite
+                      - generic [ref=e448]:
+                        - generic [ref=e449]: Date
+                        - generic [ref=e450]: 28 March 2026
+                      - generic [ref=e451]:
+                        - generic [ref=e452]: Client
+                        - generic [ref=e453]: Acme Corp
+                    - paragraph [ref=e456]: Confidential - For authorised recipients only
+      - generic [ref=e457]:
+        - heading "Command Palette" [level=2] [ref=e458]
+        - paragraph [ref=e459]: Search for a command to run...
+  - region "Notifications alt+T"

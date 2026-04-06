@@ -1,0 +1,38 @@
+[     110ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:3002/client/dashboard:0
+[     172ms] [ERROR] Refused to execute script from 'http://127.0.0.1:3002/_next/static/development/_clientMiddlewareManifest.js' because its MIME type ('application/json') is not executable, and strict MIME type checking is enabled. @ http://127.0.0.1:3002/client/dashboard:0
+[     196ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:3002/_next/static/chunks/node_modules_react-dom_0bruynb._.js:15305
+[     230ms] Error: ./src/app/(dashboard)/users/page.tsx:5:1
+Module not found: Can't resolve './invite-dialog'
+  3 | import { createAdminClient } from "@/lib/supabase/admin";
+  4 | import { listUsersForAdmin } from "@/app/actions/user-management";
+> 5 | import { InviteDialog } from "./invite-dialog";
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  6 | import { UsersTable } from "./users-table";
+  7 |
+  8 | export default async function UsersPage() {
+
+
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at <unknown> (Error: ./src/app/(dashboard)/users/page.tsx:5:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at Object.getCompilationErrors (file:///Users/jasonhunt/projects/talent-fit/node_modules/next/dist/server/dev/hot-reloader-turbopack.js:1189:59)
+    at DevBundlerService.getCompilationError (file:///Users/jasonhunt/projects/talent-fit/node_modules/next/dist/server/lib/dev-bundler-service.js:44:55)
+    at DevServer.getCompilationError (file:///Users/jasonhunt/projects/talent-fit/node_modules/next/dist/server/dev/next-dev-server.js:719:42)
+    at DevServer.findPageComponents (file:///Users/jasonhunt/projects/talent-fit/node_modules/next/dist/server/dev/next-dev-server.js:689:43)
+    at async DevServer.renderErrorToResponseImpl (file:///Users/jasonhunt/projects/talent-fit/node_modules/next/dist/server/base-server.js:1745:26)
+[     259ms] [ERROR] Failed to load resource: the server responded with a status of 403 (Forbidden) @ http://127.0.0.1:3002/__nextjs_original-stack-frames:0
+[    1333ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[    3489ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[    7085ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   11664ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   17351ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   20906ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   28990ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   36237ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   45104ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   52959ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   61810ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   68323ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3002/_next/webpack-hmr' failed: Error during WebSocket handshake: net::ERR_INVALID_HTTP_RESPONSE @ http://127.0.0.1:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342

@@ -74,6 +74,23 @@ export async function revokeInviteAction(formData: FormData) {
   revalidatePath('/users')
 }
 
+export async function revokeInviteById(inviteId: string) {
+  try {
+    const scope = await requireAdminScope()
+    const parsedInviteId = inviteActionSchema.parse({ inviteId })
+
+    await revokeInvite(parsedInviteId.inviteId, scope.actor?.id ?? '')
+    revalidatePath('/users')
+    revalidatePath(`/users/invite/${parsedInviteId.inviteId}`)
+
+    return { success: true as const }
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Failed to revoke invite.',
+    }
+  }
+}
+
 const membershipActionSchema = z.object({
   membershipId: z.uuid(),
   membershipType: z.enum(['partner', 'client']),
@@ -98,6 +115,35 @@ export async function revokeMembershipAction(formData: FormData) {
   revalidatePath('/users')
 }
 
+export async function revokeMembershipById(
+  membershipId: string,
+  membershipType: 'partner' | 'client',
+  profileId: string
+) {
+  try {
+    const scope = await requireAdminScope()
+    const parsed = membershipActionSchema.parse({
+      membershipId,
+      membershipType,
+    })
+
+    await revokeMembership({
+      membershipId: parsed.membershipId,
+      membershipType: parsed.membershipType,
+      actorProfileId: scope.actor?.id ?? '',
+    })
+    revalidatePath('/users')
+    revalidatePath(`/users/${profileId}`)
+
+    return { success: true as const }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error ? error.message : 'Failed to revoke membership.',
+    }
+  }
+}
+
 const activeStateSchema = z.object({
   profileId: z.uuid(),
   isActive: z.enum(['true', 'false']),
@@ -120,4 +166,31 @@ export async function setStaffUserActiveStateAction(formData: FormData) {
     actorProfileId: scope.actor?.id ?? '',
   })
   revalidatePath('/users')
+}
+
+export async function toggleUserActiveState(profileId: string, isActive: boolean) {
+  try {
+    const scope = await requireAdminScope()
+    const parsed = activeStateSchema.parse({
+      profileId,
+      isActive: String(isActive),
+    })
+
+    await setProfileActiveState({
+      profileId: parsed.profileId,
+      isActive: parsed.isActive === 'true',
+      actorProfileId: scope.actor?.id ?? '',
+    })
+    revalidatePath('/users')
+    revalidatePath(`/users/${parsed.profileId}`)
+
+    return { success: true as const }
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Failed to update user active state.',
+    }
+  }
 }

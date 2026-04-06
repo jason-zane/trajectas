@@ -2,12 +2,27 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import { createClient } from '@/lib/supabase/server'
+import {
+  requireAdminScope,
+  requireCampaignAccess,
+  requireParticipantAccess,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
+import {
+  logReportViewed,
+  logSupportSessionDataAccess,
+} from '@/lib/auth/support-sessions'
+import {
+  logActionError,
+  throwActionError,
+} from '@/lib/security/action-errors'
 import {
   mapReportTemplateRow,
   mapCampaignReportConfigRow,
   mapReportSnapshotRow,
 } from '@/lib/supabase/mappers'
+import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import type {
   ReportTemplate,
   CampaignReportConfig,
@@ -23,26 +38,38 @@ import type {
 
 export async function getReportTemplates(): Promise<ReportTemplate[]> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('report_templates')
     .select('*')
     .is('deleted_at', null)
     .order('created_at', { ascending: true })
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getReportTemplates',
+      'Unable to load report templates.',
+      error
+    )
+  }
   return (data ?? []).map(mapReportTemplateRow)
 }
 
 export async function getReportTemplate(id: string): Promise<ReportTemplate | null> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('report_templates')
     .select('*')
     .eq('id', id)
     .is('deleted_at', null)
     .maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getReportTemplate',
+      'Unable to load report template.',
+      error
+    )
+  }
   return data ? mapReportTemplateRow(data) : null
 }
 
@@ -175,13 +202,19 @@ export async function getCampaignReportConfig(
   campaignId: string,
 ): Promise<CampaignReportConfig | null> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('campaign_report_config')
     .select('*')
     .eq('campaign_id', campaignId)
     .maybeSingle()
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getCampaignReportConfig',
+      'Unable to load report configuration.',
+      error
+    )
+  }
   return data ? mapCampaignReportConfigRow(data) : null
 }
 
@@ -224,40 +257,131 @@ export async function upsertCampaignReportConfig(
 export async function getReportSnapshotsForCampaign(
   campaignId: string,
 ): Promise<ReportSnapshot[]> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  const access = await requireCampaignAccess(campaignId)
+  const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
     .select('*')
     .eq('campaign_id', campaignId)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
+
+  if (error) {
+    throwActionError(
+      'getReportSnapshotsForCampaign',
+      'Unable to load report snapshots.',
+      error
+    )
+  }
+
+  try {
+    await logSupportSessionDataAccess({
+      scope: access.scope,
+      resourceType: 'report_snapshots',
+      resourceId: campaignId,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      metadata: { action: 'list_for_campaign' },
+    })
+  } catch (auditError) {
+    logActionError('getReportSnapshotsForCampaign.audit', auditError)
+  }
+
   return (data ?? []).map(mapReportSnapshotRow)
 }
 
 export async function getReportSnapshot(id: string): Promise<ReportSnapshot | null> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  const scope = await resolveAuthorizedScope()
+  const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('*')
+    .select('*, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)')
     .eq('id', id)
     .maybeSingle()
-  if (error) throw new Error(error.message)
-  return data ? mapReportSnapshotRow(data) : null
+  if (error) {
+    throwActionError('getReportSnapshot', 'Unable to load report.', error)
+  }
+  if (!data) return null
+
+  const snapshot = mapReportSnapshotRow(data)
+  const campaign = Array.isArray(data.campaigns) ? data.campaigns[0] : data.campaigns
+  const participantSession = Array.isArray(data.participant_sessions)
+    ? data.participant_sessions[0]
+    : data.participant_sessions
+  const clientId =
+    campaign && typeof campaign === 'object' && campaign.client_id
+      ? String(campaign.client_id)
+      : null
+  const partnerId =
+    campaign && typeof campaign === 'object' && campaign.partner_id
+      ? String(campaign.partner_id)
+      : null
+  const participantId =
+    participantSession &&
+    typeof participantSession === 'object' &&
+    participantSession.campaign_participant_id
+      ? String(participantSession.campaign_participant_id)
+      : null
+
+  try {
+    await logReportViewed({
+      actorProfileId: scope.actor?.id ?? null,
+      snapshotId: snapshot.id,
+      participantId,
+      audienceType: snapshot.audienceType,
+      partnerId,
+      clientId,
+      supportSessionId: scope.supportSession?.id ?? null,
+    })
+    await logSupportSessionDataAccess({
+      scope,
+      resourceType: 'report_snapshots',
+      resourceId: snapshot.id,
+      partnerId,
+      clientId,
+      metadata: { action: 'detail', audienceType: snapshot.audienceType },
+    })
+  } catch (auditError) {
+    logActionError('getReportSnapshot.audit', auditError)
+  }
+
+  return snapshot
 }
 
 export async function releaseSnapshot(id: string): Promise<void> {
   await requireAdminScope()
   const db = await createAdminClient()
+  const releasedAt = new Date().toISOString()
+  const { data: snapshot, error: snapshotError } = await db
+    .from('report_snapshots')
+    .select('id, campaign_id, participant_session_id, audience_type')
+    .eq('id', id)
+    .single()
+
+  if (snapshotError || !snapshot) throw new Error(snapshotError?.message ?? 'Snapshot not found')
+
   const { error } = await db
     .from('report_snapshots')
     .update({
-      released_at: new Date().toISOString(),
+      released_at: releasedAt,
       status: 'released',
     })
     .eq('id', id)
   if (error) throw new Error(error.message)
+
+  try {
+    await enqueueReportSnapshotEvent({
+      snapshotId: String(snapshot.id),
+      campaignId: String(snapshot.campaign_id),
+      participantSessionId: String(snapshot.participant_session_id),
+      audienceType: String(snapshot.audience_type),
+      status: 'released',
+      generatedAt: releasedAt,
+      releasedAt,
+    })
+  } catch (eventError) {
+    console.error(`[integrations] Failed to enqueue report.released event for ${id}:`, eventError)
+  }
+
   revalidatePath('/reports')
 }
 
@@ -297,22 +421,28 @@ export async function queueSnapshotsForSession(sessionId: string): Promise<void>
 
 export async function getAllReadySnapshots(): Promise<ReportSnapshot[]> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
     .select('*')
     .in('status', ['ready', 'released', 'failed'])
     .order('created_at', { ascending: false })
     .limit(200)
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getAllReadySnapshots',
+      'Unable to load report snapshots.',
+      error
+    )
+  }
   return (data ?? []).map(mapReportSnapshotRow)
 }
 
 export async function getReportSnapshotsForParticipant(
   participantId: string,
 ): Promise<ReportSnapshot[]> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  const access = await requireParticipantAccess(participantId)
+  const db = await createClient()
   const { data: sessions } = await db
     .from('participant_sessions')
     .select('id')
@@ -324,7 +454,27 @@ export async function getReportSnapshotsForParticipant(
     .select('*')
     .in('participant_session_id', sessionIds)
     .order('created_at', { ascending: false })
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getReportSnapshotsForParticipant',
+      'Unable to load report snapshots.',
+      error
+    )
+  }
+
+  try {
+    await logSupportSessionDataAccess({
+      scope: access.scope,
+      resourceType: 'report_snapshots',
+      resourceId: participantId,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      metadata: { action: 'list_for_participant' },
+    })
+  } catch (auditError) {
+    logActionError('getReportSnapshotsForParticipant.audit', auditError)
+  }
+
   return (snapshots ?? []).map(mapReportSnapshotRow)
 }
 
@@ -350,7 +500,7 @@ const AUDIENCE_FK_COLUMNS: Record<AudienceType, string> = {
 /** Returns campaigns linked to a template, with their assessments. */
 export async function getTemplateUsage(templateId: string): Promise<TemplateUsageEntry[]> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
 
   // Find all campaign_report_config rows that reference this template
   const { data: configs, error } = await db
@@ -359,7 +509,13 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
     .or(
       `participant_template_id.eq.${templateId},hr_manager_template_id.eq.${templateId},consultant_template_id.eq.${templateId}`,
     )
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getTemplateUsage',
+      'Unable to load template usage.',
+      error
+    )
+  }
   if (!configs?.length) return []
 
   const campaignIds = configs.map((c) => c.campaign_id)
@@ -443,12 +599,18 @@ export async function unlinkTemplateFromCampaign(
 /** Returns template usage counts for the template list page. */
 export async function getTemplateUsageCounts(): Promise<Record<string, number>> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
 
   const { data, error } = await db
     .from('campaign_report_config')
     .select('participant_template_id, hr_manager_template_id, consultant_template_id')
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getTemplateUsageCounts',
+      'Unable to load template usage.',
+      error
+    )
+  }
 
   const counts: Record<string, number> = {}
   for (const row of data ?? []) {
@@ -464,13 +626,15 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
 /** Returns all campaigns (for linking UI). */
 export async function getAllCampaigns(): Promise<{ id: string; title: string }[]> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('campaigns')
     .select('id, title')
     .is('deleted_at', null)
     .order('title')
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getAllCampaigns', 'Unable to load campaigns.', error)
+  }
   return data ?? []
 }
 
@@ -480,14 +644,16 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
 
 export async function getReportPrompts(): Promise<{ id: string; name: string; purpose: string }[]> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('ai_system_prompts')
     .select('id, name, purpose')
     .eq('is_active', true)
     .in('purpose', ['report_narrative', 'report_strengths_analysis', 'report_development_advice'])
     .order('name')
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getReportPrompts', 'Unable to load prompts.', error)
+  }
   return data ?? []
 }
 
@@ -503,7 +669,7 @@ export interface EntityOption {
 
 export async function getEntityOptions(): Promise<EntityOption[]> {
   await requireAdminScope()
-  const db = await createAdminClient()
+  const db = await createClient()
   const [{ data: dimensions }, { data: factors }, { data: constructs }] = await Promise.all([
     db.from('dimensions').select('id, name').is('deleted_at', null).eq('is_active', true),
     db.from('factors').select('id, name').is('deleted_at', null).eq('is_active', true),

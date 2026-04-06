@@ -1,11 +1,12 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope } from '@/lib/auth/authorization'
+import { throwActionError } from '@/lib/security/action-errors'
 
 export async function getDashboardStats() {
   const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
+  const db = await createClient()
   if (scope.isPlatformAdmin) {
     const [dimensions, factors, constructs, items, assessments, clients] =
       await Promise.all([
@@ -16,6 +17,17 @@ export async function getDashboardStats() {
         db.from('assessments').select('*', { count: 'exact', head: true }),
         db.from('clients').select('*', { count: 'exact', head: true }),
       ])
+
+    const queries = [dimensions, factors, constructs, items, assessments, clients]
+    const failedQuery = queries.find((query) => query.error)
+
+    if (failedQuery?.error) {
+      throwActionError(
+        'getDashboardStats.platform',
+        'Unable to load dashboard statistics.',
+        failedQuery.error
+      )
+    }
 
     return {
       dimensions: dimensions.count ?? 0,
@@ -35,6 +47,22 @@ export async function getDashboardStats() {
       ? db.from('clients').select('*', { count: 'exact', head: true }).in('id', scope.clientIds)
       : Promise.resolve({ count: 0 }),
   ])
+
+  if ('error' in assessments && assessments.error) {
+    throwActionError(
+      'getDashboardStats.assessments',
+      'Unable to load dashboard statistics.',
+      assessments.error
+    )
+  }
+
+  if ('error' in clients && clients.error) {
+    throwActionError(
+      'getDashboardStats.clients',
+      'Unable to load dashboard statistics.',
+      clients.error
+    )
+  }
 
   return {
     dimensions: 0,

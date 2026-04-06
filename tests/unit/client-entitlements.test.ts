@@ -43,6 +43,10 @@ const supabase = vi.hoisted(() => ({
     from: vi.fn(() => queryBuilder),
     rpc: queryBuilder.rpc,
   })),
+  createClient: vi.fn(async () => ({
+    from: vi.fn(() => queryBuilder),
+    rpc: queryBuilder.rpc,
+  })),
 }));
 
 // ---------------------------------------------------------------------------
@@ -55,6 +59,10 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: supabase.createAdminClient,
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createClient: supabase.createClient,
 }));
 
 vi.mock("next/cache", () => ({
@@ -150,6 +158,10 @@ describe("client entitlement actions", () => {
         assessmentName: "Leadership 360",
         quotaLimit: 100,
         quotaUsed: 42,
+      });
+      expect(queryBuilder.rpc).toHaveBeenCalledWith("get_assessment_quota_usage", {
+        p_client_id: "org-1",
+        p_assessment_id: "assess-1",
       });
     });
 
@@ -261,6 +273,10 @@ describe("client entitlement actions", () => {
         assessmentId: "assess-1",
         quotaLimit: 10,
         quotaUsed: 10,
+      });
+      expect(queryBuilder.rpc).toHaveBeenCalledWith("get_assessment_quota_usage", {
+        p_client_id: "org-1",
+        p_assessment_id: "assess-1",
       });
     });
 

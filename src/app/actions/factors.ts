@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { throwActionError } from '@/lib/security/action-errors'
 import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
 import type { Factor } from '@/types/database'
@@ -22,14 +24,16 @@ export type SelectOption = { id: string; name: string }
 
 export async function getFactors(): Promise<FactorWithMeta[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('factors')
     .select('*, dimensions(name), clients(name), factor_constructs(count), assessment_factors(count)')
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getFactors', 'Unable to load factors.', error)
+  }
 
   return (data ?? []).map((row) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -47,7 +51,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
 
 export async function getFactorBySlug(slug: string) {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('factors')
     .select('*, dimensions(name), clients(name), factor_constructs(*, constructs(id, name, slug)), assessment_factors(assessment_id, assessments(id, name, status))')
@@ -87,40 +91,58 @@ export async function getFactorBySlug(slug: string) {
 
 export async function getDimensionsForSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('dimensions')
     .select('id, name')
     .eq('is_active', true)
     .order('display_order', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getDimensionsForSelect',
+      'Unable to load dimensions.',
+      error
+    )
+  }
   return data ?? []
 }
 
 export async function getConstructsForSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('constructs')
     .select('id, name')
     .eq('is_active', true)
     .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getConstructsForSelect',
+      'Unable to load constructs.',
+      error
+    )
+  }
   return data ?? []
 }
 
 export async function getClientsForFactorSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('clients')
     .select('id, name')
     .is('deleted_at', null)
     .order('name')
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getClientsForFactorSelect',
+      'Unable to load clients.',
+      error
+    )
+  }
   return data ?? []
 }
 

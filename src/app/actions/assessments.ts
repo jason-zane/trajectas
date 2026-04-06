@@ -2,8 +2,10 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { getAccessibleCampaignIds, requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { throwActionError } from '@/lib/security/action-errors'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
@@ -114,14 +116,16 @@ function getRelatedCount(value: unknown) {
 
 export async function getAssessments(): Promise<AssessmentWithMeta[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('assessments')
     .select('*, assessment_factors(count)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getAssessments', 'Unable to load assessments.', error)
+  }
 
   return (data ?? []).map((row) => ({
     ...mapAssessmentRow(row),
@@ -134,7 +138,7 @@ export async function getAssessments(): Promise<AssessmentWithMeta[]> {
 
 export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssessmentSummary[]> {
   const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
+  const db = await createClient()
 
   let accessibleCampaignIds: string[] | null = null
   if (!scope.isPlatformAdmin) {
@@ -158,7 +162,11 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   const { data, error } = await query
 
   if (error) {
-    throw new Error(error.message)
+    throwActionError(
+      'getWorkspaceAssessmentSummaries',
+      'Unable to load assessments.',
+      error
+    )
   }
 
   const campaignIds = Array.from(
@@ -174,7 +182,11 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
       .eq('status', 'completed')
 
     if (completedError) {
-      throw new Error(completedError.message)
+      throwActionError(
+        'getWorkspaceAssessmentSummaries.completedCounts',
+        'Unable to load assessments.',
+        completedError
+      )
     }
 
     for (const row of completedRows ?? []) {
@@ -288,7 +300,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 
 export async function getAssessmentById(id: string): Promise<Assessment | null> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('assessments')
     .select('*')

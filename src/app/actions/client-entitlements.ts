@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireClientAccess } from '@/lib/auth/authorization'
+import { throwActionError } from '@/lib/security/action-errors'
 import {
   mapClientAssessmentAssignmentRow,
   mapClientReportTemplateAssignmentRow,
@@ -20,7 +22,7 @@ export async function getAssessmentAssignments(
   clientId: string,
 ): Promise<AssessmentAssignmentWithUsage[]> {
   await requireClientAccess(clientId)
-  const db = createAdminClient()
+  const db = await createClient()
 
   const { data, error } = await db
     .from('client_assessment_assignments')
@@ -29,18 +31,34 @@ export async function getAssessmentAssignments(
     .eq('is_active', true)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getAssessmentAssignments',
+      'Unable to load assessment assignments.',
+      error
+    )
+  }
   if (!data || data.length === 0) return []
 
   // Compute usage for each assignment via the DB function
   const results: AssessmentAssignmentWithUsage[] = []
   for (const row of data) {
-    const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
-      p_org_id: clientId,
-      p_assessment_id: row.assessment_id,
-    })
+    const { data: usageData, error: usageError } = await db.rpc(
+      'get_assessment_quota_usage',
+      {
+        p_client_id: clientId,
+        p_assessment_id: row.assessment_id,
+      }
+    )
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (usageError) {
+      throwActionError(
+        'getAssessmentAssignments.quotaUsage',
+        'Unable to load assessment assignments.',
+        usageError
+      )
+    }
+
     const assessmentRecord = Array.isArray(row.assessments)
       ? row.assessments[0]
       : row.assessments
@@ -84,7 +102,7 @@ export async function getReportTemplateAssignments(
   clientId: string,
 ): Promise<ClientReportTemplateAssignment[]> {
   await requireClientAccess(clientId)
-  const db = createAdminClient()
+  const db = await createClient()
 
   const { data, error } = await db
     .from('client_report_template_assignments')
@@ -93,7 +111,13 @@ export async function getReportTemplateAssignments(
     .eq('is_active', true)
     .order('created_at', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getReportTemplateAssignments',
+      'Unable to load report template assignments.',
+      error
+    )
+  }
   return (data ?? []).map(mapClientReportTemplateAssignmentRow)
 }
 
@@ -121,7 +145,7 @@ export async function checkQuotaAvailability(
     return { allowed: true, violations: [] };
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
 
   // Get assignments that have quota limits for the requested assessments
   const { data: assignments, error } = await db
@@ -131,17 +155,34 @@ export async function checkQuotaAvailability(
     .eq('is_active', true)
     .in('assessment_id', assessmentIds)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'checkQuotaAvailability.assignments',
+      'Unable to validate assessment quota.',
+      error
+    )
+  }
 
   const violations: { assessmentId: string; quotaLimit: number; quotaUsed: number }[] = []
 
   for (const row of assignments ?? []) {
     if (row.quota_limit === null) continue
 
-    const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
-      p_org_id: clientId,
-      p_assessment_id: row.assessment_id,
-    })
+    const { data: usageData, error: usageError } = await db.rpc(
+      'get_assessment_quota_usage',
+      {
+        p_client_id: clientId,
+        p_assessment_id: row.assessment_id,
+      }
+    )
+
+    if (usageError) {
+      throwActionError(
+        'checkQuotaAvailability.quotaUsage',
+        'Unable to validate assessment quota.',
+        usageError
+      )
+    }
 
     const quotaUsed = typeof usageData === 'number' ? usageData : 0
     if (quotaUsed >= row.quota_limit) {

@@ -1,7 +1,8 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import { requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
+import { throwActionError } from '@/lib/security/action-errors'
 
 export type MatchingRunWithMeta = {
   id: string
@@ -45,13 +46,15 @@ function getRelatedCount(value: unknown) {
 
 export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('matching_runs')
     .select('*, clients(name), diagnostic_sessions(name), matching_results(count)')
     .order('created_at', { ascending: false })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getMatchingRuns', 'Unable to load matching runs.', error)
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((row: any) => ({
@@ -75,7 +78,7 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
     return []
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   let query = db
     .from('matching_runs')
     .select('*, clients(name), diagnostic_sessions(name), matching_results(count)')
@@ -86,7 +89,13 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
   }
 
   const { data, error } = await query
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getWorkspaceMatchingRuns',
+      'Unable to load matching runs.',
+      error
+    )
+  }
 
   const runIds = (data ?? []).map((row) => String(row.id))
   const recommendationsByRun = new Map<string, WorkspaceMatchingRecommendation[]>()
@@ -99,7 +108,11 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
       .order('rank', { ascending: true })
 
     if (recommendationsError) {
-      throw new Error(recommendationsError.message)
+      throwActionError(
+        'getWorkspaceMatchingRuns.recommendations',
+        'Unable to load matching runs.',
+        recommendationsError
+      )
     }
 
     for (const row of recommendationRows ?? []) {
@@ -152,20 +165,26 @@ export type SelectOption = { id: string; name: string }
 
 export async function getClientsForMatchingSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('clients')
     .select('id, name')
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getClientsForMatchingSelect',
+      'Unable to load clients.',
+      error
+    )
+  }
   return data ?? []
 }
 
 export async function getSessionsForMatchingSelect(clientId?: string): Promise<{ id: string; title: string }[]> {
   await requireAdminScope()
-  const db = createAdminClient()
+  const db = await createClient()
   let query = db
     .from('diagnostic_sessions')
     .select('*')
@@ -177,7 +196,13 @@ export async function getSessionsForMatchingSelect(clientId?: string): Promise<{
   }
 
   const { data, error } = await query
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getSessionsForMatchingSelect',
+      'Unable to load diagnostic sessions.',
+      error
+    )
+  }
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => ({
     id: String(row.id),
     title:

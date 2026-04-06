@@ -12,6 +12,9 @@ describe("next config integration", () => {
     expect(response.headers.get("referrer-policy")).toBe(
       "strict-origin-when-cross-origin"
     );
+    expect(response.headers.get("strict-transport-security")).toBe(
+      "max-age=31536000; includeSubDomains"
+    );
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-dns-prefetch-control")).toBe("off");
     expect(response.headers.get("x-frame-options")).toBe("DENY");

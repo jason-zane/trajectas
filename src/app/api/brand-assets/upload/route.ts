@@ -28,6 +28,9 @@ function sanitiseFilename(name: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth first — don't leak field requirements to unauthenticated callers
+    const scope = await resolveAuthorizedScope()
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const ownerType = formData.get('ownerType') as string | null
@@ -54,6 +57,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Contextual authorization — client admins can upload for their client
+    if (ownerType === 'client') {
+      if (!canManageClient(scope, ownerId)) {
+        throw new AuthorizationError('Not authorized to manage this client')
+      }
+    } else {
+      assertAdminOnly(scope)
+    }
+
     if (!ALLOWED_TYPES.has(file.type)) {
       return NextResponse.json(
         { error: 'File must be PNG or JPEG' },
@@ -66,15 +78,6 @@ export async function POST(request: NextRequest) {
         { error: 'File must be under 2MB' },
         { status: 400 }
       )
-    }
-
-    const scope = await resolveAuthorizedScope()
-    if (ownerType === 'client') {
-      if (!canManageClient(scope, ownerId)) {
-        throw new AuthorizationError('Not authorized to manage this client')
-      }
-    } else {
-      assertAdminOnly(scope)
     }
 
     const db = createAdminClient()
