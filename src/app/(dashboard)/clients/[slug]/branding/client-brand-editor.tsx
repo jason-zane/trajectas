@@ -12,17 +12,17 @@ import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { upsertBrandConfig } from "@/app/actions/brand"
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig, BrandConfigRecord } from "@/lib/brand/types"
-import type { Organization } from "@/types/database"
+import type { Client } from "@/types/database"
 
 interface ClientBrandEditorProps {
-  organization: Organization
+  client: Client
   initialRecord: BrandConfigRecord | null
 }
 
 type SaveState = "idle" | "saving" | "saved"
 
 export function ClientBrandEditor({
-  organization,
+  client,
   initialRecord,
 }: ClientBrandEditorProps) {
   const initialConfig = initialRecord?.config ?? { ...TALENT_FIT_DEFAULTS }
@@ -31,11 +31,11 @@ export function ClientBrandEditor({
   // expose the primary color control. Other fields stay as inherited defaults.
   const [config, setConfig] = useState<BrandConfig>({
     ...initialConfig,
-    name: organization.name,
+    name: client.name,
   })
   const [savedConfig, setSavedConfig] = useState<BrandConfig>({
     ...initialConfig,
-    name: organization.name,
+    name: client.name,
   })
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [, startTransition] = useTransition()
@@ -48,8 +48,8 @@ export function ClientBrandEditor({
     setSaveState("saving")
     startTransition(async () => {
       const result = await upsertBrandConfig(
-        "organization",
-        organization.id,
+        "client",
+        client.id,
         config
       )
       if (result.error) {
@@ -66,7 +66,7 @@ export function ClientBrandEditor({
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaveState("idle"), 2000)
     })
-  }, [config, organization.id, startTransition])
+  }, [config, client.id, startTransition])
 
   // Clean up timer
   useEffect(() => {
@@ -85,9 +85,9 @@ export function ClientBrandEditor({
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow={organization.name}
+        eyebrow={client.name}
         title="Branding"
-        description="Customize the primary color used in assessments and reports for this organisation."
+        description="Customize the primary color used in assessments and reports for this client."
       />
 
       <div className="flex gap-8 items-start">

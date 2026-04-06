@@ -12,7 +12,7 @@ interface PortalAccentEditorProps {
 const PORTALS = [
   { key: "admin" as const, label: "Admin Portal", description: "Platform administration accent." },
   { key: "partner" as const, label: "Partner Portal", description: "Consulting partner accent." },
-  { key: "client" as const, label: "Client Portal", description: "Organisation client accent." },
+  { key: "client" as const, label: "Client Portal", description: "Client portal accent." },
 ]
 
 export function PortalAccentEditor({ value, onChange }: PortalAccentEditorProps) {

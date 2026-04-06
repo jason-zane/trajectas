@@ -20,7 +20,7 @@ export type PartnerWithCounts = Partner & {
 
 function revalidateDirectoryPaths() {
   revalidatePath('/directory')
-  revalidatePath('/organizations')
+  revalidatePath('/clients')
   revalidatePath('/partners')
   revalidatePath('/')
 }
@@ -35,15 +35,15 @@ export async function getPartners(): Promise<PartnerWithCounts[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('partners')
-    .select('*, organizations(count)')
+    .select('*, clients(count)')
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
 
   return (data ?? []).map((row) => ({
     ...mapPartnerRow(row),
-    clientCount: row.organizations
-      ? ((row.organizations as { count: number }[])[0]?.count ?? 0)
+    clientCount: row.clients
+      ? ((row.clients as { count: number }[])[0]?.count ?? 0)
       : 0,
   }))
 }

@@ -35,7 +35,7 @@ export const DEFAULT_EMAIL_STYLES: Readonly<EmailStyleColors> = {
  *
  * Sage/teal primary, gold accent, Plus Jakarta Sans typography, soft radius.
  * This is used as the seed value for the platform brand_config row and as
- * the fallback when no organization-specific brand is configured.
+ * the fallback when no client-specific brand is configured.
  */
 export const TALENT_FIT_DEFAULTS: Readonly<BrandConfig> = {
   name: 'TalentFit',

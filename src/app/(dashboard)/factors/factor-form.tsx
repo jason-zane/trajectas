@@ -61,7 +61,7 @@ function slugify(text: string): string {
 interface FactorFormProps {
   dimensions: SelectOption[]
   availableConstructs: SelectOption[]
-  organizations: SelectOption[]
+  clients: SelectOption[]
   mode: "create" | "edit"
   factorId?: string
   initialData?: {
@@ -72,7 +72,7 @@ interface FactorFormProps {
     dimensionId?: string
     isActive: boolean
     isMatchEligible: boolean
-    organizationId?: string
+    clientId?: string
     indicatorsLow?: string
     indicatorsMid?: string
     indicatorsHigh?: string
@@ -86,7 +86,7 @@ interface FactorFormProps {
 export function FactorForm({
   dimensions,
   availableConstructs,
-  organizations,
+  clients,
   mode,
   factorId,
   initialData,
@@ -100,7 +100,7 @@ export function FactorForm({
   const [dimensionId, setDimensionId] = useState(initialData?.dimensionId ?? "")
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
   const [isMatchEligible, setIsMatchEligible] = useState(initialData?.isMatchEligible ?? true)
-  const [organizationId, setOrganizationId] = useState(initialData?.organizationId ?? "")
+  const [clientId, setClientId] = useState(initialData?.clientId ?? "")
   const [linkedConstructs, setLinkedConstructs] = useState<LinkedConstruct[]>(
     initialData?.linkedConstructs ?? []
   )
@@ -179,7 +179,7 @@ export function FactorForm({
     dimensionId: initialData?.dimensionId ?? "",
     isActive: initialData?.isActive ?? true,
     isMatchEligible: initialData?.isMatchEligible ?? true,
-    organizationId: initialData?.organizationId ?? "",
+    clientId: initialData?.clientId ?? "",
     linkedConstructs: JSON.stringify(
       (initialData?.linkedConstructs ?? []).map((c) => ({
         constructId: c.constructId,
@@ -196,7 +196,7 @@ export function FactorForm({
         dimensionId !== savedStructural.dimensionId ||
         isActive !== savedStructural.isActive ||
         isMatchEligible !== savedStructural.isMatchEligible ||
-        organizationId !== savedStructural.organizationId ||
+        clientId !== savedStructural.clientId ||
         JSON.stringify(
           linkedConstructs.map((c) => ({
             constructId: c.constructId,
@@ -298,7 +298,7 @@ export function FactorForm({
         dimensionId,
         isActive,
         isMatchEligible,
-        organizationId,
+        clientId,
         linkedConstructs: JSON.stringify(
           linkedConstructs.map((c) => ({
             constructId: c.constructId,
@@ -815,37 +815,37 @@ export function FactorForm({
                 >
                   <div className="rounded-lg border p-4 space-y-3">
                     <div className="space-y-0.5">
-                      <Label>Client Organisation</Label>
+                      <Label>Client</Label>
                       <p className="text-xs text-muted-foreground">
                         Assign to a client to mark this as their custom factor. Leave empty for platform-global.
                       </p>
                     </div>
                     <Select
-                      name="organizationId"
-                      value={organizationId}
-                      onValueChange={(v) => setOrganizationId(v ?? "")}
+                      name="clientId"
+                      value={clientId}
+                      onValueChange={(v) => setClientId(v ?? "")}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an organisation...">
+                        <SelectValue placeholder="Select a client...">
                           {(value: string) =>
-                            organizations.find((o) => o.id === value)?.name ?? value
+                            clients.find((o) => o.id === value)?.name ?? value
                           }
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {organizations.map((org) => (
+                        {clients.map((org) => (
                           <SelectItem key={org.id} value={org.id}>
                             {org.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {organizationId && (
+                    {clientId && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="xs"
-                        onClick={() => setOrganizationId("")}
+                        onClick={() => setClientId("")}
                       >
                         Clear selection
                       </Button>

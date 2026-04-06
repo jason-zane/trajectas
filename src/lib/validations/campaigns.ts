@@ -9,7 +9,7 @@ export const campaignSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
   description: z.string().max(4000).optional(),
   status: z.enum(['draft', 'active', 'paused', 'closed', 'archived']).default('draft'),
-  organizationId: z.string().uuid().optional().or(z.literal('')),
+  clientId: z.string().uuid().optional().or(z.literal('')),
   partnerId: z.string().uuid().optional().or(z.literal('')),
   opensAt: z.string().optional().or(z.literal('')),
   closesAt: z.string().optional().or(z.literal('')),

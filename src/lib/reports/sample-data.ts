@@ -129,7 +129,7 @@ function generateBlockSampleData(type: BlockType, config: Record<string, unknown
         entityName: 'Strategic Thinking',
         entitySlug: 'strategic-thinking',
         definition:
-          'The capacity to think beyond immediate challenges and consider broader implications for the organisation.',
+          'The capacity to think beyond immediate challenges and consider broader implications for the client.',
         pompScore: 82,
         bandResult: {
           band: 'high',

@@ -1,25 +1,25 @@
 import { notFound, redirect } from "next/navigation";
 import { getAssignablePartners } from "@/app/actions/partners";
-import { getOrganizationBySlug } from "@/app/actions/organizations";
+import { getClientBySlug } from "@/app/actions/clients";
 import {
   canManageClient,
   canManageClientAssignment,
   resolveAuthorizedScope,
 } from "@/lib/auth/authorization";
-import { OrganizationEditForm } from "./organization-edit-form";
+import { ClientEditForm } from "./client-edit-form";
 
-export default async function EditOrganizationPage({
+export default async function EditClientPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const [organization, scope] = await Promise.all([
-    getOrganizationBySlug(slug, { includeArchived: true }),
+  const [client, scope] = await Promise.all([
+    getClientBySlug(slug, { includeArchived: true }),
     resolveAuthorizedScope(),
   ]);
-  if (!organization) notFound();
-  if (!canManageClient(scope, organization.id)) {
+  if (!client) notFound();
+  if (!canManageClient(scope, client.id)) {
     redirect("/unauthorized?reason=client-directory");
   }
 
@@ -27,8 +27,8 @@ export default async function EditOrganizationPage({
   const partners = canAssignPartner ? await getAssignablePartners() : [];
 
   return (
-    <OrganizationEditForm
-      organization={organization}
+    <ClientEditForm
+      client={client}
       partnerOptions={partners.map((partner) => ({
         id: partner.id,
         name: partner.name,

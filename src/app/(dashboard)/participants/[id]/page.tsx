@@ -151,10 +151,10 @@ export default async function ParticipantDetailPage({
                 {participant.campaignTitle}
               </Link>
             </span>
-            {participant.organizationName && (
+            {participant.clientName && (
               <span className="inline-flex items-center gap-1.5">
                 <Building2 className="size-3.5" />
-                {participant.organizationName}
+                {participant.clientName}
               </span>
             )}
           </div>

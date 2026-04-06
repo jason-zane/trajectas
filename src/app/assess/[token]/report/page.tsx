@@ -31,7 +31,7 @@ export default async function ReportPage({
   }
 
   const [brandConfig, snapshot] = await Promise.all([
-    getEffectiveBrand(campaign.organizationId, campaign.id),
+    getEffectiveBrand(campaign.clientId, campaign.id),
     getParticipantReportSnapshot(token),
   ]);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;

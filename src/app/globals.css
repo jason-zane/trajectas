@@ -352,7 +352,7 @@
   --shadow-glow: 0 0 25px oklch(0.78 0.12 80 / 0.2);
 }
 
-/* Client/Organisation portal: terracotta accent */
+/* Client portal: terracotta accent */
 [data-portal="client"] {
   --primary: oklch(0.55 0.14 45);
   --primary-foreground: oklch(0.99 0 0);

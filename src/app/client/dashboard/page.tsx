@@ -7,9 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Building2 } from "lucide-react";
 
 export default async function ClientDashboardPage() {
-  const { orgId } = await resolveClientOrg("/client/dashboard");
+  const { clientId } = await resolveClientOrg("/client/dashboard");
 
-  if (!orgId) {
+  if (!clientId) {
     return (
       <div className="space-y-6 max-w-5xl">
         <PageHeader eyebrow="Dashboard" title="Welcome" />
@@ -18,9 +18,9 @@ export default async function ClientDashboardPage() {
             <div className="flex size-12 items-center justify-center rounded-xl bg-muted mb-4">
               <Building2 className="size-6 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">No organisation set up yet</h3>
+            <h3 className="text-lg font-semibold mb-2">No client set up yet</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              Your account has been created but no client organisation has been configured.
+              Your account has been created but no client has been configured.
               Contact your administrator to get started.
             </p>
           </CardContent>
@@ -31,7 +31,7 @@ export default async function ClientDashboardPage() {
 
   const [campaigns, assignments] = await Promise.all([
     getCampaigns(),
-    getAssessmentAssignments(orgId),
+    getAssessmentAssignments(clientId),
   ]);
 
   return (

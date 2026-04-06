@@ -6,7 +6,7 @@ import type {
   FactorConstruct,
   Item,
   ItemOption,
-  Organization,
+  Client,
   ResponseFormat,
   AssessmentSection,
   AssessmentSectionItem,
@@ -78,7 +78,7 @@ export function mapFactorRow(row: any): Factor {
     definition: row.definition ?? undefined,
     isActive: row.is_active,
     isMatchEligible: row.is_match_eligible ?? true,
-    organizationId: row.organization_id ?? undefined,
+    clientId: row.client_id ?? undefined,
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
@@ -180,7 +180,7 @@ export function mapResponseFormatRow(row: any): ResponseFormat {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapOrganizationRow(row: any): Organization {
+export function mapClientRow(row: any): Client {
   return {
     id: row.id,
     partnerId: row.partner_id ?? undefined,
@@ -271,7 +271,7 @@ export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at
     definition: c.definition ?? null,
     is_active: c.isActive,
     is_match_eligible: c.isMatchEligible ?? true,
-    organization_id: c.organizationId ?? null,
+    client_id: c.clientId ?? null,
     indicators_low: c.indicatorsLow ?? null,
     indicators_mid: c.indicatorsMid ?? null,
     indicators_high: c.indicatorsHigh ?? null,
@@ -307,7 +307,7 @@ export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) 
   }
 }
 
-export function toOrganizationInsert(o: {
+export function toClientInsert(o: {
   partnerId?: string
   name: string
   slug: string
@@ -341,7 +341,7 @@ export function toPartnerInsert(p: {
 export function mapAssessmentRow(row: any): Assessment {
   return {
     id: row.id,
-    organizationId: row.organization_id ?? undefined,
+    clientId: row.client_id ?? undefined,
     title: row.title,
     description: row.description ?? undefined,
     status: row.status,
@@ -359,7 +359,7 @@ export function mapAssessmentRow(row: any): Assessment {
 
 export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 'created_at' | 'updated_at'>) {
   return {
-    organization_id: a.organizationId ?? null,
+    client_id: a.clientId ?? null,
     title: a.title,
     description: a.description ?? null,
     status: a.status,
@@ -502,7 +502,7 @@ export function mapNormGroupRow(row: any): NormGroup {
     roleLevel: row.role_level ?? undefined,
     jobFunction: row.job_function ?? undefined,
     region: row.region ?? undefined,
-    organizationId: row.organization_id ?? undefined,
+    clientId: row.client_id ?? undefined,
     sampleSize: row.sample_size,
     collectionStart: row.collection_start ?? undefined,
     collectionEnd: row.collection_end ?? undefined,
@@ -591,7 +591,7 @@ export function mapCampaignRow(row: any): Campaign {
     slug: row.slug,
     description: row.description ?? undefined,
     status: row.status,
-    organizationId: row.organization_id ?? undefined,
+    clientId: row.client_id ?? undefined,
     partnerId: row.partner_id ?? undefined,
     createdBy: row.created_by ?? undefined,
     opensAt: row.opens_at ?? undefined,
@@ -657,7 +657,7 @@ export function toCampaignInsert(c: Omit<Campaign, 'id' | 'created_at' | 'update
     slug: c.slug,
     description: c.description ?? null,
     status: c.status,
-    organization_id: c.organizationId ?? null,
+    client_id: c.clientId ?? null,
     partner_id: c.partnerId ?? null,
     created_by: c.createdBy ?? null,
     opens_at: c.opensAt ?? null,
@@ -802,7 +802,7 @@ export function mapReportSnapshotRow(row: any): ReportSnapshot {
 export function mapClientAssessmentAssignmentRow(row: any): ClientAssessmentAssignment {
   return {
     id: row.id,
-    organizationId: row.organization_id,
+    clientId: row.client_id,
     assessmentId: row.assessment_id,
     quotaLimit: row.quota_limit ?? null,
     isActive: row.is_active,
@@ -816,7 +816,7 @@ export function mapClientAssessmentAssignmentRow(row: any): ClientAssessmentAssi
 export function mapClientReportTemplateAssignmentRow(row: any): ClientReportTemplateAssignment {
   return {
     id: row.id,
-    organizationId: row.organization_id,
+    clientId: row.client_id,
     reportTemplateId: row.report_template_id,
     isActive: row.is_active,
     assignedBy: row.assigned_by,

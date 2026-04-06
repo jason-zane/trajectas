@@ -38,7 +38,7 @@ export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
     title: "Operate clients across campaigns, assessments, and reporting.",
     description:
       "This surface is now distinct from platform admin. It is for partner-scoped client operations, not platform primitive authoring.",
-    primaryAction: { label: "View clients", href: "/organizations" },
+    primaryAction: { label: "View clients", href: "/clients" },
     secondaryAction: { label: "Review campaigns", href: "/campaigns" },
     sections: [
       {
@@ -63,7 +63,7 @@ export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
       },
     ],
   },
-  organizations: {
+  clients: {
     eyebrow: "Partner Portal",
     title: "Assigned clients",
     description:
@@ -106,7 +106,7 @@ export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
     title: "Partner campaigns",
     description:
       "Campaign operations belong here once clients and memberships are wired through the service layer.",
-    primaryAction: { label: "View assigned clients", href: "/organizations" },
+    primaryAction: { label: "View assigned clients", href: "/clients" },
     secondaryAction: { label: "Open results", href: "/results" },
     sections: [
       {

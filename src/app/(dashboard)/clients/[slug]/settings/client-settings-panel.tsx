@@ -7,12 +7,12 @@ import { Switch } from "@/components/ui/switch";
 import { toggleClientBranding } from "@/app/actions/client-entitlements";
 
 interface ClientSettingsPanelProps {
-  organizationId: string;
+  clientId: string;
   canCustomizeBranding: boolean;
 }
 
 export function ClientSettingsPanel({
-  organizationId,
+  clientId,
   canCustomizeBranding: initialValue,
 }: ClientSettingsPanelProps) {
   const router = useRouter();
@@ -23,7 +23,7 @@ export function ClientSettingsPanel({
   function handleBrandingToggle(checked: boolean) {
     setCanCustomizeBranding(checked); // optimistic
     startTransition(async () => {
-      const result = await toggleClientBranding(organizationId, checked);
+      const result = await toggleClientBranding(clientId, checked);
       if ("error" in result) {
         setCanCustomizeBranding(!checked); // revert
         toast.error(result.error);

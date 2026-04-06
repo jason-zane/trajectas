@@ -220,7 +220,7 @@ export function PageContentEditor({
                 <p className="text-xs text-muted-foreground">
                   Variables: {"{{participantName}}"}, {"{{campaignTitle}}"},{" "}
                   {"{{campaignDescription}}"}, {"{{assessmentCount}}"},{" "}
-                  {"{{organizationName}}"}
+                  {"{{clientName}}"}
                   {page === "section_intro" && (
                     <>, {"{{sectionTitle}}"}, {"{{sectionNumber}}"}</>
                   )}

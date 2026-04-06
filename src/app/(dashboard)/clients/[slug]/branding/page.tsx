@@ -1,22 +1,22 @@
 import { notFound } from "next/navigation"
-import { getOrganizationBySlug } from "@/app/actions/organizations"
+import { getClientBySlug } from "@/app/actions/clients"
 import { getEffectiveBrandRecord } from "@/app/actions/brand"
 import { ClientBrandEditor } from "./client-brand-editor"
 
-export default async function OrganizationBrandingPage({
+export default async function ClientBrandingPage({
   params,
 }: {
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const organization = await getOrganizationBySlug(slug)
-  if (!organization) notFound()
+  const client = await getClientBySlug(slug)
+  if (!client) notFound()
 
-  const brandRecord = await getEffectiveBrandRecord("organization", organization.id)
+  const brandRecord = await getEffectiveBrandRecord("client", client.id)
 
   return (
     <ClientBrandEditor
-      organization={organization}
+      client={client}
       initialRecord={brandRecord}
     />
   )

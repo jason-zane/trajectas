@@ -1,7 +1,7 @@
 /**
  * Prompt templates for the competency-matching use case.
  *
- * Instructs the AI to analyse organisational diagnostic data,
+ * Instructs the AI to analyse client diagnostic data,
  * rank competencies by relevance, and return structured JSON.
  *
  * Bump PROMPT_VERSION whenever the system prompt changes so cached

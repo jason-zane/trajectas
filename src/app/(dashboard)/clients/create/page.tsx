@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { OrganizationCreateForm } from "./organization-create-form";
+import { ClientCreateForm } from "./client-create-form";
 import {
   AuthorizationError,
   canManageClientAssignment,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/auth/authorization";
 import { getAssignablePartners } from "@/app/actions/partners";
 
-export default async function CreateOrganizationPage() {
+export default async function CreateClientPage() {
   const scope = await resolveAuthorizedScope();
 
   if (!canManageClientDirectory(scope)) {
@@ -33,7 +33,7 @@ export default async function CreateOrganizationPage() {
   }
 
   return (
-    <OrganizationCreateForm
+    <ClientCreateForm
       partnerOptions={partners.map((partner) => ({
         id: partner.id,
         name: partner.name,

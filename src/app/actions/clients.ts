@@ -2,21 +2,21 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { mapOrganizationRow, toOrganizationInsert } from '@/lib/supabase/mappers'
+import { mapClientRow, toClientInsert } from '@/lib/supabase/mappers'
 import {
   AuthorizationError,
   canManageClient,
   canManageClientAssignment,
   canManageClientDirectory,
   getPreferredPartnerIdForClientCreation,
-  requireOrganizationAccess,
+  requireClientAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
-import { organizationSchema } from '@/lib/validations/organizations'
-import type { Organization } from '@/types/database'
+import { clientSchema } from '@/lib/validations/clients'
+import type { Client } from '@/types/database'
 
-export type OrganizationWithCounts = Organization & {
+export type ClientWithCounts = Client & {
   assessmentCount: number
   sessionCount: number
   partnerName?: string
@@ -32,11 +32,11 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' ? (value as Record<string, unknown>) : null
 }
 
-function mapOrganizationWithCounts(row: Record<string, unknown>): OrganizationWithCounts {
+function mapClientWithCounts(row: Record<string, unknown>): ClientWithCounts {
   const partnerRow = getRelatedRecord(row.partners)
 
   return {
-    ...mapOrganizationRow(row),
+    ...mapClientRow(row),
     partnerName: typeof partnerRow?.name === 'string' ? partnerRow.name : undefined,
     assessmentCount: row.assessments
       ? ((row.assessments as { count: number }[])[0]?.count ?? 0)
@@ -49,7 +49,7 @@ function mapOrganizationWithCounts(row: Record<string, unknown>): OrganizationWi
 
 function revalidateDirectoryPaths() {
   revalidatePath('/directory')
-  revalidatePath('/organizations')
+  revalidatePath('/clients')
   revalidatePath('/partners')
   revalidatePath('/')
 }
@@ -71,11 +71,11 @@ async function validateAssignablePartner(partnerId: string) {
   return String(data.id)
 }
 
-export async function getOrganizations(): Promise<OrganizationWithCounts[]> {
+export async function getClients(): Promise<ClientWithCounts[]> {
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   let query = db
-    .from('organizations')
+    .from('clients')
     .select('*, partners(name), assessments(count), diagnostic_sessions(count)')
     .is('deleted_at', null)
     .order('name', { ascending: true })
@@ -91,14 +91,14 @@ export async function getOrganizations(): Promise<OrganizationWithCounts[]> {
 
   if (error) throw new Error(error.message)
 
-  return (data ?? []).map((row) => mapOrganizationWithCounts(row as Record<string, unknown>))
+  return (data ?? []).map((row) => mapClientWithCounts(row as Record<string, unknown>))
 }
 
-export async function getOrganizationDirectoryEntries(): Promise<OrganizationWithCounts[]> {
+export async function getClientDirectoryEntries(): Promise<ClientWithCounts[]> {
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   let query = db
-    .from('organizations')
+    .from('clients')
     .select('*, partners(name), assessments(count), diagnostic_sessions(count)')
     .order('name', { ascending: true })
 
@@ -113,16 +113,16 @@ export async function getOrganizationDirectoryEntries(): Promise<OrganizationWit
 
   if (error) throw new Error(error.message)
 
-  return (data ?? []).map((row) => mapOrganizationWithCounts(row as Record<string, unknown>))
+  return (data ?? []).map((row) => mapClientWithCounts(row as Record<string, unknown>))
 }
 
-export async function getOrganizationBySlug(
+export async function getClientBySlug(
   slug: string,
   options: { includeArchived?: boolean } = {}
-): Promise<Organization | null> {
+): Promise<Client | null> {
   const db = createAdminClient()
   let query = db
-    .from('organizations')
+    .from('clients')
     .select('*')
     .eq('slug', slug)
 
@@ -134,18 +134,18 @@ export async function getOrganizationBySlug(
 
   if (error) return null
   const scope = await resolveAuthorizedScope()
-  const organization = mapOrganizationRow(data)
+  const client = mapClientRow(data)
 
   const hasAccess =
     scope.isPlatformAdmin ||
-    scope.clientIds.includes(organization.id) ||
-    (organization.partnerId ? scope.partnerIds.includes(organization.partnerId) : false)
+    scope.clientIds.includes(client.id) ||
+    (client.partnerId ? scope.partnerIds.includes(client.partnerId) : false)
 
   if (!hasAccess) return null
-  return organization
+  return client
 }
 
-export async function createOrganization(formData: FormData) {
+export async function createClient(formData: FormData) {
   const raw = {
     partnerId: (formData.get('partnerId') as string) || undefined,
     name: formData.get('name') as string,
@@ -155,7 +155,7 @@ export async function createOrganization(formData: FormData) {
     isActive: formData.get('isActive') !== 'false',
   }
 
-  const parsed = organizationSchema.safeParse(raw)
+  const parsed = clientSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
@@ -180,7 +180,7 @@ export async function createOrganization(formData: FormData) {
   }
 
   const db = createAdminClient()
-  const insert = toOrganizationInsert({
+  const insert = toClientInsert({
     partnerId: partnerId ?? undefined,
     name: parsed.data.name,
     slug: parsed.data.slug,
@@ -190,7 +190,7 @@ export async function createOrganization(formData: FormData) {
   })
 
   const { data: created, error } = await db
-    .from('organizations')
+    .from('clients')
     .insert(insert)
     .select('id')
     .single()
@@ -200,7 +200,7 @@ export async function createOrganization(formData: FormData) {
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'client.created',
-    targetTable: 'organizations',
+    targetTable: 'clients',
     targetId: created.id,
     partnerId,
     clientId: created.id,
@@ -215,7 +215,7 @@ export async function createOrganization(formData: FormData) {
   return { success: true as const, id: created.id, slug: parsed.data.slug }
 }
 
-export async function updateOrganization(id: string, formData: FormData) {
+export async function updateClient(id: string, formData: FormData) {
   const raw = {
     partnerId: (formData.get('partnerId') as string) || undefined,
     name: formData.get('name') as string,
@@ -225,14 +225,14 @@ export async function updateOrganization(id: string, formData: FormData) {
     isActive: formData.get('isActive') !== 'false',
   }
 
-  const parsed = organizationSchema.safeParse(raw)
+  const parsed = clientSchema.safeParse(raw)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
   let access
   try {
-    access = await requireOrganizationAccess(id, { includeArchived: true })
+    access = await requireClientAccess(id, { includeArchived: true })
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: { _form: [error.message] } }
@@ -260,7 +260,7 @@ export async function updateOrganization(id: string, formData: FormData) {
 
   const db = createAdminClient()
   const { error } = await db
-    .from('organizations')
+    .from('clients')
     .update({
       partner_id: nextPartnerId,
       name: parsed.data.name,
@@ -276,7 +276,7 @@ export async function updateOrganization(id: string, formData: FormData) {
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'client.updated',
-    targetTable: 'organizations',
+    targetTable: 'clients',
     targetId: id,
     partnerId: nextPartnerId,
     clientId: id,
@@ -292,10 +292,10 @@ export async function updateOrganization(id: string, formData: FormData) {
   return { success: true as const, id, slug: parsed.data.slug }
 }
 
-export async function deleteOrganization(id: string) {
+export async function deleteClient(id: string) {
   let access
   try {
-    access = await requireOrganizationAccess(id)
+    access = await requireClientAccess(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -309,7 +309,7 @@ export async function deleteOrganization(id: string) {
 
   const db = createAdminClient()
   const { error } = await db
-    .from('organizations')
+    .from('clients')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
@@ -318,7 +318,7 @@ export async function deleteOrganization(id: string) {
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'client.deleted',
-    targetTable: 'organizations',
+    targetTable: 'clients',
     targetId: id,
     partnerId: access.partnerId ?? null,
     clientId: id,
@@ -330,10 +330,10 @@ export async function deleteOrganization(id: string) {
   revalidateDirectoryPaths()
 }
 
-export async function restoreOrganization(id: string) {
+export async function restoreClient(id: string) {
   let access
   try {
-    access = await requireOrganizationAccess(id, { includeArchived: true })
+    access = await requireClientAccess(id, { includeArchived: true })
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -347,7 +347,7 @@ export async function restoreOrganization(id: string) {
 
   const db = createAdminClient()
   const { error } = await db
-    .from('organizations')
+    .from('clients')
     .update({ deleted_at: null })
     .eq('id', id)
 
@@ -356,7 +356,7 @@ export async function restoreOrganization(id: string) {
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'client.restored',
-    targetTable: 'organizations',
+    targetTable: 'clients',
     targetId: id,
     partnerId: access.partnerId ?? null,
     clientId: id,

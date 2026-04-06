@@ -22,10 +22,10 @@ export default async function ClientCampaignParticipantsPage({
     quotaUsed: number;
   }[] = [];
 
-  if (campaign.organizationId && campaign.assessments.length > 0) {
+  if (campaign.clientId && campaign.assessments.length > 0) {
     const assessmentIds = campaign.assessments.map((a) => a.assessmentId);
     const quotaResult = await checkQuotaAvailability(
-      campaign.organizationId,
+      campaign.clientId,
       assessmentIds,
     );
     quotaWarnings = quotaResult.violations;

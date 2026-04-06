@@ -162,7 +162,7 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="platform">Platform — your brand colours</SelectItem>
-            <SelectItem value="client">Client — organisation brand colours</SelectItem>
+            <SelectItem value="client">Client — client brand colours</SelectItem>
             <SelectItem value="custom" disabled>Custom — coming soon</SelectItem>
           </SelectContent>
         </Select>

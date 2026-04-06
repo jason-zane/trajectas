@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { TiltCard } from "@/components/tilt-card";
-import { getOrganizationDirectoryEntries } from "@/app/actions/organizations";
+import { getClientDirectoryEntries } from "@/app/actions/clients";
 import { getPartners } from "@/app/actions/partners";
 import {
   canManageClientDirectory,
@@ -60,8 +60,8 @@ export default async function DirectoryPage({
     redirect("/unauthorized?reason=directory");
   }
 
-  const [organizations, partners] = await Promise.all([
-    getOrganizationDirectoryEntries(),
+  const [clients, partners] = await Promise.all([
+    getClientDirectoryEntries(),
     canManagePartners ? getPartners() : Promise.resolve([]),
   ]);
 
@@ -87,7 +87,7 @@ export default async function DirectoryPage({
             />
           ) : null}
           {activeTab === "clients" && canManageClients ? (
-            <Link href="/organizations/create">
+            <Link href="/clients/create">
               <Button>
                 <Plus className="size-4" />
                 Add Client
@@ -106,19 +106,19 @@ export default async function DirectoryPage({
       </PageHeader>
 
       {activeTab === "clients" ? (
-        organizations.length === 0 ? (
+        clients.length === 0 ? (
           <EmptyState
             title="No clients yet"
             description="Create your first client to begin running assessments and diagnostics."
             actionLabel={canManageClients ? "Add Client" : undefined}
-            actionHref={canManageClients ? "/organizations/create" : undefined}
+            actionHref={canManageClients ? "/clients/create" : undefined}
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {organizations.map((org, index) => (
+            {clients.map((org, index) => (
               <ScrollReveal key={org.id} delay={index * 60}>
                 <TiltCard>
-                  <Link href={`/organizations/${org.slug}/overview`}>
+                  <Link href={`/clients/${org.slug}/overview`}>
                     <Card variant="interactive">
                       <CardHeader>
                         <div className="flex items-start justify-between gap-3">

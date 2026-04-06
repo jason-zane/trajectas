@@ -74,7 +74,7 @@ export async function completeSupportLaunch(
   await logAuditEvent({
     actorProfileId: supportSession.actorProfileId,
     eventType: "support_session.handoff_completed",
-    targetTable: surface === "partner" ? "partners" : "organizations",
+    targetTable: surface === "partner" ? "partners" : "clients",
     targetId: supportSession.targetTenantId,
     partnerId: surface === "partner" ? supportSession.targetTenantId : null,
     clientId: surface === "client" ? supportSession.targetTenantId : null,

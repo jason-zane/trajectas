@@ -1,4 +1,4 @@
-import { getOrganizationBySlug } from "@/app/actions/organizations";
+import { getClientBySlug } from "@/app/actions/clients";
 import { getReportTemplateAssignments } from "@/app/actions/client-entitlements";
 import { getReportTemplates } from "@/app/actions/reports";
 import { notFound } from "next/navigation";
@@ -10,18 +10,18 @@ export default async function OrgReportsPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const organization = await getOrganizationBySlug(slug);
-  if (!organization) notFound();
+  const client = await getClientBySlug(slug);
+  if (!client) notFound();
 
   const [assignments, allTemplates] = await Promise.all([
-    getReportTemplateAssignments(organization.id),
+    getReportTemplateAssignments(client.id),
     getReportTemplates(),
   ]);
 
   return (
     <ReportAssignments
-      organizationId={organization.id}
-      partnerId={organization.partnerId ?? null}
+      clientId={client.id}
+      partnerId={client.partnerId ?? null}
       assignments={assignments}
       allTemplates={allTemplates}
     />

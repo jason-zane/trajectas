@@ -25,10 +25,10 @@ import {
   getDiagnosticRespondents,
   getDiagnosticSessionDetail,
   getDiagnosticSessions,
-  getOrganizationsForDiagnosticSelect,
+  getClientsForDiagnosticSelect,
 } from "@/app/actions/diagnostics";
 import { getWorkspaceMatchingRuns } from "@/app/actions/matching";
-import { getOrganizations } from "@/app/actions/organizations";
+import { getClients } from "@/app/actions/clients";
 import {
   getParticipant,
   getParticipantActivity,
@@ -59,7 +59,7 @@ import { applyRoutePrefix, type WorkspaceSurface } from "@/lib/surfaces";
 
 type SupportedPageKey =
   | ""
-  | "organizations"
+  | "clients"
   | "assessments"
   | "campaigns"
   | "diagnostics"
@@ -300,7 +300,7 @@ async function WorkspaceOverview({
   surface: Extract<WorkspaceSurface, "partner" | "client">;
 }) {
   const [clients, campaigns, diagnostics] = await Promise.all([
-    getOrganizations(),
+    getClients(),
     getCampaigns(),
     getDiagnosticSessions(),
   ]);
@@ -414,7 +414,7 @@ async function WorkspaceOverview({
                     <ExternalLink className="size-3.5 opacity-60" />
                   </Link>
                   <p className="text-xs text-muted-foreground">
-                    {campaign.organizationName || "Client not set"} • {campaign.participantCount} participants
+                    {campaign.clientName || "Client not set"} • {campaign.participantCount} participants
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -442,7 +442,7 @@ async function WorkspaceClientsPage({
   config: WorkspacePortalPageConfig;
   routePrefix: string;
 }) {
-  const clients = await getOrganizations();
+  const clients = await getClients();
 
   return (
     <div className="space-y-8">
@@ -563,7 +563,7 @@ async function WorkspaceCampaignsPage({
                         </p>
                       </div>
                     </TableCell>
-                    <TableCell>{campaign.organizationName || "Not set"}</TableCell>
+                    <TableCell>{campaign.clientName || "Not set"}</TableCell>
                     <TableCell>
                       <Badge variant={statusBadgeVariant(campaign.status)}>{campaign.status}</Badge>
                     </TableCell>
@@ -914,10 +914,10 @@ async function WorkspaceParticipantDetailPage({
               <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Campaign</p>
               <p className="font-medium">{participant.campaignTitle}</p>
             </div>
-            {participant.organizationName ? (
+            {participant.clientName ? (
               <div className="space-y-1">
                 <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Client</p>
-                <p className="font-medium">{participant.organizationName}</p>
+                <p className="font-medium">{participant.clientName}</p>
               </div>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1144,7 +1144,7 @@ async function WorkspaceDiagnosticsPage({
 }) {
   const [diagnostics, availableClients] = await Promise.all([
     getDiagnosticSessions(),
-    getOrganizationsForDiagnosticSelect(),
+    getClientsForDiagnosticSelect(),
   ]);
 
   return (
@@ -1213,7 +1213,7 @@ async function WorkspaceDiagnosticsPage({
                         <p className="text-xs text-muted-foreground">{formatDate(session.created_at)}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{session.organizationName}</TableCell>
+                    <TableCell>{session.clientName}</TableCell>
                     <TableCell>{session.templateName}</TableCell>
                     <TableCell>
                       <Badge variant={statusBadgeVariant(session.status)}>{session.status}</Badge>
@@ -1292,7 +1292,7 @@ async function WorkspaceDiagnosticDetailPage({
         title={session.title}
         description={
           session.description ||
-          `${session.templateName} for ${session.organizationName}`
+          `${session.templateName} for ${session.clientName}`
         }
       >
         <div className="flex flex-wrap gap-3">
@@ -1357,7 +1357,7 @@ async function WorkspaceDiagnosticDetailPage({
                 <div className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
                   Client
                 </div>
-                <p className="font-medium">{session.organizationName}</p>
+                <p className="font-medium">{session.clientName}</p>
               </div>
               <div className="rounded-lg border border-border/70 p-3">
                 <div className="mb-1 text-xs uppercase tracking-[0.16em] text-muted-foreground/70">
@@ -1533,7 +1533,7 @@ async function WorkspaceResultsPage({
                           <ExternalLink className="size-3.5 opacity-60" />
                         </Link>
                         <p className="text-xs text-muted-foreground">
-                          {campaign.organizationName || "Client not set"} • {campaign.completedCount} completed
+                          {campaign.clientName || "Client not set"} • {campaign.completedCount} completed
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1646,7 +1646,7 @@ async function WorkspaceResultsPage({
                       <ExternalLink className="size-3.5 opacity-60" />
                     </Link>
                     <p className="text-xs text-muted-foreground">
-                      {session.organizationName} • {session.templateName}
+                      {session.clientName} • {session.templateName}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1753,7 +1753,7 @@ async function WorkspaceMatchingPage({
                           ) : null}
                         </div>
                       </TableCell>
-                      <TableCell>{run.organizationName || "Not set"}</TableCell>
+                      <TableCell>{run.clientName || "Not set"}</TableCell>
                       <TableCell>
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </TableCell>
@@ -1855,7 +1855,7 @@ export async function WorkspacePortalLivePage({
           surface={surface}
         />
       );
-    case "organizations":
+    case "clients":
       if (surface === "partner") {
         return (
           <WorkspaceClientsPage

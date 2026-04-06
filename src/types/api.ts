@@ -95,11 +95,11 @@ export interface PartnerResponse {
 export type PartnerListResponse = ApiListResponse<PartnerResponse>
 
 // ---------------------------------------------------------------------------
-// Organization
+// Client
 // ---------------------------------------------------------------------------
 
-/** Request body for creating a new organisation. */
-export interface CreateOrganizationRequest {
+/** Request body for creating a new client. */
+export interface CreateClientRequest {
   partnerId?: string
   name: string
   slug: string
@@ -107,8 +107,8 @@ export interface CreateOrganizationRequest {
   sizeRange?: string
 }
 
-/** Request body for updating an existing organisation. */
-export interface UpdateOrganizationRequest {
+/** Request body for updating an existing client. */
+export interface UpdateClientRequest {
   partnerId?: string
   name?: string
   slug?: string
@@ -117,8 +117,8 @@ export interface UpdateOrganizationRequest {
   isActive?: boolean
 }
 
-/** Single organisation returned from the API. */
-export interface OrganizationResponse {
+/** Single client returned from the API. */
+export interface ClientResponse {
   id: string
   partnerId?: string
   name: string
@@ -131,8 +131,8 @@ export interface OrganizationResponse {
   deletedAt?: string
 }
 
-/** Paginated list of organisations. */
-export type OrganizationListResponse = ApiListResponse<OrganizationResponse>
+/** Paginated list of clients. */
+export type ClientListResponse = ApiListResponse<ClientResponse>
 
 // ---------------------------------------------------------------------------
 // Profile
@@ -145,7 +145,7 @@ export interface CreateProfileRequest {
   firstName: string
   lastName: string
   role: UserRole
-  organizationId?: string
+  clientId?: string
   avatarUrl?: string
 }
 
@@ -155,7 +155,7 @@ export interface UpdateProfileRequest {
   firstName?: string
   lastName?: string
   role?: UserRole
-  organizationId?: string
+  clientId?: string
   avatarUrl?: string
   isActive?: boolean
 }
@@ -168,7 +168,7 @@ export interface ProfileResponse {
   firstName: string
   lastName: string
   role: UserRole
-  organizationId?: string
+  clientId?: string
   avatarUrl?: string
   isActive: boolean
   created_at: string
@@ -408,7 +408,7 @@ export interface AssessmentFactorInput {
 
 /** Request body for creating a new assessment via the builder. */
 export interface CreateAssessmentRequest {
-  organizationId: string
+  clientId: string
   title: string
   description?: string
   itemSelectionStrategy: ItemSelectionStrategy
@@ -443,7 +443,7 @@ export interface AssessmentFactorDetail {
 /** Single assessment returned from the API with nested factors. */
 export interface AssessmentResponse {
   id: string
-  organizationId: string
+  clientId: string
   title: string
   description?: string
   status: AssessmentStatus
@@ -464,7 +464,7 @@ export type AssessmentListResponse = ApiListResponse<AssessmentResponse>
 
 /** Request body for creating a new diagnostic session. */
 export interface CreateDiagnosticSessionRequest {
-  organizationId: string
+  clientId: string
   templateId: string
   subjectProfileId: string
   title: string
@@ -499,7 +499,7 @@ export interface UpdateDiagnosticSessionRequest {
 /** Single diagnostic session returned from the API. */
 export interface DiagnosticSessionResponse {
   id: string
-  organizationId: string
+  clientId: string
   templateId: string
   subjectProfileId: string
   title: string
@@ -547,7 +547,7 @@ export interface SubmitDiagnosticResponseResponse {
  * based on diagnostic session data.
  */
 export interface RunMatchingRequest {
-  organizationId: string
+  clientId: string
   diagnosticSessionId: string
   /** Optional override for the AI model config to use. */
   modelConfigId?: string

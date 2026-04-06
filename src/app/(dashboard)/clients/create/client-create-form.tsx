@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
-import { createOrganization } from "@/app/actions/organizations";
+import { createClient } from "@/app/actions/clients";
 
 const PLATFORM_OWNED_VALUE = "__platform__";
 
@@ -34,7 +34,7 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function OrganizationCreateForm({
+export function ClientCreateForm({
   partnerOptions,
   canAssignPartner,
   fixedPartnerId = null,
@@ -91,7 +91,7 @@ export function OrganizationCreateForm({
   async function handleSubmit(formData: FormData) {
     setPending(true);
     setError(null);
-    const result = await createOrganization(formData);
+    const result = await createClient(formData);
     if (result?.error) {
       const errors = result.error;
       const msg =

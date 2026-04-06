@@ -119,14 +119,14 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       const brandMode = reportConfig?.brand_mode ?? 'platform'
 
       if (brandMode === 'client') {
-        // Resolve from organisation brand
+        // Resolve from client brand
         const { data: campaign } = await db
           .from('campaigns')
-          .select('organization_id')
+          .select('client_id')
           .eq('id', sessionData.campaignId)
           .single()
-        if (campaign?.organization_id) {
-          const brand = await getEffectiveBrand(campaign.organization_id)
+        if (campaign?.client_id) {
+          const brand = await getEffectiveBrand(campaign.client_id)
           if (brand.reportTheme) {
             resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
           }

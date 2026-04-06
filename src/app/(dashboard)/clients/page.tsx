@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function OrganizationsPage() {
+export default function ClientsPage() {
   redirect("/directory?tab=clients");
 }

@@ -21,7 +21,7 @@ export default async function MatchingPage() {
     <div className="space-y-8 max-w-6xl">
       <PageHeader
         title="AI Matching Engine"
-        description="Use AI to match organisational diagnostic results with factor frameworks."
+        description="Use AI to match client diagnostic results with factor frameworks."
       />
 
       {runs.length === 0 ? (
@@ -67,7 +67,7 @@ export default async function MatchingPage() {
                   <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Building2 className="size-3.5" />
-                      <span>{run.organizationName}</span>
+                      <span>{run.clientName}</span>
                     </div>
                     {run.resultCount > 0 && (
                       <span>{run.resultCount} {run.resultCount === 1 ? "result" : "results"}</span>

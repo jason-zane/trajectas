@@ -180,7 +180,7 @@ export type GenerationStep =
 // ---------------------------------------------------------------------------
 
 /**
- * A reseller or consulting firm that owns one or more organisations.
+ * A reseller or consulting firm that owns one or more clients.
  * Partners are the top-level tenancy boundary in the platform.
  */
 export interface Partner {
@@ -202,15 +202,15 @@ export interface Partner {
 
 /**
  * A client account managed by a partner.
- * Assessments and diagnostic sessions are scoped to an organisation record
- * in persistence, but the product term is "client".
+ * A client account managed by a partner or platform-owned.
+ * Assessments and diagnostic sessions are scoped to a client record.
  */
-export interface Organization {
+export interface Client {
   /** UUID primary key. */
   id: string
   /** Owning partner; omitted when the client is platform-owned. */
   partnerId?: string
-  /** Organisation display name. */
+  /** Client display name. */
   name: string
   /** URL-safe slug. */
   slug: string
@@ -218,7 +218,7 @@ export interface Organization {
   industry?: string
   /** Approximate headcount bracket (e.g. "50-200"). */
   sizeRange?: string
-  /** Whether the organisation account is currently active. */
+  /** Whether the client account is currently active. */
   isActive: boolean
   /** Whether this client can customise their own branding in the client portal. */
   canCustomizeBranding?: boolean
@@ -230,7 +230,7 @@ export interface Organization {
 
 /**
  * A user profile linked to the auth layer (e.g. Supabase Auth).
- * One profile may belong to many organisations through role assignments.
+ * One profile may belong to many clients through role assignments.
  */
 export interface Profile {
   /** UUID primary key — usually matches the auth provider's user ID. */
@@ -247,8 +247,8 @@ export interface Profile {
   lastName: string
   /** Platform-wide role. */
   role: UserRole
-  /** Organisation the user primarily belongs to (nullable for platform admins). */
-  organizationId?: string
+  /** Client the user primarily belongs to (nullable for platform admins). */
+  clientId?: string
   /** URL to the user's avatar image. */
   avatarUrl?: string
   /** Whether the user account is currently active. */
@@ -276,13 +276,13 @@ export interface PartnerMembership {
 /**
  * Client-scoped membership record used for multi-membership resolution.
  *
- * Persistence still uses `organization_id` for compatibility, even though
+ * Persistence still uses `client_id` for compatibility, even though
  * the product term is "client".
  */
 export interface ClientMembership {
   id: string
   profileId: string
-  organizationId: string
+  clientId: string
   role: 'admin' | 'member'
   isDefault: boolean
   createdBy?: string
@@ -321,7 +321,7 @@ export interface SupportSession {
   actorProfileId: string
   targetSurface: 'partner' | 'client'
   partnerId?: string
-  organizationId?: string
+  clientId?: string
   reason: string
   sessionKey: string
   metadata: Record<string, unknown>
@@ -340,7 +340,7 @@ export interface AuditEvent {
   targetTable?: string
   targetId?: string
   partnerId?: string
-  organizationId?: string
+  clientId?: string
   supportSessionId?: string
   metadata: Record<string, unknown>
   created_at: string
@@ -418,8 +418,8 @@ export interface Factor {
   isActive: boolean
   /** Whether the AI matching engine can evaluate this factor. */
   isMatchEligible: boolean
-  /** Client organisation this factor belongs to (null = platform-global). */
-  organizationId?: string
+  /** Client this factor belongs to (null = platform-global). */
+  clientId?: string
   /** Behavioural indicators for low performance. */
   indicatorsLow?: string
   /** Behavioural indicators for mid performance. */
@@ -681,8 +681,8 @@ export interface ItemParameter {
 export interface Assessment {
   /** UUID primary key. */
   id: string
-  /** Owning organisation (optional — assigned when deployed to an org). */
-  organizationId?: string
+  /** Owning client (optional — assigned when deployed to an org). */
+  clientId?: string
   /** Assessment display title. */
   title: string
   /** Longer description / purpose statement. */
@@ -789,13 +789,13 @@ export interface DiagnosticTemplateDimension {
 
 /**
  * An active diagnostic session created from a template,
- * scoped to one organisation and one subject (the person being rated).
+ * scoped to one client and one subject (the person being rated).
  */
 export interface DiagnosticSession {
   /** UUID primary key. */
   id: string
-  /** Organisation running the session. */
-  organizationId: string
+  /** Client running the session. */
+  clientId: string
   /** Template the session was created from. */
   templateId: string
   /** Profile ID of the subject being assessed. */
@@ -989,8 +989,8 @@ export interface AISystemPrompt {
 export interface MatchingRun {
   /** UUID primary key. */
   id: string
-  /** Organisation the matching was run for. */
-  organizationId: string
+  /** Client the matching was run for. */
+  clientId: string
   /** Diagnostic session whose data fed the matching. */
   diagnosticSessionId: string
   /** AI model config used for this run. */
@@ -1296,8 +1296,8 @@ export interface NormGroup {
   jobFunction?: string
   /** Geographic region. */
   region?: string
-  /** Optionally scoped to a specific organisation. */
-  organizationId?: string
+  /** Optionally scoped to a specific client. */
+  clientId?: string
   /** Number of participants in the norm sample. */
   sampleSize: number
   /** Start of data collection window. */
@@ -1480,8 +1480,8 @@ export interface Campaign {
   description?: string
   /** Lifecycle status. */
   status: CampaignStatus
-  /** Owning organisation (optional). */
-  organizationId?: string
+  /** Owning client (optional). */
+  clientId?: string
   /** Owning partner (optional). */
   partnerId?: string
   /** Profile ID of the user who created the campaign. */
@@ -1772,7 +1772,7 @@ export interface ReportSnapshot {
 
 export interface ClientAssessmentAssignment {
   id: string
-  organizationId: string
+  clientId: string
   assessmentId: string
   quotaLimit: number | null // null = unlimited
   isActive: boolean
@@ -1783,7 +1783,7 @@ export interface ClientAssessmentAssignment {
 
 export interface ClientReportTemplateAssignment {
   id: string
-  organizationId: string
+  clientId: string
   reportTemplateId: string
   isActive: boolean
   assignedBy: string

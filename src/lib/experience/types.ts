@@ -250,7 +250,7 @@ export interface TemplateVariables {
   participantName?: string
   campaignTitle?: string
   assessmentCount?: number
-  organizationName?: string
+  clientName?: string
   campaignDescription?: string
   sectionTitle?: string
   sectionNumber?: number

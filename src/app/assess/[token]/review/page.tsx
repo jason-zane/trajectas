@@ -44,8 +44,8 @@ export default async function ReviewPage({
     (a) => a.assessmentId === currentSession.assessmentId
   );
 
-  // Load brand config for the campaign's organization
-  const brandConfig = await getEffectiveBrand(campaign.organizationId, campaign.id);
+  // Load brand config for the campaign's client
+  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
   // Load experience template
@@ -53,7 +53,7 @@ export default async function ReviewPage({
   const rawContent = getPageContent(experience, "review");
   const variables: TemplateVariables = {
     campaignTitle: campaign.title,
-    organizationName: undefined,
+    clientName: undefined,
   };
   const content = interpolateContent(rawContent, variables);
 

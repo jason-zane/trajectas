@@ -601,7 +601,7 @@ export async function registerViaLink(
   // Check campaign status
   const { data: campaign } = await db
     .from('campaigns')
-    .select('status, opens_at, closes_at, organization_id')
+    .select('status, opens_at, closes_at, client_id')
     .eq('id', link.campaign_id)
     .is('deleted_at', null)
     .single()
@@ -623,8 +623,8 @@ export async function registerViaLink(
     return { accessToken: existing.access_token }
   }
 
-  // Quota check: only applies when campaign belongs to an organization
-  if (campaign.organization_id) {
+  // Quota check: only applies when campaign belongs to a client
+  if (campaign.client_id) {
     const { data: campaignAssessments } = await db
       .from('campaign_assessments')
       .select('assessment_id')
@@ -637,7 +637,7 @@ export async function registerViaLink(
       const { data: assignments } = await db
         .from('client_assessment_assignments')
         .select('*')
-        .eq('organization_id', campaign.organization_id)
+        .eq('client_id', campaign.client_id)
         .eq('is_active', true)
         .in('assessment_id', assessmentIds)
 
@@ -645,7 +645,7 @@ export async function registerViaLink(
         if (assignment.quota_limit === null) continue
 
         const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
-          p_org_id: campaign.organization_id,
+          p_org_id: campaign.client_id,
           p_assessment_id: assignment.assessment_id,
         })
 

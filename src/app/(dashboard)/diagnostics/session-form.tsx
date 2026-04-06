@@ -24,13 +24,13 @@ import { createDiagnosticSession } from "@/app/actions/diagnostics";
 import type { SelectOption } from "@/app/actions/diagnostics";
 
 interface SessionFormProps {
-  organizations: SelectOption[];
+  clients: SelectOption[];
   templates: SelectOption[];
 }
 
-export function SessionForm({ organizations, templates }: SessionFormProps) {
+export function SessionForm({ clients, templates }: SessionFormProps) {
   const [title, setTitle] = useState("");
-  const [organizationId, setOrganizationId] = useState("");
+  const [clientId, setClientId] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export function SessionForm({ organizations, templates }: SessionFormProps) {
     }
   }
 
-  const canSubmit = title.trim() && organizationId && templateId;
+  const canSubmit = title.trim() && clientId && templateId;
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -93,30 +93,30 @@ export function SessionForm({ organizations, templates }: SessionFormProps) {
             <div className="space-y-2">
               <Label>Client</Label>
               <Select
-                name="organizationId"
-                value={organizationId}
-                onValueChange={(v) => setOrganizationId(v ?? "")}
+                name="clientId"
+                value={clientId}
+                onValueChange={(v) => setClientId(v ?? "")}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a client...">
                     {(value: string) =>
-                      organizations.find((o) => o.id === value)?.name ?? value
+                      clients.find((o) => o.id === value)?.name ?? value
                     }
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {organizations.map((org) => (
+                  {clients.map((org) => (
                     <SelectItem key={org.id} value={org.id}>
                       {org.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {organizations.length === 0 && (
+              {clients.length === 0 && (
                 <p className="text-xs text-muted-foreground">
                   No active clients found.{" "}
                   <Link
-                    href="/organizations"
+                    href="/clients"
                     className="text-primary underline underline-offset-2"
                   >
                     Create one first

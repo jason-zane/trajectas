@@ -10,7 +10,7 @@ import type { Factor } from '@/types/database'
 
 export type FactorWithMeta = Factor & {
   dimensionName?: string
-  organizationName?: string
+  clientName?: string
   constructCount: number
   itemCount: number
   assessmentCount: number
@@ -25,7 +25,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), organizations(name), factor_constructs(count), assessment_factors(count)')
+    .select('*, dimensions(name), clients(name), factor_constructs(count), assessment_factors(count)')
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
@@ -37,7 +37,7 @@ export async function getFactors(): Promise<FactorWithMeta[]> {
     return {
       ...mapFactorRow(row),
       dimensionName: r.dimensions?.name ?? undefined,
-      organizationName: r.organizations?.name ?? undefined,
+      clientName: r.clients?.name ?? undefined,
       constructCount: r.factor_constructs?.[0]?.count ?? 0,
       itemCount: 0,
       assessmentCount: r.assessment_factors?.[0]?.count ?? 0,
@@ -50,7 +50,7 @@ export async function getFactorBySlug(slug: string) {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), organizations(name), factor_constructs(*, constructs(id, name, slug)), assessment_factors(assessment_id, assessments(id, name, status))')
+    .select('*, dimensions(name), clients(name), factor_constructs(*, constructs(id, name, slug)), assessment_factors(assessment_id, assessments(id, name, status))')
     .eq('slug', slug)
     .is('deleted_at', null)
     .single()
@@ -62,7 +62,7 @@ export async function getFactorBySlug(slug: string) {
   return {
     ...mapFactorRow(data),
     dimensionName: r.dimensions?.name ?? undefined,
-    organizationName: r.organizations?.name ?? undefined,
+    clientName: r.clients?.name ?? undefined,
     linkedConstructs: (r.factor_constructs ?? []).map(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (fc: any) => ({
@@ -111,11 +111,11 @@ export async function getConstructsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
-export async function getOrganizationsForFactorSelect(): Promise<SelectOption[]> {
+export async function getClientsForFactorSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
-    .from('organizations')
+    .from('clients')
     .select('id, name')
     .is('deleted_at', null)
     .order('name')
@@ -142,7 +142,7 @@ export async function createFactor(formData: FormData) {
     dimensionId: (formData.get('dimensionId') as string) || undefined,
     isActive: formData.get('isActive') !== 'false',
     isMatchEligible: formData.get('isMatchEligible') !== 'false',
-    organizationId: (formData.get('organizationId') as string) || undefined,
+    clientId: (formData.get('clientId') as string) || undefined,
     constructs,
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
@@ -168,7 +168,7 @@ export async function createFactor(formData: FormData) {
       dimension_id: parsed.data.dimensionId || null,
       is_active: parsed.data.isActive,
       is_match_eligible: parsed.data.isMatchEligible,
-      organization_id: parsed.data.organizationId || null,
+      client_id: parsed.data.clientId || null,
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,
@@ -189,7 +189,7 @@ export async function createFactor(formData: FormData) {
     eventType: 'factor.created',
     targetTable: 'factors',
     targetId: (factorId ?? newId) as string,
-    clientId: parsed.data.organizationId ?? null,
+    clientId: parsed.data.clientId ?? null,
     metadata: {
       slug: parsed.data.slug,
       constructCount: parsed.data.constructs.length,
@@ -217,7 +217,7 @@ export async function updateFactor(id: string, formData: FormData) {
     dimensionId: (formData.get('dimensionId') as string) || undefined,
     isActive: formData.get('isActive') !== 'false',
     isMatchEligible: formData.get('isMatchEligible') !== 'false',
-    organizationId: (formData.get('organizationId') as string) || undefined,
+    clientId: (formData.get('clientId') as string) || undefined,
     constructs,
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
@@ -242,7 +242,7 @@ export async function updateFactor(id: string, formData: FormData) {
       dimension_id: parsed.data.dimensionId || null,
       is_active: parsed.data.isActive,
       is_match_eligible: parsed.data.isMatchEligible,
-      organization_id: parsed.data.organizationId || null,
+      client_id: parsed.data.clientId || null,
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,
@@ -263,7 +263,7 @@ export async function updateFactor(id: string, formData: FormData) {
     eventType: 'factor.updated',
     targetTable: 'factors',
     targetId: id,
-    clientId: parsed.data.organizationId ?? null,
+    clientId: parsed.data.clientId ?? null,
     metadata: {
       slug: parsed.data.slug,
       constructCount: parsed.data.constructs.length,

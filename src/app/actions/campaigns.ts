@@ -8,7 +8,7 @@ import {
   canAccessClient,
   getAccessibleCampaignIds,
   requireCampaignAccess,
-  requireOrganizationAccess,
+  requireClientAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -30,26 +30,26 @@ export type CampaignWithMeta = Campaign & {
   assessmentCount: number
   participantCount: number
   completedCount: number
-  organizationName?: string
+  clientName?: string
 }
 
 export type CampaignDetail = Campaign & {
   assessments: (CampaignAssessment & { assessmentTitle: string; assessmentStatus: string })[]
   participants: CampaignParticipant[]
   accessLinks: CampaignAccessLink[]
-  organizationName?: string
+  clientName?: string
 }
 
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
 
-async function getOrganizationPartnerId(organizationId: string) {
+async function getClientPartnerId(clientId: string) {
   const db = createAdminClient()
   const { data, error } = await db
-    .from('organizations')
+    .from('clients')
     .select('id, partner_id')
-    .eq('id', organizationId)
+    .eq('id', clientId)
     .is('deleted_at', null)
     .single()
 
@@ -65,7 +65,7 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
   const db = createAdminClient()
   let query = db
     .from('campaigns')
-    .select('*, organizations(name), campaign_participants(count), campaign_assessments(count)')
+    .select('*, clients(name), campaign_participants(count), campaign_assessments(count)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -103,7 +103,7 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
     assessmentCount: row.campaign_assessments?.[0]?.count ?? 0,
     participantCount: row.campaign_participants?.[0]?.count ?? 0,
     completedCount: completedMap[row.id] ?? 0,
-    organizationName: row.organizations?.name ?? undefined,
+    clientName: row.clients?.name ?? undefined,
   }))
 }
 
@@ -120,7 +120,7 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
   const db = createAdminClient()
   const { data, error } = await db
     .from('campaigns')
-    .select('*, organizations(name)')
+    .select('*, clients(name)')
     .eq('id', id)
     .is('deleted_at', null)
     .single()
@@ -153,7 +153,7 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
 
   return {
     ...mapCampaignRow(row),
-    organizationName: row.organizations?.name ?? undefined,
+    clientName: row.clients?.name ?? undefined,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     assessments: (assessmentRows ?? []).map((r: any) => ({
       ...mapCampaignAssessmentRow(r),
@@ -176,21 +176,21 @@ export async function createCampaign(payload: Record<string, unknown>) {
   }
 
   const scope = await resolveAuthorizedScope()
-  const organizationId = parsed.data.organizationId || null
+  const clientId = parsed.data.clientId || null
 
   if (!scope.isPlatformAdmin) {
-    if (!organizationId) {
-      return { error: { organizationId: ['Campaigns must belong to a client context'] } }
+    if (!clientId) {
+      return { error: { clientId: ['Campaigns must belong to a client context'] } }
     }
 
-    if (!canAccessClient(scope, organizationId)) {
-      return { error: { organizationId: ['You do not have access to this client'] } }
+    if (!canAccessClient(scope, clientId)) {
+      return { error: { clientId: ['You do not have access to this client'] } }
     }
   }
 
   const partnerId =
-    organizationId
-      ? await getOrganizationPartnerId(organizationId)
+    clientId
+      ? await getClientPartnerId(clientId)
       : (parsed.data.partnerId || null)
 
   const db = createAdminClient()
@@ -201,7 +201,7 @@ export async function createCampaign(payload: Record<string, unknown>) {
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
       status: parsed.data.status,
-      organization_id: organizationId,
+      client_id: clientId,
       partner_id: partnerId,
       opens_at: parsed.data.opensAt || null,
       closes_at: parsed.data.closesAt || null,
@@ -220,7 +220,7 @@ export async function createCampaign(payload: Record<string, unknown>) {
     targetTable: 'campaigns',
     targetId: campaign.id,
     partnerId,
-    clientId: organizationId,
+    clientId: clientId,
     metadata: {
       slug: parsed.data.slug,
       isLocalDevelopmentBypass: scope.isLocalDevelopmentBypass,
@@ -248,17 +248,17 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
     throw error
   }
 
-  const organizationId = parsed.data.organizationId || access.organizationId || null
+  const clientId = parsed.data.clientId || access.clientId || null
 
   if (!access.scope.isPlatformAdmin) {
-    if (!organizationId || !canAccessClient(access.scope, organizationId)) {
-      return { error: { organizationId: ['You do not have access to this client'] } }
+    if (!clientId || !canAccessClient(access.scope, clientId)) {
+      return { error: { clientId: ['You do not have access to this client'] } }
     }
   }
 
   const partnerId =
-    organizationId
-      ? await getOrganizationPartnerId(organizationId)
+    clientId
+      ? await getClientPartnerId(clientId)
       : (parsed.data.partnerId || access.partnerId || null)
 
   const db = createAdminClient()
@@ -268,7 +268,7 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
       title: parsed.data.title,
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
-      organization_id: organizationId,
+      client_id: clientId,
       partner_id: partnerId,
       opens_at: parsed.data.opensAt || null,
       closes_at: parsed.data.closesAt || null,
@@ -286,7 +286,7 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
     targetTable: 'campaigns',
     targetId: id,
     partnerId,
-    clientId: organizationId,
+    clientId: clientId,
     metadata: {
       slug: parsed.data.slug,
       isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
@@ -332,7 +332,7 @@ export async function updateCampaignField(id: string, field: string, value: stri
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: {
       field,
       isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
@@ -372,7 +372,7 @@ export async function deleteCampaign(id: string) {
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: {
       isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
     },
@@ -407,7 +407,7 @@ export async function restoreCampaign(id: string) {
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: {
       isLocalDevelopmentBypass: access.scope.isLocalDevelopmentBypass,
     },
@@ -446,7 +446,7 @@ export async function activateCampaign(id: string) {
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
   })
 
   revalidatePath('/campaigns')
@@ -478,7 +478,7 @@ export async function pauseCampaign(id: string) {
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
   })
 
   revalidatePath('/campaigns')
@@ -510,7 +510,7 @@ export async function closeCampaign(id: string) {
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
   })
 
   revalidatePath('/campaigns')
@@ -551,7 +551,7 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
     targetTable: 'campaigns',
     targetId: id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { field, value },
   })
 
@@ -573,18 +573,18 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && access.organizationId) {
+  if (!access.scope.isPlatformAdmin && access.clientId) {
     const supabase = createAdminClient()
     const { data: assignment } = await supabase
       .from('client_assessment_assignments')
       .select('id')
-      .eq('organization_id', access.organizationId)
+      .eq('client_id', access.clientId)
       .eq('assessment_id', assessmentId)
       .eq('is_active', true)
       .maybeSingle()
 
     if (!assignment) {
-      return { error: 'This assessment is not available for your organization' }
+      return { error: 'This assessment is not available for your client' }
     }
   }
 
@@ -616,7 +616,7 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
     targetTable: 'campaigns',
     targetId: campaignId,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { assessmentId },
   })
 
@@ -649,7 +649,7 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
     targetTable: 'campaigns',
     targetId: campaignId,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { assessmentId },
   })
 
@@ -687,7 +687,7 @@ export async function reorderCampaignAssessments(campaignId: string, orderedIds:
     targetTable: 'campaigns',
     targetId: campaignId,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { orderedIds },
   })
 }
@@ -712,8 +712,8 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     throw error
   }
 
-  // Quota check: only applies when campaign belongs to an organization
-  if (access.organizationId) {
+  // Quota check: only applies when campaign belongs to a client
+  if (access.clientId) {
     const db = createAdminClient()
     const { data: campaignAssessments } = await db
       .from('campaign_assessments')
@@ -723,7 +723,7 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
 
     if (assessmentIds.length > 0) {
-      const quota = await checkQuotaAvailability(access.organizationId, assessmentIds)
+      const quota = await checkQuotaAvailability(access.clientId, assessmentIds)
       if (!quota.allowed) {
         return {
           error: { _form: ['Assessment quota reached. Cannot invite more participants.'] },
@@ -757,7 +757,7 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     targetTable: 'campaign_participants',
     targetId: data.id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { campaignId, email: parsed.data.email },
   })
 
@@ -793,7 +793,7 @@ export async function sendParticipantInviteEmail(
       .single(),
     db
       .from('campaigns')
-      .select('title, description, organization_id')
+      .select('title, description, client_id')
       .eq('id', campaignId)
       .single(),
   ])
@@ -809,7 +809,7 @@ export async function sendParticipantInviteEmail(
   const campaign = campaignResult.data
 
   const { getEffectiveBrand } = await import('@/app/actions/brand')
-  const brand = await getEffectiveBrand(campaign.organization_id, campaignId)
+  const brand = await getEffectiveBrand(campaign.client_id, campaignId)
   const assessmentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/assess/${participant.access_token}`
 
   try {
@@ -884,7 +884,7 @@ export async function bulkInviteParticipants(
     targetTable: 'campaigns',
     targetId: campaignId,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: {
       count: data?.length ?? 0,
     },
@@ -920,7 +920,7 @@ export async function removeParticipant(campaignId: string, participantId: strin
     targetTable: 'campaign_participants',
     targetId: participantId,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { campaignId },
   })
 
@@ -967,7 +967,7 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
     targetTable: 'campaign_access_links',
     targetId: data.id,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: {
       campaignId,
       expiresAt: parsed.data.expiresAt || null,
@@ -1005,7 +1005,7 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
     targetTable: 'campaign_access_links',
     targetId: linkId,
     partnerId: access.partnerId,
-    clientId: access.organizationId,
+    clientId: access.clientId,
     metadata: { campaignId },
   })
 
@@ -1016,7 +1016,7 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
 // Cross-campaign participant view (client portal)
 // ---------------------------------------------------------------------------
 
-export type OrganizationParticipant = {
+export type ClientParticipant = {
   id: string
   email: string
   firstName: string | null
@@ -1029,17 +1029,17 @@ export type OrganizationParticipant = {
   created_at: string
 }
 
-export async function getParticipantsForOrganization(
-  organizationId: string,
-): Promise<OrganizationParticipant[]> {
-  await requireOrganizationAccess(organizationId)
+export async function getParticipantsForClient(
+  clientId: string,
+): Promise<ClientParticipant[]> {
+  await requireClientAccess(clientId)
   const db = createAdminClient()
 
-  // First get all non-deleted campaigns for this organization
+  // First get all non-deleted campaigns for this client
   const { data: campaigns, error: campaignsError } = await db
     .from('campaigns')
     .select('id, title')
-    .eq('organization_id', organizationId)
+    .eq('client_id', clientId)
     .is('deleted_at', null)
 
   if (campaignsError) throw new Error(campaignsError.message)

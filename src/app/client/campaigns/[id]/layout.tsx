@@ -18,12 +18,12 @@ export default async function ClientCampaignDetailLayout({
   if (!campaign) notFound();
 
   let canCustomizeBranding = false;
-  if (campaign.organizationId) {
+  if (campaign.clientId) {
     const db = createAdminClient();
     const { data } = await db
-      .from("organizations")
+      .from("clients")
       .select("can_customize_branding")
-      .eq("id", campaign.organizationId)
+      .eq("id", campaign.clientId)
       .single();
     canCustomizeBranding = data?.can_customize_branding ?? false;
   }

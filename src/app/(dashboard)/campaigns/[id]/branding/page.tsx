@@ -14,14 +14,14 @@ export default async function CampaignBrandingPage({
 
   const [campaignBrandRecord, inheritedBrand] = await Promise.all([
     getBrandConfig("campaign", id),
-    getEffectiveBrand(campaign.organizationId),
+    getEffectiveBrand(campaign.clientId),
   ])
 
   return (
     <CampaignBrandEditor
       campaignId={id}
       campaignTitle={campaign.title}
-      organizationName={campaign.organizationName}
+      clientName={campaign.clientName}
       initialRecord={campaignBrandRecord}
       inheritedBrand={inheritedBrand}
     />
