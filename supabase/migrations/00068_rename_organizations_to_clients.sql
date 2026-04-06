@@ -1,5 +1,3 @@
-BEGIN;
-
 -- ==========================================================================
 -- 00068_rename_organizations_to_clients.sql
 --
@@ -7,78 +5,236 @@ BEGIN;
 -- Renames the table, all organization_id columns, the RLS helper function,
 -- the quota function, the brand_owner_type enum value, and all affected
 -- RLS policies, indexes, constraints, and triggers.
+--
+-- IDEMPOTENT: safe to re-run after partial application.
 -- ==========================================================================
 
 -- =========================================================================
 -- 1. RENAME TABLE: organizations → clients
 -- =========================================================================
-ALTER TABLE organizations RENAME TO clients;
+DO $$ BEGIN
+  ALTER TABLE organizations RENAME TO clients;
+EXCEPTION WHEN undefined_table THEN NULL;
+END $$;
 
 -- Rename constraints that reference the old name
-ALTER TABLE clients RENAME CONSTRAINT organizations_slug_unique TO clients_slug_unique;
-ALTER TABLE clients RENAME CONSTRAINT organizations_slug_format TO clients_slug_format;
-ALTER TABLE clients RENAME CONSTRAINT organizations_name_not_empty TO clients_name_not_empty;
+DO $$ BEGIN
+  ALTER TABLE clients RENAME CONSTRAINT organizations_slug_unique TO clients_slug_unique;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE clients RENAME CONSTRAINT organizations_slug_format TO clients_slug_format;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE clients RENAME CONSTRAINT organizations_name_not_empty TO clients_name_not_empty;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
 
 -- Rename indexes on the clients table itself
-ALTER INDEX idx_organizations_partner_id RENAME TO idx_clients_partner_id;
-ALTER INDEX idx_organizations_not_deleted RENAME TO idx_clients_not_deleted;
-ALTER INDEX idx_organizations_active RENAME TO idx_clients_active;
+DO $$ BEGIN
+  ALTER INDEX idx_organizations_partner_id RENAME TO idx_clients_partner_id;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_organizations_not_deleted RENAME TO idx_clients_not_deleted;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_organizations_active RENAME TO idx_clients_active;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
 
 -- Rename trigger
-ALTER TRIGGER trg_organizations_updated_at ON clients
-  RENAME TO trg_clients_updated_at;
+DO $$ BEGIN
+  ALTER TRIGGER trg_organizations_updated_at ON clients RENAME TO trg_clients_updated_at;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
 
 -- =========================================================================
 -- 2. RENAME organization_id → client_id IN ALL TABLES
 -- =========================================================================
-ALTER TABLE profiles                          RENAME COLUMN organization_id TO client_id;
-ALTER TABLE assessments                       RENAME COLUMN organization_id TO client_id;
-ALTER TABLE diagnostic_sessions               RENAME COLUMN organization_id TO client_id;
-ALTER TABLE diagnostic_snapshots              RENAME COLUMN organization_id TO client_id;
-ALTER TABLE matching_runs                     RENAME COLUMN organization_id TO client_id;
-ALTER TABLE participant_sessions              RENAME COLUMN organization_id TO client_id;
-ALTER TABLE campaigns                         RENAME COLUMN organization_id TO client_id;
-ALTER TABLE client_memberships                RENAME COLUMN organization_id TO client_id;
-ALTER TABLE support_sessions                  RENAME COLUMN organization_id TO client_id;
-ALTER TABLE audit_events                      RENAME COLUMN organization_id TO client_id;
-ALTER TABLE client_assessment_assignments     RENAME COLUMN organization_id TO client_id;
-ALTER TABLE client_report_template_assignments RENAME COLUMN organization_id TO client_id;
-ALTER TABLE factors                           RENAME COLUMN organization_id TO client_id;
-ALTER TABLE norm_groups                       RENAME COLUMN organization_id TO client_id;
+DO $$ BEGIN
+  ALTER TABLE profiles RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE assessments RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE diagnostic_sessions RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE diagnostic_snapshots RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE matching_runs RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE participant_sessions RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE campaigns RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE client_memberships RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE support_sessions RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE audit_events RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE client_assessment_assignments RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE client_report_template_assignments RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE factors RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE norm_groups RENAME COLUMN organization_id TO client_id;
+EXCEPTION WHEN undefined_column THEN NULL;
+END $$;
 
 -- =========================================================================
 -- 3. RENAME INDEXES that reference organization_id
 -- =========================================================================
-ALTER INDEX idx_profiles_organization_id           RENAME TO idx_profiles_client_id;
-ALTER INDEX idx_assessments_organization_id        RENAME TO idx_assessments_client_id;
-ALTER INDEX idx_diagnostic_sessions_org            RENAME TO idx_diagnostic_sessions_client;
-ALTER INDEX idx_diagnostic_snapshots_org           RENAME TO idx_diagnostic_snapshots_client;
-ALTER INDEX idx_matching_runs_org                  RENAME TO idx_matching_runs_client;
-ALTER INDEX idx_participant_sessions_org           RENAME TO idx_participant_sessions_client;
-ALTER INDEX idx_campaigns_org                      RENAME TO idx_campaigns_client;
-ALTER INDEX idx_client_memberships_client          RENAME TO idx_client_memberships_client_id;
-ALTER INDEX idx_support_sessions_client            RENAME TO idx_support_sessions_client_id;
-ALTER INDEX idx_audit_events_client_created        RENAME TO idx_audit_events_client_id_created;
-ALTER INDEX idx_client_assessment_assignments_org  RENAME TO idx_client_assessment_assignments_client;
-ALTER INDEX idx_client_report_template_assignments_org RENAME TO idx_client_report_template_assignments_client;
-ALTER INDEX idx_factors_organization               RENAME TO idx_factors_client;
+DO $$ BEGIN
+  ALTER INDEX idx_profiles_organization_id RENAME TO idx_profiles_client_id;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_assessments_organization_id RENAME TO idx_assessments_client_id;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_diagnostic_sessions_org RENAME TO idx_diagnostic_sessions_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_diagnostic_snapshots_org RENAME TO idx_diagnostic_snapshots_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_matching_runs_org RENAME TO idx_matching_runs_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_participant_sessions_org RENAME TO idx_participant_sessions_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_campaigns_org RENAME TO idx_campaigns_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_client_memberships_client RENAME TO idx_client_memberships_client_id;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_support_sessions_client RENAME TO idx_support_sessions_client_id;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_audit_events_client_created RENAME TO idx_audit_events_client_id_created;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_client_assessment_assignments_org RENAME TO idx_client_assessment_assignments_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_client_report_template_assignments_org RENAME TO idx_client_report_template_assignments_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER INDEX idx_factors_organization RENAME TO idx_factors_client;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
 
 -- =========================================================================
 -- 4. RENAME CONSTRAINTS referencing organization_id
 -- =========================================================================
-ALTER TABLE client_memberships
-  RENAME CONSTRAINT client_memberships_unique TO client_memberships_profile_client_unique;
-ALTER TABLE support_sessions
-  RENAME CONSTRAINT support_sessions_target_scope_check TO support_sessions_target_scope_check_old;
--- We'll recreate this check constraint below after the column rename is in effect
+DO $$ BEGIN
+  ALTER TABLE client_memberships
+    RENAME CONSTRAINT client_memberships_unique TO client_memberships_profile_client_unique;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
 
-ALTER TABLE client_assessment_assignments
-  RENAME CONSTRAINT uq_client_assessment TO uq_client_assessment_assignment;
-ALTER TABLE client_report_template_assignments
-  RENAME CONSTRAINT uq_client_report_template TO uq_client_report_template_assignment;
+DO $$ BEGIN
+  ALTER TABLE support_sessions
+    RENAME CONSTRAINT support_sessions_target_scope_check TO support_sessions_target_scope_check_old;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE client_assessment_assignments
+    RENAME CONSTRAINT uq_client_assessment TO uq_client_assessment_assignment;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  ALTER TABLE client_report_template_assignments
+    RENAME CONSTRAINT uq_client_report_template TO uq_client_report_template_assignment;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
 
 -- Recreate the support_sessions target scope check with new column name
-ALTER TABLE support_sessions DROP CONSTRAINT support_sessions_target_scope_check_old;
+DO $$ BEGIN
+  ALTER TABLE support_sessions DROP CONSTRAINT support_sessions_target_scope_check_old;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
+-- Drop+recreate to be idempotent: drop the new-name constraint if it exists, then create
+DO $$ BEGIN
+  ALTER TABLE support_sessions DROP CONSTRAINT support_sessions_target_scope_check;
+EXCEPTION WHEN undefined_object THEN NULL;
+END $$;
+
 ALTER TABLE support_sessions ADD CONSTRAINT support_sessions_target_scope_check CHECK (
     (target_surface = 'partner' AND partner_id IS NOT NULL AND client_id IS NULL)
     OR
@@ -97,8 +253,9 @@ $$ LANGUAGE sql STABLE SECURITY DEFINER;
 COMMENT ON FUNCTION auth_user_client_id() IS
     'Returns the client ID for the currently authenticated user.';
 
--- Drop the old function (CASCADE drops dependent objects, but we recreate all policies below)
-DROP FUNCTION IF EXISTS auth_user_organization_id();
+-- Drop the old function with CASCADE — this drops the dependent RLS policies,
+-- which we recreate immediately below with the new function reference.
+DROP FUNCTION IF EXISTS auth_user_organization_id() CASCADE;
 
 -- =========================================================================
 -- 6. UPDATE auth_user_client_ids() function (from 00038)
@@ -128,7 +285,8 @@ COMMENT ON FUNCTION auth_user_client_ids() IS
 -- =========================================================================
 -- 7. UPDATE get_assessment_quota_usage() function
 -- =========================================================================
-CREATE OR REPLACE FUNCTION get_assessment_quota_usage(p_client_id UUID, p_assessment_id UUID)
+DROP FUNCTION IF EXISTS get_assessment_quota_usage(UUID, UUID);
+CREATE FUNCTION get_assessment_quota_usage(p_client_id UUID, p_assessment_id UUID)
 RETURNS INT AS $$
   SELECT COALESCE(COUNT(*)::INT, 0)
   FROM campaign_participants cp
@@ -228,15 +386,17 @@ $$;
 
 -- =========================================================================
 -- 9. UPDATE brand_owner_type ENUM: 'organization' → 'client'
---    PostgreSQL doesn't support renaming enum values directly.
---    We rename the old value and add the new one.
 -- =========================================================================
-ALTER TYPE brand_owner_type RENAME VALUE 'organization' TO 'client';
+DO $$ BEGIN
+  ALTER TYPE brand_owner_type RENAME VALUE 'organization' TO 'client';
+EXCEPTION WHEN invalid_parameter_value THEN NULL;
+END $$;
 
 -- =========================================================================
 -- 10. UPDATE brand_configs RLS policies that reference 'organization'
 -- =========================================================================
 DROP POLICY IF EXISTS brand_configs_org_read ON brand_configs;
+DROP POLICY IF EXISTS brand_configs_client_read ON brand_configs;
 CREATE POLICY brand_configs_client_read ON brand_configs
   FOR SELECT TO authenticated
   USING (
@@ -249,6 +409,7 @@ CREATE POLICY brand_configs_client_read ON brand_configs
   );
 
 DROP POLICY IF EXISTS brand_configs_org_update ON brand_configs;
+DROP POLICY IF EXISTS brand_configs_client_update ON brand_configs;
 CREATE POLICY brand_configs_client_update ON brand_configs
   FOR UPDATE TO authenticated
   USING (
@@ -279,23 +440,29 @@ DROP POLICY IF EXISTS organizations_all_platform_admin ON clients;
 DROP POLICY IF EXISTS organizations_insert_partner_admin ON clients;
 DROP POLICY IF EXISTS organizations_update_partner_admin ON clients;
 
+DROP POLICY IF EXISTS clients_select_platform_admin ON clients;
 CREATE POLICY clients_select_platform_admin ON clients
     FOR SELECT USING (is_platform_admin());
 
+DROP POLICY IF EXISTS clients_select_partner ON clients;
 CREATE POLICY clients_select_partner ON clients
     FOR SELECT USING (partner_id IS NOT NULL AND partner_id = auth_user_partner_id());
 
+DROP POLICY IF EXISTS clients_select_own ON clients;
 CREATE POLICY clients_select_own ON clients
     FOR SELECT USING (id = auth_user_client_id());
 
+DROP POLICY IF EXISTS clients_all_platform_admin ON clients;
 CREATE POLICY clients_all_platform_admin ON clients
     FOR ALL USING (is_platform_admin());
 
+DROP POLICY IF EXISTS clients_insert_partner_admin ON clients;
 CREATE POLICY clients_insert_partner_admin ON clients
     FOR INSERT WITH CHECK (
         is_partner_admin() AND partner_id = auth_user_partner_id()
     );
 
+DROP POLICY IF EXISTS clients_update_partner_admin ON clients;
 CREATE POLICY clients_update_partner_admin ON clients
     FOR UPDATE USING (
         is_partner_admin() AND partner_id = auth_user_partner_id()
@@ -346,23 +513,7 @@ CREATE POLICY assessments_manage_org_admin ON assessments
         AND client_id = auth_user_client_id()
     );
 
--- Assessment sub-tables
-DROP POLICY IF EXISTS assessment_competencies_select ON assessment_competencies;
-CREATE POLICY assessment_competencies_select ON assessment_competencies
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM assessments a WHERE a.id = assessment_id
-            AND (
-                is_platform_admin()
-                OR a.client_id IS NULL
-                OR a.client_id = auth_user_client_id()
-                OR a.client_id IN (
-                    SELECT c.id FROM clients c WHERE c.partner_id = auth_user_partner_id()
-                )
-            )
-        )
-    );
-
+-- Assessment sub-tables (assessment_competencies removed — table does not exist)
 DROP POLICY IF EXISTS item_selection_rules_select ON item_selection_rules;
 CREATE POLICY item_selection_rules_select ON item_selection_rules
     FOR SELECT USING (
@@ -726,5 +877,3 @@ COMMENT ON TABLE client_assessment_assignments IS
 
 COMMENT ON TABLE client_report_template_assignments IS
     'Links clients to the report templates they can generate from campaign results.';
-
-COMMIT;
