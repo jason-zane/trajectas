@@ -1,12 +1,13 @@
 import { notFound, redirect } from "next/navigation";
 import { getAssignablePartners } from "@/app/actions/partners";
-import { getClientBySlug } from "@/app/actions/clients";
+import { getClientBySlug, getClientStats } from "@/app/actions/clients";
 import {
   canManageClient,
   canManageClientAssignment,
   resolveAuthorizedScope,
 } from "@/lib/auth/authorization";
 import { ClientEditForm } from "./client-edit-form";
+import { ClientOverview } from "./client-overview";
 
 export default async function EditClientPage({
   params,
@@ -24,16 +25,24 @@ export default async function EditClientPage({
   }
 
   const canAssignPartner = canManageClientAssignment(scope);
-  const partners = canAssignPartner ? await getAssignablePartners() : [];
+  const [partners, stats] = await Promise.all([
+    canAssignPartner ? getAssignablePartners() : Promise.resolve([]),
+    getClientStats(client.id),
+  ]);
 
   return (
-    <ClientEditForm
-      client={client}
-      partnerOptions={partners.map((partner) => ({
-        id: partner.id,
-        name: partner.name,
-      }))}
-      canAssignPartner={canAssignPartner}
-    />
+    <ClientOverview
+      client={{ id: client.id, name: client.name, slug: client.slug }}
+      stats={stats}
+    >
+      <ClientEditForm
+        client={client}
+        partnerOptions={partners.map((partner) => ({
+          id: partner.id,
+          name: partner.name,
+        }))}
+        canAssignPartner={canAssignPartner}
+      />
+    </ClientOverview>
   );
 }

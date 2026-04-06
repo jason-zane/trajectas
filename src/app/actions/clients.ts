@@ -330,6 +330,59 @@ export async function deleteClient(id: string) {
   revalidateDirectoryPaths()
 }
 
+export async function getClientStats(clientId: string): Promise<{
+  activeCampaignCount: number
+  totalParticipants: number
+  assignedAssessmentCount: number
+  teamMemberCount: number
+}> {
+  await requireClientAccess(clientId)
+  const db = createAdminClient()
+
+  const { count: activeCampaignCount } = await db
+    .from('campaigns')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  // Total participants across all client's campaigns
+  const { data: campaignIds } = await db
+    .from('campaigns')
+    .select('id')
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+  const ids = (campaignIds ?? []).map((c) => c.id)
+
+  let totalParticipants = 0
+  if (ids.length > 0) {
+    const { count } = await db
+      .from('campaign_participants')
+      .select('*', { count: 'exact', head: true })
+      .in('campaign_id', ids)
+    totalParticipants = count ?? 0
+  }
+
+  const { count: assignedAssessmentCount } = await db
+    .from('client_assessment_assignments')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .eq('is_active', true)
+
+  const { count: teamMemberCount } = await db
+    .from('client_memberships')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .is('revoked_at', null)
+
+  return {
+    activeCampaignCount: activeCampaignCount ?? 0,
+    totalParticipants,
+    assignedAssessmentCount: assignedAssessmentCount ?? 0,
+    teamMemberCount: teamMemberCount ?? 0,
+  }
+}
+
 export async function restoreClient(id: string) {
   let access
   try {
