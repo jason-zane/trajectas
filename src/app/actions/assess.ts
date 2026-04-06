@@ -386,8 +386,9 @@ export async function updateSessionProgress(
     timeRemaining?: Record<string, number>
   },
 ) {
+  let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
   try {
-    await requireParticipantRuntimeSessionAccess(token, sessionId)
+    access = await requireParticipantRuntimeSessionAccess(token, sessionId)
   } catch (error) {
     if (error instanceof ParticipantRuntimeAccessError) {
       return { error: error.message }
@@ -409,6 +410,7 @@ export async function updateSessionProgress(
     .from('participant_sessions')
     .update(patch)
     .eq('id', sessionId)
+    .eq('campaign_participant_id', access.participantId)
 
   if (error) return { error: error.message }
 }
@@ -418,8 +420,9 @@ export async function updateSessionProgress(
 // ---------------------------------------------------------------------------
 
 export async function submitSession(token: string, sessionId: string) {
+  let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
   try {
-    await requireParticipantRuntimeSessionAccess(token, sessionId)
+    access = await requireParticipantRuntimeSessionAccess(token, sessionId)
   } catch (error) {
     if (error instanceof ParticipantRuntimeAccessError) {
       return { error: error.message }
@@ -433,6 +436,7 @@ export async function submitSession(token: string, sessionId: string) {
     .from('participant_sessions')
     .select('campaign_participant_id')
     .eq('id', sessionId)
+    .eq('campaign_participant_id', access.participantId)
     .single()
 
   if (fetchErr) return { error: fetchErr.message }
@@ -445,6 +449,7 @@ export async function submitSession(token: string, sessionId: string) {
       completed_at: new Date().toISOString(),
     })
     .eq('id', sessionId)
+    .eq('campaign_participant_id', access.participantId)
 
   if (updateErr) return { error: updateErr.message }
 
