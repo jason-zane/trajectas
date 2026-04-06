@@ -100,7 +100,7 @@ export function getNextFlowUrl(
 
   const next = flow[idx + 1]
   if (next === SECTIONS_SENTINEL) {
-    return `/assess/${token}/section/0`
+    return `/assess/${token}/assessment-intro/0`
   }
   return pageUrl(next, token)
 }
