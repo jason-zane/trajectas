@@ -253,9 +253,11 @@ describe("authorization rules", () => {
           targetSurface: "client",
           targetTenantId: "client-a1",
           reason: "Admin portal access",
-          startedAt: new Date().toISOString(),
+          sessionKey: "test-key",
+          createdAt: new Date().toISOString(),
           expiresAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
           endedAt: null,
+          metadata: {},
         },
       });
 
