@@ -31,13 +31,14 @@ export async function createEnterPortalLaunchUrl(input: {
 
     const launchPath = `/${input.tenantType}/support/launch`;
     const launchSearch = `sessionId=${session.id}&sessionKey=${session.sessionKey}`;
-    const launchUrl = buildSurfaceUrl(input.tenantType, launchPath, launchSearch);
 
-    if (!launchUrl) {
-      return { error: "Could not build launch URL. Surface not configured." };
-    }
+    // Try host-based URL first (production), fall back to path-based (local dev)
+    const surfaceUrl = buildSurfaceUrl(input.tenantType, launchPath, launchSearch);
+    const launchUrl = surfaceUrl
+      ? surfaceUrl.toString()
+      : `${launchPath}?${launchSearch}`;
 
-    return { success: true, launchUrl: launchUrl.toString() };
+    return { success: true, launchUrl };
   } catch (err) {
     return {
       error: err instanceof Error ? err.message : "Failed to create portal session.",
