@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminScope, AuthenticationRequiredError, AuthorizationError } from '@/lib/auth/authorization'
+import {
+  assertAdminOnly,
+  AuthenticationRequiredError,
+  AuthorizationError,
+  canManageClient,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
@@ -22,8 +28,6 @@ function sanitiseFilename(name: string): string {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdminScope()
-
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const ownerType = formData.get('ownerType') as string | null
@@ -62,6 +66,15 @@ export async function POST(request: NextRequest) {
         { error: 'File must be under 2MB' },
         { status: 400 }
       )
+    }
+
+    const scope = await resolveAuthorizedScope()
+    if (ownerType === 'client') {
+      if (!canManageClient(scope, ownerId)) {
+        throw new AuthorizationError('Not authorized to manage this client')
+      }
+    } else {
+      assertAdminOnly(scope)
     }
 
     const db = createAdminClient()

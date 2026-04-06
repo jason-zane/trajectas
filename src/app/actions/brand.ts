@@ -2,7 +2,12 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import {
+  assertAdminOnly,
+  AuthorizationError,
+  canManageClient,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapBrandConfigRow } from '@/lib/supabase/mappers'
 import { brandConfigSchema } from '@/lib/validations/brand'
@@ -121,7 +126,14 @@ export async function upsertBrandConfig(
   ownerId: string | null,
   configInput: unknown
 ): Promise<{ error?: Record<string, string[]> }> {
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  if (ownerType === 'client' && ownerId) {
+    if (!canManageClient(scope, ownerId)) {
+      throw new AuthorizationError('Not authorized to manage this client')
+    }
+  } else {
+    assertAdminOnly(scope)
+  }
   const parsed = brandConfigSchema.safeParse(configInput)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors as Record<string, string[]> }
@@ -156,6 +168,9 @@ export async function upsertBrandConfig(
   }
 
   revalidatePath('/settings/brand')
+  if (ownerType === 'client') {
+    revalidatePath('/client/settings/brand/client')
+  }
   if (ownerId) {
     revalidatePath(`/clients`)
   }
@@ -184,7 +199,14 @@ export async function resetBrandToDefault(
   ownerType: BrandOwnerType,
   ownerId: string | null
 ): Promise<{ error?: string }> {
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  if (ownerType === 'client' && ownerId) {
+    if (!canManageClient(scope, ownerId)) {
+      throw new AuthorizationError('Not authorized to manage this client')
+    }
+  } else {
+    assertAdminOnly(scope)
+  }
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform brand — edit it instead.' }
   }
@@ -201,6 +223,9 @@ export async function resetBrandToDefault(
   if (error) return { error: error.message }
 
   revalidatePath('/settings/brand')
+  if (ownerType === 'client') {
+    revalidatePath('/client/settings/brand/client')
+  }
   if (ownerId) {
     revalidatePath(`/clients`)
   }

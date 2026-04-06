@@ -181,6 +181,13 @@ const settingsNav: NavSection[] = [
   },
 ];
 
+const clientSettingsNav: NavSection[] = [
+  {
+    label: "Settings",
+    items: [{ title: "Brand", href: "/settings/brand/client", icon: Palette }],
+  },
+];
+
 const navByPortal: Record<PortalType, NavSection[]> = {
   admin: adminNav,
   partner: partnerNav,
@@ -193,8 +200,16 @@ export function AppSidebar() {
   const config = portalConfig[portal];
   const PortalIcon = config.icon;
   const navSections = navByPortal[portal];
-  const isSettingsArea = pathname.startsWith("/settings");
-  const displayNav = isSettingsArea && portal === "admin" ? settingsNav : navSections;
+  const settingsHref = href("/settings");
+  const isSettingsArea =
+    pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
+  const displayNav = isSettingsArea
+    ? portal === "admin"
+      ? settingsNav
+      : portal === "client"
+        ? clientSettingsNav
+        : navSections
+    : navSections;
 
   return (
     <Sidebar>
@@ -229,14 +244,14 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent>
-        {isSettingsArea && portal === "admin" && (
+        {isSettingsArea && (portal === "admin" || portal === "client") && (
           <div className="px-3 py-2">
             <Link
-              href="/"
+              href={portal === "admin" ? href("/") : href("/dashboard")}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
             >
               <ArrowLeft className="size-4" />
-              <span>Back to platform</span>
+              <span>{portal === "admin" ? "Back to platform" : "Back to dashboard"}</span>
             </Link>
           </div>
         )}
@@ -307,6 +322,22 @@ export function AppSidebar() {
               >
                 <Settings className="size-4" />
                 <span>Platform Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      )}
+      {portal === "client" && !isSettingsArea && (
+        <SidebarFooter className="px-3 pb-3">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={isSettingsArea}
+                tooltip="Brand Settings"
+                render={<Link href={href("/settings/brand/client")} />}
+              >
+                <Palette className="size-4" />
+                <span>Brand Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
