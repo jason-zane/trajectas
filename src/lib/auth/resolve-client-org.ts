@@ -60,3 +60,22 @@ export async function resolveClientOrg(
 
   return { clientId: clientId ?? null };
 }
+
+/**
+ * Verifies a campaign belongs to the resolved client.
+ * Use in client portal server actions and pages before operating on a campaign.
+ * Returns the clientId if the campaign is owned by the active client.
+ * Throws/redirects if not.
+ */
+export async function requireClientCampaignOwnership(
+  campaignClientId: string | null | undefined,
+  redirectPath: string
+): Promise<string> {
+  const { clientId } = await resolveClientOrg(redirectPath);
+
+  if (!clientId || !campaignClientId || campaignClientId !== clientId) {
+    redirect("/unauthorized?reason=membership");
+  }
+
+  return clientId;
+}

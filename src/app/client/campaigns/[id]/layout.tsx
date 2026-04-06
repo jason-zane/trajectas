@@ -11,11 +11,16 @@ export default async function ClientCampaignDetailLayout({
   children: React.ReactNode;
   params: Promise<{ id: string }>;
 }) {
-  await resolveClientOrg("/client/campaigns");
+  const { clientId } = await resolveClientOrg("/client/campaigns");
 
   const { id } = await params;
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
+
+  // Security: verify campaign belongs to the active client
+  if (!clientId || campaign.clientId !== clientId) {
+    notFound();
+  }
 
   let canCustomizeBranding = false;
   if (campaign.clientId) {

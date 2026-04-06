@@ -69,9 +69,17 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  // If a specific client is requested, always scope to that client
-  if (options?.clientId) {
-    query = query.eq('client_id', options.clientId)
+  // Determine effective client filter:
+  // 1. Explicit clientId takes priority (client portal pages pass this)
+  // 2. On client surface without explicit clientId, derive from active context
+  //    (defense-in-depth: prevents data leakage if caller forgets to pass clientId)
+  // 3. On admin surface as platform admin, no filter (see all)
+  // 4. Non-admin users get scoped by accessible campaigns
+  const effectiveClientId = options?.clientId ??
+    (scope.requestSurface === 'client' ? (scope.activeContext?.tenantId ?? null) : null)
+
+  if (effectiveClientId) {
+    query = query.eq('client_id', effectiveClientId)
   } else if (!scope.isPlatformAdmin) {
     const campaignIds = await getAccessibleCampaignIds(scope)
     if (!campaignIds || campaignIds.length === 0) {
