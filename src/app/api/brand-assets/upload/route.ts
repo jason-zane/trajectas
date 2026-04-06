@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg'])
+const ALLOWED_OWNER_TYPES = new Set(['platform', 'partner', 'client', 'campaign'])
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Sanitise filename: lowercase, strip non-alphanumeric, truncate. */
 function sanitiseFilename(name: string): string {
@@ -30,6 +32,20 @@ export async function POST(request: NextRequest) {
     if (!file || !ownerType || !ownerId) {
       return NextResponse.json(
         { error: 'Missing required fields: file, ownerType, ownerId' },
+        { status: 400 }
+      )
+    }
+
+    if (!ALLOWED_OWNER_TYPES.has(ownerType)) {
+      return NextResponse.json(
+        { error: 'Invalid ownerType. Must be one of: platform, partner, client, campaign' },
+        { status: 400 }
+      )
+    }
+
+    if (!UUID_RE.test(ownerId)) {
+      return NextResponse.json(
+        { error: 'Invalid ownerId. Must be a valid UUID' },
         { status: 400 }
       )
     }
