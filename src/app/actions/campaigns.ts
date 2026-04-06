@@ -60,7 +60,7 @@ async function getClientPartnerId(clientId: string) {
   return data.partner_id ? String(data.partner_id) : null
 }
 
-export async function getCampaigns(): Promise<CampaignWithMeta[]> {
+export async function getCampaigns(options?: { clientId?: string }): Promise<CampaignWithMeta[]> {
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   let query = db
@@ -69,7 +69,10 @@ export async function getCampaigns(): Promise<CampaignWithMeta[]> {
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (!scope.isPlatformAdmin) {
+  // If a specific client is requested, always scope to that client
+  if (options?.clientId) {
+    query = query.eq('client_id', options.clientId)
+  } else if (!scope.isPlatformAdmin) {
     const campaignIds = await getAccessibleCampaignIds(scope)
     if (!campaignIds || campaignIds.length === 0) {
       return []

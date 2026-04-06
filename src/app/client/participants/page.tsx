@@ -26,7 +26,7 @@ export default async function ClientParticipantsPage() {
 
   const [participants, campaigns] = await Promise.all([
     getParticipantsForClient(clientId),
-    getCampaigns(),
+    getCampaigns({ clientId }),
   ]);
 
   return <GlobalParticipants participants={participants} campaigns={campaigns} />;

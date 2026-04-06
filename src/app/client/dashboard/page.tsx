@@ -30,7 +30,7 @@ export default async function ClientDashboardPage() {
   }
 
   const [campaigns, assignments] = await Promise.all([
-    getCampaigns(),
+    getCampaigns({ clientId }),
     getAssessmentAssignments(clientId),
   ]);
 
