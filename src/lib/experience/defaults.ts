@@ -49,13 +49,6 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     buttonLabel: 'Continue',
   },
 
-  section_intro: {
-    eyebrow: '{{campaignTitle}}',
-    heading: 'Section Instructions',
-    body: 'Please read each statement carefully and select the response that best describes you.',
-    buttonLabel: 'Start Section',
-  },
-
   runner: {
     backButtonLabel: 'Back',
     saveStatusIdle: 'Responses saved automatically',
@@ -102,7 +95,7 @@ export const DEFAULT_FLOW_CONFIG: Readonly<FlowConfig> = {
   consent: { enabled: false, order: 30 },
   demographics: { enabled: false, order: 40 },
   // Pages with order < 100 are pre-assessment, >= 100 are post-assessment
-  // Assessment sections (section_intro + runner) occupy the conceptual slot at 100
+  // Assessment runner occupies the conceptual slot at 100
   review: { enabled: true, order: 110 },
   complete: { enabled: true, order: 120 },
   report: { enabled: false, order: 130, reportMode: 'holding' },

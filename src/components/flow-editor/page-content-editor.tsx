@@ -46,7 +46,7 @@ const PAGE_DESCRIPTIONS: Record<string, string> = {
 
 const BUILT_IN_PAGES = new Set([
   "join", "welcome", "consent", "demographics",
-  "section_intro", "runner", "review", "complete", "report", "expired",
+  "runner", "review", "complete", "report", "expired",
 ])
 
 export function PageContentEditor({
@@ -221,9 +221,6 @@ export function PageContentEditor({
                   Variables: {"{{participantName}}"}, {"{{campaignTitle}}"},{" "}
                   {"{{campaignDescription}}"}, {"{{assessmentCount}}"},{" "}
                   {"{{clientName}}"}
-                  {page === "section_intro" && (
-                    <>, {"{{sectionTitle}}"}, {"{{sectionNumber}}"}</>
-                  )}
                 </p>
               )}
             </div>

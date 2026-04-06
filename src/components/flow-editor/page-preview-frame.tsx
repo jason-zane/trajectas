@@ -11,7 +11,6 @@ import {
   PreviewWelcome,
   PreviewConsent,
   PreviewDemographics,
-  PreviewSectionIntro,
   PreviewRunner,
   PreviewReview,
   PreviewComplete,
@@ -40,7 +39,7 @@ interface PagePreviewFrameProps {
 
 const BUILT_IN_PAGES = new Set([
   "join", "welcome", "consent", "demographics",
-  "section_intro", "runner", "review", "complete", "report", "expired",
+  "runner", "review", "complete", "report", "expired",
 ])
 
 export function PagePreviewFrame({
@@ -106,8 +105,6 @@ export function PagePreviewFrame({
         return <PreviewConsent content={{ ...defaults.consent, ...pageContent.consent }} />
       case "demographics":
         return <PreviewDemographics content={{ ...defaults.demographics, ...pageContent.demographics }} />
-      case "section_intro":
-        return <PreviewSectionIntro content={{ ...defaults.section_intro, ...pageContent.section_intro }} />
       case "runner":
         return <PreviewRunner content={{ ...defaults.runner, ...pageContent.runner }} />
       case "review":

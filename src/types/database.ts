@@ -676,6 +676,20 @@ export interface ItemParameter {
   updated_at?: string
 }
 
+/** Intro screen content owned by an assessment. */
+export interface AssessmentIntroContent {
+  enabled: boolean
+  heading: string
+  body: string
+  buttonLabel: string
+}
+
+/** Campaign-level override for an assessment's intro screen. */
+export type IntroOverride =
+  | null
+  | { suppress: true }
+  | { heading: string; body: string; buttonLabel: string }
+
 /**
  * A named assessment instrument that groups competencies and items
  * into a deliverable test.
@@ -703,6 +717,8 @@ export interface Assessment {
   fcBlockSize?: number
   /** Matching run that generated this assessment (if AI-created). */
   matchingRunId?: string
+  /** Intro screen content shown before the assessment runner. */
+  introContent?: AssessmentIntroContent | null
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -1520,6 +1536,8 @@ export interface CampaignAssessment {
   displayOrder: number
   /** Whether this assessment is required to complete the campaign. */
   isRequired: boolean
+  /** Campaign-level override for the assessment intro screen. */
+  introOverride?: IntroOverride
   created_at: string
 }
 

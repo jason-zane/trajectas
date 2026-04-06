@@ -8,7 +8,6 @@ export type ExperiencePageType =
   | 'welcome'
   | 'consent'
   | 'demographics'
-  | 'section_intro'
   | 'runner'
   | 'review'
   | 'complete'
@@ -137,7 +136,6 @@ export interface PageContentMap {
   welcome: WelcomeContent
   consent: ConsentContent
   demographics: DemographicsContent
-  section_intro: SectionIntroContent
   runner: RunnerContent
   review: ReviewContent
   complete: CompleteContent
@@ -254,4 +252,6 @@ export interface TemplateVariables {
   campaignDescription?: string
   sectionTitle?: string
   sectionNumber?: number
+  assessmentTitle?: string
+  questionCount?: number
 }

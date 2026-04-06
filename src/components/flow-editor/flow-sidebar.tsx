@@ -37,7 +37,6 @@ const PAGE_LABELS: Record<string, string> = {
   welcome: "Welcome",
   consent: "Consent",
   demographics: "Demographics",
-  section_intro: "Section Intro",
   runner: "Assessment Runner",
   review: "Review",
   complete: "Complete",
@@ -99,16 +98,14 @@ export function buildPageList(flowConfig: Partial<FlowConfig>): FlowPageEntry[] 
     })
   }
 
-  // Assessment zone: section_intro + runner (non-sortable, always enabled)
-  for (const id of ["section_intro", "runner"] as const) {
-    pages.push({
-      id,
-      label: PAGE_LABELS[id],
-      enabled: true,
-      sortable: false,
-      zone: "assessment",
-    })
-  }
+  // Assessment zone: runner (non-sortable, always enabled)
+  pages.push({
+    id: "runner",
+    label: PAGE_LABELS["runner"],
+    enabled: true,
+    sortable: false,
+    zone: "assessment",
+  })
 
   for (const entry of postEntries) {
     pages.push({

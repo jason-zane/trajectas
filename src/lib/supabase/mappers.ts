@@ -354,6 +354,7 @@ export function mapAssessmentRow(row: any): Assessment {
     formatMode: row.format_mode ?? 'traditional',
     fcBlockSize: row.fc_block_size != null ? Number(row.fc_block_size) : undefined,
     matchingRunId: row.matching_run_id ?? undefined,
+    introContent: row.intro_content ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -371,6 +372,7 @@ export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 
     creation_mode: a.creationMode,
     format_mode: a.formatMode ?? 'traditional',
     fc_block_size: a.fcBlockSize ?? null,
+    intro_content: a.introContent ?? null,
   }
 }
 
@@ -617,6 +619,7 @@ export function mapCampaignAssessmentRow(row: any): CampaignAssessment {
     assessmentId: row.assessment_id,
     displayOrder: row.display_order,
     isRequired: row.is_required,
+    introOverride: row.intro_override ?? null,
     created_at: row.created_at,
   }
 }

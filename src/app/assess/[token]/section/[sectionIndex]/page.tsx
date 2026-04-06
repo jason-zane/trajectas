@@ -7,13 +7,11 @@ import {
 import { getEffectiveBrand } from "@/app/actions/brand";
 import { getEffectiveExperience } from "@/app/actions/experience";
 import { getPageContent } from "@/lib/experience/resolve";
-import { interpolateContent } from "@/lib/experience/interpolate";
 import { getPostSectionsUrl } from "@/lib/experience/flow-router";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
-import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function SectionPage({
   params,
@@ -92,15 +90,6 @@ export default async function SectionPage({
   const runnerContent = getPageContent(experience, "runner");
   const postSectionsUrl = getPostSectionsUrl(experience, token);
 
-  // Section intro content (interpolated with section-specific variables)
-  const rawSectionIntro = getPageContent(experience, "section_intro");
-  const sectionIntroVars: TemplateVariables = {
-    campaignTitle: campaign.title,
-    sectionTitle: section.title,
-    sectionNumber: clampedIdx + 1,
-  };
-  const sectionIntroContent = interpolateContent(rawSectionIntro, sectionIntroVars);
-
   // Generate org-specific CSS tokens
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled
@@ -133,7 +122,6 @@ export default async function SectionPage({
         isCustomBrand={isCustomBrand}
         runnerContent={runnerContent}
         postSectionsUrl={postSectionsUrl}
-        sectionIntroContent={sectionIntroContent}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
         showProgress={campaign.showProgress}
