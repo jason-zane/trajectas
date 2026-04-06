@@ -15,6 +15,12 @@ export default async function ClientPortalPage({
 }) {
   const { slug } = await params;
   const key = slug?.join("/") ?? "";
+
+  // Root /client path → redirect to dashboard
+  if (key === "") {
+    redirect("/client/dashboard");
+  }
+
   const config = resolveWorkspacePortalPageConfig(clientPortalPages, key);
 
   if (!config) {
