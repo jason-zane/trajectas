@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient } from '@/lib/supabase/server'
 import {
   assertAdminOnly,
   AuthorizationError,
@@ -12,6 +13,7 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import {
   mapCampaignRow,
   mapCampaignAssessmentRow,
@@ -62,7 +64,7 @@ async function getClientPartnerId(clientId: string) {
 
 export async function getCampaigns(options?: { clientId?: string }): Promise<CampaignWithMeta[]> {
   const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
+  const db = await createClient()
   let query = db
     .from('campaigns')
     .select('*, clients(name), campaign_participants(count), campaign_assessments(count)')
@@ -90,17 +92,27 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
 
   const { data, error } = await query
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError('getCampaigns', 'Unable to load campaigns.', error)
+  }
 
   // Get completed counts per campaign
   const campaignIds = (data ?? []).map((r) => r.id)
   let completedMap: Record<string, number> = {}
   if (campaignIds.length > 0) {
-    const { data: completed } = await db
+    const { data: completed, error: completedError } = await db
       .from('campaign_participants')
       .select('campaign_id')
       .in('campaign_id', campaignIds)
       .eq('status', 'completed')
+
+    if (completedError) {
+      throwActionError(
+        'getCampaigns.completedCounts',
+        'Unable to load campaigns.',
+        completedError
+      )
+    }
 
     completedMap = (completed ?? []).reduce<Record<string, number>>((acc, r) => {
       acc[r.campaign_id] = (acc[r.campaign_id] ?? 0) + 1
@@ -128,7 +140,7 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
     throw error
   }
 
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('campaigns')
     .select('*, clients(name)')
@@ -223,7 +235,10 @@ export async function createCampaign(payload: Record<string, unknown>) {
     .select('id')
     .single()
 
-  if (error) return { error: { _form: [error.message] } }
+  if (error) {
+    logActionError('createCampaign', error)
+    return { error: { _form: ['Unable to create campaign.'] } }
+  }
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -289,7 +304,10 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
     })
     .eq('id', id)
 
-  if (error) return { error: { _form: [error.message] } }
+  if (error) {
+    logActionError('updateCampaign', error)
+    return { error: { _form: ['Unable to update campaign.'] } }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -335,7 +353,10 @@ export async function updateCampaignField(id: string, field: string, value: stri
     .update({ [field]: value || null })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('updateCampaignField', error)
+    return { error: 'Unable to save field.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -375,7 +396,10 @@ export async function deleteCampaign(id: string) {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('deleteCampaign', error)
+    return { error: 'Unable to delete campaign.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -410,7 +434,10 @@ export async function restoreCampaign(id: string) {
     .update({ deleted_at: null })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('restoreCampaign', error)
+    return { error: 'Unable to restore campaign.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -449,7 +476,10 @@ export async function activateCampaign(id: string) {
     .update({ status: 'active' })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('activateCampaign', error)
+    return { error: 'Unable to activate campaign.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -481,7 +511,10 @@ export async function pauseCampaign(id: string) {
     .update({ status: 'paused' })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('pauseCampaign', error)
+    return { error: 'Unable to pause campaign.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -513,7 +546,10 @@ export async function closeCampaign(id: string) {
     .update({ status: 'closed' })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('closeCampaign', error)
+    return { error: 'Unable to close campaign.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -554,7 +590,10 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
     .update({ [field]: value })
     .eq('id', id)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('toggleCampaignSetting', error)
+    return { error: 'Unable to update setting.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -619,7 +658,10 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
       display_order: nextOrder,
     })
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('addAssessmentToCampaign', error)
+    return { error: 'Unable to add assessment.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -652,7 +694,10 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
     .eq('campaign_id', campaignId)
     .eq('assessment_id', assessmentId)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('removeAssessmentFromCampaign', error)
+    return { error: 'Unable to remove assessment.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -687,7 +732,10 @@ export async function reorderCampaignAssessments(campaignId: string, orderedIds:
       .eq('id', orderedIds[i])
       .eq('campaign_id', campaignId)
 
-    if (error) return { error: error.message }
+    if (error) {
+      logActionError('reorderCampaignAssessments', error)
+      return { error: 'Unable to reorder assessments.' }
+    }
   }
 
   revalidatePath(`/campaigns/${campaignId}`)
@@ -759,7 +807,8 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     if (error.code === '23505') {
       return { error: { email: ['This email is already invited to this campaign'] } }
     }
-    return { error: { _form: [error.message] } }
+    logActionError('inviteParticipant', error)
+    return { error: { _form: ['Unable to invite participant.'] } }
   }
 
   await logAuditEvent({
@@ -887,7 +936,10 @@ export async function bulkInviteParticipants(
     .upsert(rows, { onConflict: 'campaign_id,email', ignoreDuplicates: true })
     .select('id')
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('bulkInviteParticipants', error)
+    return { error: 'Unable to invite participants.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -923,7 +975,10 @@ export async function removeParticipant(campaignId: string, participantId: strin
     .eq('id', participantId)
     .eq('campaign_id', campaignId)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('removeParticipant', error)
+    return { error: 'Unable to remove participant.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -970,7 +1025,10 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
     .select('id, token')
     .single()
 
-  if (error) return { error: { _form: [error.message] } }
+  if (error) {
+    logActionError('createAccessLink', error)
+    return { error: { _form: ['Unable to create access link.'] } }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -1008,7 +1066,10 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
     .eq('id', linkId)
     .eq('campaign_id', campaignId)
 
-  if (error) return { error: error.message }
+  if (error) {
+    logActionError('deactivateAccessLink', error)
+    return { error: 'Unable to deactivate access link.' }
+  }
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -1044,7 +1105,7 @@ export async function getParticipantsForClient(
   clientId: string,
 ): Promise<ClientParticipant[]> {
   await requireClientAccess(clientId)
-  const db = createAdminClient()
+  const db = await createClient()
 
   // First get all non-deleted campaigns for this client
   const { data: campaigns, error: campaignsError } = await db
@@ -1053,7 +1114,13 @@ export async function getParticipantsForClient(
     .eq('client_id', clientId)
     .is('deleted_at', null)
 
-  if (campaignsError) throw new Error(campaignsError.message)
+  if (campaignsError) {
+    throwActionError(
+      'getParticipantsForClient.campaigns',
+      'Unable to load participants.',
+      campaignsError
+    )
+  }
   if (!campaigns || campaigns.length === 0) return []
 
   const campaignIds = campaigns.map((c) => c.id)
@@ -1066,7 +1133,13 @@ export async function getParticipantsForClient(
     .in('campaign_id', campaignIds)
     .order('created_at', { ascending: false })
 
-  if (participantsError) throw new Error(participantsError.message)
+  if (participantsError) {
+    throwActionError(
+      'getParticipantsForClient.participants',
+      'Unable to load participants.',
+      participantsError
+    )
+  }
 
   return (participants ?? []).map((row) => ({
     id: row.id,
@@ -1089,7 +1162,7 @@ export async function getParticipantsForClient(
 export async function getActiveAssessments() {
   const scope = await resolveAuthorizedScope()
   assertAdminOnly(scope)
-  const db = createAdminClient()
+  const db = await createClient()
   const { data, error } = await db
     .from('assessments')
     .select('id, name, status')
@@ -1097,6 +1170,12 @@ export async function getActiveAssessments() {
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    throwActionError(
+      'getActiveAssessments',
+      'Unable to load active assessments.',
+      error
+    )
+  }
   return data ?? []
 }
