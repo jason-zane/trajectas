@@ -194,6 +194,8 @@ export interface Partner {
   logoUrl?: string
   /** Whether the partner account is currently active. */
   isActive: boolean
+  /** Whether the partner can customise their own brand and control client branding. */
+  canCustomizeBranding: boolean
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -1793,6 +1795,33 @@ export interface ClientReportTemplateAssignment {
 
 /** Assessment assignment enriched with usage data and assessment metadata */
 export interface AssessmentAssignmentWithUsage extends ClientAssessmentAssignment {
+  assessmentName: string
+  quotaUsed: number
+}
+
+export interface PartnerAssessmentAssignment {
+  id: string
+  partnerId: string
+  assessmentId: string
+  quotaLimit: number | null // null = unlimited
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
+
+export interface PartnerReportTemplateAssignment {
+  id: string
+  partnerId: string
+  reportTemplateId: string
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
+
+/** Partner assessment assignment enriched with usage data and assessment metadata */
+export interface PartnerAssessmentAssignmentWithUsage extends PartnerAssessmentAssignment {
   assessmentName: string
   quotaUsed: number
 }

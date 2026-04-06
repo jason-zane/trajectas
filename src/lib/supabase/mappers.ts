@@ -30,6 +30,8 @@ import type {
   ReportSnapshot,
   ClientAssessmentAssignment,
   ClientReportTemplateAssignment,
+  PartnerAssessmentAssignment,
+  PartnerReportTemplateAssignment,
 } from '@/types/database'
 import type { BrandConfigRecord } from '@/lib/brand/types'
 import type { ExperienceTemplateRecord } from '@/lib/experience/types'
@@ -203,6 +205,7 @@ export function mapPartnerRow(row: any): Partner {
     name: row.name,
     slug: row.slug,
     isActive: row.is_active ?? true,
+    canCustomizeBranding: row.can_customize_branding ?? false,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -817,6 +820,33 @@ export function mapClientReportTemplateAssignmentRow(row: any): ClientReportTemp
   return {
     id: row.id,
     clientId: row.client_id,
+    reportTemplateId: row.report_template_id,
+    isActive: row.is_active,
+    assignedBy: row.assigned_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapPartnerAssessmentAssignmentRow(row: any): PartnerAssessmentAssignment {
+  return {
+    id: row.id,
+    partnerId: row.partner_id,
+    assessmentId: row.assessment_id,
+    quotaLimit: row.quota_limit ?? null,
+    isActive: row.is_active,
+    assignedBy: row.assigned_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapPartnerReportTemplateAssignmentRow(row: any): PartnerReportTemplateAssignment {
+  return {
+    id: row.id,
+    partnerId: row.partner_id,
     reportTemplateId: row.report_template_id,
     isActive: row.is_active,
     assignedBy: row.assigned_by,
