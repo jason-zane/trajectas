@@ -457,7 +457,7 @@ export async function getClientMembers(clientId: string): Promise<ClientMember[]
   const db = createAdminClient()
   const { data, error } = await db
     .from('client_memberships')
-    .select('id, profile_id, role, created_at, profiles(id, email, first_name, last_name)')
+    .select('id, profile_id, role, created_at, profiles!profile_id(id, email, first_name, last_name)')
     .eq('client_id', clientId)
     .is('revoked_at', null)
     .order('created_at', { ascending: true })

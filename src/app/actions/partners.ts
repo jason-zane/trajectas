@@ -363,7 +363,7 @@ export async function getPartnerMembers(partnerId: string): Promise<PartnerMembe
   const db = createAdminClient()
   const { data, error } = await db
     .from('partner_memberships')
-    .select('id, profile_id, role, created_at, profiles(id, email, first_name, last_name)')
+    .select('id, profile_id, role, created_at, profiles!profile_id(id, email, first_name, last_name)')
     .eq('partner_id', partnerId)
     .is('revoked_at', null)
     .order('created_at', { ascending: true })
