@@ -14,13 +14,32 @@ function buildWebhookSignature(secret: string, timestamp: string, payload: strin
 
 export async function dispatchPendingIntegrationEvents(limit: number) {
   const db = createAdminClient()
-  const { data: events, error } = await db
+
+  // Atomically claim pending events by selecting candidates then updating them
+  // in a single update-returning query to prevent concurrent pollers from
+  // processing the same events.
+  const now = new Date().toISOString()
+  const { data: candidates } = await db
     .from('integration_events_outbox')
-    .select('*')
+    .select('id')
     .eq('status', 'pending')
-    .lte('available_at', new Date().toISOString())
+    .lte('available_at', now)
     .order('available_at', { ascending: true })
     .limit(limit)
+
+  const candidateIds = (candidates ?? []).map((row) => row.id)
+  if (candidateIds.length === 0) {
+    return { processed: 0, delivered: 0 }
+  }
+
+  // Mark them as dispatched immediately to prevent re-selection by other pollers.
+  // Events that fail delivery will be set back to 'pending' below.
+  const { data: events, error } = await db
+    .from('integration_events_outbox')
+    .update({ status: 'dispatched' })
+    .in('id', candidateIds)
+    .eq('status', 'pending')
+    .select('*')
 
   if (error) {
     throw new Error(error.message)
@@ -72,6 +91,19 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
         continue
       }
 
+      // Skip endpoints that already received a successful delivery for this event
+      const { data: existingDelivery } = await db
+        .from('integration_webhook_deliveries')
+        .select('id')
+        .eq('integration_event_outbox_id', event.id)
+        .eq('integration_webhook_endpoint_id', endpoint.id)
+        .eq('status', 'delivered')
+        .maybeSingle()
+
+      if (existingDelivery) {
+        continue
+      }
+
       const timestamp = Math.floor(Date.now() / 1000).toString()
       const secret = decryptIntegrationSecret(String(endpoint.signing_secret_ciphertext))
       const signature = buildWebhookSignature(secret, timestamp, rawPayload)
@@ -80,6 +112,8 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
       let responseStatus: number | null = null
       let responseBodyExcerpt: string | null = null
 
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 10_000)
       try {
         const response = await fetch(String(endpoint.url), {
           method: 'POST',
@@ -92,6 +126,7 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
             'X-TalentFit-Signature': signature,
           },
           body: rawPayload,
+          signal: controller.signal,
         })
 
         responseStatus = response.status
@@ -105,10 +140,16 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
       } catch (deliveryError) {
         deliveryStatus = 'failed'
         eventSucceeded = false
-        responseBodyExcerpt =
-          deliveryError instanceof Error
-            ? deliveryError.message.slice(0, 1000)
-            : 'Webhook delivery failed'
+        if (deliveryError instanceof Error && deliveryError.name === 'AbortError') {
+          responseBodyExcerpt = 'Webhook delivery timed out after 10s'
+        } else {
+          responseBodyExcerpt =
+            deliveryError instanceof Error
+              ? deliveryError.message.slice(0, 1000)
+              : 'Webhook delivery failed'
+        }
+      } finally {
+        clearTimeout(timeout)
       }
 
       const { data: latestAttempt } = await db

@@ -41,7 +41,7 @@ export function extractIntegrationKeyPrefix(apiKey: string) {
     prefix !== API_KEY_PREFIX ||
     !publicPrefix ||
     !secret ||
-    publicPrefix.length < 8 ||
+    publicPrefix.length !== 12 ||
     secret.length < 16
   ) {
     throw new IntegrationApiError(

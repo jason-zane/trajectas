@@ -131,10 +131,16 @@ async function authenticateIntegrationCredential(
     )
   }
 
-  const secretMatches = crypto.timingSafeEqual(
-    Buffer.from(String(data.secret_hash), 'utf8'),
-    Buffer.from(hashed, 'utf8')
-  )
+  const storedHash = Buffer.from(String(data.secret_hash), 'utf8')
+  const computedHash = Buffer.from(hashed, 'utf8')
+  if (storedHash.length !== computedHash.length) {
+    throw new IntegrationApiError(
+      401,
+      'invalid_api_key',
+      'A valid integration API key is required.'
+    )
+  }
+  const secretMatches = crypto.timingSafeEqual(storedHash, computedHash)
 
   if (!secretMatches) {
     throw new IntegrationApiError(
@@ -202,16 +208,16 @@ function requireScopes(context: IntegrationAuthContext, requiredScopes: Integrat
 async function beginIdempotencyRecord(input: {
   context: IntegrationAuthContext
   request: Request
+  bodyText: string
 }): Promise<IdempotencyState> {
   const idempotencyKey = input.request.headers.get('Idempotency-Key')?.trim()
   if (!idempotencyKey) {
     return { mode: 'none' }
   }
 
-  const requestText = await input.request.clone().text()
   const requestHash = crypto
     .createHash('sha256')
-    .update(`${input.request.method}:${new URL(input.request.url).pathname}:${requestText}`)
+    .update(`${input.request.method}:${new URL(input.request.url).pathname}:${input.bodyText}`)
     .digest('hex')
   const db = createAdminClient()
 
@@ -357,8 +363,11 @@ export async function withIntegrationApiRoute(
     const rateLimit = options.rateLimit ?? { limit: 120, windowMs: 60_000 }
     applyRateLimit(rateLimitKey, rateLimit.limit, rateLimit.windowMs)
 
+    // Buffer body once to avoid double-read of the request stream
+    const bodyText = await request.clone().text()
+
     if (options.enableIdempotency) {
-      idempotencyState = await beginIdempotencyRecord({ context, request })
+      idempotencyState = await beginIdempotencyRecord({ context, request, bodyText })
       if (idempotencyState.mode === 'replay') {
         return buildJsonResponse(idempotencyState.response.responseBody, idempotencyState.response.responseStatus, {
           'X-Request-Id': requestId,
@@ -403,7 +412,13 @@ export async function withInternalIntegrationWorkerRoute(
 
   try {
     const internalKey = request.headers.get('x-internal-key')
-    if (!internalKey || internalKey !== process.env.INTERNAL_API_KEY) {
+    const expected = Buffer.from(process.env.INTERNAL_API_KEY ?? '')
+    const provided = Buffer.from(internalKey ?? '')
+    if (
+      expected.length === 0 ||
+      expected.length !== provided.length ||
+      !crypto.timingSafeEqual(expected, provided)
+    ) {
       throw new IntegrationApiError(
         401,
         'missing_internal_key',

@@ -338,42 +338,48 @@ export async function createIntegrationCampaign(
 
   const campaign = mapCampaignRow(createdCampaign)
 
-  if (assessmentIds.length > 0) {
-    const rows = assessmentIds.map((assessmentId, index) => ({
-      campaign_id: campaign.id,
-      assessment_id: assessmentId,
-      display_order: index,
-      is_required: true,
-    }))
-    const { error: assessmentsError } = await db.from('campaign_assessments').insert(rows)
-    if (assessmentsError) {
-      throw new Error(assessmentsError.message)
-    }
-  }
-
-  if (input.reportConfig) {
-    const { error: reportConfigError } = await db.from('campaign_report_config').upsert(
-      {
+  try {
+    if (assessmentIds.length > 0) {
+      const rows = assessmentIds.map((assessmentId, index) => ({
         campaign_id: campaign.id,
-        participant_template_id: input.reportConfig.participantTemplateId ?? null,
-        hr_manager_template_id: input.reportConfig.hrManagerTemplateId ?? null,
-        consultant_template_id: input.reportConfig.consultantTemplateId ?? null,
-        brand_mode: input.reportConfig.brandMode ?? 'platform',
-      },
-      { onConflict: 'campaign_id' }
-    )
-    if (reportConfigError) {
-      throw new Error(reportConfigError.message)
+        assessment_id: assessmentId,
+        display_order: index,
+        is_required: true,
+      }))
+      const { error: assessmentsError } = await db.from('campaign_assessments').insert(rows)
+      if (assessmentsError) {
+        throw new Error(assessmentsError.message)
+      }
     }
-  }
 
-  await upsertExternalRefs({
-    context,
-    campaignId: campaign.id,
-    localTable: 'campaigns',
-    localId: campaign.id,
-    refs: input.externalRefs,
-  })
+    if (input.reportConfig) {
+      const { error: reportConfigError } = await db.from('campaign_report_config').upsert(
+        {
+          campaign_id: campaign.id,
+          participant_template_id: input.reportConfig.participantTemplateId ?? null,
+          hr_manager_template_id: input.reportConfig.hrManagerTemplateId ?? null,
+          consultant_template_id: input.reportConfig.consultantTemplateId ?? null,
+          brand_mode: input.reportConfig.brandMode ?? 'platform',
+        },
+        { onConflict: 'campaign_id' }
+      )
+      if (reportConfigError) {
+        throw new Error(reportConfigError.message)
+      }
+    }
+
+    await upsertExternalRefs({
+      context,
+      campaignId: campaign.id,
+      localTable: 'campaigns',
+      localId: campaign.id,
+      refs: input.externalRefs,
+    })
+  } catch (err) {
+    // Compensating delete — remove the orphaned campaign
+    await db.from('campaigns').delete().eq('id', campaign.id)
+    throw err
+  }
 
   await logAuditEvent({
     actorProfileId: null,
@@ -460,9 +466,13 @@ export async function upsertIntegrationParticipant(
   if (!participantId) {
     const { data: existingByEmail, error: existingError } = await db
       .from('campaign_participants')
-      .select('id')
+      .select(`
+        id,
+        campaigns!inner(client_id)
+      `)
       .eq('campaign_id', campaignId)
       .eq('email', input.email.toLowerCase())
+      .eq('campaigns.client_id', context.clientId)
       .maybeSingle()
 
     if (existingError) {
@@ -836,6 +846,7 @@ export async function getIntegrationParticipantReports(
     .select('*')
     .in('participant_session_id', sessionIds)
     .order('created_at', { ascending: false })
+    .limit(50)
 
   if (snapshotError) {
     throw new Error(snapshotError.message)
