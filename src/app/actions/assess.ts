@@ -557,7 +557,7 @@ export async function getParticipantReportSnapshot(
     .select('rendered_data, status')
     .in('participant_session_id', sessionIds)
     .eq('audience_type', 'participant')
-    .in('status', ['ready', 'released'])
+    .eq('status', 'released')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -673,16 +673,24 @@ export async function registerViaLink(
       status: 'registered',
       ...(marketingConsent ? { marketing_consent_given_at: new Date().toISOString() } : {}),
     })
-    .select('access_token')
+    .select('id, access_token')
     .single()
 
   if (insertErr) return { error: insertErr.message }
 
-  // Increment link use count
-  await db
-    .from('campaign_access_links')
-    .update({ use_count: link.use_count + 1 })
-    .eq('id', link.id)
+  // Atomically increment the use_count with a conditional update that re-checks
+  // capacity and active/expiry constraints. This prevents TOCTOU races where
+  // concurrent registrations all pass the pre-check above.
+  const { data: incremented, error: rpcErr } = await db.rpc(
+    'increment_access_link_usage',
+    { p_link_id: link.id },
+  )
+
+  if (rpcErr || !incremented) {
+    // Link is now full or was deactivated between our checks — roll back.
+    await db.from('campaign_participants').delete().eq('id', newParticipant.id)
+    return { error: 'This enrollment link has reached its maximum uses' }
+  }
 
   return { accessToken: newParticipant.access_token }
 }
