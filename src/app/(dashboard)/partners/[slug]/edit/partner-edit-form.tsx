@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -99,7 +99,7 @@ export function PartnerEditForm({ partner }: { partner: Partner }) {
       setTimeout(() => setSaveState("idle"), 2000);
       setInitialState({ name, slug, isActive });
       if (result.slug !== partner.slug) {
-        router.replace(`/partners/${result.slug}/edit`, { scroll: false });
+        router.replace(`/partners/${result.slug}/overview`, { scroll: false });
       }
     }
   }
@@ -155,26 +155,11 @@ export function PartnerEditForm({ partner }: { partner: Partner }) {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      <div>
-        <Link
-          href="/directory?tab=partners"
-          className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="size-3.5" />
-          Back to Directory
-        </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">Edit Partner</h1>
-        <p className="mt-1.5 text-sm text-muted-foreground">
-          Update the details for &ldquo;{partner.name}&rdquo;.
+      {partner.deletedAt ? (
+        <p className="text-xs font-medium text-destructive">
+          This partner is currently archived.
         </p>
-        {partner.deletedAt ? (
-          <p className="mt-2 text-xs font-medium text-destructive">
-            This partner is currently archived.
-          </p>
-        ) : null}
-      </div>
-
-      <Separator />
+      ) : null}
 
       <form action={handleSubmit}>
         <Card>

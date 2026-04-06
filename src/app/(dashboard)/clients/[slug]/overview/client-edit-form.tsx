@@ -45,6 +45,17 @@ function slugify(text: string): string {
 type SaveState = "idle" | "saving" | "saved";
 const PLATFORM_OWNED_VALUE = "__platform__";
 
+function formatOwnershipDisplay(
+  value: string | null,
+  partners: Array<{ id: string; name: string }>
+): string {
+  if (!value || value === PLATFORM_OWNED_VALUE) {
+    return "Talent Fit (platform-owned)";
+  }
+  const partner = partners.find((p) => p.id === value);
+  return partner?.name ?? "Unknown";
+}
+
 export function ClientEditForm({
   client,
   partnerOptions = [],
@@ -269,11 +280,13 @@ export function ClientEditForm({
                   onValueChange={(value) => setPartnerId(value ?? PLATFORM_OWNED_VALUE)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue>
+                      {formatOwnershipDisplay(partnerId, partnerOptions)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={PLATFORM_OWNED_VALUE}>
-                      Talent Fit / platform-owned
+                      Talent Fit (platform-owned)
                     </SelectItem>
                     {partnerOptions.map((partner) => (
                       <SelectItem key={partner.id} value={partner.id}>

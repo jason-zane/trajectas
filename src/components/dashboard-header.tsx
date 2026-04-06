@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { BuildPortalSwitcher } from "@/components/build-portal-switcher";
 
 export function DashboardHeader({
   accountControl,
@@ -52,7 +51,6 @@ export function DashboardHeader({
       <Breadcrumbs className="flex-1" />
       <div className="ml-auto flex items-center gap-2 shrink-0">
         {workspaceControls}
-        <BuildPortalSwitcher variant="header" />
         <ThemeToggle />
         {accountControl}
       </div>

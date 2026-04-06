@@ -24,7 +24,7 @@ export async function getAssessmentAssignments(
 
   const { data, error } = await db
     .from('client_assessment_assignments')
-    .select('*, assessments(name)')
+    .select('*, assessments(title)')
     .eq('client_id', clientId)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
@@ -45,7 +45,7 @@ export async function getAssessmentAssignments(
       ? row.assessments[0]
       : row.assessments
     const assessmentName =
-      (assessmentRecord as Record<string, unknown>)?.name ?? 'Unknown'
+      (assessmentRecord as Record<string, unknown>)?.title ?? 'Unknown'
 
     results.push({
       ...mapClientAssessmentAssignmentRow(row),

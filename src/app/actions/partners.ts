@@ -11,6 +11,11 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import {
+  createStaffInvite,
+  revokeInvite,
+  type InviteRole,
+} from '@/lib/auth/staff-auth'
 import { partnerSchema } from '@/lib/validations/partners'
 import type { Partner } from '@/types/database'
 
@@ -259,4 +264,328 @@ export async function restorePartner(id: string) {
   })
 
   revalidateDirectoryPaths()
+}
+
+// ---------------------------------------------------------------------------
+// Partner Stats
+// ---------------------------------------------------------------------------
+
+export async function getPartnerStats(partnerId: string): Promise<{
+  clientCount: number
+  activeCampaignCount: number
+  partnerMemberCount: number
+  totalAssessmentsAssigned: number
+}> {
+  await requirePartnerAccess(partnerId)
+  const db = createAdminClient()
+
+  // Clients under this partner
+  const { count: clientCount } = await db
+    .from('clients')
+    .select('*', { count: 'exact', head: true })
+    .eq('partner_id', partnerId)
+    .is('deleted_at', null)
+
+  // Get all client IDs for aggregate queries
+  const { data: clientRows } = await db
+    .from('clients')
+    .select('id')
+    .eq('partner_id', partnerId)
+    .is('deleted_at', null)
+  const clientIds = (clientRows ?? []).map((c) => c.id)
+
+  // Active campaigns across partner's clients
+  let activeCampaignCount = 0
+  if (clientIds.length > 0) {
+    const { count } = await db
+      .from('campaigns')
+      .select('*', { count: 'exact', head: true })
+      .in('client_id', clientIds)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+    activeCampaignCount = count ?? 0
+  }
+
+  // Partner members
+  const { count: partnerMemberCount } = await db
+    .from('partner_memberships')
+    .select('*', { count: 'exact', head: true })
+    .eq('partner_id', partnerId)
+    .is('revoked_at', null)
+
+  // Total assessments assigned across all partner's clients
+  let totalAssessmentsAssigned = 0
+  if (clientIds.length > 0) {
+    const { count } = await db
+      .from('client_assessment_assignments')
+      .select('*', { count: 'exact', head: true })
+      .in('client_id', clientIds)
+      .eq('is_active', true)
+    totalAssessmentsAssigned = count ?? 0
+  }
+
+  return {
+    clientCount: clientCount ?? 0,
+    activeCampaignCount,
+    partnerMemberCount: partnerMemberCount ?? 0,
+    totalAssessmentsAssigned,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Partner Members
+// ---------------------------------------------------------------------------
+
+export interface PartnerMember {
+  membershipId: string
+  userId: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  role: 'admin' | 'member'
+  addedAt: string
+}
+
+export interface PartnerPendingInvite {
+  id: string
+  email: string
+  role: string
+  createdAt: string
+  expiresAt: string
+}
+
+export async function getPartnerMembers(partnerId: string): Promise<PartnerMember[]> {
+  const access = await requirePartnerAccess(partnerId)
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return []
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('partner_memberships')
+    .select('id, profile_id, role, created_at, profiles(id, email, first_name, last_name)')
+    .eq('partner_id', partnerId)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+    return {
+      membershipId: String(row.id),
+      userId: String(row.profile_id),
+      email: profile?.email ?? '',
+      firstName: profile?.first_name ?? null,
+      lastName: profile?.last_name ?? null,
+      role: row.role as 'admin' | 'member',
+      addedAt: String(row.created_at),
+    }
+  })
+}
+
+export async function getPartnerPendingInvites(partnerId: string): Promise<PartnerPendingInvite[]> {
+  const access = await requirePartnerAccess(partnerId)
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return []
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('user_invites')
+    .select('id, email, role, created_at, expires_at')
+    .eq('tenant_type', 'partner')
+    .eq('tenant_id', partnerId)
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    email: String(row.email),
+    role: String(row.role),
+    createdAt: String(row.created_at),
+    expiresAt: String(row.expires_at),
+  }))
+}
+
+export async function inviteUserToPartner(
+  partnerId: string,
+  input: { email: string; role: 'admin' | 'member' }
+) {
+  let access
+  try {
+    access = await requirePartnerAccess(partnerId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return { error: 'You do not have permission to invite users to this partner' }
+  }
+
+  const actorId = access.scope.actor?.id
+  if (!actorId && !access.scope.isLocalDevelopmentBypass) {
+    return { error: 'Authentication required' }
+  }
+
+  // Check for existing pending invite
+  const db = createAdminClient()
+  const { data: existing } = await db
+    .from('user_invites')
+    .select('id')
+    .eq('tenant_type', 'partner')
+    .eq('tenant_id', partnerId)
+    .eq('email', input.email.trim().toLowerCase())
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle()
+
+  if (existing) {
+    return { error: 'An invite is already pending for this email address' }
+  }
+
+  const inviteRole: InviteRole = input.role === 'admin' ? 'partner_admin' : 'partner_member'
+  const invitedByProfileId = actorId ?? '00000000-0000-0000-0000-000000000000'
+
+  const result = await createStaffInvite({
+    email: input.email.trim().toLowerCase(),
+    tenantType: 'partner',
+    tenantId: partnerId,
+    role: inviteRole,
+    invitedByProfileId,
+  })
+
+  if ('error' in result) {
+    const formErrors = result.error._form
+    return { error: formErrors?.[0] ?? 'Failed to create invite' }
+  }
+
+  revalidatePath(`/partners`)
+  return { success: true as const }
+}
+
+export async function changePartnerMemberRole(
+  partnerId: string,
+  membershipId: string,
+  role: 'admin' | 'member'
+) {
+  let access
+  try {
+    access = await requirePartnerAccess(partnerId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return { error: 'You do not have permission to change member roles' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('partner_memberships')
+    .update({ role })
+    .eq('id', membershipId)
+    .eq('partner_id', partnerId)
+    .is('revoked_at', null)
+
+  if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'partner_membership.role_changed',
+    targetTable: 'partner_memberships',
+    targetId: membershipId,
+    partnerId,
+    clientId: null,
+    metadata: { newRole: role },
+  })
+
+  revalidatePath(`/partners`)
+  return { success: true as const }
+}
+
+export async function removePartnerMember(
+  partnerId: string,
+  membershipId: string
+) {
+  let access
+  try {
+    access = await requirePartnerAccess(partnerId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return { error: 'You do not have permission to remove members' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('partner_memberships')
+    .update({
+      revoked_at: new Date().toISOString(),
+      revoked_by_profile_id: access.scope.actor?.id ?? null,
+    })
+    .eq('id', membershipId)
+    .eq('partner_id', partnerId)
+    .is('revoked_at', null)
+
+  if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'partner_membership.revoked',
+    targetTable: 'partner_memberships',
+    targetId: membershipId,
+    partnerId,
+    clientId: null,
+    metadata: {},
+  })
+
+  revalidatePath(`/partners`)
+  return { success: true as const }
+}
+
+export async function revokePartnerInvite(
+  partnerId: string,
+  inviteId: string
+) {
+  let access
+  try {
+    access = await requirePartnerAccess(partnerId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return { error: 'You do not have permission to revoke invites' }
+  }
+
+  const actorId = access.scope.actor?.id ?? '00000000-0000-0000-0000-000000000000'
+
+  try {
+    await revokeInvite(inviteId, actorId)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Failed to revoke invite' }
+  }
+
+  revalidatePath(`/partners`)
+  return { success: true as const }
 }

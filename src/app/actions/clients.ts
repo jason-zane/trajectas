@@ -13,6 +13,11 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import {
+  createStaffInvite,
+  revokeInvite,
+  type InviteRole,
+} from '@/lib/auth/staff-auth'
 import { clientSchema } from '@/lib/validations/clients'
 import type { Client } from '@/types/database'
 
@@ -330,6 +335,59 @@ export async function deleteClient(id: string) {
   revalidateDirectoryPaths()
 }
 
+export async function getClientStats(clientId: string): Promise<{
+  activeCampaignCount: number
+  totalParticipants: number
+  assignedAssessmentCount: number
+  teamMemberCount: number
+}> {
+  await requireClientAccess(clientId)
+  const db = createAdminClient()
+
+  const { count: activeCampaignCount } = await db
+    .from('campaigns')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  // Total participants across all client's campaigns
+  const { data: campaignIds } = await db
+    .from('campaigns')
+    .select('id')
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+  const ids = (campaignIds ?? []).map((c) => c.id)
+
+  let totalParticipants = 0
+  if (ids.length > 0) {
+    const { count } = await db
+      .from('campaign_participants')
+      .select('*', { count: 'exact', head: true })
+      .in('campaign_id', ids)
+    totalParticipants = count ?? 0
+  }
+
+  const { count: assignedAssessmentCount } = await db
+    .from('client_assessment_assignments')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .eq('is_active', true)
+
+  const { count: teamMemberCount } = await db
+    .from('client_memberships')
+    .select('*', { count: 'exact', head: true })
+    .eq('client_id', clientId)
+    .is('revoked_at', null)
+
+  return {
+    activeCampaignCount: activeCampaignCount ?? 0,
+    totalParticipants,
+    assignedAssessmentCount: assignedAssessmentCount ?? 0,
+    teamMemberCount: teamMemberCount ?? 0,
+  }
+}
+
 export async function restoreClient(id: string) {
   let access
   try {
@@ -366,4 +424,260 @@ export async function restoreClient(id: string) {
   })
 
   revalidateDirectoryPaths()
+}
+
+// ---------------------------------------------------------------------------
+// Client Members
+// ---------------------------------------------------------------------------
+
+export interface ClientMember {
+  membershipId: string
+  userId: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  role: 'admin' | 'member'
+  addedAt: string
+}
+
+export interface ClientPendingInvite {
+  id: string
+  email: string
+  role: string
+  createdAt: string
+  expiresAt: string
+}
+
+export async function getClientMembers(clientId: string): Promise<ClientMember[]> {
+  const access = await requireClientAccess(clientId)
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return []
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('client_memberships')
+    .select('id, profile_id, role, created_at, profiles(id, email, first_name, last_name)')
+    .eq('client_id', clientId)
+    .is('revoked_at', null)
+    .order('created_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles
+    return {
+      membershipId: String(row.id),
+      userId: String(row.profile_id),
+      email: profile?.email ?? '',
+      firstName: profile?.first_name ?? null,
+      lastName: profile?.last_name ?? null,
+      role: row.role as 'admin' | 'member',
+      addedAt: String(row.created_at),
+    }
+  })
+}
+
+export async function getClientPendingInvites(clientId: string): Promise<ClientPendingInvite[]> {
+  const access = await requireClientAccess(clientId)
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return []
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('user_invites')
+    .select('id, email, role, created_at, expires_at')
+    .eq('tenant_type', 'client')
+    .eq('tenant_id', clientId)
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    email: String(row.email),
+    role: String(row.role),
+    createdAt: String(row.created_at),
+    expiresAt: String(row.expires_at),
+  }))
+}
+
+export async function inviteUserToClient(
+  clientId: string,
+  input: { email: string; role: 'admin' | 'member' }
+) {
+  let access
+  try {
+    access = await requireClientAccess(clientId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return { error: 'You do not have permission to invite users to this client' }
+  }
+
+  const actorId = access.scope.actor?.id
+  if (!actorId && !access.scope.isLocalDevelopmentBypass) {
+    return { error: 'Authentication required' }
+  }
+
+  // Check for existing pending invite
+  const db = createAdminClient()
+  const { data: existing } = await db
+    .from('user_invites')
+    .select('id')
+    .eq('tenant_type', 'client')
+    .eq('tenant_id', clientId)
+    .eq('email', input.email.trim().toLowerCase())
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle()
+
+  if (existing) {
+    return { error: 'An invite is already pending for this email address' }
+  }
+
+  const inviteRole: InviteRole = input.role === 'admin' ? 'client_admin' : 'client_member'
+  const invitedByProfileId = actorId ?? '00000000-0000-0000-0000-000000000000'
+
+  const result = await createStaffInvite({
+    email: input.email.trim().toLowerCase(),
+    tenantType: 'client',
+    tenantId: clientId,
+    role: inviteRole,
+    invitedByProfileId,
+  })
+
+  if ('error' in result) {
+    const formErrors = result.error._form
+    return { error: formErrors?.[0] ?? 'Failed to create invite' }
+  }
+
+  revalidatePath(`/clients`)
+  return { success: true as const }
+}
+
+export async function changeClientMemberRole(
+  clientId: string,
+  membershipId: string,
+  role: 'admin' | 'member'
+) {
+  let access
+  try {
+    access = await requireClientAccess(clientId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return { error: 'You do not have permission to change member roles' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('client_memberships')
+    .update({ role })
+    .eq('id', membershipId)
+    .eq('client_id', clientId)
+    .is('revoked_at', null)
+
+  if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'client_membership.role_changed',
+    targetTable: 'client_memberships',
+    targetId: membershipId,
+    clientId,
+    metadata: { newRole: role },
+  })
+
+  revalidatePath(`/clients`)
+  return { success: true as const }
+}
+
+export async function removeClientMember(
+  clientId: string,
+  membershipId: string
+) {
+  let access
+  try {
+    access = await requireClientAccess(clientId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return { error: 'You do not have permission to remove members' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('client_memberships')
+    .update({
+      revoked_at: new Date().toISOString(),
+      revoked_by_profile_id: access.scope.actor?.id ?? null,
+    })
+    .eq('id', membershipId)
+    .eq('client_id', clientId)
+    .is('revoked_at', null)
+
+  if (error) return { error: error.message }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'client_membership.revoked',
+    targetTable: 'client_memberships',
+    targetId: membershipId,
+    clientId,
+    metadata: {},
+  })
+
+  revalidatePath(`/clients`)
+  return { success: true as const }
+}
+
+export async function revokeClientInvite(
+  clientId: string,
+  inviteId: string
+) {
+  let access
+  try {
+    access = await requireClientAccess(clientId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return { error: 'You do not have permission to revoke invites' }
+  }
+
+  const actorId = access.scope.actor?.id ?? '00000000-0000-0000-0000-000000000000'
+
+  try {
+    await revokeInvite(inviteId, actorId)
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'Failed to revoke invite' }
+  }
+
+  revalidatePath(`/clients`)
+  return { success: true as const }
 }
