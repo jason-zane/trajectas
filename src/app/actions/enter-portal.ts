@@ -2,9 +2,70 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdminScope } from "@/lib/auth/authorization";
-import { startSupportSession } from "@/lib/auth/support-sessions";
+import { logAuditEvent, startSupportSession } from "@/lib/auth/support-sessions";
 import { buildSurfaceUrl } from "@/lib/hosts";
+import { logActionError } from "@/lib/security/action-errors";
 import type { Surface } from "@/lib/surfaces";
+
+// ---------------------------------------------------------------------------
+// Page-level audit logging for support session data access
+// ---------------------------------------------------------------------------
+
+const PAGE_VIEW_DEBOUNCE_MS = 5 * 60 * 1000; // 5 minutes
+
+type PageViewDebounceStore = Map<string, number>;
+
+function getPageViewDebounceStore(): PageViewDebounceStore {
+  const g = globalThis as typeof globalThis & {
+    __talentFitSupportPageViewStore?: PageViewDebounceStore;
+  };
+  if (!g.__talentFitSupportPageViewStore) {
+    g.__talentFitSupportPageViewStore = new Map();
+  }
+  return g.__talentFitSupportPageViewStore;
+}
+
+/**
+ * Logs a `support_session.data_accessed` event for each unique
+ * (sessionId, path) pair, debounced to once per 5 minutes.
+ *
+ * Called from WorkspaceShell when a support session is active.
+ */
+export async function logSupportSessionPageView(
+  sessionId: string,
+  actorId: string,
+  path: string
+): Promise<void> {
+  const store = getPageViewDebounceStore();
+  const key = `${sessionId}:${path}`;
+  const now = Date.now();
+  const lastLoggedAt = store.get(key) ?? 0;
+
+  if (now - lastLoggedAt < PAGE_VIEW_DEBOUNCE_MS) {
+    return;
+  }
+
+  store.set(key, now);
+
+  // Evict stale entries to prevent unbounded growth.
+  if (store.size > 512) {
+    const cutoff = now - PAGE_VIEW_DEBOUNCE_MS;
+    for (const [k, ts] of store.entries()) {
+      if (ts < cutoff) store.delete(k);
+    }
+  }
+
+  try {
+    await logAuditEvent({
+      actorProfileId: actorId,
+      eventType: "support_session.data_accessed",
+      supportSessionId: sessionId,
+      metadata: { path },
+    });
+  } catch (err) {
+    logActionError("logSupportSessionPageView.audit", err);
+  }
+}
 
 /**
  * Creates a support session and returns the launch URL for the target portal.
@@ -38,10 +99,29 @@ export async function createEnterPortalLaunchUrl(input: {
       ? surfaceUrl.toString()
       : `${launchPath}?${launchSearch}`;
 
+    if (input.tenantType === "client") {
+      try {
+        await logAuditEvent({
+          actorProfileId: scope.actor.id,
+          eventType: "client.portal_entered",
+          targetTable: "clients",
+          targetId: input.tenantId,
+          clientId: input.tenantId,
+          supportSessionId: session.id,
+          metadata: {
+            source: "admin_enter_portal",
+          },
+        });
+      } catch (auditError) {
+        logActionError("createEnterPortalLaunchUrl.audit", auditError);
+      }
+    }
+
     return { success: true, launchUrl };
   } catch (err) {
+    logActionError("createEnterPortalLaunchUrl", err);
     return {
-      error: err instanceof Error ? err.message : "Failed to create portal session.",
+      error: "Failed to create portal session.",
     };
   }
 }
@@ -62,13 +142,15 @@ export async function endSupportSession(
       .eq("id", sessionId);
 
     if (error) {
-      return { error: error.message };
+      logActionError("endSupportSession.update", error);
+      return { error: "Failed to end support session." };
     }
 
     return { success: true };
   } catch (err) {
+    logActionError("endSupportSession", err);
     return {
-      error: err instanceof Error ? err.message : "Failed to end support session.",
+      error: "Failed to end support session.",
     };
   }
 }

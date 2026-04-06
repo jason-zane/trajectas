@@ -16,6 +16,8 @@ import { resolveSessionActor } from "@/lib/auth/actor";
 import { generateDashboardCSS } from "@/lib/brand/tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildSurfaceUrl } from "@/lib/hosts";
+import { headers } from "next/headers";
+import { logSupportSessionPageView } from "@/app/actions/enter-portal";
 import type { ResolvedActor } from "@/lib/auth/types";
 
 interface SupportSessionInfo {
@@ -106,6 +108,25 @@ export async function WorkspaceShell({
     actor && portal !== "admin"
       ? await resolveSupportSessionInfo(actor, portal)
       : null;
+
+  if (supportSessionInfo && actor) {
+    // Derive the current path from request headers (Next.js App Router
+    // makes the x-talentfit-route-prefix available from the middleware
+    // rewrite; fall back to the portal name as a coarse-grained label).
+    const headerStore = await headers();
+    const requestRoutePrefix = headerStore.get("x-talentfit-route-prefix");
+    const path =
+      requestRoutePrefix && requestRoutePrefix !== "/" ? requestRoutePrefix : `/${portal}`;
+
+    // Fire-and-forget: audit failure must not break page render.
+    logSupportSessionPageView(
+      supportSessionInfo.sessionId,
+      actor.id,
+      path
+    ).catch(() => {
+      // Silently swallow — logSupportSessionPageView already logs internally.
+    });
+  }
 
   return (
     <PortalProvider
