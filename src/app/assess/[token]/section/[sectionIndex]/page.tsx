@@ -88,7 +88,21 @@ export default async function SectionPage({
   // Load experience template for runner content + flow routing
   const experience = await getEffectiveExperience(campaign.id);
   const runnerContent = getPageContent(experience, "runner");
-  const postSectionsUrl = getPostSectionsUrl(experience, token);
+
+  // Find current assessment's position in the campaign's assessment list
+  const currentAssessmentIdx = assessments.findIndex(
+    (a) => a.assessmentId === targetAssessment.assessmentId
+  );
+  const nextAssessmentIdx = currentAssessmentIdx + 1;
+
+  let postAssessmentUrl: string;
+  if (nextAssessmentIdx < assessments.length) {
+    // More assessments to go — route to next assessment's intro
+    postAssessmentUrl = `/assess/${token}/assessment-intro/${nextAssessmentIdx}`;
+  } else {
+    // Last assessment — route to first post-assessment page
+    postAssessmentUrl = getPostSectionsUrl(experience, token);
+  }
 
   // Generate org-specific CSS tokens
   const { css: lightCss } = generateCSSTokens(brandConfig);
@@ -121,7 +135,7 @@ export default async function SectionPage({
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
         runnerContent={runnerContent}
-        postSectionsUrl={postSectionsUrl}
+        postAssessmentUrl={postAssessmentUrl}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
         showProgress={campaign.showProgress}

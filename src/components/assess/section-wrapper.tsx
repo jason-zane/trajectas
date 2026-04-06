@@ -10,8 +10,7 @@ import {
   updateSessionProgress,
 } from "@/app/actions/assess";
 import type { SectionForRunner } from "@/app/actions/assess";
-import type { RunnerContent, SectionIntroContent } from "@/lib/experience/types";
-import { SectionIntroScreen } from "./section-intro-screen";
+import type { RunnerContent } from "@/lib/experience/types";
 
 interface SectionWrapperProps {
   token: string;
@@ -31,10 +30,8 @@ interface SectionWrapperProps {
   brandName?: string;
   isCustomBrand?: boolean;
   runnerContent?: RunnerContent;
-  /** URL to navigate to after the last section item. */
-  postSectionsUrl: string;
-  /** Pre-interpolated section intro content. */
-  sectionIntroContent?: SectionIntroContent;
+  /** URL to navigate to after this assessment's last section item. */
+  postAssessmentUrl: string;
   privacyUrl?: string;
   termsUrl?: string;
   /** Whether to show the progress bar. Defaults to true. */
@@ -84,20 +81,12 @@ export function SectionWrapper({
   brandName,
   isCustomBrand,
   runnerContent,
-  postSectionsUrl,
-  sectionIntroContent,
+  postAssessmentUrl,
   privacyUrl,
   termsUrl,
   showProgress = true,
 }: SectionWrapperProps) {
   const router = useRouter();
-
-  // Section intro gate: show intro screen before items for each section
-  const [introShown, setIntroShown] = useState(() => {
-    // If there are existing responses for items in this section, skip intro
-    const hasResponses = section.items.some((item) => existingResponses[item.id]);
-    return hasResponses;
-  });
 
   // Build a flat global item list from all sections
   const globalItems = flattenItems(allSections);
@@ -186,8 +175,8 @@ export function SectionWrapper({
       });
       router.push(`/assess/${token}/section/${sectionIndex + 1}`);
     } else {
-      // End of assessment — go to post-sections URL (review, complete, etc.)
-      router.push(postSectionsUrl);
+      // End of assessment — go to post-assessment URL (next assessment intro or complete)
+      router.push(postAssessmentUrl);
     }
   }, [
     localItemIndex,
@@ -197,7 +186,7 @@ export function SectionWrapper({
     totalSections,
     sessionId,
     token,
-    postSectionsUrl,
+    postAssessmentUrl,
     router,
     navigateToItem,
   ]);
@@ -247,20 +236,6 @@ export function SectionWrapper({
   }
 
   const canGoBack = localItemIndex > 0 || sectionIndex > 0;
-
-  if (!introShown && sectionIntroContent) {
-    return (
-      <SectionIntroScreen
-        content={sectionIntroContent}
-        brandLogoUrl={brandLogoUrl}
-        brandName={brandName}
-        isCustomBrand={isCustomBrand}
-        onStart={() => setIntroShown(true)}
-        privacyUrl={privacyUrl}
-        termsUrl={termsUrl}
-      />
-    );
-  }
 
   return (
     <div className="flex min-h-dvh flex-col">
