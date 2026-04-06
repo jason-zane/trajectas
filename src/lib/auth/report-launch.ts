@@ -107,7 +107,7 @@ async function findSnapshotForParticipant(
     .select("id")
     .in("participant_session_id", sessionIds)
     .eq("audience_type", audienceType)
-    .in("status", ["ready", "released"])
+    .eq("status", "released")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
