@@ -36,7 +36,7 @@ describe("authorization rules", () => {
     const scope = createScope({ isPlatformAdmin: true });
 
     expect(canAccessClient(scope, "client-1")).toBe(true);
-    expect(canManageClient(scope, "client-1")).toBe(true);
+    expect(canManageClient(scope, "client-1", null)).toBe(true); // platform admin bypasses partner check
     expect(canManageClientDirectory(scope)).toBe(true);
     expect(canManageClientAssignment(scope)).toBe(true);
     expect(canManagePartnerDirectory(scope)).toBe(true);
@@ -56,7 +56,10 @@ describe("authorization rules", () => {
       },
     });
 
-    expect(canManageClient(scope, "client-1")).toBe(true);
+    // Partner admin can manage clients that belong to their partner
+    expect(canManageClient(scope, "client-1", "partner-1")).toBe(true);
+    // Cannot manage clients belonging to other partners
+    expect(canManageClient(scope, "client-2", "partner-2")).toBe(false);
     expect(canManageClientDirectory(scope)).toBe(true);
     expect(canManageClientAssignment(scope)).toBe(false);
     expect(canManagePartnerDirectory(scope)).toBe(false);
@@ -73,8 +76,8 @@ describe("authorization rules", () => {
 
     expect(canAccessClient(scope, "client-1")).toBe(true);
     expect(canAccessClient(scope, "client-2")).toBe(false);
-    expect(canManageClient(scope, "client-1")).toBe(true);
-    expect(canManageClient(scope, "client-2")).toBe(false);
+    expect(canManageClient(scope, "client-1", null)).toBe(true); // client admin for own client
+    expect(canManageClient(scope, "client-2", null)).toBe(false);
     expect(canManageClientDirectory(scope)).toBe(false);
     expect(canManageClientAssignment(scope)).toBe(false);
     expect(canManagePartnerDirectory(scope)).toBe(false);
