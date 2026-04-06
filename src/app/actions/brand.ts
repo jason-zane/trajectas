@@ -21,6 +21,10 @@ import type { BrandConfig, BrandConfigRecord, BrandOwnerType } from '@/lib/brand
 /**
  * Get a brand config by owner type and ID.
  * Returns null if no config exists for this owner.
+ *
+ * Uses admin client because this is called from contexts without a user
+ * session: report runner (background), integrations service, email
+ * sending, and participant-facing assessment pages.
  */
 export async function getBrandConfig(
   ownerType: BrandOwnerType,
@@ -47,6 +51,9 @@ export async function getBrandConfig(
 
 /**
  * Get the platform default brand config.
+ *
+ * Uses admin client — called transitively from no-session contexts
+ * (see getBrandConfig).
  */
 export async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
   const db = createAdminClient()

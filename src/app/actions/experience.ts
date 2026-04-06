@@ -25,6 +25,10 @@ import type {
 
 /**
  * Get an experience template by owner type and ID.
+ *
+ * Uses admin client because this is called from participant-facing
+ * assessment pages (/assess/[token]/*) which have no authenticated
+ * user session, and from write functions that already hold admin scope.
  */
 export async function getExperienceTemplate(
   ownerType: ExperienceOwnerType,
