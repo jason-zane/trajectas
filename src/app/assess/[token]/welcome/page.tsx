@@ -25,8 +25,8 @@ export default async function WelcomePage({
 
   const { campaign, participant, assessments, sessions } = result.data!;
 
-  // Load brand config for the campaign's organization
-  const brandConfig = await getEffectiveBrand(campaign.organizationId, campaign.id);
+  // Load brand config for the campaign's client
+  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
   // Load experience template
@@ -39,7 +39,7 @@ export default async function WelcomePage({
     campaignTitle: campaign.title,
     campaignDescription: campaign.description,
     assessmentCount: assessments.length,
-    organizationName: undefined,
+    clientName: undefined,
   };
   const content = interpolateContent(rawContent, variables);
 

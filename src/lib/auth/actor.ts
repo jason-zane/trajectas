@@ -28,7 +28,7 @@ function mapPartnerMembership(row: Record<string, unknown>): PartnerMembershipRe
 function mapClientMembership(row: Record<string, unknown>): ClientMembershipRecord {
   return {
     id: String(row.id),
-    clientId: String(row.organization_id),
+    clientId: String(row.client_id),
     role: (row.role as ClientMembershipRecord["role"]) ?? "member",
     isDefault: Boolean(row.is_default),
     createdAt: String(row.created_at),
@@ -70,7 +70,7 @@ export async function resolveSessionActor(): Promise<ResolvedActor | null> {
         .is("revoked_at", null),
       db
         .from("client_memberships")
-        .select("id, organization_id, role, is_default, created_at")
+        .select("id, client_id, role, is_default, created_at")
         .eq("profile_id", user.id)
         .is("revoked_at", null),
       resolveSignedActiveContext(),

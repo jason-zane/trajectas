@@ -46,7 +46,7 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
   competency_matching: {
     label: "Competency Matching",
     description:
-      "Ranks competencies based on diagnostic evidence from the organisation.",
+      "Ranks competencies based on diagnostic evidence from the client.",
     icon: Sparkles,
     glowColor: "var(--primary)",
   },
@@ -60,7 +60,7 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
   diagnostic_analysis: {
     label: "Diagnostic Analysis",
     description:
-      "Analyses assessment results and surfaces key insights for the organisation.",
+      "Analyses assessment results and surfaces key insights for the client.",
     icon: BarChart3,
     glowColor: "var(--primary)",
   },

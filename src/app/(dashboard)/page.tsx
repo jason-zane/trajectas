@@ -74,7 +74,7 @@ const statCards = [
     glowColor: "var(--muted-foreground)",
   },
   {
-    key: "organizations" as const,
+    key: "clients" as const,
     title: "Clients",
     icon: Building2,
     description: "Managed client accounts",

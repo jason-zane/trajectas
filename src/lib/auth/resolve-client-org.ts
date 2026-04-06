@@ -3,7 +3,7 @@ import { resolveAuthorizedScope, AuthenticationRequiredError } from "@/lib/auth/
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Resolves the active client organization ID for client portal pages.
+ * Resolves the active client ID for client portal pages.
  *
  * Uses resolveAuthorizedScope directly (not resolveWorkspaceAccess) so that
  * platform admins can access the client portal regardless of surface gating.
@@ -15,7 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  */
 export async function resolveClientOrg(
   redirectPath: string
-): Promise<{ orgId: string | null }> {
+): Promise<{ clientId: string | null }> {
   let scope;
   try {
     scope = await resolveAuthorizedScope();
@@ -38,25 +38,25 @@ export async function resolveClientOrg(
   }
 
   // 1. Try active context
-  let orgId = scope.activeContext?.tenantId;
+  let clientId = scope.activeContext?.tenantId;
 
   // 2. Try first client membership
-  if (!orgId && scope.clientIds.length > 0) {
-    orgId = scope.clientIds[0];
+  if (!clientId && scope.clientIds.length > 0) {
+    clientId = scope.clientIds[0];
   }
 
   // 3. Platform admin / local dev fallback — pick first org
-  if (!orgId && (hasPlatformAdminRole || scope.isLocalDevelopmentBypass)) {
+  if (!clientId && (hasPlatformAdminRole || scope.isLocalDevelopmentBypass)) {
     const db = createAdminClient();
     const { data } = await db
-      .from("organizations")
+      .from("clients")
       .select("id")
       .is("deleted_at", null)
       .order("name", { ascending: true })
       .limit(1)
       .single();
-    orgId = data?.id;
+    clientId = data?.id;
   }
 
-  return { orgId: orgId ?? null };
+  return { clientId: clientId ?? null };
 }

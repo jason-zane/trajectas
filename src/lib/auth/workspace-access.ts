@@ -210,7 +210,7 @@ async function loadClientOptionRows(clientIds: string[]) {
 
   const db = createAdminClient();
   const { data, error } = await db
-    .from("organizations")
+    .from("clients")
     .select("id, name, partner_id")
     .in("id", clientIds)
     .is("deleted_at", null)
@@ -267,7 +267,7 @@ export async function getWorkspaceContextOptions(
     scope.isLocalDevelopmentBypass
         ? (
           await db
-            .from("organizations")
+            .from("clients")
             .select("id")
             .is("deleted_at", null)
             .order("name", { ascending: true })

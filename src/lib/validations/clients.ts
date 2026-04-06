@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const organizationSchema = z.object({
+export const clientSchema = z.object({
   partnerId: z
     .string()
     .trim()
@@ -20,4 +20,4 @@ export const organizationSchema = z.object({
     .default(true),
 })
 
-export type OrganizationInput = z.infer<typeof organizationSchema>
+export type ClientInput = z.infer<typeof clientSchema>

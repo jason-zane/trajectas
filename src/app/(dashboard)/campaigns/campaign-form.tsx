@@ -27,7 +27,7 @@ import {
   updateCampaignField,
 } from "@/app/actions/campaigns"
 import type { Campaign } from "@/types/database"
-import type { Organization } from "@/types/database"
+import type { Client } from "@/types/database"
 
 function slugify(text: string): string {
   return text
@@ -41,9 +41,9 @@ function slugify(text: string): string {
 interface CampaignFormProps {
   mode: "create" | "edit"
   campaign?: Campaign
-  organizations?: Organization[]
+  clients?: Client[]
   /** Pre-set org ID (hides the org selector, e.g. client portal) */
-  defaultOrganizationId?: string
+  defaultClientId?: string
   /** Route prefix for redirects (e.g. "/client") */
   routePrefix?: string
 }
@@ -51,8 +51,8 @@ interface CampaignFormProps {
 export function CampaignForm({
   mode,
   campaign,
-  organizations = [],
-  defaultOrganizationId,
+  clients = [],
+  defaultClientId,
   routePrefix = "",
 }: CampaignFormProps) {
   const router = useRouter()
@@ -61,8 +61,8 @@ export function CampaignForm({
   const [title, setTitle] = useState(campaign?.title ?? "")
   const [slug, setSlug] = useState(campaign?.slug ?? "")
   const [slugTouched, setSlugTouched] = useState(mode === "edit")
-  const [organizationId, setOrganizationId] = useState(
-    defaultOrganizationId ?? campaign?.organizationId ?? "",
+  const [clientId, setClientId] = useState(
+    defaultClientId ?? campaign?.clientId ?? "",
   )
   const [opensAt, setOpensAt] = useState(
     campaign?.opensAt ? campaign.opensAt.slice(0, 16) : "",
@@ -95,7 +95,7 @@ export function CampaignForm({
       ? title.length > 0
       : title !== (campaign?.title ?? "") ||
         slug !== (campaign?.slug ?? "") ||
-        organizationId !== (campaign?.organizationId ?? "") ||
+        clientId !== (campaign?.clientId ?? "") ||
         opensAt !==
           (campaign?.opensAt ? campaign.opensAt.slice(0, 16) : "") ||
         closesAt !==
@@ -114,7 +114,7 @@ export function CampaignForm({
       title,
       slug,
       description: mode === "create" ? createDescription : undefined,
-      organizationId: organizationId || undefined,
+      clientId: clientId || undefined,
       opensAt: opensAt ? new Date(opensAt).toISOString() : undefined,
       closesAt: closesAt ? new Date(closesAt).toISOString() : undefined,
       allowResume: true,
@@ -255,18 +255,18 @@ export function CampaignForm({
               )}
             </div>
 
-            {/* Organisation */}
-            {organizations.length > 0 && !defaultOrganizationId && (
+            {/* Client */}
+            {clients.length > 0 && !defaultClientId && (
               <div className="space-y-1.5">
-                <Label htmlFor="organizationId">Organisation</Label>
+                <Label htmlFor="clientId">Client</Label>
                 <select
-                  id="organizationId"
-                  value={organizationId}
-                  onChange={(e) => setOrganizationId(e.target.value)}
+                  id="clientId"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 >
                   <option value="">None (platform-wide)</option>
-                  {organizations.map((org) => (
+                  {clients.map((org) => (
                     <option key={org.id} value={org.id}>
                       {org.name}
                     </option>

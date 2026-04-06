@@ -3,13 +3,13 @@ import { redirect } from "next/navigation";
 import { CampaignForm } from "@/app/(dashboard)/campaigns/campaign-form";
 
 export default async function ClientCreateCampaignPage() {
-  const { orgId } = await resolveClientOrg("/client/campaigns/create");
-  if (!orgId) redirect("/client/dashboard");
+  const { clientId } = await resolveClientOrg("/client/campaigns/create");
+  if (!clientId) redirect("/client/dashboard");
 
   return (
     <CampaignForm
       mode="create"
-      defaultOrganizationId={orgId}
+      defaultClientId={clientId}
       routePrefix="/client"
     />
   );

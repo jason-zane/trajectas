@@ -137,7 +137,7 @@ export async function launchParticipantReport(
     targetTable: "campaign_participants",
     targetId: String(context.participant.id),
     partnerId: context.access.partnerId,
-    clientId: context.access.organizationId,
+    clientId: context.access.clientId,
     metadata: {
       participantStatus: context.participant.status,
       launchedFromSurface: surface,
@@ -182,7 +182,7 @@ export async function launchParticipantExport(
     !canExportParticipantReport(context.access.scope, {
       surface,
       partnerId: context.access.partnerId,
-      clientId: context.access.organizationId,
+      clientId: context.access.clientId,
     })
   ) {
     return NextResponse.redirect(buildWorkspaceHomeUrl(request, surface));
@@ -194,7 +194,7 @@ export async function launchParticipantExport(
     targetTable: "campaign_participants",
     targetId: String(context.participant.id),
     partnerId: context.access.partnerId,
-    clientId: context.access.organizationId,
+    clientId: context.access.clientId,
     metadata: {
       participantStatus: context.participant.status,
       launchedFromSurface: surface,

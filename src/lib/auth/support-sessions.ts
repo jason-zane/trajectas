@@ -11,7 +11,7 @@ function mapSupportSession(row: Record<string, unknown>): SupportSessionRecord {
   const targetTenantId =
     targetSurface === "partner"
       ? String(row.partner_id)
-      : String(row.organization_id);
+      : String(row.client_id);
 
   return {
     id: String(row.id),
@@ -58,7 +58,7 @@ export async function logAuditEvent(input: AuditEventInput) {
     target_table: input.targetTable ?? null,
     target_id: input.targetId ?? null,
     partner_id: input.partnerId ?? null,
-    organization_id: input.clientId ?? null,
+    client_id: input.clientId ?? null,
     support_session_id: input.supportSessionId ?? null,
     metadata: input.metadata ?? {},
   });
@@ -87,7 +87,7 @@ export async function startSupportSession(
           actor_profile_id: input.actorProfileId,
           target_surface: input.targetSurface,
           partner_id: input.targetTenantId,
-          organization_id: null,
+          client_id: null,
           reason: input.reason,
           session_key: sessionKey,
           expires_at: expiresAt,
@@ -97,7 +97,7 @@ export async function startSupportSession(
           actor_profile_id: input.actorProfileId,
           target_surface: input.targetSurface,
           partner_id: null,
-          organization_id: input.targetTenantId,
+          client_id: input.targetTenantId,
           reason: input.reason,
           session_key: sessionKey,
           expires_at: expiresAt,
@@ -117,7 +117,7 @@ export async function startSupportSession(
   await logAuditEvent({
     actorProfileId: input.actorProfileId,
     eventType: "support_session.started",
-    targetTable: input.targetSurface === "partner" ? "partners" : "organizations",
+    targetTable: input.targetSurface === "partner" ? "partners" : "clients",
     targetId: input.targetTenantId,
     partnerId: input.targetSurface === "partner" ? input.targetTenantId : null,
     clientId: input.targetSurface === "client" ? input.targetTenantId : null,

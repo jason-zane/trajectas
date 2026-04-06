@@ -58,7 +58,7 @@ export function PreviewReport() {
             { label: "Participant", value: "Alex Morgan" },
             { label: "Assessment", value: "Senior Leadership Suite" },
             { label: "Date", value: "28 March 2026" },
-            { label: "Organisation", value: "Acme Corp" },
+            { label: "Client", value: "Acme Corp" },
           ].map(({ label, value }) => (
             <div key={label} className="flex items-baseline justify-between">
               <span

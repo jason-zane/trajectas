@@ -57,7 +57,7 @@ export function CampaignDetailShell({
       <PageHeader
         eyebrow="Campaigns"
         title={campaign.title}
-        description={campaign.organizationName}
+        description={campaign.clientName}
       >
         <Badge variant={statusVariant[campaign.status] ?? "secondary"}>
           {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}

@@ -1,7 +1,7 @@
 import { getCampaignById } from "@/app/actions/campaigns";
 import { getCampaignReportConfig, getReportTemplates } from "@/app/actions/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mapOrganizationRow } from "@/lib/supabase/mappers";
+import { mapClientRow } from "@/lib/supabase/mappers";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignForm } from "../../campaign-form";
@@ -23,13 +23,13 @@ export default async function CampaignSettingsPage({
 
   const db = createAdminClient();
   const { data } = await db
-    .from("organizations")
+    .from("clients")
     .select("*")
     .eq("is_active", true)
     .is("deleted_at", null)
     .order("name");
 
-  const organizations = (data ?? []).map(mapOrganizationRow);
+  const clients = (data ?? []).map(mapClientRow);
 
   return (
     <div className="space-y-8">
@@ -81,7 +81,7 @@ export default async function CampaignSettingsPage({
       <CampaignForm
         mode="edit"
         campaign={campaign}
-        organizations={organizations}
+        clients={clients}
       />
     </div>
   );

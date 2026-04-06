@@ -27,7 +27,7 @@ export type ParticipantWithMeta = CampaignParticipant & {
 export type ParticipantDetail = CampaignParticipant & {
   campaignTitle: string
   campaignSlug: string
-  organizationName?: string
+  clientName?: string
 }
 
 export type ParticipantSession = {
@@ -180,7 +180,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     .from('campaign_participants')
     .select(`
       *,
-      campaigns(title, slug, organization_id, organizations(name))
+      campaigns(title, slug, client_id, clients(name))
     `)
     .eq('id', id)
     .single()
@@ -193,7 +193,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     ...mapCampaignParticipantRow(r),
     campaignTitle: r.campaigns?.title ?? 'Unknown',
     campaignSlug: r.campaigns?.slug ?? '',
-    organizationName: r.campaigns?.organizations?.name ?? undefined,
+    clientName: r.campaigns?.clients?.name ?? undefined,
   }
 }
 

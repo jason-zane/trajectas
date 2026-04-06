@@ -10,7 +10,7 @@ export const diagnosticTemplateSchema = z.object({
 })
 
 export const diagnosticSessionSchema = z.object({
-  organizationId: z.string().uuid('Organisation is required'),
+  clientId: z.string().uuid('Client is required'),
   templateId: z.string().uuid('Template is required'),
   title: z.string().min(1, 'Title is required').max(300),
   status: z.enum(['draft', 'active', 'completed', 'archived']).default('draft'),

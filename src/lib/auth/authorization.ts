@@ -53,7 +53,7 @@ function mapSupportSession(row: Record<string, unknown>): SupportSessionRecord {
   const targetTenantId =
     targetSurface === "partner"
       ? String(row.partner_id)
-      : String(row.organization_id);
+      : String(row.client_id);
 
   return {
     id: String(row.id),
@@ -94,7 +94,7 @@ async function loadClientPartnerMap(partnerIds: string[]) {
 
   const db = createAdminClient();
   const { data, error } = await db
-    .from("organizations")
+    .from("clients")
     .select("id, partner_id")
     .in("partner_id", partnerIds)
     .is("deleted_at", null);
@@ -127,7 +127,7 @@ async function loadAllPartnerIds() {
 async function loadAllClientRows() {
   const db = createAdminClient();
   const { data, error } = await db
-    .from("organizations")
+    .from("clients")
     .select("id, partner_id")
     .is("deleted_at", null);
 
@@ -402,16 +402,16 @@ export async function requirePartnerAccess(
   };
 }
 
-export async function requireOrganizationAccess(
-  organizationId: string,
+export async function requireClientAccess(
+  clientId: string,
   options: { includeArchived?: boolean } = {}
 ) {
   const scope = await resolveAuthorizedScope();
   const db = createAdminClient();
   const { data, error } = await db
-    .from("organizations")
+    .from("clients")
     .select("id, partner_id, deleted_at")
-    .eq("id", organizationId)
+    .eq("id", clientId)
     .single();
 
   if (error || !data || (!options.includeArchived && data.deleted_at)) {
@@ -430,7 +430,7 @@ export async function requireOrganizationAccess(
 
   return {
     scope,
-    organizationId: String(data.id),
+    clientId: String(data.id),
     partnerId,
   };
 }
@@ -440,7 +440,7 @@ export async function requireCampaignAccess(campaignId: string) {
   const db = createAdminClient();
   const { data, error } = await db
     .from("campaigns")
-    .select("id, organization_id, partner_id, deleted_at")
+    .select("id, client_id, partner_id, deleted_at")
     .eq("id", campaignId)
     .single();
 
@@ -448,11 +448,11 @@ export async function requireCampaignAccess(campaignId: string) {
     throw new AuthorizationError("Campaign not found or inaccessible.");
   }
 
-  const organizationId = data.organization_id ? String(data.organization_id) : null;
+  const clientId = data.client_id ? String(data.client_id) : null;
   const partnerId = data.partner_id ? String(data.partner_id) : null;
   const hasAccess =
     scope.isPlatformAdmin ||
-    (organizationId ? scope.clientIds.includes(organizationId) : false) ||
+    (clientId ? scope.clientIds.includes(clientId) : false) ||
     (partnerId ? scope.partnerIds.includes(partnerId) : false);
 
   if (!hasAccess) {
@@ -462,7 +462,7 @@ export async function requireCampaignAccess(campaignId: string) {
   return {
     scope,
     campaignId: String(data.id),
-    organizationId,
+    clientId,
     partnerId,
   };
 }
@@ -518,10 +518,10 @@ export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
 
   if (scope.clientIds.length > 0 && scope.partnerIds.length > 0) {
     query = query.or(
-      `organization_id.in.(${scope.clientIds.join(",")}),partner_id.in.(${scope.partnerIds.join(",")})`
+      `client_id.in.(${scope.clientIds.join(",")}),partner_id.in.(${scope.partnerIds.join(",")})`
     );
   } else if (scope.clientIds.length > 0) {
-    query = query.in("organization_id", scope.clientIds);
+    query = query.in("client_id", scope.clientIds);
   } else if (scope.partnerIds.length > 0) {
     query = query.in("partner_id", scope.partnerIds);
   } else {

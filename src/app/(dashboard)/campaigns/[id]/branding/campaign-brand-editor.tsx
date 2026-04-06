@@ -21,7 +21,7 @@ import type { BrandConfig, BrandConfigRecord, NeutralTemperature } from "@/lib/b
 interface CampaignBrandEditorProps {
   campaignId: string
   campaignTitle: string
-  organizationName?: string
+  clientName?: string
   initialRecord: BrandConfigRecord | null
   inheritedBrand: BrandConfig
 }
@@ -31,7 +31,7 @@ type SaveState = "idle" | "saving" | "saved"
 export function CampaignBrandEditor({
   campaignId,
   campaignTitle,
-  organizationName,
+  clientName,
   initialRecord,
   inheritedBrand,
 }: CampaignBrandEditorProps) {
@@ -88,7 +88,7 @@ export function CampaignBrandEditor({
 
   // Inherited brand source label
   const inheritedFrom = inheritedBrand.name !== TALENT_FIT_DEFAULTS.name
-    ? organizationName ?? "Organisation"
+    ? clientName ?? "Client"
     : "TalentFit (platform default)"
 
   const saveLabel =

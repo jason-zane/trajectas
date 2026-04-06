@@ -27,11 +27,11 @@ import { Separator } from "@/components/ui/separator";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import {
-  updateOrganization,
-  deleteOrganization,
-  restoreOrganization,
-} from "@/app/actions/organizations";
-import type { Organization } from "@/types/database";
+  updateClient,
+  deleteClient,
+  restoreClient,
+} from "@/app/actions/clients";
+import type { Client } from "@/types/database";
 
 function slugify(text: string): string {
   return text
@@ -45,26 +45,26 @@ function slugify(text: string): string {
 type SaveState = "idle" | "saving" | "saved";
 const PLATFORM_OWNED_VALUE = "__platform__";
 
-export function OrganizationEditForm({
-  organization,
+export function ClientEditForm({
+  client,
   partnerOptions = [],
   canAssignPartner = false,
 }: {
-  organization: Organization;
+  client: Client;
   partnerOptions?: Array<{ id: string; name: string }>;
   canAssignPartner?: boolean;
 }) {
   const router = useRouter();
 
-  const [name, setName] = useState(organization.name);
-  const [slug, setSlug] = useState(organization.slug);
+  const [name, setName] = useState(client.name);
+  const [slug, setSlug] = useState(client.slug);
   const [slugTouched, setSlugTouched] = useState(true);
-  const [industry, setIndustry] = useState(organization.industry ?? "");
-  const [sizeRange, setSizeRange] = useState(organization.sizeRange ?? "");
+  const [industry, setIndustry] = useState(client.industry ?? "");
+  const [sizeRange, setSizeRange] = useState(client.sizeRange ?? "");
   const [partnerId, setPartnerId] = useState(
-    organization.partnerId ?? PLATFORM_OWNED_VALUE
+    client.partnerId ?? PLATFORM_OWNED_VALUE
   );
-  const [isActive, setIsActive] = useState(organization.isActive);
+  const [isActive, setIsActive] = useState(client.isActive);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [deleting, setDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -74,12 +74,12 @@ export function OrganizationEditForm({
 
   // --- Structural dirty tracking ---
   const [initialStructural, setInitialStructural] = useState(() => ({
-    name: organization.name,
-    slug: organization.slug,
-    industry: organization.industry ?? "",
-    sizeRange: organization.sizeRange ?? "",
-    partnerId: organization.partnerId ?? PLATFORM_OWNED_VALUE,
-    isActive: organization.isActive,
+    name: client.name,
+    slug: client.slug,
+    industry: client.industry ?? "",
+    sizeRange: client.sizeRange ?? "",
+    partnerId: client.partnerId ?? PLATFORM_OWNED_VALUE,
+    isActive: client.isActive,
   }));
 
   const isDirty =
@@ -115,7 +115,7 @@ export function OrganizationEditForm({
   async function handleSubmit(formData: FormData) {
     setSaveState("saving");
     setError(null);
-    const result = await updateOrganization(organization.id, formData);
+    const result = await updateClient(client.id, formData);
     if (result?.error) {
       const errors = result.error;
       const msg =
@@ -129,16 +129,16 @@ export function OrganizationEditForm({
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
       setInitialStructural({ name, slug, industry, sizeRange, partnerId, isActive });
-      if (result.slug !== organization.slug) {
-        router.replace(`/organizations/${result.slug}/overview`, { scroll: false });
+      if (result.slug !== client.slug) {
+        router.replace(`/clients/${result.slug}/overview`, { scroll: false });
       }
     }
   }
 
   async function handleDelete() {
-    if (organization.deletedAt) {
+    if (client.deletedAt) {
       setDeleting(true);
-      const result = await restoreOrganization(organization.id);
+      const result = await restoreClient(client.id);
       if (result && "error" in result) {
         toast.error(
           typeof result.error === "string" ? result.error : "Failed to restore"
@@ -155,7 +155,7 @@ export function OrganizationEditForm({
 
     setDeleting(true);
     setShowDeleteDialog(false);
-    const result = await deleteOrganization(organization.id);
+    const result = await deleteClient(client.id);
     if (result && "error" in result) {
       toast.error(
         typeof result.error === "string" ? result.error : "Failed to delete"
@@ -175,7 +175,7 @@ export function OrganizationEditForm({
         onClick: async () => {
           undone = true;
           clearTimeout(timer);
-          await restoreOrganization(organization.id);
+          await restoreClient(client.id);
           toast.success("Client restored");
           setDeleting(false);
         },
@@ -319,7 +319,7 @@ export function OrganizationEditForm({
 
         {/* Actions */}
         <div className="flex items-center justify-between mt-8">
-          {organization.deletedAt ? (
+          {client.deletedAt ? (
             <Button
               type="button"
               variant="outline"
@@ -357,7 +357,7 @@ export function OrganizationEditForm({
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         title="Archive Client"
-        description={`This will archive "${organization.name}". You can undo this action for a few seconds after archiving.`}
+        description={`This will archive "${client.name}". You can undo this action for a few seconds after archiving.`}
         confirmLabel="Archive"
         variant="destructive"
         onConfirm={handleDelete}

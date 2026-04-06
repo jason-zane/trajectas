@@ -613,7 +613,7 @@ async function importFactors(table: ParsedTable) {
   ] =
     await Promise.all([
       db.from('dimensions').select('id, name, slug').is('deleted_at', null),
-      db.from('organizations').select('id, name, slug').is('deleted_at', null),
+      db.from('clients').select('id, name, slug').is('deleted_at', null),
       db.from('constructs').select('id, name, slug').is('deleted_at', null),
       db.from('factors').select('slug').is('deleted_at', null),
     ])
@@ -673,7 +673,7 @@ async function importFactors(table: ParsedTable) {
         dimensionId: dimensionId ?? undefined,
         isActive: parseBoolean(row.isActive, true),
         isMatchEligible: parseBoolean(row.isMatchEligible, true),
-        organizationId: clientId ?? undefined,
+        clientId: clientId ?? undefined,
         constructs: parsedConstructLinks,
         indicatorsLow: row.indicatorsLow || undefined,
         indicatorsMid: row.indicatorsMid || undefined,
@@ -1106,7 +1106,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
       db.from('dimensions').select('id, name, slug').is('deleted_at', null),
       db.from('factors').select('id, name, slug').is('deleted_at', null),
       db.from('constructs').select('id, name, slug').is('deleted_at', null),
-      db.from('organizations').select('id, name, slug').is('deleted_at', null),
+      db.from('clients').select('id, name, slug').is('deleted_at', null),
       db.from('response_formats').select('id, name').eq('is_active', true),
     ])
 
@@ -1213,7 +1213,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
         factorSchema.parse({
           ...candidate,
           dimensionId: '',
-          organizationId: clientId ?? '',
+          clientId: clientId ?? '',
           constructs: [],
         })
 
@@ -1461,7 +1461,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
             })(),
             isActive: factor.isActive,
             isMatchEligible: factor.isMatchEligible,
-            organizationId: factor.clientId,
+            clientId: factor.clientId,
             indicatorsLow: factor.indicatorsLow,
             indicatorsMid: factor.indicatorsMid,
             indicatorsHigh: factor.indicatorsHigh,

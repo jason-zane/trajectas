@@ -103,9 +103,9 @@ export default async function CampaignsPage() {
                                   {campaign.status.charAt(0).toUpperCase() +
                                     campaign.status.slice(1)}
                                 </Badge>
-                                {campaign.organizationName && (
+                                {campaign.clientName && (
                                   <span className="text-caption">
-                                    {campaign.organizationName}
+                                    {campaign.clientName}
                                   </span>
                                 )}
                               </div>

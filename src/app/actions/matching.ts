@@ -5,8 +5,8 @@ import { requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorizat
 
 export type MatchingRunWithMeta = {
   id: string
-  organizationId: string
-  organizationName: string
+  clientId: string
+  clientName: string
   diagnosticSessionId: string
   sessionTitle: string
   status: string
@@ -48,7 +48,7 @@ export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('matching_runs')
-    .select('*, organizations(name), diagnostic_sessions(name), matching_results(count)')
+    .select('*, clients(name), diagnostic_sessions(name), matching_results(count)')
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(error.message)
@@ -56,8 +56,8 @@ export async function getMatchingRuns(): Promise<MatchingRunWithMeta[]> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((row: any) => ({
     id: row.id,
-    organizationId: row.organization_id,
-    organizationName: row.organizations?.name ?? '',
+    clientId: row.client_id,
+    clientName: row.clients?.name ?? '',
     diagnosticSessionId: row.diagnostic_session_id,
     sessionTitle: row.diagnostic_sessions?.title ?? row.diagnostic_sessions?.name ?? '',
     status: row.status,
@@ -78,11 +78,11 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
   const db = createAdminClient()
   let query = db
     .from('matching_runs')
-    .select('*, organizations(name), diagnostic_sessions(name), matching_results(count)')
+    .select('*, clients(name), diagnostic_sessions(name), matching_results(count)')
     .order('created_at', { ascending: false })
 
   if (!scope.isPlatformAdmin) {
-    query = query.in('organization_id', scope.clientIds)
+    query = query.in('client_id', scope.clientIds)
   }
 
   const { data, error } = await query
@@ -128,13 +128,13 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
   }
 
   return ((data ?? []) as Array<Record<string, unknown>>).map((row) => {
-    const organizationRow = getRelatedRecord(row.organizations)
+    const clientRow = getRelatedRecord(row.clients)
     const sessionRow = getRelatedRecord(row.diagnostic_sessions)
 
     return {
       id: String(row.id),
-      organizationId: String(row.organization_id),
-      organizationName: organizationRow?.name ? String(organizationRow.name) : '',
+      clientId: String(row.client_id),
+      clientName: clientRow?.name ? String(clientRow.name) : '',
       diagnosticSessionId: String(row.diagnostic_session_id),
       sessionTitle: sessionRow?.name ? String(sessionRow.name) : '',
       status: String(row.status),
@@ -150,11 +150,11 @@ export async function getWorkspaceMatchingRuns(): Promise<WorkspaceMatchingRunWi
 
 export type SelectOption = { id: string; name: string }
 
-export async function getOrganizationsForMatchingSelect(): Promise<SelectOption[]> {
+export async function getClientsForMatchingSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
-    .from('organizations')
+    .from('clients')
     .select('id, name')
     .is('deleted_at', null)
     .order('name', { ascending: true })
@@ -163,7 +163,7 @@ export async function getOrganizationsForMatchingSelect(): Promise<SelectOption[
   return data ?? []
 }
 
-export async function getSessionsForMatchingSelect(organizationId?: string): Promise<{ id: string; title: string }[]> {
+export async function getSessionsForMatchingSelect(clientId?: string): Promise<{ id: string; title: string }[]> {
   await requireAdminScope()
   const db = createAdminClient()
   let query = db
@@ -172,8 +172,8 @@ export async function getSessionsForMatchingSelect(organizationId?: string): Pro
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
 
-  if (organizationId) {
-    query = query.eq('organization_id', organizationId)
+  if (clientId) {
+    query = query.eq('client_id', clientId)
   }
 
   const { data, error } = await query

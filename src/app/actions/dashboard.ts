@@ -7,14 +7,14 @@ export async function getDashboardStats() {
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   if (scope.isPlatformAdmin) {
-    const [dimensions, factors, constructs, items, assessments, organizations] =
+    const [dimensions, factors, constructs, items, assessments, clients] =
       await Promise.all([
         db.from('dimensions').select('*', { count: 'exact', head: true }),
         db.from('factors').select('*', { count: 'exact', head: true }),
         db.from('constructs').select('*', { count: 'exact', head: true }),
         db.from('items').select('*', { count: 'exact', head: true }),
         db.from('assessments').select('*', { count: 'exact', head: true }),
-        db.from('organizations').select('*', { count: 'exact', head: true }),
+        db.from('clients').select('*', { count: 'exact', head: true }),
       ])
 
     return {
@@ -23,16 +23,16 @@ export async function getDashboardStats() {
       constructs: constructs.count ?? 0,
       items: items.count ?? 0,
       assessments: assessments.count ?? 0,
-      organizations: organizations.count ?? 0,
+      clients: clients.count ?? 0,
     }
   }
 
-  const [assessments, organizations] = await Promise.all([
+  const [assessments, clients] = await Promise.all([
     scope.clientIds.length > 0
-      ? db.from('assessments').select('*', { count: 'exact', head: true }).in('organization_id', scope.clientIds)
+      ? db.from('assessments').select('*', { count: 'exact', head: true }).in('client_id', scope.clientIds)
       : Promise.resolve({ count: 0 }),
     scope.clientIds.length > 0
-      ? db.from('organizations').select('*', { count: 'exact', head: true }).in('id', scope.clientIds)
+      ? db.from('clients').select('*', { count: 'exact', head: true }).in('id', scope.clientIds)
       : Promise.resolve({ count: 0 }),
   ])
 
@@ -42,6 +42,6 @@ export async function getDashboardStats() {
     constructs: 0,
     items: 0,
     assessments: assessments.count ?? 0,
-    organizations: organizations.count ?? 0,
+    clients: clients.count ?? 0,
   }
 }

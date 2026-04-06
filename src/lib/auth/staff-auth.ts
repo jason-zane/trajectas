@@ -368,12 +368,12 @@ export async function getInviteSummaryByToken(token: string) {
   return invite ? mapInviteSummary(invite) : null;
 }
 
-async function lookupPartnerIdForClient(organizationId: string) {
+async function lookupPartnerIdForClient(clientId: string) {
   const db = createAdminClient();
   const { data, error } = await db
-    .from("organizations")
+    .from("clients")
     .select("partner_id")
-    .eq("id", organizationId)
+    .eq("id", clientId)
     .single();
 
   if (error) {
@@ -400,13 +400,13 @@ async function ensureProfileForUser(user: User, invite: StaffInviteRecord) {
 
   if (invite.tenantType === "partner") {
     profileUpdate.partner_id = invite.tenantId;
-    profileUpdate.organization_id = null;
+    profileUpdate.client_id = null;
   } else if (invite.tenantType === "client" && invite.tenantId) {
-    profileUpdate.organization_id = invite.tenantId;
+    profileUpdate.client_id = invite.tenantId;
     profileUpdate.partner_id = await lookupPartnerIdForClient(invite.tenantId);
   } else {
     profileUpdate.partner_id = null;
-    profileUpdate.organization_id = null;
+    profileUpdate.client_id = null;
   }
 
   const { data: existing } = await db
@@ -462,14 +462,14 @@ async function ensureMembershipForInvite(userId: string, invite: StaffInviteReco
     const { error } = await db.from("client_memberships").upsert(
       {
         profile_id: userId,
-        organization_id: invite.tenantId,
+        client_id: invite.tenantId,
         role: membershipRole,
         is_default: true,
         created_by: actorProfileId,
         revoked_at: null,
         revoked_by_profile_id: null,
       },
-      { onConflict: "profile_id,organization_id" }
+      { onConflict: "profile_id,client_id" }
     );
 
     if (error) {
@@ -528,7 +528,7 @@ export async function listStaffUsers() {
     await Promise.all([
       db
         .from("profiles")
-        .select("id, email, display_name, first_name, last_name, role, is_active, created_at, partner_id, organization_id")
+        .select("id, email, display_name, first_name, last_name, role, is_active, created_at, partner_id, client_id")
         .order("created_at", { ascending: false }),
       db
         .from("user_invites")
@@ -549,7 +549,7 @@ export async function listStaffUsers() {
       .select("id, profile_id, partner_id, role, is_default, revoked_at, created_at"),
     db
       .from("client_memberships")
-      .select("id, profile_id, organization_id, role, is_default, revoked_at, created_at"),
+      .select("id, profile_id, client_id, role, is_default, revoked_at, created_at"),
   ]);
 
   if (partnerMemberships.error) {

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // ---------------------------------------------------------------------------
 
 const auth = vi.hoisted(() => ({
-  requireOrganizationAccess: vi.fn(),
+  requireClientAccess: vi.fn(),
 }));
 
 const cache = vi.hoisted(() => ({
@@ -50,7 +50,7 @@ const supabase = vi.hoisted(() => ({
 // ---------------------------------------------------------------------------
 
 vi.mock("@/lib/auth/authorization", () => ({
-  requireOrganizationAccess: auth.requireOrganizationAccess,
+  requireClientAccess: auth.requireClientAccess,
 }));
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -84,7 +84,7 @@ function adminScope() {
       isPlatformAdmin: true,
       actor: { id: "admin-user-1" },
     },
-    organizationId: "org-1",
+    clientId: "org-1",
     partnerId: null,
   };
 }
@@ -95,7 +95,7 @@ function nonAdminScope() {
       isPlatformAdmin: false,
       actor: { id: "member-user-1" },
     },
-    organizationId: "org-1",
+    clientId: "org-1",
     partnerId: null,
   };
 }
@@ -118,14 +118,14 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("getAssessmentAssignments", () => {
     it("returns assignments with usage data", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
 
       // select().eq().eq().order() -> { data, error }
       queryBuilder.order.mockResolvedValueOnce({
         data: [
           {
             id: "assign-1",
-            organization_id: "org-1",
+            client_id: "org-1",
             assessment_id: "assess-1",
             quota_limit: 100,
             is_active: true,
@@ -154,7 +154,7 @@ describe("client entitlement actions", () => {
     });
 
     it("returns empty array when no assignments exist", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
       queryBuilder.order.mockResolvedValueOnce({ data: [], error: null });
 
       const result = await getAssessmentAssignments("org-1");
@@ -167,7 +167,7 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("assignAssessment", () => {
     it("rejects non-admin callers", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(nonAdminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
 
       const result = await assignAssessment("org-1", {
         assessmentId: "assess-1",
@@ -179,7 +179,7 @@ describe("client entitlement actions", () => {
     });
 
     it("creates an assignment for admin callers", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
       queryBuilder.single.mockResolvedValueOnce({
         data: { id: "new-assign-1" },
         error: null,
@@ -191,11 +191,11 @@ describe("client entitlement actions", () => {
       });
 
       expect(result).toEqual({ success: true, id: "new-assign-1" });
-      expect(cache.revalidatePath).toHaveBeenCalledWith("/organizations");
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
     });
 
     it("returns a friendly error on duplicate assignment", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
       queryBuilder.single.mockResolvedValueOnce({
         data: null,
         error: { code: "23505", message: "unique violation" },
@@ -216,7 +216,7 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("checkQuotaAvailability", () => {
     it("returns allowed when all assessments have unlimited quota", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
 
       // select + eq + eq + in chain -> resolves
       queryBuilder.in.mockResolvedValueOnce({
@@ -236,7 +236,7 @@ describe("client entitlement actions", () => {
     });
 
     it("returns violations when quota is exhausted", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
 
       queryBuilder.in.mockResolvedValueOnce({
         data: [
@@ -265,7 +265,7 @@ describe("client entitlement actions", () => {
     });
 
     it("allows when usage is below quota limit", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
 
       queryBuilder.in.mockResolvedValueOnce({
         data: [
@@ -292,7 +292,7 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("updateAssessmentAssignment", () => {
     it("rejects non-admin callers", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(nonAdminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
 
       const result = await updateAssessmentAssignment("assign-1", "org-1", {
         quotaLimit: 200,
@@ -305,8 +305,8 @@ describe("client entitlement actions", () => {
     });
 
     it("updates the assignment for admin callers", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
-      // .eq('id', ...) returns builder, .eq('organization_id', ...) resolves
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
+      // .eq('id', ...) returns builder, .eq('client_id', ...) resolves
       queryBuilder.eq
         .mockReturnValueOnce(queryBuilder)
         .mockResolvedValueOnce({ error: null });
@@ -316,7 +316,7 @@ describe("client entitlement actions", () => {
       });
 
       expect(result).toEqual({ success: true, id: "assign-1" });
-      expect(cache.revalidatePath).toHaveBeenCalledWith("/organizations");
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
     });
   });
 
@@ -325,8 +325,8 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("removeAssessmentAssignment", () => {
     it("soft-deactivates via updateAssessmentAssignment", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
-      // .eq('id', ...) returns builder, .eq('organization_id', ...) resolves
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
+      // .eq('id', ...) returns builder, .eq('client_id', ...) resolves
       queryBuilder.eq
         .mockReturnValueOnce(queryBuilder)
         .mockResolvedValueOnce({ error: null });
@@ -341,7 +341,7 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("toggleClientBranding", () => {
     it("rejects non-admin callers", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(nonAdminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
 
       const result = await toggleClientBranding("org-1", true);
       expect(result).toEqual({
@@ -350,12 +350,12 @@ describe("client entitlement actions", () => {
     });
 
     it("updates branding flag for admin callers", async () => {
-      auth.requireOrganizationAccess.mockResolvedValueOnce(adminScope());
+      auth.requireClientAccess.mockResolvedValueOnce(adminScope());
       queryBuilder.eq.mockResolvedValueOnce({ error: null });
 
       const result = await toggleClientBranding("org-1", true);
       expect(result).toEqual({ success: true, id: "org-1" });
-      expect(cache.revalidatePath).toHaveBeenCalledWith("/organizations");
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
     });
   });
 });

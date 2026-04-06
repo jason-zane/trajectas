@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireOrganizationAccess } from '@/lib/auth/authorization'
+import { requireClientAccess } from '@/lib/auth/authorization'
 import {
   mapClientAssessmentAssignmentRow,
   mapClientReportTemplateAssignmentRow,
@@ -17,15 +17,15 @@ import type {
 // ---------------------------------------------------------------------------
 
 export async function getAssessmentAssignments(
-  organizationId: string,
+  clientId: string,
 ): Promise<AssessmentAssignmentWithUsage[]> {
-  await requireOrganizationAccess(organizationId)
+  await requireClientAccess(clientId)
   const db = createAdminClient()
 
   const { data, error } = await db
     .from('client_assessment_assignments')
     .select('*, assessments(name)')
-    .eq('organization_id', organizationId)
+    .eq('client_id', clientId)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
 
@@ -36,7 +36,7 @@ export async function getAssessmentAssignments(
   const results: AssessmentAssignmentWithUsage[] = []
   for (const row of data) {
     const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
-      p_org_id: organizationId,
+      p_org_id: clientId,
       p_assessment_id: row.assessment_id,
     })
 
@@ -58,7 +58,7 @@ export async function getAssessmentAssignments(
 }
 
 export async function getAvailableAssessmentsForClient(
-  organizationId: string,
+  clientId: string,
 ): Promise<
   {
     assessmentId: string
@@ -68,7 +68,7 @@ export async function getAvailableAssessmentsForClient(
     quotaRemaining: number | null
   }[]
 > {
-  const assignments = await getAssessmentAssignments(organizationId)
+  const assignments = await getAssessmentAssignments(clientId)
 
   return assignments.map((a) => ({
     assessmentId: a.assessmentId,
@@ -81,15 +81,15 @@ export async function getAvailableAssessmentsForClient(
 }
 
 export async function getReportTemplateAssignments(
-  organizationId: string,
+  clientId: string,
 ): Promise<ClientReportTemplateAssignment[]> {
-  await requireOrganizationAccess(organizationId)
+  await requireClientAccess(clientId)
   const db = createAdminClient()
 
   const { data, error } = await db
     .from('client_report_template_assignments')
     .select('*')
-    .eq('organization_id', organizationId)
+    .eq('client_id', clientId)
     .eq('is_active', true)
     .order('created_at', { ascending: true })
 
@@ -98,9 +98,9 @@ export async function getReportTemplateAssignments(
 }
 
 export async function getAvailableReportTemplateIds(
-  organizationId: string,
+  clientId: string,
 ): Promise<string[]> {
-  const assignments = await getReportTemplateAssignments(organizationId)
+  const assignments = await getReportTemplateAssignments(clientId)
   return assignments.map((a) => a.reportTemplateId)
 }
 
@@ -109,13 +109,13 @@ export async function getAvailableReportTemplateIds(
 // ---------------------------------------------------------------------------
 
 export async function checkQuotaAvailability(
-  organizationId: string,
+  clientId: string,
   assessmentIds: string[],
 ): Promise<{
   allowed: boolean
   violations: { assessmentId: string; quotaLimit: number; quotaUsed: number }[]
 }> {
-  await requireOrganizationAccess(organizationId)
+  await requireClientAccess(clientId)
 
   if (assessmentIds.length === 0) {
     return { allowed: true, violations: [] };
@@ -127,7 +127,7 @@ export async function checkQuotaAvailability(
   const { data: assignments, error } = await db
     .from('client_assessment_assignments')
     .select('*')
-    .eq('organization_id', organizationId)
+    .eq('client_id', clientId)
     .eq('is_active', true)
     .in('assessment_id', assessmentIds)
 
@@ -139,7 +139,7 @@ export async function checkQuotaAvailability(
     if (row.quota_limit === null) continue
 
     const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
-      p_org_id: organizationId,
+      p_org_id: clientId,
       p_assessment_id: row.assessment_id,
     })
 
@@ -161,10 +161,10 @@ export async function checkQuotaAvailability(
 // ---------------------------------------------------------------------------
 
 export async function assignAssessment(
-  organizationId: string,
+  clientId: string,
   input: { assessmentId: string; quotaLimit?: number | null },
 ): Promise<{ success: true; id: string } | { error: string }> {
-  const { scope } = await requireOrganizationAccess(organizationId)
+  const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can assign assessments.' }
   }
@@ -176,7 +176,7 @@ export async function assignAssessment(
   const { data, error } = await db
     .from('client_assessment_assignments')
     .insert({
-      organization_id: organizationId,
+      client_id: clientId,
       assessment_id: input.assessmentId,
       quota_limit: input.quotaLimit ?? null,
       assigned_by: scope.actor.id,
@@ -191,16 +191,16 @@ export async function assignAssessment(
     return { error: error.message }
   }
 
-  revalidatePath('/organizations')
+  revalidatePath('/clients')
   return { success: true, id: data.id }
 }
 
 export async function updateAssessmentAssignment(
   assignmentId: string,
-  organizationId: string,
+  clientId: string,
   updates: { quotaLimit?: number | null; isActive?: boolean },
 ): Promise<{ success: true; id: string } | { error: string }> {
-  const { scope } = await requireOrganizationAccess(organizationId)
+  const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can update assessment assignments.' }
   }
@@ -220,29 +220,29 @@ export async function updateAssessmentAssignment(
     .from('client_assessment_assignments')
     .update(patch)
     .eq('id', assignmentId)
-    .eq('organization_id', organizationId)
+    .eq('client_id', clientId)
 
   if (error) return { error: error.message }
 
-  revalidatePath('/organizations')
+  revalidatePath('/clients')
   return { success: true, id: assignmentId }
 }
 
 export async function removeAssessmentAssignment(
   assignmentId: string,
-  organizationId: string,
+  clientId: string,
 ): Promise<{ success: true; id: string } | { error: string }> {
-  return updateAssessmentAssignment(assignmentId, organizationId, {
+  return updateAssessmentAssignment(assignmentId, clientId, {
     isActive: false,
   })
 }
 
 export async function toggleReportTemplateAssignment(
-  organizationId: string,
+  clientId: string,
   reportTemplateId: string,
   assigned: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
-  const { scope } = await requireOrganizationAccess(organizationId)
+  const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage report template assignments.' }
   }
@@ -258,52 +258,52 @@ export async function toggleReportTemplateAssignment(
       .from('client_report_template_assignments')
       .upsert(
         {
-          organization_id: organizationId,
+          client_id: clientId,
           report_template_id: reportTemplateId,
           is_active: true,
           assigned_by: scope.actor.id,
         },
-        { onConflict: 'organization_id,report_template_id' },
+        { onConflict: 'client_id,report_template_id' },
       )
       .select('id')
       .single()
 
     if (error) return { error: error.message }
-    revalidatePath('/organizations')
+    revalidatePath('/clients')
     return { success: true, id: data.id }
   } else {
     // Deactivate
     const { data, error } = await db
       .from('client_report_template_assignments')
       .update({ is_active: false })
-      .eq('organization_id', organizationId)
+      .eq('client_id', clientId)
       .eq('report_template_id', reportTemplateId)
       .select('id')
       .single()
 
     if (error) return { error: error.message }
-    revalidatePath('/organizations')
+    revalidatePath('/clients')
     return { success: true, id: data.id }
   }
 }
 
 export async function toggleClientBranding(
-  organizationId: string,
+  clientId: string,
   canCustomize: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
-  const { scope } = await requireOrganizationAccess(organizationId)
+  const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage branding settings.' }
   }
 
   const db = createAdminClient()
   const { error } = await db
-    .from('organizations')
+    .from('clients')
     .update({ can_customize_branding: canCustomize })
-    .eq('id', organizationId)
+    .eq('id', clientId)
 
   if (error) return { error: error.message }
 
-  revalidatePath('/organizations')
-  return { success: true, id: organizationId }
+  revalidatePath('/clients')
+  return { success: true, id: clientId }
 }

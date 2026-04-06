@@ -82,11 +82,11 @@ export interface FactorRanking {
   factorId: string
   /** Human-readable competency name. */
   factorName: string
-  /** Ordinal rank (1 = most relevant to the organisation's diagnostic profile). */
+  /** Ordinal rank (1 = most relevant to the client's diagnostic profile). */
   rank: number
   /**
    * Normalised relevance score (0–1) representing how strongly the
-   * competency aligns with the organisation's diagnostic data.
+   * competency aligns with the client's diagnostic data.
    */
   relevanceScore: number
   /** AI-generated natural-language explanation for why this competency was ranked here. */
@@ -108,8 +108,8 @@ export interface FactorRanking {
  * Input data assembled for a matching run and sent to the AI layer.
  */
 export interface MatchingInput {
-  /** UUID of the organisation being matched. */
-  organizationId: string
+  /** UUID of the client being matched. */
+  clientId: string
   /**
    * Aggregated diagnostic data keyed by dimension ID.
    * Values are typically weighted means from the diagnostic session.
@@ -165,9 +165,9 @@ export interface MatchingOutput {
  * Templates use `{{variableName}}` placeholders.
  */
 export interface PromptTemplateVariables {
-  /** Name of the organisation. */
-  organizationName?: string
-  /** Industry of the organisation. */
+  /** Name of the client. */
+  clientName?: string
+  /** Industry of the client. */
   industry?: string
   /** JSON-serialised diagnostic data summary. */
   diagnosticSummary?: string

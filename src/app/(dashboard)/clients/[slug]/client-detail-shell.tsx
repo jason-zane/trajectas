@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
-import type { Organization } from "@/types/database";
+import type { Client } from "@/types/database";
 
 const tabs = [
   { label: "Overview", segment: "overview" },
@@ -14,11 +14,11 @@ const tabs = [
   { label: "Settings", segment: "settings" },
 ];
 
-export function OrganizationDetailShell({
-  organization,
+export function ClientDetailShell({
+  client,
   children,
 }: {
-  organization: Organization;
+  client: Client;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -29,10 +29,10 @@ export function OrganizationDetailShell({
     <div className="space-y-6 max-w-5xl">
       <PageHeader
         eyebrow="Clients"
-        title={organization.name}
-        description={organization.industry ?? undefined}
+        title={client.name}
+        description={client.industry ?? undefined}
       >
-        {!organization.isActive && (
+        {!client.isActive && (
           <Badge variant="outline">Archived</Badge>
         )}
       </PageHeader>
@@ -43,7 +43,7 @@ export function OrganizationDetailShell({
           return (
             <Link
               key={tab.segment}
-              href={`/organizations/${organization.slug}/${tab.segment}`}
+              href={`/clients/${client.slug}/${tab.segment}`}
               className={`px-4 py-2 text-sm font-medium transition-colors relative ${
                 isActive
                   ? "text-foreground"

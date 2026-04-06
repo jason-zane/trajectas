@@ -48,7 +48,7 @@ import { ScrollReveal } from "@/components/scroll-reveal";
 // ---------------------------------------------------------------------------
 
 interface AssessmentAssignmentsProps {
-  organizationId: string;
+  clientId: string;
   assignments: AssessmentAssignmentWithUsage[];
   allAssessments: AssessmentWithMeta[];
 }
@@ -58,7 +58,7 @@ interface AssessmentAssignmentsProps {
 // ---------------------------------------------------------------------------
 
 export function AssessmentAssignments({
-  organizationId,
+  clientId,
   assignments,
   allAssessments,
 }: AssessmentAssignmentsProps) {
@@ -105,7 +105,7 @@ export function AssessmentAssignments({
     const quotaLimit = unlimited ? null : Number(quotaInput) || null;
 
     startAssign(async () => {
-      const result = await assignAssessment(organizationId, {
+      const result = await assignAssessment(clientId, {
         assessmentId: selectedAssessmentId,
         quotaLimit,
       });
@@ -127,7 +127,7 @@ export function AssessmentAssignments({
     startDeactivate(async () => {
       const result = await removeAssessmentAssignment(
         deactivateTarget.id,
-        organizationId
+        clientId
       );
 
       if ("error" in result) {
@@ -160,7 +160,7 @@ export function AssessmentAssignments({
     startSaveQuota(async () => {
       const result = await updateAssessmentAssignment(
         assignmentId,
-        organizationId,
+        clientId,
         { quotaLimit: newLimit }
       );
 

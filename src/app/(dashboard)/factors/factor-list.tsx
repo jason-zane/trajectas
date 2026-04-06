@@ -75,7 +75,7 @@ export function FactorList({
   const orgNames = useMemo(() => {
     const names = new Set<string>()
     factors.forEach((f) => {
-      if (f.organizationName) names.add(f.organizationName)
+      if (f.clientName) names.add(f.clientName)
     })
     return Array.from(names).sort()
   }, [factors])
@@ -102,8 +102,8 @@ export function FactorList({
       }
       if (statusFilter === "active" && !f.isActive) return false
       if (statusFilter === "inactive" && f.isActive) return false
-      if (ownershipFilter === "platform-global" && f.organizationName) return false
-      if (ownershipFilter !== "all" && ownershipFilter !== "platform-global" && f.organizationName !== ownershipFilter) return false
+      if (ownershipFilter === "platform-global" && f.clientName) return false
+      if (ownershipFilter !== "all" && ownershipFilter !== "platform-global" && f.clientName !== ownershipFilter) return false
       return true
     })
   }, [factors, searchQuery, dimensionFilter, statusFilter, ownershipFilter])
@@ -396,9 +396,9 @@ export function FactorList({
                                           {factor.dimensionName}
                                         </Badge>
                                       )}
-                                      {factor.organizationName && (
+                                      {factor.clientName && (
                                         <Badge variant="outline">
-                                          {factor.organizationName}
+                                          {factor.clientName}
                                         </Badge>
                                       )}
                                       <Badge variant="dot">

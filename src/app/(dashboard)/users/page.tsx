@@ -27,7 +27,7 @@ export default async function UsersPage() {
       .is("deleted_at", null)
       .order("name", { ascending: true }),
     db
-      .from("organizations")
+      .from("clients")
       .select("id, name")
       .eq("is_active", true)
       .is("deleted_at", null)

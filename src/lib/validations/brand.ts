@@ -56,7 +56,7 @@ export type BrandConfigInput = z.infer<typeof brandConfigSchema>
 
 /** Schema for upserting a brand config record. */
 export const upsertBrandConfigSchema = z.object({
-  ownerType: z.enum(['platform', 'organization']),
+  ownerType: z.enum(['platform', 'client']),
   ownerId: z.string().uuid().nullable(),
   config: brandConfigSchema,
 })

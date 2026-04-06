@@ -43,11 +43,11 @@ const switchablePathsByPortal: Record<PortalType, Set<string>> = {
     "/campaigns",
     "/diagnostics",
     "/matching",
-    "/organizations",
+    "/clients",
   ]),
   partner: new Set([
     "/",
-    "/organizations",
+    "/clients",
     "/assessments",
     "/campaigns",
     "/diagnostics",

@@ -88,8 +88,8 @@ export type WorkspaceAssessmentSummary = {
   title: string
   description?: string
   status: Assessment['status']
-  organizationId?: string
-  organizationName?: string
+  clientId?: string
+  clientName?: string
   campaignCount: number
   participantCount: number
   completedCount: number
@@ -147,7 +147,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   let query = db
     .from('campaign_assessments')
     .select(
-      'campaign_id, assessment_id, campaigns(id, title, status, organization_id, organizations(name), campaign_participants(count)), assessments(id, name, description, status, organization_id, updated_at)'
+      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, name, description, status, client_id, updated_at)'
     )
     .order('created_at', { ascending: false })
 
@@ -202,8 +202,8 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
     const campaignRow = getRelatedRecord(row.campaigns)
     const campaignId = campaignRow?.id ? String(campaignRow.id) : String(row.campaign_id ?? '')
     const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
-    const organizationRow = getRelatedRecord(campaignRow?.organizations)
-    const clientName = organizationRow?.name ? String(organizationRow.name) : undefined
+    const clientRow = getRelatedRecord(campaignRow?.clients)
+    const clientName = clientRow?.name ? String(clientRow.name) : undefined
     const participantCount = getRelatedCount(campaignRow?.campaign_participants)
 
     const existing = summaries.get(assessmentId)
@@ -243,8 +243,8 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
       title: String(assessmentRow.name),
       description: assessmentRow.description ? String(assessmentRow.description) : undefined,
       status: assessmentRow.status as Assessment['status'],
-      organizationId: assessmentRow.organization_id ? String(assessmentRow.organization_id) : undefined,
-      organizationName: clientName,
+      clientId: assessmentRow.client_id ? String(assessmentRow.client_id) : undefined,
+      clientName: clientName,
       campaignCount: campaignId ? 1 : 0,
       participantCount,
       completedCount: campaignId ? (completedCounts.get(campaignId) ?? 0) : 0,
@@ -265,8 +265,8 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
         title: entry.title,
         description: entry.description,
         status: entry.status,
-        organizationId: entry.organizationId,
-        organizationName: entry.organizationName ?? clientNames[0] ?? undefined,
+        clientId: entry.clientId,
+        clientName: entry.clientName ?? clientNames[0] ?? undefined,
         campaignCount: entry.campaignCount,
         participantCount: entry.participantCount,
         completedCount: entry.completedCount,

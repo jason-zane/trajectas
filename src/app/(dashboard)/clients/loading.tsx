@@ -4,7 +4,7 @@ function Skeleton({ className }: { className?: string }) {
   );
 }
 
-export default function OrganizationsLoading() {
+export default function ClientsLoading() {
   return (
     <div className="space-y-8 max-w-5xl">
       <div className="flex items-start justify-between">

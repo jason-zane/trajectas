@@ -4,7 +4,7 @@ interface CoverPageData {
   participantName?: string
   campaignTitle?: string
   generatedAt?: string
-  organizationName?: string
+  clientName?: string
   primaryLogoUrl?: string
   secondaryLogoUrl?: string
   showDate?: boolean
@@ -33,12 +33,12 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
             alt="Logo"
             className="h-12 mb-12 object-contain"
           />
-        ) : d.organizationName ? (
+        ) : d.clientName ? (
           <p
             className="text-sm font-semibold uppercase tracking-[3px] mb-12"
             style={{ color: 'var(--report-featured-accent)' }}
           >
-            {d.organizationName}
+            {d.clientName}
           </p>
         ) : null
       )}

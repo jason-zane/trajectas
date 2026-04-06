@@ -62,12 +62,12 @@ export async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
  *
  * Resolution order:
  * 1. Campaign-specific config (if campaignId provided)
- * 2. Organization-specific config (if orgId provided)
+ * 2. Client-specific config (if clientId provided)
  * 3. Platform default config
  * 4. Hardcoded defaults (fallback)
  */
 export async function getEffectiveBrand(
-  orgId?: string | null,
+  clientId?: string | null,
   campaignId?: string | null,
 ): Promise<BrandConfig> {
   // Try campaign-specific first
@@ -77,8 +77,8 @@ export async function getEffectiveBrand(
   }
 
   // Try org-specific
-  if (orgId) {
-    const orgBrand = await getBrandConfig('organization', orgId)
+  if (clientId) {
+    const orgBrand = await getBrandConfig('client', clientId)
     if (orgBrand) return orgBrand.config
   }
 
@@ -102,7 +102,7 @@ export async function getEffectiveBrandRecord(
   if (specific) return specific
 
   // Fall back to platform default for org owners
-  if (ownerType === 'organization') {
+  if (ownerType === 'client') {
     return getPlatformBrand()
   }
 
@@ -157,7 +157,7 @@ export async function upsertBrandConfig(
 
   revalidatePath('/settings/brand')
   if (ownerId) {
-    revalidatePath(`/organizations`)
+    revalidatePath(`/clients`)
   }
 
   await logAuditEvent({
@@ -165,7 +165,7 @@ export async function upsertBrandConfig(
     eventType: 'brand_config.upserted',
     targetTable: 'brand_configs',
     targetId: existing?.id ?? null,
-    clientId: ownerType === 'organization' ? ownerId : null,
+    clientId: ownerType === 'client' ? ownerId : null,
     metadata: {
       ownerType,
       ownerId,
@@ -177,7 +177,7 @@ export async function upsertBrandConfig(
 }
 
 /**
- * Reset an organization's brand config to use platform defaults.
+ * Reset a client's brand config to use platform defaults.
  * Soft-deletes the org-specific config.
  */
 export async function resetBrandToDefault(
@@ -202,7 +202,7 @@ export async function resetBrandToDefault(
 
   revalidatePath('/settings/brand')
   if (ownerId) {
-    revalidatePath(`/organizations`)
+    revalidatePath(`/clients`)
   }
 
   await logAuditEvent({
@@ -210,7 +210,7 @@ export async function resetBrandToDefault(
     eventType: 'brand_config.reset_to_default',
     targetTable: 'brand_configs',
     targetId: existing.id,
-    clientId: ownerType === 'organization' ? ownerId : null,
+    clientId: ownerType === 'client' ? ownerId : null,
     metadata: {
       ownerType,
       ownerId,

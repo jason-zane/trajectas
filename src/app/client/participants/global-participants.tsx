@@ -16,7 +16,7 @@ import {
 import { PageHeader } from "@/components/page-header";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { usePortal } from "@/components/portal-context";
-import type { CampaignWithMeta, OrganizationParticipant } from "@/app/actions/campaigns";
+import type { CampaignWithMeta, ClientParticipant } from "@/app/actions/campaigns";
 
 // ---------------------------------------------------------------------------
 // Status styling
@@ -71,14 +71,14 @@ function formatRelativeDate(dateStr: string) {
   return date.toLocaleDateString("en-AU", { month: "short", day: "numeric" });
 }
 
-function displayName(p: OrganizationParticipant) {
+function displayName(p: ClientParticipant) {
   if (p.firstName || p.lastName) {
     return `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
   }
   return p.email;
 }
 
-function initials(p: OrganizationParticipant) {
+function initials(p: ClientParticipant) {
   return (p.firstName?.[0] ?? p.email[0]).toUpperCase();
 }
 
@@ -87,7 +87,7 @@ function initials(p: OrganizationParticipant) {
 // ---------------------------------------------------------------------------
 
 interface GlobalParticipantsProps {
-  participants: OrganizationParticipant[];
+  participants: ClientParticipant[];
   campaigns: CampaignWithMeta[];
 }
 

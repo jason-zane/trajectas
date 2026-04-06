@@ -18,7 +18,7 @@ export default async function JoinPage({
   const db = createAdminClient();
   const { data: link } = await db
     .from("campaign_access_links")
-    .select("campaign_id, campaigns(organization_id)")
+    .select("campaign_id, campaigns(client_id)")
     .eq("token", linkToken)
     .eq("is_active", true)
     .maybeSingle();
@@ -26,11 +26,11 @@ export default async function JoinPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linkRow = link as any;
   const campaignId = linkRow?.campaign_id ?? undefined;
-  const orgId = linkRow?.campaigns?.organization_id ?? undefined;
+  const clientId = linkRow?.campaigns?.client_id ?? undefined;
 
   const [experience, brandConfig] = await Promise.all([
     getEffectiveExperience(campaignId),
-    getEffectiveBrand(orgId, campaignId),
+    getEffectiveBrand(clientId, campaignId),
   ]);
 
   const content = getPageContent(experience, "join");

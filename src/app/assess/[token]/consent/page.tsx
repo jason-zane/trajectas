@@ -39,7 +39,7 @@ export default async function ConsentPage({
     redirect(nextUrl);
   }
 
-  const brandConfig = await getEffectiveBrand(campaign.organizationId, campaign.id);
+  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
   const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "consent");

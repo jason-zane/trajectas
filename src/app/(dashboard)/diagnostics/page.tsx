@@ -49,8 +49,8 @@ export default async function DiagnosticsPage() {
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader
-        title="Organisational Diagnostics"
-        description="Run and manage diagnostic sessions across client organisations."
+        title="Client Diagnostics"
+        description="Run and manage diagnostic sessions across clients."
       >
         <div className="flex items-center gap-2">
           <Link href="/diagnostics/templates">
@@ -71,7 +71,7 @@ export default async function DiagnosticsPage() {
       {sessions.length === 0 ? (
         <EmptyState
           title="No diagnostic sessions yet"
-          description="Start a new diagnostic session for one of your client organisations. Configure templates first to define which dimensions are measured."
+          description="Start a new diagnostic session for one of your clients. Configure templates first to define which dimensions are measured."
           actionLabel="New Session"
           actionHref="/diagnostics/create"
         />
@@ -117,7 +117,7 @@ export default async function DiagnosticsPage() {
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <div className="flex items-center gap-1.5">
                           <Building2 className="size-3.5" />
-                          <span>{session.organizationName}</span>
+                          <span>{session.clientName}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <FileText className="size-3.5" />

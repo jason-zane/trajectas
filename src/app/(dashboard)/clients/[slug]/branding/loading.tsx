@@ -6,7 +6,7 @@ function Skeleton({ className }: { className?: string }) {
   )
 }
 
-export default function OrganizationBrandingLoading() {
+export default function ClientBrandingLoading() {
   return (
     <div className="space-y-8">
       {/* Page header */}

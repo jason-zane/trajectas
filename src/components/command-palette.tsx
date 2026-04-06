@@ -49,12 +49,12 @@ const navItemsByPortal: Record<
     { name: "Items", href: "/items", icon: FileQuestion },
     { name: "Assessments", href: "/assessments", icon: ClipboardList },
     { name: "Diagnostics", href: "/diagnostics", icon: Layers },
-    { name: "Clients", href: "/organizations", icon: Building2 },
+    { name: "Clients", href: "/clients", icon: Building2 },
     { name: "Matching", href: "/matching", icon: Sparkles },
   ],
   partner: [
     { name: "Dashboard", href: "/", icon: Home },
-    { name: "Clients", href: "/organizations", icon: Building2 },
+    { name: "Clients", href: "/clients", icon: Building2 },
     { name: "Assessments", href: "/assessments", icon: ClipboardList },
     { name: "Campaigns", href: "/campaigns", icon: Layers },
     { name: "Results", href: "/results", icon: Sparkles },
@@ -79,7 +79,7 @@ const quickActionsByPortal: Record<
     { name: "Create Item", href: "/items/create", icon: Plus },
   ],
   partner: [
-    { name: "Open Clients", href: "/organizations", icon: Plus },
+    { name: "Open Clients", href: "/clients", icon: Plus },
     { name: "Open Campaigns", href: "/campaigns", icon: Plus },
   ],
   client: [

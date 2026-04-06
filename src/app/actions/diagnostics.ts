@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   requireAdminScope,
-  requireOrganizationAccess,
+  requireClientAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -22,7 +22,7 @@ export type DiagnosticTemplateWithCounts = DiagnosticTemplate & {
 }
 
 export type DiagnosticSessionWithMeta = DiagnosticSession & {
-  organizationName: string
+  clientName: string
   templateName: string
   respondentCount: number
 }
@@ -239,11 +239,11 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
   const db = createAdminClient()
   let query = db
     .from('diagnostic_sessions')
-    .select('*, organizations(name), diagnostic_templates(name), diagnostic_respondents(count)')
+    .select('*, clients(name), diagnostic_templates(name), diagnostic_respondents(count)')
     .order('created_at', { ascending: false })
 
   if (!scope.isPlatformAdmin) {
-    query = query.in('organization_id', scope.clientIds)
+    query = query.in('client_id', scope.clientIds)
   }
 
   const { data, error } = await query
@@ -255,7 +255,7 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
     const r = row as any
     return {
       id: r.id,
-      organizationId: r.organization_id,
+      clientId: r.client_id,
       templateId: r.template_id,
       subjectProfileId: r.subject_profile_id,
       title: getDiagnosticSessionTitle(r),
@@ -263,7 +263,7 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
       expiresAt: r.expires_at ?? undefined,
       created_at: r.created_at,
       updated_at: r.updated_at ?? undefined,
-      organizationName: r.organizations?.name ?? 'Unknown',
+      clientName: r.clients?.name ?? 'Unknown',
       templateName: r.diagnostic_templates?.name ?? 'Unknown',
       respondentCount: r.diagnostic_respondents?.[0]?.count ?? 0,
     }
@@ -280,14 +280,14 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
 
   if (error) return null
   try {
-    await requireOrganizationAccess(data.organization_id)
+    await requireClientAccess(data.client_id)
   } catch {
     return null
   }
 
   return {
     id: data.id,
-    organizationId: data.organization_id,
+    clientId: data.client_id,
     templateId: data.template_id,
     subjectProfileId: data.subject_profile_id,
     title: getDiagnosticSessionTitle(data),
@@ -304,14 +304,14 @@ export async function getDiagnosticSessionDetail(
   const db = createAdminClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
-    .select('*, organizations(name), diagnostic_templates(name), diagnostic_respondents(count), diagnostic_snapshots(count)')
+    .select('*, clients(name), diagnostic_templates(name), diagnostic_respondents(count), diagnostic_snapshots(count)')
     .eq('id', id)
     .single()
 
   if (error || !data) return null
 
   try {
-    await requireOrganizationAccess(data.organization_id)
+    await requireClientAccess(data.client_id)
   } catch {
     return null
   }
@@ -320,7 +320,7 @@ export async function getDiagnosticSessionDetail(
   const row = data as any
   return {
     id: row.id,
-    organizationId: row.organization_id,
+    clientId: row.client_id,
     templateId: row.template_id,
     subjectProfileId: row.subject_profile_id ?? '',
     title: getDiagnosticSessionTitle(row),
@@ -328,7 +328,7 @@ export async function getDiagnosticSessionDetail(
     expiresAt: row.expires_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
-    organizationName: row.organizations?.name ?? 'Unknown',
+    clientName: row.clients?.name ?? 'Unknown',
     templateName: row.diagnostic_templates?.name ?? 'Unknown',
     respondentCount: row.diagnostic_respondents?.[0]?.count ?? 0,
     description: row.description ?? undefined,
@@ -345,7 +345,7 @@ export async function getDiagnosticRespondents(
   const db = createAdminClient()
   const { data: session, error: sessionError } = await db
     .from('diagnostic_sessions')
-    .select('organization_id')
+    .select('client_id')
     .eq('id', sessionId)
     .single()
 
@@ -354,7 +354,7 @@ export async function getDiagnosticRespondents(
   }
 
   try {
-    await requireOrganizationAccess(session.organization_id)
+    await requireClientAccess(session.client_id)
   } catch {
     return []
   }
@@ -417,7 +417,7 @@ export async function getDiagnosticRespondents(
 
 export async function createDiagnosticSession(formData: FormData) {
   const raw = {
-    organizationId: formData.get('organizationId') as string,
+    clientId: formData.get('clientId') as string,
     templateId: formData.get('templateId') as string,
     title: formData.get('title') as string,
     status: (formData.get('status') as string) || 'draft',
@@ -429,12 +429,12 @@ export async function createDiagnosticSession(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
-  const { scope, organizationId } = await requireOrganizationAccess(parsed.data.organizationId)
+  const { scope, clientId } = await requireClientAccess(parsed.data.clientId)
   const db = createAdminClient()
   const { data, error } = await db
     .from('diagnostic_sessions')
     .insert({
-      organization_id: organizationId,
+      client_id: clientId,
       template_id: parsed.data.templateId,
       subject_profile_id: null,
       title: parsed.data.title,
@@ -453,7 +453,7 @@ export async function createDiagnosticSession(formData: FormData) {
     eventType: 'diagnostic_session.created',
     targetTable: 'diagnostic_sessions',
     targetId: data.id,
-    clientId: organizationId,
+    clientId: clientId,
     metadata: {
       templateId: parsed.data.templateId,
       title: parsed.data.title,
@@ -467,13 +467,13 @@ export async function deleteDiagnosticSession(id: string) {
   const db = createAdminClient()
   const { data: session, error: fetchError } = await db
     .from('diagnostic_sessions')
-    .select('id, organization_id')
+    .select('id, client_id')
     .eq('id', id)
     .single()
 
   if (fetchError || !session) return { error: fetchError?.message ?? 'Diagnostic session not found' }
 
-  const { scope, organizationId } = await requireOrganizationAccess(session.organization_id)
+  const { scope, clientId } = await requireClientAccess(session.client_id)
   const { error } = await db.from('diagnostic_sessions').delete().eq('id', id)
   if (error) return { error: error.message }
 
@@ -484,7 +484,7 @@ export async function deleteDiagnosticSession(id: string) {
     eventType: 'diagnostic_session.deleted',
     targetTable: 'diagnostic_sessions',
     targetId: id,
-    clientId: organizationId,
+    clientId: clientId,
   })
   redirect('/diagnostics')
 }
@@ -493,11 +493,11 @@ export async function deleteDiagnosticSession(id: string) {
 // Select helpers
 // =============================================================================
 
-export async function getOrganizationsForDiagnosticSelect(): Promise<SelectOption[]> {
+export async function getClientsForDiagnosticSelect(): Promise<SelectOption[]> {
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   let query = db
-    .from('organizations')
+    .from('clients')
     .select('id, name')
     .is('deleted_at', null)
     .order('name', { ascending: true })

@@ -32,7 +32,7 @@ const REPORT_TYPE_HEADINGS: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 interface ReportAssignmentsProps {
-  organizationId: string;
+  clientId: string;
   partnerId: string | null;
   assignments: ClientReportTemplateAssignment[];
   allTemplates: ReportTemplate[];
@@ -43,7 +43,7 @@ interface ReportAssignmentsProps {
 // ---------------------------------------------------------------------------
 
 export function ReportAssignments({
-  organizationId,
+  clientId,
   partnerId,
   assignments,
   allTemplates,
@@ -88,7 +88,7 @@ export function ReportAssignments({
     const newState = !currentlyAssigned;
     startTransition(async () => {
       const result = await toggleReportTemplateAssignment(
-        organizationId,
+        clientId,
         templateId,
         newState,
       );
