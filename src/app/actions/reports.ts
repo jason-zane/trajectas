@@ -273,7 +273,10 @@ export async function retrySnapshot(id: string): Promise<void> {
   // Kick the runner
   await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
+    },
     body: JSON.stringify({ snapshotId: id }),
   })
 }
@@ -284,7 +287,10 @@ export async function queueSnapshotsForSession(sessionId: string): Promise<void>
   // Trigger the runner — it will call processSnapshot for each pending row
   await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
+    },
     body: JSON.stringify({ sessionId }),
   })
 }
