@@ -40,10 +40,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { usePortal, type PortalType } from "@/components/portal-context";
-import {
-  BuildPortalSwitcher,
-  portalConfig,
-} from "@/components/build-portal-switcher";
+import { portalConfig } from "@/components/build-portal-switcher";
 
 type NavItem = {
   title: string;
@@ -170,7 +167,7 @@ const navByPortal: Record<PortalType, NavSection[]> = {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { portal, canSwitchPortal, href } = usePortal();
+  const { portal, href } = usePortal();
   const config = portalConfig[portal];
   const PortalIcon = config.icon;
   const navSections = navByPortal[portal];
@@ -196,21 +193,17 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <div className="mx-3 mb-2 rounded-lg bg-white/5 px-1 py-1">
-        {canSwitchPortal ? (
-          <BuildPortalSwitcher />
-        ) : (
-          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm">
-            <PortalIcon className="size-3.5 text-sidebar-primary" />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-xs font-medium text-sidebar-foreground">
-                {config.label}
-              </span>
-              <span className="truncate text-[11px] text-sidebar-foreground/60">
-                {config.description}
-              </span>
-            </div>
+        <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm">
+          <PortalIcon className="size-3.5 text-sidebar-primary" />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-xs font-medium text-sidebar-foreground">
+              {config.label}
+            </span>
+            <span className="truncate text-[11px] text-sidebar-foreground/60">
+              {config.description}
+            </span>
           </div>
-        )}
+        </div>
       </div>
 
       <SidebarContent>
