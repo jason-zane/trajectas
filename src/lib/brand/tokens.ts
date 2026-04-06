@@ -664,11 +664,14 @@ export function generateEmailStyles(config: BrandConfig): EmailStyles {
     border: oklchToHex(scale['200']),
   }
 
+  const safeHeadingFont = sanitiseCSSValue(config.headingFont)
+  const safeBodyFont = sanitiseCSSValue(config.bodyFont)
+
   return {
-    header: `background-color: ${config.primaryColor}; color: #ffffff; padding: 24px 32px; font-family: ${config.headingFont}, system-ui, sans-serif;`,
-    body: `background-color: #ffffff; color: ${colors.text}; padding: 32px; font-family: ${config.bodyFont}, system-ui, sans-serif; font-size: 15px; line-height: 1.6;`,
-    button: `display: inline-block; background-color: ${config.primaryColor}; color: #ffffff; padding: 12px 28px; border-radius: ${RADIUS_BASE[config.borderRadius]}px; text-decoration: none; font-weight: 500; font-family: ${config.bodyFont}, system-ui, sans-serif;`,
-    footer: `border-top: 1px solid ${colors.border}; padding: 16px 32px; color: ${colors.textMuted}; font-size: 13px; text-align: center; font-family: ${config.bodyFont}, system-ui, sans-serif;`,
+    header: `background-color: ${config.primaryColor}; color: #ffffff; padding: 24px 32px; font-family: ${safeHeadingFont}, system-ui, sans-serif;`,
+    body: `background-color: #ffffff; color: ${colors.text}; padding: 32px; font-family: ${safeBodyFont}, system-ui, sans-serif; font-size: 15px; line-height: 1.6;`,
+    button: `display: inline-block; background-color: ${config.primaryColor}; color: #ffffff; padding: 12px 28px; border-radius: ${RADIUS_BASE[config.borderRadius]}px; text-decoration: none; font-weight: 500; font-family: ${safeBodyFont}, system-ui, sans-serif;`,
+    footer: `border-top: 1px solid ${colors.border}; padding: 16px 32px; color: ${colors.textMuted}; font-size: 13px; text-align: center; font-family: ${safeBodyFont}, system-ui, sans-serif;`,
     colors,
   }
 }
@@ -676,6 +679,14 @@ export function generateEmailStyles(config: BrandConfig): EmailStyles {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Strip characters that could break out of a CSS value context.
+ * Prevents injection of `</style>`, `<script>`, or CSS rule-breaking characters.
+ */
+function sanitiseCSSValue(value: string): string {
+  return value.replace(/[<>{}();\\"/]/g, '')
+}
 
 /** Get CSS font-family string for a font name. */
 function getFontFamily(fontName: string): string {
@@ -692,5 +703,5 @@ function getFontFamily(fontName: string): string {
     'JetBrains Mono': '"JetBrains Mono", ui-monospace, monospace',
     'Fira Code': '"Fira Code", ui-monospace, monospace',
   }
-  return FONT_FAMILIES[fontName] ?? `"${fontName}", system-ui, sans-serif`
+  return FONT_FAMILIES[fontName] ?? `"${sanitiseCSSValue(fontName)}", system-ui, sans-serif`
 }
