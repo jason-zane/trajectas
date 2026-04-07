@@ -55,16 +55,19 @@ export default async function ClientPortalBrandPage() {
 
   const clientRecord = await getBrandConfig("client", clientId)
 
-  let inheritedBrand: BrandConfig = TALENT_FIT_DEFAULTS as BrandConfig
+  // Resolve inherited brand: partner → platform → hardcoded defaults
+  let inheritedBrand: BrandConfig
   if (client.partner_id) {
     const partnerBrand = await getBrandConfig("partner", client.partner_id)
     if (partnerBrand) {
       inheritedBrand = partnerBrand.config
+    } else {
+      const platform = await getPlatformBrand()
+      inheritedBrand = platform?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
     }
-  }
-  if (inheritedBrand === TALENT_FIT_DEFAULTS) {
+  } else {
     const platform = await getPlatformBrand()
-    if (platform) inheritedBrand = platform.config
+    inheritedBrand = platform?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
   }
 
   return (
