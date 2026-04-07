@@ -1,3 +1,6 @@
+import { sendEmail } from "@/lib/email/send";
+import { createAdminClient } from "@/lib/supabase/admin";
+
 interface MagicLinkRedirectInput {
   origin?: string | null;
   referer?: string | null;
@@ -6,9 +9,6 @@ interface MagicLinkRedirectInput {
   adminAppUrl?: string | null;
   fallbackUrl?: string | null;
 }
-
-import { sendEmail } from "@/lib/email/send";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 function resolveMagicLinkBaseUrl(input: Omit<MagicLinkRedirectInput, "redirectPath">) {
   const candidates = [

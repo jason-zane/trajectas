@@ -5,6 +5,11 @@ import { resolveSessionActor } from "@/lib/auth/actor";
 import { finalizeInviteAcceptance, buildSurfaceDestinationUrl, resolveDefaultWorkspaceContext, applyActiveContextToResponse } from "@/lib/auth/staff-auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ACTIVE_CONTEXT_COOKIE, PREVIEW_CONTEXT_COOKIE } from "@/lib/auth/active-context";
+import {
+  COOKIE_NAME as ACTIVITY_COOKIE,
+  encodeLastActivity,
+  buildLastActivityCookieOptions,
+} from "@/lib/auth/session-activity";
 
 function sanitizeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -77,6 +82,14 @@ export async function GET(request: NextRequest) {
   });
 
   const response = NextResponse.redirect(destination);
+
+  // Stamp initial activity on login
+  response.cookies.set(
+    ACTIVITY_COOKIE,
+    encodeLastActivity(Math.floor(Date.now() / 1000)),
+    buildLastActivityCookieOptions()
+  );
+
   const cookieStore = await cookies();
   if (context.surface === "admin") {
     cookieStore.delete(ACTIVE_CONTEXT_COOKIE);

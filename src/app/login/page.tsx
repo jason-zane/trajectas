@@ -14,6 +14,8 @@ const errorCopy: Record<string, string> = {
     "We couldn't complete that sign-in link. Request a fresh email and try again.",
   session_missing:
     "We couldn't establish a session from that sign-in link. Request a fresh email and try again.",
+  session_expired:
+    "Your session expired due to inactivity. Please sign in again.",
 };
 
 export default async function LoginPage({

@@ -3,8 +3,6 @@ import type { ActiveContext, PreviewContext } from "@/lib/auth/types";
 
 export const ACTIVE_CONTEXT_COOKIE = "tf_active_context";
 export const PREVIEW_CONTEXT_COOKIE = "tf_preview_context";
-const ACTIVE_CONTEXT_MAX_AGE_SECONDS = 60 * 60 * 8;
-
 function getSigningSecret(): string {
   const secret = process.env.TRAJECTAS_CONTEXT_SECRET;
   if (!secret) {
@@ -62,7 +60,6 @@ function getContextCookieOptions() {
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: ACTIVE_CONTEXT_MAX_AGE_SECONDS,
   };
 }
 

@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   await supabase.auth.signOut();
 
   const response = NextResponse.redirect(
-    new URL("/login?reason=session_expired", request.url)
+    new URL("/login?error=session_expired", request.url)
   );
   response.cookies.delete(ACTIVITY_COOKIE);
   response.cookies.delete(ACTIVE_CONTEXT_COOKIE);

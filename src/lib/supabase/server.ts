@@ -17,8 +17,10 @@ export async function createServerSupabaseClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
+              // Strip maxAge/expires — auth cookies are session-only (die on browser close)
+              const { maxAge: _maxAge, expires: _expires, ...sessionOptions } = options ?? {};
               cookieStore.set(name, value, {
-                ...options,
+                ...sessionOptions,
                 ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
               });
             });

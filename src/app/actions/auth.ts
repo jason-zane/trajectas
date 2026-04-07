@@ -1,6 +1,5 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -8,6 +7,7 @@ import {
   sendInviteMagicLinkEmail,
   sendStaffMagicLinkEmail,
 } from '@/lib/auth/magic-link'
+import { logActionError } from '@/lib/security/action-errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getInviteByToken } from '@/lib/auth/staff-auth'
 
@@ -43,13 +43,10 @@ async function sendMagicLink(input: {
   template: 'magic_link' | 'staff_invite'
   inviteeName?: string | null
 }) {
-  const headerStore = await headers()
   const redirectUrl = buildMagicLinkRedirectUrl({
-    origin: headerStore.get('origin'),
-    referer: headerStore.get('referer'),
     redirectPath: input.redirectPath,
     publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
-    adminAppUrl: process.env.ADMIN_APP_URL,
+    adminAppUrl: process.env.ADMIN_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
     fallbackUrl: 'http://localhost:3002',
   })
 
@@ -98,8 +95,9 @@ export async function requestStaffMagicLink(
           template: 'magic_link',
         }
       )
-    } catch {
+    } catch (error) {
       // Keep the response generic so login does not reveal account state.
+      logActionError('requestStaffMagicLink.sendMagicLink', error)
     }
   }
 
@@ -133,6 +131,7 @@ export async function requestInviteMagicLink(
       inviteeName: invite.email,
     })
   } catch (error) {
+    logActionError('requestInviteMagicLink.sendMagicLink', error)
     return {
       error:
         error instanceof Error

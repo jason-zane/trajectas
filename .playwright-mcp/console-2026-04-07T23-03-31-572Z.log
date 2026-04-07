@@ -1,0 +1,61 @@
+[    1413ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3002/:0
+[    1453ms] [ERROR] Refused to execute script from 'http://localhost:3002/_next/static/development/_clientMiddlewareManifest.js' because its MIME type ('application/json') is not executable, and strict MIME type checking is enabled. @ http://localhost:3002/:0
+[    1483ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3002/_next/static/chunks/node_modules_react-dom_0bruynb._.js:15305
+[    1577ms] Error: Could not parse module '[project]/node_modules/next/dist/pages/_error.js', file not found
+    at module evaluation (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[root-of-the-server]__0p4mhjz._.js:78:11)
+    at <unknown> (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1291:27)
+    at runWithHooks (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1554:9)
+    at instantiateModuleShared (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1289:9)
+    at instantiateModule (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1557:23)
+    at getOrInstantiateModuleFromParent (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1593:23)
+    at Context.esmImport [as i] (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:281:20)
+    at module evaluation (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[root-of-the-server]__0p4mhjz._.js:10262:166)
+    at <unknown> (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1291:27)
+    at runWithHooks (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1554:9)
+    at instantiateModuleShared (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1289:9)
+    at instantiateModule (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1557:23)
+    at instantiateRuntimeModule (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1564:12)
+    at getOrInstantiateRuntimeModule (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1577:12)
+    at Object.m (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/chunks/ssr/[turbopack]_runtime.js:1599:18)
+    at Object.<anonymous> (file:///Users/jasonhunt/projects/trajectas/.next/dev/server/pages/_error.js:6:3)
+    at Module._compile (node:internal/modules/cjs/loader:1734:14)
+    at Object..js (node:internal/modules/cjs/loader:1899:10)
+    at Module.load (node:internal/modules/cjs/loader:1469:32)
+    at Module._load (node:internal/modules/cjs/loader:1286:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Module.<anonymous> (node:internal/modules/cjs/loader:1491:12)
+    at mod.require (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/require-hook.js:79:28)
+    at require (node:internal/modules/helpers:135:16)
+    at requirePage (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/require.js:105:80)
+    at loadComponentsImpl (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/load-components.js:157:61)
+    at async DevServer.findPageComponentsImpl (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/next-server.js:837:36)
+    at async DevServer.findPageComponents (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/dev/next-dev-server.js:704:16)
+    at async DevServer.renderErrorToResponseImpl (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/base-server.js:1745:26)
+    at async pipe.req.req (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/base-server.js:1652:30)
+    at async DevServer.pipeImpl (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/base-server.js:1043:25)
+    at async DevServer.runMiddleware (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/dev/next-dev-server.js:315:13)
+    at async NextNodeServer.handleCatchallMiddlewareRequest (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/next-server.js:392:26)
+    at async DevServer.handleRequestImpl (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/base-server.js:940:28)
+    at async (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/dev/next-dev-server.js:394:20)
+    at async Span.traceAsyncFn (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/trace/trace.js:164:20)
+    at async DevServer.handleRequest (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/dev/next-dev-server.js:390:24)
+    at async handleRoute (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/lib/router-utils/resolve-routes.js:352:33)
+    at async resolveRoutes (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/lib/router-utils/resolve-routes.js:608:28)
+    at async handleRequest (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/lib/router-server.js:301:96)
+    at async requestHandlerImpl (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/lib/router-server.js:501:13)
+    at async Server.requestListener (file:///Users/jasonhunt/projects/trajectas/node_modules/next/dist/server/lib/start-server.js:225:13)
+[    1516ms] [LOG] [HMR] connected @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[    9764ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed:  @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   10770ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   11773ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   12775ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   13777ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   14780ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   19785ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   24793ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   29812ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   34857ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   39908ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   44957ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
+[   50156ms] [ERROR] WebSocket connection to 'ws://localhost:3002/_next/webpack-hmr' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://localhost:3002/_next/static/chunks/node_modules_next_dist_client_0pe1dg-._.js:2342
