@@ -62,7 +62,7 @@ All in `src/components/data-table/`:
 - `data-table-pagination.tsx` — page controls + row count + page size selector
 - `data-table-faceted-filter.tsx` — multi-select dropdown filter per column
 - `data-table-toolbar.tsx` — layout wrapper for search + filters + reset button
-- `data-table-row-actions.tsx` — standard right-aligned action cell (dropdown menu or icon buttons)
+- `data-table-row-actions.tsx` — a flex container for arbitrary action buttons, right-aligned. Accepts `children` (icon buttons, toggles, dropdown menus). Pages render their own action controls inside this wrapper. For example, report templates render an `ActiveToggle` (imperative Zone-1 control that fires a server action on click) alongside clone/delete buttons. The wrapper only handles layout (flex, gap, alignment), not behaviour.
 - `index.ts` — barrel export
 
 ### Styling
@@ -165,7 +165,7 @@ Same page file as clients, rendered in the "Partners" tab.
 **Default sort:** Name ascending
 **Row click:** Navigate to `/partners/{slug}/edit`
 
-**Note:** Keep the clients/partners tab toggle. Each tab renders its own DataTable instance.
+**Note:** Keep the clients/partners tab toggle using the existing `searchParams`-based mechanism. Both tabs' data is fetched in the server component and passed down. Each tab renders its own DataTable instance with its own column definitions.
 
 #### 6. Dashboard Participants
 
@@ -201,7 +201,7 @@ Same page file as clients, rendered in the "Partners" tab.
 **Filters:** Status
 **Search:** Title, client name
 **Default sort:** Created descending
-**Row click:** Navigate to matching run detail
+**Row click:** Navigate to `/matching/{id}` (if detail page exists; otherwise rows are not clickable until a detail page is added)
 
 #### 8. Diagnostic Sessions
 
@@ -221,6 +221,7 @@ Same page file as clients, rendered in the "Partners" tab.
 **Filters:** Status
 **Search:** Title, client name
 **Default sort:** Created descending
+**Row click:** Navigate to `/diagnostics/{id}`
 
 ### Tier 2 — Raw Tables to DataTable
 
@@ -240,12 +241,14 @@ Migrate the existing `UsersTable` component to use `<DataTable>`. The current ro
 **File:** `src/app/(dashboard)/clients/[slug]/users/page.tsx`
 
 Migrate `ClientUsersTable` to DataTable. Same column pattern as main Users table but scoped to one client (no tenants column needed). Keep `InviteUserDialog` and `PendingInvitesSection` as-is.
+**Default sort:** Name ascending
 
 #### 11. Partner-Scoped Users
 
 **File:** `src/app/(dashboard)/partners/[slug]/users/page.tsx`
 
 Migrate `PartnerUsersTable` to DataTable. Same pattern as client-scoped users. Keep `InvitePartnerUserDialog` and `PartnerPendingInvitesSection` as-is.
+**Default sort:** Name ascending
 
 #### 12. Report Templates
 
@@ -267,7 +270,7 @@ Wrap in DataTable. Add sorting, search, status filter.
 
 | Column | Field | Sortable | Notes |
 |--------|-------|----------|-------|
-| Report | `participantName` or ID | Yes | Participant name preferred over truncated UUID |
+| Report | `participantName` or ID | Yes | Participant name preferred over truncated UUID. **Prerequisite:** update `getAllReadySnapshots` server action to join participant data (currently returns only snapshot ID and session ID). |
 | Audience | `audienceType` | Yes | Badge |
 | Status | `status` | Yes | Coloured badge |
 | Mode | `narrativeMode` | Yes | |
@@ -291,11 +294,12 @@ Wrap in DataTable. Add sorting and search.
 
 **File:** `src/app/(dashboard)/campaigns/[id]/participants/campaign-participant-manager.tsx`
 
-Wrap the participant list in DataTable. Keep invite dialog, bulk import dialog, and action buttons (copy link, send invite, delete) as row actions.
+Wrap the participant list in DataTable. Keep invite dialog, bulk import dialog, and action buttons (copy link, send invite, delete) as row actions. The client portal at `src/app/client/campaigns/[id]/participants/page.tsx` reuses this same component — migrating the dashboard version covers both portals.
 
 **Columns:** Name/email (avatar), Status (badge), Actions (icon buttons)
 **Search:** Name, email
-**Note:** The invite and bulk import dialogs remain as header actions, not part of the table.
+**Default sort:** Name ascending
+**Note:** The invite and bulk import dialogs remain as header actions, not part of the table. Row selection / checkboxes for bulk operations are out of scope for this migration.
 
 #### 16. Client Global Participants
 
@@ -306,6 +310,7 @@ Replace custom pagination and filtering with DataTable.
 **Columns:** Name/email, Campaign, Status
 **Filters:** Campaign (dropdown), Status
 **Search:** Name, email
+**Default sort:** Name ascending
 
 ## Excluded Pages
 
