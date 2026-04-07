@@ -1,0 +1,47 @@
+/* Marketing site colour tokens — scoped via [data-surface="marketing"] */
+[data-surface="marketing"] {
+  --mk-primary: #2d6a5a;
+  --mk-primary-dark: #1e4a3e;
+  --mk-accent: #c9a962;
+  --mk-bg: #f8f6f1;
+  --mk-text: #1a1a1a;
+  --mk-text-muted: #6b6b6b;
+  --mk-text-on-dark: #ffffff;
+  --mk-text-on-dark-muted: rgba(255, 255, 255, 0.55);
+}
+
+/* Marketing typography utilities */
+[data-surface="marketing"] .mk-eyebrow {
+  font-weight: 200;
+  font-size: 0.6875rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mk-accent);
+}
+
+[data-surface="marketing"] .mk-display {
+  font-size: clamp(3rem, 6vw, 5rem);
+  line-height: 1.1;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+[data-surface="marketing"] .mk-headline {
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+[data-surface="marketing"] .mk-body {
+  font-size: 1rem;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+[data-surface="marketing"] .mk-mono {
+  font-family: var(--font-mono);
+  font-weight: 300;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+}
