@@ -10,12 +10,12 @@ export async function getDashboardStats() {
   if (scope.isPlatformAdmin) {
     const [dimensions, factors, constructs, items, assessments, clients] =
       await Promise.all([
-        db.from('dimensions').select('*', { count: 'exact', head: true }),
-        db.from('factors').select('*', { count: 'exact', head: true }),
-        db.from('constructs').select('*', { count: 'exact', head: true }),
-        db.from('items').select('*', { count: 'exact', head: true }),
-        db.from('assessments').select('*', { count: 'exact', head: true }),
-        db.from('clients').select('*', { count: 'exact', head: true }),
+        db.from('dimensions').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        db.from('factors').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        db.from('constructs').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        db.from('items').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        db.from('assessments').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        db.from('clients').select('*', { count: 'exact', head: true }).is('deleted_at', null),
       ])
 
     const queries = [dimensions, factors, constructs, items, assessments, clients]
@@ -41,10 +41,18 @@ export async function getDashboardStats() {
 
   const [assessments, clients] = await Promise.all([
     scope.clientIds.length > 0
-      ? db.from('assessments').select('*', { count: 'exact', head: true }).in('client_id', scope.clientIds)
+      ? db
+          .from('assessments')
+          .select('*', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .in('client_id', scope.clientIds)
       : Promise.resolve({ count: 0 }),
     scope.clientIds.length > 0
-      ? db.from('clients').select('*', { count: 'exact', head: true }).in('id', scope.clientIds)
+      ? db
+          .from('clients')
+          .select('*', { count: 'exact', head: true })
+          .is('deleted_at', null)
+          .in('id', scope.clientIds)
       : Promise.resolve({ count: 0 }),
   ])
 
