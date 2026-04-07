@@ -37,6 +37,9 @@ yarn-error.log*
 !.env.example
 !.env.e2e.example
 
+# MCP config (contains access tokens)
+.mcp.json
+
 # vercel
 .vercel
 
