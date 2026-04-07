@@ -1,5 +1,6 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
@@ -33,10 +34,13 @@ function buildCallbackPath(next?: string | null, invite?: string | null) {
 
 async function sendMagicLink(email: string, redirectPath: string) {
   const supabase = await createServerSupabaseClient()
-  const base =
-    process.env.ADMIN_APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'http://localhost:3002'
+  const headerStore = await headers()
+  const origin = headerStore.get('origin') ?? headerStore.get('referer')
+  const base = origin
+    ? new URL(origin).origin
+    : process.env.ADMIN_APP_URL ??
+      process.env.NEXT_PUBLIC_APP_URL ??
+      'http://localhost:3002'
   const redirectUrl = new URL('/auth/callback', base)
   const redirectPathUrl = new URL(redirectPath, base)
   redirectUrl.search = redirectPathUrl.search
