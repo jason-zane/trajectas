@@ -5,7 +5,7 @@
  * a magic link, signup, invite, recovery, etc. email is triggered.
  *
  * Flow:
- * 1. Verify HMAC-SHA256 signature
+ * 1. Verify signature via Standard Webhooks (v1,whsec_ secret format)
  * 2. Map Supabase email_action_type → our EmailType
  * 3. Construct sign-in / action URL from token_hash + redirect_to
  * 4. Send via our unified sendEmail pipeline
@@ -13,7 +13,7 @@
  */
 
 import { NextResponse } from 'next/server'
-import crypto from 'node:crypto'
+import { Webhook } from 'standardwebhooks'
 import { sendEmail } from '@/lib/email/send'
 import type { EmailType } from '@/lib/email/types'
 
@@ -33,32 +33,12 @@ const TYPE_MAP: Record<string, EmailType> = {
 const UNSUPPORTED_TYPES = new Set(['recovery', 'email_change', 'reauthentication'])
 
 // ---------------------------------------------------------------------------
-// HMAC verification
-// ---------------------------------------------------------------------------
-
-function verifySignature(rawBody: string, signature: string, secret: string): boolean {
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(rawBody)
-    .digest('base64')
-
-  try {
-    return crypto.timingSafeEqual(
-      Buffer.from(signature),
-      Buffer.from(expected),
-    )
-  } catch {
-    return false
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
-  const secret = process.env.SUPABASE_AUTH_HOOK_SECRET
-  if (!secret) {
+  const hookSecret = process.env.SUPABASE_AUTH_HOOK_SECRET
+  if (!hookSecret) {
     console.error('[send-email hook] SUPABASE_AUTH_HOOK_SECRET is not set')
     return NextResponse.json(
       { error: 'Server misconfiguration' },
@@ -66,18 +46,13 @@ export async function POST(request: Request) {
     )
   }
 
-  // 1. Read body + verify HMAC
+  // 1. Read body + verify via Standard Webhooks
   const rawBody = await request.text()
-  const signature = request.headers.get('x-supabase-signature')
+  const headers = Object.fromEntries(request.headers)
 
-  if (!signature || !verifySignature(rawBody, signature, secret)) {
-    return NextResponse.json(
-      { error: 'Invalid signature' },
-      { status: 401 },
-    )
-  }
+  // Extract the base64 secret (strip "v1,whsec_" prefix)
+  const base64Secret = hookSecret.replace('v1,whsec_', '')
 
-  // 2. Parse payload
   let payload: {
     user: { id: string; email: string; user_metadata?: Record<string, unknown> }
     email_data: {
@@ -90,9 +65,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    payload = JSON.parse(rawBody)
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+    const wh = new Webhook(base64Secret)
+    payload = wh.verify(rawBody, headers) as typeof payload
+  } catch (err) {
+    console.error('[send-email hook] Signature verification failed:', err)
+    return NextResponse.json(
+      { error: 'Invalid signature' },
+      { status: 401 },
+    )
   }
 
   const { user, email_data } = payload
