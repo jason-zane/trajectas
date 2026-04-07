@@ -108,4 +108,17 @@ describe("staff auth helpers", () => {
       }).toString()
     ).toBe("https://client.trajectas.test/results");
   });
+
+  it("routes admin defaults to the dashboard surface root", () => {
+    vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.test");
+
+    expect(
+      buildSurfaceDestinationUrl({
+        surface: "admin",
+        path: "/",
+        requestUrl: "https://trajectas.test/login",
+        host: "trajectas.test",
+      }).toString()
+    ).toBe("https://admin.trajectas.test/dashboard");
+  });
 });

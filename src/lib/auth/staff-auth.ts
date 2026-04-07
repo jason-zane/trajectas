@@ -278,7 +278,14 @@ export function buildSurfaceDestinationUrl(input: {
   const configuredBase = getConfiguredSurfaceUrl(
     input.surface === "admin" ? "admin" : input.surface
   );
-  const normalizedPath = input.path && input.path !== "/" ? input.path : "/";
+  const normalizedPath =
+    input.surface === "admin"
+      ? input.path && input.path !== "/"
+        ? input.path
+        : "/dashboard"
+      : input.path && input.path !== "/"
+        ? input.path
+        : "/";
   const isLocal = isLocalDevelopmentHost(input.host);
 
   if (!configuredBase) {

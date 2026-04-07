@@ -13,7 +13,47 @@ import { isAllowedOriginHost } from "@/lib/security/request-origin";
 import type { Surface } from "@/lib/surfaces";
 
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-const unimplementedHostedSurfaces = new Set<Surface>(["public"]);
+
+const publicHostedExactPaths = new Set([
+  "/",
+  "/login",
+  "/logout",
+  "/unauthorized",
+  "/surface-coming-soon",
+]);
+
+function isAssessPath(pathname: string) {
+  return pathname === "/assess" || pathname.startsWith("/assess/");
+}
+
+function isPartnerPath(pathname: string) {
+  return pathname === "/partner" || pathname.startsWith("/partner/");
+}
+
+function isClientPath(pathname: string) {
+  return pathname === "/client" || pathname.startsWith("/client/");
+}
+
+function isPublicHostedPath(pathname: string) {
+  return (
+    publicHostedExactPaths.has(pathname) ||
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/")
+  );
+}
+
+function redirectToSurface(
+  request: NextRequest,
+  surface: Surface,
+  pathname: string,
+  search: string,
+  fallbackPath = "/"
+) {
+  return (
+    buildSurfaceUrl(surface, pathname, search) ??
+    new URL(fallbackPath, request.url)
+  );
+}
 
 function buildContentSecurityPolicy(surface: Surface) {
   const isDevelopment = process.env.NODE_ENV !== "production";
@@ -143,30 +183,51 @@ export function proxy(request: NextRequest) {
   }
 
   if (
-    !isLocalDev &&
-    configuredSurface === "admin" &&
-    (pathname === "/partner" ||
-      pathname.startsWith("/partner/") ||
-      pathname === "/client" ||
-      pathname.startsWith("/client/"))
-  ) {
-    const target = request.nextUrl.clone();
-    target.pathname = "/";
-    target.search = "";
-    const response = NextResponse.redirect(target);
-    return applySecurityHeaders(response, configuredSurface, target.pathname);
-  }
-
-  if (
     configuredHosts.assess &&
-    pathname.startsWith("/assess") &&
+    isAssessPath(pathname) &&
     host !== configuredHosts.assess &&
     !isLocalDev
   ) {
-    const target = buildSurfaceUrl("assess", pathname, search);
+    const response = NextResponse.redirect(
+      redirectToSurface(request, "assess", pathname, search, "/assess")
+    );
+    return applySecurityHeaders(response, "assess", pathname);
+  }
+
+  if (
+    configuredHosts.partner &&
+    isPartnerPath(pathname) &&
+    host !== configuredHosts.partner &&
+    !isLocalDev
+  ) {
+    const response = NextResponse.redirect(
+      redirectToSurface(request, "partner", pathname, search, "/")
+    );
+    return applySecurityHeaders(response, "partner", pathname);
+  }
+
+  if (
+    configuredHosts.client &&
+    isClientPath(pathname) &&
+    host !== configuredHosts.client &&
+    !isLocalDev
+  ) {
+    const response = NextResponse.redirect(
+      redirectToSurface(request, "client", pathname, search, "/")
+    );
+    return applySecurityHeaders(response, "client", pathname);
+  }
+
+  if (
+    !isLocalDev &&
+    configuredSurface === "public" &&
+    !pathname.startsWith("/api") &&
+    !isPublicHostedPath(pathname)
+  ) {
+    const target = buildSurfaceUrl("admin", pathname, search);
     if (target) {
       const response = NextResponse.redirect(target);
-      return applySecurityHeaders(response, "assess", pathname);
+      return applySecurityHeaders(response, "admin", pathname);
     }
   }
 
@@ -175,6 +236,13 @@ export function proxy(request: NextRequest) {
     const target = buildSurfaceUrl("assess", assessPath, search) ?? new URL(assessPath, request.url);
     const response = NextResponse.redirect(target);
     return applySecurityHeaders(response, "assess", assessPath);
+  }
+
+  if (!isLocalDev && configuredSurface === "admin" && pathname === "/") {
+    const response = NextResponse.redirect(
+      redirectToSurface(request, "admin", "/dashboard", "", "/dashboard")
+    );
+    return applySecurityHeaders(response, "admin", "/dashboard");
   }
 
   if (
@@ -193,29 +261,6 @@ export function proxy(request: NextRequest) {
 
     const target = request.nextUrl.clone();
     target.pathname = pathname === "/" ? internalPrefix : `${internalPrefix}${pathname}`;
-    const response = NextResponse.rewrite(target, {
-      request: {
-        headers: forwardedHeaders,
-      },
-    });
-    return applySecurityHeaders(response, configuredSurface, target.pathname);
-  }
-
-  if (
-    unimplementedHostedSurfaces.has(configuredSurface) &&
-    pathname !== "/surface-coming-soon"
-  ) {
-    if (pathname.startsWith("/api")) {
-      const response = NextResponse.json(
-        { error: `${configuredSurface} surface is not implemented yet.` },
-        { status: 404 }
-      );
-      return applySecurityHeaders(response, configuredSurface, pathname);
-    }
-
-    const target = request.nextUrl.clone();
-    target.pathname = "/surface-coming-soon";
-    target.search = "";
     const response = NextResponse.rewrite(target, {
       request: {
         headers: forwardedHeaders,

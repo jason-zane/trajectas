@@ -99,7 +99,7 @@ export function inferSurfaceFromRequest(input: {
     return "assess";
   }
 
-  return "admin";
+  return isLocalDevelopmentHost(input.host) ? "admin" : "public";
 }
 
 export function buildSurfaceUrl(
