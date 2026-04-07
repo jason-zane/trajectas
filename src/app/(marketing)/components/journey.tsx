@@ -27,7 +27,7 @@ export function Journey() {
     <section
       ref={ref}
       data-section="journey"
-      className="relative min-h-[350vh]"
+      className="relative min-h-[250vh]"
     >
       <div className="journey-sticky sticky top-0 flex h-screen items-center justify-center overflow-hidden">
         {/* Central trajectory line — hidden on mobile */}

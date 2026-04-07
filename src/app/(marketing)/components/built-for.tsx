@@ -6,13 +6,6 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 
-const SECONDARY_USE_CASES = [
-  { title: "Leadership assessment", desc: "Evaluate readiness for senior roles against your own leadership model." },
-  { title: "Team composition", desc: "Understand how capabilities distribute across a team — and where the gaps are." },
-  { title: "Development planning", desc: "Turn assessment results into targeted growth paths grounded in evidence." },
-  { title: "Succession readiness", desc: "Identify high-potential candidates using criteria that matter to your organisation." },
-];
-
 /* ------------------------------------------------------------------ */
 /*  IntersectionObserver hook                                          */
 /* ------------------------------------------------------------------ */
@@ -282,8 +275,6 @@ function Panel({ eyebrow, title, body, reverse, visual }: PanelProps) {
 /* ------------------------------------------------------------------ */
 
 export function BuiltFor() {
-  const { ref: stripRef, visible: stripVisible } = useInView(0.2);
-
   return (
     <section
       data-section="builtFor"
@@ -313,7 +304,7 @@ export function BuiltFor() {
       </div>
 
       {/* Panel 2 — Capability mapping */}
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto max-w-7xl pb-32">
         <Panel
           eyebrow="Use case"
           title="Capability mapping"
@@ -321,46 +312,6 @@ export function BuiltFor() {
           reverse={true}
           visual={(animate) => <CapabilityVisual animate={animate} />}
         />
-      </div>
-
-      {/* Secondary use cases strip */}
-      <div
-        ref={stripRef}
-        className="mx-auto max-w-5xl px-6 pb-32 pt-16 md:px-16"
-        style={{
-          opacity: stripVisible ? 1 : 0,
-          transform: stripVisible ? "translateY(0)" : "translateY(30px)",
-          transition: "opacity 0.8s cubic-bezier(0.22,1,0.36,1), transform 0.8s cubic-bezier(0.22,1,0.36,1)",
-        }}
-      >
-        <span className="mk-eyebrow">Also</span>
-        <div className="mt-8 grid gap-6 sm:grid-cols-2">
-          {SECONDARY_USE_CASES.map((uc, i) => (
-            <div
-              key={i}
-              className="border-l-2 pl-5 py-2"
-              style={{
-                borderColor: "var(--mk-accent)",
-                opacity: stripVisible ? 1 : 0,
-                transform: stripVisible ? "translateY(0)" : "translateY(20px)",
-                transition: `opacity 0.6s cubic-bezier(0.22,1,0.36,1) ${0.15 + i * 0.1}s, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${0.15 + i * 0.1}s`,
-              }}
-            >
-              <h3
-                className="text-base font-semibold"
-                style={{ color: "var(--mk-text)" }}
-              >
-                {uc.title}
-              </h3>
-              <p
-                className="mk-body mt-1 text-sm"
-                style={{ color: "var(--mk-text-muted)" }}
-              >
-                {uc.desc}
-              </p>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   );

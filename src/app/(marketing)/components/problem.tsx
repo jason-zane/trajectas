@@ -43,7 +43,7 @@ export function Problem() {
           {GENERIC_PHRASES.map((phrase, phraseIdx) => (
             <div key={phraseIdx} className="problem-line flex flex-wrap justify-center">
               {phrase.split("").map((char, charIdx) => {
-                const delay = (phraseIdx * 30 + charIdx * 2) / 150;
+                const delay = (phraseIdx * 4 + charIdx) / 100;
                 const direction = charIdx % 2 === 0 ? 1 : -1;
 
                 return (
@@ -67,7 +67,7 @@ export function Problem() {
           {REFORMED_PHRASES.map((phrase, phraseIdx) => (
             <div key={phraseIdx} className="problem-line flex flex-wrap justify-center">
               {phrase.split("").map((char, charIdx) => {
-                const delay = (phraseIdx * 20 + charIdx * 2) / 100;
+                const delay = (phraseIdx * 4 + charIdx) / 100;
 
                 return (
                   <span
