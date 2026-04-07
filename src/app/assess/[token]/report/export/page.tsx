@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
 import { getEffectiveBrand } from "@/app/actions/brand";
 import { getEffectiveExperience } from "@/app/actions/experience";
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { interpolateContent } from "@/lib/experience/interpolate";
@@ -72,7 +72,7 @@ export default async function ReportExportPage({
         participantName={participantName}
         campaignTitle={campaign.title}
         brandLogoUrl={brandConfig.logoUrl}
-        brandName={brandConfig.name ?? TALENT_FIT_DEFAULTS.name}
+        brandName={brandConfig.name ?? TRAJECTAS_DEFAULTS.name}
         generatedAt={formatGeneratedAt(generatedAt)}
         isReady={content.reportMode === "view_results"}
       />

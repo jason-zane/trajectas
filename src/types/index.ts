@@ -1,5 +1,5 @@
 // =============================================================================
-// index.ts — Barrel re-export for all Talent Fit type definitions
+// index.ts — Barrel re-export for all Trajectas type definitions
 // =============================================================================
 
 export * from './database'

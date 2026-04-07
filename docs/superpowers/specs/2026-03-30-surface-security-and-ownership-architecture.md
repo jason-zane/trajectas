@@ -1,8 +1,8 @@
-# Talent Fit Surface Security And Ownership Architecture
+# Trajectas Surface Security And Ownership Architecture
 
 ## Purpose
 
-This document defines the core architectural boundaries for `talent-fit`.
+This document defines the core architectural boundaries for `trajectas`.
 
 Its purpose is to lock in:
 - surface ownership
@@ -23,7 +23,7 @@ This is the boundary spec the product can grow inside.
 
 ## Product Goal
 
-`talent-fit` is a multi-surface assessment platform designed to exceed the operational and security standard of Leadership Quarter.
+`trajectas` is a multi-surface assessment platform designed to exceed the operational and security standard of Leadership Quarter.
 
 The target system must support:
 - public marketing and gated entry flows
@@ -74,14 +74,14 @@ Rules:
 
 ### Initial model
 
-`talent-fit` runs as one Next.js application with multiple domains or subdomains.
+`trajectas` runs as one Next.js application with multiple domains or subdomains.
 
 Target host pattern:
-- `talentfit.com` for public
-- `assess.talentfit.com` for participant runtime
-- `admin.talentfit.com` for platform admin
-- `partner.talentfit.com` for partner portal
-- `client.talentfit.com` for client portal
+- `trajectas.com` for public
+- `assess.trajectas.com` for participant runtime
+- `admin.trajectas.com` for platform admin
+- `partner.trajectas.com` for partner portal
+- `client.trajectas.com` for client portal
 
 ### Temporary-domain strategy
 
@@ -100,7 +100,7 @@ Required environment variables:
 - `PARTNER_APP_URL`
 - `CLIENT_APP_URL`
 - `SERVER_ACTION_ALLOWED_ORIGINS`
-- `TALENTFIT_CONTEXT_SECRET`
+- `TRAJECTAS_CONTEXT_SECRET`
 
 Rules:
 - no hardcoded production domains in route logic
@@ -113,7 +113,7 @@ Rules:
 ### Public surface
 
 Primary host:
-- `talentfit.com`
+- `trajectas.com`
 
 Primary users:
 - anonymous visitors
@@ -135,7 +135,7 @@ Must not expose:
 ### Assessment runtime surface
 
 Primary host:
-- `assess.talentfit.com`
+- `assess.trajectas.com`
 
 Primary users:
 - participants
@@ -157,7 +157,7 @@ Must not expose:
 ### Admin surface
 
 Primary host:
-- `admin.talentfit.com`
+- `admin.trajectas.com`
 
 Primary users:
 - internal platform team
@@ -180,7 +180,7 @@ Authority model:
 ### Partner surface
 
 Primary host:
-- `partner.talentfit.com`
+- `partner.trajectas.com`
 
 Primary users:
 - consultants
@@ -201,7 +201,7 @@ Must not expose:
 ### Client surface
 
 Primary host:
-- `client.talentfit.com`
+- `client.trajectas.com`
 
 Primary users:
 - client stakeholders
@@ -383,7 +383,7 @@ Participant model:
 
 Reports are not a single rendering problem.
 
-`talent-fit` supports two first-class report outputs over shared report data.
+`trajectas` supports two first-class report outputs over shared report data.
 
 ### Web report
 

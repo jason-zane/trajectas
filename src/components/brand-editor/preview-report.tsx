@@ -34,7 +34,7 @@ export function PreviewReport() {
               className="text-sm font-semibold text-white/90"
               style={{ fontFamily: "var(--brand-font-heading)" }}
             >
-              TalentFit
+              Trajectas
             </span>
           </div>
 

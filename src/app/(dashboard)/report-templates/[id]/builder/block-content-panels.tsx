@@ -244,7 +244,7 @@ function CoverPageContent({ block, onUpdateConfig }: BlockContentPanelProps) {
             value={String(config.poweredByText ?? '')}
             onChange={(e) => onUpdateConfig('poweredByText', e.target.value)}
             className="h-8 text-sm"
-            placeholder="Powered by Talent Fit"
+            placeholder="Powered by Trajectas"
           />
         </Field>
       )}

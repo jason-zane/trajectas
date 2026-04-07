@@ -118,7 +118,7 @@ export function PreviewComplete({ brandName, logoUrl }: PreviewCardProps) {
             className="text-[11px]"
             style={{ fontFamily: "var(--brand-font-body)" }}
           >
-            Powered by TalentFit
+            Powered by Trajectas
           </span>
         </div>
       </div>

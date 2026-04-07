@@ -18,14 +18,14 @@ type RateLimitRule = {
 
 function getStore() {
   const globalStore = globalThis as typeof globalThis & {
-    __talentFitRateLimitStore?: SlidingWindowStore;
+    __trajectasRateLimitStore?: SlidingWindowStore;
   };
 
-  if (!globalStore.__talentFitRateLimitStore) {
-    globalStore.__talentFitRateLimitStore = new Map();
+  if (!globalStore.__trajectasRateLimitStore) {
+    globalStore.__trajectasRateLimitStore = new Map();
   }
 
-  return globalStore.__talentFitRateLimitStore;
+  return globalStore.__trajectasRateLimitStore;
 }
 
 function hashValue(value: string) {

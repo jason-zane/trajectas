@@ -3,7 +3,7 @@ import { getEffectiveBrand } from "@/app/actions/brand";
 import { getPageContent } from "@/lib/experience/resolve";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { JoinForm } from "@/components/assess/join-form";
 
@@ -34,7 +34,7 @@ export default async function JoinPage({
   ]);
 
   const content = getPageContent(experience, "join");
-  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   // Brand CSS tokens are generated from admin-controlled brand config values
   // (color hex codes, font names, border radius) — not user-supplied content.

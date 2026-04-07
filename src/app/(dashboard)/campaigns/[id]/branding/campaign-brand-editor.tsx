@@ -15,7 +15,7 @@ import { ColorPicker } from "@/components/brand-editor/color-picker"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { LogoUploader } from "@/components/brand-editor/logo-uploader"
 import { upsertBrandConfig, resetBrandToDefault } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig, BrandConfigRecord, NeutralTemperature } from "@/lib/brand/types"
 
 interface CampaignBrandEditorProps {
@@ -87,9 +87,9 @@ export function CampaignBrandEditor({
   }, [])
 
   // Inherited brand source label
-  const inheritedSource = inheritedBrand.name !== TALENT_FIT_DEFAULTS.name
+  const inheritedSource = inheritedBrand.name !== TRAJECTAS_DEFAULTS.name
     ? inheritedFrom ?? "Client"
-    : "TalentFit (platform default)"
+    : "Trajectas (platform default)"
 
   const saveLabel =
     saveState === "saving"

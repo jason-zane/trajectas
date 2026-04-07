@@ -94,7 +94,7 @@ export function ConsentScreen({
                   color: "var(--brand-text, hsl(var(--foreground)))",
                 }}
               >
-                {brandName ?? "TalentFit"}
+                {brandName ?? "Trajectas"}
               </span>
             </div>
           )}
@@ -224,7 +224,7 @@ export function ConsentScreen({
           }}
         >
           {content.footerText ??
-            (isCustomBrand ? "Powered by TalentFit" : "Your responses are confidential")}
+            (isCustomBrand ? "Powered by Trajectas" : "Your responses are confidential")}
         </span>
         {privacyUrl && (
           <a

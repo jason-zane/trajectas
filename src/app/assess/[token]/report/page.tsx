@@ -4,7 +4,7 @@ import { getEffectiveBrand } from "@/app/actions/brand";
 import { getEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
@@ -34,7 +34,7 @@ export default async function ReportPage({
     getEffectiveBrand(campaign.clientId, campaign.id),
     getParticipantReportSnapshot(token),
   ]);
-  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {

@@ -51,7 +51,7 @@ Platform admins no longer use this switcher. They access client/partner portals 
    - `started_at` = now
    - `expires_at` = now + 4 hours (configurable default)
 2. Returns `{ sessionId, sessionKey }` — the key is a secondary HMAC secret used as two-factor validation
-3. Opens new tab at the existing launch endpoint: `/client/support/launch?sessionId={id}&sessionKey={key}` (local dev) or `https://client.talentfit.com/support/launch?sessionId={id}&sessionKey={key}` (production with host routing)
+3. Opens new tab at the existing launch endpoint: `/client/support/launch?sessionId={id}&sessionKey={key}` (local dev) or `https://client.trajectas.com/support/launch?sessionId={id}&sessionKey={key}` (production with host routing)
 4. The existing launch endpoint validates both the session ID and key, sets the support session cookie, and redirects to `/client/dashboard` (or partner dashboard)
 
 **Note:** This leverages the existing support session launch infrastructure (`src/lib/auth/support-launch.ts`, `/client/support/launch` and `/partner/support/launch` routes). The "Enter Portal" button is a new UI affordance, not a new auth mechanism.
@@ -118,7 +118,7 @@ Support session cookie infrastructure already exists. Verify during implementati
 **Current bug:** Dropdown shows `__platform__` raw sentinel value in collapsed state.
 
 **Fix:** Map internal values to display text consistently:
-- Internal value `__platform__` → display "Talent Fit (platform-owned)"
+- Internal value `__platform__` → display "Trajectas (platform-owned)"
 - Internal value `{partner_id}` → display partner's name
 - Ensure both the closed dropdown state and opened options use the same mapping
 - Centralise the mapping in a small helper function

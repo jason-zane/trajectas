@@ -4,7 +4,7 @@ import { getEffectiveBrand } from "@/app/actions/brand";
 import { getEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
@@ -27,7 +27,7 @@ export default async function WelcomePage({
 
   // Load brand config for the campaign's client
   const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
-  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   // Load experience template
   const experience = await getEffectiveExperience(campaign.id);

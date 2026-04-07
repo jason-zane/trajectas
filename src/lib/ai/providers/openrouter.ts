@@ -36,8 +36,8 @@ export class OpenRouterProvider implements AIProvider {
         baseURL: OPENROUTER_BASE_URL,
         timeout: 120_000, // 2 min per request — fail fast so retries can kick in
         defaultHeaders: {
-          'HTTP-Referer': 'https://talent-fit.app',
-          'X-Title': 'Talent Fit',
+          'HTTP-Referer': 'https://trajectas.com',
+          'X-Title': 'Trajectas',
         },
       })
     }

@@ -78,7 +78,7 @@ export function ClientCreateForm({
 
   const selectedPartnerLabel = useMemo(() => {
     if (partnerId === PLATFORM_OWNED_VALUE) {
-      return "Talent Fit / platform-owned";
+      return "Trajectas / platform-owned";
     }
 
     return (
@@ -112,7 +112,7 @@ export function ClientCreateForm({
     <div className="space-y-8 max-w-2xl">
       <PageHeader
         title="Add Client"
-        description="Register a new client and decide whether it belongs directly to Talent Fit or to a partner."
+        description="Register a new client and decide whether it belongs directly to Trajectas or to a partner."
       />
 
       <form action={handleSubmit}>
@@ -143,7 +143,7 @@ export function ClientCreateForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={PLATFORM_OWNED_VALUE}>
-                      Talent Fit / platform-owned
+                      Trajectas / platform-owned
                     </SelectItem>
                     {partnerOptions.map((partner) => (
                       <SelectItem key={partner.id} value={partner.id}>

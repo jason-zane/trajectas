@@ -29,7 +29,7 @@ export function InviteEmail({
   campaignTitle,
   campaignDescription,
   assessmentUrl,
-  brandName = 'TalentFit',
+  brandName = 'Trajectas',
   brandLogoUrl,
   primaryColor = '#2d6a5a',
   textColor = '#1a1a1a',
@@ -135,9 +135,9 @@ export function InviteEmail({
                 textAlign: 'center' as const,
               }}
             >
-              {brandName !== 'TalentFit'
-                ? `Powered by TalentFit`
-                : 'TalentFit'}
+              {brandName !== 'Trajectas'
+                ? `Powered by Trajectas`
+                : 'Trajectas'}
             </Text>
           </Section>
         </Container>

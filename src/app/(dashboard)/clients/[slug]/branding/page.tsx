@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { getClientBySlug } from "@/app/actions/clients"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig } from "@/lib/brand/types"
 import { ClientBrandEditor } from "./client-brand-editor"
 
@@ -16,7 +16,7 @@ export default async function ClientBrandingPage({
 
   const clientRecord = await getBrandConfig("client", client.id)
 
-  let inheritedBrand: BrandConfig = TALENT_FIT_DEFAULTS as BrandConfig
+  let inheritedBrand: BrandConfig = TRAJECTAS_DEFAULTS as BrandConfig
 
   if (client.partnerId) {
     const partnerBrand = await getBrandConfig("partner", client.partnerId)

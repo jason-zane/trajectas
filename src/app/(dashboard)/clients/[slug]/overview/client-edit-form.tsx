@@ -50,7 +50,7 @@ function formatOwnershipDisplay(
   partners: Array<{ id: string; name: string }>
 ): string {
   if (!value || value === PLATFORM_OWNED_VALUE) {
-    return "Talent Fit (platform-owned)";
+    return "Trajectas (platform-owned)";
   }
   const partner = partners.find((p) => p.id === value);
   return partner?.name ?? "Unknown";
@@ -286,7 +286,7 @@ export function ClientEditForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={PLATFORM_OWNED_VALUE}>
-                      Talent Fit (platform-owned)
+                      Trajectas (platform-owned)
                     </SelectItem>
                     {partnerOptions.map((partner) => (
                       <SelectItem key={partner.id} value={partner.id}>

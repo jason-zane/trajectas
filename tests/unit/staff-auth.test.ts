@@ -88,7 +88,7 @@ describe("staff auth helpers", () => {
   it("builds partner and client destinations without duplicating local route prefixes", () => {
     vi.stubEnv("ADMIN_APP_URL", "http://127.0.0.1:3101");
     vi.stubEnv("PARTNER_APP_URL", "http://127.0.0.1:3101/partner");
-    vi.stubEnv("CLIENT_APP_URL", "https://client.talentfit.test");
+    vi.stubEnv("CLIENT_APP_URL", "https://client.trajectas.test");
 
     expect(
       buildSurfaceDestinationUrl({
@@ -103,9 +103,9 @@ describe("staff auth helpers", () => {
       buildSurfaceDestinationUrl({
         surface: "client",
         path: "/results",
-        requestUrl: "https://admin.talentfit.test/auth/callback",
-        host: "admin.talentfit.test",
+        requestUrl: "https://admin.trajectas.test/auth/callback",
+        host: "admin.trajectas.test",
       }).toString()
-    ).toBe("https://client.talentfit.test/results");
+    ).toBe("https://client.trajectas.test/results");
   });
 });

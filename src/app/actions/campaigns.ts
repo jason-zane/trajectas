@@ -885,7 +885,7 @@ export async function sendParticipantInviteEmail(
         campaignTitle: campaign.title,
         campaignDescription: campaign.description ?? undefined,
         assessmentUrl,
-        brandName: brand.name ?? 'TalentFit',
+        brandName: brand.name ?? 'Trajectas',
         brandLogoUrl: brand.logoUrl ?? undefined,
         primaryColor: brand.primaryColor,
         textColor: brand.emailStyles?.textColor,

@@ -1,8 +1,8 @@
-# Talent Fit Brand System — Design Specification
+# Trajectas Brand System — Design Specification
 
 ## Context
 
-Talent Fit needs a unified brand system that governs how the platform looks across all external-facing surfaces: assessment runners, candidate reports, email invitations, and eventually client portals. Currently, brand colors are hardcoded in CSS (`--brand: oklch(0.50 0.08 175)`), there's no brand editor, and organizations have no branding fields. This spec designs a configurable brand token system, a visual brand editor, and a redesigned assessment runner — establishing the foundation for all future branded surfaces.
+Trajectas needs a unified brand system that governs how the platform looks across all external-facing surfaces: assessment runners, candidate reports, email invitations, and eventually client portals. Currently, brand colors are hardcoded in CSS (`--brand: oklch(0.50 0.08 175)`), there's no brand editor, and organizations have no branding fields. This spec designs a configurable brand token system, a visual brand editor, and a redesigned assessment runner — establishing the foundation for all future branded surfaces.
 
 ## Brand Principles
 
@@ -18,7 +18,7 @@ Talent Fit needs a unified brand system that governs how the platform looks acro
 ## Three-Layer Brand Architecture
 
 ### Layer 1: Brand Foundation (everywhere)
-The Talent Fit brand identity. Sage/teal hue family (around hue 175). Appears in:
+The Trajectas brand identity. Sage/teal hue family (around hue 175). Appears in:
 - Logo and wordmark
 - External-facing pages (assessment runner, reports, emails)
 - Sidebar brand mark across all portals
@@ -36,10 +36,10 @@ Portal accents are never visible to candidates or in reports.
 
 ### Layer 3: Client Brand Override (external-facing only)
 Optional per-organization branding applied to assessment runners and reports:
-- Client logo replaces TalentFit logo in header
+- Client logo replaces Trajectas logo in header
 - Client primary color replaces sage for accents, buttons, selection states
-- "Powered by TalentFit" footer badge
-- Falls back to TalentFit defaults when no client brand is configured
+- "Powered by Trajectas" footer badge
+- Falls back to Trajectas defaults when no client brand is configured
 
 ## Sub-project 1: Brand Token Foundation
 
@@ -48,7 +48,7 @@ Optional per-organization branding applied to assessment runners and reports:
 ```typescript
 interface BrandConfig {
   // Identity
-  name: string                    // "Talent Fit" or org name
+  name: string                    // "Trajectas" or org name
   logoUrl?: string                // Full logo (horizontal)
   logomarkUrl?: string            // Square icon version
 
@@ -103,7 +103,7 @@ New `brand_configs` table:
 
 **Unique constraint:** One config per owner (owner_type + owner_id).
 
-**Seed data:** Platform default with current Talent Fit values (sage primary, gold accent, Plus Jakarta Sans, soft radius).
+**Seed data:** Platform default with current Trajectas values (sage primary, gold accent, Plus Jakarta Sans, soft radius).
 
 **Organization lookup:** To find an org's brand, query `brand_configs WHERE owner_type = 'organization' AND owner_id = org.id`. No FK needed on organizations — the polymorphic `owner_type + owner_id` pattern is the single source of truth. Falls back to `WHERE owner_type = 'platform' AND is_default = true` when no org config exists.
 
@@ -234,9 +234,9 @@ When an organization has a brand config:
 3. Inject as `<style>` tag with CSS custom properties
 4. Logo swaps to org logo
 5. Primary color swaps to org primary (buttons, selection states, progress bar, section label)
-6. "Powered by TalentFit" appears in footer
+6. "Powered by Trajectas" appears in footer
 
-When no org brand: TalentFit defaults apply.
+When no org brand: Trajectas defaults apply.
 
 ### Dark/Light Mode
 
@@ -259,12 +259,12 @@ These surfaces are NOT in scope for initial implementation but the token pipelin
 - HTML report pages with interactive charts (web-first)
 - PDF export matching the web layout
 - Brand tokens applied: cover header gradient, accent colors on charts, logo placement
-- Both TalentFit branded and client co-branded variants
+- Both Trajectas branded and client co-branded variants
 
 ### Email Templates
 - Invitation emails, reminder emails, completion notifications
 - Brand tokens generate inline CSS (email clients don't support CSS variables)
-- TalentFit header + optional client co-branding
+- Trajectas header + optional client co-branding
 
 *Note: Welcome and completion screens are restyled in SP3 (they already exist at `/assess/[token]/welcome` and `/assess/[token]/complete`). They are NOT future work.*
 
@@ -273,7 +273,7 @@ These surfaces are NOT in scope for initial implementation but the token pipelin
 ### New Files
 - `src/lib/brand/types.ts` — BrandConfig type + Zod schema
 - `src/lib/brand/tokens.ts` — Token generation pipeline (CSS, PDF, email)
-- `src/lib/brand/defaults.ts` — TalentFit default brand config
+- `src/lib/brand/defaults.ts` — Trajectas default brand config
 - `src/lib/brand/fonts.ts` — Curated font list and loader
 - `src/app/(dashboard)/settings/brand/page.tsx` — Admin brand editor
 - `src/app/(dashboard)/organizations/[slug]/branding/page.tsx` — Client brand editor
@@ -312,7 +312,7 @@ Each sub-project gets its own implementation plan and review cycle.
 ### Sub-project 1
 - Token generation unit tests: hex input → correct OKLCH scale output
 - DB migration applies cleanly via `npm run db:push`
-- Seed data creates TalentFit default brand config
+- Seed data creates Trajectas default brand config
 - Type safety: BrandConfig validates with Zod
 
 ### Sub-project 2

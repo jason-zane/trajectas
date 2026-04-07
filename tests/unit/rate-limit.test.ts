@@ -9,14 +9,14 @@ function createRequest(url: string, init?: ConstructorParameters<typeof NextRequ
 describe("request rate limiting", () => {
   beforeEach(() => {
     const globalStore = globalThis as typeof globalThis & {
-      __talentFitRateLimitStore?: Map<string, number[]>;
+      __trajectasRateLimitStore?: Map<string, number[]>;
     };
 
-    globalStore.__talentFitRateLimitStore?.clear();
+    globalStore.__trajectasRateLimitStore?.clear();
   });
 
   it("blocks repeated login attempts from the same IP", () => {
-    const request = createRequest("https://talentfit.test/login", {
+    const request = createRequest("https://trajectas.test/login", {
       method: "POST",
       headers: {
         "x-forwarded-for": "203.0.113.10",
@@ -37,12 +37,12 @@ describe("request rate limiting", () => {
   });
 
   it("keys server actions by the authenticated session cookies", () => {
-    const request = createRequest("https://talentfit.test/client", {
+    const request = createRequest("https://trajectas.test/client", {
       method: "POST",
       headers: {
         "next-action": "action-id",
         cookie:
-          "sb-talent-fit-auth-token=access-token; sb-refresh-token=refresh-token",
+          "sb-trajectas-auth-token=access-token; sb-refresh-token=refresh-token",
       },
     });
 

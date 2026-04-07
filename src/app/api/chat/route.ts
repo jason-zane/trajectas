@@ -51,8 +51,8 @@ export async function POST(request: Request) {
       apiKey,
       baseURL: 'https://openrouter.ai/api/v1',
       defaultHeaders: {
-        'HTTP-Referer': 'https://talent-fit.app',
-        'X-Title': 'Talent Fit',
+        'HTTP-Referer': 'https://trajectas.com',
+        'X-Title': 'Trajectas',
       },
     })
 

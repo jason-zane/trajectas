@@ -72,8 +72,8 @@ function mapSupportSession(row: Record<string, unknown>): SupportSessionRecord {
 async function getRequestEnvironment() {
   const headerStore = await headers();
   const host = headerStore.get("host");
-  const surfaceHeader = headerStore.get("x-talentfit-surface");
-  const routePrefix = headerStore.get("x-talentfit-route-prefix");
+  const surfaceHeader = headerStore.get("x-trajectas-surface");
+  const routePrefix = headerStore.get("x-trajectas-route-prefix");
 
   return {
     host,

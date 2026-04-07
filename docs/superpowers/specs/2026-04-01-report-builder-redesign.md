@@ -64,7 +64,7 @@ Fixed mode: featured. No mode selector.
 | `showDate` | boolean | true |
 | `showLogo` | boolean | true |
 | `showPoweredBy` | boolean | false |
-| `poweredByText` | string | "Powered by Talent Fit" |
+| `poweredByText` | string | "Powered by Trajectas" |
 
 No subtitle field — assessment name is pulled automatically from session data. Logo selection determined by brand config, not template config.
 

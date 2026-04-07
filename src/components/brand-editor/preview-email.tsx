@@ -33,7 +33,7 @@ export function PreviewEmail() {
               className="text-sm font-semibold text-white"
               style={{ fontFamily: "var(--brand-font-heading)" }}
             >
-              TalentFit
+              Trajectas
             </span>
           </div>
         </div>
@@ -113,7 +113,7 @@ export function PreviewEmail() {
               fontFamily: "var(--brand-font-body)",
             }}
           >
-            Powered by TalentFit | Assessment Platform
+            Powered by Trajectas | Assessment Platform
           </p>
         </div>
       </div>

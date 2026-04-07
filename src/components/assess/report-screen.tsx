@@ -104,7 +104,7 @@ export function ReportScreen({
                     color: "var(--brand-text, hsl(var(--foreground)))",
                   }}
                 >
-                  {brandName ?? "TalentFit"}
+                  {brandName ?? "Trajectas"}
                 </span>
               </div>
             )}
@@ -126,7 +126,7 @@ export function ReportScreen({
             }}
           >
             {content.footerText ??
-              (isCustomBrand ? "Powered by TalentFit" : "TalentFit")}
+              (isCustomBrand ? "Powered by Trajectas" : "Trajectas")}
           </span>
         </footer>
       </div>
@@ -183,7 +183,7 @@ export function ReportScreen({
                   color: "var(--brand-text, hsl(var(--foreground)))",
                 }}
               >
-                {brandName ?? "TalentFit"}
+                {brandName ?? "Trajectas"}
               </span>
             </div>
           )}
@@ -303,7 +303,7 @@ export function ReportScreen({
           }}
         >
           {content.footerText ??
-            (isCustomBrand ? "Powered by TalentFit" : "TalentFit")}
+            (isCustomBrand ? "Powered by Trajectas" : "Trajectas")}
         </span>
         {privacyUrl && (
           <a

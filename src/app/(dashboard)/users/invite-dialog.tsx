@@ -97,7 +97,7 @@ const ROLE_OPTIONS: Record<
 
 function getRoleHelperText(role: InviteRole) {
   if (role === "platform_admin") {
-    return "Platform admins can manage the entire TalentFit workspace.";
+    return "Platform admins can manage the entire Trajectas workspace.";
   }
   if (role === "partner_admin" || role === "client_admin") {
     return "Admins can manage people and settings within the selected workspace.";

@@ -115,7 +115,7 @@ Replace the current `PreviewRunner` and `PreviewEmail` mockups with three new pr
 - Header bar with logo (or fallback icon) + display name — reactive to identity controls
 - Centered card with welcome icon, heading ("Welcome, Alex"), description text
 - "Begin Assessment" CTA button in `--brand-primary`
-- Footer with "Powered by TalentFit" or custom text
+- Footer with "Powered by Trajectas" or custom text
 - Card background uses `--brand-neutral-50`, borders use `--brand-neutral-200`
 
 #### 3b. PreviewQuestions (new file, replaces PreviewRunner in campaign context)

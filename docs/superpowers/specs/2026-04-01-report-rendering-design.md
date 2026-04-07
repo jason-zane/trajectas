@@ -259,19 +259,19 @@ Changes to colour values update the preview in real-time.
 ### Logo Positions
 
 **Primary logo** (top of cover page):
-- Platform mode: Talent Fit logo
+- Platform mode: Trajectas logo
 - Client mode: client org's logo from their `brand_config`
 - Custom mode: logo uploaded for that campaign
 - Falls back to organisation name in clean typographic treatment if no logo is uploaded
 
 **Secondary logo** (smaller, bottom or corner of cover):
-- For co-branding — e.g., client logo primary, "Powered by Talent Fit" secondary
+- For co-branding — e.g., client logo primary, "Powered by Trajectas" secondary
 - Or partner/consulting firm logo alongside the platform logo
 - Optional — can be hidden entirely
 
 **"Powered by" / "Prepared by" label:**
 - Small text above/beside the secondary logo
-- Configurable text: "Powered by Talent Fit", "Prepared by [Partner Name]", or hidden
+- Configurable text: "Powered by Trajectas", "Prepared by [Partner Name]", or hidden
 - Set in cover-page block config: `poweredByText` (string, nullable)
 
 ### Page Headers (Multi-Page PDF)
@@ -288,7 +288,7 @@ The cover-page block config is the canonical definition (supersedes the simpler 
 - `showPrimaryLogo` — boolean (default true)
 - `showSecondaryLogo` — boolean (default false)
 - `showPoweredBy` — boolean (default false)
-- `poweredByText` — string (default "Powered by Talent Fit")
+- `poweredByText` — string (default "Powered by Trajectas")
 
 ---
 

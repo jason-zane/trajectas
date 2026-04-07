@@ -2,7 +2,7 @@
 
 ## Summary
 
-A comprehensive visual refresh of the Talent Fit platform covering typography, colour palette, design tokens architecture, and visual hierarchy. The goal is to create a distinctive, premium feel that's warm and approachable — reflecting the org psych roots of the platform — while being robust enough that the entire palette can be changed from a single file.
+A comprehensive visual refresh of the Trajectas platform covering typography, colour palette, design tokens architecture, and visual hierarchy. The goal is to create a distinctive, premium feel that's warm and approachable — reflecting the org psych roots of the platform — while being robust enough that the entire palette can be changed from a single file.
 
 **This is a breaking visual change.** The sidebar, fonts, and portal accent colours are all changing from the current codebase. This is intentional — the current values evolved piecemeal and are being replaced with a deliberately designed system.
 

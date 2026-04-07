@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Talent Fit",
+  title: "Trajectas",
   description: "Psychometric Assessment & Client Diagnostic Platform",
 };
 

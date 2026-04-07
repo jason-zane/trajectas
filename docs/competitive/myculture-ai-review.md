@@ -1,11 +1,11 @@
-# Competitive Analysis: MyCulture.ai vs Talent Fit
+# Competitive Analysis: MyCulture.ai vs Trajectas
 ## Strategic Research & Feature Roadmap
 
 ---
 
 ## Context
 
-MyCulture.ai (by Happily.ai) is an MIT-founded, Bangkok-based culture-fit assessment platform targeting SMBs with aggressive pricing ($0-89/mo). This analysis identifies what they do well, where they fall short, what we should consider adopting, and where Talent Fit's architectural and methodological superiority creates defensible differentiation. The goal is to produce actionable strategic insights that inform our product roadmap.
+MyCulture.ai (by Happily.ai) is an MIT-founded, Bangkok-based culture-fit assessment platform targeting SMBs with aggressive pricing ($0-89/mo). This analysis identifies what they do well, where they fall short, what we should consider adopting, and where Trajectas's architectural and methodological superiority creates defensible differentiation. The goal is to produce actionable strategic insights that inform our product roadmap.
 
 ---
 
@@ -82,7 +82,7 @@ MyCulture.ai (by Happily.ai) is an MIT-founded, Bangkok-based culture-fit assess
 **What MyCulture does:** Their core identity is "culture fit" — Values Alignment, Culture Profile (OCAI), Acceptable Behaviors.
 
 **Recommendation — Differentiate, don't compete directly:**
-- Position Talent Fit as the "full talent picture" — culture is ONE dimension, not the whole product
+- Position Trajectas as the "full talent picture" — culture is ONE dimension, not the whole product
 - Offer culture assessment as one template among many
 - Emphasize that culture-only assessment is reductive; real talent decisions need cognitive + behavioral + cultural + role-fit data
 - Messaging: "MyCulture measures culture. We measure talent."
@@ -239,7 +239,7 @@ SSO/SAML, audit logging, data residency options, SOC 2 Type II, GDPR compliance,
 
 ## Key Takeaway
 
-MyCulture.ai is a lightweight, affordable culture-assessment tool competing on price and accessibility. Talent Fit is architecturally and methodologically in a different league — the challenge isn't capability, it's **packaging and presentation**. We need to:
+MyCulture.ai is a lightweight, affordable culture-assessment tool competing on price and accessibility. Trajectas is architecturally and methodologically in a different league — the challenge isn't capability, it's **packaging and presentation**. We need to:
 
 1. **Make our power accessible** — Template library so users don't need to build from scratch
 2. **Show our depth** — Reports and dashboards that visualize what our scoring engine produces

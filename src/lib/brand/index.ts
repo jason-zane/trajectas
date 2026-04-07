@@ -7,7 +7,7 @@ export type {
   BorderRadiusPreset,
 } from './types'
 
-export { TALENT_FIT_DEFAULTS } from './defaults'
+export { TRAJECTAS_DEFAULTS } from './defaults'
 
 export {
   hexToOklch,

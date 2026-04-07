@@ -1,4 +1,4 @@
-project_id = "talent-fit-local"
+project_id = "trajectas-local"
 
 [api]
 enabled = true

@@ -313,9 +313,9 @@ Three-panel layout:
 ### Portal Routing
 | Portal | Audience | Access rule |
 |---|---|---|
-| `assess.talentfit.com` | Participant | Token-authenticated, `released_at` must be set |
-| `client.talentfit.com` | HR manager | Org-scoped, `released_at` must be set |
-| `admin` / `partner.talentfit.com` | Consultant | Campaign-scoped, sees `ready` + `released` snapshots |
+| `assess.trajectas.com` | Participant | Token-authenticated, `released_at` must be set |
+| `client.trajectas.com` | HR manager | Org-scoped, `released_at` must be set |
+| `admin` / `partner.trajectas.com` | Consultant | Campaign-scoped, sees `ready` + `released` snapshots |
 
 ---
 

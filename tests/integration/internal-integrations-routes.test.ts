@@ -49,7 +49,7 @@ const integrationContext = {
   requestId: 'req-1',
   clientId: '00000000-0000-0000-0000-000000000001',
   connectionId: '00000000-0000-0000-0000-000000000002',
-  connectionProvider: 'talentfit_internal',
+  connectionProvider: 'trajectas_internal',
   credentialId: '00000000-0000-0000-0000-000000000003',
   credentialLabel: 'Internal API',
   scopes: [

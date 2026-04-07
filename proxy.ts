@@ -64,7 +64,7 @@ function applySecurityHeaders(
   surface: Surface,
   pathname: string
 ) {
-  response.headers.set("x-talentfit-surface", surface);
+  response.headers.set("x-trajectas-surface", surface);
   response.headers.set(
     "Content-Security-Policy",
     buildContentSecurityPolicy(surface)
@@ -94,11 +94,11 @@ function withSurfaceHeaders(
   routePrefix: string
 ) {
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-talentfit-surface", surface);
-  requestHeaders.set("x-talentfit-route-prefix", routePrefix);
+  requestHeaders.set("x-trajectas-surface", surface);
+  requestHeaders.set("x-trajectas-route-prefix", routePrefix);
 
   if (isLocalDev) {
-    requestHeaders.set("x-talentfit-local-dev", "true");
+    requestHeaders.set("x-trajectas-local-dev", "true");
   }
 
   return requestHeaders;

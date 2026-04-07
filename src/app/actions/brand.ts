@@ -13,7 +13,7 @@ import {
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapBrandConfigRow } from '@/lib/supabase/mappers'
 import { brandConfigSchema } from '@/lib/validations/brand'
-import { TALENT_FIT_DEFAULTS } from '@/lib/brand/defaults'
+import { TRAJECTAS_DEFAULTS } from '@/lib/brand/defaults'
 import type { BrandConfig, BrandConfigRecord, BrandOwnerType } from '@/lib/brand/types'
 
 // ---------------------------------------------------------------------------
@@ -119,7 +119,7 @@ export async function getEffectiveBrand(
   if (platform) return platform.config
 
   // Ultimate fallback: hardcoded defaults
-  return { ...TALENT_FIT_DEFAULTS }
+  return { ...TRAJECTAS_DEFAULTS }
 }
 
 /**

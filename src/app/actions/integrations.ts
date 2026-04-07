@@ -191,7 +191,7 @@ export async function getClientInternalIntegrationSettings(
     .from('integration_connections')
     .select('id')
     .eq('client_id', clientId)
-    .eq('provider_slug', 'talentfit_internal')
+    .eq('provider_slug', 'trajectas_internal')
     .eq('mode', 'internal_api')
     .is('deleted_at', null)
     .maybeSingle()

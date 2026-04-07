@@ -1,5 +1,5 @@
 /**
- * Talent Fit AI module — public API.
+ * Trajectas AI module — public API.
  *
  * This barrel file re-exports everything that consumers of the AI
  * layer need. Internal implementation details (e.g. prompt text,

@@ -44,7 +44,7 @@ export default async function ExpiredPage() {
               color: "var(--brand-text, hsl(var(--foreground)))",
             }}
           >
-            TalentFit
+            Trajectas
           </span>
         </div>
       </header>
@@ -90,7 +90,7 @@ export default async function ExpiredPage() {
               "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
           }}
         >
-          {content.footerText ?? "TalentFit"}
+          {content.footerText ?? "Trajectas"}
         </span>
       </footer>
     </div>

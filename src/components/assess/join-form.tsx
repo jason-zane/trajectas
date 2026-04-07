@@ -114,7 +114,7 @@ export function JoinForm({
                   color: "var(--brand-text, hsl(var(--foreground)))",
                 }}
               >
-                {brandName ?? "TalentFit"}
+                {brandName ?? "Trajectas"}
               </span>
             </div>
           )}
@@ -243,7 +243,7 @@ export function JoinForm({
           }}
         >
           {content.footerText ??
-            (isCustomBrand ? "Powered by TalentFit" : "TalentFit")}
+            (isCustomBrand ? "Powered by Trajectas" : "Trajectas")}
         </span>
       </footer>
     </div>

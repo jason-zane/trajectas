@@ -267,7 +267,7 @@ async function sendIntegrationInviteEmail(input: {
       campaignTitle: input.campaignTitle,
       campaignDescription: input.campaignDescription,
       assessmentUrl: input.assessmentUrl,
-      brandName: brand.name ?? 'TalentFit',
+      brandName: brand.name ?? 'Trajectas',
       brandLogoUrl: brand.logoUrl ?? undefined,
       primaryColor: brand.primaryColor,
       textColor: brand.emailStyles?.textColor,

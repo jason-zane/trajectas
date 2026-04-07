@@ -63,7 +63,7 @@ export function ReportExportScreen({
             <div className="flex items-start justify-between gap-6">
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  {brandName ?? "TalentFit"} report
+                  {brandName ?? "Trajectas"} report
                 </p>
                 <h2 className="text-3xl font-semibold tracking-tight text-foreground">
                   {content.heading}
@@ -82,7 +82,7 @@ export function ReportExportScreen({
                   />
                 ) : null}
                 <p className="mt-3 text-sm font-medium text-foreground">
-                  {brandName ?? "TalentFit"}
+                  {brandName ?? "Trajectas"}
                 </p>
               </div>
             </div>

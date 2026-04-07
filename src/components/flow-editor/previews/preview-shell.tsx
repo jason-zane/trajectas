@@ -10,7 +10,7 @@ interface PreviewShellProps {
  * Shared shell for flow page previews — header bar, content slot, footer.
  * Uses --brand-* CSS variables from parent container.
  */
-export function PreviewShell({ brandName = "Talent Fit", children, footerText }: PreviewShellProps) {
+export function PreviewShell({ brandName = "Trajectas", children, footerText }: PreviewShellProps) {
   return (
     <div
       className="flex flex-col min-h-[400px] overflow-hidden"

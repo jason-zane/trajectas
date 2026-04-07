@@ -6,10 +6,10 @@ export const PREVIEW_CONTEXT_COOKIE = "tf_preview_context";
 const ACTIVE_CONTEXT_MAX_AGE_SECONDS = 60 * 60 * 8;
 
 function getSigningSecret(): string {
-  const secret = process.env.TALENTFIT_CONTEXT_SECRET;
+  const secret = process.env.TRAJECTAS_CONTEXT_SECRET;
   if (!secret) {
     throw new Error(
-      "TALENTFIT_CONTEXT_SECRET is not set. " +
+      "TRAJECTAS_CONTEXT_SECRET is not set. " +
       "This environment variable is required for secure cookie signing. " +
       "Generate one with: openssl rand -base64 32"
     );

@@ -61,7 +61,7 @@ export function getAllowedServerActionOrigins(
   return Array.from(new Set([...configuredHosts, ...extraAllowedOrigins]));
 }
 
-export function createTalentFitNextConfig(
+export function createTrajectasNextConfig(
   env: NodeJS.ProcessEnv = process.env
 ): NextConfig {
   return {

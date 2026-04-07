@@ -22,7 +22,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     label: 'Cover Page',
     category: 'meta',
     description: 'Participant name, campaign title, date, and partner logo.',
-    defaultConfig: { showDate: true, subtitle: null, showPrimaryLogo: true, showSecondaryLogo: false, showPoweredBy: false, poweredByText: 'Powered by Talent Fit' },
+    defaultConfig: { showDate: true, subtitle: null, showPrimaryLogo: true, showSecondaryLogo: false, showPoweredBy: false, poweredByText: 'Powered by Trajectas' },
     supportedModes: ['featured'],
     defaultMode: 'featured',
   },

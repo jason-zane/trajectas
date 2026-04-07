@@ -13,14 +13,14 @@ type SupportSessionAccessStore = Map<string, number>;
 
 function getSupportSessionAccessStore() {
   const globalStore = globalThis as typeof globalThis & {
-    __talentFitSupportSessionAccessStore?: SupportSessionAccessStore;
+    __trajectasSupportSessionAccessStore?: SupportSessionAccessStore;
   };
 
-  if (!globalStore.__talentFitSupportSessionAccessStore) {
-    globalStore.__talentFitSupportSessionAccessStore = new Map();
+  if (!globalStore.__trajectasSupportSessionAccessStore) {
+    globalStore.__trajectasSupportSessionAccessStore = new Map();
   }
 
-  return globalStore.__talentFitSupportSessionAccessStore;
+  return globalStore.__trajectasSupportSessionAccessStore;
 }
 
 function mapSupportSession(row: Record<string, unknown>): SupportSessionRecord {

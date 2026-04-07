@@ -64,7 +64,7 @@ export async function ensureInternalIntegrationConnection(input: {
     .from('integration_connections')
     .select('id')
     .eq('client_id', input.clientId)
-    .eq('provider_slug', 'talentfit_internal')
+    .eq('provider_slug', 'trajectas_internal')
     .eq('mode', 'internal_api')
     .is('deleted_at', null)
     .maybeSingle()
@@ -81,7 +81,7 @@ export async function ensureInternalIntegrationConnection(input: {
     .from('integration_connections')
     .insert({
       client_id: input.clientId,
-      provider_slug: 'talentfit_internal',
+      provider_slug: 'trajectas_internal',
       mode: 'internal_api',
       display_name: input.displayName ?? 'Internal API',
       created_by: input.createdBy ?? null,

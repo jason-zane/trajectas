@@ -17,7 +17,7 @@ import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { upsertBrandConfig } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import type {
   BrandConfig,
@@ -124,8 +124,8 @@ export function ClientBrandEditor({
   ]
 
   const inheritedFrom =
-    inheritedBrand.name === TALENT_FIT_DEFAULTS.name
-      ? "TalentFit (platform default)"
+    inheritedBrand.name === TRAJECTAS_DEFAULTS.name
+      ? "Trajectas (platform default)"
       : inheritedBrand.name
 
   return (

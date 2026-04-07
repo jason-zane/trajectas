@@ -31,7 +31,7 @@ Replace the single colour picker with a full editor matching the campaign editor
 
 #### Control sections (left panel, scrollable):
 
-1. **Inherited context card** — shows "Inherits from TalentFit (platform default)" (same pattern as campaign editor's inherited context card)
+1. **Inherited context card** — shows "Inherits from Trajectas (platform default)" (same pattern as campaign editor's inherited context card)
 
 2. **Identity section** — Display name input + `LogoUploader` (reuse existing component, `ownerType="client"`, `ownerId={clientId}`)
 

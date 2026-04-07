@@ -120,7 +120,7 @@ Replace the page body with:
 import { notFound } from "next/navigation"
 import { getClientBySlug } from "@/app/actions/clients"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { ClientBrandEditor } from "./client-brand-editor"
 import type { BrandConfig } from "@/lib/brand/types"
 
@@ -138,7 +138,7 @@ export default async function ClientBrandingPage({
 
   // Load platform default as the inherited brand
   const platformRecord = await getPlatformBrand()
-  const inheritedBrand: BrandConfig = platformRecord?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+  const inheritedBrand: BrandConfig = platformRecord?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
 
   return (
     <ClientBrandEditor
@@ -217,7 +217,7 @@ import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { upsertBrandConfig } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import type { BrandConfig, BrandConfigRecord, NeutralTemperature, BorderRadiusPreset } from "@/lib/brand/types"
 ```
@@ -239,7 +239,7 @@ import type { BrandConfig, BrandConfigRecord, NeutralTemperature, BorderRadiusPr
    - Right panel (flex-1, sticky top-6): PreviewGallery
 
 7. **Control cards** (left panel, in order):
-   - **Inherited context card** — shows "Inherits from TalentFit (platform default)" with Building2 icon
+   - **Inherited context card** — shows "Inherits from Trajectas (platform default)" with Building2 icon
    - **Identity card** — Display name `<Input>` + `<LogoUploader ownerType="client" ownerId={clientId}>`
    - **Colors card** — Primary + Accent `<ColorPicker>`
    - **Surfaces card** — Temperature toggle + Background picker + Card picker (same JSX as campaign editor)
@@ -295,7 +295,7 @@ git commit -m "feat(brand): upgrade client brand editor to full controls with li
 import { redirect, notFound } from "next/navigation"
 import { resolveAuthorizedScope, canManageClient } from "@/lib/auth/authorization"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/client-brand-editor"
 import type { BrandConfig } from "@/lib/brand/types"
 
@@ -348,7 +348,7 @@ export default async function ClientPortalBrandPage() {
   // Load brand config
   const clientRecord = await getBrandConfig("client", clientId)
   const platformRecord = await getPlatformBrand()
-  const inheritedBrand: BrandConfig = platformRecord?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+  const inheritedBrand: BrandConfig = platformRecord?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
 
   return (
     <ClientBrandEditor

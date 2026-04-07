@@ -1,5 +1,5 @@
-import { createTalentFitNextConfig } from "@/lib/next-config/security";
+import { createTrajectasNextConfig } from "@/lib/next-config/security";
 
-const nextConfig = createTalentFitNextConfig();
+const nextConfig = createTrajectasNextConfig();
 
 export default nextConfig;

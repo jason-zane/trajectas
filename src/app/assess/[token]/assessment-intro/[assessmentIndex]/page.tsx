@@ -9,7 +9,7 @@ import { getPostSectionsUrl } from "@/lib/experience/flow-router"
 import { interpolateContent } from "@/lib/experience/interpolate"
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -93,7 +93,7 @@ export default async function AssessmentIntroPage({
 
   // Load brand config
   const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id)
-  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name
 
   // Interpolate template variables
   const variables: TemplateVariables = {
@@ -174,7 +174,7 @@ export default async function AssessmentIntroPage({
                     color: "var(--brand-text, hsl(var(--foreground)))",
                   }}
                 >
-                  {brandConfig.name ?? "TalentFit"}
+                  {brandConfig.name ?? "Trajectas"}
                 </span>
               </div>
             )}
@@ -238,7 +238,7 @@ export default async function AssessmentIntroPage({
             }}
           >
             {isCustomBrand
-              ? "Powered by TalentFit"
+              ? "Powered by Trajectas"
               : "Your responses are confidential"}
           </span>
         </footer>

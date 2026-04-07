@@ -5,7 +5,7 @@ import nextConfig from "../../next.config";
 describe("next config integration", () => {
   it("applies security headers through Next's config testing utilities", async () => {
     const response = await unstable_getResponseFromNextConfig({
-      url: "https://talentfit.test/surface-coming-soon",
+      url: "https://trajectas.test/surface-coming-soon",
       nextConfig,
     });
 

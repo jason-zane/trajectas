@@ -33,7 +33,7 @@ export function PreviewRunner({ content }: PreviewRunnerProps) {
               fontFamily: "var(--brand-font-heading)",
             }}
           >
-            Talent Fit
+            Trajectas
           </span>
         </div>
         <span

@@ -19,7 +19,7 @@ export default async function CampaignBrandingPage({
     campaign.clientId ? getBrandConfig("client", campaign.clientId) : Promise.resolve(null),
   ])
 
-  let inheritedFrom = "TalentFit (platform default)"
+  let inheritedFrom = "Trajectas (platform default)"
   if (clientBrand) {
     inheritedFrom = campaign.clientName ?? "Client"
   } else if (campaign.partnerId) {

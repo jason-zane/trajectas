@@ -18,7 +18,7 @@ test.describe("surface coming soon", () => {
   test("respects the routed surface header", async ({ browser }) => {
     const context = await browser.newContext({
       extraHTTPHeaders: {
-        "x-talentfit-surface": "partner",
+        "x-trajectas-surface": "partner",
       },
     });
     const page = await context.newPage();

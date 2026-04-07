@@ -55,7 +55,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     saveStatusSaving: 'Saving...',
     saveStatusSaved: 'Saved',
     continueButtonLabel: 'Continue',
-    footerText: 'Powered by TalentFit',
+    footerText: 'Powered by Trajectas',
   },
 
   review: {

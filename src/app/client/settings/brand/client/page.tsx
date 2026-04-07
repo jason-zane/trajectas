@@ -5,7 +5,7 @@ import { isClientBrandingEnabled } from "@/app/actions/client-entitlements"
 import { canManageClient, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig } from "@/lib/brand/types"
 import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/client-brand-editor"
 
@@ -63,11 +63,11 @@ export default async function ClientPortalBrandPage() {
       inheritedBrand = partnerBrand.config
     } else {
       const platform = await getPlatformBrand()
-      inheritedBrand = platform?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+      inheritedBrand = platform?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
     }
   } else {
     const platform = await getPlatformBrand()
-    inheritedBrand = platform?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+    inheritedBrand = platform?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
   }
 
   return (

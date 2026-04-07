@@ -406,7 +406,7 @@ function formatOwnershipDisplay(
   partners: Array<{ id: string; name: string }>
 ): string {
   if (!value || value === PLATFORM_OWNED_VALUE) {
-    return "Talent Fit (platform-owned)";
+    return "Trajectas (platform-owned)";
   }
   const partner = partners.find((p) => p.id === value);
   return partner?.name ?? "Unknown";
@@ -424,7 +424,7 @@ The dropdown should NEVER show raw `__platform__` text anywhere.
 - [ ] **Step 4: Manual verification**
 
 Run dev server, navigate to a client's Overview page. Verify:
-- Ownership dropdown shows "Talent Fit (platform-owned)" when platform-owned
+- Ownership dropdown shows "Trajectas (platform-owned)" when platform-owned
 - Ownership dropdown shows partner name when partner-owned
 - No raw `__platform__` text visible anywhere
 
@@ -1236,5 +1236,5 @@ After all tasks complete:
 - [ ] Users tab exists on both client and partner detail pages
 - [ ] Users tab can invite, change role, and remove members
 - [ ] Pending invites section shows when invites exist
-- [ ] Ownership dropdown shows "Talent Fit (platform-owned)" — no raw `__platform__` text
+- [ ] Ownership dropdown shows "Trajectas (platform-owned)" — no raw `__platform__` text
 - [ ] Assessments tab loads without errors

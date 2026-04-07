@@ -21,4 +21,4 @@ Each competitor is analyzed against a consistent template:
 7. UX/Design — Premium vs. functional, candidate experience
 8. Unique Features — Differentiators
 9. Weaknesses — Gaps and shortcomings
-10. Threat Level — How directly they compete with Talent Fit
+10. Threat Level — How directly they compete with Trajectas

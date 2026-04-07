@@ -229,7 +229,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight tracking-tight text-sidebar-accent-foreground">
-              Talent Fit
+              Trajectas
             </span>
             <span className="text-[11px] text-sidebar-foreground leading-tight">
               Assessment Platform

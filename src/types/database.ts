@@ -1,5 +1,5 @@
 // =============================================================================
-// database.ts — Row types mirroring the PostgreSQL schema for Talent Fit
+// database.ts — Row types mirroring the PostgreSQL schema for Trajectas
 // =============================================================================
 
 // ---------------------------------------------------------------------------

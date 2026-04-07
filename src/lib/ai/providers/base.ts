@@ -1,5 +1,5 @@
 /**
- * Abstract base provider interface for the Talent Fit AI abstraction layer.
+ * Abstract base provider interface for the Trajectas AI abstraction layer.
  *
  * Every AI provider (Anthropic, OpenAI, custom) must implement this
  * interface so the rest of the system can interact with it without

@@ -20,7 +20,7 @@ import { ReportThemeEditor } from "@/components/brand-editor/report-theme-editor
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { upsertBrandConfig } from "@/app/actions/brand"
 import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import type {
   BrandConfig,
   BrandConfigRecord,
@@ -48,7 +48,7 @@ function cloneConfig(config: BrandConfig): BrandConfig {
 export function BrandEditor({ initialRecord }: BrandEditorProps) {
   const initialConfig = initialRecord?.config
     ? cloneConfig(initialRecord.config)
-    : cloneConfig(TALENT_FIT_DEFAULTS as BrandConfig)
+    : cloneConfig(TRAJECTAS_DEFAULTS as BrandConfig)
 
   const [config, setConfig] = useState<BrandConfig>(initialConfig)
   const [savedConfig, setSavedConfig] = useState<BrandConfig>(initialConfig)
@@ -108,7 +108,7 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
 
   // Reset — deep clone defaults to ensure no stale references
   const handleReset = useCallback(() => {
-    setConfig(cloneConfig(TALENT_FIT_DEFAULTS as BrandConfig))
+    setConfig(cloneConfig(TRAJECTAS_DEFAULTS as BrandConfig))
     setShowResetDialog(false)
     toast.success("Reset to defaults — save to persist")
   }, [])
@@ -186,7 +186,7 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
                   id="brand-name"
                   value={config.name}
                   onChange={(e) => update({ name: e.target.value })}
-                  placeholder="Talent Fit"
+                  placeholder="Trajectas"
                 />
               </CardContent>
             </Card>
@@ -545,7 +545,7 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
         open={showResetDialog}
         onOpenChange={setShowResetDialog}
         title="Reset to Defaults"
-        description="This will replace all brand settings with the TalentFit defaults. You'll still need to save to persist the change."
+        description="This will replace all brand settings with the Trajectas defaults. You'll still need to save to persist the change."
         confirmLabel="Reset"
         cancelLabel="Cancel"
         onConfirm={handleReset}

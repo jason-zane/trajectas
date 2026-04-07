@@ -94,7 +94,7 @@ export function CompleteScreen({
                   color: "var(--brand-text, hsl(var(--foreground)))",
                 }}
               >
-                {brandName ?? "TalentFit"}
+                {brandName ?? "Trajectas"}
               </span>
             </div>
           )}
@@ -193,7 +193,7 @@ export function CompleteScreen({
           }}
         >
           {content.footerText ??
-            (isCustomBrand ? "Powered by TalentFit" : "TalentFit")}
+            (isCustomBrand ? "Powered by Trajectas" : "Trajectas")}
         </span>
         {privacyUrl && (
           <a

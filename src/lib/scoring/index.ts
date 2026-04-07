@@ -1,5 +1,5 @@
 /**
- * Talent Fit scoring engines — unified entry point.
+ * Trajectas scoring engines — unified entry point.
  *
  * Aggregates all psychometric scoring modules:
  *

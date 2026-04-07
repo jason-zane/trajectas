@@ -239,7 +239,7 @@ function WebhookEndpointDialog(props: {
         <DialogHeader>
           <DialogTitle>{props.mode === "create" ? "Add webhook endpoint" : "Edit webhook endpoint"}</DialogTitle>
           <DialogDescription>
-            TalentFit will send signed JSON event payloads to this URL. Use HTTPS unless you are testing locally.
+            Trajectas will send signed JSON event payloads to this URL. Use HTTPS unless you are testing locally.
           </DialogDescription>
         </DialogHeader>
 
@@ -272,7 +272,7 @@ function WebhookEndpointDialog(props: {
                     url: event.target.value,
                   })
                 }
-                placeholder="https://example.com/hooks/talentfit"
+                placeholder="https://example.com/hooks/trajectas"
                 disabled={props.pending}
               />
             </div>
@@ -654,7 +654,7 @@ export function ClientIntegrationsPanel({
             <div>
               <p className="font-semibold text-sm">Webhook endpoints</p>
               <p className="text-sm text-muted-foreground mt-0.5 max-w-2xl">
-                Receive launch, completion, and report lifecycle events from TalentFit. Secrets are
+                Receive launch, completion, and report lifecycle events from Trajectas. Secrets are
                 encrypted at rest and can be rotated without recreating the endpoint.
               </p>
             </div>

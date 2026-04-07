@@ -17,12 +17,12 @@ type PageViewDebounceStore = Map<string, number>;
 
 function getPageViewDebounceStore(): PageViewDebounceStore {
   const g = globalThis as typeof globalThis & {
-    __talentFitSupportPageViewStore?: PageViewDebounceStore;
+    __trajectasSupportPageViewStore?: PageViewDebounceStore;
   };
-  if (!g.__talentFitSupportPageViewStore) {
-    g.__talentFitSupportPageViewStore = new Map();
+  if (!g.__trajectasSupportPageViewStore) {
+    g.__trajectasSupportPageViewStore = new Map();
   }
-  return g.__talentFitSupportPageViewStore;
+  return g.__trajectasSupportPageViewStore;
 }
 
 /**

@@ -14,7 +14,7 @@ const surfaceIcons = {
 
 export default async function SurfaceComingSoonPage() {
   const headerStore = await headers();
-  const surface = coerceSurface(headerStore.get("x-talentfit-surface"), "public");
+  const surface = coerceSurface(headerStore.get("x-trajectas-surface"), "public");
   const SurfaceIcon = surfaceIcons[surface];
   const adminUrl = buildSurfaceUrl("admin", "/");
   const assessUrl = buildSurfaceUrl("assess", "/assess");

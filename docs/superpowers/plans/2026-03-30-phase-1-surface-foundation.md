@@ -1,8 +1,8 @@
-# Talent Fit Phase 1 Surface Foundation
+# Trajectas Phase 1 Surface Foundation
 
 ## Objective
 
-Implement the first secure multi-host, multi-context foundation tranche for `talent-fit` without breaking the current admin dashboard.
+Implement the first secure multi-host, multi-context foundation tranche for `trajectas` without breaking the current admin dashboard.
 
 Phase 1 is not a partner or client portal build. It establishes the system that those portals will later sit on.
 
@@ -44,7 +44,7 @@ Add env-driven configuration:
 - `PARTNER_APP_URL`
 - `CLIENT_APP_URL`
 - `SERVER_ACTION_ALLOWED_ORIGINS`
-- `TALENTFIT_CONTEXT_SECRET`
+- `TRAJECTAS_CONTEXT_SECRET`
 
 Implement:
 - host resolution

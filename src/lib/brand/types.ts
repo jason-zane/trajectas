@@ -55,7 +55,7 @@ export interface EmailStyleColors {
  * internally to generate perceptually uniform 10-step scales.
  */
 export interface BrandConfig {
-  /** Display name (e.g., "Talent Fit" or org name). */
+  /** Display name (e.g., "Trajectas" or org name). */
   name: string
 
   /** Full horizontal logo URL. */

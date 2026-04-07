@@ -16,7 +16,7 @@ The market bifurcates between:
 - **Modern challengers** (Bryq, TestGorilla, Plum) — better UX, weaker science, commodity positioning
 - **Volume hiring** (Harver, HireVue) — scale-focused, frontline/hourly, not suitable for consultative assessment
 
-Talent Fit sits at the intersection nobody occupies: **scientifically rigorous, beautifully designed, consulting-augmented, and accessible to the mid-market.**
+Trajectas sits at the intersection nobody occupies: **scientifically rigorous, beautifully designed, consulting-augmented, and accessible to the mid-market.**
 
 ---
 
@@ -24,7 +24,7 @@ Talent Fit sits at the intersection nobody occupies: **scientifically rigorous, 
 
 ### Feature Comparison
 
-| Feature | Talent Fit | MyCulture | Culture Amp | Plum | PI | Criteria | Bryq | TestGorilla | SHL | Hogan | Korn Ferry |
+| Feature | Trajectas | MyCulture | Culture Amp | Plum | PI | Criteria | Bryq | TestGorilla | SHL | Hogan | Korn Ferry |
 |---------|-----------|-----------|-------------|------|-----|----------|------|-------------|-----|-------|------------|
 | **Taxonomy depth** | 4-level hierarchy | Flat modules | N/A (surveys) | 10 qualities | 4 factors | Per-test | 16PF | Per-test | 32 OPQ scales | 7+11+10 scales | 4 dimensions |
 | **Configurable weighting** | Yes | No | No | No | No | No | No | No | Limited | No | Limited |
@@ -350,7 +350,7 @@ Talent Fit sits at the intersection nobody occupies: **scientifically rigorous, 
                               │
                DDI ●          │
                               │
-          Talogy ●            │    ● TALENT FIT (target)
+          Talogy ●            │    ● TRAJECTAS (target)
                               │
                               │  ● Plum    ● Criteria
                               │
@@ -369,7 +369,7 @@ Talent Fit sits at the intersection nobody occupies: **scientifically rigorous, 
                           SHALLOW SCIENCE
 ```
 
-Talent Fit's target position: **deep science + accessible mid-market** — the quadrant nobody occupies.
+Trajectas's target position: **deep science + accessible mid-market** — the quadrant nobody occupies.
 
 ---
 
@@ -401,7 +401,7 @@ Forced-choice and validity scales are only available in enterprise tools (SHL, s
 
 ---
 
-## Opportunity Zones for Talent Fit
+## Opportunity Zones for Trajectas
 
 ### Zone 1: "Validated Assessment, Beautiful Experience" (Primary Positioning)
 **Gap:** Science vs. UX — nobody has both

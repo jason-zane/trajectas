@@ -71,7 +71,7 @@ describe("staff user actions", () => {
       inviteToken: "token-1",
     });
     staffAuth.createInviteLink.mockReturnValueOnce(
-      "https://talentfit.test/auth/accept?invite=token-1"
+      "https://trajectas.test/auth/accept?invite=token-1"
     );
 
     const formData = new FormData();
@@ -81,7 +81,7 @@ describe("staff user actions", () => {
 
     await expect(createStaffInviteAction(undefined, formData)).resolves.toEqual({
       success: "Invite created for person@example.com. Copy the acceptance link below.",
-      inviteLink: "https://talentfit.test/auth/accept?invite=token-1",
+      inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
     });
   });
 });

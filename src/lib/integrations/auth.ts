@@ -25,15 +25,15 @@ type IdempotencyState =
   | { mode: 'record'; recordId: string }
 
 declare global {
-  var __talentfitIntegrationRateLimitStore: Map<string, { count: number; resetAt: number }> | undefined
+  var __trajectasIntegrationRateLimitStore: Map<string, { count: number; resetAt: number }> | undefined
 }
 
 function getRateLimitStore() {
-  if (!globalThis.__talentfitIntegrationRateLimitStore) {
-    globalThis.__talentfitIntegrationRateLimitStore = new Map()
+  if (!globalThis.__trajectasIntegrationRateLimitStore) {
+    globalThis.__trajectasIntegrationRateLimitStore = new Map()
   }
 
-  return globalThis.__talentfitIntegrationRateLimitStore
+  return globalThis.__trajectasIntegrationRateLimitStore
 }
 
 function buildJsonResponse(

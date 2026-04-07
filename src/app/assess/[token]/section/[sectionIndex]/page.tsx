@@ -10,7 +10,7 @@ import { getPageContent } from "@/lib/experience/resolve";
 import { getPostSectionsUrl } from "@/lib/experience/flow-router";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults";
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
 
 export default async function SectionPage({
@@ -83,7 +83,7 @@ export default async function SectionPage({
 
   // Load brand config for the campaign's client
   const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
-  const isCustomBrand = brandConfig.name !== TALENT_FIT_DEFAULTS.name;
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   // Load experience template for runner content + flow routing
   const experience = await getEffectiveExperience(campaign.id);

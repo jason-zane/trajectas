@@ -24,7 +24,7 @@ export interface SendEmailOptions {
 export async function sendEmail(options: SendEmailOptions) {
   const client = getResendClient()
   const from =
-    options.from ?? process.env.EMAIL_FROM ?? 'TalentFit <noreply@talentfit.io>'
+    options.from ?? process.env.EMAIL_FROM ?? 'Trajectas <noreply@trajectas.com>'
 
   return client.emails.send({
     from,

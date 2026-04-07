@@ -269,7 +269,7 @@ interface PartnerBrandEditorProps {
 - Same six control sections: Identity, Colors, Surfaces, Typography, Shape
 - Same preview: `surfaces={["dashboard", "questions", "report"]}` with `brandName`/`logoUrl`
 - Same save pattern, same unsaved changes dialog
-- Inherited context card shows "Inherits from TalentFit (platform default)"
+- Inherited context card shows "Inherits from Trajectas (platform default)"
 
 - [ ] **Step 3: Create the admin server page**
 
@@ -279,7 +279,7 @@ Create `src/app/(dashboard)/partners/[slug]/branding/page.tsx`:
 import { notFound } from "next/navigation"
 import { getPartnerBySlug } from "@/app/actions/partners"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { PartnerBrandEditor } from "./partner-brand-editor"
 import type { BrandConfig } from "@/lib/brand/types"
 
@@ -298,7 +298,7 @@ export default async function PartnerBrandingPage({
   ])
 
   const inheritedBrand: BrandConfig =
-    platformRecord?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+    platformRecord?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
 
   return (
     <PartnerBrandEditor
@@ -507,7 +507,7 @@ Read `src/app/(dashboard)/clients/[slug]/branding/page.tsx`. Currently it resolv
 After loading the client, add:
 ```typescript
 // Resolve inherited brand: partner â†’ platform
-let inheritedBrand: BrandConfig = TALENT_FIT_DEFAULTS as BrandConfig
+let inheritedBrand: BrandConfig = TRAJECTAS_DEFAULTS as BrandConfig
 
 if (client.partnerId) {
   const partnerBrand = await getBrandConfig("partner", client.partnerId)
@@ -531,7 +531,7 @@ Read `src/app/client/settings/brand/client/page.tsx`. It has the same pattern â€
 
 After loading the client record, look up `partner_id` and resolve:
 ```typescript
-let inheritedBrand: BrandConfig = TALENT_FIT_DEFAULTS as BrandConfig
+let inheritedBrand: BrandConfig = TRAJECTAS_DEFAULTS as BrandConfig
 
 // Check partner brand first, then platform
 const partnerIdForBrand = client.partner_id ?? null
@@ -541,7 +541,7 @@ if (partnerIdForBrand) {
     inheritedBrand = partnerBrand.config
   }
 }
-if (inheritedBrand === TALENT_FIT_DEFAULTS) {
+if (inheritedBrand === TRAJECTAS_DEFAULTS) {
   const platform = await getPlatformBrand()
   if (platform) inheritedBrand = platform.config
 }
@@ -551,13 +551,13 @@ Note: The client portal page loads the client via an admin DB query (not via `ge
 
 - [ ] **Step 3: Update campaign branding page "Inherits from" display**
 
-Read `src/app/(dashboard)/campaigns/[id]/branding/page.tsx`. It passes `clientName` or "TalentFit (platform default)" as the inheritance source. Update to also check for partner:
+Read `src/app/(dashboard)/campaigns/[id]/branding/page.tsx`. It passes `clientName` or "Trajectas (platform default)" as the inheritance source. Update to also check for partner:
 
-If the client has a partner and the client has no saved brand, the source should show the partner name. If the partner also has no saved brand, show "TalentFit (platform default)".
+If the client has a partner and the client has no saved brand, the source should show the partner name. If the partner also has no saved brand, show "Trajectas (platform default)".
 
 This requires loading the client's `partnerId` and the partner record. Add:
 ```typescript
-let inheritedFrom = "TalentFit (platform default)"
+let inheritedFrom = "Trajectas (platform default)"
 if (clientBrand) {
   inheritedFrom = clientName
 } else if (client.partnerId) {

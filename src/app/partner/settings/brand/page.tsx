@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation"
 import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
 import { canManagePartner, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org"
-import { TALENT_FIT_DEFAULTS } from "@/lib/brand/defaults"
+import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { BrandConfig } from "@/lib/brand/types"
 import { PartnerBrandEditor } from "@/app/(dashboard)/partners/[slug]/branding/partner-brand-editor"
@@ -57,7 +57,7 @@ export default async function PartnerPortalBrandPage() {
   ])
 
   const inheritedBrand: BrandConfig =
-    platformRecord?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+    platformRecord?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
 
   return (
     <PartnerBrandEditor

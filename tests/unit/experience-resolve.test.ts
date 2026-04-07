@@ -78,7 +78,7 @@ describe("experience template resolution", () => {
           buttonLabel: "Continue",
         },
       },
-      privacyUrl: "https://platform.talentfit.test/privacy",
+      privacyUrl: "https://platform.trajectas.test/privacy",
     });
 
     const campaign = createRecord({
@@ -103,7 +103,7 @@ describe("experience template resolution", () => {
           buttonLabel: "Continue",
         },
       },
-      termsUrl: "https://campaign.talentfit.test/terms",
+      termsUrl: "https://campaign.trajectas.test/terms",
     });
 
     const template = resolveTemplate(platform, campaign);
@@ -120,8 +120,8 @@ describe("experience template resolution", () => {
     expect(template.flowConfig.customPages).toEqual([
       { id: "team-fit", label: "Team Fit", enabled: true, order: 32 },
     ]);
-    expect(template.privacyUrl).toBe("https://platform.talentfit.test/privacy");
-    expect(template.termsUrl).toBe("https://campaign.talentfit.test/terms");
+    expect(template.privacyUrl).toBe("https://platform.trajectas.test/privacy");
+    expect(template.termsUrl).toBe("https://campaign.trajectas.test/terms");
   });
 
   it("derives enabled flow order and falls back to default page content", () => {

@@ -275,7 +275,7 @@ export function SectionWrapper({
                 className="text-sm font-semibold tracking-tight"
                 style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
               >
-                {brandName ?? "TalentFit"}
+                {brandName ?? "Trajectas"}
               </span>
             </div>
           )}
@@ -360,7 +360,7 @@ export function SectionWrapper({
             className="ml-4 text-xs"
             style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
           >
-            {runnerContent?.footerText ?? "Powered by TalentFit"}
+            {runnerContent?.footerText ?? "Powered by Trajectas"}
           </span>
         )}
       </footer>

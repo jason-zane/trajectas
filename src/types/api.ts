@@ -1,5 +1,5 @@
 // =============================================================================
-// api.ts — Request / response types for the Talent Fit REST API
+// api.ts — Request / response types for the Trajectas REST API
 // =============================================================================
 
 import type {

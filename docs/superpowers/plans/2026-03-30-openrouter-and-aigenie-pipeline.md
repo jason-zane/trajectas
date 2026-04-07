@@ -81,8 +81,8 @@
     apiKey: process.env.OpenRouter_API_KEY,
     baseURL: OPENROUTER_BASE_URL,
     defaultHeaders: {
-      'HTTP-Referer': 'https://talent-fit.app',
-      'X-Title': 'Talent Fit',
+      'HTTP-Referer': 'https://trajectas.com',
+      'X-Title': 'Trajectas',
     },
   })
   ```
@@ -527,8 +527,8 @@
       apiKey:         process.env.OpenRouter_API_KEY,
       baseURL:        OPENROUTER_BASE_URL,
       defaultHeaders: {
-        'HTTP-Referer': 'https://talent-fit.app',
-        'X-Title':      'Talent Fit',
+        'HTTP-Referer': 'https://trajectas.com',
+        'X-Title':      'Trajectas',
       },
     })
   }

@@ -54,7 +54,7 @@
 ### Modified Files
 
 - `src/lib/brand/types.ts` — add `reportTheme?: ReportTheme` to `BrandConfig`
-- `src/lib/brand/defaults.ts` — add default `reportTheme` to `TALENT_FIT_DEFAULTS`
+- `src/lib/brand/defaults.ts` — add default `reportTheme` to `TRAJECTAS_DEFAULTS`
 - `src/lib/brand/tokens.ts` — call `generateReportCSSTokens` inside `generateCSSTokens`
 - `src/lib/reports/types.ts` — add `presentationMode`, `columns`, `chartType`, `insetAccent` to `BlockConfig`; add `resolvedBrandTheme` to `ResolvedBlockData`
 - `src/lib/reports/registry.ts` — add `supportedModes`, `supportedCharts`, `defaultMode` to each `BlockMeta`
@@ -280,7 +280,7 @@ In `src/lib/brand/types.ts`, import `ReportTheme` from `@/lib/reports/presentati
 reportTheme?: ReportTheme
 ```
 
-- [ ] **Step 2: Add default reportTheme to TALENT_FIT_DEFAULTS**
+- [ ] **Step 2: Add default reportTheme to TRAJECTAS_DEFAULTS**
 
 In `src/lib/brand/defaults.ts`, import `DEFAULT_REPORT_THEME` and add:
 ```typescript
@@ -411,7 +411,7 @@ section_divider: {
 
 Update `cover_page.defaultConfig` to match the new canonical config from the spec:
 ```typescript
-defaultConfig: { showDate: true, subtitle: null, showPrimaryLogo: true, showSecondaryLogo: false, showPoweredBy: false, poweredByText: 'Powered by Talent Fit' }
+defaultConfig: { showDate: true, subtitle: null, showPrimaryLogo: true, showSecondaryLogo: false, showPoweredBy: false, poweredByText: 'Powered by Trajectas' }
 ```
 
 - [ ] **Step 4: Update parseBlocks to set defaults**

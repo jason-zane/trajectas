@@ -111,10 +111,10 @@ export async function WorkspaceShell({
 
   if (supportSessionInfo && actor) {
     // Derive the current path from request headers (Next.js App Router
-    // makes the x-talentfit-route-prefix available from the middleware
+    // makes the x-trajectas-route-prefix available from the middleware
     // rewrite; fall back to the portal name as a coarse-grained label).
     const headerStore = await headers();
-    const requestRoutePrefix = headerStore.get("x-talentfit-route-prefix");
+    const requestRoutePrefix = headerStore.get("x-trajectas-route-prefix");
     const path =
       requestRoutePrefix && requestRoutePrefix !== "/" ? requestRoutePrefix : `/${portal}`;
 
