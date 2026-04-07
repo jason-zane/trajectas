@@ -48,6 +48,9 @@ export function Problem() {
                 const yOffset = charProgress > delay ? -(charProgress - delay) * 60 : 0;
                 const blur = charProgress > delay ? (charProgress - delay) * 8 : 0;
 
+                // Slight random rotation when dissolving
+                const rotate = charProgress > delay ? (charIdx % 2 === 0 ? 1 : -1) * (charProgress - delay) * 12 : 0;
+
                 return (
                   <span
                     key={charIdx}
@@ -55,7 +58,7 @@ export function Problem() {
                     style={{
                       color: progress < 0.5 ? "var(--mk-text-muted)" : "transparent",
                       opacity: charOpacity,
-                      transform: `translateY(${yOffset}px)`,
+                      transform: `translateY(${yOffset}px) rotate(${rotate}deg)`,
                       filter: `blur(${blur}px)`,
                       transition: "color 0.3s",
                     }}
@@ -78,6 +81,11 @@ export function Problem() {
                 const charOpacity = Math.max(0, Math.min(1, (assembleProgress - delay) * 3));
                 const yOffset = assembleProgress > delay ? 0 : 12;
                 const blur = assembleProgress > delay ? 0 : 4;
+                // Spring-like scale: overshoot then settle
+                const rawScale = assembleProgress > delay
+                  ? Math.min(1.06, 0.95 + (assembleProgress - delay) * 0.4)
+                  : 0.95;
+                const scale = rawScale > 1.0 ? 1 + (1.06 - rawScale) * 0.5 : rawScale;
 
                 return (
                   <span
@@ -86,7 +94,7 @@ export function Problem() {
                     style={{
                       color: "var(--mk-primary)",
                       opacity: charOpacity,
-                      transform: `translateY(${yOffset}px)`,
+                      transform: `translateY(${yOffset}px) scale(${scale})`,
                       filter: `blur(${blur}px)`,
                     }}
                   >

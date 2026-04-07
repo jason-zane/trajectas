@@ -76,7 +76,9 @@ export function Journey() {
                     border: "2px solid var(--mk-accent)",
                     opacity: stageProgress,
                     background: stageProgress > 0.8 ? "var(--mk-accent)" : "transparent",
-                    transition: "background 0.3s",
+                    boxShadow: stageProgress > 0.8 ? "0 0 8px var(--mk-accent)" : "none",
+                    transform: `scale(${stageProgress > 0.8 ? 1.3 : 1})`,
+                    transition: "background 0.3s, box-shadow 0.3s, transform 0.3s cubic-bezier(0.22,1,0.36,1)",
                   }}
                 />
               </div>
