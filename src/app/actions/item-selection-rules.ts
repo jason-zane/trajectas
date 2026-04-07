@@ -31,6 +31,27 @@ export async function getItemSelectionRules(): Promise<ItemSelectionRule[]> {
   return (data ?? []).map((row) => mapRuleRow(row as Record<string, unknown>))
 }
 
+/**
+ * Read-only rules for client-side estimate calculations (no admin scope required).
+ * Returns only the fields needed for the factor picker summary bar.
+ */
+export async function getItemSelectionRulesForEstimate(): Promise<
+  Array<{ minConstructs: number; maxConstructs: number | null; itemsPerConstruct: number }>
+> {
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('item_selection_rules')
+    .select('min_constructs, max_constructs, items_per_construct')
+    .order('display_order', { ascending: true })
+
+  if (error) return []
+  return (data ?? []).map((row) => ({
+    minConstructs: Number(row.min_constructs),
+    maxConstructs: row.max_constructs != null ? Number(row.max_constructs) : null,
+    itemsPerConstruct: Number(row.items_per_construct),
+  }))
+}
+
 export async function upsertItemSelectionRules(
   rules: { minConstructs: number; maxConstructs: number | null; itemsPerConstruct: number; displayOrder: number }[]
 ) {

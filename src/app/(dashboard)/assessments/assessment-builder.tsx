@@ -3,7 +3,7 @@
 import { useState, useCallback, useTransition, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Trash2, Info } from "lucide-react"
+import { Trash2, Info, Settings } from "lucide-react"
 import { toast } from "sonner"
 import { DragDropProvider } from "@dnd-kit/react"
 import { move } from "@dnd-kit/helpers"
@@ -25,6 +25,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card"
+import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/page-header"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -40,6 +41,7 @@ import {
   deleteAssessment,
   restoreAssessment,
   updateAssessmentField,
+  updateAssessmentCustomisation,
 } from "@/app/actions/assessments"
 import {
   getItemsPerConstructLimit,
@@ -148,6 +150,15 @@ export function AssessmentBuilder({
 
   // Section state
   const [sections, setSections] = useState<SectionDraft[]>([])
+
+  // Factor customisation state (Zone 1 — immediate save, edit mode only)
+  const [customisationEnabled, setCustomisationEnabled] = useState(
+    assessment?.minCustomFactors != null
+  )
+  const [minCustomFactors, setMinCustomFactors] = useState<number>(
+    assessment?.minCustomFactors ?? 1
+  )
+  const [customisationSaving, setCustomisationSaving] = useState(false)
 
   // UI state
   const [isPending, startTransition] = useTransition()
@@ -326,6 +337,40 @@ export function AssessmentBuilder({
       },
       duration: 5000,
     })
+  }
+
+  async function handleCustomisationToggle(enabled: boolean) {
+    if (!assessment) return
+    setCustomisationSaving(true)
+    setCustomisationEnabled(enabled)
+
+    const value = enabled ? Math.max(1, Math.floor(selectedFactors.length / 2) || 1) : null
+    if (enabled) setMinCustomFactors(value as number)
+
+    const result = await updateAssessmentCustomisation(assessment.id, value)
+    setCustomisationSaving(false)
+
+    if ("error" in result) {
+      toast.error(result.error)
+      setCustomisationEnabled(!enabled)
+    } else {
+      toast.success(enabled ? "Factor customisation enabled" : "Factor customisation disabled")
+    }
+  }
+
+  async function handleMinFactorsChange(value: number) {
+    if (!assessment) return
+    setMinCustomFactors(value)
+    setCustomisationSaving(true)
+
+    const result = await updateAssessmentCustomisation(assessment.id, value)
+    setCustomisationSaving(false)
+
+    if ("error" in result) {
+      toast.error(result.error)
+    } else {
+      toast.success(`Minimum factors updated to ${value}`)
+    }
   }
 
   const saveLabel =
@@ -573,6 +618,78 @@ export function AssessmentBuilder({
         existingBlocks={existingBlocks}
         ruleInfo={ruleInfo}
       />
+
+      {/* Factor Customisation Settings — edit mode only */}
+      {isEditing && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Settings className="size-5 text-muted-foreground" />
+              <CardTitle>Factor Customisation</CardTitle>
+            </div>
+            <CardDescription>
+              Control whether campaign administrators can customise which factors
+              are included when deploying this assessment.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="customisation-toggle" className="text-sm font-medium">
+                  Allow partners to customise factors
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {customisationEnabled
+                    ? "Partners can select a subset of factors for each campaign"
+                    : "Partners must use all factors in this assessment"}
+                </p>
+              </div>
+              <Switch
+                id="customisation-toggle"
+                checked={customisationEnabled}
+                onCheckedChange={handleCustomisationToggle}
+                disabled={customisationSaving}
+              />
+            </div>
+
+            {customisationEnabled && (
+              <>
+                <Separator />
+                <div className="space-y-2">
+                  <Label htmlFor="min-factors">Minimum factors</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="min-factors"
+                      type="number"
+                      min={1}
+                      max={selectedFactors.length || 1}
+                      value={minCustomFactors}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10)
+                        if (!isNaN(val)) setMinCustomFactors(val)
+                      }}
+                      onBlur={() => handleMinFactorsChange(minCustomFactors)}
+                      className="w-24"
+                      disabled={customisationSaving}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      of {selectedFactors.length} factor{selectedFactors.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
+                    <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Partners must select at least this many factors when customising
+                      the assessment for a campaign. Set to the total factor count to
+                      prevent any removal.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Sticky Action Bar */}
       <div className="sticky bottom-0 z-10 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-sm border-t">

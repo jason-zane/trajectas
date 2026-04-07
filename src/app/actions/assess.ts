@@ -13,6 +13,7 @@ import {
   requireParticipantRuntimeSessionAccess,
 } from '@/lib/auth/participant-runtime'
 import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
+import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import {
   mapCampaignRow,
   mapCampaignParticipantRow,
@@ -128,7 +129,7 @@ export async function validateAccessToken(
   // Load campaign assessments
   const { data: caRows, error: campaignAssessmentsError } = await db
     .from('campaign_assessments')
-    .select('*, assessments(id, name, description, assessment_sections(count))')
+    .select('*, assessments(id, title, description, assessment_sections(count))')
     .eq('campaign_id', campaign.id)
     .order('display_order', { ascending: true })
 
@@ -141,7 +142,7 @@ export async function validateAccessToken(
   const assessments = (caRows ?? []).map((r: any) => ({
     ...mapCampaignAssessmentRow(r),
     id: r.assessments?.id ?? r.assessment_id,
-    title: r.assessments?.name ?? 'Untitled',
+    title: r.assessments?.title ?? 'Untitled',
     description: r.assessments?.description ?? undefined,
     sectionCount: r.assessments?.assessment_sections?.[0]?.count ?? 0,
   }))
@@ -271,7 +272,7 @@ export async function getSessionState(token: string, sessionId: string) {
         id,
         item_id,
         display_order,
-        items(id, stem, item_options(id, label, value, display_order))
+        items(id, stem, construct_id, purpose, selection_priority, item_options(id, label, value, display_order))
       )
     `)
     .eq('assessment_id', session.assessment_id)
@@ -282,39 +283,170 @@ export async function getSessionState(token: string, sessionId: string) {
     return { error: 'Unable to load this assessment right now' }
   }
 
+  // -------------------------------------------------------------------------
+  // Resolve custom factor selection for this campaign-assessment
+  // -------------------------------------------------------------------------
+  const { data: campaignAssessment } = await db
+    .from('campaign_assessments')
+    .select('id')
+    .eq('campaign_id', session.campaign_id)
+    .eq('assessment_id', session.assessment_id)
+    .maybeSingle()
+
+  let allowedConstructIds: Set<string> | null = null
+  let itemsPerConstruct: number | null = null
+
+  if (campaignAssessment) {
+    const { data: factorRows } = await db
+      .from('campaign_assessment_factors')
+      .select('factor_id')
+      .eq('campaign_assessment_id', campaignAssessment.id)
+
+    if (factorRows && factorRows.length > 0) {
+      const selectedFactorIds = new Set(factorRows.map(r => r.factor_id))
+
+      // Get constructs that belong to selected factors (scoped to this assessment)
+      const { data: assessmentFactorIds } = await db
+        .from('assessment_factors')
+        .select('factor_id')
+        .eq('assessment_id', session.assessment_id)
+
+      const assessmentFactorSet = new Set(
+        (assessmentFactorIds ?? []).map(af => af.factor_id)
+      )
+
+      const { data: fcLinks } = await db
+        .from('factor_constructs')
+        .select('construct_id, factor_id')
+        .in('factor_id', Array.from(assessmentFactorSet))
+
+      if (fcLinks) {
+        allowedConstructIds = new Set(
+          fcLinks
+            .filter(fc => selectedFactorIds.has(fc.factor_id))
+            .map(fc => fc.construct_id)
+        )
+
+        // Look up items-per-construct limit from the item_selection_rules table
+        itemsPerConstruct = await getItemsPerConstructForCount(allowedConstructIds.size)
+      }
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sections: SectionForRunner[] = (sectionRows ?? []).map((s: any) => ({
-    id: s.id,
-    title: s.title,
-    instructions: s.instructions ?? undefined,
-    displayOrder: s.display_order,
-    responseFormatId: s.response_format_id,
-    responseFormatType: s.response_formats?.type ?? 'likert',
-    responseFormatConfig: s.response_formats?.config ?? {},
-    itemOrdering: s.item_ordering,
-    itemsPerPage: s.items_per_page ?? undefined,
-    timeLimitSeconds: s.time_limit_seconds ?? undefined,
-    allowBackNav: s.allow_back_nav,
-    items: (s.assessment_section_items ?? [])
+  const sections: SectionForRunner[] = (sectionRows ?? []).map((s: any) => {
+    const formatConfig = s.response_formats?.config ?? {}
+    const formatType = s.response_formats?.type ?? 'likert'
+
+    // Derive fallback options from response format anchors when item_options is empty.
+    // This handles AI-generated items that have stems but no per-item options.
+    function deriveOptionsFromFormat() {
+      if (formatType === 'likert' && formatConfig.anchors) {
+        const anchors = formatConfig.anchors as Record<string, string>
+        return Object.entries(anchors)
+          .map(([val, label]) => ({
+            id: `rf-${val}`,
+            label,
+            value: Number(val),
+            sortOrder: Number(val),
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+      }
+      return []
+    }
+
+    const fallbackOptions = deriveOptionsFromFormat()
+
+    // Sort section items by display_order first
+    let sectionItems = (s.assessment_section_items ?? [])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .sort((a: any, b: any) => a.display_order - b.display_order)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((si: any) => ({
-        id: si.items?.id ?? si.item_id,
-        stem: si.items?.stem ?? '',
-        displayOrder: si.display_order,
-        options: (si.items?.item_options ?? [])
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
+    // Filter items by campaign factor selection when active
+    if (allowedConstructIds) {
+      sectionItems = sectionItems.filter((si: any) => {
+        const item = si.items
+        // Always include non-construct items (attention checks, impression management, infrequency)
+        if (item?.purpose && item.purpose !== 'construct') return true
+        // Include if construct belongs to a selected factor
+        return item?.construct_id && allowedConstructIds!.has(item.construct_id)
+      })
+
+      // Apply per-construct item count scaling
+      if (itemsPerConstruct !== null) {
+        // Sort construct items by selection_priority (lower = higher priority)
+        // within each construct group, then apply limit
+        const constructItemCounts = new Map<string, number>()
+
+        // Pre-sort: items with lower selection_priority come first within
+        // their construct group so they survive the per-construct cap.
+        // Non-construct items stay in display_order position.
+        const constructItems = sectionItems.filter(
+          (si: any) => (!si.items?.purpose || si.items.purpose === 'construct') && si.items?.construct_id
+        )
+        const nonConstructItems = sectionItems.filter(
+          (si: any) => si.items?.purpose && si.items.purpose !== 'construct'
+        )
+
+        // Sort construct items by selection_priority (nulls last)
+        constructItems.sort((a: any, b: any) => {
+          const pa = a.items?.selection_priority ?? 999
+          const pb = b.items?.selection_priority ?? 999
+          return pa - pb
+        })
+
+        // Apply per-construct limit
+        const keptConstructItems = constructItems.filter((si: any) => {
+          const key = si.items.construct_id
+          const count = constructItemCounts.get(key) ?? 0
+          if (count >= itemsPerConstruct!) return false
+          constructItemCounts.set(key, count + 1)
+          return true
+        })
+
+        // Recombine: non-construct items + kept construct items, re-sorted by display_order
+        sectionItems = [...nonConstructItems, ...keptConstructItems]
           .sort((a: any, b: any) => a.display_order - b.display_order)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((o: any) => ({
-            id: o.id,
-            label: o.label,
-            value: o.value,
-            sortOrder: o.display_order,
-          })),
-      })),
-  }))
+      }
+    }
+
+    return {
+      id: s.id,
+      title: s.title,
+      instructions: s.instructions ?? undefined,
+      displayOrder: s.display_order,
+      responseFormatId: s.response_format_id,
+      responseFormatType: formatType,
+      responseFormatConfig: formatConfig,
+      itemOrdering: s.item_ordering,
+      itemsPerPage: s.items_per_page ?? undefined,
+      timeLimitSeconds: s.time_limit_seconds ?? undefined,
+      allowBackNav: s.allow_back_nav,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      items: sectionItems.map((si: any) => {
+          const itemOptions = (si.items?.item_options ?? [])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .sort((a: any, b: any) => a.display_order - b.display_order)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((o: any) => ({
+              id: o.id,
+              label: o.label,
+              value: o.value,
+              sortOrder: o.display_order,
+            }))
+
+          return {
+            id: si.items?.id ?? si.item_id,
+            stem: si.items?.stem ?? '',
+            displayOrder: si.display_order,
+            options: itemOptions.length > 0 ? itemOptions : fallbackOptions,
+          }
+        }),
+    }
+  })
+
+  // Filter out sections that have no items after factor filtering
+  .filter(s => s.items.length > 0)
 
   // Load existing responses
   const { data: responseRows, error: responseRowsError } = await db

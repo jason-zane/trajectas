@@ -35,8 +35,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
-!.env.test.example
 !.env.e2e.example
+
+# MCP config (contains access tokens)
+.mcp.json
 
 # vercel
 .vercel

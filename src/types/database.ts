@@ -719,6 +719,8 @@ export interface Assessment {
   matchingRunId?: string
   /** Intro screen content shown before the assessment runner. */
   introContent?: AssessmentIntroContent | null
+  /** Minimum number of factors a campaign must select when customising this assessment (NULL = no customisation). */
+  minCustomFactors: number | null
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -1538,6 +1540,20 @@ export interface CampaignAssessment {
   isRequired: boolean
   /** Campaign-level override for the assessment intro screen. */
   introOverride?: IntroOverride
+  created_at: string
+}
+
+/**
+ * Junction linking a campaign-assessment to a specific factor,
+ * used when the campaign customises which factors are measured.
+ */
+export interface CampaignAssessmentFactor {
+  /** UUID primary key. */
+  id: string
+  /** Parent campaign-assessment junction row. */
+  campaignAssessmentId: string
+  /** Selected factor. */
+  factorId: string
   created_at: string
 }
 

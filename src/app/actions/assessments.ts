@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { getAccessibleCampaignIds, requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
-import { throwActionError } from '@/lib/security/action-errors'
+import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
@@ -151,7 +151,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   let query = db
     .from('campaign_assessments')
     .select(
-      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, name, description, status, client_id, updated_at)'
+      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, title, description, status, client_id, updated_at)'
     )
     .order('created_at', { ascending: false })
 
@@ -206,7 +206,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 
   for (const row of data ?? []) {
     const assessmentRow = getRelatedRecord(row.assessments)
-    if (!assessmentRow?.id || !assessmentRow?.name) {
+    if (!assessmentRow?.id || !assessmentRow?.title) {
       continue
     }
 
@@ -252,7 +252,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 
     summaries.set(assessmentId, {
       id: assessmentId,
-      title: String(assessmentRow.name),
+      title: String(assessmentRow.title),
       description: assessmentRow.description ? String(assessmentRow.description) : undefined,
       status: assessmentRow.status as Assessment['status'],
       clientId: assessmentRow.client_id ? String(assessmentRow.client_id) : undefined,
@@ -703,6 +703,53 @@ export async function updateAssessmentField(id: string, field: string, value: st
     targetId: id,
     metadata: { field },
   })
+}
+
+/**
+ * Update factor customisation settings for an assessment (Zone 1 — immediate save).
+ * Pass `null` to disable customisation; pass a number to set the minimum.
+ */
+export async function updateAssessmentCustomisation(
+  assessmentId: string,
+  minCustomFactors: number | null
+): Promise<{ success: true } | { error: string }> {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+
+  if (minCustomFactors !== null) {
+    // Validate: get factor count for this assessment
+    const { count } = await db
+      .from('assessment_factors')
+      .select('*', { count: 'exact', head: true })
+      .eq('assessment_id', assessmentId)
+
+    if (minCustomFactors < 1) {
+      return { error: 'Minimum must be at least 1' }
+    }
+    if (count !== null && minCustomFactors > count) {
+      return { error: `Minimum cannot exceed the ${count} factors in this assessment` }
+    }
+  }
+
+  const { error } = await db
+    .from('assessments')
+    .update({ min_custom_factors: minCustomFactors })
+    .eq('id', assessmentId)
+
+  if (error) {
+    logActionError('updateAssessmentCustomisation', error)
+    return { error: 'Unable to update customisation settings.' }
+  }
+
+  revalidatePath('/assessments')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.customisation.updated',
+    targetTable: 'assessments',
+    targetId: assessmentId,
+    metadata: { minCustomFactors },
+  })
+  return { success: true }
 }
 
 // ---------------------------------------------------------------------------
