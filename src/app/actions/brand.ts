@@ -6,6 +6,7 @@ import {
   assertAdminOnly,
   AuthorizationError,
   canManageClient,
+  requireAdminScope,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -119,6 +120,15 @@ export async function getEffectiveBrandRecord(
   }
 
   return null
+}
+
+/**
+ * Get the effective brand for a client, for use in admin preview contexts.
+ * Can be called from client components.
+ */
+export async function getClientBrandForPreview(clientId: string): Promise<BrandConfig> {
+  await requireAdminScope()
+  return getEffectiveBrand(clientId)
 }
 
 // ---------------------------------------------------------------------------

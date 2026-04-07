@@ -1,12 +1,13 @@
 "use client"
 
-import { useState, useTransition, useRef, useCallback } from "react"
+import { useState, useTransition, useRef, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { upsertExperienceTemplate, resetExperienceToDefault } from "@/app/actions/experience"
+import { getClientBrandForPreview } from "@/app/actions/brand"
 import {
   DEFAULT_PAGE_CONTENT,
   DEFAULT_FLOW_CONFIG,
@@ -35,6 +36,7 @@ interface FlowEditorProps {
   ownerId?: string | null
   platformTemplate?: ExperienceTemplateRecord | null
   brandConfig?: BrandConfig | null
+  clients?: Array<{ id: string; name: string }>
 }
 
 type SaveState = "idle" | "saving" | "saved"
@@ -49,6 +51,7 @@ export function FlowEditor({
   ownerId = null,
   platformTemplate = null,
   brandConfig = null,
+  clients,
 }: FlowEditorProps) {
   const isCampaign = ownerType === "campaign"
 
@@ -101,6 +104,23 @@ export function FlowEditor({
   const [, startTransition] = useTransition()
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const [previewClientId, setPreviewClientId] = useState<string | null>(null)
+  const [previewBrand, setPreviewBrand] = useState<BrandConfig | null>(null)
+  const [isBrandLoading, startBrandTransition] = useTransition()
+
+  useEffect(() => {
+    if (!previewClientId) {
+      setPreviewBrand(null)
+      return
+    }
+    startBrandTransition(async () => {
+      const brand = await getClientBrandForPreview(previewClientId)
+      setPreviewBrand(brand)
+    })
+  }, [previewClientId])
+
+  const effectiveBrandConfig = previewBrand ?? brandConfig
 
   const [selectedPageId, setSelectedPageId] = useState("welcome")
   const [showPreview, setShowPreview] = useState(true)
@@ -244,11 +264,11 @@ export function FlowEditor({
       pageContent,
       flowConfig,
       customPageContent,
-      brandConfig,
+      brandConfig: effectiveBrandConfig,
     }
     localStorage.setItem("tf-experience-preview", JSON.stringify(previewData))
     window.open("/preview/experience", "_blank")
-  }, [pageContent, flowConfig, customPageContent, brandConfig])
+  }, [pageContent, flowConfig, customPageContent, effectiveBrandConfig])
 
   // --- Save ---
   async function handleSave() {
@@ -388,15 +408,33 @@ export function FlowEditor({
 
         {/* Right: Preview panel */}
         {showPreview && (
-          <div className="w-[380px] shrink-0 overflow-hidden">
-            <PagePreviewFrame
-              pageId={selectedPageId}
-              pageContent={pageContent}
-              flowConfig={flowConfig}
-              customPageContent={customPageContent}
-              brandConfig={brandConfig}
-              onPreviewFlow={openFlowPreview}
-            />
+          <div className="w-[380px] shrink-0 overflow-hidden flex flex-col">
+            {clients && clients.length > 0 && (
+              <div className="flex items-center gap-2 mb-3">
+                <label className="text-xs text-muted-foreground">Preview as:</label>
+                <select
+                  value={previewClientId ?? ""}
+                  onChange={(e) => setPreviewClientId(e.target.value || null)}
+                  className="rounded-md border border-input bg-transparent px-2 py-1 text-xs"
+                >
+                  <option value="">Platform (default)</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {isBrandLoading && <span className="text-xs text-muted-foreground">Loading...</span>}
+              </div>
+            )}
+            <div className="flex-1 min-h-0">
+              <PagePreviewFrame
+                pageId={selectedPageId}
+                pageContent={pageContent}
+                flowConfig={flowConfig}
+                customPageContent={customPageContent}
+                brandConfig={effectiveBrandConfig}
+                onPreviewFlow={openFlowPreview}
+              />
+            </div>
           </div>
         )}
       </div>
