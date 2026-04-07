@@ -117,10 +117,10 @@ describe('renderEmailHtml', () => {
 
   it('returns html and text from the full pipeline', async () => {
     mocks.mailyRender.mockResolvedValueOnce('<p>Hello from Maily</p>')
-    mocks.reactEmailRender.mockResolvedValueOnce({
-      html: '<html>Final HTML</html>',
-      text: 'Final plain text',
-    })
+    // render() is called twice: once for HTML, once for plain text
+    mocks.reactEmailRender
+      .mockResolvedValueOnce('<html>Final HTML</html>')
+      .mockResolvedValueOnce('Final plain text')
 
     const result = await renderEmailHtml({
       editorJson: sampleEditorJson,
@@ -134,7 +134,9 @@ describe('renderEmailHtml', () => {
 
   it('sanitizes the Maily-rendered HTML via DOMPurify', async () => {
     mocks.mailyRender.mockResolvedValueOnce('<p>Hello</p>')
-    mocks.reactEmailRender.mockResolvedValueOnce({ html: '<html></html>', text: '' })
+    mocks.reactEmailRender
+      .mockResolvedValueOnce('<html></html>')
+      .mockResolvedValueOnce('')
 
     await renderEmailHtml({
       editorJson: sampleEditorJson,
@@ -147,11 +149,10 @@ describe('renderEmailHtml', () => {
 
   it('substitutes merge variables in rendered body', async () => {
     mocks.mailyRender.mockResolvedValueOnce('<p>Hello, {{firstName}}!</p>')
-    mocks.reactEmailRender.mockImplementationOnce(
-      async (element: { props: { bodyHtml: string } }) => ({
-        html: element.props.bodyHtml,
-        text: element.props.bodyHtml,
-      }),
+    // render() is called twice: once for HTML (returns the bodyHtml), once for plain text
+    mocks.reactEmailRender.mockImplementation(
+      async (element: { props: { bodyHtml: string } }) =>
+        element.props.bodyHtml,
     )
 
     const result = await renderEmailHtml({
@@ -162,11 +163,14 @@ describe('renderEmailHtml', () => {
 
     expect(result.html).toContain('Taylor')
     expect(result.html).not.toContain('{{firstName}}')
+    mocks.reactEmailRender.mockReset()
   })
 
   it('passes brand props through to the frame', async () => {
     mocks.mailyRender.mockResolvedValueOnce('<p>Content</p>')
-    mocks.reactEmailRender.mockResolvedValueOnce({ html: '<html></html>', text: '' })
+    mocks.reactEmailRender
+      .mockResolvedValueOnce('<html></html>')
+      .mockResolvedValueOnce('')
 
     await renderEmailHtml({
       editorJson: sampleEditorJson,
@@ -180,6 +184,7 @@ describe('renderEmailHtml', () => {
       },
     })
 
-    expect(mocks.reactEmailRender).toHaveBeenCalledTimes(1)
+    // render() is called twice: once for HTML, once for plain text
+    expect(mocks.reactEmailRender).toHaveBeenCalledTimes(2)
   })
 })

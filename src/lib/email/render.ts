@@ -67,7 +67,7 @@ export async function renderEmailHtml(
   const { editorJson, variables, brand, previewText } = options
 
   // Step 1: Render Maily editor JSON to body HTML
-  const maily = new Maily(editorJson as Parameters<typeof Maily>[0])
+  const maily = new Maily(editorJson as ConstructorParameters<typeof Maily>[0])
   const mailyHtml = await maily.render()
 
   // Step 2: Sanitize the rendered body HTML (server-side DOMPurify)
@@ -97,7 +97,8 @@ export async function renderEmailHtml(
   })
 
   // Step 6: Render to final HTML + plain text
-  const { html, text } = await render(frameElement)
+  const html = await render(frameElement)
+  const text = await render(frameElement, { plainText: true })
 
   return { html, text }
 }
