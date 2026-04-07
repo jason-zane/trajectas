@@ -854,7 +854,7 @@ export async function sendParticipantInviteEmail(
       .single(),
     db
       .from('campaigns')
-      .select('title, description, client_id')
+      .select('title, description, client_id, partner_id')
       .eq('id', campaignId)
       .single(),
   ])
@@ -869,28 +869,24 @@ export async function sendParticipantInviteEmail(
   const participant = participantResult.data
   const campaign = campaignResult.data
 
-  const { getEffectiveBrand } = await import('@/app/actions/brand')
-  const brand = await getEffectiveBrand(campaign.client_id, campaignId)
-  const assessmentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/assess/${participant.access_token}`
+  const assessBaseUrl = process.env.NEXT_PUBLIC_APP_URL
 
   try {
-    const { sendEmail } = await import('@/lib/email/provider')
-    const { InviteEmail } = await import('@/lib/email/templates/invite')
+    const { sendEmail } = await import('@/lib/email/send')
 
     await sendEmail({
+      type: 'assessment_invite',
       to: participant.email,
-      subject: `You've been invited: ${campaign.title}`,
-      react: InviteEmail({
-        participantFirstName: participant.first_name ?? undefined,
+      variables: {
+        participantFirstName: participant.first_name ?? '',
         campaignTitle: campaign.title,
-        campaignDescription: campaign.description ?? undefined,
-        assessmentUrl,
-        brandName: brand.name ?? 'Trajectas',
-        brandLogoUrl: brand.logoUrl ?? undefined,
-        primaryColor: brand.primaryColor,
-        textColor: brand.emailStyles?.textColor,
-        footerTextColor: brand.emailStyles?.footerTextColor,
-      }),
+        campaignDescription: campaign.description ?? '',
+        assessmentUrl: `${assessBaseUrl}/assess/${participant.access_token}`,
+        brandName: 'Trajectas',
+      },
+      scopeCampaignId: campaignId,
+      scopeClientId: campaign.client_id,
+      scopePartnerId: campaign.partner_id ?? undefined,
     })
 
     // Update invited_at to track last send time

@@ -1,8 +1,5 @@
-import { getEffectiveBrand } from '@/app/actions/brand'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
-import { sendEmail } from '@/lib/email/provider'
-import { InviteEmail } from '@/lib/email/templates/invite'
 import { enqueueIntegrationEvent } from '@/lib/integrations/events'
 import { IntegrationApiError } from '@/lib/integrations/errors'
 import type {
@@ -255,24 +252,24 @@ async function sendIntegrationInviteEmail(input: {
   campaignTitle: string
   campaignDescription?: string
   clientId: string
+  partnerId?: string
   assessmentUrl: string
 }) {
-  const brand = await getEffectiveBrand(input.clientId, input.campaignId)
+  const { sendEmail } = await import('@/lib/email/send')
 
   await sendEmail({
+    type: 'assessment_invite',
     to: input.email,
-    subject: `You've been invited: ${input.campaignTitle}`,
-    react: InviteEmail({
-      participantFirstName: input.firstName,
+    variables: {
+      participantFirstName: input.firstName ?? '',
       campaignTitle: input.campaignTitle,
-      campaignDescription: input.campaignDescription,
+      campaignDescription: input.campaignDescription ?? '',
       assessmentUrl: input.assessmentUrl,
-      brandName: brand.name ?? 'Trajectas',
-      brandLogoUrl: brand.logoUrl ?? undefined,
-      primaryColor: brand.primaryColor,
-      textColor: brand.emailStyles?.textColor,
-      footerTextColor: brand.emailStyles?.footerTextColor,
-    }),
+      brandName: 'Trajectas',
+    },
+    scopeCampaignId: input.campaignId,
+    scopeClientId: input.clientId,
+    scopePartnerId: input.partnerId,
   })
 
   const db = createAdminClient()
@@ -619,6 +616,7 @@ export async function createIntegrationLaunch(
         campaignTitle: campaign.title,
         campaignDescription: campaign.description,
         clientId: context.clientId,
+        partnerId: campaign.partnerId,
         assessmentUrl,
       })
 
