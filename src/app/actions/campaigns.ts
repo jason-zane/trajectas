@@ -36,7 +36,7 @@ export type CampaignWithMeta = Campaign & {
 }
 
 export type CampaignDetail = Campaign & {
-  assessments: (CampaignAssessment & { assessmentTitle: string; assessmentStatus: string })[]
+  assessments: (CampaignAssessment & { assessmentTitle: string; assessmentStatus: string; minCustomFactors: number | null })[]
   participants: CampaignParticipant[]
   accessLinks: CampaignAccessLink[]
   clientName?: string
@@ -156,7 +156,7 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
   // Load assessments with titles
   const { data: assessmentRows } = await db
     .from('campaign_assessments')
-    .select('*, assessments(title, status)')
+    .select('*, assessments(title, status, min_custom_factors)')
     .eq('campaign_id', id)
     .order('display_order', { ascending: true })
 
@@ -182,6 +182,7 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
       ...mapCampaignAssessmentRow(r),
       assessmentTitle: r.assessments?.title ?? 'Untitled',
       assessmentStatus: r.assessments?.status ?? 'draft',
+      minCustomFactors: r.assessments?.min_custom_factors ?? null,
     })),
     participants: (participantRows ?? []).map(mapCampaignParticipantRow),
     accessLinks: (linkRows ?? []).map(mapCampaignAccessLinkRow),
