@@ -355,6 +355,7 @@ export function mapAssessmentRow(row: any): Assessment {
     fcBlockSize: row.fc_block_size != null ? Number(row.fc_block_size) : undefined,
     matchingRunId: row.matching_run_id ?? undefined,
     introContent: row.intro_content ?? null,
+    minCustomFactors: row.min_custom_factors ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -373,6 +374,7 @@ export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 
     format_mode: a.formatMode ?? 'traditional',
     fc_block_size: a.fcBlockSize ?? null,
     intro_content: a.introContent ?? null,
+    min_custom_factors: a.minCustomFactors ?? null,
   }
 }
 
