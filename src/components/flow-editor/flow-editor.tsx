@@ -19,6 +19,8 @@ import { PageContentEditor } from "./page-content-editor"
 import { PagePreviewFrame } from "./page-preview-frame"
 // FlowPreviewDialog kept as file but replaced by full-page preview in new tab
 import { AddPageDialog } from "./add-page-dialog"
+import { AssessmentIntroOverrides } from "./assessment-intro-overrides"
+import type { CampaignAssessmentIntro } from "@/app/actions/assessment-intro"
 import type { BrandConfig } from "@/lib/brand/types"
 import type {
   ExperienceTemplateRecord,
@@ -37,6 +39,7 @@ interface FlowEditorProps {
   platformTemplate?: ExperienceTemplateRecord | null
   brandConfig?: BrandConfig | null
   clients?: Array<{ id: string; name: string }>
+  campaignAssessments?: CampaignAssessmentIntro[]
 }
 
 type SaveState = "idle" | "saving" | "saved"
@@ -52,6 +55,7 @@ export function FlowEditor({
   platformTemplate = null,
   brandConfig = null,
   clients,
+  campaignAssessments,
 }: FlowEditorProps) {
   const isCampaign = ownerType === "campaign"
 
@@ -404,6 +408,14 @@ export function FlowEditor({
             onUpdatePrivacyUrl={setPrivacyUrl}
             onUpdateTermsUrl={setTermsUrl}
           />
+
+          {/* Campaign assessment intro overrides — shown in the runner page */}
+          {isCampaign && selectedPageId === "runner" && campaignAssessments && campaignAssessments.length > 0 && ownerId && (
+            <AssessmentIntroOverrides
+              campaignId={ownerId}
+              assessments={campaignAssessments}
+            />
+          )}
         </div>
 
         {/* Right: Preview panel */}
