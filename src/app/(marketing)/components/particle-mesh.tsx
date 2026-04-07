@@ -60,8 +60,10 @@ export function ParticleMesh({
   const transitionStartRef = useRef(0);
   const transitionDuration = 600;
 
-  // Store mouse in ref to avoid re-render-driven animation restarts
-  mouseRef.current = mousePosition;
+  // Sync mouse position to ref (avoids re-render-driven animation restarts)
+  useEffect(() => {
+    mouseRef.current = mousePosition;
+  }, [mousePosition]);
 
   // Smooth config transition when section changes
   useEffect(() => {

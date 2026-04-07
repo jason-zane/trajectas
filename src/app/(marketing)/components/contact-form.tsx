@@ -16,7 +16,7 @@ export function ContactForm() {
           ✓
         </div>
         <p className="text-lg font-bold" style={{ color: "var(--mk-text-on-dark)" }}>
-          We'll be in touch.
+          We&apos;ll be in touch.
         </p>
       </div>
     );

@@ -9,10 +9,10 @@ export function Contact() {
           className="mk-display max-w-2xl font-[family-name:var(--font-display)]"
           style={{ color: "var(--mk-text-on-dark)" }}
         >
-          Let's talk about what contextual assessment looks like for your organisation.
+          Let&apos;s talk about what contextual assessment looks like for your organisation.
         </h2>
         <p className="mk-body mt-4 mb-12" style={{ color: "var(--mk-text-on-dark-muted)" }}>
-          Tell us what you're working on.
+          Tell us what you&apos;re working on.
         </p>
         <ContactForm />
       </div>

@@ -317,7 +317,7 @@ export function BuiltFor() {
         <Panel
           eyebrow="Use case"
           title="Capability mapping"
-          body="See where strengths concentrate and where gaps hide. Map your people against the competency frameworks you've defined, and turn the results into development plans that connect to business outcomes."
+          body="See where strengths concentrate and where gaps hide. Map your people against the competency frameworks you&apos;ve defined, and turn the results into development plans that connect to business outcomes."
           reverse={true}
           visual={(animate) => <CapabilityVisual animate={animate} />}
         />
