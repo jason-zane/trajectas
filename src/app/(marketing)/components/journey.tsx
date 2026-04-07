@@ -20,8 +20,8 @@ export function Journey() {
           background: `color-mix(in srgb, var(--mk-bg) ${Math.round((1 - progress) * 100)}%, var(--mk-primary-dark))`,
         }}
       >
-        {/* Central trajectory line */}
-        <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2">
+        {/* Central trajectory line — hidden on mobile */}
+        <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2 hidden md:block">
           <div
             className="w-full origin-top"
             style={{
@@ -33,7 +33,7 @@ export function Journey() {
         </div>
 
         {/* Stages */}
-        <div className="relative flex h-[70%] w-full max-w-4xl flex-col justify-between px-8">
+        <div className="relative flex h-[70%] w-full max-w-4xl flex-col justify-between px-4 md:px-8">
           {STAGES.map((stage, i) => {
             const stageStart = i * 0.25;
             const stageProgress = Math.max(0, Math.min(1, (progress - stageStart) / 0.2));
@@ -43,17 +43,17 @@ export function Journey() {
             return (
               <div
                 key={i}
-                className="flex items-center"
+                className="flex items-center md:items-center"
                 style={{
                   justifyContent: isLeft ? "flex-start" : "flex-end",
                   opacity: stageProgress,
                   transform: `translateX(${(isLeft ? -1 : 1) * (1 - stageProgress) * 30}px)`,
                 }}
               >
-                <div className="max-w-xs" style={{ textAlign: isLeft ? "right" : "left" }}>
+                <div className="max-w-xs md:max-w-sm" style={{ textAlign: isLeft ? "right" : "left" }}>
                   <div className="mk-mono" style={{ color: "var(--mk-accent)" }}>{stage.num}</div>
                   <h3
-                    className="mt-1 text-xl font-bold"
+                    className="mt-1 text-lg font-bold md:text-xl"
                     style={{ color: isLightBg ? "var(--mk-text)" : "var(--mk-text-on-dark)" }}
                   >
                     {stage.title}
@@ -66,9 +66,9 @@ export function Journey() {
                   </p>
                 </div>
 
-                {/* Dot on center line */}
+                {/* Dot on center line — hidden on mobile */}
                 <div
-                  className="absolute left-1/2 -translate-x-1/2"
+                  className="absolute left-1/2 -translate-x-1/2 hidden md:block"
                   style={{
                     width: 12,
                     height: 12,

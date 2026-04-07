@@ -16,7 +16,8 @@ export function Nav() {
 
   return (
     <nav
-      className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-8 py-5 transition-all duration-200"
+      aria-label="Main navigation"
+      className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-4 py-4 md:px-8 md:py-5 transition-all duration-200"
       style={{
         backgroundColor: scrolled ? "rgba(30, 74, 62, 0.92)" : "transparent",
         backdropFilter: scrolled ? "blur(12px) saturate(180%)" : "none",

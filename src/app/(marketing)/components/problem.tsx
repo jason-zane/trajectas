@@ -29,6 +29,7 @@ export function Problem() {
     <section
       ref={ref}
       data-section="problem"
+      aria-label="Why generic assessment fails — and what replaces it"
       className="relative"
       style={{ minHeight: "200vh" }}
     >

@@ -34,9 +34,11 @@ export function ContactForm() {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
-          <label className="mk-eyebrow mb-2 block text-[9px]">Name</label>
+          <label htmlFor="contact-name" className="mk-eyebrow mb-2 block text-[9px]">Name</label>
           <input
+            id="contact-name"
             name="name"
+            autoComplete="name"
             required
             className="w-full border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
@@ -45,10 +47,12 @@ export function ContactForm() {
         </div>
 
         <div>
-          <label className="mk-eyebrow mb-2 block text-[9px]">Email</label>
+          <label htmlFor="contact-email" className="mk-eyebrow mb-2 block text-[9px]">Email</label>
           <input
+            id="contact-email"
             name="email"
             type="email"
+            autoComplete="email"
             required
             className="w-full border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
@@ -57,17 +61,20 @@ export function ContactForm() {
         </div>
 
         <div className="col-span-1 md:col-span-2">
-          <label className="mk-eyebrow mb-2 block text-[9px]">Company</label>
+          <label htmlFor="contact-company" className="mk-eyebrow mb-2 block text-[9px]">Company</label>
           <input
+            id="contact-company"
             name="company"
+            autoComplete="organization"
             className="w-full border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
           />
         </div>
 
         <div className="col-span-1 md:col-span-2">
-          <label className="mk-eyebrow mb-2 block text-[9px]">Message</label>
+          <label htmlFor="contact-message" className="mk-eyebrow mb-2 block text-[9px]">Message</label>
           <textarea
+            id="contact-message"
             name="message"
             required
             rows={4}
