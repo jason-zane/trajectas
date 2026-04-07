@@ -34,7 +34,6 @@ function buildCallbackPath(next?: string | null, invite?: string | null) {
 async function sendMagicLink(email: string, redirectPath: string) {
   const supabase = await createServerSupabaseClient()
   const base =
-    process.env.PUBLIC_APP_URL ??
     process.env.ADMIN_APP_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     'http://localhost:3002'
