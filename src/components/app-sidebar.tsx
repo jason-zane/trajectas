@@ -26,6 +26,7 @@ import {
   LayoutTemplate,
   Settings,
   ArrowLeft,
+  Mail,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -177,6 +178,7 @@ const settingsNav: NavSection[] = [
       { title: "Brand", href: "/settings/brand", icon: Palette },
       { title: "Experience", href: "/settings/experience", icon: Users },
       { title: "AI Configuration", href: "/settings/ai", icon: Cpu },
+      { title: "Email Templates", href: "/settings/email-templates", icon: Mail },
     ],
   },
 ];
