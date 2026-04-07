@@ -3,6 +3,7 @@
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { buildMagicLinkRedirectUrl } from '@/lib/auth/magic-link'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getInviteByToken } from '@/lib/auth/staff-auth'
 
@@ -35,18 +36,19 @@ function buildCallbackPath(next?: string | null, invite?: string | null) {
 async function sendMagicLink(email: string, redirectPath: string) {
   const supabase = await createServerSupabaseClient()
   const headerStore = await headers()
-  const origin = headerStore.get('origin') ?? headerStore.get('referer')
-  const base = origin
-    ? new URL(origin).origin
-    : process.env.ADMIN_APP_URL ??
-      process.env.NEXT_PUBLIC_APP_URL ??
-      'http://localhost:3002'
-  const redirectUrl = new URL('/auth/callback', base)
+  const redirectUrl = buildMagicLinkRedirectUrl({
+    origin: headerStore.get('origin'),
+    referer: headerStore.get('referer'),
+    redirectPath,
+    publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
+    adminAppUrl: process.env.ADMIN_APP_URL,
+    fallbackUrl: 'http://localhost:3002',
+  })
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: redirectUrl.toString(),
+      emailRedirectTo: redirectUrl,
     },
   })
 

@@ -1,10 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
-  const [btnHovered, setBtnHovered] = useState(false);
 
   useEffect(() => {
     function handleScroll() {
@@ -26,28 +26,28 @@ export function Nav() {
           : "1px solid transparent",
       }}
     >
-      <span
+      <Link
+        href="/"
         className="text-lg font-bold tracking-tight"
         style={{ color: "var(--mk-text-on-dark)" }}
       >
         Trajectas
-      </span>
+      </Link>
 
-      <a
-        href="#contact"
-        className="text-sm transition-colors duration-200"
-        style={{
-          color: btnHovered ? "var(--mk-accent)" : "var(--mk-text-on-dark)",
-          border: btnHovered
-            ? "1px solid var(--mk-accent)"
-            : "1px solid rgba(255, 255, 255, 0.3)",
-          padding: "8px 20px",
-        }}
-        onMouseEnter={() => setBtnHovered(true)}
-        onMouseLeave={() => setBtnHovered(false)}
-      >
-        Get in touch
-      </a>
+      <div className="flex items-center gap-2 md:gap-3">
+        <Link
+          href="/login"
+          className="rounded-full border border-white/30 px-4 py-2 text-sm text-[var(--mk-text-on-dark)] transition-colors duration-200 hover:border-[var(--mk-accent)] hover:text-[var(--mk-accent)]"
+        >
+          Log in
+        </Link>
+        <a
+          href="#contact"
+          className="rounded-full border border-[var(--mk-accent)] bg-[var(--mk-accent)] px-4 py-2 text-sm text-[var(--mk-primary-dark)] transition-colors duration-200 hover:bg-[#d4b570] hover:border-[#d4b570]"
+        >
+          Get in touch
+        </a>
+      </div>
     </nav>
   );
 }
