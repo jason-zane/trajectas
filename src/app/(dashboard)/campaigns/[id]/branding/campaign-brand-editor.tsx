@@ -21,7 +21,7 @@ import type { BrandConfig, BrandConfigRecord, NeutralTemperature } from "@/lib/b
 interface CampaignBrandEditorProps {
   campaignId: string
   campaignTitle: string
-  clientName?: string
+  inheritedFrom?: string
   initialRecord: BrandConfigRecord | null
   inheritedBrand: BrandConfig
 }
@@ -31,7 +31,7 @@ type SaveState = "idle" | "saving" | "saved"
 export function CampaignBrandEditor({
   campaignId,
   campaignTitle,
-  clientName,
+  inheritedFrom,
   initialRecord,
   inheritedBrand,
 }: CampaignBrandEditorProps) {
@@ -87,8 +87,8 @@ export function CampaignBrandEditor({
   }, [])
 
   // Inherited brand source label
-  const inheritedFrom = inheritedBrand.name !== TALENT_FIT_DEFAULTS.name
-    ? clientName ?? "Client"
+  const inheritedSource = inheritedBrand.name !== TALENT_FIT_DEFAULTS.name
+    ? inheritedFrom ?? "Client"
     : "TalentFit (platform default)"
 
   const saveLabel =
@@ -118,7 +118,7 @@ export function CampaignBrandEditor({
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-muted-foreground">Inherits branding from</p>
-                  <p className="text-sm font-medium truncate">{inheritedFrom}</p>
+                  <p className="text-sm font-medium truncate">{inheritedSource}</p>
                 </div>
               </div>
             </CardContent>
@@ -141,7 +141,7 @@ export function CampaignBrandEditor({
               <p className="text-sm text-muted-foreground">
                 {customEnabled
                   ? "This campaign uses its own branding across the runner and reports."
-                  : `Using branding from ${inheritedFrom}.`}
+                  : `Using branding from ${inheritedSource}.`}
               </p>
             </CardHeader>
           </Card>

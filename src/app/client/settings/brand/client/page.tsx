@@ -26,7 +26,7 @@ export default async function ClientPortalBrandPage() {
   const db = createAdminClient()
   const { data: client } = await db
     .from("clients")
-    .select("id, name, can_customize_branding")
+    .select("id, name, can_customize_branding, partner_id")
     .eq("id", clientId)
     .single()
 
@@ -53,12 +53,19 @@ export default async function ClientPortalBrandPage() {
     )
   }
 
-  const [clientRecord, platformRecord] = await Promise.all([
-    getBrandConfig("client", clientId),
-    getPlatformBrand(),
-  ])
-  const inheritedBrand: BrandConfig =
-    platformRecord?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+  const clientRecord = await getBrandConfig("client", clientId)
+
+  let inheritedBrand: BrandConfig = TALENT_FIT_DEFAULTS as BrandConfig
+  if (client.partner_id) {
+    const partnerBrand = await getBrandConfig("partner", client.partner_id)
+    if (partnerBrand) {
+      inheritedBrand = partnerBrand.config
+    }
+  }
+  if (inheritedBrand === TALENT_FIT_DEFAULTS) {
+    const platform = await getPlatformBrand()
+    if (platform) inheritedBrand = platform.config
+  }
 
   return (
     <ClientBrandEditor

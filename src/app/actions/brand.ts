@@ -6,6 +6,7 @@ import {
   assertAdminOnly,
   AuthorizationError,
   canManageClient,
+  canManagePartner,
   requireAdminScope,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
@@ -70,6 +71,18 @@ export async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
   return mapBrandConfigRow(data)
 }
 
+async function getClientPartnerId(clientId: string) {
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('clients')
+    .select('partner_id')
+    .eq('id', clientId)
+    .single()
+
+  if (error) return null
+  return data?.partner_id ? String(data.partner_id) : null
+}
+
 /**
  * Resolve the effective brand for a given context.
  *
@@ -89,10 +102,16 @@ export async function getEffectiveBrand(
     if (campaignBrand) return campaignBrand.config
   }
 
-  // Try org-specific
+  // Try client-specific, then partner-specific
   if (clientId) {
     const orgBrand = await getBrandConfig('client', clientId)
     if (orgBrand) return orgBrand.config
+
+    const partnerId = await getClientPartnerId(clientId)
+    if (partnerId) {
+      const partnerBrand = await getBrandConfig('partner', partnerId)
+      if (partnerBrand) return partnerBrand.config
+    }
   }
 
   // Fall back to platform default
@@ -114,8 +133,17 @@ export async function getEffectiveBrandRecord(
   const specific = await getBrandConfig(ownerType, ownerId)
   if (specific) return specific
 
-  // Fall back to platform default for org owners
-  if (ownerType === 'client') {
+  if (ownerType === 'client' && ownerId) {
+    const partnerId = await getClientPartnerId(ownerId)
+    if (partnerId) {
+      const partnerBrand = await getBrandConfig('partner', partnerId)
+      if (partnerBrand) return partnerBrand
+    }
+
+    return getPlatformBrand()
+  }
+
+  if (ownerType === 'partner') {
     return getPlatformBrand()
   }
 
@@ -147,6 +175,10 @@ export async function upsertBrandConfig(
   if (ownerType === 'client' && ownerId) {
     if (!canManageClient(scope, ownerId)) {
       throw new AuthorizationError('Not authorized to manage this client')
+    }
+  } else if (ownerType === 'partner' && ownerId) {
+    if (!canManagePartner(scope, ownerId)) {
+      throw new AuthorizationError('Not authorized to manage this partner')
     }
   } else {
     assertAdminOnly(scope)
@@ -188,6 +220,10 @@ export async function upsertBrandConfig(
   if (ownerType === 'client') {
     revalidatePath('/client/settings/brand/client')
   }
+  if (ownerType === 'partner') {
+    revalidatePath('/partners')
+    revalidatePath('/partner/settings/brand')
+  }
   if (ownerId) {
     revalidatePath(`/clients`)
   }
@@ -197,6 +233,7 @@ export async function upsertBrandConfig(
     eventType: 'brand_config.upserted',
     targetTable: 'brand_configs',
     targetId: existing?.id ?? null,
+    partnerId: ownerType === 'partner' ? ownerId : null,
     clientId: ownerType === 'client' ? ownerId : null,
     metadata: {
       ownerType,
@@ -221,6 +258,10 @@ export async function resetBrandToDefault(
     if (!canManageClient(scope, ownerId)) {
       throw new AuthorizationError('Not authorized to manage this client')
     }
+  } else if (ownerType === 'partner' && ownerId) {
+    if (!canManagePartner(scope, ownerId)) {
+      throw new AuthorizationError('Not authorized to manage this partner')
+    }
   } else {
     assertAdminOnly(scope)
   }
@@ -243,6 +284,10 @@ export async function resetBrandToDefault(
   if (ownerType === 'client') {
     revalidatePath('/client/settings/brand/client')
   }
+  if (ownerType === 'partner') {
+    revalidatePath('/partners')
+    revalidatePath('/partner/settings/brand')
+  }
   if (ownerId) {
     revalidatePath(`/clients`)
   }
@@ -252,6 +297,7 @@ export async function resetBrandToDefault(
     eventType: 'brand_config.reset_to_default',
     targetTable: 'brand_configs',
     targetId: existing.id,
+    partnerId: ownerType === 'partner' ? ownerId : null,
     clientId: ownerType === 'client' ? ownerId : null,
     metadata: {
       ownerType,

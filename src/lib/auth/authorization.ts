@@ -364,6 +364,10 @@ export function canManageClient(
   );
 }
 
+export function canManagePartner(scope: AuthorizedScope, partnerId: string) {
+  return scope.isPlatformAdmin || scope.partnerAdminIds.includes(partnerId);
+}
+
 export function canManageClientDirectory(scope: AuthorizedScope) {
   return scope.isPlatformAdmin || scope.partnerAdminIds.length > 0;
 }

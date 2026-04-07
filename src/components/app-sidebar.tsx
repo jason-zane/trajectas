@@ -188,6 +188,13 @@ const clientSettingsNav: NavSection[] = [
   },
 ];
 
+const partnerSettingsNav: NavSection[] = [
+  {
+    label: "Settings",
+    items: [{ title: "Brand", href: "/settings/brand", icon: Palette }],
+  },
+];
+
 const navByPortal: Record<PortalType, NavSection[]> = {
   admin: adminNav,
   partner: partnerNav,
@@ -208,6 +215,8 @@ export function AppSidebar() {
       ? settingsNav
       : portal === "client"
         ? clientSettingsNav
+        : portal === "partner"
+          ? partnerSettingsNav
         : navSections
     : navSections;
 
@@ -244,10 +253,17 @@ export function AppSidebar() {
       </div>
 
       <SidebarContent>
-        {isSettingsArea && (portal === "admin" || portal === "client") && (
+        {isSettingsArea &&
+          (portal === "admin" || portal === "client" || portal === "partner") && (
           <div className="px-3 py-2">
             <Link
-              href={portal === "admin" ? href("/") : href("/dashboard")}
+              href={
+                portal === "admin"
+                  ? href("/")
+                  : portal === "client"
+                    ? href("/dashboard")
+                    : href("/")
+              }
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
             >
               <ArrowLeft className="size-4" />
@@ -335,6 +351,22 @@ export function AppSidebar() {
                 isActive={isSettingsArea}
                 tooltip="Brand Settings"
                 render={<Link href={href("/settings/brand/client")} />}
+              >
+                <Palette className="size-4" />
+                <span>Brand Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      )}
+      {portal === "partner" && !isSettingsArea && (
+        <SidebarFooter className="px-3 pb-3">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={isSettingsArea}
+                tooltip="Brand Settings"
+                render={<Link href={href("/settings/brand")} />}
               >
                 <Palette className="size-4" />
                 <span>Brand Settings</span>

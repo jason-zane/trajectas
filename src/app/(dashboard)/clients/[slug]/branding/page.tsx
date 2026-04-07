@@ -14,12 +14,22 @@ export default async function ClientBrandingPage({
   const client = await getClientBySlug(slug)
   if (!client) notFound()
 
-  const [clientRecord, platformRecord] = await Promise.all([
-    getBrandConfig("client", client.id),
-    getPlatformBrand(),
-  ])
-  const inheritedBrand: BrandConfig =
-    platformRecord?.config ?? (TALENT_FIT_DEFAULTS as BrandConfig)
+  const clientRecord = await getBrandConfig("client", client.id)
+
+  let inheritedBrand: BrandConfig = TALENT_FIT_DEFAULTS as BrandConfig
+
+  if (client.partnerId) {
+    const partnerBrand = await getBrandConfig("partner", client.partnerId)
+    if (partnerBrand) {
+      inheritedBrand = partnerBrand.config
+    } else {
+      const platform = await getPlatformBrand()
+      if (platform) inheritedBrand = platform.config
+    }
+  } else {
+    const platform = await getPlatformBrand()
+    if (platform) inheritedBrand = platform.config
+  }
 
   return (
     <ClientBrandEditor
