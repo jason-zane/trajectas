@@ -11,6 +11,14 @@ import {
 import { checkRequestRateLimit } from "@/lib/security/rate-limit";
 import { isAllowedOriginHost } from "@/lib/security/request-origin";
 import type { Surface } from "@/lib/surfaces";
+import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
+import {
+  COOKIE_NAME as ACTIVITY_COOKIE,
+  decodeLastActivity,
+  encodeLastActivity,
+  isSessionExpired,
+  buildLastActivityCookieOptions,
+} from "@/lib/auth/session-activity";
 
 const mutationMethods = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -144,7 +152,16 @@ function withSurfaceHeaders(
   return requestHeaders;
 }
 
-export function proxy(request: NextRequest) {
+/** Paths that should never have the inactivity timeout applied. */
+function shouldSkipActivityCheck(pathname: string): boolean {
+  return (
+    isAssessPath(pathname) ||
+    isPublicHostedPath(pathname) ||
+    pathname.startsWith("/api/auth/send-email")
+  );
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get("host");
   const configuredHosts = getConfiguredSurfaceHosts();
@@ -182,6 +199,50 @@ export function proxy(request: NextRequest) {
     return applySecurityHeaders(response, configuredSurface, pathname);
   }
 
+  // ─── Session activity check ────────────────────────────────────────────────
+  // Uses a placeholder response so Supabase can refresh its session cookies,
+  // which we then copy onto the final routing response below.
+  const sessionCookies: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+
+  if (!shouldSkipActivityCheck(pathname)) {
+    const sessionResponse = NextResponse.next();
+    const supabase = createMiddlewareSupabaseClient(request, sessionResponse);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user) {
+      const now = Math.floor(Date.now() / 1000);
+      const raw = request.cookies.get(ACTIVITY_COOKIE)?.value;
+      const lastActivity = decodeLastActivity(raw);
+
+      if (lastActivity !== null && isSessionExpired(lastActivity)) {
+        return NextResponse.redirect(new URL("/auth/expire", request.url));
+      }
+
+      // Slide the activity window
+      sessionResponse.cookies.set(
+        ACTIVITY_COOKIE,
+        encodeLastActivity(now),
+        buildLastActivityCookieOptions()
+      );
+    }
+
+    // Collect all cookies (Supabase auth + activity) for the final response
+    for (const { name, value, ...options } of sessionResponse.cookies.getAll()) {
+      sessionCookies.push({ name, value, options });
+    }
+  }
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /** Apply collected session cookies to any routing response before returning. */
+  function withSessionCookies(response: NextResponse): NextResponse {
+    for (const { name, value, options } of sessionCookies) {
+      response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+    }
+    return response;
+  }
+
   if (
     configuredHosts.assess &&
     isAssessPath(pathname) &&
@@ -191,7 +252,7 @@ export function proxy(request: NextRequest) {
     const response = NextResponse.redirect(
       redirectToSurface(request, "assess", pathname, search, "/assess")
     );
-    return applySecurityHeaders(response, "assess", pathname);
+    return withSessionCookies(applySecurityHeaders(response, "assess", pathname));
   }
 
   if (
@@ -203,7 +264,7 @@ export function proxy(request: NextRequest) {
     const response = NextResponse.redirect(
       redirectToSurface(request, "partner", pathname, search, "/")
     );
-    return applySecurityHeaders(response, "partner", pathname);
+    return withSessionCookies(applySecurityHeaders(response, "partner", pathname));
   }
 
   if (
@@ -215,7 +276,7 @@ export function proxy(request: NextRequest) {
     const response = NextResponse.redirect(
       redirectToSurface(request, "client", pathname, search, "/")
     );
-    return applySecurityHeaders(response, "client", pathname);
+    return withSessionCookies(applySecurityHeaders(response, "client", pathname));
   }
 
   if (
@@ -227,7 +288,7 @@ export function proxy(request: NextRequest) {
     const target = buildSurfaceUrl("admin", pathname, search);
     if (target) {
       const response = NextResponse.redirect(target);
-      return applySecurityHeaders(response, "admin", pathname);
+      return withSessionCookies(applySecurityHeaders(response, "admin", pathname));
     }
   }
 
@@ -235,14 +296,14 @@ export function proxy(request: NextRequest) {
     const assessPath = pathname === "/" ? "/assess" : `/assess${pathname}`;
     const target = buildSurfaceUrl("assess", assessPath, search) ?? new URL(assessPath, request.url);
     const response = NextResponse.redirect(target);
-    return applySecurityHeaders(response, "assess", assessPath);
+    return withSessionCookies(applySecurityHeaders(response, "assess", assessPath));
   }
 
   if (!isLocalDev && configuredSurface === "admin" && pathname === "/") {
     const response = NextResponse.redirect(
       redirectToSurface(request, "admin", "/dashboard", "", "/dashboard")
     );
-    return applySecurityHeaders(response, "admin", "/dashboard");
+    return withSessionCookies(applySecurityHeaders(response, "admin", "/dashboard"));
   }
 
   if (
@@ -256,7 +317,7 @@ export function proxy(request: NextRequest) {
       const target = request.nextUrl.clone();
       target.pathname = pathname.slice(internalPrefix.length) || "/";
       const response = NextResponse.redirect(target);
-      return applySecurityHeaders(response, configuredSurface, target.pathname);
+      return withSessionCookies(applySecurityHeaders(response, configuredSurface, target.pathname));
     }
 
     const target = request.nextUrl.clone();
@@ -266,7 +327,7 @@ export function proxy(request: NextRequest) {
         headers: forwardedHeaders,
       },
     });
-    return applySecurityHeaders(response, configuredSurface, target.pathname);
+    return withSessionCookies(applySecurityHeaders(response, configuredSurface, target.pathname));
   }
 
   const response = NextResponse.next({
@@ -275,7 +336,7 @@ export function proxy(request: NextRequest) {
     },
   });
 
-  return applySecurityHeaders(response, configuredSurface, pathname);
+  return withSessionCookies(applySecurityHeaders(response, configuredSurface, pathname));
 }
 
 export const config = {

@@ -2,6 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "../../src/proxy";
 
+// Mock Supabase middleware client — proxy tests don't exercise auth state
+vi.mock("../../src/lib/supabase/middleware", () => ({
+  createMiddlewareSupabaseClient: () => ({
+    auth: { getUser: async () => ({ data: { user: null } }) },
+  }),
+}));
+
 function createRequest(url: string, headers?: Record<string, string>) {
   const parsed = new URL(url);
   return new NextRequest(url, {
@@ -25,15 +32,15 @@ describe("proxy surface routing", () => {
     vi.unstubAllEnvs();
   });
 
-  it("keeps the public apex on the public surface", () => {
-    const response = proxy(createRequest("https://trajectas.test/"));
+  it("keeps the public apex on the public surface", async () => {
+    const response = await proxy(createRequest("https://trajectas.test/"));
 
     expect(response.headers.get("location")).toBeNull();
     expect(response.headers.get("x-trajectas-surface")).toBe("public");
   });
 
-  it("redirects admin routes from the public host to the admin host", () => {
-    const response = proxy(createRequest("https://trajectas.test/dashboard"));
+  it("redirects admin routes from the public host to the admin host", async () => {
+    const response = await proxy(createRequest("https://trajectas.test/dashboard"));
 
     expect(response.headers.get("location")).toBe(
       "https://admin.trajectas.test/dashboard"
@@ -41,8 +48,8 @@ describe("proxy surface routing", () => {
     expect(response.headers.get("x-trajectas-surface")).toBe("admin");
   });
 
-  it("redirects the admin host root to the admin dashboard", () => {
-    const response = proxy(createRequest("https://admin.trajectas.test/"));
+  it("redirects the admin host root to the admin dashboard", async () => {
+    const response = await proxy(createRequest("https://admin.trajectas.test/"));
 
     expect(response.headers.get("location")).toBe(
       "https://admin.trajectas.test/dashboard"
