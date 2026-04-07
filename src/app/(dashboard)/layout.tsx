@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { SessionActivityProvider } from "@/components/auth/session-activity-provider";
+import { SessionExpiryWarning } from "@/components/auth/session-expiry-warning";
 import { EmptyState } from "@/components/empty-state";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { resolveAdminWorkspaceAccess } from "@/lib/auth/workspace-access";
@@ -38,13 +40,16 @@ export default async function DashboardLayout({
   }
 
   return (
-    <WorkspaceShell
-      defaultOpen={defaultOpen}
-      portal="admin"
-      routePrefix={routePrefix}
-      canSwitchPortal={isLocalDev}
-    >
-      {children}
-    </WorkspaceShell>
+    <SessionActivityProvider>
+      <SessionExpiryWarning />
+      <WorkspaceShell
+        defaultOpen={defaultOpen}
+        portal="admin"
+        routePrefix={routePrefix}
+        canSwitchPortal={isLocalDev}
+      >
+        {children}
+      </WorkspaceShell>
+    </SessionActivityProvider>
   );
 }
