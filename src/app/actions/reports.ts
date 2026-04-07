@@ -523,7 +523,7 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
   // Fetch campaigns + their assessments in parallel
   const [{ data: campaigns }, { data: campaignAssessments }] = await Promise.all([
     db.from('campaigns').select('id, title').in('id', campaignIds),
-    db.from('campaign_assessments').select('campaign_id, assessment_id, assessments(id, name)').in('campaign_id', campaignIds),
+    db.from('campaign_assessments').select('campaign_id, assessment_id, assessments(id, title)').in('campaign_id', campaignIds),
   ])
 
   const results: TemplateUsageEntry[] = []
@@ -534,7 +534,7 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
     const assessments = (campaignAssessments ?? [])
       .filter((ca) => ca.campaign_id === config.campaign_id)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((ca) => ({ id: (ca.assessments as any)?.id ?? ca.assessment_id, name: (ca.assessments as any)?.name ?? 'Unknown' }))
+      .map((ca) => ({ id: (ca.assessments as any)?.id ?? ca.assessment_id, name: (ca.assessments as any)?.title ?? 'Unknown' }))
 
     // Determine which audience types use this template
     const audiences: AudienceType[] = []

@@ -1165,10 +1165,10 @@ export async function getActiveAssessments() {
   const db = await createClient()
   const { data, error } = await db
     .from('assessments')
-    .select('id, name, status')
+    .select('id, title, status')
     .eq('status', 'active')
     .is('deleted_at', null)
-    .order('name', { ascending: true })
+    .order('title', { ascending: true })
 
   if (error) {
     throwActionError(

@@ -54,7 +54,7 @@ export async function getFactorBySlug(slug: string) {
   const db = await createClient()
   const { data, error } = await db
     .from('factors')
-    .select('*, dimensions(name), clients(name), factor_constructs(*, constructs(id, name, slug)), assessment_factors(assessment_id, assessments(id, name, status))')
+    .select('*, dimensions(name), clients(name), factor_constructs(*, constructs(id, name, slug)), assessment_factors(assessment_id, assessments(id, title, status))')
     .eq('slug', slug)
     .is('deleted_at', null)
     .single()
@@ -83,7 +83,7 @@ export async function getFactorBySlug(slug: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .map((ac: any) => ({
         id: ac.assessments.id,
-        name: ac.assessments.name,
+        name: ac.assessments.title,
         status: ac.assessments.status,
       })) as LinkedAssessment[],
   }

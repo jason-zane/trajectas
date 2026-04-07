@@ -13,14 +13,14 @@ export default async function ClientCampaignAssessmentsPage({
   if (!campaign) notFound();
 
   // Fetch only the assessments assigned to this client
-  let availableAssessments: { id: string; name: string; status: string }[] = [];
+  let availableAssessments: { id: string; title: string; status: string }[] = [];
   if (campaign.clientId) {
     const clientAssessments = await getAvailableAssessmentsForClient(
       campaign.clientId,
     );
     availableAssessments = clientAssessments.map((a) => ({
       id: a.assessmentId,
-      name: a.assessmentName,
+      title: a.assessmentName,
       status: "active",
     }));
   }

@@ -244,7 +244,7 @@ export async function getParticipantSessions(participantId: string): Promise<Par
       status,
       started_at,
       completed_at,
-      assessments(name),
+      assessments(title),
       participant_scores(
         factor_id,
         raw_score,
@@ -269,7 +269,7 @@ export async function getParticipantSessions(participantId: string): Promise<Par
   const sessions = (sessionRows ?? []).map((s: any) => ({
     id: s.id,
     assessmentId: s.assessment_id,
-    assessmentTitle: s.assessments?.name ?? 'Untitled',
+    assessmentTitle: s.assessments?.title ?? 'Untitled',
     status: s.status,
     startedAt: s.started_at ?? undefined,
     completedAt: s.completed_at ?? undefined,
@@ -351,7 +351,7 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   // Get session-level events
   const { data: sessions } = await db
     .from('participant_sessions')
-    .select('id, started_at, completed_at, assessments(name)')
+    .select('id, started_at, completed_at, assessments(title)')
     .eq('campaign_participant_id', participantId)
     .order('started_at', { ascending: true })
 
@@ -361,14 +361,14 @@ export async function getParticipantActivity(participantId: string): Promise<Act
       events.push({
         type: 'session_started',
         timestamp: s.started_at,
-        label: `Started ${s.assessments?.name ?? 'assessment'}`,
+        label: `Started ${s.assessments?.title ?? 'assessment'}`,
       })
     }
     if (s.completed_at) {
       events.push({
         type: 'session_completed',
         timestamp: s.completed_at,
-        label: `Completed ${s.assessments?.name ?? 'assessment'}`,
+        label: `Completed ${s.assessments?.title ?? 'assessment'}`,
       })
     }
   }

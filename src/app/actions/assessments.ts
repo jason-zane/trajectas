@@ -151,7 +151,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
   let query = db
     .from('campaign_assessments')
     .select(
-      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, name, description, status, client_id, updated_at)'
+      'campaign_id, assessment_id, campaigns(id, title, status, client_id, clients(name), campaign_participants(count)), assessments(id, title, description, status, client_id, updated_at)'
     )
     .order('created_at', { ascending: false })
 
@@ -206,7 +206,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 
   for (const row of data ?? []) {
     const assessmentRow = getRelatedRecord(row.assessments)
-    if (!assessmentRow?.id || !assessmentRow?.name) {
+    if (!assessmentRow?.id || !assessmentRow?.title) {
       continue
     }
 
@@ -252,7 +252,7 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
 
     summaries.set(assessmentId, {
       id: assessmentId,
-      title: String(assessmentRow.name),
+      title: String(assessmentRow.title),
       description: assessmentRow.description ? String(assessmentRow.description) : undefined,
       status: assessmentRow.status as Assessment['status'],
       clientId: assessmentRow.client_id ? String(assessmentRow.client_id) : undefined,

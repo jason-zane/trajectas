@@ -128,7 +128,7 @@ export async function validateAccessToken(
   // Load campaign assessments
   const { data: caRows, error: campaignAssessmentsError } = await db
     .from('campaign_assessments')
-    .select('*, assessments(id, name, description, assessment_sections(count))')
+    .select('*, assessments(id, title, description, assessment_sections(count))')
     .eq('campaign_id', campaign.id)
     .order('display_order', { ascending: true })
 
@@ -141,7 +141,7 @@ export async function validateAccessToken(
   const assessments = (caRows ?? []).map((r: any) => ({
     ...mapCampaignAssessmentRow(r),
     id: r.assessments?.id ?? r.assessment_id,
-    title: r.assessments?.name ?? 'Untitled',
+    title: r.assessments?.title ?? 'Untitled',
     description: r.assessments?.description ?? undefined,
     sectionCount: r.assessments?.assessment_sections?.[0]?.count ?? 0,
   }))
@@ -283,38 +283,66 @@ export async function getSessionState(token: string, sessionId: string) {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sections: SectionForRunner[] = (sectionRows ?? []).map((s: any) => ({
-    id: s.id,
-    title: s.title,
-    instructions: s.instructions ?? undefined,
-    displayOrder: s.display_order,
-    responseFormatId: s.response_format_id,
-    responseFormatType: s.response_formats?.type ?? 'likert',
-    responseFormatConfig: s.response_formats?.config ?? {},
-    itemOrdering: s.item_ordering,
-    itemsPerPage: s.items_per_page ?? undefined,
-    timeLimitSeconds: s.time_limit_seconds ?? undefined,
-    allowBackNav: s.allow_back_nav,
-    items: (s.assessment_section_items ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .sort((a: any, b: any) => a.display_order - b.display_order)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((si: any) => ({
-        id: si.items?.id ?? si.item_id,
-        stem: si.items?.stem ?? '',
-        displayOrder: si.display_order,
-        options: (si.items?.item_options ?? [])
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .sort((a: any, b: any) => a.display_order - b.display_order)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .map((o: any) => ({
-            id: o.id,
-            label: o.label,
-            value: o.value,
-            sortOrder: o.display_order,
-          })),
-      })),
-  }))
+  const sections: SectionForRunner[] = (sectionRows ?? []).map((s: any) => {
+    const formatConfig = s.response_formats?.config ?? {}
+    const formatType = s.response_formats?.type ?? 'likert'
+
+    // Derive fallback options from response format anchors when item_options is empty.
+    // This handles AI-generated items that have stems but no per-item options.
+    function deriveOptionsFromFormat() {
+      if (formatType === 'likert' && formatConfig.anchors) {
+        const anchors = formatConfig.anchors as Record<string, string>
+        return Object.entries(anchors)
+          .map(([val, label]) => ({
+            id: `rf-${val}`,
+            label,
+            value: Number(val),
+            sortOrder: Number(val),
+          }))
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+      }
+      return []
+    }
+
+    const fallbackOptions = deriveOptionsFromFormat()
+
+    return {
+      id: s.id,
+      title: s.title,
+      instructions: s.instructions ?? undefined,
+      displayOrder: s.display_order,
+      responseFormatId: s.response_format_id,
+      responseFormatType: formatType,
+      responseFormatConfig: formatConfig,
+      itemOrdering: s.item_ordering,
+      itemsPerPage: s.items_per_page ?? undefined,
+      timeLimitSeconds: s.time_limit_seconds ?? undefined,
+      allowBackNav: s.allow_back_nav,
+      items: (s.assessment_section_items ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .sort((a: any, b: any) => a.display_order - b.display_order)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((si: any) => {
+          const itemOptions = (si.items?.item_options ?? [])
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .sort((a: any, b: any) => a.display_order - b.display_order)
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            .map((o: any) => ({
+              id: o.id,
+              label: o.label,
+              value: o.value,
+              sortOrder: o.display_order,
+            }))
+
+          return {
+            id: si.items?.id ?? si.item_id,
+            stem: si.items?.stem ?? '',
+            displayOrder: si.display_order,
+            options: itemOptions.length > 0 ? itemOptions : fallbackOptions,
+          }
+        }),
+    }
+  })
 
   // Load existing responses
   const { data: responseRows, error: responseRowsError } = await db
