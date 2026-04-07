@@ -42,8 +42,6 @@ async function sendMagicLink(email: string, redirectPath: string) {
       process.env.NEXT_PUBLIC_APP_URL ??
       'http://localhost:3002'
   const redirectUrl = new URL('/auth/callback', base)
-  const redirectPathUrl = new URL(redirectPath, base)
-  redirectUrl.search = redirectPathUrl.search
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
