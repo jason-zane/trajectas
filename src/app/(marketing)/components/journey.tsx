@@ -9,78 +9,60 @@ const STAGES = [
   { num: "04", title: "Clarity", desc: "Insight that connects to decisions. Not just a score \u2014 a direction." },
 ];
 
+function setJourneyStageVariables(
+  element: HTMLDivElement | null,
+  stageStart: number,
+  direction: number
+) {
+  if (!element) return;
+
+  element.style.setProperty("--stage-start", stageStart.toFixed(4));
+  element.style.setProperty("--stage-dir", String(direction));
+}
+
 export function Journey() {
-  const { ref, progress } = useScrollProgress();
+  const { ref } = useScrollProgress();
 
   return (
-    <section ref={ref} data-section="journey" className="relative" style={{ minHeight: "350vh" }}>
-      <div
-        className="sticky top-0 flex h-screen items-center justify-center overflow-hidden"
-        style={{
-          background: `color-mix(in srgb, var(--mk-bg) ${Math.round((1 - progress) * 100)}%, var(--mk-primary-dark))`,
-        }}
-      >
+    <section
+      ref={ref}
+      data-section="journey"
+      className="relative min-h-[350vh]"
+    >
+      <div className="journey-sticky sticky top-0 flex h-screen items-center justify-center overflow-hidden">
         {/* Central trajectory line — hidden on mobile */}
         <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2 hidden md:block">
-          <div
-            className="w-full origin-top"
-            style={{
-              height: `${Math.min(100, progress * 120)}%`,
-              background: "var(--mk-accent)",
-              opacity: 0.3,
-            }}
-          />
+          <div className="journey-line w-full origin-top" />
         </div>
 
         {/* Stages */}
-        <div className="relative flex h-[70%] w-full max-w-4xl flex-col justify-between px-4 md:px-8">
+        <div className="journey-list relative flex h-[70%] w-full max-w-4xl flex-col justify-between px-4 md:px-8">
           {STAGES.map((stage, i) => {
             const stageStart = i * 0.25;
-            const stageProgress = Math.max(0, Math.min(1, (progress - stageStart) / 0.2));
             const isLeft = i % 2 === 0;
-            const isLightBg = progress < 0.5;
 
             return (
               <div
                 key={i}
-                className="flex items-center md:items-center"
-                style={{
-                  justifyContent: isLeft ? "flex-start" : "flex-end",
-                  opacity: stageProgress,
-                  transform: `translateX(${(isLeft ? -1 : 1) * (1 - stageProgress) * 30}px)`,
-                }}
+                ref={(element) =>
+                  setJourneyStageVariables(element, stageStart, isLeft ? -1 : 1)
+                }
+                className={`journey-stage relative flex items-center ${isLeft ? "justify-start" : "justify-end"}`}
               >
-                <div className="max-w-xs md:max-w-sm" style={{ textAlign: isLeft ? "right" : "left" }}>
-                  <div className="mk-mono" style={{ color: "var(--mk-accent)" }}>{stage.num}</div>
-                  <h3
-                    className="mt-1 text-lg font-bold md:text-xl"
-                    style={{ color: isLightBg ? "var(--mk-text)" : "var(--mk-text-on-dark)" }}
-                  >
+                <div
+                  className={`max-w-xs md:max-w-sm ${isLeft ? "text-right" : "text-left"}`}
+                >
+                  <div className="mk-mono text-[var(--mk-accent)]">
+                    {stage.num}
+                  </div>
+                  <h3 className="journey-title mt-1 text-lg font-bold md:text-xl">
                     {stage.title}
                   </h3>
-                  <p
-                    className="mk-body mt-2"
-                    style={{ color: isLightBg ? "var(--mk-text-muted)" : "var(--mk-text-on-dark-muted)" }}
-                  >
-                    {stage.desc}
-                  </p>
+                  <p className="journey-desc mk-body mt-2">{stage.desc}</p>
                 </div>
 
                 {/* Dot on center line — hidden on mobile */}
-                <div
-                  className="absolute left-1/2 -translate-x-1/2 hidden md:block"
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    border: "2px solid var(--mk-accent)",
-                    opacity: stageProgress,
-                    background: stageProgress > 0.8 ? "var(--mk-accent)" : "transparent",
-                    boxShadow: stageProgress > 0.8 ? "0 0 8px var(--mk-accent)" : "none",
-                    transform: `scale(${stageProgress > 0.8 ? 1.3 : 1})`,
-                    transition: "background 0.3s, box-shadow 0.3s, transform 0.3s cubic-bezier(0.22,1,0.36,1)",
-                  }}
-                />
+                <div className="journey-dot absolute left-1/2 hidden md:block" />
               </div>
             );
           })}

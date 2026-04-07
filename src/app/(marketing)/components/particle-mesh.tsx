@@ -60,10 +60,8 @@ export function ParticleMesh({
   const transitionStartRef = useRef(0);
   const transitionDuration = 600;
 
-  // Sync mouse position to ref (avoids re-render-driven animation restarts)
-  useEffect(() => {
-    mouseRef.current = mousePosition;
-  }, [mousePosition]);
+  // eslint-disable-next-line react-hooks/refs -- render-time sync keeps the animation loop on the latest mouse position
+  mouseRef.current = mousePosition;
 
   // Smooth config transition when section changes
   useEffect(() => {
