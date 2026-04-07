@@ -3,7 +3,11 @@
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { buildMagicLinkRedirectUrl } from '@/lib/auth/magic-link'
+import {
+  buildMagicLinkRedirectUrl,
+  sendInviteMagicLinkEmail,
+  sendStaffMagicLinkEmail,
+} from '@/lib/auth/magic-link'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getInviteByToken } from '@/lib/auth/staff-auth'
 
@@ -33,28 +37,35 @@ function buildCallbackPath(next?: string | null, invite?: string | null) {
   return query ? `/auth/callback?${query}` : '/auth/callback'
 }
 
-async function sendMagicLink(email: string, redirectPath: string) {
-  const supabase = await createServerSupabaseClient()
+async function sendMagicLink(input: {
+  email: string
+  redirectPath: string
+  template: 'magic_link' | 'staff_invite'
+  inviteeName?: string | null
+}) {
   const headerStore = await headers()
   const redirectUrl = buildMagicLinkRedirectUrl({
     origin: headerStore.get('origin'),
     referer: headerStore.get('referer'),
-    redirectPath,
+    redirectPath: input.redirectPath,
     publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
     adminAppUrl: process.env.ADMIN_APP_URL,
     fallbackUrl: 'http://localhost:3002',
   })
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: redirectUrl,
-    },
-  })
-
-  if (error) {
-    throw new Error(error.message)
+  if (input.template === 'staff_invite') {
+    await sendInviteMagicLinkEmail({
+      email: input.email,
+      redirectUrl,
+      inviteeName: input.inviteeName,
+    })
+    return
   }
+
+  await sendStaffMagicLinkEmail({
+    email: input.email,
+    redirectUrl,
+  })
 }
 
 export async function requestStaffMagicLink(
@@ -81,8 +92,11 @@ export async function requestStaffMagicLink(
   if (profile) {
     try {
       await sendMagicLink(
-        parsed.data.email,
-        buildCallbackPath(parsed.data.next ?? null, null)
+        {
+          email: parsed.data.email,
+          redirectPath: buildCallbackPath(parsed.data.next ?? null, null),
+          template: 'magic_link',
+        }
       )
     } catch {
       // Keep the response generic so login does not reveal account state.
@@ -112,7 +126,12 @@ export async function requestInviteMagicLink(
   }
 
   try {
-    await sendMagicLink(invite.email, buildCallbackPath(next, token))
+    await sendMagicLink({
+      email: invite.email,
+      redirectPath: buildCallbackPath(next, token),
+      template: 'staff_invite',
+      inviteeName: invite.email,
+    })
   } catch (error) {
     return {
       error:
