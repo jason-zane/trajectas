@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN ?? undefined;
+
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies();
 
@@ -15,7 +17,10 @@ export async function createServerSupabaseClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+              cookieStore.set(name, value, {
+                ...options,
+                ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),
+              });
             });
           } catch {
             // Ignore cookie writes in server components.
