@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy } from "../../proxy";
+import { proxy } from "../../src/proxy";
 
 function createRequest(url: string, headers?: Record<string, string>) {
   const parsed = new URL(url);
