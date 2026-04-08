@@ -97,13 +97,13 @@
 
 [data-surface="marketing"] .problem-generic-phrase::after {
   --problem-strike-progress: clamp(0, calc((var(--problem-progress) - 0.06) * 7), 1);
-  --problem-strike-fade: clamp(0, calc((var(--problem-progress) - 0.3) * 5), 1);
+  --problem-strike-fade: clamp(0, calc((var(--problem-progress) - 0.21) * 16), 1);
   content: "";
   position: absolute;
   left: 0;
-  top: 50%;
+  top: 56%;
   width: 100%;
-  height: 1.5px;
+  height: 2px;
   background: color-mix(
     in srgb,
     var(--mk-text-on-dark) calc((1 - var(--problem-bg-progress)) * 100%),

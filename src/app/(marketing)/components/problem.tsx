@@ -4,7 +4,7 @@ import { useScrollProgress } from "./use-scroll-progress";
 
 const GENERIC_PHRASES = [
   "Standardised frameworks.",
-  "Percentile scores.",
+  "One-size-fits-all models.",
   "Off-the-shelf benchmarks.",
   "Generic personality tests.",
 ];
