@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 
 export function AuthConfirmClient() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'processing' | 'error'>('processing')
 
@@ -20,13 +19,13 @@ export function AuthConfirmClient() {
     if (errorCode) {
       const description = params.get('error_description') ?? errorCode
       setStatus('error')
-      router.replace(`/login?error=${encodeURIComponent(description)}`)
+      window.location.replace(`/login?error=${encodeURIComponent(description)}`)
       return
     }
 
     if (!accessToken || !refreshToken) {
       setStatus('error')
-      router.replace('/login?error=missing_code')
+      window.location.replace('/login?error=missing_code')
       return
     }
 
@@ -36,10 +35,13 @@ export function AuthConfirmClient() {
       .then(({ error }) => {
         if (error) {
           setStatus('error')
-          router.replace('/login?error=callback_failed')
+          window.location.replace('/login?error=callback_failed')
           return
         }
 
+        // Full browser navigation — Next.js client-side router.replace() does a
+        // fetch-based navigation that doesn't properly propagate Set-Cookie headers
+        // through server-side redirects, losing the session before the dashboard sees it.
         const next = searchParams.get('next') ?? ''
         const invite = searchParams.get('invite') ?? ''
         const callbackParams = new URLSearchParams()
@@ -48,13 +50,13 @@ export function AuthConfirmClient() {
           callbackParams.set('next', next)
         }
         const callbackQuery = callbackParams.toString()
-        router.replace(callbackQuery ? `/auth/callback?${callbackQuery}` : '/auth/callback')
+        window.location.replace(callbackQuery ? `/auth/callback?${callbackQuery}` : '/auth/callback')
       })
       .catch(() => {
         setStatus('error')
-        router.replace('/login?error=callback_failed')
+        window.location.replace('/login?error=callback_failed')
       })
-  }, [router, searchParams])
+  }, [searchParams])
 
   if (status === 'error') return null
 
