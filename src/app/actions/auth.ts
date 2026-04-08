@@ -34,7 +34,10 @@ function buildCallbackPath(next?: string | null, invite?: string | null) {
   }
 
   const query = params.toString()
-  return query ? `/auth/callback?${query}` : '/auth/callback'
+  // Magic links use OTP verification (implicit flow) — Supabase sends tokens
+  // back as hash fragments. /auth/confirm is the client-side page that reads
+  // those fragments and hands off to /auth/callback after setting the session.
+  return query ? `/auth/confirm?${query}` : '/auth/confirm'
 }
 
 async function sendMagicLink(input: {

@@ -25,16 +25,17 @@ export async function GET(request: NextRequest) {
   const inviteToken = url.searchParams.get("invite");
   const nextPath = sanitizeNextPath(url.searchParams.get("next"));
 
-  if (!code) {
-    return NextResponse.redirect(new URL("/login?error=missing_code", request.url));
-  }
-
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (error) {
-    return NextResponse.redirect(new URL("/login?error=callback_failed", request.url));
+  if (code) {
+    // PKCE flow: exchange the authorization code for a session.
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return NextResponse.redirect(new URL("/login?error=callback_failed", request.url));
+    }
   }
+  // Implicit flow: /auth/confirm already set the session via browser-side
+  // setSession(), so the session cookie is present — no code exchange needed.
 
   const {
     data: { user },

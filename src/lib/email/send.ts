@@ -76,7 +76,7 @@ export async function sendEmail(params: {
     //    not already a platform template ──────────────────────────────────────
     if (template.scope_type !== 'platform') {
       console.warn(
-        `[email] Render failed for template ${template.id} — retrying with platform default`,
+        `[email] Render failed for template ${template.id}: ${err instanceof Error ? err.message : String(err)} — retrying with platform default`,
         err,
       )
 
@@ -95,7 +95,7 @@ export async function sendEmail(params: {
         } catch (platformErr) {
           // ── Tier 2 fallback: plain-text ──────────────────────────────────
           console.error(
-            `[email] Platform template render also failed — sending plain-text fallback`,
+            `[email] Platform template render also failed: ${platformErr instanceof Error ? platformErr.message : String(platformErr)} — sending plain-text fallback`,
             platformErr,
           )
           ;({ html, text } = buildPlainTextFallback(subject, variables))
@@ -103,7 +103,7 @@ export async function sendEmail(params: {
       } else {
         // No platform template found; still use tier-2 plain-text fallback
         console.error(
-          `[email] No platform template available — sending plain-text fallback`,
+          `[email] No platform template available: ${err instanceof Error ? err.message : String(err)} — sending plain-text fallback`,
           err,
         )
         ;({ html, text } = buildPlainTextFallback(subject, variables))
@@ -111,7 +111,7 @@ export async function sendEmail(params: {
     } else {
       // Already tried the platform template; use tier-2 plain-text fallback
       console.error(
-        `[email] Platform template render failed — sending plain-text fallback`,
+        `[email] Platform template render failed: ${err instanceof Error ? err.message : String(err)} — sending plain-text fallback`,
         err,
       )
       ;({ html, text } = buildPlainTextFallback(subject, variables))
