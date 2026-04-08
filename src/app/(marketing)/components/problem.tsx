@@ -11,9 +11,9 @@ const GENERIC_PHRASES = [
 
 const REFORMED_PHRASES = [
   "Your context",
-  "Your definition of capability",
-  "Assessment built around you",
-  "Measurement that drives outcomes",
+  "Capability, defined by you",
+  "Built around you",
+  "Outcomes that matter",
 ];
 
 function setProblemCharVariables(
@@ -37,9 +37,9 @@ export function Problem() {
       aria-label="Why generic assessment fails — and what replaces it"
       className="relative min-h-[200vh]"
     >
-      <div className="problem-sticky sticky top-0 flex h-screen flex-col items-center justify-center overflow-hidden px-8">
+      <div className="problem-sticky sticky top-0 flex h-[100svh] flex-col items-center justify-center overflow-hidden px-5 md:px-8">
         {/* Generic text — dissolves as progress goes 0 → 0.5 */}
-        <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-4">
+        <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
           {GENERIC_PHRASES.map((phrase, phraseIdx) => (
             <div key={phraseIdx} className="problem-line flex flex-wrap justify-center">
               {phrase.split("").map((char, charIdx) => {
@@ -52,7 +52,7 @@ export function Problem() {
                     ref={(element) =>
                       setProblemCharVariables(element, delay, direction)
                     }
-                    className="problem-char-generic inline-block text-2xl font-bold md:text-4xl"
+                    className="problem-char-generic inline-block text-xl font-bold sm:text-2xl md:text-4xl"
                   >
                     {char === " " ? "\u00A0" : char}
                   </span>
@@ -63,9 +63,12 @@ export function Problem() {
         </div>
 
         {/* Reformed text — assembles as progress goes 0.5 → 1 */}
-        <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-4">
+        <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
           {REFORMED_PHRASES.map((phrase, phraseIdx) => (
-            <div key={phraseIdx} className="problem-line problem-reformed-phrase flex flex-wrap justify-center">
+            <div
+              key={phraseIdx}
+              className="problem-line problem-reformed-phrase mx-auto flex w-fit max-w-full flex-wrap justify-center"
+            >
               {phrase.split("").map((char, charIdx) => {
                 const delay = (phraseIdx * 4 + charIdx) / 100;
 
@@ -75,7 +78,7 @@ export function Problem() {
                     ref={(element) =>
                       setProblemCharVariables(element, delay, 1)
                     }
-                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] font-bold text-2xl md:text-4xl"
+                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] font-bold text-xl sm:text-2xl md:text-4xl"
                   >
                     {char === " " ? "\u00A0" : char}
                   </span>

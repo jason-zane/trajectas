@@ -27,7 +27,7 @@ export function ContactForm() {
   return (
     <form action={formAction} className="w-full max-w-lg">
       {state && "error" in state && !fieldErrors && (
-        <div className="mb-6 border p-3 text-sm" style={{ borderColor: "rgba(239, 68, 68, 0.5)", color: "#ef4444" }}>
+        <div className="mb-6 rounded-2xl border p-3 text-sm" style={{ borderColor: "rgba(239, 68, 68, 0.5)", color: "#ef4444" }}>
           {state.error}
         </div>
       )}
@@ -40,7 +40,7 @@ export function ContactForm() {
             name="name"
             autoComplete="name"
             required
-            className="w-full border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
+            className="w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
           />
           {fieldErrors?.name && <p className="mt-1 text-xs text-red-400">{fieldErrors.name[0]}</p>}
@@ -54,7 +54,7 @@ export function ContactForm() {
             type="email"
             autoComplete="email"
             required
-            className="w-full border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
+            className="w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
           />
           {fieldErrors?.email && <p className="mt-1 text-xs text-red-400">{fieldErrors.email[0]}</p>}
@@ -66,7 +66,7 @@ export function ContactForm() {
             id="contact-company"
             name="company"
             autoComplete="organization"
-            className="w-full border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
+            className="w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
           />
         </div>
@@ -78,7 +78,7 @@ export function ContactForm() {
             name="message"
             required
             rows={4}
-            className="w-full resize-none border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
+            className="w-full rounded-2xl border bg-transparent px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--mk-accent)]"
             style={{ borderColor: "rgba(255,255,255,0.15)", color: "var(--mk-text-on-dark)" }}
           />
           {fieldErrors?.message && <p className="mt-1 text-xs text-red-400">{fieldErrors.message[0]}</p>}
@@ -88,7 +88,7 @@ export function ContactForm() {
           <button
             type="submit"
             disabled={pending}
-            className="w-full py-4 text-sm font-bold tracking-wide transition-opacity disabled:opacity-50"
+            className="w-full rounded-full py-4 text-sm font-bold tracking-wide transition-opacity disabled:opacity-50"
             style={{ backgroundColor: "var(--mk-accent)", color: "var(--mk-primary-dark)" }}
           >
             {pending ? "Sending..." : "Send"}

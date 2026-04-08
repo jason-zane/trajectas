@@ -45,26 +45,17 @@ export function Journey() {
       data-section="journey"
       className="relative min-h-[250vh]"
     >
-      <div className="journey-sticky sticky top-0 flex h-screen items-center justify-center overflow-hidden">
+      <div className="journey-sticky sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
         {/* Central trajectory line — hidden on mobile */}
         <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2 hidden md:block">
           <div className="journey-line w-full origin-top" />
         </div>
 
         {/* Stages */}
-        <div className="journey-list relative flex h-[70%] w-full max-w-4xl flex-col justify-between px-4 md:px-8">
+        <div className="journey-list relative flex w-full max-w-4xl flex-col gap-8 px-5 py-12 md:h-[70%] md:justify-between md:gap-0 md:px-8 md:py-0">
           {STAGES.map((stage, i) => {
             const stageStart = i * 0.25;
             const isLeft = i % 2 === 0;
-            const isFinal = i === STAGES.length - 1;
-
-            // Stage 4 (Outcomes) centred on desktop; all centred on mobile
-            const justifyClass = isFinal
-              ? "justify-center"
-              : `justify-center md:${isLeft ? "justify-start" : "justify-end"}`;
-            const textClass = isFinal
-              ? "text-center"
-              : `text-center md:${isLeft ? "text-right" : "text-left"}`;
 
             return (
               <div
@@ -72,9 +63,11 @@ export function Journey() {
                 ref={(element) =>
                   setJourneyStageVariables(element, stageStart, isLeft ? -1 : 1)
                 }
-                className={`journey-stage relative flex items-center ${justifyClass}`}
+                className={`journey-stage relative flex items-center justify-center md:${isLeft ? "justify-start" : "justify-end"}`}
               >
-                <div className={`max-w-xs md:max-w-sm ${textClass}`}>
+                <div
+                  className={`max-w-[19rem] text-center md:max-w-sm md:${isLeft ? "text-right" : "text-left"}`}
+                >
                   <div className="mk-mono text-[var(--mk-accent)]">
                     {stage.num}
                   </div>

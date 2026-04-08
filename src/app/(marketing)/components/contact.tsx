@@ -9,10 +9,10 @@ export function Contact() {
           className="mk-display max-w-2xl font-[family-name:var(--font-display)]"
           style={{ color: "var(--mk-text-on-dark)" }}
         >
-          Tell us what you&apos;re building.
+          Tell us what capability looks like in your world.
         </h2>
         <p className="mk-body mt-4 mb-12" style={{ color: "var(--mk-text-on-dark-muted)" }}>
-          We&apos;ll show you what contextual assessment could look like for your organisation.
+          We&apos;ll show you how a tailored assessment can map capability, performance, and trajectory for your organisation.
         </p>
         <ContactForm />
       </div>

@@ -11,14 +11,14 @@ export function Hero() {
   }, []);
 
   const lines = [
-    "Capability shapes trajectory.",
-    "Generic assessment misses both.",
+    "Map your people's capability",
+    "and the trajectory you're on?",
   ];
 
   return (
     <section
       data-section="hero"
-      className="relative z-10 flex h-screen flex-col items-center justify-center px-8 md:px-16 lg:px-24 text-center"
+      className="relative z-10 flex min-h-[100svh] flex-col items-center justify-center px-6 pb-16 pt-28 text-center sm:px-8 md:px-16 md:pb-20 md:pt-24 lg:px-24"
       style={{ backgroundColor: "var(--mk-primary-dark)" }}
     >
       <div className="w-full max-w-5xl">
@@ -38,8 +38,8 @@ export function Hero() {
           className="font-[family-name:var(--font-display)] font-extrabold"
           style={{
             color: "var(--mk-text-on-dark)",
-            fontSize: "clamp(2.75rem, 5.5vw, 4rem)",
-            lineHeight: 1.1,
+            fontSize: "clamp(2.35rem, 8vw, 4rem)",
+            lineHeight: 1.04,
             letterSpacing: "-0.03em",
           }}
         >
@@ -67,7 +67,7 @@ export function Hero() {
 
         {/* Subtext */}
         <p
-          className="mt-6 text-xl leading-relaxed transition-all duration-700"
+          className="mx-auto mt-6 max-w-2xl text-base leading-relaxed transition-all duration-700 sm:text-lg md:text-xl"
           style={{
             color: "var(--mk-text-on-dark-muted)",
             opacity: revealed ? 1 : 0,
@@ -96,7 +96,7 @@ export function Hero() {
 
       {/* Scroll hint */}
       <div
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 transition-opacity duration-500"
+        className="absolute bottom-6 left-1/2 -translate-x-1/2 transition-opacity duration-500 md:bottom-8"
         style={{ opacity: revealed ? 1 : 0, transitionDelay: "1400ms" }}
       >
         <div
