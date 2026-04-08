@@ -185,6 +185,24 @@
     scale(calc(1 + var(--journey-dot-active) * 0.3));
 }
 
+[data-surface="marketing"] .problem-reformed-phrase {
+  position: relative;
+  padding-bottom: 4px;
+}
+
+[data-surface="marketing"] .problem-reformed-phrase::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(clamp(0, calc((var(--scroll-progress, 0) - 0.72) * 12), 1));
+  transform-origin: center;
+  width: 100%;
+  height: 1.5px;
+  background: var(--mk-accent);
+  opacity: clamp(0, calc((var(--scroll-progress, 0) - 0.72) * 12), 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-surface="marketing"] .problem-sticky {
     height: auto;

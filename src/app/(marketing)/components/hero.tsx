@@ -10,8 +10,10 @@ export function Hero() {
     return () => clearTimeout(timer);
   }, []);
 
-  const headline = "Generic assessment measures nothing that matters.";
-  const words = headline.split(" ");
+  const lines = [
+    "Generic assessment",
+    "measures nothing that matters.",
+  ];
 
   return (
     <section
@@ -19,7 +21,7 @@ export function Hero() {
       className="relative z-10 flex h-screen flex-col items-center justify-center px-8 md:px-16 lg:px-24 text-center"
       style={{ backgroundColor: "var(--mk-primary-dark)" }}
     >
-      <div className="w-full max-w-3xl">
+      <div className="w-full max-w-5xl">
         {/* Eyebrow — fades in first */}
         <p
           className="mk-eyebrow mb-6 transition-all duration-700"
@@ -31,26 +33,41 @@ export function Hero() {
           Contextual Assessment
         </p>
 
-        {/* Headline — word-by-word reveal */}
-        <h1 className="mk-display font-[family-name:var(--font-display)]" style={{ color: "var(--mk-text-on-dark)" }}>
-          {words.map((word, i) => (
-            <span
-              key={i}
-              className="inline-block mr-[0.3em] transition-all duration-500"
-              style={{
-                opacity: revealed ? 1 : 0,
-                transform: revealed ? "translateY(0)" : "translateY(20px)",
-                transitionDelay: `${300 + i * 80}ms`,
-              }}
-            >
-              {word}
+        {/* Headline — line-by-line reveal, two explicit lines */}
+        <h1
+          className="font-[family-name:var(--font-display)] font-extrabold"
+          style={{
+            color: "var(--mk-text-on-dark)",
+            fontSize: "clamp(2.25rem, 4vw, 3.5rem)",
+            lineHeight: 1.1,
+            letterSpacing: "-0.03em",
+          }}
+        >
+          {lines.map((line, lineIdx) => (
+            <span key={lineIdx} className="block">
+              {line.split(" ").map((word, wordIdx) => {
+                const globalIdx = lines.slice(0, lineIdx).flatMap(l => l.split(" ")).length + wordIdx;
+                return (
+                  <span
+                    key={wordIdx}
+                    className="inline-block mr-[0.3em] transition-all duration-500"
+                    style={{
+                      opacity: revealed ? 1 : 0,
+                      transform: revealed ? "translateY(0)" : "translateY(20px)",
+                      transitionDelay: `${300 + globalIdx * 80}ms`,
+                    }}
+                  >
+                    {word}
+                  </span>
+                );
+              })}
             </span>
           ))}
         </h1>
 
         {/* Subtext */}
         <p
-          className="mk-body mt-6 max-w-md mx-auto transition-all duration-700"
+          className="mk-body mt-6 max-w-md mx-auto text-lg leading-relaxed transition-all duration-700"
           style={{
             color: "var(--mk-text-on-dark-muted)",
             opacity: revealed ? 1 : 0,
@@ -64,10 +81,10 @@ export function Hero() {
         {/* CTA */}
         <a
           href="#contact"
-          className="mt-8 inline-block px-8 py-4 text-sm font-bold tracking-wide transition-all duration-200"
+          className="mt-8 inline-block rounded-full px-7 py-3 text-sm font-bold tracking-wide transition-all duration-200 hover:opacity-90"
           style={{
-            backgroundColor: "var(--mk-primary)",
-            color: "var(--mk-text-on-dark)",
+            backgroundColor: "var(--mk-accent)",
+            color: "var(--mk-primary-dark)",
             opacity: revealed ? 1 : 0,
             transform: revealed ? "translateY(0)" : "translateY(12px)",
             transitionDelay: "1100ms",

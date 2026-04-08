@@ -65,7 +65,7 @@ export function Problem() {
         {/* Reformed text — assembles as progress goes 0.5 → 1 */}
         <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-4">
           {REFORMED_PHRASES.map((phrase, phraseIdx) => (
-            <div key={phraseIdx} className="problem-line flex flex-wrap justify-center">
+            <div key={phraseIdx} className="problem-line problem-reformed-phrase flex flex-wrap justify-center">
               {phrase.split("").map((char, charIdx) => {
                 const delay = (phraseIdx * 4 + charIdx) / 100;
 
