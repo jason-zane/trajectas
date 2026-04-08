@@ -16,10 +16,10 @@ export function Hero() {
   return (
     <section
       data-section="hero"
-      className="relative z-10 flex h-screen items-center px-8 md:px-16 lg:px-24"
+      className="relative z-10 flex h-screen flex-col items-center justify-center px-8 md:px-16 lg:px-24 text-center"
       style={{ backgroundColor: "var(--mk-primary-dark)" }}
     >
-      <div className="max-w-full md:max-w-[55%]">
+      <div className="w-full max-w-3xl">
         {/* Eyebrow — fades in first */}
         <p
           className="mk-eyebrow mb-6 transition-all duration-700"
@@ -50,7 +50,7 @@ export function Hero() {
 
         {/* Subtext */}
         <p
-          className="mk-body mt-6 max-w-md transition-all duration-700"
+          className="mk-body mt-6 max-w-md mx-auto transition-all duration-700"
           style={{
             color: "var(--mk-text-on-dark-muted)",
             opacity: revealed ? 1 : 0,
