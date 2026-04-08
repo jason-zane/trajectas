@@ -10,10 +10,10 @@ const GENERIC_PHRASES = [
 ];
 
 const REFORMED_PHRASES = [
-  "Your context",
-  "Capability, defined by you",
-  "Built around you",
-  "Outcomes that matter",
+  "YOUR CONTEXT",
+  "YOUR DEFINITION OF CAPABILITY",
+  "ASSESSMENT BUILT AROUND YOU",
+  "MEASUREMENT TIED TO OUTCOMES",
 ];
 
 function setProblemCharVariables(
@@ -78,7 +78,7 @@ export function Problem() {
                     ref={(element) =>
                       setProblemCharVariables(element, delay, 1)
                     }
-                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] font-bold text-xl sm:text-2xl md:text-4xl"
+                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] text-xl font-normal sm:text-2xl md:text-4xl"
                   >
                     {char === " " ? "\u00A0" : char}
                   </span>

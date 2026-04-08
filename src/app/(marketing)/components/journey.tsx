@@ -63,10 +63,10 @@ export function Journey() {
                 ref={(element) =>
                   setJourneyStageVariables(element, stageStart, isLeft ? -1 : 1)
                 }
-                className={`journey-stage relative flex items-center justify-center md:${isLeft ? "justify-start" : "justify-end"}`}
+                className={`journey-stage relative flex w-full items-center justify-center md:${isLeft ? "justify-start" : "justify-end"}`}
               >
                 <div
-                  className={`max-w-[19rem] text-center md:max-w-sm md:${isLeft ? "text-right" : "text-left"}`}
+                  className={`max-w-[19rem] text-center md:w-[calc(50%-2rem)] md:max-w-sm md:${isLeft ? "text-right" : "text-left"}`}
                 >
                   <div className="mk-mono text-[var(--mk-accent)]">
                     {stage.num}

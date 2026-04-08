@@ -10,10 +10,7 @@ export function Hero() {
     return () => clearTimeout(timer);
   }, []);
 
-  const lines = [
-    "Map your people's capability",
-    "and the trajectory you're on?",
-  ];
+  const headline = "Map your people's capability and the trajectory you're on.";
 
   return (
     <section
@@ -33,7 +30,7 @@ export function Hero() {
           Assessments built for your organisation
         </p>
 
-        {/* Headline — line-by-line reveal, two explicit lines */}
+        {/* Headline — word-by-word reveal */}
         <h1
           className="font-[family-name:var(--font-display)] font-extrabold"
           style={{
@@ -43,31 +40,24 @@ export function Hero() {
             letterSpacing: "-0.03em",
           }}
         >
-          {lines.map((line, lineIdx) => (
-            <span key={lineIdx} className="block">
-              {line.split(" ").map((word, wordIdx) => {
-                const globalIdx = lines.slice(0, lineIdx).flatMap(l => l.split(" ")).length + wordIdx;
-                return (
-                  <span
-                    key={wordIdx}
-                    className="inline-block mr-[0.3em] transition-all duration-500"
-                    style={{
-                      opacity: revealed ? 1 : 0,
-                      transform: revealed ? "translateY(0)" : "translateY(20px)",
-                      transitionDelay: `${300 + globalIdx * 80}ms`,
-                    }}
-                  >
-                    {word}
-                  </span>
-                );
-              })}
+          {headline.split(" ").map((word, wordIdx) => (
+            <span
+              key={wordIdx}
+              className="inline-block mr-[0.3em] transition-all duration-500"
+              style={{
+                opacity: revealed ? 1 : 0,
+                transform: revealed ? "translateY(0)" : "translateY(20px)",
+                transitionDelay: `${300 + wordIdx * 80}ms`,
+              }}
+            >
+              {word}
             </span>
           ))}
         </h1>
 
         {/* Subtext */}
         <p
-          className="mx-auto mt-6 max-w-2xl text-base leading-relaxed transition-all duration-700 sm:text-lg md:text-xl"
+          className="mx-auto mt-6 max-w-2xl text-base leading-relaxed transition-all duration-700 sm:text-lg md:max-w-none md:whitespace-nowrap md:text-lg lg:text-xl"
           style={{
             color: "var(--mk-text-on-dark-muted)",
             opacity: revealed ? 1 : 0,

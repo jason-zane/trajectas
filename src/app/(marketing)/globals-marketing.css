@@ -184,13 +184,7 @@
 }
 
 [data-surface="marketing"] .problem-reformed-phrase {
-  position: relative;
-  padding: 0.5rem 1rem 0.65rem;
-  border: 1px solid rgba(201, 169, 98, 0.24);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--mk-accent) 10%, transparent);
-  box-shadow: 0 18px 40px rgba(30, 74, 62, 0.12);
-  backdrop-filter: blur(10px);
+  text-transform: uppercase;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -219,12 +213,6 @@
 
   [data-surface="marketing"] .problem-char-reformed {
     color: var(--mk-primary);
-  }
-
-  [data-surface="marketing"] .problem-reformed-phrase {
-    background: color-mix(in srgb, var(--mk-accent) 12%, transparent);
-    box-shadow: none;
-    backdrop-filter: none;
   }
 
   [data-surface="marketing"] .journey-sticky {
@@ -261,11 +249,5 @@
     background-color: var(--mk-accent);
     box-shadow: none;
     transform: translateX(-50%);
-  }
-}
-
-@media (max-width: 767px) {
-  [data-surface="marketing"] .problem-reformed-phrase {
-    padding: 0.45rem 0.85rem 0.55rem;
   }
 }
