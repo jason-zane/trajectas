@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { SessionActivityProvider } from "@/components/auth/session-activity-provider";
@@ -6,6 +7,13 @@ import { EmptyState } from "@/components/empty-state";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { resolveAdminWorkspaceAccess } from "@/lib/auth/workspace-access";
 import { getWorkspaceRequestContext } from "@/lib/workspace-request";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export default async function DashboardLayout({
   children,

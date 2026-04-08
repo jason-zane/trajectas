@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   title: "Sign in — Trajectas",
   description:
     "Secure workspace sign-in for platform admins, partners, and clients.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
 export default function LoginLayout({

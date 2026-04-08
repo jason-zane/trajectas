@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getEffectiveBrand } from "@/app/actions/brand";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
@@ -6,6 +7,13 @@ import type { BrandConfig } from "@/lib/brand/types";
 interface AssessLayoutProps {
   children: React.ReactNode;
 }
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 /**
  * Assessment runner layout.

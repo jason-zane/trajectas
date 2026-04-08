@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import {
+  MARKETING_KEYWORDS,
+  PUBLIC_SITE_NAME,
+  getPublicSiteMetadataBase,
+} from "@/lib/seo/public-site";
 import "./globals-marketing.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -17,9 +22,19 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Trajectas — Contextual Psychometric Assessment",
+  metadataBase: getPublicSiteMetadataBase(),
+  title: {
+    default: "Trajectas — Contextual Psychometric Assessment",
+    template: "%s",
+  },
   description:
-    "Assessment built around your context. Your organisation, your roles, your definition of what good looks like.",
+    "Psychometric assessment built around organisational context, capability, performance, and measurable outcomes.",
+  keywords: [...MARKETING_KEYWORDS],
+  applicationName: PUBLIC_SITE_NAME,
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function MarketingLayout({
