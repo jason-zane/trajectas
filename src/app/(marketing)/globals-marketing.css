@@ -13,18 +13,18 @@
 
 /* Marketing typography utilities */
 [data-surface="marketing"] .mk-eyebrow {
-  font-weight: 400;
-  font-size: 0.75rem;
-  letter-spacing: 0.15em;
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--mk-accent);
 }
 
 [data-surface="marketing"] .mk-display {
-  font-size: clamp(3rem, 6vw, 5rem);
+  font-size: clamp(2.75rem, 5.5vw, 4.5rem);
   line-height: 1.1;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 [data-surface="marketing"] .mk-headline {
@@ -86,14 +86,15 @@
   );
   opacity: calc(1 - var(--problem-char-progress));
   transform: translate3d(
-      0,
-      calc(var(--problem-char-progress) * -60px),
+      calc(var(--problem-char-progress) * var(--char-dir) * 20px),
+      calc(var(--problem-char-progress) * -100px),
       0
     )
     rotate(
-      calc(var(--problem-char-progress) * var(--char-dir) * 12deg)
-    );
-  filter: blur(calc(var(--problem-char-progress) * 8px));
+      calc(var(--problem-char-progress) * var(--char-dir) * 20deg)
+    )
+    scale(calc(1 - var(--problem-char-progress) * 0.3));
+  filter: blur(calc(var(--problem-char-progress) * 12px));
 }
 
 [data-surface="marketing"] .problem-char-reformed {
@@ -106,12 +107,12 @@
   color: var(--mk-primary);
   opacity: var(--problem-char-progress);
   transform: translate3d(
-      0,
-      calc((1 - var(--problem-char-progress)) * 12px),
+      calc(var(--char-dir) * (1 - var(--problem-char-progress)) * -12px),
+      calc((1 - var(--problem-char-progress)) * 28px),
       0
     )
-    scale(calc(0.95 + var(--problem-char-progress) * 0.05));
-  filter: blur(calc((1 - var(--problem-char-progress)) * 4px));
+    scale(calc(0.82 + var(--problem-char-progress) * 0.18));
+  filter: blur(calc((1 - var(--problem-char-progress)) * 6px));
 }
 
 [data-surface="marketing"] .journey-sticky {

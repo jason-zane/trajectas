@@ -3,10 +3,10 @@
 import { useScrollProgress } from "./use-scroll-progress";
 
 const STAGES = [
-  { num: "01", title: "Where you are now", desc: "Data without direction. Numbers that don\u2019t connect to decisions." },
-  { num: "02", title: "Define the context", desc: "We learn your organisation. Your roles. Your definition of what good looks like." },
-  { num: "03", title: "Build the instrument", desc: "A tailored assessment, grounded in psychometric methodology. Shaped by your requirements." },
-  { num: "04", title: "Clarity", desc: "Insight that connects to decisions. Not just a score \u2014 a direction." },
+  { num: "01", title: "Where you are", desc: "Data without direction. Numbers no one acts on." },
+  { num: "02", title: "Your context", desc: "Your organisation. Your roles. Your definition of what good looks like." },
+  { num: "03", title: "Build the instrument", desc: "Psychometrically grounded. Shaped entirely by your requirements." },
+  { num: "04", title: "Clarity", desc: "Not a score. A direction." },
 ];
 
 function setJourneyStageVariables(

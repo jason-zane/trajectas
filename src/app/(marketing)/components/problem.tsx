@@ -3,17 +3,17 @@
 import { useScrollProgress } from "./use-scroll-progress";
 
 const GENERIC_PHRASES = [
-  "Standardised competency frameworks",
-  "Norm-referenced percentile scores",
-  "One-size-fits-all benchmarks",
-  "Industry-standard personality profiles",
+  "Standardised frameworks",
+  "Percentile scores",
+  "Off-the-shelf benchmarks",
+  "Generic personality tests",
 ];
 
 const REFORMED_PHRASES = [
   "Your context",
-  "Your definition of capability",
-  "Measurement that drives decisions",
-  "Assessment that actually means something",
+  "Your definition of good",
+  "Measurement that means something",
+  "Assessment built around you",
 ];
 
 function setProblemCharVariables(
@@ -75,7 +75,7 @@ export function Problem() {
                     ref={(element) =>
                       setProblemCharVariables(element, delay, 1)
                     }
-                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] text-2xl md:text-4xl"
+                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] font-bold text-2xl md:text-4xl"
                   >
                     {char === " " ? "\u00A0" : char}
                   </span>

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals-marketing.css";
 
-const instrumentSerif = Instrument_Serif({
+const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "700", "800"],
   variable: "--font-display",
   display: "swap",
 });
@@ -30,7 +30,7 @@ export default function MarketingLayout({
   return (
     <div
       data-surface="marketing"
-      className={`${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
     >
       {children}
     </div>

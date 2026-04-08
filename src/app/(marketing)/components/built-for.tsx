@@ -288,7 +288,7 @@ export function BuiltFor() {
           className="mk-headline mt-4 font-[family-name:var(--font-display)]"
           style={{ color: "var(--mk-text)" }}
         >
-          Two ways to start
+          Built for decisions that matter
         </h2>
       </div>
 
@@ -297,7 +297,7 @@ export function BuiltFor() {
         <Panel
           eyebrow="Use case"
           title="Hiring for critical roles"
-          body="When the cost of a bad hire is measured in years, not months. Build assessments that evaluate candidates against the specific capabilities your role demands — not generic benchmarks that miss what matters."
+          body="When a bad hire costs years, not months. Assess candidates against the capabilities your role actually demands — not benchmarks built for someone else."
           reverse={false}
           visual={(animate) => <HiringVisual animate={animate} />}
         />
@@ -308,7 +308,7 @@ export function BuiltFor() {
         <Panel
           eyebrow="Use case"
           title="Capability mapping"
-          body="See where strengths concentrate and where gaps hide. Map your people against the competency frameworks you&apos;ve defined, and turn the results into development plans that connect to business outcomes."
+          body="See where strengths concentrate and gaps hide. Map your people against your own competency frameworks — then turn results into action."
           reverse={true}
           visual={(animate) => <CapabilityVisual animate={animate} />}
         />

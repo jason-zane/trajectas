@@ -42,6 +42,16 @@ export default function MarketingPage() {
   return (
     <>
       <ParticleMesh activeSection={activeSection} mousePosition={mouse} />
+      {/* Subtle cursor glow — warm golden shimmer that follows the mouse */}
+      <div
+        className="pointer-events-none fixed z-[15] h-[600px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          left: mouse.x,
+          top: mouse.y,
+          background: "radial-gradient(circle, rgba(201,169,98,0.045) 0%, transparent 70%)",
+          transition: "left 0.15s ease-out, top 0.15s ease-out",
+        }}
+      />
       <Nav />
       <main className="relative z-10">
         <Hero />
