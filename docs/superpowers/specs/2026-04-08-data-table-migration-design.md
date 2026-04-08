@@ -1,8 +1,10 @@
 # Data Table Migration — Design Spec
 
+> **Status: Implemented.** This document describes the completed migration. All 16 pages listed below are live. The two outstanding items are noted explicitly.
+
 ## Context
 
-List pages across the platform use a mix of card grids and raw shadcn `Table` components. Card grids lack scannability for operational pages. Raw tables lack sorting, search, filtering, and pagination. The goal is to standardise on a single reusable `<DataTable>` component built on TanStack Table, then migrate all applicable pages.
+List pages across the platform previously used a mix of card grids and raw shadcn `Table` components. This migration standardised all operational list pages on a shared `<DataTable>` component built on TanStack Table (`@tanstack/react-table`, MIT), providing consistent sorting, search, filtering, and pagination across the platform.
 
 **Taxonomy pages (dimensions, factors, constructs, items, response formats) remain as card grids** — they benefit from the visual layout. Campaign assessments (drag-reorder + factor picker) are also excluded due to specialised interaction patterns.
 
@@ -19,13 +21,13 @@ All migrated pages follow this pattern:
 3. `<DataTable>` is `"use client"` (TanStack Table requires hooks)
 4. Page-level `page.tsx` files remain server components — do NOT add `"use client"` to them
 
-This matches the existing pattern used by `UsersTable` and keeps data fetching on the server.
-
 ## Shared Components
+
+All in `src/components/data-table/`:
 
 ### `<DataTable<TData, TValue>>`
 
-**Location:** `src/components/data-table/data-table.tsx`
+**File:** `data-table.tsx`
 
 A generic, reusable table component wrapping TanStack Table with shadcn `Table` primitives.
 
@@ -34,10 +36,10 @@ A generic, reusable table component wrapping TanStack Table with shadcn `Table` 
 - `data: TData[]` — row data
 - `searchPlaceholder?: string` — placeholder for the global search input
 - `searchableColumns?: (keyof TData)[]` — which columns participate in global search
-- `filterableColumns?: { id: string; title: string; options: { label: string; value: string; icon?: React.ComponentType }[] }[]` — faceted filter config
+- `filterableColumns?: DataTableFilterConfig[]` — faceted filter config (see `data-table-faceted-filter.tsx` for type)
 - `onRowClick?: (row: TData) => void` — optional row click handler
 - `rowHref?: (row: TData) => string` — optional row link (renders row as navigable)
-- `emptyState?: React.ReactNode` — custom empty state (defaults to `<EmptyState>` component from `@/components/empty-state`)
+- `emptyState?: React.ReactNode` — custom empty state (defaults to `<EmptyState>` from `@/components/empty-state`)
 - `defaultSort?: { id: string; desc: boolean }` — initial sort
 - `pageSize?: number` — default page size (default: 20)
 
@@ -49,137 +51,122 @@ A generic, reusable table component wrapping TanStack Table with shadcn `Table` 
 - Row count display
 - Horizontal scroll on mobile
 - Row hover state with optional click navigation
-
-**Keyboard accessibility:**
-- When `rowHref` is set, rows get `tabIndex={0}`, `role="link"`, and `onKeyDown` handling for Enter/Space to navigate (matching the existing `UsersTable` pattern)
+- Keyboard accessibility: when `rowHref` is set, rows get `tabIndex={0}`, `role="link"`, and `onKeyDown` for Enter/Space
 
 ### Supporting sub-components
-
-All in `src/components/data-table/`:
 
 - `data-table-column-header.tsx` — sortable header cell with sort indicator arrows
 - `data-table-search.tsx` — global search input with debounce
 - `data-table-pagination.tsx` — page controls + row count + page size selector
-- `data-table-faceted-filter.tsx` — multi-select dropdown filter per column
+- `data-table-faceted-filter.tsx` — multi-select dropdown filter per column; exports `DataTableFilterConfig` type
 - `data-table-toolbar.tsx` — layout wrapper for search + filters + reset button
-- `data-table-row-actions.tsx` — a flex container for arbitrary action buttons, right-aligned. Accepts `children` (icon buttons, toggles, dropdown menus). Pages render their own action controls inside this wrapper. For example, report templates render an `ActiveToggle` (imperative Zone-1 control that fires a server action on click) alongside clone/delete buttons. The wrapper only handles layout (flex, gap, alignment), not behaviour.
+- `data-table-row-actions.tsx` — flex container for row action buttons (icon buttons, toggles, dropdown menus), right-aligned. Handles layout only — no behaviour.
+- `data-table-loading.tsx` — shimmer loading skeleton. Props: `columnCount`, `rowCount`, `filterCount`. Uses `animate-shimmer` per CLAUDE.md. Used in each page's `loading.tsx`.
 - `index.ts` — barrel export
 
 ### Styling
 
-- Wraps existing shadcn `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell` for visual consistency
+- Wraps existing shadcn `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableCell`
 - Interactive rows: `cursor-pointer hover:bg-muted/50` when `onRowClick` or `rowHref` is set
-- Container: `rounded-xl border border-border bg-card shadow-sm` in light mode; border-emphasis in dark (shadow suppressed)
-- Wrapped in `<ScrollReveal>` for entrance animation — single animation on the whole table container, not per-row (deliberate change from the per-card staggering used on card grids, as per-row animation would be jarring in a table)
-- `TiltCard` is not used on table pages (removed from migrated pages)
+- Container: `rounded-xl border border-border bg-card shadow-sm` in light; border-emphasis, no shadow in dark
+- Single `<ScrollReveal>` on the table container — not per-row (intentional departure from card grid staggering)
+- `TiltCard` not used on table pages
 
-### Per-page deliverables
+### Role-tab filtering pattern (Users pages)
 
-Each migrated page must also update or create its `loading.tsx` to show a table-row shimmer layout (using `animate-shimmer`, not `animate-pulse`) matching the new table structure, per CLAUDE.md requirements.
+Pages with tab-based role filtering (Users, client-scoped users, partner-scoped users) use a **pre-filter pattern**, not a TanStack `filterFn`. A `matchesTab(row, activeTab)` function filters the data array before passing to `<DataTable>`. Tab counts are computed from the full unfiltered array via `useMemo`. This keeps the tab logic simple and separate from TanStack's internal filter pipeline.
 
-## Pages to Migrate
+## Completed Pages
 
-### Tier 1 — Card Grids to DataTable
+### Previously card grids
 
 #### 1. Campaigns (dashboard)
 
-**File:** `src/app/(dashboard)/campaigns/page.tsx`
+**Files:** `src/app/(dashboard)/campaigns/page.tsx` → `campaigns-table.tsx`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Title | `title` | Yes | Primary column, font-semibold. Description intentionally omitted for density — table rows should be scannable, not verbose. |
-| Client | `clientName` | Yes | Falls back to "—" |
-| Status | `status` | Yes | Badge with variant mapping |
-| Assessments | `assessmentCount` | Yes | Numeric |
-| Participants | `participantCount` | Yes | Numeric |
-| Completion | computed | Yes | Percentage bar (completed/total) |
-| Date Range | `opensAt`/`closesAt` | Yes (by opensAt) | Formatted date range |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Title | Yes | font-semibold; description omitted for density |
+| Client | Yes | "—" fallback |
+| Status | Yes | Badge with variant mapping |
+| Assessments | Yes | Numeric |
+| Participants | Yes | Numeric |
+| Completion | Yes | Progress bar (completed/total) |
+| Date Range | Yes | `opensAt ?? createdAt`; **default sort: dateRange descending** |
 
 **Filters:** Status (draft, active, paused, closed, archived)
 **Search:** Title, client name
-**Default sort:** Created date descending
-**Row click:** Navigate to `/campaigns/{id}/overview`
-**Action button:** "New Campaign" in page header (unchanged)
+**Row click:** `/campaigns/{id}/overview`
 
 #### 2. Campaigns (client)
 
-**File:** `src/app/client/campaigns/page.tsx`
+**Files:** `src/app/client/campaigns/page.tsx` → client campaigns table component
 
-Same as dashboard campaigns minus the Client column (already scoped to one client).
+Same as dashboard campaigns minus the Client column.
 
 #### 3. Assessments
 
-**File:** `src/app/(dashboard)/assessments/page.tsx`
+**Files:** `src/app/(dashboard)/assessments/page.tsx` → `assessments-data-table.tsx`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Title | `title` | Yes | Primary column |
-| Status | `status` | Yes | Badge (draft/active/archived) |
-| Creation Mode | `creationMode` | Yes | Badge (manual/ai/org-choice) |
-| Factors | `factorCount` | Yes | Numeric |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Title | Yes | |
+| Status | Yes | Badge (draft/active/archived) |
+| Creation Mode | Yes | Badge; values: `manual`, `ai_generated`, `org_choice` |
+| Factors | Yes | Numeric |
 
 **Filters:** Status (draft, active, archived)
 **Search:** Title
 **Default sort:** Title ascending
-**Row click:** Navigate to `/assessments/{id}/edit`
-**Note:** The page has two tabs: "Assessments" and "Item Selection Rules". The DataTable replaces the content inside `<TabsContent value="assessments">` only. The tab component and Item Selection Rules tab remain unchanged. The existing `searchParams`-based tab resolution continues to work.
+**Row click:** `/assessments/{id}/edit`
+**Note:** Page has two tabs: "Assessments" and "Item Selection Rules". DataTable is inside `<TabsContent value="assessments">` only. Tab state is `searchParams`-based and independent of DataTable state.
 
 #### 4. Directory — Clients
 
-**File:** `src/app/(dashboard)/directory/page.tsx`
+**File:** `src/app/(dashboard)/directory/page.tsx` → `ClientDirectoryTable`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Name | `name` | Yes | Primary column |
-| Partner | `partnerName` | Yes | "Platform-owned" fallback |
-| Status | `status` | Yes | Dot badge (active/inactive/archived) |
-| Industry | `industry` | Yes | Plain text, "—" fallback |
-| Assessments | `assessmentCount` | Yes | Numeric |
-| Sessions | `sessionCount` | Yes | Numeric |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Name | Yes | |
+| Partner | Yes | "Platform-owned" fallback |
+| Status | Yes | Dot badge |
+| Industry | Yes | "—" fallback |
+| Assessments | Yes | Numeric |
+| Sessions | Yes | Numeric |
 
 **Filters:** Status (active, inactive, archived)
 **Search:** Name, partner name
 **Default sort:** Name ascending
-**Row click:** Navigate to `/clients/{slug}/overview`
+**Row click:** `/clients/{slug}/overview`
 
 #### 5. Directory — Partners
 
-Same page file as clients, rendered in the "Partners" tab.
+Same page file, "Partners" tab → `PartnerDirectoryTable`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Name | `name` | Yes | Primary column |
-| Status | `status` | Yes | Dot badge |
-| Clients | `clientCount` | Yes | Numeric |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Name | Yes | |
+| Status | Yes | Dot badge |
+| Clients | Yes | Numeric |
 
 **Filters:** Status (active, inactive, archived)
 **Search:** Name
 **Default sort:** Name ascending
-**Row click:** Navigate to `/partners/{slug}/edit`
+**Row click:** `/partners/{slug}/edit`
 
-**Note:** Keep the clients/partners tab toggle using the existing `searchParams`-based mechanism. Both tabs' data is fetched in the server component and passed down. Each tab renders its own DataTable instance with its own column definitions.
+**Note:** Directory uses `searchParams`-based tab toggle. Each tab renders a single DataTable instance conditionally; both datasets are fetched server-side and passed down.
 
 #### 6. Dashboard Participants
 
-**File:** `src/app/(dashboard)/participants/page.tsx`
+**Files:** `src/app/(dashboard)/participants/page.tsx` → `ParticipantsTable`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Name/Email | `name`, `email` | Yes | Avatar + name + email |
-| Campaign | `campaignTitle` | Yes | Campaign name |
-| Status | `status` | Yes | Badge (invited/registered/in_progress/completed/withdrawn/expired) |
-| Progress | `progress` | Yes | Progress indicator |
-| Last Activity | `lastActivityAt` | Yes | Relative date with tooltip |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Name/Email | Yes | Avatar + name + email |
+| Campaign | Yes | |
+| Status | Yes | Badge (invited/registered/in_progress/completed/withdrawn/expired) |
+| Progress | Yes | Progress indicator |
+| Last Activity | Yes | Relative date with tooltip |
 
 **Filters:** Status, Campaign
 **Search:** Name, email
@@ -187,104 +174,94 @@ Same page file as clients, rendered in the "Partners" tab.
 
 #### 7. Matching Runs
 
-**File:** `src/app/(dashboard)/matching/page.tsx`
+**Files:** `src/app/(dashboard)/matching/page.tsx` → `MatchingRunsTable`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Title/Client | `title`, `clientName` | Yes | Primary column |
-| Status | `status` | Yes | Badge (pending/running/completed/failed) |
-| Results | `resultCount` | Yes | Numeric |
-| Created | `createdAt` | Yes | Relative date |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Title/Client | Yes | |
+| Status | Yes | Badge (pending/running/completed/failed) |
+| Results | Yes | Numeric |
+| Created | Yes | Relative date |
 
 **Filters:** Status
 **Search:** Title, client name
 **Default sort:** Created descending
-**Row click:** Navigate to `/matching/{id}` (if detail page exists; otherwise rows are not clickable until a detail page is added)
+**Row click:** None — no detail page exists yet. `rowHref` will be added when a matching run detail page is built.
 
 #### 8. Diagnostic Sessions
 
-**File:** `src/app/(dashboard)/diagnostics/page.tsx`
+**Files:** `src/app/(dashboard)/diagnostics/page.tsx` → `DiagnosticSessionsTable`
 
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Title | `title` | Yes | Primary column |
-| Client | `clientName` | Yes | |
-| Template | `templateName` | Yes | |
-| Status | `status` | Yes | Badge |
-| Respondents | `respondentCount` | Yes | Numeric |
-| Created | `createdAt` | Yes | Relative date |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Title | Yes | |
+| Client | Yes | |
+| Template | Yes | |
+| Status | Yes | Badge |
+| Respondents | Yes | Numeric |
+| Created | Yes | Relative date |
 
 **Filters:** Status
 **Search:** Title, client name
 **Default sort:** Created descending
-**Row click:** Navigate to `/diagnostics/{id}`
+**Row click:** `/diagnostics/{id}`
 
-### Tier 2 — Raw Tables to DataTable
+### Previously raw shadcn tables
 
 #### 9. Users
 
-**File:** `src/app/(dashboard)/users/page.tsx` + `users-table.tsx`
+**Files:** `src/app/(dashboard)/users/page.tsx` + `users-table.tsx`
 
-Migrate the existing `UsersTable` component to use `<DataTable>`. The current role-tab system (All / Platform Admins / Partner Users / Client Users) groups by role category, not raw role value. This requires a custom `filterFn` on a computed `roleCategory` column that maps individual roles to their category. The tab-with-counts UX is preserved by rendering tab buttons above the DataTable that set the column filter value, with counts computed from the unfiltered data.
+Uses the **pre-filter pattern** (see above). Tab buttons filter `rows` before passing to `<DataTable>` — no TanStack `filterFn`.
 
 **Columns:** Avatar+name+email, Role (badge), Tenants (badges with +N tooltip), Status (dot + label), Date (relative with tooltip)
-**Filters:** Role category (tabs: all/platform/partner/client with counts), Status (active, inactive, pending)
+**Filters:** Role tabs (all/platform/partner/client with counts), Status (active, inactive, pending)
 **Search:** Name, email
-**Row click:** Navigate to user detail page
+**Row click:** User detail page
 
 #### 10. Client-Scoped Users
 
-**File:** `src/app/(dashboard)/clients/[slug]/users/page.tsx`
+**Files:** `src/app/(dashboard)/clients/[slug]/users/page.tsx` + `client-users-table.tsx`
 
-Migrate `ClientUsersTable` to DataTable. Same column pattern as main Users table but scoped to one client (no tenants column needed). Keep `InviteUserDialog` and `PendingInvitesSection` as-is.
+Same pre-filter tab pattern as Users. Scoped to one client — no Tenants column. `InviteUserDialog` and `PendingInvitesSection` remain as-is above the table.
 **Default sort:** Name ascending
 
 #### 11. Partner-Scoped Users
 
-**File:** `src/app/(dashboard)/partners/[slug]/users/page.tsx`
+**Files:** `src/app/(dashboard)/partners/[slug]/users/page.tsx` + `partner-users-table.tsx`
 
-Migrate `PartnerUsersTable` to DataTable. Same pattern as client-scoped users. Keep `InvitePartnerUserDialog` and `PartnerPendingInvitesSection` as-is.
+Same pattern as client-scoped users. `InvitePartnerUserDialog` and `PartnerPendingInvitesSection` remain above the table.
 **Default sort:** Name ascending
 
 #### 12. Report Templates
 
-**File:** `src/app/(dashboard)/report-templates/page.tsx`
+**Files:** `src/app/(dashboard)/report-templates/page.tsx` + `ReportTemplatesTable`
 
-Wrap in DataTable. Add sorting and search.
-
-**Columns:** Template (icon + name + description), Type (badge), Display level, Blocks count, Active toggle, Actions (clone, delete)
+**Columns:** Template (icon + name + description), Type (badge), Display level, Blocks count, Active toggle (Zone 1 — fires server action immediately), Actions (clone, delete)
 **Search:** Template name
 **Default sort:** Name ascending
+**Note:** The page renders its own empty state (`LayoutTemplate` icon block) when `templates.length === 0`, bypassing DataTable's built-in empty state prop. The DataTable empty state is never reached for this page.
 
 #### 13. Reports
 
-**File:** `src/app/(dashboard)/reports/page.tsx`
+**Files:** `src/app/(dashboard)/reports/page.tsx` + `reports-table.tsx`
 
-Wrap in DataTable. Add sorting, search, status filter.
-
-**Columns:**
-
-| Column | Field | Sortable | Notes |
-|--------|-------|----------|-------|
-| Report | `participantName` or ID | Yes | Participant name preferred over truncated UUID. **Prerequisite:** update `getAllReadySnapshots` server action to join participant data (currently returns only snapshot ID and session ID). |
-| Audience | `audienceType` | Yes | Badge |
-| Status | `status` | Yes | Coloured badge |
-| Mode | `narrativeMode` | Yes | |
-| Generated | `createdAt` | Yes | Relative date with tooltip |
+| Column | Sortable | Notes |
+|--------|----------|-------|
+| Report | Yes | `participantName` with email fallback, then truncated ID |
+| Audience | Yes | Badge |
+| Status | Yes | Coloured badge |
+| Mode | Yes | |
+| Generated | Yes | Relative date with tooltip |
 
 **Filters:** Status
-**Search:** Participant name, audience type
+**Search:** Participant name/email
 **Default sort:** Generated descending
+**Note:** `participantName` and `participantEmail` are already joined in `getAllReadySnapshots`.
 
 #### 14. Item Generator Runs
 
-**File:** `src/app/(dashboard)/generate/page.tsx`
-
-Wrap in DataTable. Add sorting and search.
+**Files:** `src/app/(dashboard)/generate/page.tsx` + generator table component
 
 **Columns:** Run name, Status, Items count, NMI score, Model, Actions (delete)
 **Search:** Run name, model
@@ -294,21 +271,19 @@ Wrap in DataTable. Add sorting and search.
 
 **File:** `src/app/(dashboard)/campaigns/[id]/participants/campaign-participant-manager.tsx`
 
-Wrap the participant list in DataTable. Keep invite dialog, bulk import dialog, and action buttons (copy link, send invite, delete) as row actions. The client portal at `src/app/client/campaigns/[id]/participants/page.tsx` reuses this same component — migrating the dashboard version covers both portals.
+The client portal (`src/app/client/campaigns/[id]/participants/page.tsx`) reuses this component.
 
-**Columns:** Name/email (avatar), Status (badge), Actions (icon buttons)
+**Columns:** Name/email (avatar), Status (badge), Actions (copy link, send invite, delete)
 **Search:** Name, email
 **Default sort:** Name ascending
-**Note:** The invite and bulk import dialogs remain as header actions, not part of the table. Row selection / checkboxes for bulk operations are out of scope for this migration.
+**Note:** Invite and bulk import dialogs remain as header actions. Row selection/checkboxes are out of scope.
 
 #### 16. Client Global Participants
 
-**File:** `src/app/client/participants/page.tsx`
-
-Replace custom pagination and filtering with DataTable.
+**Files:** `src/app/client/participants/page.tsx` → `GlobalParticipants` component (`global-participants.tsx`)
 
 **Columns:** Name/email, Campaign, Status
-**Filters:** Campaign (dropdown), Status
+**Filters:** Campaign, Status
 **Search:** Name, email
 **Default sort:** Name ascending
 
@@ -316,26 +291,33 @@ Replace custom pagination and filtering with DataTable.
 
 | Page | Reason |
 |------|--------|
-| Dimensions, Factors, Constructs, Items | Taxonomy entities — card layout preferred per user preference |
+| Dimensions, Factors, Constructs, Items | Taxonomy entities — card layout preferred |
 | Response Formats | Taxonomy-adjacent, card layout fits |
-| Campaign Assessments (detail) | Drag-reorder + inline factor picker — too specialised for a generic table |
+| Campaign Assessments (detail) | Drag-reorder + inline factor picker — specialised interaction |
 | Diagnostic Templates | Low volume, template-preview nature suits cards |
-| Item Health / Psychometrics | Specialised visualisation with quality indicators, not a standard list |
+| Item Health / Psychometrics | Specialised visualisation, not a standard list |
+
+## Outstanding Work
+
+Two items remain incomplete:
+
+1. **Matching Runs row navigation** — `MatchingRunsTable` has no `rowHref`. Add it once a detail page at `/matching/{id}` is built.
+
+2. **Report Templates empty state inconsistency** — `report-templates/page.tsx` renders its own empty state outside the DataTable, so the DataTable `emptyState` prop is never used for that page. Either remove the page-level empty state and pass it via the `emptyState` prop, or leave it as-is (functionally equivalent, just inconsistent).
 
 ## URL State
 
-Filter, sort, and search state is client-side only (React state within `<DataTable>`). URL-based state (searchParams) is not used for DataTable state. Rationale: these are admin/management pages where shareability of filtered views is low-value, and adding URL state adds complexity to every page. The existing `searchParams`-based tab selection (assessments, directory) continues to work independently of the DataTable.
+Filter, sort, and search state is client-side React state only. `searchParams`-based tab selection (assessments, directory) works independently and is unaffected.
 
 ## Testing
 
-- Each migrated page should render correctly with empty data (empty state using `<EmptyState>` component)
+- Empty state renders correctly (empty data)
 - Sorting cycles through asc/desc/none
-- Search filters rows in real-time with debounce
+- Search filters rows with debounce
 - Faceted filters show correct options and filter correctly
 - Pagination controls work (next/prev, page size change)
-- Row click navigates to correct detail page
-- Keyboard navigation works on interactive rows (Enter/Space)
-- Dark mode renders correctly (border-emphasis, no shadow)
-- Light mode renders correctly (shadow-sm, standard borders)
-- Mobile: horizontal scroll works, table remains usable
-- Loading states: each page's `loading.tsx` shows table-row shimmer
+- Row click navigates correctly; keyboard nav (Enter/Space) works
+- Dark mode: border-emphasis, no shadow
+- Light mode: shadow-sm, standard borders
+- Mobile: horizontal scroll works
+- Loading states: `<DataTableLoading>` used in each page's `loading.tsx`
