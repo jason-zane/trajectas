@@ -240,7 +240,7 @@ Same pattern as client-scoped users. `InvitePartnerUserDialog` and `PartnerPendi
 **Columns:** Template (icon + name + description), Type (badge), Display level, Blocks count, Active toggle (Zone 1 — fires server action immediately), Actions (clone, delete)
 **Search:** Template name
 **Default sort:** Name ascending
-**Note:** The page renders its own empty state (`LayoutTemplate` icon block) when `templates.length === 0`, bypassing DataTable's built-in empty state prop. The DataTable empty state is never reached for this page.
+**Empty state:** Defined via the `emptyState` prop on `DataTable` inside `ReportTemplatesTable` — includes the `LayoutTemplate` icon, copy, and `CreateTemplateButton`. Page always renders the table component regardless of data length.
 
 #### 13. Reports
 
@@ -299,11 +299,9 @@ The client portal (`src/app/client/campaigns/[id]/participants/page.tsx`) reuses
 
 ## Outstanding Work
 
-Two items remain incomplete:
+One item remains:
 
 1. **Matching Runs row navigation** — `MatchingRunsTable` has no `rowHref`. Add it once a detail page at `/matching/{id}` is built.
-
-2. **Report Templates empty state inconsistency** — `report-templates/page.tsx` renders its own empty state outside the DataTable, so the DataTable `emptyState` prop is never used for that page. Either remove the page-level empty state and pass it via the `emptyState` prop, or leave it as-is (functionally equivalent, just inconsistent).
 
 ## URL State
 

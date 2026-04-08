@@ -5,6 +5,7 @@ import { LayoutTemplate } from "lucide-react";
 
 import type { ReportTemplate } from "@/types/database";
 import { DataTable, DataTableColumnHeader, DataTableRowActions } from "@/components/data-table";
+import { CreateTemplateButton } from "./create-template-button";
 import { Badge } from "@/components/ui/badge";
 import { ActiveToggle } from "./active-toggle";
 import { CloneTemplateButton } from "./clone-template-button";
@@ -122,6 +123,20 @@ export function ReportTemplatesTable({
       defaultSort={{ id: "name", desc: false }}
       rowHref={(row) => `/report-templates/${row.id}/builder`}
       pageSize={20}
+      emptyState={
+        <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+          <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <LayoutTemplate className="size-5" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">No templates yet</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              Create a template to start building reports for campaigns.
+            </p>
+          </div>
+          <CreateTemplateButton />
+        </div>
+      }
     />
   );
 }
