@@ -9,9 +9,6 @@
  *   5. Rendering the frame to final HTML + plain text via @react-email/components
  */
 
-import { Maily } from '@maily-to/render'
-import DOMPurify from 'isomorphic-dompurify'
-import { render } from '@react-email/components'
 import React from 'react'
 import { EmailBrandFrame } from './brand-frame'
 
@@ -65,6 +62,15 @@ export async function renderEmailHtml(
   options: RenderEmailOptions,
 ): Promise<{ html: string; text: string }> {
   const { editorJson, variables, brand, previewText } = options
+
+  // Dynamic imports keep these heavy modules (jsdom, maily, react-email) out of
+  // the module graph at load time — they're only resolved when email rendering
+  // is actually needed, preventing cold-start failures in unrelated Lambdas.
+  const [{ Maily }, { default: DOMPurify }, { render }] = await Promise.all([
+    import('@maily-to/render'),
+    import('isomorphic-dompurify'),
+    import('@react-email/components'),
+  ])
 
   // Step 1: Render Maily editor JSON to body HTML
   const maily = new Maily(editorJson as ConstructorParameters<typeof Maily>[0])
