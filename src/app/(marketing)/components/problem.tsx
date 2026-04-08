@@ -11,9 +11,9 @@ const GENERIC_PHRASES = [
 
 const REFORMED_PHRASES = [
   "Your context",
-  "Your definition of good",
-  "Measurement that means something",
+  "Your definition of capability",
   "Assessment built around you",
+  "Measurement that drives outcomes",
 ];
 
 function setProblemCharVariables(

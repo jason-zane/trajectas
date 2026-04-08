@@ -11,8 +11,8 @@ export function Hero() {
   }, []);
 
   const lines = [
-    "Generic assessment measures",
-    "nothing that matters.",
+    "Capability shapes trajectory.",
+    "Generic assessment misses both.",
   ];
 
   return (
@@ -30,7 +30,7 @@ export function Hero() {
             transform: revealed ? "translateY(0)" : "translateY(12px)",
           }}
         >
-          Contextual Assessment
+          Assessments built for your organisation
         </p>
 
         {/* Headline — line-by-line reveal, two explicit lines */}

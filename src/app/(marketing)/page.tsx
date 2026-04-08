@@ -17,20 +17,70 @@ export default function MarketingPage() {
   // Shared mouse ref — updated imperatively, no React re-renders
   const mouseRef = useRef({ x: -9999, y: -9999 });
 
-  // Direct DOM mouse tracking — bypasses React batching so it works immediately
+  // Direct DOM pointer/tilt tracking — bypasses React batching so it works immediately
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReduced) return;
 
-    function handleMouseMove(e: MouseEvent) {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
+    function applyPosition(x: number, y: number) {
+      mouseRef.current = { x, y };
       if (glowRef.current) {
-        glowRef.current.style.transform = `translate(calc(${e.clientX}px - 50%), calc(${e.clientY}px - 50%))`;
+        glowRef.current.style.transform = `translate(calc(${x}px - 50%), calc(${y}px - 50%))`;
+      }
+    }
+
+    // Desktop: mouse
+    function handleMouseMove(e: MouseEvent) {
+      applyPosition(e.clientX, e.clientY);
+    }
+
+    // Mobile: touch drag moves the glow/particles with your finger
+    function handleTouchMove(e: TouchEvent) {
+      const t = e.touches[0];
+      if (t) applyPosition(t.clientX, t.clientY);
+    }
+
+    // Mobile: device tilt creates ambient particle movement (accelerometer)
+    function handleDeviceOrientation(e: DeviceOrientationEvent) {
+      if (e.gamma === null || e.beta === null) return;
+      // gamma: left-right tilt (-90→90), typical hand-held range ~-35→35
+      // beta: front-back tilt (-180→180), typical held range ~30→80
+      const x = ((e.gamma + 45) / 90) * window.innerWidth;
+      const y = ((e.beta - 20) / 70) * window.innerHeight;
+      applyPosition(
+        Math.max(0, Math.min(window.innerWidth, x)),
+        Math.max(0, Math.min(window.innerHeight, y))
+      );
+    }
+
+    function attachOrientationListener() {
+      // iOS 13+ requires explicit permission via a user gesture
+      const DevOri = DeviceOrientationEvent as unknown as {
+        requestPermission?: () => Promise<string>;
+      };
+      if (typeof DevOri.requestPermission === "function") {
+        DevOri.requestPermission()
+          .then((state) => {
+            if (state === "granted") {
+              window.addEventListener("deviceorientation", handleDeviceOrientation, { passive: true });
+            }
+          })
+          .catch(() => {/* permission denied — silent */});
+      } else {
+        window.addEventListener("deviceorientation", handleDeviceOrientation, { passive: true });
       }
     }
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    // Request orientation on first touch so the iOS permission dialog fires via a user gesture
+    window.addEventListener("touchstart", attachOrientationListener, { once: true, passive: true });
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("deviceorientation", handleDeviceOrientation);
+    };
   }, []);
 
   useEffect(() => {

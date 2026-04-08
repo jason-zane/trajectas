@@ -3,10 +3,26 @@
 import { useScrollProgress } from "./use-scroll-progress";
 
 const STAGES = [
-  { num: "01", title: "Where you are", desc: "Data without direction. Numbers no one acts on." },
-  { num: "02", title: "Your context", desc: "Your organisation. Your roles. Your definition of what good looks like." },
-  { num: "03", title: "Build the instrument", desc: "Psychometrically grounded. Shaped entirely by your requirements." },
-  { num: "04", title: "Clarity", desc: "Not a score. A direction." },
+  {
+    num: "01",
+    title: "Where you are",
+    desc: "Numbers without context. Data that doesn't connect to performance or outcomes.",
+  },
+  {
+    num: "02",
+    title: "Your context",
+    desc: "Your organisation. Your roles. The capabilities that drive performance in your environment.",
+  },
+  {
+    num: "03",
+    title: "Build the instrument",
+    desc: "A psychometrically rigorous assessment, calibrated to the capabilities your roles actually demand.",
+  },
+  {
+    num: "04",
+    title: "Outcomes",
+    desc: "Capability mapped to performance. Insight that reveals trajectory — not just a score.",
+  },
 ];
 
 function setJourneyStageVariables(
@@ -40,6 +56,15 @@ export function Journey() {
           {STAGES.map((stage, i) => {
             const stageStart = i * 0.25;
             const isLeft = i % 2 === 0;
+            const isFinal = i === STAGES.length - 1;
+
+            // Stage 4 (Outcomes) centred on desktop; all centred on mobile
+            const justifyClass = isFinal
+              ? "justify-center"
+              : `justify-center md:${isLeft ? "justify-start" : "justify-end"}`;
+            const textClass = isFinal
+              ? "text-center"
+              : `text-center md:${isLeft ? "text-right" : "text-left"}`;
 
             return (
               <div
@@ -47,11 +72,9 @@ export function Journey() {
                 ref={(element) =>
                   setJourneyStageVariables(element, stageStart, isLeft ? -1 : 1)
                 }
-                className={`journey-stage relative flex items-center ${isLeft ? "justify-start" : "justify-end"}`}
+                className={`journey-stage relative flex items-center ${justifyClass}`}
               >
-                <div
-                  className={`max-w-xs md:max-w-sm ${isLeft ? "text-right" : "text-left"}`}
-                >
+                <div className={`max-w-xs md:max-w-sm ${textClass}`}>
                   <div className="mk-mono text-[var(--mk-accent)]">
                     {stage.num}
                   </div>

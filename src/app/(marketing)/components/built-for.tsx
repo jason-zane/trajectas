@@ -297,7 +297,7 @@ export function BuiltFor() {
         <Panel
           eyebrow="Use case"
           title="Hiring for critical roles"
-          body="When a bad hire costs years, not months. Assess candidates against the capabilities your role actually demands — not benchmarks built for someone else."
+          body="When a bad hire costs years, not months. Assess candidates against the capabilities your role actually demands — and identify who has the trajectory to perform."
           reverse={false}
           visual={(animate) => <HiringVisual animate={animate} />}
         />
@@ -308,7 +308,7 @@ export function BuiltFor() {
         <Panel
           eyebrow="Use case"
           title="Capability mapping"
-          body="See where strengths concentrate and gaps hide. Map your people against your own competency frameworks — then turn results into action."
+          body="Map your people against the capabilities that drive outcomes in your organisation. See where strengths concentrate and gaps hide — then connect results to performance."
           reverse={true}
           visual={(animate) => <CapabilityVisual animate={animate} />}
         />
