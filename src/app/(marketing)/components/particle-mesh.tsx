@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import type React from "react";
 import { SECTION_CONFIGS, type ParticleConfig } from "./particle-config";
 
 interface Particle {
@@ -15,7 +16,7 @@ interface Particle {
 
 interface ParticleMeshProps {
   activeSection: string;
-  mousePosition: { x: number; y: number };
+  mouseRef: React.RefObject<{ x: number; y: number }>;
 }
 
 /** Lerp between two configs for smooth section transitions */
@@ -46,12 +47,11 @@ function lerpConfig(
 
 export function ParticleMesh({
   activeSection,
-  mousePosition,
+  mouseRef,
 }: ParticleMeshProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const particlesRef = useRef<Particle[]>([]);
   const animFrameRef = useRef<number>(0);
-  const mouseRef = useRef(mousePosition);
 
   // Config transition state
   const prevConfigRef = useRef<ParticleConfig>(SECTION_CONFIGS.hero);
@@ -59,9 +59,6 @@ export function ParticleMesh({
   const currentConfigRef = useRef<ParticleConfig>(SECTION_CONFIGS.hero);
   const transitionStartRef = useRef(0);
   const transitionDuration = 600;
-
-  // eslint-disable-next-line react-hooks/refs -- render-time sync keeps the animation loop on the latest mouse position
-  mouseRef.current = mousePosition;
 
   // Smooth config transition when section changes
   useEffect(() => {

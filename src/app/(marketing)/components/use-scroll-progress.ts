@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef } from "react";
  */
 export function useScrollProgress() {
   const elementRef = useRef<HTMLElement | null>(null);
-  const ticking = useRef(false);
+
   const ref = useCallback((element: HTMLElement | null) => {
     elementRef.current = element;
     element?.style.setProperty("--scroll-progress", "0");
@@ -26,28 +26,45 @@ export function useScrollProgress() {
       return;
     }
 
+    let current = 0;
+    let target = 0;
+    let animating = false;
+
+    function lerpFrame() {
+      const element = elementRef.current;
+      if (!element) { animating = false; return; }
+
+      current += (target - current) * 0.12;
+
+      const settled = Math.abs(target - current) < 0.0003;
+      if (settled) current = target;
+
+      element.style.setProperty("--scroll-progress", current.toFixed(4));
+
+      if (!settled) {
+        rafId = requestAnimationFrame(lerpFrame);
+      } else {
+        animating = false;
+      }
+    }
+
     function handleScroll() {
-      if (ticking.current) return;
-      ticking.current = true;
+      const element = elementRef.current;
+      if (!element) return;
 
-      rafId = requestAnimationFrame(() => {
-        const element = elementRef.current;
-        if (!element) {
-          ticking.current = false;
-          return;
-        }
-        const rect = element.getBoundingClientRect();
-        const viewportHeight = window.innerHeight;
-        const totalScrollDistance = rect.height - viewportHeight;
-        const raw =
-          totalScrollDistance <= 0
-            ? 1 - rect.top / viewportHeight
-            : -rect.top / totalScrollDistance;
-        const clamped = Math.max(0, Math.min(1, raw));
+      const rect = element.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const totalScrollDistance = rect.height - viewportHeight;
+      const raw =
+        totalScrollDistance <= 0
+          ? 1 - rect.top / viewportHeight
+          : -rect.top / totalScrollDistance;
+      target = Math.max(0, Math.min(1, raw));
 
-        element.style.setProperty("--scroll-progress", clamped.toFixed(4));
-        ticking.current = false;
-      });
+      if (!animating) {
+        animating = true;
+        rafId = requestAnimationFrame(lerpFrame);
+      }
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -55,6 +72,7 @@ export function useScrollProgress() {
     return () => {
       window.removeEventListener("scroll", handleScroll);
       cancelAnimationFrame(rafId);
+      animating = false;
     };
   }, []);
 

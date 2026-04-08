@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ParticleMesh } from "./components/particle-mesh";
-import { useMousePosition } from "./components/use-mouse-position";
 import { Nav } from "./components/nav";
 import { Hero } from "./components/hero";
 import { Problem } from "./components/problem";
@@ -13,8 +12,26 @@ import { Contact } from "./components/contact";
 const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
 
 export default function MarketingPage() {
-  const mouse = useMousePosition();
   const [activeSection, setActiveSection] = useState<string>("hero");
+  const glowRef = useRef<HTMLDivElement>(null);
+  // Shared mouse ref — updated imperatively, no React re-renders
+  const mouseRef = useRef({ x: -9999, y: -9999 });
+
+  // Direct DOM mouse tracking — bypasses React batching so it works immediately
+  useEffect(() => {
+    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReduced) return;
+
+    function handleMouseMove(e: MouseEvent) {
+      mouseRef.current = { x: e.clientX, y: e.clientY };
+      if (glowRef.current) {
+        glowRef.current.style.transform = `translate(calc(${e.clientX}px - 50%), calc(${e.clientY}px - 50%))`;
+      }
+    }
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
@@ -25,9 +42,7 @@ export default function MarketingPage() {
 
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) {
-            setActiveSection(section);
-          }
+          if (entry.isIntersecting) setActiveSection(section);
         },
         { threshold: 0.3 }
       );
@@ -41,12 +56,13 @@ export default function MarketingPage() {
 
   return (
     <>
-      <ParticleMesh activeSection={activeSection} mousePosition={mouse} />
-      {/* Subtle cursor glow — warm golden shimmer that follows the mouse */}
+      <ParticleMesh activeSection={activeSection} mouseRef={mouseRef} />
+      {/* Subtle cursor glow — warm golden shimmer, updated imperatively */}
       <div
+        ref={glowRef}
         className="pointer-events-none fixed left-0 top-0 z-[15] h-[600px] w-[600px]"
         style={{
-          transform: `translate(calc(${mouse.x}px - 50%), calc(${mouse.y}px - 50%))`,
+          transform: "translate(-9999px, -9999px)",
           background: "radial-gradient(circle, rgba(201,169,98,0.05) 0%, transparent 65%)",
         }}
       />

@@ -11,8 +11,8 @@ export function Hero() {
   }, []);
 
   const lines = [
-    "Generic assessment",
-    "measures nothing that matters.",
+    "Generic assessment measures",
+    "nothing that matters.",
   ];
 
   return (
@@ -35,8 +35,13 @@ export function Hero() {
 
         {/* Headline — line-by-line reveal, two explicit lines */}
         <h1
-          className="mk-display font-[family-name:var(--font-display)]"
-          style={{ color: "var(--mk-text-on-dark)" }}
+          className="font-[family-name:var(--font-display)] font-extrabold"
+          style={{
+            color: "var(--mk-text-on-dark)",
+            fontSize: "clamp(2.75rem, 5.5vw, 4rem)",
+            lineHeight: 1.1,
+            letterSpacing: "-0.03em",
+          }}
         >
           {lines.map((line, lineIdx) => (
             <span key={lineIdx} className="block">
@@ -62,7 +67,7 @@ export function Hero() {
 
         {/* Subtext */}
         <p
-          className="mk-body mt-6 max-w-lg mx-auto text-xl leading-relaxed transition-all duration-700"
+          className="mt-6 text-xl leading-relaxed transition-all duration-700"
           style={{
             color: "var(--mk-text-on-dark-muted)",
             opacity: revealed ? 1 : 0,
