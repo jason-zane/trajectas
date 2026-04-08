@@ -73,10 +73,51 @@
   will-change: opacity, transform;
 }
 
+[data-surface="marketing"] .problem-heading-generic {
+  opacity: calc(1 - clamp(0, calc((var(--problem-progress) - 0.38) * 4), 1));
+  transform: translate3d(
+    0,
+    calc(clamp(0, calc((var(--problem-progress) - 0.38) * 4), 1) * -24px),
+    0
+  );
+}
+
+[data-surface="marketing"] .problem-heading-reformed {
+  opacity: clamp(0, calc((var(--problem-progress) - 0.52) * 4), 1);
+  transform: translate3d(
+    0,
+    calc((1 - clamp(0, calc((var(--problem-progress) - 0.52) * 4), 1)) * 24px),
+    0
+  );
+}
+
+[data-surface="marketing"] .problem-generic-phrase {
+  position: relative;
+}
+
+[data-surface="marketing"] .problem-generic-phrase::after {
+  --problem-strike-progress: clamp(0, calc((var(--problem-progress) - 0.06) * 7), 1);
+  --problem-strike-fade: clamp(0, calc((var(--problem-progress) - 0.3) * 5), 1);
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 1.5px;
+  background: color-mix(
+    in srgb,
+    var(--mk-text-on-dark) calc((1 - var(--problem-bg-progress)) * 100%),
+    var(--mk-text-muted) calc(var(--problem-bg-progress) * 100%)
+  );
+  opacity: calc((1 - var(--problem-strike-fade)) * var(--problem-strike-progress));
+  transform: translateY(-50%) scaleX(var(--problem-strike-progress));
+  transform-origin: left center;
+}
+
 [data-surface="marketing"] .problem-char-generic {
   --problem-char-progress: clamp(
     0,
-    calc((var(--problem-progress) * 2 - var(--char-delay)) * 3),
+    calc((((var(--problem-progress) - 0.22) * 2.6) - var(--char-delay)) * 3),
     1
   );
   color: color-mix(
@@ -106,11 +147,12 @@
   color: var(--mk-primary);
   opacity: var(--problem-char-progress);
   transform: translate3d(
-      calc(var(--char-dir) * (1 - var(--problem-char-progress)) * -12px),
-      calc((1 - var(--problem-char-progress)) * 28px),
+      calc((1 - var(--problem-char-progress)) * var(--char-dir) * -20px),
+      calc((1 - var(--problem-char-progress)) * 100px),
       0
     )
-    scale(calc(0.82 + var(--problem-char-progress) * 0.18));
+    rotate(calc((1 - var(--problem-char-progress)) * var(--char-dir) * -20deg))
+    scale(calc(0.7 + var(--problem-char-progress) * 0.3));
 }
 
 [data-surface="marketing"] .journey-sticky {
@@ -184,7 +226,7 @@
 }
 
 [data-surface="marketing"] .problem-reformed-phrase {
-  text-transform: uppercase;
+  text-transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -205,6 +247,17 @@
   [data-surface="marketing"] .problem-char-reformed {
     opacity: 1;
     transform: none;
+  }
+
+  [data-surface="marketing"] .problem-heading-generic,
+  [data-surface="marketing"] .problem-heading-reformed {
+    opacity: 1;
+    transform: none;
+  }
+
+  [data-surface="marketing"] .problem-generic-phrase::after {
+    opacity: 0;
+    transform: translateY(-50%) scaleX(0);
   }
 
   [data-surface="marketing"] .problem-char-generic {

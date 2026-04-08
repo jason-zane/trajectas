@@ -56,6 +56,9 @@ export function Journey() {
           {STAGES.map((stage, i) => {
             const stageStart = i * 0.25;
             const isLeft = i % 2 === 0;
+            const contentClass = isLeft
+              ? "md:col-start-1 md:justify-self-end md:pr-10 md:text-right"
+              : "md:col-start-3 md:justify-self-start md:pl-10 md:text-left";
 
             return (
               <div
@@ -63,10 +66,10 @@ export function Journey() {
                 ref={(element) =>
                   setJourneyStageVariables(element, stageStart, isLeft ? -1 : 1)
                 }
-                className={`journey-stage relative flex w-full items-center justify-center md:${isLeft ? "justify-start" : "justify-end"}`}
+                className="journey-stage relative grid w-full grid-cols-1 place-items-center md:grid-cols-[minmax(0,1fr)_0_minmax(0,1fr)]"
               >
                 <div
-                  className={`max-w-[19rem] text-center md:w-[calc(50%-2rem)] md:max-w-sm md:${isLeft ? "text-right" : "text-left"}`}
+                  className={`max-w-[19rem] text-center md:w-full md:max-w-sm ${contentClass}`}
                 >
                   <div className="mk-mono text-[var(--mk-accent)]">
                     {stage.num}

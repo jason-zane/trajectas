@@ -3,17 +3,17 @@
 import { useScrollProgress } from "./use-scroll-progress";
 
 const GENERIC_PHRASES = [
-  "Standardised frameworks",
-  "Percentile scores",
-  "Off-the-shelf benchmarks",
-  "Generic personality tests",
+  "Standardised frameworks.",
+  "Percentile scores.",
+  "Off-the-shelf benchmarks.",
+  "Generic personality tests.",
 ];
 
 const REFORMED_PHRASES = [
-  "YOUR CONTEXT",
-  "YOUR DEFINITION OF CAPABILITY",
-  "ASSESSMENT BUILT AROUND YOU",
-  "MEASUREMENT TIED TO OUTCOMES",
+  "Your organisational context.",
+  "Your definition of capability.",
+  "Assessment built around you.",
+  "Measurement tied to outcomes.",
 ];
 
 function setProblemCharVariables(
@@ -40,8 +40,14 @@ export function Problem() {
       <div className="problem-sticky sticky top-0 flex h-[100svh] flex-col items-center justify-center overflow-hidden px-5 md:px-8">
         {/* Generic text — dissolves as progress goes 0 → 0.5 */}
         <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
+          <p className="mk-eyebrow problem-heading-generic mb-3 text-center md:mb-5">
+            Legacy Assessment Providers
+          </p>
           {GENERIC_PHRASES.map((phrase, phraseIdx) => (
-            <div key={phraseIdx} className="problem-line flex flex-wrap justify-center">
+            <div
+              key={phraseIdx}
+              className="problem-line problem-generic-phrase flex flex-wrap justify-center"
+            >
               {phrase.split("").map((char, charIdx) => {
                 const delay = (phraseIdx * 4 + charIdx) / 100;
                 const direction = charIdx % 2 === 0 ? 1 : -1;
@@ -64,6 +70,9 @@ export function Problem() {
 
         {/* Reformed text — assembles as progress goes 0.5 → 1 */}
         <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
+          <p className="mk-eyebrow problem-heading-reformed mb-3 text-center md:mb-5">
+            The Trajectas Difference
+          </p>
           {REFORMED_PHRASES.map((phrase, phraseIdx) => (
             <div
               key={phraseIdx}
@@ -71,14 +80,15 @@ export function Problem() {
             >
               {phrase.split("").map((char, charIdx) => {
                 const delay = (phraseIdx * 4 + charIdx) / 100;
+                const direction = charIdx % 2 === 0 ? 1 : -1;
 
                 return (
                   <span
                     key={charIdx}
                     ref={(element) =>
-                      setProblemCharVariables(element, delay, 1)
+                      setProblemCharVariables(element, delay, direction)
                     }
-                    className="problem-char-reformed inline-block font-[family-name:var(--font-display)] text-xl font-normal sm:text-2xl md:text-4xl"
+                    className="problem-char-reformed inline-block text-xl font-bold sm:text-2xl md:text-4xl"
                   >
                     {char === " " ? "\u00A0" : char}
                   </span>
