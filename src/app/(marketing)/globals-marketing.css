@@ -70,7 +70,7 @@
 [data-surface="marketing"] .problem-char-reformed {
   --char-delay: 0;
   --char-dir: 1;
-  will-change: opacity, transform, filter;
+  will-change: opacity, transform;
 }
 
 [data-surface="marketing"] .problem-char-generic {
@@ -94,7 +94,6 @@
       calc(var(--problem-char-progress) * var(--char-dir) * 20deg)
     )
     scale(calc(1 - var(--problem-char-progress) * 0.3));
-  filter: blur(calc(var(--problem-char-progress) * 12px));
 }
 
 [data-surface="marketing"] .problem-char-reformed {
@@ -112,7 +111,6 @@
       0
     )
     scale(calc(0.82 + var(--problem-char-progress) * 0.18));
-  filter: blur(calc((1 - var(--problem-char-progress)) * 6px));
 }
 
 [data-surface="marketing"] .journey-sticky {
@@ -221,7 +219,6 @@
   [data-surface="marketing"] .problem-char-reformed {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 
   [data-surface="marketing"] .problem-char-generic {

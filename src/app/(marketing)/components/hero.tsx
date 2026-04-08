@@ -35,13 +35,8 @@ export function Hero() {
 
         {/* Headline — line-by-line reveal, two explicit lines */}
         <h1
-          className="font-[family-name:var(--font-display)] font-extrabold"
-          style={{
-            color: "var(--mk-text-on-dark)",
-            fontSize: "clamp(2.25rem, 4vw, 3.5rem)",
-            lineHeight: 1.1,
-            letterSpacing: "-0.03em",
-          }}
+          className="mk-display font-[family-name:var(--font-display)]"
+          style={{ color: "var(--mk-text-on-dark)" }}
         >
           {lines.map((line, lineIdx) => (
             <span key={lineIdx} className="block">
@@ -67,7 +62,7 @@ export function Hero() {
 
         {/* Subtext */}
         <p
-          className="mk-body mt-6 max-w-md mx-auto text-lg leading-relaxed transition-all duration-700"
+          className="mk-body mt-6 max-w-lg mx-auto text-xl leading-relaxed transition-all duration-700"
           style={{
             color: "var(--mk-text-on-dark-muted)",
             opacity: revealed ? 1 : 0,
