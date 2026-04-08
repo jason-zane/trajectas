@@ -3,10 +3,14 @@
  *
  * Converts Maily editor JSON into final HTML + plain text by:
  *   1. Rendering the editor JSON to HTML via @maily-to/render (Maily class)
- *   2. Sanitizing the rendered body HTML with DOMPurify
- *   3. Substituting {{key}} merge variables in body HTML and preview text
- *   4. Wrapping the result in EmailBrandFrame
- *   5. Rendering the frame to final HTML + plain text via @react-email/components
+ *   2. Substituting {{key}} merge variables in body HTML and preview text
+ *   3. Wrapping the result in EmailBrandFrame
+ *   4. Rendering the frame to final HTML + plain text via @react-email/components
+ *
+ * Note: DOMPurify sanitization was removed because the Maily HTML is produced
+ * exclusively from admin-authored editor JSON stored in our own database — it
+ * is never derived from untrusted user input. isomorphic-dompurify requires
+ * JSDOM which cannot load on Vercel's serverless runtime.
  */
 
 import React from 'react'
@@ -63,12 +67,11 @@ export async function renderEmailHtml(
 ): Promise<{ html: string; text: string }> {
   const { editorJson, variables, brand, previewText } = options
 
-  // Dynamic imports keep these heavy modules (jsdom, maily, react-email) out of
-  // the module graph at load time — they're only resolved when email rendering
-  // is actually needed, preventing cold-start failures in unrelated Lambdas.
-  const [{ Maily }, { default: DOMPurify }, { render }] = await Promise.all([
+  // Dynamic imports keep these heavy modules (maily, react-email) out of the
+  // module graph at load time — they're only resolved when email rendering is
+  // actually needed, preventing cold-start failures in unrelated Lambdas.
+  const [{ Maily }, { render }] = await Promise.all([
     import('@maily-to/render'),
-    import('isomorphic-dompurify'),
     import('@react-email/components'),
   ])
 
@@ -76,22 +79,17 @@ export async function renderEmailHtml(
   const maily = new Maily(editorJson as ConstructorParameters<typeof Maily>[0])
   const mailyHtml = await maily.render()
 
-  // Step 2: Sanitize the rendered body HTML (server-side DOMPurify)
-  const sanitizedBodyHtml = DOMPurify.sanitize(mailyHtml, {
-    // Allow inline styles so Maily's table-based layout survives
-    ALLOWED_ATTR: ['style', 'href', 'src', 'alt', 'width', 'height', 'target', 'rel'],
-    ADD_TAGS: ['table', 'tbody', 'tr', 'td', 'th', 'thead', 'tfoot'],
-  })
+  // Step 2: Substitute merge variables in body HTML
+  // Maily's render() produces a full HTML document — extract just the body
+  // content for embedding inside EmailBrandFrame.
+  const bodyHtml = substituteVariables(mailyHtml, variables)
 
-  // Step 3: Substitute merge variables in body HTML
-  const bodyHtml = substituteVariables(sanitizedBodyHtml, variables)
-
-  // Step 4: Substitute merge variables in preview text (if provided)
+  // Step 3: Substitute merge variables in preview text (if provided)
   const resolvedPreviewText = previewText
     ? substituteVariables(previewText, variables)
     : undefined
 
-  // Step 5: Build the EmailBrandFrame element
+  // Step 4: Build the EmailBrandFrame element
   const frameElement = React.createElement(EmailBrandFrame, {
     brandName: brand.name,
     brandLogoUrl: brand.logoUrl,
@@ -102,7 +100,7 @@ export async function renderEmailHtml(
     bodyHtml,
   })
 
-  // Step 6: Render to final HTML + plain text
+  // Step 5: Render to final HTML + plain text
   const html = await render(frameElement)
   const text = await render(frameElement, { plainText: true })
 

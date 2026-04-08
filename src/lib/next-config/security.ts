@@ -65,11 +65,9 @@ export function createTrajectasNextConfig(
   env: NodeJS.ProcessEnv = process.env
 ): NextConfig {
   return {
-    // Prevent Turbopack from bundling packages with complex CJS internals or
-    // native bindings. They are loaded from node_modules at runtime instead.
+    // Prevent Turbopack from bundling packages with complex CJS internals.
+    // They are loaded from node_modules at runtime instead.
     serverExternalPackages: [
-      "jsdom",
-      "isomorphic-dompurify",
       "@maily-to/render",
       "juice",
     ],
