@@ -1,20 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import {
-  Plus,
-  Megaphone,
-  ArrowRight,
-  Users,
-  ClipboardList,
-} from "lucide-react";
+import { Plus } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
-import { EmptyState } from "@/components/empty-state";
-import { ScrollReveal } from "@/components/scroll-reveal";
-import { TiltCard } from "@/components/tilt-card";
+import { Progress } from "@/components/ui/progress";
 import { usePortal } from "@/components/portal-context";
 import type { CampaignWithMeta } from "@/app/actions/campaigns";
 
@@ -34,15 +27,24 @@ const statusVariant: Record<
 };
 
 function formatDateRange(opensAt?: string, closesAt?: string) {
-  if (!opensAt && !closesAt) return null;
+  if (!opensAt && !closesAt) return "—";
   const fmt = (d: string) =>
     new Date(d).toLocaleDateString("en-AU", {
       month: "short",
       day: "numeric",
+      year: "numeric",
     });
   if (opensAt && closesAt) return `${fmt(opensAt)} – ${fmt(closesAt)}`;
   if (opensAt) return `Opens ${fmt(opensAt)}`;
   return `Closes ${fmt(closesAt!)}`;
+}
+
+function getCompletionPercent(campaign: CampaignWithMeta) {
+  if (campaign.participantCount === 0) {
+    return 0;
+  }
+
+  return Math.round((campaign.completedCount / campaign.participantCount) * 100);
 }
 
 // ---------------------------------------------------------------------------
@@ -55,6 +57,83 @@ interface ClientCampaignListProps {
 
 export function ClientCampaignList({ campaigns }: ClientCampaignListProps) {
   const { href } = usePortal();
+
+  const columns: ColumnDef<CampaignWithMeta>[] = [
+    {
+      accessorKey: "title",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Title" />
+      ),
+      cell: ({ row }) => <span className="font-semibold">{row.original.title}</span>,
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Status" />
+      ),
+      cell: ({ row }) => (
+        <Badge variant={statusVariant[row.original.status] ?? "secondary"}>
+          {row.original.status.replace(/_/g, " ")}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: "assessmentCount",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Assessments" />
+      ),
+      cell: ({ row }) => (
+        <span className="tabular-nums text-sm text-muted-foreground">
+          {row.original.assessmentCount}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "participantCount",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Participants" />
+      ),
+      cell: ({ row }) => (
+        <span className="tabular-nums text-sm text-muted-foreground">
+          {row.original.participantCount}
+        </span>
+      ),
+    },
+    {
+      id: "completion",
+      accessorFn: (row) => getCompletionPercent(row),
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Completion" />
+      ),
+      cell: ({ row }) => {
+        const completion = getCompletionPercent(row.original);
+
+        return (
+          <div className="min-w-36 space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {row.original.completedCount}/{row.original.participantCount || 0}
+              </span>
+              <span>{completion}%</span>
+            </div>
+            <Progress value={completion} className="gap-0" />
+          </div>
+        );
+      },
+    },
+    {
+      id: "dateRange",
+      accessorFn: (row) => row.opensAt ?? row.created_at,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Date Range" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {formatDateRange(row.original.opensAt, row.original.closesAt)}
+        </span>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-8 max-w-5xl">
@@ -71,124 +150,28 @@ export function ClientCampaignList({ campaigns }: ClientCampaignListProps) {
         </Link>
       </PageHeader>
 
-      {campaigns.length === 0 ? (
-        <EmptyState
-          title="No campaigns yet"
-          description="Create your first campaign to deploy assessments to participants."
-          actionLabel="New Campaign"
-          actionHref={href("/campaigns/create")}
-        />
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {campaigns.map((campaign, index) => {
-            const completionPct =
-              campaign.participantCount > 0
-                ? Math.round(
-                    (campaign.completedCount / campaign.participantCount) * 100,
-                  )
-                : 0;
-
-            return (
-              <ScrollReveal key={campaign.id} delay={index * 60}>
-                <TiltCard>
-                  <Link href={href(`/campaigns/${campaign.id}/overview`)}>
-                    <Card
-                      variant="interactive"
-                      className="border-l-[3px] border-l-primary"
-                    >
-                      <CardHeader>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
-                              style={
-                                {
-                                  "--glow-color": "var(--primary)",
-                                } as React.CSSProperties
-                              }
-                            >
-                              <Megaphone className="size-5 text-primary" />
-                            </div>
-                            <div>
-                              <CardTitle>{campaign.title}</CardTitle>
-                              <div className="mt-1 flex items-center gap-2 flex-wrap">
-                                <Badge
-                                  variant={
-                                    statusVariant[campaign.status] ??
-                                    "secondary"
-                                  }
-                                >
-                                  {campaign.status.charAt(0).toUpperCase() +
-                                    campaign.status.slice(1)}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity mt-1" />
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {campaign.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                            {campaign.description}
-                          </p>
-                        )}
-
-                        {/* Completion mini-bar */}
-                        {campaign.participantCount > 0 && (
-                          <div className="mb-3">
-                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                              <span>
-                                {campaign.completedCount} /{" "}
-                                {campaign.participantCount} completed
-                              </span>
-                              <span>{completionPct}%</span>
-                            </div>
-                            <div className="h-1.5 w-full rounded-full bg-muted">
-                              <div
-                                className="h-full rounded-full bg-primary transition-all"
-                                style={{ width: `${completionPct}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="inline-flex items-center gap-1.5">
-                            <ClipboardList className="size-3.5" />
-                            {campaign.assessmentCount}{" "}
-                            {campaign.assessmentCount === 1
-                              ? "assessment"
-                              : "assessments"}
-                          </span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <Users className="size-3.5" />
-                            {campaign.participantCount}{" "}
-                            {campaign.participantCount === 1
-                              ? "participant"
-                              : "participants"}
-                          </span>
-                          {formatDateRange(
-                            campaign.opensAt,
-                            campaign.closesAt,
-                          ) && (
-                            <span className="text-caption">
-                              {formatDateRange(
-                                campaign.opensAt,
-                                campaign.closesAt,
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                </TiltCard>
-              </ScrollReveal>
-            );
-          })}
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        data={campaigns}
+        searchableColumns={["title"]}
+        searchPlaceholder="Search campaigns"
+        filterableColumns={[
+          {
+            id: "status",
+            title: "Status",
+            options: [
+              { label: "Draft", value: "draft" },
+              { label: "Active", value: "active" },
+              { label: "Paused", value: "paused" },
+              { label: "Closed", value: "closed" },
+              { label: "Archived", value: "archived" },
+            ],
+          },
+        ]}
+        defaultSort={{ id: "dateRange", desc: true }}
+        rowHref={(row) => href(`/campaigns/${row.id}/overview`)}
+        pageSize={20}
+      />
     </div>
   );
 }

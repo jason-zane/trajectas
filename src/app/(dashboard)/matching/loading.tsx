@@ -1,10 +1,7 @@
+import { DataTableLoading } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
-import { getMatchingRuns } from "@/app/actions/matching";
-import { MatchingRunsTable } from "./matching-runs-table";
 
-export default async function MatchingPage() {
-  const runs = await getMatchingRuns();
-
+export default function MatchingLoading() {
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader
@@ -12,7 +9,7 @@ export default async function MatchingPage() {
         description="Use AI to match client diagnostic results with factor frameworks."
       />
 
-      <MatchingRunsTable runs={runs} />
+      <DataTableLoading columnCount={4} filterCount={1} />
     </div>
   );
 }

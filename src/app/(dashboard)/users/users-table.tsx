@@ -1,26 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Search } from "lucide-react";
+import { useMemo, useState } from "react";
+
+import type { ColumnDef } from "@tanstack/react-table";
 
 import type { UserListItem } from "@/app/actions/user-management";
+import {
+  DataTable,
+  DataTableColumnHeader,
+} from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type TabKey = "all" | "platform" | "partner" | "client";
 type StatusKey = "active" | "inactive" | "pending";
+
+type UserTableRow = UserListItem & {
+  displayName: string;
+  status: StatusKey;
+  roleLabel: string;
+  tenantNames: string[];
+};
 
 const ROLE_LABELS: Record<string, string> = {
   platform_admin: "Platform Admin",
@@ -50,10 +52,6 @@ const STATUS_DOT_CLASSES: Record<StatusKey, string> = {
   inactive: "bg-muted-foreground/50",
   pending: "bg-amber-500",
 };
-
-interface UsersTableProps {
-  users: UserListItem[];
-}
 
 function getInitials(value: string | null, fallbackEmail: string) {
   const source = value?.trim() || fallbackEmail;
@@ -112,12 +110,15 @@ function matchesTab(item: UserListItem, tab: TabKey) {
     if (tab === "platform") {
       return item.role === "platform_admin";
     }
+
     if (tab === "partner") {
       return item.role === "partner_admin" || item.role === "partner_member";
     }
+
     if (tab === "client") {
       return item.role === "client_admin" || item.role === "client_member";
     }
+
     return false;
   }
 
@@ -146,6 +147,7 @@ function formatRelativeDate(dateString: string) {
   if (diffMinutes < 1) {
     return "just now";
   }
+
   if (diffMinutes < 60) {
     return `${diffMinutes}m ago`;
   }
@@ -177,28 +179,119 @@ function formatAbsoluteDate(dateString: string) {
   });
 }
 
-function getSearchLabel(item: UserListItem) {
-  return item.type === "profile"
-    ? `${item.displayName ?? ""} ${item.email}`.trim().toLowerCase()
-    : item.email.toLowerCase();
-}
+const columns: ColumnDef<UserTableRow>[] = [
+  {
+    accessorKey: "displayName",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="User" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center gap-3">
+        <Avatar size="lg" className="size-10">
+          <AvatarFallback>
+            {row.original.type === "invite"
+              ? "?"
+              : getInitials(
+                  row.original.type === "profile" ? row.original.displayName : null,
+                  row.original.email
+                )}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate font-medium text-foreground">{row.original.displayName}</p>
+          <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+        </div>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "roleLabel",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Role" />
+    ),
+    cell: ({ row }) => (
+      <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">
+        {row.original.roleLabel}
+      </Badge>
+    ),
+  },
+  {
+    accessorKey: "tenantNames",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Tenants" />
+    ),
+    cell: ({ row }) => {
+      const visibleTenants = row.original.tenantNames.slice(0, 3);
+      const hiddenCount = Math.max(row.original.tenantNames.length - visibleTenants.length, 0);
 
-export function UsersTable({ users }: UsersTableProps) {
-  const router = useRouter();
+      if (row.original.tenantNames.length === 0) {
+        return <span className="text-sm text-muted-foreground">—</span>;
+      }
+
+      return (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {visibleTenants.map((tenantName) => (
+            <Badge key={tenantName} variant="outline">
+              {tenantName}
+            </Badge>
+          ))}
+          {hiddenCount > 0 ? (
+            <Tooltip>
+              <TooltipTrigger render={<span className="inline-flex cursor-default" />}>
+                <Badge variant="outline">+{hiddenCount}</Badge>
+              </TooltipTrigger>
+              <TooltipContent>{row.original.tenantNames.join(", ")}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "status",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Status" />
+    ),
+    cell: ({ row }) => (
+      <span className="inline-flex items-center gap-2 text-sm">
+        <span className={cn("size-2 rounded-full", STATUS_DOT_CLASSES[row.original.status])} />
+        {STATUS_LABELS[row.original.status]}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "createdAt",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Date" />
+    ),
+    cell: ({ row }) => (
+      <Tooltip>
+        <TooltipTrigger
+          render={<span className="inline-flex cursor-default text-sm text-muted-foreground" />}
+        >
+          {formatRelativeDate(row.original.createdAt)}
+        </TooltipTrigger>
+        <TooltipContent>{formatAbsoluteDate(row.original.createdAt)}</TooltipContent>
+      </Tooltip>
+    ),
+  },
+];
+
+export function UsersTable({ users }: { users: UserListItem[] }) {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
-  const [statusFilters, setStatusFilters] = useState<Set<StatusKey>>(
-    () => new Set(["active", "pending"])
+
+  const rows = useMemo<UserTableRow[]>(
+    () =>
+      users.map((item) => ({
+        ...item,
+        displayName:
+          item.type === "profile" ? item.displayName ?? item.email : item.email,
+        status: getItemStatus(item),
+        roleLabel: getRoleLabel(item.role),
+        tenantNames: getItemTenantNames(item),
+      })),
+    [users]
   );
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      setDebouncedSearch(search.trim().toLowerCase());
-    }, 300);
-
-    return () => window.clearTimeout(handle);
-  }, [search]);
 
   const tabCounts = useMemo(
     () => ({
@@ -210,49 +303,14 @@ export function UsersTable({ users }: UsersTableProps) {
     [users]
   );
 
-  const filteredUsers = useMemo(
-    () =>
-      users.filter((item) => {
-        if (!matchesTab(item, activeTab)) {
-          return false;
-        }
-
-        if (!statusFilters.has(getItemStatus(item))) {
-          return false;
-        }
-
-        if (!debouncedSearch) {
-          return true;
-        }
-
-        return getSearchLabel(item).includes(debouncedSearch);
-      }),
-    [activeTab, debouncedSearch, statusFilters, users]
-  );
-
-  function toggleStatus(status: StatusKey) {
-    setStatusFilters((current) => {
-      const next = new Set(current);
-
-      if (next.has(status)) {
-        next.delete(status);
-      } else {
-        next.add(status);
-      }
-
-      return next;
-    });
-  }
-
-  function navigateToItem(item: UserListItem) {
-    router.push(item.type === "profile" ? `/users/${item.id}` : `/users/invite/${item.id}`);
-  }
+  const filteredRows = rows.filter((row) => matchesTab(row, activeTab));
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         {(Object.keys(TAB_LABELS) as TabKey[]).map((tab) => {
           const isActive = activeTab === tab;
+
           return (
             <button
               key={tab}
@@ -281,160 +339,27 @@ export function UsersTable({ users }: UsersTableProps) {
         })}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          {(Object.keys(STATUS_LABELS) as StatusKey[]).map((status) => {
-            const isActive = statusFilters.has(status);
-            return (
-              <button
-                key={status}
-                type="button"
-                onClick={() => toggleStatus(status)}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                  isActive
-                    ? "border-foreground/10 bg-muted text-foreground"
-                    : "border-border bg-background text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <span
-                  className={cn("size-2 rounded-full", STATUS_DOT_CLASSES[status])}
-                />
-                {STATUS_LABELS[status]}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="relative w-full lg:max-w-sm">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name or email"
-            className="pl-9"
-          />
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>User</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Tenants</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredUsers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                  No users match the current filters.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredUsers.map((item) => {
-                const tenantNames = getItemTenantNames(item);
-                const visibleTenants = tenantNames.slice(0, 3);
-                const hiddenTenantCount = Math.max(tenantNames.length - visibleTenants.length, 0);
-                const status = getItemStatus(item);
-                const label = item.type === "profile" ? item.displayName ?? item.email : item.email;
-                const route = item.type === "profile" ? `/users/${item.id}` : `/users/invite/${item.id}`;
-
-                return (
-                  <TableRow
-                    key={`${item.type}:${item.id}`}
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Open ${label}`}
-                    onClick={() => navigateToItem(item)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" || event.key === " ") {
-                        event.preventDefault();
-                        navigateToItem(item);
-                      }
-                    }}
-                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar size="lg" className="size-10">
-                          <AvatarFallback>
-                            {item.type === "invite"
-                              ? "?"
-                              : getInitials(item.displayName, item.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium text-foreground">{label}</p>
-                          <p className="truncate text-sm text-muted-foreground">{item.email}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className="border-primary/20 bg-primary/5 text-primary"
-                      >
-                        {getRoleLabel(item.role)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {tenantNames.length === 0 ? (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      ) : (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {visibleTenants.map((tenantName) => (
-                            <Badge key={tenantName} variant="outline">
-                              {tenantName}
-                            </Badge>
-                          ))}
-                          {hiddenTenantCount > 0 ? (
-                            <Tooltip>
-                              <TooltipTrigger
-                                render={
-                                  <span className="inline-flex cursor-default items-center" />
-                                }
-                              >
-                                <Badge variant="outline">+{hiddenTenantCount}</Badge>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs text-xs">
-                                {tenantNames.join(", ")}
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : null}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-2 text-sm">
-                        <span
-                          className={cn("size-2 rounded-full", STATUS_DOT_CLASSES[status])}
-                        />
-                        {STATUS_LABELS[status]}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip>
-                        <TooltipTrigger
-                          render={<span className="inline-flex cursor-default text-sm text-muted-foreground" />}
-                        >
-                          {formatRelativeDate(item.createdAt)}
-                        </TooltipTrigger>
-                        <TooltipContent>{formatAbsoluteDate(item.createdAt)}</TooltipContent>
-                      </Tooltip>
-                      <span className="sr-only">{route}</span>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTable
+        columns={columns}
+        data={filteredRows}
+        searchableColumns={["displayName", "email"]}
+        searchPlaceholder="Search by name or email"
+        filterableColumns={[
+          {
+            id: "status",
+            title: "Status",
+            options: Object.entries(STATUS_LABELS).map(([value, label]) => ({
+              value,
+              label,
+            })),
+          },
+        ]}
+        defaultSort={{ id: "createdAt", desc: true }}
+        rowHref={(row) =>
+          row.type === "profile" ? `/users/${row.id}` : `/users/invite/${row.id}`
+        }
+        pageSize={20}
+      />
     </div>
   );
 }

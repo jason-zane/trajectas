@@ -54,6 +54,15 @@ export async function getReportTemplates(): Promise<ReportTemplate[]> {
   return (data ?? []).map(mapReportTemplateRow)
 }
 
+function getRelatedRecord(value: unknown): Record<string, unknown> | null {
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first && typeof first === "object" ? (first as Record<string, unknown>) : null;
+  }
+
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
 export async function getReportTemplate(id: string): Promise<ReportTemplate | null> {
   await requireAdminScope()
   const db = await createClient()
@@ -419,12 +428,19 @@ export async function queueSnapshotsForSession(sessionId: string): Promise<void>
   })
 }
 
-export async function getAllReadySnapshots(): Promise<ReportSnapshot[]> {
+export type ReportSnapshotListItem = ReportSnapshot & {
+  participantName?: string
+  participantEmail?: string
+}
+
+export async function getAllReadySnapshots(): Promise<ReportSnapshotListItem[]> {
   await requireAdminScope()
   const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('*')
+    .select(
+      '*, participant_sessions(campaign_participant_id, campaign_participants(first_name, last_name, email))'
+    )
     .in('status', ['ready', 'released', 'failed'])
     .order('created_at', { ascending: false })
     .limit(200)
@@ -435,7 +451,23 @@ export async function getAllReadySnapshots(): Promise<ReportSnapshot[]> {
       error
     )
   }
-  return (data ?? []).map(mapReportSnapshotRow)
+
+  return (data ?? []).map((row) => {
+    const snapshot = mapReportSnapshotRow(row)
+    const session = getRelatedRecord((row as Record<string, unknown>).participant_sessions)
+    const participant = getRelatedRecord(session?.campaign_participants)
+    const name = [participant?.first_name, participant?.last_name]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .join(" ")
+      .trim()
+
+    return {
+      ...snapshot,
+      participantName: name || undefined,
+      participantEmail:
+        typeof participant?.email === "string" ? participant.email : undefined,
+    }
+  })
 }
 
 export async function getReportSnapshotsForParticipant(

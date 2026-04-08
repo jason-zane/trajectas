@@ -105,13 +105,13 @@ export function ParticipantReportsTab({
                 {snapshot.status === "ready" && (
                   <ReleaseSnapshotButton snapshotId={snapshot.id} />
                 )}
-                {snapshot.pdfUrl && (
+                {["ready", "released"].includes(snapshot.status) && (
                   <Button
                     variant="outline"
                     size="sm"
-                    render={<a href={snapshot.pdfUrl} target="_blank" rel="noreferrer" />}
+                    render={<a href={`/api/reports/${snapshot.id}/pdf`} />}
                   >
-                    Download PDF
+                    Generate PDF
                   </Button>
                 )}
               </div>
