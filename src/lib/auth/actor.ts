@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import {
   ACTIVE_CONTEXT_COOKIE,
@@ -47,7 +48,7 @@ export async function resolveSignedPreviewContext(): Promise<PreviewContext | nu
   return decodePreviewContext(token);
 }
 
-export async function resolveSessionActor(): Promise<ResolvedActor | null> {
+async function resolveSessionActorImpl(): Promise<ResolvedActor | null> {
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
@@ -91,3 +92,5 @@ export async function resolveSessionActor(): Promise<ResolvedActor | null> {
     activeContext,
   };
 }
+
+export const resolveSessionActor = cache(resolveSessionActorImpl);

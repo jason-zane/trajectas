@@ -1,4 +1,7 @@
+import type { PortalType } from "@/components/portal-context";
 import type { Surface, WorkspaceSurface } from "@/lib/surfaces";
+import type { WorkspaceContextOption } from "@/lib/auth/workspace-access";
+import type { BrandConfig } from "@/lib/brand/types";
 import type { UserRole } from "@/types/database";
 
 export type TenantType = "partner" | "client";
@@ -44,6 +47,26 @@ export interface ResolvedActor {
   partnerMemberships: PartnerMembershipRecord[];
   clientMemberships: ClientMembershipRecord[];
   activeContext: ActiveContext | null;
+}
+
+export interface SupportSessionInfo {
+  sessionId: string;
+  tenantName: string;
+  tenantType: "client" | "partner";
+  actorName: string;
+  returnUrl: string;
+}
+
+export interface WorkspaceBootstrap {
+  actor: ResolvedActor | null;
+  scope: import("@/lib/auth/authorization").AuthorizedScope;
+  portal: PortalType;
+  routePrefix: string;
+  isLocalDev: boolean;
+  sidebarDefaultOpen: boolean;
+  workspaceContextOptions: WorkspaceContextOption[];
+  brandConfig: BrandConfig;
+  supportSessionInfo: SupportSessionInfo | null;
 }
 
 export interface SupportSessionInput {

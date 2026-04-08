@@ -1,7 +1,21 @@
+import { cache } from "react";
 import { getCampaignById } from "@/app/actions/campaigns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import { CampaignDetailShell } from "./campaign-detail-shell";
+
+const getCanCustomizeBranding = cache(async (clientId: string | null) => {
+  if (!clientId) return true;
+
+  const db = createAdminClient();
+  const { data } = await db
+    .from("clients")
+    .select("can_customize_branding")
+    .eq("id", clientId)
+    .single();
+
+  return data?.can_customize_branding ?? false;
+});
 
 export default async function CampaignDetailLayout({
   children,
@@ -14,17 +28,9 @@ export default async function CampaignDetailLayout({
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
-  let canCustomizeBranding = true;
-
-  if (campaign.clientId) {
-    const db = createAdminClient();
-    const { data } = await db
-      .from("clients")
-      .select("can_customize_branding")
-      .eq("id", campaign.clientId)
-      .single();
-    canCustomizeBranding = data?.can_customize_branding ?? false;
-  }
+  const canCustomizeBranding = await getCanCustomizeBranding(
+    campaign.clientId ?? null
+  );
 
   return (
     <CampaignDetailShell

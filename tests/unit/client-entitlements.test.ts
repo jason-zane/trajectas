@@ -146,8 +146,11 @@ describe("client entitlement actions", () => {
         error: null,
       });
 
-      // rpc for quota usage
-      queryBuilder.rpc.mockResolvedValueOnce({ data: 42, error: null });
+      // bulk rpc for quota usage
+      queryBuilder.rpc.mockResolvedValueOnce({
+        data: [{ assessment_id: "assess-1", quota_used: 42 }],
+        error: null,
+      });
 
       const result = await getAssessmentAssignments("org-1");
 
@@ -159,15 +162,18 @@ describe("client entitlement actions", () => {
         quotaLimit: 100,
         quotaUsed: 42,
       });
-      expect(queryBuilder.rpc).toHaveBeenCalledWith("get_assessment_quota_usage", {
-        p_client_id: "org-1",
-        p_assessment_id: "assess-1",
-      });
+      expect(queryBuilder.rpc).toHaveBeenCalledWith(
+        "get_client_assessment_quota_usage_bulk",
+        {
+          p_client_id: "org-1",
+        }
+      );
     });
 
     it("returns empty array when no assignments exist", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
       queryBuilder.order.mockResolvedValueOnce({ data: [], error: null });
+      queryBuilder.rpc.mockResolvedValueOnce({ data: [], error: null });
 
       const result = await getAssessmentAssignments("org-1");
       expect(result).toEqual([]);
@@ -247,6 +253,11 @@ describe("client entitlement actions", () => {
         ],
         error: null,
       });
+      queryBuilder.rpc.mockResolvedValueOnce({ data: [], error: null });
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { partner_id: null },
+        error: null,
+      });
 
       const result = await checkQuotaAvailability("org-1", ["assess-1"]);
       expect(result).toEqual({ allowed: true, violations: [] });
@@ -267,8 +278,15 @@ describe("client entitlement actions", () => {
         error: null,
       });
 
-      // rpc for usage
-      queryBuilder.rpc.mockResolvedValueOnce({ data: 10, error: null });
+      // bulk rpc for usage
+      queryBuilder.rpc.mockResolvedValueOnce({
+        data: [{ assessment_id: "assess-1", quota_used: 10 }],
+        error: null,
+      });
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { partner_id: null },
+        error: null,
+      });
 
       const result = await checkQuotaAvailability("org-1", ["assess-1"]);
 
@@ -279,10 +297,12 @@ describe("client entitlement actions", () => {
         quotaLimit: 10,
         quotaUsed: 10,
       });
-      expect(queryBuilder.rpc).toHaveBeenCalledWith("get_assessment_quota_usage", {
-        p_client_id: "org-1",
-        p_assessment_id: "assess-1",
-      });
+      expect(queryBuilder.rpc).toHaveBeenCalledWith(
+        "get_client_assessment_quota_usage_bulk",
+        {
+          p_client_id: "org-1",
+        }
+      );
     });
 
     it("allows when usage is below quota limit", async () => {
@@ -300,7 +320,14 @@ describe("client entitlement actions", () => {
         error: null,
       });
 
-      queryBuilder.rpc.mockResolvedValueOnce({ data: 5, error: null });
+      queryBuilder.rpc.mockResolvedValueOnce({
+        data: [{ assessment_id: "assess-1", quota_used: 5 }],
+        error: null,
+      });
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { partner_id: null },
+        error: null,
+      });
 
       const result = await checkQuotaAvailability("org-1", ["assess-1"]);
       expect(result.allowed).toBe(true);

@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
@@ -130,7 +131,7 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
   }))
 }
 
-export async function getCampaignById(id: string): Promise<CampaignDetail | null> {
+async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
   try {
     await requireCampaignAccess(id)
   } catch (error) {
@@ -188,6 +189,8 @@ export async function getCampaignById(id: string): Promise<CampaignDetail | null
     accessLinks: (linkRows ?? []).map(mapCampaignAccessLinkRow),
   }
 }
+
+export const getCampaignById = cache(getCampaignByIdImpl)
 
 // ---------------------------------------------------------------------------
 // Create / Update (Zone 2 — explicit save)

@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   assertAdminOnly,
@@ -71,6 +71,15 @@ export async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
   return mapBrandConfigRow(data)
 }
 
+export const getCachedPlatformBrand = unstable_cache(
+  async () => getPlatformBrand(),
+  ['platform-brand'],
+  {
+    revalidate: 300,
+    tags: ['brand'],
+  }
+)
+
 async function getClientPartnerId(clientId: string) {
   const db = createAdminClient()
   const { data, error } = await db
@@ -115,7 +124,7 @@ export async function getEffectiveBrand(
   }
 
   // Fall back to platform default
-  const platform = await getPlatformBrand()
+  const platform = await getCachedPlatformBrand()
   if (platform) return platform.config
 
   // Ultimate fallback: hardcoded defaults
@@ -156,8 +165,18 @@ export async function getEffectiveBrandRecord(
  */
 export async function getClientBrandForPreview(clientId: string): Promise<BrandConfig> {
   await requireAdminScope()
-  return getEffectiveBrand(clientId)
+  return getCachedEffectiveBrand(clientId)
 }
+
+export const getCachedEffectiveBrand = unstable_cache(
+  async (clientId?: string | null, campaignId?: string | null) =>
+    getEffectiveBrand(clientId, campaignId),
+  ['effective-brand'],
+  {
+    revalidate: 300,
+    tags: ['brand'],
+  }
+)
 
 // ---------------------------------------------------------------------------
 // Write
@@ -227,6 +246,7 @@ export async function upsertBrandConfig(
   if (ownerId) {
     revalidatePath(`/clients`)
   }
+  revalidateTag('brand', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -291,6 +311,7 @@ export async function resetBrandToDefault(
   if (ownerId) {
     revalidatePath(`/clients`)
   }
+  revalidateTag('brand', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,

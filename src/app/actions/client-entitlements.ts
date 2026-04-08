@@ -24,55 +24,58 @@ export async function getAssessmentAssignments(
   await requireClientAccess(clientId)
   const db = await createClient()
 
-  const { data, error } = await db
-    .from('client_assessment_assignments')
-    .select('*, assessments(title)')
-    .eq('client_id', clientId)
-    .eq('is_active', true)
-    .order('created_at', { ascending: true })
+  const [assignmentResult, usageResult] = await Promise.all([
+    db
+      .from('client_assessment_assignments')
+      .select('*, assessments(title)')
+      .eq('client_id', clientId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true }),
+    db.rpc('get_client_assessment_quota_usage_bulk', {
+      p_client_id: clientId,
+    }),
+  ])
 
-  if (error) {
+  if (assignmentResult.error) {
     throwActionError(
       'getAssessmentAssignments',
       'Unable to load assessment assignments.',
-      error
+      assignmentResult.error
     )
   }
-  if (!data || data.length === 0) return []
-
-  // Compute usage for each assignment via the DB function
-  const results: AssessmentAssignmentWithUsage[] = []
-  for (const row of data) {
-    const { data: usageData, error: usageError } = await db.rpc(
-      'get_assessment_quota_usage',
-      {
-        p_client_id: clientId,
-        p_assessment_id: row.assessment_id,
-      }
+  if (usageResult.error) {
+    throwActionError(
+      'getAssessmentAssignments.quotaUsage',
+      'Unable to load assessment assignments.',
+      usageResult.error
     )
+  }
 
-    if (usageError) {
-      throwActionError(
-        'getAssessmentAssignments.quotaUsage',
-        'Unable to load assessment assignments.',
-        usageError
-      )
-    }
+  const assignments = assignmentResult.data ?? []
+  if (assignments.length === 0) return []
 
+  const usageMap = new Map<string, number>()
+  for (const row of Array.isArray(usageResult.data) ? usageResult.data : []) {
+    const quotaUsed = Number((row as { quota_used?: number }).quota_used ?? 0)
+    usageMap.set(
+      String((row as { assessment_id: string }).assessment_id),
+      Number.isNaN(quotaUsed) ? 0 : quotaUsed
+    )
+  }
+
+  return assignments.map((row) => {
     const assessmentRecord = Array.isArray(row.assessments)
       ? row.assessments[0]
       : row.assessments
     const assessmentName =
       (assessmentRecord as Record<string, unknown>)?.title ?? 'Unknown'
 
-    results.push({
+    return {
       ...mapClientAssessmentAssignmentRow(row),
       assessmentName: String(assessmentName),
-      quotaUsed: typeof usageData === 'number' ? usageData : 0,
-    })
-  }
-
-  return results
+      quotaUsed: usageMap.get(String(row.assessment_id)) ?? 0,
+    }
+  })
 }
 
 export async function getAvailableAssessmentsForClient(
@@ -142,49 +145,59 @@ export async function checkQuotaAvailability(
   await requireClientAccess(clientId)
 
   if (assessmentIds.length === 0) {
-    return { allowed: true, violations: [] };
+    return { allowed: true, violations: [] }
   }
 
   const db = await createClient()
 
-  // Get assignments that have quota limits for the requested assessments
-  const { data: assignments, error } = await db
-    .from('client_assessment_assignments')
-    .select('*')
-    .eq('client_id', clientId)
-    .eq('is_active', true)
-    .in('assessment_id', assessmentIds)
+  const [assignmentsResult, clientUsageResult, clientPartnerResult] =
+    await Promise.all([
+      db
+        .from('client_assessment_assignments')
+        .select('assessment_id, quota_limit')
+        .eq('client_id', clientId)
+        .eq('is_active', true)
+        .in('assessment_id', assessmentIds),
+      db.rpc('get_client_assessment_quota_usage_bulk', {
+        p_client_id: clientId,
+      }),
+      db
+        .from('clients')
+        .select('partner_id')
+        .eq('id', clientId)
+        .single(),
+    ])
 
-  if (error) {
+  if (assignmentsResult.error) {
     throwActionError(
       'checkQuotaAvailability.assignments',
       'Unable to validate assessment quota.',
-      error
+      assignmentsResult.error
+    )
+  }
+  if (clientUsageResult.error) {
+    throwActionError(
+      'checkQuotaAvailability.clientUsage',
+      'Unable to validate assessment quota.',
+      clientUsageResult.error
+    )
+  }
+
+  const clientUsageMap = new Map<string, number>()
+  for (const row of Array.isArray(clientUsageResult.data) ? clientUsageResult.data : []) {
+    const quotaUsed = Number((row as { quota_used?: number }).quota_used ?? 0)
+    clientUsageMap.set(
+      String((row as { assessment_id: string }).assessment_id),
+      Number.isNaN(quotaUsed) ? 0 : quotaUsed
     )
   }
 
   const violations: { assessmentId: string; quotaLimit: number; quotaUsed: number }[] = []
 
-  for (const row of assignments ?? []) {
+  for (const row of assignmentsResult.data ?? []) {
     if (row.quota_limit === null) continue
 
-    const { data: usageData, error: usageError } = await db.rpc(
-      'get_assessment_quota_usage',
-      {
-        p_client_id: clientId,
-        p_assessment_id: row.assessment_id,
-      }
-    )
-
-    if (usageError) {
-      throwActionError(
-        'checkQuotaAvailability.quotaUsage',
-        'Unable to validate assessment quota.',
-        usageError
-      )
-    }
-
-    const quotaUsed = typeof usageData === 'number' ? usageData : 0
+    const quotaUsed = clientUsageMap.get(String(row.assessment_id)) ?? 0
     if (quotaUsed >= row.quota_limit) {
       violations.push({
         assessmentId: row.assessment_id,
@@ -195,34 +208,62 @@ export async function checkQuotaAvailability(
   }
 
   // Partner-level quota check (if client belongs to a partner)
-  const { data: clientForPartner } = await db.from('clients')
-    .select('partner_id')
-    .eq('id', clientId)
-    .single()
+  if (clientPartnerResult.error) {
+    throwActionError(
+      'checkQuotaAvailability.partnerLookup',
+      'Unable to validate assessment quota.',
+      clientPartnerResult.error
+    )
+  }
 
-  if (clientForPartner?.partner_id) {
-    for (const assessmentId of assessmentIds) {
-      const { data: partnerAssignment } = await db
+  const partnerId = clientPartnerResult.data?.partner_id
+  if (partnerId) {
+    const [partnerAssignmentsResult, partnerUsageResult] = await Promise.all([
+      db
         .from('partner_assessment_assignments')
-        .select('quota_limit')
-        .eq('partner_id', clientForPartner.partner_id)
-        .eq('assessment_id', assessmentId)
+        .select('assessment_id, quota_limit')
+        .eq('partner_id', partnerId)
         .eq('is_active', true)
-        .maybeSingle()
+        .in('assessment_id', assessmentIds),
+      db.rpc('get_partner_assessment_quota_usage_bulk', {
+        p_partner_id: partnerId,
+      }),
+    ])
 
-      if (partnerAssignment?.quota_limit != null) {
-        const { data: usage } = await db.rpc('get_partner_assessment_quota_usage', {
-          p_partner_id: clientForPartner.partner_id,
-          p_assessment_id: assessmentId,
+    if (partnerAssignmentsResult.error) {
+      throwActionError(
+        'checkQuotaAvailability.partnerAssignments',
+        'Unable to validate partner assessment quota.',
+        partnerAssignmentsResult.error
+      )
+    }
+    if (partnerUsageResult.error) {
+      throwActionError(
+        'checkQuotaAvailability.partnerUsage',
+        'Unable to validate partner assessment quota.',
+        partnerUsageResult.error
+      )
+    }
+
+    const partnerUsageMap = new Map<string, number>()
+    for (const row of Array.isArray(partnerUsageResult.data) ? partnerUsageResult.data : []) {
+      const quotaUsed = Number((row as { quota_used?: number }).quota_used ?? 0)
+      partnerUsageMap.set(
+        String((row as { assessment_id: string }).assessment_id),
+        Number.isNaN(quotaUsed) ? 0 : quotaUsed
+      )
+    }
+
+    for (const partnerAssignment of partnerAssignmentsResult.data ?? []) {
+      if (partnerAssignment.quota_limit == null) continue
+      const quotaUsed =
+        partnerUsageMap.get(String(partnerAssignment.assessment_id)) ?? 0
+      if (quotaUsed >= partnerAssignment.quota_limit) {
+        violations.push({
+          assessmentId: partnerAssignment.assessment_id,
+          quotaLimit: partnerAssignment.quota_limit,
+          quotaUsed,
         })
-
-        if ((usage ?? 0) >= partnerAssignment.quota_limit) {
-          violations.push({
-            assessmentId,
-            quotaLimit: partnerAssignment.quota_limit,
-            quotaUsed: usage ?? 0,
-          })
-        }
       }
     }
   }

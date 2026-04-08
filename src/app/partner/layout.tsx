@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { SessionActivityProvider } from "@/components/auth/session-activity-provider";
 import { SessionExpiryWarning } from "@/components/auth/session-expiry-warning";
-import { getWorkspaceRequestContext } from "@/lib/workspace-request";
+import { getWorkspaceBootstrap } from "@/lib/auth/workspace-bootstrap";
 
 export const metadata: Metadata = {
   robots: {
@@ -17,21 +17,16 @@ export default async function PartnerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
-  const { routePrefix, isLocalDev } = await getWorkspaceRequestContext("partner");
+  const bootstrap = await getWorkspaceBootstrap("partner");
+
+  if (!bootstrap.actor && !bootstrap.isLocalDev) {
+    redirect("/login?next=/partner");
+  }
 
   return (
     <SessionActivityProvider>
       <SessionExpiryWarning />
-      <WorkspaceShell
-        defaultOpen={defaultOpen}
-        portal="partner"
-        routePrefix={routePrefix}
-        canSwitchPortal={isLocalDev}
-      >
-        {children}
-      </WorkspaceShell>
+      <WorkspaceShell bootstrap={bootstrap}>{children}</WorkspaceShell>
     </SessionActivityProvider>
   );
 }

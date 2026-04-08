@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -199,7 +200,7 @@ function getEffectivePreviewContext(
   return previewContext.surface === requestSurface ? previewContext : null;
 }
 
-export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
+async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
   const requestEnvironment = await getRequestEnvironment();
   const actor = await resolveSessionActor();
   const localDevBypass = !actor && requestEnvironment.isLocalDevelopment;
@@ -347,6 +348,8 @@ export async function resolveAuthorizedScope(): Promise<AuthorizedScope> {
     supportSession,
   };
 }
+
+export const resolveAuthorizedScope = cache(resolveAuthorizedScopeImpl);
 
 export function canAccessClient(scope: AuthorizedScope, clientId: string) {
   return scope.isPlatformAdmin || scope.clientIds.includes(clientId);

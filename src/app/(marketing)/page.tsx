@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { MarketingPageClient } from "./marketing-page-client";
+import { Nav } from "./components/nav";
+import { Hero } from "./components/hero";
+import { Problem } from "./components/problem";
+import { Journey } from "./components/journey";
+import { BuiltFor } from "./components/built-for";
+import { Contact } from "./components/contact";
+import { MarketingInteractive } from "./components/marketing-islands";
 import {
   MARKETING_KEYWORDS,
   PUBLIC_SITE_NAME,
@@ -72,7 +78,15 @@ export default function MarketingPage() {
           __html: JSON.stringify(homeStructuredData),
         }}
       />
-      <MarketingPageClient />
+      <MarketingInteractive />
+      <Nav />
+      <main className="relative z-10">
+        <Hero />
+        <Problem />
+        <Journey />
+        <BuiltFor />
+        <Contact />
+      </main>
     </>
   );
 }

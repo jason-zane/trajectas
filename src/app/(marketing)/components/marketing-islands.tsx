@@ -1,23 +1,26 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { ParticleMesh } from "./components/particle-mesh";
-import { Nav } from "./components/nav";
-import { Hero } from "./components/hero";
-import { Problem } from "./components/problem";
-import { Journey } from "./components/journey";
-import { BuiltFor } from "./components/built-for";
-import { Contact } from "./components/contact";
 
 const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
 
-export function MarketingPageClient() {
+const ParticleMesh = dynamic(
+  () => import("./particle-mesh").then((mod) => mod.ParticleMesh),
+  { ssr: false }
+);
+
+export function MarketingInteractive() {
   const [activeSection, setActiveSection] = useState<string>("hero");
+  const [showParticles, setShowParticles] = useState(false);
   const glowRef = useRef<HTMLDivElement>(null);
   const mouseRef = useRef({ x: -9999, y: -9999 });
 
   useEffect(() => {
-    const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const isMobile = window.innerWidth < 768;
     if (prefersReduced) return;
 
     function applyPosition(x: number, y: number) {
@@ -32,8 +35,10 @@ export function MarketingPageClient() {
     }
 
     function handleTouchMove(e: TouchEvent) {
-      const t = e.touches[0];
-      if (t) applyPosition(t.clientX, t.clientY);
+      const touch = e.touches[0];
+      if (touch) {
+        applyPosition(touch.clientX, touch.clientY);
+      }
     }
 
     function handleDeviceOrientation(e: DeviceOrientationEvent) {
@@ -56,18 +61,47 @@ export function MarketingPageClient() {
         DevOri.requestPermission()
           .then((state) => {
             if (state === "granted") {
-              window.addEventListener("deviceorientation", handleDeviceOrientation, { passive: true });
+              window.addEventListener("deviceorientation", handleDeviceOrientation, {
+                passive: true,
+              });
             }
           })
           .catch(() => {});
       } else {
-        window.addEventListener("deviceorientation", handleDeviceOrientation, { passive: true });
+        window.addEventListener("deviceorientation", handleDeviceOrientation, {
+          passive: true,
+        });
       }
     }
 
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
-    window.addEventListener("touchstart", attachOrientationListener, { once: true, passive: true });
+    window.addEventListener("touchstart", attachOrientationListener, {
+      once: true,
+      passive: true,
+    });
+
+    if (!isMobile) {
+      if ("requestIdleCallback" in window) {
+        const idleId = window.requestIdleCallback(() => setShowParticles(true));
+
+        return () => {
+          window.removeEventListener("mousemove", handleMouseMove);
+          window.removeEventListener("touchmove", handleTouchMove);
+          window.removeEventListener("deviceorientation", handleDeviceOrientation);
+          window.cancelIdleCallback(idleId);
+        };
+      }
+
+      const timer = globalThis.setTimeout(() => setShowParticles(true), 200);
+
+      return () => {
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("touchmove", handleTouchMove);
+        window.removeEventListener("deviceorientation", handleDeviceOrientation);
+        globalThis.clearTimeout(timer);
+      };
+    }
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
@@ -85,7 +119,9 @@ export function MarketingPageClient() {
 
       const observer = new IntersectionObserver(
         ([entry]) => {
-          if (entry.isIntersecting) setActiveSection(section);
+          if (entry.isIntersecting) {
+            setActiveSection(section);
+          }
         },
         { threshold: 0.3 }
       );
@@ -99,23 +135,18 @@ export function MarketingPageClient() {
 
   return (
     <>
-      <ParticleMesh activeSection={activeSection} mouseRef={mouseRef} />
+      {showParticles ? (
+        <ParticleMesh activeSection={activeSection} mouseRef={mouseRef} />
+      ) : null}
       <div
         ref={glowRef}
         className="pointer-events-none fixed left-0 top-0 z-[15] h-[600px] w-[600px]"
         style={{
           transform: "translate(-9999px, -9999px)",
-          background: "radial-gradient(circle, rgba(201,169,98,0.05) 0%, transparent 65%)",
+          background:
+            "radial-gradient(circle, rgba(201,169,98,0.05) 0%, transparent 65%)",
         }}
       />
-      <Nav />
-      <main className="relative z-10">
-        <Hero />
-        <Problem />
-        <Journey />
-        <BuiltFor />
-        <Contact />
-      </main>
     </>
   );
 }
