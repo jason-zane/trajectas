@@ -1,3 +1,4 @@
+import { createAdminClient } from '@/lib/supabase/admin'
 import { AuthenticationRequiredError, AuthorizationError, requireAdminScope } from '@/lib/auth/authorization'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
@@ -5,8 +6,51 @@ import { createReportPdfToken } from '@/lib/reports/pdf-token'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
+const REPORTS_BUCKET = 'reports'
+
+async function ensureReportsBucket() {
+  const db = createAdminClient()
+  const { data: bucket, error } = await db.storage.getBucket(REPORTS_BUCKET)
+
+  if (bucket && !error) {
+    return db
+  }
+
+  const { error: createError } = await db.storage.createBucket(REPORTS_BUCKET, {
+    public: true,
+    fileSizeLimit: 25 * 1024 * 1024,
+    allowedMimeTypes: ['application/pdf'],
+  })
+
+  if (
+    createError &&
+    !createError.message.toLowerCase().includes('already exists')
+  ) {
+    throw createError
+  }
+
+  return db
+}
+
+async function respondWithStoredPdf(storagePath: string) {
+  const db = createAdminClient()
+  const { data, error } = await db.storage.from(REPORTS_BUCKET).download(storagePath)
+
+  if (error || !data) {
+    throw error ?? new Error('Stored PDF could not be downloaded')
+  }
+
+  return new Response(await data.arrayBuffer(), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${storagePath.split('/').pop()}"`,
+      'Cache-Control': 'no-store',
+    },
+  })
+}
+
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ snapshotId: string }> },
 ) {
   try {
@@ -22,6 +66,37 @@ export async function GET(
   }
 
   const { snapshotId } = await params
+  const forceRefresh = new URL(request.url).searchParams.get('refresh') === '1'
+  const storagePath = `reports/${snapshotId}.pdf`
+  const db = createAdminClient()
+  const { data: snapshot, error: snapshotError } = await db
+    .from('report_snapshots')
+    .select('id, status, pdf_url')
+    .eq('id', snapshotId)
+    .maybeSingle()
+
+  if (snapshotError) {
+    return Response.json({ error: snapshotError.message }, { status: 500 })
+  }
+
+  if (!snapshot) {
+    return Response.json({ error: 'Report not found' }, { status: 404 })
+  }
+
+  if (!['ready', 'released'].includes(String(snapshot.status))) {
+    return Response.json(
+      { error: 'PDF is only available for ready or released reports' },
+      { status: 409 }
+    )
+  }
+
+  if (snapshot.pdf_url && !forceRefresh) {
+    try {
+      return await respondWithStoredPdf(storagePath)
+    } catch {
+      // Fall through to regeneration if the stored file has gone missing.
+    }
+  }
 
   let browser: Awaited<ReturnType<typeof launchReportPdfBrowser>> | null = null
 
@@ -68,6 +143,31 @@ export async function GET(
       pdf.byteOffset,
       pdf.byteOffset + pdf.byteLength
     ) as ArrayBuffer
+
+    const storage = await ensureReportsBucket()
+    const { error: uploadError } = await storage.storage
+      .from(REPORTS_BUCKET)
+      .upload(storagePath, pdf, {
+        contentType: 'application/pdf',
+        upsert: true,
+      })
+
+    if (uploadError) {
+      throw uploadError
+    }
+
+    const { data: urlData } = storage.storage
+      .from(REPORTS_BUCKET)
+      .getPublicUrl(storagePath)
+
+    const { error: updateError } = await storage
+      .from('report_snapshots')
+      .update({ pdf_url: urlData.publicUrl })
+      .eq('id', snapshotId)
+
+    if (updateError) {
+      throw updateError
+    }
 
     return new Response(body, {
       headers: {

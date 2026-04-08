@@ -69,7 +69,7 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
           <a href={`/api/reports/${snapshotId}/pdf`}>
             <Button variant="outline">
               <Download className="size-4" />
-              Generate PDF
+              {snapshot.pdfUrl ? 'Download PDF' : 'Generate PDF'}
             </Button>
           </a>
         </div>

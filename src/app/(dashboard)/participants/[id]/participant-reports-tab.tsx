@@ -111,7 +111,7 @@ export function ParticipantReportsTab({
                     size="sm"
                     render={<a href={`/api/reports/${snapshot.id}/pdf`} />}
                   >
-                    Generate PDF
+                    {snapshot.pdfUrl ? "Download PDF" : "Generate PDF"}
                   </Button>
                 )}
               </div>
