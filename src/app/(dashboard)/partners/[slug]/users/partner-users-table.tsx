@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
-import { UserX } from "lucide-react";
+import { ExternalLink, UserX } from "lucide-react";
 
 import {
   changePartnerMemberRole,
@@ -13,11 +13,12 @@ import {
 } from "@/app/actions/partners";
 import {
   DataTable,
+  DataTableActionsMenu,
   DataTableColumnHeader,
-  DataTableRowActions,
+  DataTableRowLink,
 } from "@/components/data-table";
-import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -112,7 +113,13 @@ export function PartnerUsersTable({
         <DataTableColumnHeader column={column} title="Name" />
       ),
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.displayName}</span>
+        <DataTableRowLink
+          href={`/users/${row.original.userId}`}
+          ariaLabel={`Open ${row.original.displayName}`}
+          className="font-medium text-foreground hover:text-primary"
+        >
+          {row.original.displayName}
+        </DataTableRowLink>
       ),
     },
     {
@@ -170,17 +177,21 @@ export function PartnerUsersTable({
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
-        <DataTableRowActions>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+        <DataTableActionsMenu label={`Open actions for ${row.original.displayName}`}>
+          <DropdownMenuItem onClick={() => router.push(`/users/${row.original.userId}`)}>
+            <ExternalLink className="size-4" />
+            Open user
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
             onClick={() => setRemoveTarget(row.original)}
-            aria-label="Remove member"
-            className="text-destructive hover:text-destructive"
+            disabled={isRemoving}
+            variant="destructive"
           >
             <UserX className="size-4" />
-          </Button>
-        </DataTableRowActions>
+            Remove member
+          </DropdownMenuItem>
+        </DataTableActionsMenu>
       ),
     },
   ];
@@ -203,7 +214,7 @@ export function PartnerUsersTable({
           if (!open) setRemoveTarget(null);
         }}
         title="Remove Team Member"
-        description={`This will revoke ${formatMemberName(removeTarget!) ?? removeTarget?.email ?? "this user"}'s access to this partner workspace. They can be re-invited later.`}
+        description={`This will revoke ${(removeTarget ? formatMemberName(removeTarget) : null) ?? removeTarget?.email ?? "this user"}'s access to this partner workspace. They can be re-invited later.`}
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={handleRemove}

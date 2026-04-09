@@ -5,10 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AssessmentsDataTable } from "@/app/(dashboard)/assessments/assessments-data-table";
 import { CampaignsTable } from "@/app/(dashboard)/campaigns/campaigns-table";
+import { ClientUsersTable } from "@/app/(dashboard)/clients/[slug]/users/client-users-table";
 import { ClientDirectoryTable } from "@/app/(dashboard)/directory/client-directory-table";
+import { PartnerUsersTable } from "@/app/(dashboard)/partners/[slug]/users/partner-users-table";
 import { PartnerDirectoryTable } from "@/app/(dashboard)/directory/partner-directory-table";
 import { ParticipantsTable } from "@/app/(dashboard)/participants/participants-table";
 import { ReportTemplatesTable } from "@/app/(dashboard)/report-templates/report-templates-table";
+import { UsersTable } from "@/app/(dashboard)/users/users-table";
 
 const router = {
   push: vi.fn(),
@@ -20,12 +23,16 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/app/actions/clients", () => ({
+  changeClientMemberRole: vi.fn(),
   deleteClient: vi.fn(),
+  removeClientMember: vi.fn(),
   restoreClient: vi.fn(),
 }));
 
 vi.mock("@/app/actions/partners", () => ({
+  changePartnerMemberRole: vi.fn(),
   deletePartner: vi.fn(),
+  removePartnerMember: vi.fn(),
   restorePartner: vi.fn(),
 }));
 
@@ -42,6 +49,15 @@ vi.mock("@/app/actions/reports", () => ({
   createReportTemplate: vi.fn(),
   deleteReportTemplate: vi.fn(),
   toggleReportTemplateActive: vi.fn(),
+}));
+
+vi.mock("@/app/actions/staff-users", () => ({
+  revokeInviteById: vi.fn(),
+  toggleUserActiveState: vi.fn(),
+}));
+
+vi.mock("@/app/actions/user-management", () => ({
+  resendInvite: vi.fn(),
 }));
 
 function enableReducedMotion() {
@@ -184,6 +200,104 @@ describe("table navigation and actions", () => {
     ).toHaveAttribute("href", "/assessments/assessment-1/edit");
     expect(
       screen.getByRole("button", { name: "Open actions for Leadership Baseline" })
+    ).toBeVisible();
+  });
+
+  it("renders users rows with profile and invite links plus action menus", () => {
+    render(
+      <UsersTable
+        users={[
+          {
+            type: "profile",
+            id: "user-1",
+            email: "jordan@example.com",
+            displayName: "Jordan Admin",
+            role: "platform_admin",
+            isActive: true,
+            createdAt: "2026-04-01T00:00:00.000Z",
+            partnerMemberships: [],
+            clientMemberships: [],
+          } as never,
+          {
+            type: "invite",
+            id: "invite-1",
+            email: "invitee@example.com",
+            role: "partner_admin",
+            tenantType: "partner",
+            tenantId: "partner-1",
+            tenantName: "Alliance",
+            expiresAt: "2026-04-15T00:00:00.000Z",
+            createdAt: "2026-04-02T00:00:00.000Z",
+          } as never,
+        ]}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: "Open Jordan Admin" })).toHaveAttribute(
+      "href",
+      "/users/user-1"
+    );
+    expect(
+      screen.getByRole("button", { name: "Open actions for Jordan Admin" })
+    ).toBeVisible();
+
+    expect(screen.getByRole("link", { name: "Open invitee@example.com" })).toHaveAttribute(
+      "href",
+      "/users/invite/invite-1"
+    );
+    expect(
+      screen.getByRole("button", { name: "Open actions for invitee@example.com" })
+    ).toBeVisible();
+  });
+
+  it("renders client and partner user membership rows with user links and action menus", () => {
+    render(
+      <>
+        <ClientUsersTable
+          clientId="client-1"
+          members={[
+            {
+              membershipId: "client-member-1",
+              userId: "user-1",
+              email: "jordan@example.com",
+              firstName: "Jordan",
+              lastName: "Admin",
+              role: "admin",
+              addedAt: "2026-04-01T00:00:00.000Z",
+            } as never,
+          ]}
+        />
+        <PartnerUsersTable
+          partnerId="partner-1"
+          members={[
+            {
+              membershipId: "partner-member-1",
+              userId: "user-2",
+              email: "parker@example.com",
+              firstName: "Parker",
+              lastName: "Member",
+              role: "member",
+              addedAt: "2026-04-02T00:00:00.000Z",
+            } as never,
+          ]}
+        />
+      </>
+    );
+
+    expect(screen.getByRole("link", { name: "Open Jordan Admin" })).toHaveAttribute(
+      "href",
+      "/users/user-1"
+    );
+    expect(
+      screen.getByRole("button", { name: "Open actions for Jordan Admin" })
+    ).toBeVisible();
+
+    expect(screen.getByRole("link", { name: "Open Parker Member" })).toHaveAttribute(
+      "href",
+      "/users/user-2"
+    );
+    expect(
+      screen.getByRole("button", { name: "Open actions for Parker Member" })
     ).toBeVisible();
   });
 

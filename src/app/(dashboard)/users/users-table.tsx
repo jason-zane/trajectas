@@ -1,16 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { ExternalLink, RefreshCw, RotateCcw, X } from "lucide-react";
+import { toast } from "sonner";
 
-import type { UserListItem } from "@/app/actions/user-management";
+import { resendInvite, type UserListItem } from "@/app/actions/user-management";
+import { revokeInviteById, toggleUserActiveState } from "@/app/actions/staff-users";
 import {
   DataTable,
+  DataTableActionsMenu,
   DataTableColumnHeader,
+  DataTableRowLink,
 } from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -186,22 +194,34 @@ const columns: ColumnDef<UserTableRow>[] = [
       <DataTableColumnHeader column={column} title="User" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <Avatar size="lg" className="size-10">
-          <AvatarFallback>
-            {row.original.type === "invite"
-              ? "?"
-              : getInitials(
-                  row.original.type === "profile" ? row.original.displayName : null,
-                  row.original.email
-                )}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="truncate font-medium text-foreground">{row.original.displayName}</p>
-          <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+      <DataTableRowLink
+        href={
+          row.original.type === "profile"
+            ? `/users/${row.original.id}`
+            : `/users/invite/${row.original.id}`
+        }
+        ariaLabel={`Open ${row.original.displayName}`}
+        className="min-w-0"
+      >
+        <div className="flex items-center gap-3">
+          <Avatar size="lg" className="size-10">
+            <AvatarFallback>
+              {row.original.type === "invite"
+                ? "?"
+                : getInitials(
+                    row.original.type === "profile" ? row.original.displayName : null,
+                    row.original.email
+                  )}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-medium text-foreground hover:text-primary">
+              {row.original.displayName}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+          </div>
         </div>
-      </div>
+      </DataTableRowLink>
     ),
   },
   {
@@ -275,7 +295,124 @@ const columns: ColumnDef<UserTableRow>[] = [
       </Tooltip>
     ),
   },
+  {
+    id: "actions",
+    enableSorting: false,
+    cell: ({ row }) => <UserRowActions user={row.original} />,
+  },
 ];
+
+function UserRowActions({ user }: { user: UserTableRow }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const detailHref = user.type === "profile" ? `/users/${user.id}` : `/users/invite/${user.id}`;
+  const actionLabel =
+    user.type === "invite"
+      ? "Revoke invite"
+      : user.isActive
+        ? "Deactivate user"
+        : "Reactivate user";
+  const confirmTitle =
+    user.type === "invite"
+      ? "Revoke invite?"
+      : user.isActive
+        ? "Deactivate user?"
+        : "Reactivate user?";
+  const confirmDescription =
+    user.type === "invite"
+      ? `This will cancel the pending invite for ${user.email}. They will no longer be able to accept it.`
+      : user.isActive
+        ? `Deactivate "${user.displayName}". They will lose access until reactivated.`
+        : `Reactivate "${user.displayName}" and restore their access.`;
+  const confirmVariant =
+    user.type === "profile" && !user.isActive ? "default" : "destructive";
+
+  function handleResend() {
+    if (user.type !== "invite") {
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await resendInvite(user.id);
+
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+
+      toast.success(`Invite email resent to ${user.email}`);
+      router.refresh();
+    });
+  }
+
+  function handleConfirm() {
+    startTransition(async () => {
+      if (user.type === "invite") {
+        const result = await revokeInviteById(user.id);
+
+        if ("error" in result) {
+          toast.error(result.error);
+          return;
+        }
+
+        toast.success("Invite revoked");
+      } else {
+        const result = await toggleUserActiveState(user.id, !user.isActive);
+
+        if ("error" in result) {
+          toast.error(result.error);
+          return;
+        }
+
+        toast.success(user.isActive ? "User deactivated" : "User reactivated");
+      }
+
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <DataTableActionsMenu label={`Open actions for ${user.displayName}`}>
+        <DropdownMenuItem onClick={() => router.push(detailHref)}>
+          <ExternalLink className="size-4" />
+          {user.type === "profile" ? "Open user" : "Open invite"}
+        </DropdownMenuItem>
+        {user.type === "invite" ? (
+          <DropdownMenuItem onClick={handleResend} disabled={isPending}>
+            <RefreshCw className="size-4" />
+            Resend invite
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setOpen(true)}
+          disabled={isPending}
+          variant={confirmVariant}
+        >
+          {user.type === "profile" && !user.isActive ? (
+            <RotateCcw className="size-4" />
+          ) : (
+            <X className="size-4" />
+          )}
+          {actionLabel}
+        </DropdownMenuItem>
+      </DataTableActionsMenu>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={confirmTitle}
+        description={confirmDescription}
+        confirmLabel={actionLabel}
+        variant={confirmVariant}
+        onConfirm={handleConfirm}
+        loading={isPending}
+      />
+    </>
+  );
+}
 
 export function UsersTable({ users }: { users: UserListItem[] }) {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
