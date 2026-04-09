@@ -87,6 +87,8 @@ export function SectionWrapper({
   showProgress = true,
 }: SectionWrapperProps) {
   const router = useRouter();
+  void privacyUrl;
+  void termsUrl;
 
   // Build a flat global item list from all sections
   const globalItems = flattenItems(allSections);

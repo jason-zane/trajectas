@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState, useEffect } from "react"
+import { useCallback, useRef, useState, useEffect, type ChangeEvent } from "react"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
@@ -41,6 +41,11 @@ export function AssessmentIntroEditor({
   const initialHeading = initialContent?.heading || assessmentTitle
   const initialBody = initialContent?.body ?? ""
   const initialButtonLabel = initialContent?.buttonLabel || "Begin Assessment"
+  const [draftContent, setDraftContent] = useState({
+    heading: initialHeading,
+    body: initialBody,
+    buttonLabel: initialButtonLabel,
+  })
 
   // -------------------------------------------------------------------------
   // Auto-save: heading
@@ -49,40 +54,29 @@ export function AssessmentIntroEditor({
   const buildContent = useCallback(
     (patch: Partial<AssessmentIntroContent>): AssessmentIntroContent => ({
       enabled,
-      heading: heading.current,
-      body: body.current,
-      buttonLabel: buttonLabel.current,
+      heading: draftContent.heading,
+      body: draftContent.body,
+      buttonLabel: draftContent.buttonLabel,
       ...patch,
     }),
-    // We read refs inside, so only `enabled` is a true dep
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [enabled]
+    [draftContent, enabled]
   )
-
-  // Refs to always hold the latest value for building the full content object
-  const heading = useRef(initialHeading)
-  const body = useRef(initialBody)
-  const buttonLabel = useRef(initialButtonLabel)
 
   const headingAutoSave = useAutoSave({
     initialValue: initialHeading,
     enabled,
-    onSave: async (val) => {
-      heading.current = val
-      return updateAssessmentIntro(assessmentId, buildContent({ heading: val }))
-    },
+    onSave: async (val) =>
+      updateAssessmentIntro(assessmentId, buildContent({ heading: val })),
   })
 
   const buttonLabelAutoSave = useAutoSave({
     initialValue: initialButtonLabel,
     enabled,
-    onSave: async (val) => {
-      buttonLabel.current = val
-      return updateAssessmentIntro(
+    onSave: async (val) =>
+      updateAssessmentIntro(
         assessmentId,
         buildContent({ buttonLabel: val })
-      )
-    },
+      ),
   })
 
   // -------------------------------------------------------------------------
@@ -125,12 +119,30 @@ export function AssessmentIntroEditor({
 
   const handleBodyChange = useCallback(
     (html: string) => {
-      body.current = html
+      setDraftContent((prev) => ({ ...prev, body: html }))
       if (!enabled) return
       clearTimeout(bodyTimerRef.current)
       bodyTimerRef.current = setTimeout(() => saveBody(html), 3000)
     },
     [enabled, saveBody]
+  )
+
+  const handleHeadingChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value
+      setDraftContent((prev) => ({ ...prev, heading: value }))
+      headingAutoSave.handleChange(event)
+    },
+    [headingAutoSave]
+  )
+
+  const handleButtonLabelChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value
+      setDraftContent((prev) => ({ ...prev, buttonLabel: value }))
+      buttonLabelAutoSave.handleChange(event)
+    },
+    [buttonLabelAutoSave]
   )
 
   // Cleanup body timers
@@ -163,19 +175,6 @@ export function AssessmentIntroEditor({
     [assessmentId]
   )
 
-  // Keep heading ref in sync with auto-save value
-  useEffect(() => {
-    heading.current = headingAutoSave.value
-  }, [headingAutoSave.value])
-
-  useEffect(() => {
-    buttonLabel.current = buttonLabelAutoSave.value
-  }, [buttonLabelAutoSave.value])
-
-  // -------------------------------------------------------------------------
-  // Render
-  // -------------------------------------------------------------------------
-
   return (
     <div className="space-y-6">
       {/* Toggle */}
@@ -207,7 +206,7 @@ export function AssessmentIntroEditor({
               <Input
                 id="intro-heading"
                 value={headingAutoSave.value}
-                onChange={headingAutoSave.handleChange}
+                onChange={handleHeadingChange}
                 onBlur={headingAutoSave.handleBlur}
                 placeholder="Welcome to the assessment"
               />
@@ -227,7 +226,7 @@ export function AssessmentIntroEditor({
               />
               <AutoSaveIndicator
                 status={bodyStatus}
-                onRetry={() => saveBody(body.current)}
+                onRetry={() => saveBody(draftContent.body)}
               />
               {/* Template variable hints */}
               <div className="rounded-md border border-border bg-muted/50 px-3 py-2 mt-2">
@@ -255,7 +254,7 @@ export function AssessmentIntroEditor({
               <Input
                 id="intro-button-label"
                 value={buttonLabelAutoSave.value}
-                onChange={buttonLabelAutoSave.handleChange}
+                onChange={handleButtonLabelChange}
                 onBlur={buttonLabelAutoSave.handleBlur}
                 placeholder="Begin Assessment"
               />

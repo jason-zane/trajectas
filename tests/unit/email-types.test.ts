@@ -74,14 +74,14 @@ describe('MERGE_VARIABLES', () => {
   })
 
   it('defines the correct variables for magic_link', () => {
-    expect(MERGE_VARIABLES['magic_link']).toContain('signInUrl')
+    expect(MERGE_VARIABLES['magic_link']).toContain('otpCode')
     expect(MERGE_VARIABLES['magic_link']).toContain('brandName')
   })
 
   it('defines the correct variables for staff_invite', () => {
     expect(MERGE_VARIABLES['staff_invite']).toContain('inviteeName')
     expect(MERGE_VARIABLES['staff_invite']).toContain('brandName')
-    expect(MERGE_VARIABLES['staff_invite']).toContain('acceptUrl')
+    expect(MERGE_VARIABLES['staff_invite']).toContain('otpCode')
   })
 
   it('defines the correct variables for assessment_invite', () => {

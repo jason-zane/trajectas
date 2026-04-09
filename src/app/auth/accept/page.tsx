@@ -12,9 +12,9 @@ function formatRole(role: string) {
 export default async function AcceptInvitePage({
   searchParams,
 }: {
-  searchParams: Promise<{ invite?: string; next?: string }>;
+  searchParams: Promise<{ invite?: string; next?: string; email?: string; step?: string }>;
 }) {
-  const { invite = "", next } = await searchParams;
+  const { invite = "", next, email, step } = await searchParams;
   const summary = invite ? await getInviteSummaryByToken(invite) : null;
   const expired =
     !summary ||
@@ -56,7 +56,12 @@ export default async function AcceptInvitePage({
                   <span>Expires {new Date(summary.expiresAt).toLocaleString()}</span>
                 </div>
               </div>
-              <AcceptInviteForm inviteToken={invite} nextPath={next} />
+              <AcceptInviteForm
+                inviteToken={invite}
+                nextPath={next}
+                initialEmail={email}
+                initialStep={step === "code" ? "code" : "email"}
+              />
             </>
           )}
         </CardContent>

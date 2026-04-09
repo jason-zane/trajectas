@@ -8,7 +8,13 @@ import {
   getActiveContextCookieOptions,
 } from "@/lib/auth/active-context";
 import { logAuditEvent } from "@/lib/auth/support-sessions";
-import type { ActiveContext, ResolvedActor, TenantType } from "@/lib/auth/types";
+import type {
+  ActiveContext,
+  ClientMembershipRecord,
+  PartnerMembershipRecord,
+  ResolvedActor,
+  TenantType,
+} from "@/lib/auth/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type WorkspaceSurface } from "@/lib/surfaces";
 import { getConfiguredSurfaceUrl, getRoutePrefixForSurface, isLocalDevelopmentHost } from "@/lib/hosts";
@@ -141,6 +147,26 @@ interface InviteSummary {
   isExpired: boolean;
 }
 
+function mapPartnerMembership(row: Record<string, unknown>): PartnerMembershipRecord {
+  return {
+    id: String(row.id),
+    partnerId: String(row.partner_id),
+    role: (row.role as PartnerMembershipRecord["role"]) ?? "member",
+    isDefault: Boolean(row.is_default),
+    createdAt: String(row.created_at),
+  };
+}
+
+function mapClientMembership(row: Record<string, unknown>): ClientMembershipRecord {
+  return {
+    id: String(row.id),
+    clientId: String(row.client_id),
+    role: (row.role as ClientMembershipRecord["role"]) ?? "member",
+    isDefault: Boolean(row.is_default),
+    createdAt: String(row.created_at),
+  };
+}
+
 export function hashInviteToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
@@ -269,6 +295,52 @@ export function resolveDefaultWorkspaceContext(
   return { surface: "admin" };
 }
 
+export async function resolveDefaultWorkspaceContextForEmail(
+  email: string
+): Promise<ActiveContext | null> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const db = createAdminClient();
+
+  const { data: profile, error: profileError } = await db
+    .from("profiles")
+    .select("id, role, is_active")
+    .eq("email", normalizedEmail)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (profileError || !profile) {
+    return null;
+  }
+
+  const [partnerMembershipResult, clientMembershipResult] = await Promise.all([
+    db
+      .from("partner_memberships")
+      .select("id, partner_id, role, is_default, created_at")
+      .eq("profile_id", String(profile.id))
+      .is("revoked_at", null),
+    db
+      .from("client_memberships")
+      .select("id, client_id, role, is_default, created_at")
+      .eq("profile_id", String(profile.id))
+      .is("revoked_at", null),
+  ]);
+
+  if (partnerMembershipResult.error || clientMembershipResult.error) {
+    return null;
+  }
+
+  return resolveDefaultWorkspaceContext({
+    role: profile.role as ResolvedActor["role"],
+    partnerMemberships: (partnerMembershipResult.data ?? []).map((row) =>
+      mapPartnerMembership(row as Record<string, unknown>)
+    ),
+    clientMemberships: (clientMembershipResult.data ?? []).map((row) =>
+      mapClientMembership(row as Record<string, unknown>)
+    ),
+    activeContext: null,
+  });
+}
+
 export function buildSurfaceDestinationUrl(input: {
   surface: WorkspaceSurface;
   path?: string;
@@ -300,6 +372,27 @@ export function buildSurfaceDestinationUrl(input: {
   const fullPath = `${pathPrefix}${normalizedPath === "/" ? "" : normalizedPath}` || "/";
   url.pathname = fullPath;
   url.search = "";
+  url.hash = "";
+  return url;
+}
+
+export function buildSurfaceAuthUrl(input: {
+  surface: WorkspaceSurface;
+  authPath: "/login" | "/auth/accept";
+  requestUrl: string;
+  host: string | null;
+  params?: URLSearchParams;
+}) {
+  const url = isLocalDevelopmentHost(input.host)
+    ? new URL(input.authPath, input.requestUrl)
+    : buildSurfaceDestinationUrl({
+        surface: input.surface,
+        path: input.authPath,
+        requestUrl: input.requestUrl,
+        host: input.host,
+      });
+
+  url.search = input.params?.toString() ? `?${input.params.toString()}` : "";
   url.hash = "";
   return url;
 }
@@ -608,7 +701,7 @@ export async function revokeInvite(
       .eq("tenant_id", tenantScope.tenantId);
   }
 
-  const { error, count } = await query.select().maybeSingle();
+  const { error } = await query.select().maybeSingle();
 
   if (error) {
     throw new Error(error.message);

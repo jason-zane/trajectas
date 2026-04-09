@@ -1,26 +1,56 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { requestStaffOtp } from "@/app/actions/auth";
-import type { AuthFormState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
-export function LoginForm({ nextPath }: { nextPath?: string }) {
+function buildLoginUrl(nextPath?: string) {
+  const params = new URLSearchParams();
+  if (nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")) {
+    params.set("next", nextPath);
+  }
+
+  const query = params.toString();
+  return query ? `/login?${query}` : "/login";
+}
+
+export function LoginForm({
+  nextPath,
+  initialEmail,
+  initialStep = "email",
+}: {
+  nextPath?: string;
+  initialEmail?: string;
+  initialStep?: "email" | "code";
+}) {
   const [state, formAction, pending] = useActionState(requestStaffOtp, undefined);
   const [code, setCode] = useState("");
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifying, startVerify] = useTransition();
 
-  const isCodeStep = state?.step === "code";
+  const email = state?.email ?? initialEmail ?? "";
+  const resolvedNextPath = state?.next ?? nextPath;
+  const isCodeStep =
+    state?.step === "code" || (initialStep === "code" && Boolean(email));
+
+  useEffect(() => {
+    if (!state?.redirectTo) return;
+    window.location.replace(state.redirectTo);
+  }, [state?.redirectTo]);
 
   function handleVerify() {
+    if (!email) {
+      setVerifyError("Enter your email again and request a fresh sign-in code.");
+      return;
+    }
+
     setVerifyError(null);
     startVerify(async () => {
       const supabase = createBrowserSupabaseClient();
       const { error } = await supabase.auth.verifyOtp({
-        email: state!.email!,
+        email,
         token: code,
         type: "email",
       });
@@ -31,8 +61,12 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
       }
 
       const params = new URLSearchParams();
-      if (state?.next && state.next.startsWith("/") && !state.next.startsWith("//")) {
-        params.set("next", state.next);
+      if (
+        resolvedNextPath &&
+        resolvedNextPath.startsWith("/") &&
+        !resolvedNextPath.startsWith("//")
+      ) {
+        params.set("next", resolvedNextPath);
       }
       const query = params.toString();
       window.location.replace(query ? `/auth/callback?${query}` : "/auth/callback");
@@ -53,19 +87,19 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           </h1>
           <p className="mt-1 text-sm text-[var(--mk-text-muted)]">
             Enter the code sent to{" "}
-            <span className="font-medium text-[var(--mk-primary-dark)]">{state.email}</span>
+            <span className="font-medium text-[var(--mk-primary-dark)]">{email}</span>
           </p>
         </div>
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Input
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
-              placeholder="00000000"
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
-              maxLength={8}
+              maxLength={6}
               className="h-11 rounded-xl border-[rgba(30,74,62,0.18)] bg-white/88 px-4 text-center text-lg font-semibold tracking-[0.3em] shadow-none placeholder:text-[var(--mk-text-muted)]/60 placeholder:tracking-[0.3em] focus-visible:border-[var(--mk-accent)] focus-visible:ring-[var(--mk-accent)]/30"
             />
           </div>
@@ -76,15 +110,15 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           <Button
             type="button"
             className="h-11 w-full rounded-xl bg-[var(--mk-primary-dark)] text-white hover:bg-[var(--mk-primary)]"
-            disabled={code.length < 6 || code.length > 8 || verifying}
+            disabled={code.length < 6 || verifying}
             onClick={handleVerify}
           >
             {verifying ? "Verifying..." : "Verify"}
           </Button>
           <div className="flex items-center justify-between text-sm">
             <form action={formAction} onSubmit={handleResend}>
-              <input type="hidden" name="email" value={state.email ?? ""} />
-              <input type="hidden" name="next" value={nextPath ?? ""} />
+              <input type="hidden" name="email" value={email} />
+              <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
               <button
                 type="submit"
                 className="text-[var(--mk-primary)] hover:underline"
@@ -96,7 +130,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
             <button
               type="button"
               className="text-[var(--mk-text-muted)] hover:underline"
-              onClick={() => window.location.reload()}
+              onClick={() => window.location.replace(buildLoginUrl(nextPath))}
             >
               Use different email
             </button>

@@ -52,7 +52,7 @@ describe("experience flow router", () => {
     const template = createTemplate();
 
     expect(getNextFlowUrl(template, "consent", "token-123")).toBe(
-      "/assess/token-123/section/0"
+      "/assess/token-123/assessment-intro/0"
     );
     expect(getNextFlowUrl(template, SECTIONS_SENTINEL, "token-123")).toBe(
       "/assess/token-123/review"

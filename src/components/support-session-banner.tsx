@@ -32,9 +32,10 @@ export function SupportSessionBanner({
       <div className="flex items-center justify-between gap-4 text-sm">
         <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
           <AlertCircle className="size-4 shrink-0" />
-          <span>
+          <span data-support-session-id={sessionId}>
             Support session active — viewing <strong>{tenantName}</strong> as{" "}
-            <strong>{actorName}</strong>
+            <strong>{actorName}</strong> in the{" "}
+            <strong>{tenantType}</strong> workspace
           </span>
         </div>
         <button

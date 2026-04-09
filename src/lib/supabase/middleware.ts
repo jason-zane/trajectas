@@ -18,7 +18,9 @@ export function createMiddlewareSupabaseClient(
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             // Strip maxAge/expires — session-only cookies
-            const { maxAge: _maxAge, expires: _expires, ...sessionOptions } = options ?? {};
+            const sessionOptions = { ...(options ?? {}) };
+            delete sessionOptions.maxAge;
+            delete sessionOptions.expires;
             const cookieOptions = {
               ...sessionOptions,
               ...(COOKIE_DOMAIN ? { domain: COOKIE_DOMAIN } : {}),

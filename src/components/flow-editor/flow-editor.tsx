@@ -110,21 +110,24 @@ export function FlowEditor({
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [previewClientId, setPreviewClientId] = useState<string | null>(null)
-  const [previewBrand, setPreviewBrand] = useState<BrandConfig | null>(null)
+  const [previewBrand, setPreviewBrand] = useState<{
+    clientId: string
+    brand: BrandConfig | null
+  } | null>(null)
   const [isBrandLoading, startBrandTransition] = useTransition()
 
   useEffect(() => {
-    if (!previewClientId) {
-      setPreviewBrand(null)
-      return
-    }
+    if (!previewClientId) return
     startBrandTransition(async () => {
       const brand = await getClientBrandForPreview(previewClientId)
-      setPreviewBrand(brand)
+      setPreviewBrand({ clientId: previewClientId, brand })
     })
-  }, [previewClientId])
+  }, [previewClientId, startBrandTransition])
 
-  const effectiveBrandConfig = previewBrand ?? brandConfig
+  const effectiveBrandConfig =
+    previewClientId && previewBrand?.clientId === previewClientId
+      ? previewBrand.brand ?? brandConfig
+      : brandConfig
 
   const [selectedPageId, setSelectedPageId] = useState("welcome")
   const [showPreview, setShowPreview] = useState(true)

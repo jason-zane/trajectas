@@ -30,7 +30,6 @@ import type {
   TaxonomyColors,
   EmailStyleColors,
 } from "@/lib/brand/types"
-import type { ReportTheme } from "@/lib/reports/presentation"
 import { DEFAULT_REPORT_THEME } from "@/lib/reports/presentation"
 import { cn } from "@/lib/utils"
 

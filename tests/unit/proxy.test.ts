@@ -56,4 +56,14 @@ describe("proxy surface routing", () => {
     );
     expect(response.headers.get("x-trajectas-surface")).toBe("admin");
   });
+
+  it("keeps shared auth routes accessible on the partner host", async () => {
+    const response = await proxy(
+      createRequest("https://partner.trajectas.test/login?next=%2Fpartner")
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(response.headers.get("x-trajectas-surface")).toBe("partner");
+  });
 });

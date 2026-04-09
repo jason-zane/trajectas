@@ -202,7 +202,7 @@ export function ParticleMesh({
       window.removeEventListener("resize", resize);
       cancelAnimationFrame(animFrameRef.current);
     };
-  }, [initParticles]);
+  }, [initParticles, mouseRef]);
 
   return (
     <canvas

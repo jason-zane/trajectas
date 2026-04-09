@@ -1,32 +1,60 @@
 "use client";
 
-import { useActionState, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
 import { requestInviteOtp } from "@/app/actions/auth";
-import type { AuthFormState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
+function buildAcceptInviteUrl(inviteToken: string, nextPath?: string) {
+  const params = new URLSearchParams();
+  params.set("invite", inviteToken);
+
+  if (nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")) {
+    params.set("next", nextPath);
+  }
+
+  return `/auth/accept?${params.toString()}`;
+}
+
 export function AcceptInviteForm({
   inviteToken,
   nextPath,
+  initialEmail,
+  initialStep = "email",
 }: {
   inviteToken: string;
   nextPath?: string;
+  initialEmail?: string;
+  initialStep?: "email" | "code";
 }) {
   const [state, formAction, pending] = useActionState(requestInviteOtp, undefined);
   const [code, setCode] = useState("");
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifying, startVerify] = useTransition();
 
-  const isCodeStep = state?.step === "code";
+  const email = state?.email ?? initialEmail ?? "";
+  const invite = state?.invite ?? inviteToken;
+  const resolvedNextPath = state?.next ?? nextPath;
+  const isCodeStep =
+    state?.step === "code" || (initialStep === "code" && Boolean(email));
+
+  useEffect(() => {
+    if (!state?.redirectTo) return;
+    window.location.replace(state.redirectTo);
+  }, [state?.redirectTo]);
 
   function handleVerify() {
+    if (!email) {
+      setVerifyError("Request a fresh sign-in code to continue.");
+      return;
+    }
+
     setVerifyError(null);
     startVerify(async () => {
       const supabase = createBrowserSupabaseClient();
       const { error } = await supabase.auth.verifyOtp({
-        email: state!.email!,
+        email,
         token: code,
         type: "email",
       });
@@ -37,9 +65,13 @@ export function AcceptInviteForm({
       }
 
       const params = new URLSearchParams();
-      if (state?.invite) params.set("invite", state.invite);
-      if (state?.next && state.next.startsWith("/") && !state.next.startsWith("//")) {
-        params.set("next", state.next);
+      params.set("invite", invite);
+      if (
+        resolvedNextPath &&
+        resolvedNextPath.startsWith("/") &&
+        !resolvedNextPath.startsWith("//")
+      ) {
+        params.set("next", resolvedNextPath);
       }
       const query = params.toString();
       window.location.replace(query ? `/auth/callback?${query}` : "/auth/callback");
@@ -57,18 +89,18 @@ export function AcceptInviteForm({
         <div>
           <p className="text-sm text-[var(--mk-text-muted)]">
             Enter the code sent to{" "}
-            <span className="font-medium text-[var(--mk-primary-dark)]">{state.email}</span>
+            <span className="font-medium text-[var(--mk-primary-dark)]">{email}</span>
           </p>
         </div>
         <div className="space-y-1.5">
           <Input
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
-            placeholder="00000000"
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
             inputMode="numeric"
             autoComplete="one-time-code"
             autoFocus
-            maxLength={8}
+            maxLength={6}
             className="h-11 text-center text-lg font-semibold tracking-[0.3em] placeholder:tracking-[0.3em]"
           />
         </div>
@@ -77,15 +109,15 @@ export function AcceptInviteForm({
         <Button
           type="button"
           className="w-full"
-          disabled={code.length < 6 || code.length > 8 || verifying}
+          disabled={code.length < 6 || verifying}
           onClick={handleVerify}
         >
           {verifying ? "Verifying..." : "Verify"}
         </Button>
         <div className="flex items-center justify-between text-sm">
           <form action={formAction} onSubmit={handleResend}>
-            <input type="hidden" name="invite" value={inviteToken} />
-            <input type="hidden" name="next" value={nextPath ?? ""} />
+            <input type="hidden" name="invite" value={invite} />
+            <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
             <button
               type="submit"
               className="text-[var(--mk-primary)] hover:underline"
@@ -94,6 +126,13 @@ export function AcceptInviteForm({
               {pending ? "Sending..." : "Resend code"}
             </button>
           </form>
+          <button
+            type="button"
+            className="text-[var(--mk-text-muted)] hover:underline"
+            onClick={() => window.location.replace(buildAcceptInviteUrl(inviteToken, nextPath))}
+          >
+            Start over
+          </button>
         </div>
       </div>
     );

@@ -61,7 +61,6 @@ export async function GET(
   const db = createAdminClient()
 
   // Two auth paths: admin scope OR participant access token
-  let isParticipantAccess = false
   if (participantToken) {
     // Validate participant has access to this specific snapshot
     const { data: tokenData } = await db
@@ -82,15 +81,17 @@ export async function GET(
       .maybeSingle()
     const session = Array.isArray(validSnapshot?.participant_sessions)
       ? validSnapshot.participant_sessions[0]
-      : validSnapshot?.participant_sessions
+      : (validSnapshot?.participant_sessions as
+          | { campaign_participant_id: string | null }
+          | null
+          | undefined)
     if (
       !validSnapshot ||
       !session ||
-      String((session as any).campaign_participant_id) !== String(tokenData.id)
+      String(session.campaign_participant_id) !== String(tokenData.id)
     ) {
       return Response.json({ error: 'Report not available' }, { status: 403 })
     }
-    isParticipantAccess = true
   } else {
     try {
       await requireAdminScope()

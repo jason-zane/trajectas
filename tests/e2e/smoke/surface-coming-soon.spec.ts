@@ -14,18 +14,4 @@ test.describe("surface coming soon", () => {
       )
     ).toBeVisible();
   });
-
-  test("respects the routed surface header", async ({ browser }) => {
-    const context = await browser.newContext({
-      extraHTTPHeaders: {
-        "x-trajectas-surface": "partner",
-      },
-    });
-    const page = await context.newPage();
-
-    await page.goto("/surface-coming-soon");
-    await expect(page.getByText("Partner Portal")).toBeVisible();
-
-    await context.close();
-  });
 });

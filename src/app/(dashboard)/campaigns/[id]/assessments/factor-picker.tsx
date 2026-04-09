@@ -23,8 +23,6 @@ import { cn } from "@/lib/utils";
 
 type FactorPickerProps = {
   campaignAssessmentId: string;
-  assessmentId: string;
-  assessmentTitle: string;
   minCustomFactors: number;
   currentSelection: { isCustom: boolean; selectedFactorIds: string[] };
   factorsByDimension: Array<{
@@ -86,8 +84,6 @@ function computeEstimate(
 
 export function FactorPicker({
   campaignAssessmentId,
-  assessmentId,
-  assessmentTitle,
   minCustomFactors,
   currentSelection,
   factorsByDimension,

@@ -81,10 +81,9 @@ export function EmailBrandFrame({
              * (server-side, controlled pipeline). It is never derived from
              * raw user input and does not require client-side sanitisation.
              * nosemgrep: react-dangerously-set-innerhtml
-             */}
+            */}
             <div
               style={{ color: textColor }}
-              // eslint-disable-next-line react/no-danger
               dangerouslySetInnerHTML={{ __html: bodyHtml }}
             />
 

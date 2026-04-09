@@ -55,6 +55,7 @@ describe("hosts", () => {
     expect(inferSurfaceFromRequest({ host: "trajectas.test" })).toBe("public");
     expect(inferSurfaceFromRequest({ host: "partner.trajectas.test" })).toBe("public");
     expect(inferSurfaceFromRequest({ pathname: "/partner/campaigns" })).toBe("partner");
+    expect(inferSurfaceFromRequest({ pathname: "/partner/surface-coming-soon" })).toBe("partner");
     expect(inferSurfaceFromRequest({ pathname: "/client/reports" })).toBe("client");
     expect(inferSurfaceFromRequest({ pathname: "/assess/token" })).toBe("assess");
     expect(inferSurfaceFromRequest({ pathname: "/dashboard" })).toBe("public");

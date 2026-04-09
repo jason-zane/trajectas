@@ -253,31 +253,59 @@ export async function getWorkspaceContextOptions(
     throw error;
   }
 
-  const db = createAdminClient();
-  const partnerIds =
-    scope.isLocalDevelopmentBypass && surface === "partner"
-      ? (
-          await db
-            .from("partners")
-            .select("id")
-            .order("name", { ascending: true })
-        ).data?.map((row) => String(row.id)) ?? []
-      : scope.partnerIds;
-  const clientIds =
-    scope.isLocalDevelopmentBypass
-        ? (
+  let partnerIds = scope.partnerIds;
+  let clientIds = scope.clientIds;
+  let partners: Array<{ id: string; name: string }> = [];
+  let clients: Array<{ id: string; name: string; partner_id: string | null }> = [];
+
+  try {
+    if (scope.isLocalDevelopmentBypass) {
+      const db = createAdminClient();
+      partnerIds =
+        surface === "partner"
+          ? (
+              await db
+                .from("partners")
+                .select("id")
+                .order("name", { ascending: true })
+            ).data?.map((row) => String(row.id)) ?? []
+          : scope.partnerIds;
+      clientIds =
+        (
           await db
             .from("clients")
             .select("id")
             .is("deleted_at", null)
             .order("name", { ascending: true })
-        ).data?.map((row) => String(row.id)) ?? []
-      : scope.clientIds;
+        ).data?.map((row) => String(row.id)) ?? [];
+    }
 
-  const [partners, clients] = await Promise.all([
-    surface === "partner" ? loadPartnerOptionRows(partnerIds) : Promise.resolve([]),
-    loadClientOptionRows(clientIds),
-  ]);
+    [partners, clients] = await Promise.all([
+      surface === "partner"
+        ? loadPartnerOptionRows(partnerIds)
+        : Promise.resolve([]),
+      loadClientOptionRows(clientIds),
+    ]);
+  } catch (error) {
+    if (!scope.isLocalDevelopmentBypass) {
+      throw error;
+    }
+
+    console.warn(
+      "[workspace-access] Local development preview options unavailable:",
+      error
+    );
+    return [
+      {
+        key: `${surface}-preview`,
+        label: "Preview all data",
+        description:
+          "Local development preview without a loaded tenant context.",
+        kind: "all",
+        selected: true,
+      },
+    ];
+  }
 
   const partnerMembershipMap = membershipByPartnerId(scope.actor);
   const clientMembershipMap = membershipByClientId(scope.actor);

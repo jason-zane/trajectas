@@ -50,6 +50,17 @@ function isPublicHostedPath(pathname: string) {
   );
 }
 
+function isSharedAuthPath(pathname: string) {
+  return (
+    pathname === "/login" ||
+    pathname === "/logout" ||
+    pathname === "/unauthorized" ||
+    pathname === "/surface-coming-soon" ||
+    pathname === "/auth" ||
+    pathname.startsWith("/auth/")
+  );
+}
+
 function redirectToSurface(
   request: NextRequest,
   surface: Surface,
@@ -311,6 +322,17 @@ export async function proxy(request: NextRequest) {
     (configuredSurface === "partner" || configuredSurface === "client") &&
     !isLocalDev
   ) {
+    if (isSharedAuthPath(pathname)) {
+      const response = NextResponse.next({
+        request: {
+          headers: forwardedHeaders,
+        },
+      });
+      return withSessionCookies(
+        applySecurityHeaders(response, configuredSurface, pathname)
+      );
+    }
+
     const internalPrefix = `/${configuredSurface}`;
 
     if (pathname === internalPrefix || pathname.startsWith(`${internalPrefix}/`)) {

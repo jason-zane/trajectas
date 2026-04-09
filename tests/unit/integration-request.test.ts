@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
-import { IntegrationApiError } from '@/lib/integrations/errors'
 import {
   parseIntegrationRequestBody,
   parseUuidParam,

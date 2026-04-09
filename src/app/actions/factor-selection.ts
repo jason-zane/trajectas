@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCampaignAccess } from '@/lib/auth/authorization'
 import { revalidatePath } from 'next/cache'
-import { logActionError, throwActionError } from '@/lib/security/action-errors'
+import { throwActionError } from '@/lib/security/action-errors'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 
 // =============================================================================

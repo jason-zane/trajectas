@@ -76,6 +76,48 @@ export type ItemForRunner = {
   options: { id: string; label: string; value: number; sortOrder: number }[]
 }
 
+type SectionOptionRow = {
+  id: string
+  label: string
+  value: number
+  display_order: number
+}
+
+type SectionItemRow = {
+  id: string
+  stem: string
+  construct_id: string | null
+  purpose: string | null
+  selection_priority: number | null
+  item_options: SectionOptionRow[] | null
+} | null
+
+type AssessmentSectionItemRow = {
+  id: string
+  item_id: string
+  display_order: number
+  items: SectionItemRow
+}
+
+type AssessmentSectionResponseFormatRow = {
+  type: string | null
+  config: Record<string, unknown> | null
+} | null
+
+type AssessmentSectionRow = {
+  id: string
+  title: string
+  instructions: string | null
+  display_order: number
+  response_format_id: string
+  item_ordering: string
+  items_per_page: number | null
+  time_limit_seconds: number | null
+  allow_back_nav: boolean
+  response_formats: AssessmentSectionResponseFormatRow
+  assessment_section_items: AssessmentSectionItemRow[] | null
+}
+
 // ---------------------------------------------------------------------------
 // Token validation
 // ---------------------------------------------------------------------------
@@ -333,20 +375,19 @@ export async function getSessionState(token: string, sessionId: string) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sections: SectionForRunner[] = (sectionRows ?? []).map((s: any) => {
+  const sections: SectionForRunner[] = ((sectionRows ?? []) as AssessmentSectionRow[]).map((s) => {
     const formatConfig = s.response_formats?.config ?? {}
     const formatType = s.response_formats?.type ?? 'likert'
 
     // Derive fallback options from response format anchors when item_options is empty.
     // This handles AI-generated items that have stems but no per-item options.
     function deriveOptionsFromFormat() {
-      if (formatType === 'likert' && formatConfig.anchors) {
-        const anchors = formatConfig.anchors as Record<string, string>
+      const anchors = formatConfig.anchors
+      if (formatType === 'likert' && anchors && typeof anchors === 'object') {
         return Object.entries(anchors)
           .map(([val, label]) => ({
             id: `rf-${val}`,
-            label,
+            label: String(label),
             value: Number(val),
             sortOrder: Number(val),
           }))
@@ -358,13 +399,12 @@ export async function getSessionState(token: string, sessionId: string) {
     const fallbackOptions = deriveOptionsFromFormat()
 
     // Sort section items by display_order first
-    let sectionItems = (s.assessment_section_items ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .sort((a: any, b: any) => a.display_order - b.display_order)
+    let sectionItems = [...(s.assessment_section_items ?? [])]
+      .sort((a, b) => a.display_order - b.display_order)
 
     // Filter items by campaign factor selection when active
     if (allowedConstructIds) {
-      sectionItems = sectionItems.filter((si: any) => {
+      sectionItems = sectionItems.filter((si) => {
         const item = si.items
         // Always include non-construct items (attention checks, impression management, infrequency)
         if (item?.purpose && item.purpose !== 'construct') return true
@@ -382,22 +422,23 @@ export async function getSessionState(token: string, sessionId: string) {
         // their construct group so they survive the per-construct cap.
         // Non-construct items stay in display_order position.
         const constructItems = sectionItems.filter(
-          (si: any) => (!si.items?.purpose || si.items.purpose === 'construct') && si.items?.construct_id
+          (si) => (!si.items?.purpose || si.items.purpose === 'construct') && si.items?.construct_id
         )
         const nonConstructItems = sectionItems.filter(
-          (si: any) => si.items?.purpose && si.items.purpose !== 'construct'
+          (si) => si.items?.purpose && si.items.purpose !== 'construct'
         )
 
         // Sort construct items by selection_priority (nulls last)
-        constructItems.sort((a: any, b: any) => {
+        constructItems.sort((a, b) => {
           const pa = a.items?.selection_priority ?? 999
           const pb = b.items?.selection_priority ?? 999
           return pa - pb
         })
 
         // Apply per-construct limit
-        const keptConstructItems = constructItems.filter((si: any) => {
-          const key = si.items.construct_id
+        const keptConstructItems = constructItems.filter((si) => {
+          const key = si.items?.construct_id
+          if (!key) return false
           const count = constructItemCounts.get(key) ?? 0
           if (count >= itemsPerConstruct!) return false
           constructItemCounts.set(key, count + 1)
@@ -406,7 +447,7 @@ export async function getSessionState(token: string, sessionId: string) {
 
         // Recombine: non-construct items + kept construct items, re-sorted by display_order
         sectionItems = [...nonConstructItems, ...keptConstructItems]
-          .sort((a: any, b: any) => a.display_order - b.display_order)
+          .sort((a, b) => a.display_order - b.display_order)
       }
     }
 
@@ -422,13 +463,10 @@ export async function getSessionState(token: string, sessionId: string) {
       itemsPerPage: s.items_per_page ?? undefined,
       timeLimitSeconds: s.time_limit_seconds ?? undefined,
       allowBackNav: s.allow_back_nav,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      items: sectionItems.map((si: any) => {
+      items: sectionItems.map((si) => {
           const itemOptions = (si.items?.item_options ?? [])
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .sort((a: any, b: any) => a.display_order - b.display_order)
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            .map((o: any) => ({
+            .sort((a, b) => a.display_order - b.display_order)
+            .map((o) => ({
               id: o.id,
               label: o.label,
               value: o.value,

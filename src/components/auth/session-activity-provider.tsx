@@ -44,7 +44,7 @@ export function SessionActivityProvider({
   const expiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lastActivityCallRef = useRef<number>(0);
-  const lastResetRef = useRef<number>(Date.now());
+  const lastResetRef = useRef<number>(0);
 
   const clearAllTimers = useCallback(() => {
     if (warningTimerRef.current) clearTimeout(warningTimerRef.current);
@@ -52,11 +52,8 @@ export function SessionActivityProvider({
     if (countdownRef.current) clearInterval(countdownRef.current);
   }, []);
 
-  const startTimers = useCallback(() => {
+  const scheduleTimers = useCallback(() => {
     clearAllTimers();
-    lastResetRef.current = Date.now();
-    setShowWarning(false);
-    setTimeRemaining(INACTIVITY_TIMEOUT_SECONDS);
 
     warningTimerRef.current = setTimeout(() => {
       setShowWarning(true);
@@ -71,6 +68,13 @@ export function SessionActivityProvider({
       window.location.href = "/auth/expire";
     }, TIMEOUT_MS);
   }, [clearAllTimers]);
+
+  const startTimers = useCallback(() => {
+    lastResetRef.current = Date.now();
+    setShowWarning(false);
+    setTimeRemaining(INACTIVITY_TIMEOUT_SECONDS);
+    scheduleTimers();
+  }, [scheduleTimers]);
 
   const callKeepAlive = useCallback(async () => {
     try {
@@ -117,7 +121,8 @@ export function SessionActivityProvider({
   }, [startTimers, callKeepAlive]);
 
   useEffect(() => {
-    startTimers();
+    lastResetRef.current = Date.now();
+    scheduleTimers();
 
     const events = ["mousemove", "keydown", "scroll", "click", "touchstart"] as const;
     events.forEach((e) => window.addEventListener(e, handleActivity, { passive: true }));
@@ -140,7 +145,7 @@ export function SessionActivityProvider({
       events.forEach((e) => window.removeEventListener(e, handleActivity));
       bc?.close();
     };
-  }, [startTimers, handleActivity, clearAllTimers]);
+  }, [scheduleTimers, handleActivity, clearAllTimers, startTimers]);
 
   return (
     <SessionActivityContext.Provider

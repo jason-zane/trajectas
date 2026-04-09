@@ -21,7 +21,7 @@ const errorCopy: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; error?: string }>;
+  searchParams: Promise<{ next?: string; error?: string; email?: string; step?: string }>;
 }) {
   const actor = await resolveSessionActor();
   const params = await searchParams;
@@ -70,7 +70,11 @@ export default async function LoginPage({
               </div>
             ) : null}
             <div className="rounded-3xl border border-white/65 bg-white/78 p-2 shadow-[0_24px_80px_rgba(30,74,62,0.14)] backdrop-blur">
-              <LoginForm nextPath={params.next} />
+              <LoginForm
+                nextPath={params.next}
+                initialEmail={params.email}
+                initialStep={params.step === "code" ? "code" : "email"}
+              />
             </div>
             <p className="mt-4 text-center text-xs text-[var(--mk-text-muted)]">
               We&apos;ll send a secure sign-in link to your registered email.

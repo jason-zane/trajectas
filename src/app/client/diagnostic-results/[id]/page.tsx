@@ -1,7 +1,11 @@
+import { notFound } from "next/navigation";
 import { WorkspacePortalLivePage } from "@/components/workspace-portal-live";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
 import { resolveWorkspaceAccess } from "@/lib/auth/workspace-access";
-import { clientPortalPages } from "@/lib/workspace-portal-config";
+import {
+  clientPortalPages,
+  resolveWorkspacePortalPageConfig,
+} from "@/lib/workspace-portal-config";
 import { getWorkspaceRequestContext } from "@/lib/workspace-request";
 
 export default async function ClientDiagnosticResultDetailPage({
@@ -10,7 +14,14 @@ export default async function ClientDiagnosticResultDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const config = clientPortalPages["diagnostic-results"];
+  const config = resolveWorkspacePortalPageConfig(
+    clientPortalPages,
+    `diagnostic-results/${id}`
+  );
+
+  if (!config) {
+    notFound();
+  }
 
   const [access, requestContext] = await Promise.all([
     resolveWorkspaceAccess("client"),

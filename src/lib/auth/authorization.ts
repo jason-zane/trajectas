@@ -224,11 +224,21 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
       await resolveSignedPreviewContext(),
       requestEnvironment.requestSurface
     );
-    const allPartners = await loadAllPartnerIds();
-    const allClients = (await loadAllClientRows()).map((row) => ({
-      id: String(row.id),
-      partner_id: row.partner_id ? String(row.partner_id) : null,
-    }));
+    let allPartners: string[] = [];
+    let allClients: { id: string; partner_id: string | null }[] = [];
+
+    try {
+      allPartners = await loadAllPartnerIds();
+      allClients = (await loadAllClientRows()).map((row) => ({
+        id: String(row.id),
+        partner_id: row.partner_id ? String(row.partner_id) : null,
+      }));
+    } catch (error) {
+      console.warn(
+        "[authorization] Local development preview could not load workspace data:",
+        error
+      );
+    }
 
     let partnerIds =
       requestEnvironment.requestSurface === "partner"

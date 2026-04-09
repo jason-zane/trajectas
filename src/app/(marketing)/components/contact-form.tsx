@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState } from "react";
 import { submitContact, type ContactFormState } from "../actions/submit-contact";
 
 export function ContactForm() {
@@ -8,15 +8,9 @@ export function ContactForm() {
     submitContact,
     undefined
   );
-  const [dissolving, setDissolving] = useState(false);
 
   const isSuccess = state && "success" in state && state.success;
-
-  useEffect(() => {
-    if (isSuccess) {
-      setDissolving(true);
-    }
-  }, [isSuccess]);
+  const dissolving = Boolean(isSuccess);
 
   const fieldErrors = state && "fields" in state ? state.fields : undefined;
 

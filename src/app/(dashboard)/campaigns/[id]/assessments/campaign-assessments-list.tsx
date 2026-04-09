@@ -239,8 +239,6 @@ export function CampaignAssessmentsList({
                     <div className="mt-4 border-t pt-4">
                       <FactorPicker
                         campaignAssessmentId={la.id}
-                        assessmentId={la.assessmentId}
-                        assessmentTitle={la.assessmentTitle}
                         minCustomFactors={pickerData.minCustomFactors}
                         currentSelection={pickerData.currentSelection}
                         factorsByDimension={pickerData.factorsByDimension}

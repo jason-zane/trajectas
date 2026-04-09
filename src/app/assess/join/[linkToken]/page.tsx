@@ -23,10 +23,20 @@ export default async function JoinPage({
     .eq("is_active", true)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const linkRow = link as any;
+  const linkRow = link as
+    | {
+        campaign_id: string | null;
+        campaigns:
+          | { client_id: string | null }
+          | Array<{ client_id: string | null }>
+          | null;
+      }
+    | null;
+  const campaignRow = Array.isArray(linkRow?.campaigns)
+    ? linkRow.campaigns[0]
+    : linkRow?.campaigns;
   const campaignId = linkRow?.campaign_id ?? undefined;
-  const clientId = linkRow?.campaigns?.client_id ?? undefined;
+  const clientId = campaignRow?.client_id ?? undefined;
 
   const [experience, brandConfig] = await Promise.all([
     getEffectiveExperience(campaignId),
@@ -52,7 +62,6 @@ export default async function JoinPage({
 
   return (
     <>
-      {/* eslint-disable-next-line react/no-danger -- CSS tokens from admin-controlled brand config, not user input */}
       <style dangerouslySetInnerHTML={{ __html: safeCSS }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
       <JoinForm

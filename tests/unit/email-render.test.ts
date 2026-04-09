@@ -7,18 +7,17 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 const mocks = vi.hoisted(() => {
   const mailyRender = vi.fn()
+  const mailySetVariableValues = vi.fn()
   const reactEmailRender = vi.fn()
-  const sanitize = vi.fn((input: string) => input)
-  return { mailyRender, reactEmailRender, sanitize }
+  return { mailyRender, mailySetVariableValues, reactEmailRender }
 })
 
 vi.mock('@maily-to/render', () => ({
-  // The Maily constructor returns an object whose .render points to the
-  // hoisted mock function. We re-apply this in beforeEach because
-  // vitest.config `mockReset: true` resets mock implementations.
-  // Must use a regular function (not arrow) so `new Maily()` works.
   Maily: vi.fn().mockImplementation(function (this: unknown) {
-    return { render: mocks.mailyRender }
+    return {
+      render: mocks.mailyRender,
+      setVariableValues: mocks.mailySetVariableValues,
+    }
   }),
 }))
 
@@ -33,11 +32,6 @@ vi.mock('@react-email/components', () => ({
   Preview: ({ children }: { children: unknown }) => children,
   Section: ({ children }: { children: unknown }) => children,
   Text: ({ children }: { children: unknown }) => children,
-}))
-
-vi.mock('isomorphic-dompurify', () => ({
-  default: { sanitize: mocks.sanitize },
-  sanitize: mocks.sanitize,
 }))
 
 // ---------------------------------------------------------------------------
@@ -104,15 +98,12 @@ describe('substituteVariables', () => {
 
 describe('renderEmailHtml', () => {
   beforeEach(() => {
-    // mockReset: true in vitest.config resets mock implementations between tests,
-    // so we must re-apply the Maily constructor implementation each time.
-    // Must use a function (not arrow) so `new` works in the module under test.
     vi.mocked(Maily).mockImplementation(function (this: unknown) {
-      return { render: mocks.mailyRender } as unknown as InstanceType<typeof Maily>
+      return {
+        render: mocks.mailyRender,
+        setVariableValues: mocks.mailySetVariableValues,
+      } as unknown as InstanceType<typeof Maily>
     })
-
-    // Default sanitize passthrough
-    mocks.sanitize.mockImplementation((input: string) => input)
   })
 
   it('returns html and text from the full pipeline', async () => {
@@ -130,9 +121,10 @@ describe('renderEmailHtml', () => {
 
     expect(result.html).toBe('<html>Final HTML</html>')
     expect(result.text).toBe('Final plain text')
+    expect(mocks.mailySetVariableValues).toHaveBeenCalledWith({})
   })
 
-  it('sanitizes the Maily-rendered HTML via DOMPurify', async () => {
+  it('passes merge variables into Maily before rendering', async () => {
     mocks.mailyRender.mockResolvedValueOnce('<p>Hello</p>')
     mocks.reactEmailRender
       .mockResolvedValueOnce('<html></html>')
@@ -144,7 +136,7 @@ describe('renderEmailHtml', () => {
       brand: sampleBrand,
     })
 
-    expect(mocks.sanitize).toHaveBeenCalledWith('<p>Hello</p>', expect.any(Object))
+    expect(mocks.mailySetVariableValues).toHaveBeenCalledWith({})
   })
 
   it('substitutes merge variables in rendered body', async () => {
@@ -163,6 +155,9 @@ describe('renderEmailHtml', () => {
 
     expect(result.html).toContain('Taylor')
     expect(result.html).not.toContain('{{firstName}}')
+    expect(mocks.mailySetVariableValues).toHaveBeenCalledWith({
+      firstName: 'Taylor',
+    })
     mocks.reactEmailRender.mockReset()
   })
 
@@ -184,7 +179,13 @@ describe('renderEmailHtml', () => {
       },
     })
 
-    // render() is called twice: once for HTML, once for plain text
     expect(mocks.reactEmailRender).toHaveBeenCalledTimes(2)
+    expect(mocks.reactEmailRender.mock.calls[0]?.[0]).toMatchObject({
+      props: {
+        brandName: 'Custom Brand',
+        brandLogoUrl: 'https://example.com/logo.png',
+        primaryColor: '#ff0000',
+      },
+    })
   })
 })

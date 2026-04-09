@@ -55,10 +55,6 @@ function spacer(height = 16) {
   return { type: 'spacer' as const, attrs: { height } }
 }
 
-function hr() {
-  return { type: 'horizontalRule' as const }
-}
-
 function doc(...content: unknown[]) {
   return { type: 'doc' as const, content }
 }

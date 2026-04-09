@@ -14,13 +14,11 @@ import {
   ChevronUp,
   ChevronDown,
   X,
-  HelpCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -48,12 +46,8 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import {
-  BLOCK_REGISTRY,
-  BLOCK_CATEGORIES,
-} from '@/lib/reports/registry'
+import { BLOCK_REGISTRY } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig } from '@/lib/reports/types'
-import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,

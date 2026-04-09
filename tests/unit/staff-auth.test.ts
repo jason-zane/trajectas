@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  buildSurfaceAuthUrl,
   buildSurfaceDestinationUrl,
   getLegacyRoleForInvite,
   hashInviteToken,
@@ -120,5 +121,47 @@ describe("staff auth helpers", () => {
         host: "trajectas.test",
       }).toString()
     ).toBe("https://admin.trajectas.test/dashboard");
+  });
+
+  it("builds host-local auth urls for production portal hosts", () => {
+    vi.stubEnv("PARTNER_APP_URL", "https://partner.trajectas.test");
+
+    const params = new URLSearchParams({
+      email: "person@example.com",
+      step: "code",
+      next: "/partner",
+    });
+
+    expect(
+      buildSurfaceAuthUrl({
+        surface: "partner",
+        authPath: "/login",
+        requestUrl: "https://trajectas.test/login",
+        host: "trajectas.test",
+        params,
+      }).toString()
+    ).toBe(
+      "https://partner.trajectas.test/login?email=person%40example.com&step=code&next=%2Fpartner"
+    );
+  });
+
+  it("keeps auth urls on the current origin during local development", () => {
+    const params = new URLSearchParams({
+      invite: "invite-123",
+      email: "person@example.com",
+      step: "code",
+    });
+
+    expect(
+      buildSurfaceAuthUrl({
+        surface: "client",
+        authPath: "/auth/accept",
+        requestUrl: "http://127.0.0.1:3101/login",
+        host: "127.0.0.1:3101",
+        params,
+      }).toString()
+    ).toBe(
+      "http://127.0.0.1:3101/auth/accept?invite=invite-123&email=person%40example.com&step=code"
+    );
   });
 });
