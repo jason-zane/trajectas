@@ -7,11 +7,14 @@ interface ReportPdfTokenPayload {
 }
 
 function getSigningSecret() {
-  const secret = process.env.TRAJECTAS_CONTEXT_SECRET ?? process.env.INTERNAL_API_KEY
+  const secret =
+    process.env.REPORT_PDF_TOKEN_SECRET ??
+    process.env.TRAJECTAS_CONTEXT_SECRET ??
+    process.env.INTERNAL_API_KEY
 
   if (!secret) {
     throw new Error(
-      'TRAJECTAS_CONTEXT_SECRET or INTERNAL_API_KEY must be set for PDF token signing.'
+      'REPORT_PDF_TOKEN_SECRET (or TRAJECTAS_CONTEXT_SECRET / INTERNAL_API_KEY) must be set for PDF token signing.'
     )
   }
 

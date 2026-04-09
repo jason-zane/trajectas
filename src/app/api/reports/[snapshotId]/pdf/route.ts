@@ -17,7 +17,7 @@ async function ensureReportsBucket() {
   }
 
   const { error: createError } = await db.storage.createBucket(REPORTS_BUCKET, {
-    public: true,
+    public: false,
     fileSizeLimit: 25 * 1024 * 1024,
     allowedMimeTypes: ['application/pdf'],
   })
@@ -53,22 +53,58 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ snapshotId: string }> },
 ) {
-  try {
-    await requireAdminScope()
-  } catch (error) {
-    if (error instanceof AuthenticationRequiredError) {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
-    }
-    if (error instanceof AuthorizationError) {
-      return Response.json({ error: error.message }, { status: 403 })
-    }
-    throw error
-  }
-
   const { snapshotId } = await params
-  const forceRefresh = new URL(request.url).searchParams.get('refresh') === '1'
+  const url = new URL(request.url)
+  const forceRefresh = url.searchParams.get('refresh') === '1'
+  const participantToken = url.searchParams.get('token')
   const storagePath = `reports/${snapshotId}.pdf`
   const db = createAdminClient()
+
+  // Two auth paths: admin scope OR participant access token
+  let isParticipantAccess = false
+  if (participantToken) {
+    // Validate participant has access to this specific snapshot
+    const { data: tokenData } = await db
+      .from('campaign_participants')
+      .select('id, campaign_id')
+      .eq('access_token', participantToken)
+      .maybeSingle()
+    if (!tokenData) {
+      return Response.json({ error: 'Invalid participant token' }, { status: 403 })
+    }
+    // Verify this snapshot belongs to the participant's session and is released
+    const { data: validSnapshot } = await db
+      .from('report_snapshots')
+      .select('id, participant_sessions!inner(campaign_participant_id)')
+      .eq('id', snapshotId)
+      .eq('status', 'released')
+      .eq('audience_type', 'participant')
+      .maybeSingle()
+    const session = Array.isArray(validSnapshot?.participant_sessions)
+      ? validSnapshot.participant_sessions[0]
+      : validSnapshot?.participant_sessions
+    if (
+      !validSnapshot ||
+      !session ||
+      String((session as any).campaign_participant_id) !== String(tokenData.id)
+    ) {
+      return Response.json({ error: 'Report not available' }, { status: 403 })
+    }
+    isParticipantAccess = true
+  } else {
+    try {
+      await requireAdminScope()
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        return Response.json({ error: 'Authentication required' }, { status: 401 })
+      }
+      if (error instanceof AuthorizationError) {
+        return Response.json({ error: error.message }, { status: 403 })
+      }
+      throw error
+    }
+  }
+
   const { data: snapshot, error: snapshotError } = await db
     .from('report_snapshots')
     .select('id, status, pdf_url')
@@ -156,13 +192,11 @@ export async function GET(
       throw uploadError
     }
 
-    const { data: urlData } = storage.storage
-      .from(REPORTS_BUCKET)
-      .getPublicUrl(storagePath)
-
+    // Store the private storage path (not a public URL) — consumers
+    // generate short-lived signed URLs on demand via getSignedReportPdfUrl().
     const { error: updateError } = await storage
       .from('report_snapshots')
-      .update({ pdf_url: urlData.publicUrl })
+      .update({ pdf_url: storagePath })
       .eq('id', snapshotId)
 
     if (updateError) {

@@ -475,6 +475,36 @@ export async function activateCampaign(id: string) {
   }
 
   const db = createAdminClient()
+
+  // Pre-launch readiness gate: verify campaign has linked assessments and
+  // either participants or access links
+  const { data: linkedAssessments } = await db
+    .from('campaign_assessments')
+    .select('id')
+    .eq('campaign_id', id)
+    .is('deleted_at', null)
+    .limit(1)
+
+  if (!linkedAssessments || linkedAssessments.length === 0) {
+    return { error: 'Campaign must have at least one assessment before activation.' }
+  }
+
+  const { count: participantCount } = await db
+    .from('campaign_participants')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', id)
+    .is('deleted_at', null)
+
+  const { count: linkCount } = await db
+    .from('campaign_access_links')
+    .select('id', { count: 'exact', head: true })
+    .eq('campaign_id', id)
+    .eq('is_active', true)
+
+  if ((!participantCount || participantCount === 0) && (!linkCount || linkCount === 0)) {
+    return { error: 'Campaign must have at least one participant or active access link before activation.' }
+  }
+
   const { error } = await db
     .from('campaigns')
     .update({ status: 'active' })
@@ -694,9 +724,10 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_assessments')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('campaign_id', campaignId)
     .eq('assessment_id', assessmentId)
+    .is('deleted_at', null)
 
   if (error) {
     logActionError('removeAssessmentFromCampaign', error)
@@ -824,6 +855,13 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     clientId: access.clientId,
     metadata: { campaignId, email: parsed.data.email },
   })
+
+  // Auto-send invite email (best-effort — don't fail the invite on email error)
+  try {
+    await sendParticipantInviteEmail(campaignId, data.id)
+  } catch (emailErr) {
+    console.warn('[inviteParticipant] Email send failed, participant created:', emailErr)
+  }
 
   revalidatePath(`/campaigns/${campaignId}`)
   return { success: true as const, id: data.id, accessToken: data.access_token }
@@ -953,6 +991,17 @@ export async function bulkInviteParticipants(
     },
   })
 
+  // Best-effort: send invite emails for all newly created participants
+  if (data && data.length > 0) {
+    for (const row of data) {
+      try {
+        await sendParticipantInviteEmail(campaignId, row.id)
+      } catch (emailErr) {
+        console.warn('[bulkInviteParticipants] Email send failed for', row.id, emailErr)
+      }
+    }
+  }
+
   revalidatePath(`/campaigns/${campaignId}`)
   return { success: true as const, count: data?.length ?? 0 }
 }
@@ -971,9 +1020,10 @@ export async function removeParticipant(campaignId: string, participantId: strin
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq('id', participantId)
     .eq('campaign_id', campaignId)
+    .is('deleted_at', null)
 
   if (error) {
     logActionError('removeParticipant', error)

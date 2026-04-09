@@ -621,7 +621,7 @@ export async function revokePartnerInvite(
   const actorId = access.scope.actor?.id ?? '00000000-0000-0000-0000-000000000000'
 
   try {
-    await revokeInvite(inviteId, actorId)
+    await revokeInvite(inviteId, actorId, { tenantType: 'partner', tenantId: partnerId })
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Failed to revoke invite' }
   }

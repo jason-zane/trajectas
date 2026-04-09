@@ -639,6 +639,7 @@ export function mapCampaignParticipantRow(row: any): CampaignParticipant {
     invitedAt: row.invited_at,
     startedAt: row.started_at ?? undefined,
     completedAt: row.completed_at ?? undefined,
+    consentGivenAt: row.consent_given_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }

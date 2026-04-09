@@ -1582,6 +1582,8 @@ export interface CampaignParticipant {
   startedAt?: string
   /** When the participant completed all assessments. */
   completedAt?: string
+  /** When consent was recorded. */
+  consentGivenAt?: string
   created_at: string
   updated_at?: string
 }

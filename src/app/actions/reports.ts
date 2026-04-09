@@ -33,6 +33,37 @@ import type {
 } from '@/types/database'
 
 // ---------------------------------------------------------------------------
+// Signed PDF URL helper
+// ---------------------------------------------------------------------------
+
+/**
+ * pdf_url now stores a private storage path (e.g. "reports/<id>.pdf").
+ * This helper generates a short-lived signed URL for download.
+ * Returns undefined if no PDF has been generated yet.
+ */
+export async function getSignedReportPdfUrl(
+  storagePath: string | undefined | null,
+  expiresInSeconds = 3600,
+): Promise<string | undefined> {
+  if (!storagePath) return undefined
+
+  // If it's a legacy full URL (starts with http), return as-is for backwards compat
+  if (storagePath.startsWith('http')) return storagePath
+
+  const db = createAdminClient()
+  const { data, error } = await db.storage
+    .from('reports')
+    .createSignedUrl(storagePath, expiresInSeconds)
+
+  if (error || !data?.signedUrl) {
+    console.warn('[reports] Failed to create signed URL for', storagePath, error?.message)
+    return undefined
+  }
+
+  return data.signedUrl
+}
+
+// ---------------------------------------------------------------------------
 // Report Templates
 // ---------------------------------------------------------------------------
 
@@ -295,7 +326,13 @@ export async function getReportSnapshotsForCampaign(
     logActionError('getReportSnapshotsForCampaign.audit', auditError)
   }
 
-  return (data ?? []).map(mapReportSnapshotRow)
+  const snapshots = (data ?? []).map(mapReportSnapshotRow)
+  // Resolve signed URLs for private storage paths
+  return Promise.all(
+    snapshots.map(async (s) =>
+      s.pdfUrl ? { ...s, pdfUrl: await getSignedReportPdfUrl(s.pdfUrl) } : s
+    )
+  )
 }
 
 export async function getReportSnapshot(id: string): Promise<ReportSnapshot | null> {
@@ -351,6 +388,11 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
     })
   } catch (auditError) {
     logActionError('getReportSnapshot.audit', auditError)
+  }
+
+  // Resolve signed URL for private storage path
+  if (snapshot.pdfUrl) {
+    return { ...snapshot, pdfUrl: await getSignedReportPdfUrl(snapshot.pdfUrl) }
   }
 
   return snapshot
@@ -507,7 +549,12 @@ export async function getReportSnapshotsForParticipant(
     logActionError('getReportSnapshotsForParticipant.audit', auditError)
   }
 
-  return (snapshots ?? []).map(mapReportSnapshotRow)
+  const mapped = (snapshots ?? []).map(mapReportSnapshotRow)
+  return Promise.all(
+    mapped.map(async (s) =>
+      s.pdfUrl ? { ...s, pdfUrl: await getSignedReportPdfUrl(s.pdfUrl) } : s
+    )
+  )
 }
 
 // ---------------------------------------------------------------------------

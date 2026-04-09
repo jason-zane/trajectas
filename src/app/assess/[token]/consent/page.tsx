@@ -34,8 +34,7 @@ export default async function ConsentPage({
   }
 
   // If participant already consented, skip
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if ((participant as any).consentGivenAt) {
+  if (participant.consentGivenAt) {
     redirect(nextUrl);
   }
 

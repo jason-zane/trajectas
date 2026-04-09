@@ -598,7 +598,7 @@ export async function submitSession(token: string, sessionId: string) {
 
   const { data: session, error: fetchErr } = await db
     .from('participant_sessions')
-    .select('campaign_participant_id, assessment_id, campaign_id')
+    .select('campaign_participant_id, assessment_id, campaign_id, status')
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
     .single()
@@ -608,9 +608,14 @@ export async function submitSession(token: string, sessionId: string) {
     return { error: 'Unable to submit this assessment right now' }
   }
 
+  // Guard: prevent duplicate submission (double-click, network retry)
+  if (session.status === 'completed') {
+    return { success: true as const }
+  }
+
   const completedAt = new Date().toISOString()
 
-  // Mark session complete
+  // Mark session complete — use status guard to prevent race conditions
   const { error: updateErr } = await db
     .from('participant_sessions')
     .update({
@@ -619,6 +624,7 @@ export async function submitSession(token: string, sessionId: string) {
     })
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
+    .eq('status', 'in_progress') // Optimistic lock: only complete if still in_progress
 
   if (updateErr) {
     logActionError('submitSession.update', updateErr)
@@ -783,10 +789,14 @@ export async function getParticipantReportSnapshot(
     logActionError('getParticipantReportSnapshot.audit', auditError)
   }
 
+  // pdf_url now stores a private storage path — resolve a signed URL for download
+  const { getSignedReportPdfUrl } = await import('@/app/actions/reports')
+  const pdfUrl = await getSignedReportPdfUrl(data.pdf_url)
+
   return {
     renderedData: data.rendered_data ?? [],
     status: data.status,
-    pdfUrl: data.pdf_url ?? undefined,
+    pdfUrl,
   }
 }
 

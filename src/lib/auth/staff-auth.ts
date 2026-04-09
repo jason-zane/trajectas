@@ -588,14 +588,27 @@ export function createInviteLink(token: string) {
   return url.toString();
 }
 
-export async function revokeInvite(inviteId: string, actorProfileId: string) {
+export async function revokeInvite(
+  inviteId: string,
+  actorProfileId: string,
+  tenantScope?: { tenantType: string; tenantId: string },
+) {
   const db = createAdminClient();
-  const { error } = await db
+  let query = db
     .from("user_invites")
     .update({ revoked_at: new Date().toISOString() })
     .eq("id", inviteId)
     .is("accepted_at", null)
     .is("revoked_at", null);
+
+  // Scope to the correct tenant to prevent cross-tenant revocation
+  if (tenantScope) {
+    query = query
+      .eq("tenant_type", tenantScope.tenantType)
+      .eq("tenant_id", tenantScope.tenantId);
+  }
+
+  const { error, count } = await query.select().maybeSingle();
 
   if (error) {
     throw new Error(error.message);
@@ -606,6 +619,11 @@ export async function revokeInvite(inviteId: string, actorProfileId: string) {
     eventType: "staff_invite.revoked",
     targetTable: "user_invites",
     targetId: inviteId,
+    ...(tenantScope?.tenantType === "partner"
+      ? { partnerId: tenantScope.tenantId }
+      : tenantScope?.tenantType === "client"
+        ? { clientId: tenantScope.tenantId }
+        : {}),
   });
 }
 

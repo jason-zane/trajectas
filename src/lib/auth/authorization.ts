@@ -76,15 +76,22 @@ async function getRequestEnvironment() {
   const surfaceHeader = headerStore.get("x-trajectas-surface");
   const routePrefix = headerStore.get("x-trajectas-route-prefix");
 
+  // Always use host + pathname-based surface detection. The
+  // x-trajectas-surface header is only used as a last-resort fallback
+  // in local development to prevent header-spoofing attacks in production.
+  const hostBasedSurface = inferSurfaceFromRequest({
+    host,
+    pathname: routePrefix && routePrefix !== "/" ? routePrefix : undefined,
+  });
+  const isLocal = isLocalDevelopmentHost(host);
+
   return {
     host,
-    isLocalDevelopment: isLocalDevelopmentHost(host),
-    requestSurface: isSurface(surfaceHeader)
-      ? surfaceHeader
-      : inferSurfaceFromRequest({
-          host,
-          pathname: routePrefix && routePrefix !== "/" ? routePrefix : undefined,
-        }),
+    isLocalDevelopment: isLocal,
+    requestSurface:
+      isLocal && isSurface(surfaceHeader)
+        ? surfaceHeader
+        : hostBasedSurface,
   };
 }
 
@@ -203,7 +210,10 @@ function getEffectivePreviewContext(
 async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
   const requestEnvironment = await getRequestEnvironment();
   const actor = await resolveSessionActor();
-  const localDevBypass = !actor && requestEnvironment.isLocalDevelopment;
+  const localDevBypass =
+    !actor &&
+    requestEnvironment.isLocalDevelopment &&
+    process.env.NODE_ENV !== "production";
 
   if (!actor && !localDevBypass) {
     throw new AuthenticationRequiredError();

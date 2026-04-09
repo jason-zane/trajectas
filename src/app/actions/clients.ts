@@ -460,11 +460,20 @@ export interface ClientPendingInvite {
 
 export async function getClientMembers(clientId: string): Promise<ClientMember[]> {
   const access = await requireClientAccess(clientId)
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  // Allow: platform admins, direct client admins, and partner admins of the parent partner
+  const isPartnerAdminOfClient = access.partnerId
+    ? access.scope.partnerAdminIds.includes(access.partnerId)
+    : false
+  if (
+    !access.scope.isPlatformAdmin &&
+    !access.scope.clientAdminIds.includes(clientId) &&
+    !isPartnerAdminOfClient
+  ) {
     return []
   }
 
-  const db = await createSupabaseClient()
+  // Use admin client to bypass RLS — access is already verified above
+  const db = createAdminClient()
   const { data, error } = await db
     .from('client_memberships')
     .select('id, profile_id, role, created_at, profiles!profile_id(id, email, first_name, last_name)')
@@ -691,7 +700,7 @@ export async function revokeClientInvite(
   const actorId = access.scope.actor?.id ?? '00000000-0000-0000-0000-000000000000'
 
   try {
-    await revokeInvite(inviteId, actorId)
+    await revokeInvite(inviteId, actorId, { tenantType: 'client', tenantId: clientId })
   } catch (error) {
     return { error: error instanceof Error ? error.message : 'Failed to revoke invite' }
   }
