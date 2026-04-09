@@ -3,11 +3,11 @@ import {
   ArrowRight,
   Building2,
   ClipboardList,
-  ExternalLink,
   Library,
   Megaphone,
   UserPlus,
 } from "lucide-react";
+import { EnterPortalButton } from "@/components/enter-portal-button";
 import {
   Card,
   CardContent,
@@ -53,7 +53,6 @@ export function PartnerOverview({ partner, stats, recentCampaigns }: PartnerOver
     { title: "View Clients", href: `/partners/${partner.slug}/clients`, icon: Building2, description: "Manage client portfolio" },
     { title: "Manage Assessments", href: `/partners/${partner.slug}/assessments`, icon: ClipboardList, description: "Assessment assignments" },
     { title: "Manage Library", href: `/partners/${partner.slug}/library`, icon: Library, description: "Taxonomy entities" },
-    { title: "Enter Portal", href: `/partner/dashboard`, icon: ExternalLink, description: "View as partner" },
     { title: "Invite User", href: `/partners/${partner.slug}/users`, icon: UserPlus, description: "Add a team member" },
   ];
 
@@ -129,7 +128,14 @@ export function PartnerOverview({ partner, stats, recentCampaigns }: PartnerOver
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1">
+            <CardContent className="space-y-3">
+              <EnterPortalButton
+                tenantType="partner"
+                tenantId={partner.id}
+                tenantName={partner.name}
+                variant="default"
+              />
+              <div className="space-y-1">
               {quickActions.map((action) => (
                 <Link
                   key={action.href}
@@ -144,6 +150,7 @@ export function PartnerOverview({ partner, stats, recentCampaigns }: PartnerOver
                   <ArrowRight className="size-3.5 text-muted-foreground opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
                 </Link>
               ))}
+              </div>
             </CardContent>
           </Card>
         </ScrollReveal>
