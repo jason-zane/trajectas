@@ -7,7 +7,7 @@ const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
 
 export function MarketingInteractive() {
   const [activeSection, setActiveSection] = useState<string>("hero");
-  const [reducedMotion, setReducedMotion] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const glowRef = useRef<HTMLDivElement>(null);
   const mouseRef = useRef({ x: -9999, y: -9999 });
 

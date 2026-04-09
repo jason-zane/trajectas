@@ -72,8 +72,11 @@ export function ParticleMesh({
 
   const initParticles = useCallback((width: number, height: number) => {
     const config = targetConfigRef.current;
+    // Reduce particles on small screens for performance
+    const mobileFactor = width < 768 ? 0.45 : 1;
+    const count = Math.round(config.count * mobileFactor);
     const particles: Particle[] = [];
-    for (let i = 0; i < config.count; i++) {
+    for (let i = 0; i < count; i++) {
       particles.push({
         x: Math.pow(Math.random(), 0.65) * width,
         y: (1 - Math.pow(Math.random(), 0.85)) * height,
@@ -94,11 +97,6 @@ export function ParticleMesh({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (prefersReduced) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
