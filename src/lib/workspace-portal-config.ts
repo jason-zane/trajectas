@@ -35,143 +35,134 @@ export function resolveWorkspacePortalPageConfig(
 export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
   "": {
     eyebrow: "Partner Portal",
-    title: "Operate clients across campaigns, assessments, and reporting.",
-    description:
-      "This surface is now distinct from platform admin. It is for partner-scoped client operations, not platform primitive authoring.",
+    title: "Welcome to your partner workspace",
+    description: "Manage clients, campaigns, and participant outcomes.",
     primaryAction: { label: "View clients", href: "/clients" },
     secondaryAction: { label: "Review campaigns", href: "/campaigns" },
     sections: [
       {
         title: "Client operations",
-        description:
-          "Partner users can manage assigned clients and run campaign operations without crossing into platform settings.",
+        description: "Manage assigned clients and run campaign operations.",
         highlights: [
-          "Client and campaign visibility will remain partner-scoped.",
-          "Published assessments can be assembled into client-ready programs.",
-          "Participant information will remain limited to assigned client scope.",
-        ],
-      },
-      {
-        title: "What stays in platform admin",
-        description:
-          "AI controls, psychometrics, matching internals, candidate experience primitives, and assessment primitives stay upstream in admin.",
-        highlights: [
-          "No direct AI model or prompt controls.",
-          "No direct item, factor, construct, or response-format authoring.",
-          "No platform-wide settings or unrestricted client management.",
+          "View and manage your assigned client portfolio.",
+          "Deploy assessments into client-ready campaigns.",
+          "Track participant progress and outcomes.",
         ],
       },
     ],
   },
   clients: {
-    eyebrow: "Partner Portal",
-    title: "Assigned clients",
-    description:
-      "This view is reserved for partner-managed client accounts and their scoped metadata.",
+    eyebrow: "Clients",
+    title: "Client portfolio",
+    description: "Manage your assigned client accounts.",
     primaryAction: { label: "Review campaigns", href: "/campaigns" },
     sections: [
       {
         title: "Client portfolio",
-        description:
-          "Partners will manage only the clients explicitly assigned to their partner context.",
+        description: "View and manage clients assigned to your partner account.",
         highlights: [
-          "Client creation and deep account controls still begin in admin.",
-          "Partner-level operators will get a scaled-down client management view.",
-          "Support access remains auditable from platform admin.",
+          "Track client status, industry, and size.",
+          "View campaign and diagnostic activity per client.",
+          "Access client-scoped reporting.",
         ],
       },
     ],
   },
   assessments: {
-    eyebrow: "Partner Portal",
-    title: "Partner assessments",
-    description:
-      "Partners can assemble client-facing assessments from admin-published building blocks.",
-    primaryAction: { label: "View results", href: "/results" },
+    eyebrow: "Assessments",
+    title: "Assessments",
+    description: "Assessments deployed across your client campaigns.",
+    primaryAction: { label: "View participants", href: "/participants" },
     sections: [
       {
-        title: "Assembly only",
-        description:
-          "Assessment authoring at this layer means composition, not primitive creation.",
+        title: "Assessment library",
+        description: "Browse assessments available for your client campaigns.",
         highlights: [
-          "Published blocks can be selected and combined for client use.",
-          "Platform-owned primitives remain locked to admin.",
-          "Psychometric controls remain centralized.",
+          "View assessment status and deployment counts.",
+          "See which clients and campaigns use each assessment.",
+          "Track participant completion rates.",
         ],
       },
     ],
   },
   campaigns: {
-    eyebrow: "Partner Portal",
-    title: "Partner campaigns",
-    description:
-      "Campaign operations belong here once clients and memberships are wired through the service layer.",
-    primaryAction: { label: "View assigned clients", href: "/clients" },
-    secondaryAction: { label: "Open results", href: "/results" },
+    eyebrow: "Campaigns",
+    title: "Campaigns",
+    description: "Assessment campaigns across your client portfolio.",
+    primaryAction: { label: "View clients", href: "/clients" },
+    secondaryAction: { label: "View participants", href: "/participants" },
     sections: [
       {
-        title: "Operational scope",
-        description:
-          "Campaign launching, monitoring, participant progress, and report readiness will be partner-scoped.",
+        title: "Campaign management",
+        description: "Monitor and manage assessment campaigns for your clients.",
         highlights: [
-          "Campaign ownership stays client-scoped in the data model.",
-          "Partner access is granted through memberships, not path assumptions.",
-          "Exports will be governed separately from view permissions.",
+          "Track campaign status and participant progress.",
+          "View assessment lineups per campaign.",
+          "Access participant reports and exports.",
+        ],
+      },
+    ],
+  },
+  participants: {
+    eyebrow: "Participants",
+    title: "Participants",
+    description: "All participants across your campaigns.",
+    primaryAction: { label: "View campaigns", href: "/campaigns" },
+    sections: [
+      {
+        title: "Participant tracking",
+        description: "Monitor participant progress across all campaigns.",
+        highlights: [
+          "View participant status and completion progress.",
+          "Access individual participant reports.",
+          "Export participant data.",
         ],
       },
     ],
   },
   diagnostics: {
-    eyebrow: "Partner Portal",
+    eyebrow: "Diagnostics",
     title: "Diagnostic sessions",
-    description:
-      "Partners can run approved diagnostics for assigned clients without owning the diagnostic engine itself.",
+    description: "Run diagnostic sessions for your assigned clients.",
     sections: [
       {
-        title: "Template instantiation",
-        description:
-          "Diagnostics here will come from admin-defined templates and rules.",
+        title: "Diagnostic sessions",
+        description: "View and manage diagnostic sessions.",
         highlights: [
-          "No diagnostic primitive editing at the partner layer.",
-          "Session launch and respondent operations can happen here later.",
-          "Diagnostic engine setup remains admin-only.",
+          "Track session status and respondent progress.",
+          "View results for completed sessions.",
         ],
       },
     ],
   },
   results: {
-    eyebrow: "Partner Portal",
+    eyebrow: "Results",
     title: "Results and reporting",
-    description:
-      "This area will hold partner-visible campaign and participant outcomes within assigned client scope.",
-    primaryAction: { label: "Open diagnostics", href: "/diagnostics" },
+    description: "Campaign and participant outcomes across your client portfolio.",
+    primaryAction: { label: "View campaigns", href: "/campaigns" },
     sections: [
       {
-        title: "Reporting controls",
-        description:
-          "Viewing reports and exporting reports are separate capabilities in the target model.",
+        title: "Reporting",
+        description: "Access campaign results and participant reports.",
         highlights: [
-          "Web reports and export reports are separate output contracts.",
-          "Export events will be audited.",
-          "Partner access will stay bounded to assigned client scope.",
+          "View completed campaign outcomes.",
+          "Launch participant reports.",
+          "Export reports for offline use.",
         ],
       },
     ],
   },
   matching: {
-    eyebrow: "Partner Portal",
+    eyebrow: "Matching",
     title: "Matching results",
-    description:
-      "Partners can consume matching outputs, but matching engine configuration remains in admin.",
+    description: "AI matching recommendations for your clients.",
     sections: [
       {
-        title: "Consumer layer",
-        description:
-          "This surface is for interpreting published matching outputs rather than controlling the engine itself.",
+        title: "Matching outputs",
+        description: "Review published matching recommendations.",
         highlights: [
-          "Matching internals remain platform-owned.",
-          "Partner decisions consume approved engine behavior only.",
-          "Any future tuning must still pass through admin controls.",
+          "View matching run status and results.",
+          "See top factor recommendations per session.",
         ],
       },
     ],
@@ -181,50 +172,36 @@ export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
 export const clientPortalPages: Record<string, WorkspacePortalPageConfig> = {
   "": {
     eyebrow: "Client Portal",
-    title: "Run campaigns and review outcomes within a single client boundary.",
-    description:
-      "This surface is now distinct from admin and partner. It is for client-scoped campaign operation and reporting.",
+    title: "Welcome to your client workspace",
+    description: "Run campaigns, track participants, and review outcomes.",
     primaryAction: { label: "View campaigns", href: "/campaigns" },
-    secondaryAction: { label: "Open results", href: "/results" },
+    secondaryAction: { label: "View participants", href: "/participants" },
     sections: [
       {
         title: "Client operations",
-        description:
-          "Client users can operate campaigns, monitor participants, and consume reports without accessing platform internals.",
+        description: "Operate campaigns, monitor participants, and access reports.",
         highlights: [
-          "Only client-scoped data should be visible here.",
-          "Campaigns, participants, and reports are the core jobs-to-be-done.",
-          "Branding and limited client settings can live here later.",
-        ],
-      },
-      {
-        title: "What stays upstream",
-        description:
-          "Assessment primitives, AI controls, psychometrics, and matching internals remain in admin.",
-        highlights: [
-          "No direct primitive authoring at the client layer.",
-          "No platform-level settings or cross-client access.",
-          "No unrestricted exports without explicit policy.",
+          "Launch and monitor assessment campaigns.",
+          "Track participant progress and completion.",
+          "Access reports and outcomes.",
         ],
       },
     ],
   },
   results: {
-    eyebrow: "Client Portal",
+    eyebrow: "Results",
     title: "Results and reporting",
-    description:
-      "This surface holds released campaign and participant outcomes within the client's own reporting boundary.",
+    description: "Campaign and participant outcomes for your organisation.",
     primaryAction: { label: "View campaigns", href: "/campaigns" },
-    secondaryAction: { label: "Open diagnostics", href: "/diagnostics" },
+    secondaryAction: { label: "View diagnostics", href: "/diagnostics" },
     sections: [
       {
-        title: "Client reporting scope",
-        description:
-          "Clients can consume campaign and participant outcomes without crossing into partner or platform data.",
+        title: "Reporting",
+        description: "Access campaign results and participant reports.",
         highlights: [
-          "Reports stay client-scoped.",
-          "Exports and downloads can be governed separately from read access.",
-          "Report delivery should remain auditable and time-bounded.",
+          "View completed campaign outcomes.",
+          "Launch participant reports.",
+          "Export reports for offline use.",
         ],
       },
     ],
