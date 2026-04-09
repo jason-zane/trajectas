@@ -209,44 +209,6 @@ export const clientPortalPages: Record<string, WorkspacePortalPageConfig> = {
       },
     ],
   },
-  diagnostics: {
-    eyebrow: "Client Portal",
-    title: "Client diagnostics",
-    description:
-      "Clients can review approved diagnostic sessions and outputs without accessing the underlying diagnostic configuration layer.",
-    primaryAction: { label: "Open results", href: "/results" },
-    sections: [
-      {
-        title: "Client-visible diagnostics",
-        description:
-          "Diagnostics remain client-scoped here so teams can monitor active sessions and outcomes without leaving their workspace boundary.",
-        highlights: [
-          "Diagnostic setup stays upstream in admin.",
-          "Clients only see diagnostics tied to their own campaigns and participants.",
-          "Future exports and sharing remain policy-controlled.",
-        ],
-      },
-    ],
-  },
-  "diagnostic-results": {
-    eyebrow: "Client Portal",
-    title: "Diagnostic results",
-    description:
-      "Clients can review released diagnostic outputs and follow-up actions within their own reporting scope.",
-    primaryAction: { label: "Open diagnostics", href: "/diagnostics" },
-    sections: [
-      {
-        title: "Released outputs",
-        description:
-          "Result access stays bounded to released client-visible outputs rather than raw engine data.",
-        highlights: [
-          "Released reports remain distinct from in-progress diagnostic sessions.",
-          "Any future exports should stay auditable.",
-          "Underlying scoring and diagnostic primitives remain admin-owned.",
-        ],
-      },
-    ],
-  },
   results: {
     eyebrow: "Client Portal",
     title: "Results and reporting",

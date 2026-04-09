@@ -6,7 +6,7 @@ export const assessmentSchema = z.object({
   description: z.string().max(4000).optional(),
   status: z.enum(['draft', 'active', 'archived']).default('draft'),
   itemSelectionStrategy: z.enum(['fixed', 'rule_based', 'cat']).default('fixed'),
-  scoringMethod: z.enum(['irt', 'ctt', 'hybrid']).default('ctt'),
+  scoringMethod: z.literal('ctt').default('ctt'),
   creationMode: z.enum(['manual', 'ai_generated', 'org_choice']).default('manual'),
   formatMode: z.enum(['traditional', 'forced_choice']).default('traditional'),
   fcBlockSize: z.coerce.number().int().min(3).max(4).optional(),

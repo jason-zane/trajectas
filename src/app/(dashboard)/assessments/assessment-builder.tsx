@@ -57,20 +57,13 @@ import type {
 } from "@/app/actions/assessments"
 import type { ForcedChoiceBlockDraft } from "@/lib/forced-choice-generator"
 
-const scoringMethodInfo: Record<string, { label: string; description: string }> = {
+const scoringMethodInfo = {
   ctt: {
     label: "CTT (Classical Test Theory)",
-    description: "Uses sum/mean scores with reliability estimates (Cronbach's alpha). Simple, well-understood, and suitable for most fixed-form assessments.",
+    description:
+      "Uses sum/mean scores with reliability estimates (Cronbach's alpha). Simple, well-understood, and suitable for the launch assessment workflow.",
   },
-  irt: {
-    label: "IRT (Item Response Theory)",
-    description: "Models each item's difficulty and discrimination to place participants on a latent trait scale. Required for adaptive testing (CAT).",
-  },
-  hybrid: {
-    label: "Hybrid",
-    description: "Uses CTT for initial scoring with IRT-calibrated item parameters for quality analysis and optional adaptive item selection.",
-  },
-}
+} as const
 
 const itemSelectionInfo: Record<string, { label: string; description: string }> = {
   fixed: {
@@ -110,9 +103,6 @@ export function AssessmentBuilder({
   // Metadata state
   const [title, setTitle] = useState(assessment?.title ?? "")
   const [description, setDescription] = useState(assessment?.description ?? "")
-  const [scoringMethod, setScoringMethod] = useState(
-    assessment?.scoringMethod ?? "ctt"
-  )
   const [itemSelectionStrategy, setItemSelectionStrategy] = useState(
     assessment?.itemSelectionStrategy ?? "fixed"
   )
@@ -181,7 +171,6 @@ export function AssessmentBuilder({
   const [savedStructural, setSavedStructural] = useState(() => ({
     title: assessment?.title ?? "",
     status: assessment?.status ?? "draft",
-    scoringMethod: assessment?.scoringMethod ?? "ctt",
     itemSelectionStrategy: assessment?.itemSelectionStrategy ?? "fixed",
     creationMode: assessment?.creationMode ?? "manual",
     formatMode: assessment?.formatMode ?? "traditional",
@@ -192,7 +181,6 @@ export function AssessmentBuilder({
   const isStructuralDirty = isEditing
     ? title !== savedStructural.title ||
       status !== savedStructural.status ||
-      scoringMethod !== savedStructural.scoringMethod ||
       itemSelectionStrategy !== savedStructural.itemSelectionStrategy ||
       creationMode !== savedStructural.creationMode ||
       formatMode !== savedStructural.formatMode ||
@@ -257,7 +245,7 @@ export function AssessmentBuilder({
       description: (isEditing ? descAutoSave.value : description) || undefined,
       status,
       itemSelectionStrategy,
-      scoringMethod,
+      scoringMethod: "ctt",
       creationMode,
       formatMode,
       fcBlockSize: formatMode === "forced_choice" ? fcBlockSize : undefined,
@@ -292,7 +280,6 @@ export function AssessmentBuilder({
         setSavedStructural({
           title,
           status,
-          scoringMethod,
           itemSelectionStrategy,
           creationMode,
           formatMode,
@@ -486,25 +473,12 @@ export function AssessmentBuilder({
                 {/* Scoring Method */}
                 <div className="space-y-2">
                   <Label>Scoring Method</Label>
-                  <Select
-                    value={scoringMethod}
-                    onValueChange={(v) => v !== null && setScoringMethod(v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select scoring method" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(scoringMethodInfo).map(([value, info]) => (
-                        <SelectItem key={value} value={value} disabled={value !== "ctt"}>
-                          {info.label}{value !== "ctt" ? " (coming soon)" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
-                    <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {scoringMethodInfo[scoringMethod]?.description}
+                  <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {scoringMethodInfo.ctt.label}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                      {scoringMethodInfo.ctt.description}
                     </p>
                   </div>
                 </div>

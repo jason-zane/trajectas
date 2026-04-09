@@ -64,7 +64,6 @@ type SupportedPageKey =
   | "campaigns"
   | "diagnostics"
   | "results"
-  | "diagnostic-results"
   | "matching";
 
 interface WorkspacePortalLivePageProps {
@@ -1497,7 +1496,10 @@ async function WorkspaceResultsPage({
   ]);
 
   const campaignsWithResults = campaigns.filter((campaign) => campaign.completedCount > 0);
-  const completedDiagnostics = diagnostics.filter((session) => session.status === "completed");
+  const showDiagnosticsSection = surface !== "client" && !diagnosticsOnly;
+  const completedDiagnostics = showDiagnosticsSection
+    ? diagnostics.filter((session) => session.status === "completed")
+    : [];
 
   return (
     <div className="space-y-8">
@@ -1617,48 +1619,45 @@ async function WorkspaceResultsPage({
         </div>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{diagnosticsOnly ? "Diagnostic results" : "Completed diagnostics"}</CardTitle>
-          <CardDescription>Completed diagnostic sessions currently visible to this portal.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {completedDiagnostics.length === 0 ? (
-            <EmptyState
-              title="No diagnostic results yet"
-              description="There are no completed diagnostic sessions in the current scope yet."
-            />
-          ) : (
-            <div className="space-y-3">
-              {completedDiagnostics.map((session) => (
-                <div key={session.id} className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3">
-                  <div>
-                    <Link
-                      href={applyRoutePrefix(
-                        routePrefix,
-                        surface === "client"
-                          ? `/diagnostic-results/${session.id}`
-                          : `/diagnostics/${session.id}`
-                      )}
-                      className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
-                    >
-                      {session.title}
-                      <ExternalLink className="size-3.5 opacity-60" />
-                    </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {session.clientName} • {session.templateName}
-                    </p>
+      {showDiagnosticsSection ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Completed diagnostics</CardTitle>
+            <CardDescription>Completed diagnostic sessions currently visible to this portal.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {completedDiagnostics.length === 0 ? (
+              <EmptyState
+                title="No diagnostic results yet"
+                description="There are no completed diagnostic sessions in the current scope yet."
+              />
+            ) : (
+              <div className="space-y-3">
+                {completedDiagnostics.map((session) => (
+                  <div key={session.id} className="flex items-center justify-between rounded-lg border border-border/70 px-4 py-3">
+                    <div>
+                      <Link
+                        href={applyRoutePrefix(routePrefix, `/diagnostics/${session.id}`)}
+                        className="inline-flex items-center gap-1 font-medium transition-colors hover:text-primary"
+                      >
+                        {session.title}
+                        <ExternalLink className="size-3.5 opacity-60" />
+                      </Link>
+                      <p className="text-xs text-muted-foreground">
+                        {session.clientName} • {session.templateName}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="default">completed</Badge>
+                      <span className="text-xs text-muted-foreground">{session.respondentCount} respondents</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default">completed</Badge>
-                    <span className="text-xs text-muted-foreground">{session.respondentCount} respondents</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
@@ -1832,19 +1831,6 @@ export async function WorkspacePortalLivePage({
     );
   }
 
-  if (supportedKey === "diagnostic-results" && surface === "client" && segments.length === 2) {
-    return (
-      <WorkspaceDiagnosticDetailPage
-        access={access}
-        config={config}
-        routePrefix={routePrefix}
-        sessionId={segments[1]}
-        surface={surface}
-        resultsMode
-      />
-    );
-  }
-
   switch (supportedKey) {
     case "":
       return (
@@ -1899,19 +1885,6 @@ export async function WorkspacePortalLivePage({
           surface={surface}
         />
       );
-    case "diagnostic-results":
-      if (surface === "client") {
-        return (
-          <WorkspaceResultsPage
-            access={access}
-            config={config}
-            routePrefix={routePrefix}
-            diagnosticsOnly
-            surface={surface}
-          />
-        );
-      }
-      break;
     case "matching":
       if (surface === "partner") {
         return (

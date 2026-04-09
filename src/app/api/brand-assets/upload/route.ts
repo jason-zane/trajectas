@@ -35,10 +35,11 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null
     const ownerType = formData.get('ownerType') as string | null
     const ownerId = formData.get('ownerId') as string | null
+    const resolvedOwnerId = ownerId?.trim() || null
 
-    if (!file || !ownerType || !ownerId) {
+    if (!file || !ownerType) {
       return NextResponse.json(
-        { error: 'Missing required fields: file, ownerType, ownerId' },
+        { error: 'Missing required fields: file, ownerType' },
         { status: 400 }
       )
     }
@@ -50,16 +51,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!UUID_RE.test(ownerId)) {
+    if (ownerType !== 'platform' && (!resolvedOwnerId || !UUID_RE.test(resolvedOwnerId))) {
       return NextResponse.json(
         { error: 'Invalid ownerId. Must be a valid UUID' },
         { status: 400 }
       )
     }
 
+    if (ownerType === 'platform' && resolvedOwnerId) {
+      return NextResponse.json(
+        { error: 'Platform uploads must not include ownerId' },
+        { status: 400 }
+      )
+    }
+
     // Contextual authorization — client admins can upload for their client
     if (ownerType === 'client') {
-      if (!canManageClient(scope, ownerId)) {
+      if (!resolvedOwnerId) {
+        return NextResponse.json(
+          { error: 'Invalid ownerId. Must be a valid UUID' },
+          { status: 400 }
+        )
+      }
+      if (!canManageClient(scope, resolvedOwnerId)) {
         throw new AuthorizationError('Not authorized to manage this client')
       }
     } else {
@@ -82,7 +96,10 @@ export async function POST(request: NextRequest) {
 
     const db = createAdminClient()
     const filename = sanitiseFilename(file.name)
-    const storagePath = `${ownerType}/${ownerId}/${Date.now()}-${filename}`
+    const storagePath =
+      ownerType === 'platform'
+        ? `platform/default/${Date.now()}-${filename}`
+        : `${ownerType}/${resolvedOwnerId}/${Date.now()}-${filename}`
 
     const { error: uploadError } = await db.storage
       .from('brand-assets')

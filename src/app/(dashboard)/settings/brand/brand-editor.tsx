@@ -16,6 +16,7 @@ import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { PortalAccentEditor } from "@/components/brand-editor/portal-accent-editor"
 import { TaxonomyColorEditor } from "@/components/brand-editor/taxonomy-color-editor"
 import { EmailStyleEditor } from "@/components/brand-editor/email-style-editor"
+import { LogoUploader } from "@/components/brand-editor/logo-uploader"
 import { ReportThemeEditor } from "@/components/brand-editor/report-theme-editor"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { upsertBrandConfig } from "@/app/actions/brand"
@@ -194,9 +195,14 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
                 <CardTitle>Logo</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/20 text-xs text-muted-foreground">
-                  Logo upload coming soon
-                </div>
+                <LogoUploader
+                  label="Logo"
+                  description="Displayed in the dashboard, reports, and portal previews."
+                  value={config.logoUrl}
+                  ownerType="platform"
+                  ownerId={null}
+                  onChange={(url) => update({ logoUrl: url })}
+                />
               </CardContent>
             </Card>
           </div>

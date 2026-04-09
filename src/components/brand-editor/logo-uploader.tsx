@@ -9,7 +9,7 @@ interface LogoUploaderProps {
   description?: string
   value?: string
   ownerType: string
-  ownerId: string
+  ownerId?: string | null
   onChange: (url: string | undefined) => void
 }
 
@@ -45,7 +45,9 @@ export function LogoUploader({
         const formData = new FormData()
         formData.append("file", file)
         formData.append("ownerType", ownerType)
-        formData.append("ownerId", ownerId)
+        if (ownerId) {
+          formData.append("ownerId", ownerId)
+        }
 
         const res = await fetch("/api/brand-assets/upload", {
           method: "POST",
