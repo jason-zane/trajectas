@@ -21,21 +21,13 @@ function sanitizeNextPath(value: string | null) {
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
-  const code = url.searchParams.get("code");
   const inviteToken = url.searchParams.get("invite");
   const nextPath = sanitizeNextPath(url.searchParams.get("next"));
 
   const supabase = await createServerSupabaseClient();
 
-  if (code) {
-    // PKCE flow: exchange the authorization code for a session.
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
-      return NextResponse.redirect(new URL("/login?error=callback_failed", request.url));
-    }
-  }
-  // Implicit flow: /auth/confirm already set the session via browser-side
-  // setSession(), so the session cookie is present — no code exchange needed.
+  // OTP flow: browser client's verifyOtp() already set the session cookie
+  // before redirecting here — no code exchange needed.
 
   const {
     data: { user },

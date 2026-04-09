@@ -34,7 +34,7 @@ export type EmailTemplateScope = 'platform' | 'partner' | 'client'
 // ---------------------------------------------------------------------------
 
 export const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
-  magic_link: 'Magic Link',
+  magic_link: 'Sign-In Code',
   staff_invite: 'Staff Invitation',
   assessment_invite: 'Assessment Invitation',
   assessment_reminder: 'Assessment Reminder',
@@ -58,8 +58,8 @@ export const EMAIL_TYPE_CATEGORIES: Record<string, EmailType[]> = {
 // ---------------------------------------------------------------------------
 
 export const MERGE_VARIABLES: Record<EmailType, readonly string[]> = {
-  magic_link: ['signInUrl', 'brandName'],
-  staff_invite: ['inviteeName', 'brandName', 'acceptUrl'],
+  magic_link: ['otpCode', 'brandName'],
+  staff_invite: ['inviteeName', 'brandName', 'otpCode'],
   assessment_invite: [
     'participantFirstName',
     'campaignTitle',
@@ -85,13 +85,13 @@ export const MERGE_VARIABLES: Record<EmailType, readonly string[]> = {
 
 export const SAMPLE_VARIABLES: Record<EmailType, Record<string, string | number>> = {
   magic_link: {
-    signInUrl: 'https://app.trajectas.com/auth/callback?token=sample-token-abc123',
+    otpCode: '384 291',
     brandName: 'Trajectas',
   },
   staff_invite: {
     inviteeName: 'Alex Johnson',
     brandName: 'Trajectas',
-    acceptUrl: 'https://app.trajectas.com/invite/accept?token=sample-token-xyz789',
+    otpCode: '572 048',
   },
   assessment_invite: {
     participantFirstName: 'Jordan',

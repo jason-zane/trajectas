@@ -3,19 +3,23 @@
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  buildMagicLinkRedirectUrl,
-  sendInviteMagicLinkEmail,
-  sendStaffMagicLinkEmail,
-} from '@/lib/auth/magic-link'
+  buildAuthRedirectUrl,
+  sendInviteOtpEmail,
+  sendStaffOtpEmail,
+} from '@/lib/auth/otp'
 import { logActionError } from '@/lib/security/action-errors'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getInviteByToken } from '@/lib/auth/staff-auth'
 
-type AuthFormState =
+export type AuthFormState =
   | {
       success?: string
       error?: string
       fields?: Record<string, string[]>
+      step?: 'email' | 'code'
+      email?: string
+      invite?: string
+      next?: string
     }
   | undefined
 
@@ -34,19 +38,16 @@ function buildCallbackPath(next?: string | null, invite?: string | null) {
   }
 
   const query = params.toString()
-  // Magic links use OTP verification (implicit flow) — Supabase sends tokens
-  // back as hash fragments. /auth/confirm is the client-side page that reads
-  // those fragments and hands off to /auth/callback after setting the session.
-  return query ? `/auth/confirm?${query}` : '/auth/confirm'
+  return query ? `/auth/callback?${query}` : '/auth/callback'
 }
 
-async function sendMagicLink(input: {
+async function sendOtp(input: {
   email: string
   redirectPath: string
   template: 'magic_link' | 'staff_invite'
   inviteeName?: string | null
 }) {
-  const redirectUrl = buildMagicLinkRedirectUrl({
+  const redirectUrl = buildAuthRedirectUrl({
     redirectPath: input.redirectPath,
     publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
     adminAppUrl: process.env.ADMIN_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
@@ -54,7 +55,7 @@ async function sendMagicLink(input: {
   })
 
   if (input.template === 'staff_invite') {
-    await sendInviteMagicLinkEmail({
+    await sendInviteOtpEmail({
       email: input.email,
       redirectUrl,
       inviteeName: input.inviteeName,
@@ -62,13 +63,13 @@ async function sendMagicLink(input: {
     return
   }
 
-  await sendStaffMagicLinkEmail({
+  await sendStaffOtpEmail({
     email: input.email,
     redirectUrl,
   })
 }
 
-export async function requestStaffMagicLink(
+export async function requestStaffOtp(
   _state: AuthFormState,
   formData: FormData
 ): Promise<AuthFormState> {
@@ -91,7 +92,7 @@ export async function requestStaffMagicLink(
 
   if (profile) {
     try {
-      await sendMagicLink(
+      await sendOtp(
         {
           email: parsed.data.email,
           redirectPath: buildCallbackPath(parsed.data.next ?? null, null),
@@ -100,17 +101,20 @@ export async function requestStaffMagicLink(
       )
     } catch (error) {
       // Keep the response generic so login does not reveal account state.
-      logActionError('requestStaffMagicLink.sendMagicLink', error)
+      logActionError('requestStaffOtp.sendOtp', error)
     }
   }
 
   return {
+    step: 'code',
+    email: parsed.data.email,
+    next: parsed.data.next,
     success:
-      "If that email has staff access, we've sent a sign-in link. Check your inbox to continue.",
+      "If that email has staff access, we've sent a sign-in code. Check your inbox.",
   }
 }
 
-export async function requestInviteMagicLink(
+export async function requestInviteOtp(
   _state: AuthFormState,
   formData: FormData
 ): Promise<AuthFormState> {
@@ -127,24 +131,28 @@ export async function requestInviteMagicLink(
   }
 
   try {
-    await sendMagicLink({
+    await sendOtp({
       email: invite.email,
       redirectPath: buildCallbackPath(next, token),
       template: 'staff_invite',
       inviteeName: invite.email,
     })
   } catch (error) {
-    logActionError('requestInviteMagicLink.sendMagicLink', error)
+    logActionError('requestInviteOtp.sendOtp', error)
     return {
       error:
         error instanceof Error
           ? error.message
-          : 'Unable to send the invite sign-in link right now.',
+          : 'Unable to send the sign-in code right now.',
     }
   }
 
   return {
-    success: `We've sent a sign-in link to ${invite.email}. Use that email account to accept the invite.`,
+    step: 'code',
+    email: invite.email,
+    invite: token,
+    next,
+    success: `We've sent a sign-in code to ${invite.email}. Enter the code to accept the invite.`,
   }
 }
 

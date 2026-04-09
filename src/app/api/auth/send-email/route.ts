@@ -117,7 +117,7 @@ export async function POST(request: Request) {
 
   switch (emailType) {
     case 'magic_link':
-      variables.signInUrl = confirmUrl.toString()
+      variables.otpCode = confirmUrl.searchParams.get('token') ?? confirmUrl.toString()
       break
     case 'welcome':
       variables.userName = firstName || user.email
@@ -125,7 +125,7 @@ export async function POST(request: Request) {
       break
     case 'staff_invite':
       variables.inviteeName = firstName || user.email
-      variables.acceptUrl = confirmUrl.toString()
+      variables.otpCode = confirmUrl.searchParams.get('token') ?? confirmUrl.toString()
       break
   }
 

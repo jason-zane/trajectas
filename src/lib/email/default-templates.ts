@@ -70,10 +70,10 @@ function doc(...content: unknown[]) {
 const MAGIC_LINK = doc(
   heading(2, [text('Sign in to '), variable('brandName', 'Trajectas')]),
   paragraph([
-    text('Click the button below to sign in. This link expires in 10 minutes.'),
+    text('Enter this code to sign in. It expires in 10 minutes.'),
   ]),
   spacer(8),
-  button('Sign In', 'signInUrl'),
+  paragraph([variable('otpCode', '------')]),
   spacer(8),
   paragraph([
     text('If you did not request this email, you can safely ignore it.'),
@@ -90,13 +90,13 @@ const STAFF_INVITE = doc(
   paragraph([
     text('You have been invited to join '),
     bold('Trajectas'),
-    text(' as a team member. Click below to accept your invitation and set up your account.'),
+    text(' as a team member. Enter this code to accept your invitation and set up your account.'),
   ]),
   spacer(8),
-  button('Accept Invitation', 'acceptUrl'),
+  paragraph([variable('otpCode', '------')]),
   spacer(8),
   paragraph([
-    text('This invitation link will expire in 7 days.'),
+    text('This code will expire in 7 days.'),
   ]),
 )
 

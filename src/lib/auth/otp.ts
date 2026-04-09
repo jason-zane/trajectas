@@ -1,7 +1,7 @@
 import { sendEmail } from "@/lib/email/send";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-interface MagicLinkRedirectInput {
+interface AuthRedirectInput {
   origin?: string | null;
   referer?: string | null;
   redirectPath: string;
@@ -10,7 +10,7 @@ interface MagicLinkRedirectInput {
   fallbackUrl?: string | null;
 }
 
-function resolveMagicLinkBaseUrl(input: Omit<MagicLinkRedirectInput, "redirectPath">) {
+function resolveBaseUrl(input: Omit<AuthRedirectInput, "redirectPath">) {
   const candidates = [
     input.origin,
     input.referer,
@@ -33,10 +33,10 @@ function resolveMagicLinkBaseUrl(input: Omit<MagicLinkRedirectInput, "redirectPa
   return "http://localhost:3002";
 }
 
-export function buildMagicLinkRedirectUrl(input: MagicLinkRedirectInput) {
+export function buildAuthRedirectUrl(input: AuthRedirectInput) {
   return new URL(
     input.redirectPath,
-    resolveMagicLinkBaseUrl({
+    resolveBaseUrl({
       origin: input.origin,
       referer: input.referer,
       publicAppUrl: input.publicAppUrl,
@@ -46,7 +46,7 @@ export function buildMagicLinkRedirectUrl(input: MagicLinkRedirectInput) {
   ).toString();
 }
 
-async function generateMagicLinkActionUrl(input: {
+async function generateOtpCode(input: {
   email: string;
   redirectUrl: string;
 }) {
@@ -63,42 +63,42 @@ async function generateMagicLinkActionUrl(input: {
     throw new Error(error.message);
   }
 
-  const actionLink = data?.properties?.action_link;
-  if (!actionLink) {
-    throw new Error("Magic link generation did not return an action link.");
+  const otpCode = data?.properties?.email_otp;
+  if (!otpCode) {
+    throw new Error("OTP generation did not return an email code.");
   }
 
-  return actionLink;
+  return otpCode;
 }
 
-export async function sendStaffMagicLinkEmail(input: {
+export async function sendStaffOtpEmail(input: {
   email: string;
   redirectUrl: string;
 }) {
-  const actionLink = await generateMagicLinkActionUrl(input);
+  const otpCode = await generateOtpCode(input);
   await sendEmail({
     type: "magic_link",
     to: input.email,
     variables: {
       brandName: "Trajectas",
-      signInUrl: actionLink,
+      otpCode,
     },
   });
 }
 
-export async function sendInviteMagicLinkEmail(input: {
+export async function sendInviteOtpEmail(input: {
   email: string;
   redirectUrl: string;
   inviteeName?: string | null;
 }) {
-  const actionLink = await generateMagicLinkActionUrl(input);
+  const otpCode = await generateOtpCode(input);
   await sendEmail({
     type: "staff_invite",
     to: input.email,
     variables: {
       brandName: "Trajectas",
       inviteeName: input.inviteeName?.trim() || input.email,
-      acceptUrl: actionLink,
+      otpCode,
     },
   });
 }
