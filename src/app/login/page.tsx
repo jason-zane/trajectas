@@ -8,6 +8,11 @@ import {
   resolveDefaultWorkspaceContext,
 } from "@/lib/auth/staff-auth";
 
+const publicHomeUrl =
+  process.env.PUBLIC_APP_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  "http://localhost:3002";
+
 const errorCopy: Record<string, string> = {
   missing_code: "That sign-in link is missing required verification details.",
   callback_failed:
@@ -54,7 +59,7 @@ export default async function LoginPage({
         {/* Header */}
         <header className="relative z-10 flex items-center justify-between px-6 py-6 md:px-10">
           <Link
-            href="/"
+            href={publicHomeUrl}
             className="text-lg font-bold tracking-tight text-[var(--mk-primary-dark)]"
           >
             Trajectas
@@ -77,7 +82,7 @@ export default async function LoginPage({
               />
             </div>
             <p className="mt-4 text-center text-xs text-[var(--mk-text-muted)]">
-              We&apos;ll send a secure sign-in link to your registered email.
+              We&apos;ll send a secure sign-in code to your registered email.
             </p>
           </div>
         </main>

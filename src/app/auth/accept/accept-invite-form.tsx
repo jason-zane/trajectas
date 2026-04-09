@@ -38,6 +38,11 @@ export function AcceptInviteForm({
   const resolvedNextPath = state?.next ?? nextPath;
   const isCodeStep =
     state?.step === "code" || (initialStep === "code" && Boolean(email));
+  const successMessage =
+    state?.success ??
+    (isCodeStep && email
+      ? `We've sent a sign-in code to ${email}. Enter the code to accept the invite.`
+      : null);
 
   useEffect(() => {
     if (!state?.redirectTo) return;
@@ -105,7 +110,7 @@ export function AcceptInviteForm({
           />
         </div>
         {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
-        {state?.success ? <p className="text-sm text-emerald-700">{state.success}</p> : null}
+        {successMessage ? <p className="text-sm text-emerald-700">{successMessage}</p> : null}
         <Button
           type="button"
           className="w-full"

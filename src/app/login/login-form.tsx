@@ -34,6 +34,11 @@ export function LoginForm({
   const resolvedNextPath = state?.next ?? nextPath;
   const isCodeStep =
     state?.step === "code" || (initialStep === "code" && Boolean(email));
+  const successMessage =
+    state?.success ??
+    (isCodeStep
+      ? "If that email has staff access, we've sent a sign-in code. Check your inbox."
+      : null);
 
   useEffect(() => {
     if (!state?.redirectTo) return;
@@ -104,8 +109,8 @@ export function LoginForm({
             />
           </div>
           {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
-          {state?.success ? (
-            <p className="text-sm text-[var(--mk-primary)]">{state.success}</p>
+          {successMessage ? (
+            <p className="text-sm text-[var(--mk-primary)]">{successMessage}</p>
           ) : null}
           <Button
             type="button"
