@@ -148,7 +148,8 @@ export function SectionWrapper({
     const pending = pendingProgressRef.current;
     if (!pending) return;
     pendingProgressRef.current = null;
-    updateSessionProgressLite(token, sessionId, pending);
+    // Fire-and-forget — progress is best-effort for crash recovery
+    updateSessionProgressLite(token, sessionId, pending).catch(() => {});
   }
 
   useEffect(() => {
