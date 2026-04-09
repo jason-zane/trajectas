@@ -9,6 +9,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -59,9 +60,10 @@ export function DataTableFacetedFilter<TData>({
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel>{title}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {options.map((option) => {
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{title}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {options.map((option) => {
           const Icon = option.icon;
           const count = column.getFacetedUniqueValues().get(option.value) ?? 0;
 
@@ -88,6 +90,7 @@ export function DataTableFacetedFilter<TData>({
             </DropdownMenuCheckboxItem>
           );
         })}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
