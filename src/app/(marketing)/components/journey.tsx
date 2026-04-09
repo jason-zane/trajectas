@@ -46,28 +46,15 @@ export function Journey() {
       className="relative min-h-[350vh]"
     >
       <div className="journey-sticky sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
-        {/* SVG trajectory curve — hidden on mobile */}
-        <svg
-          className="journey-curve absolute left-1/2 top-[10%] hidden h-[80%] w-24 -translate-x-1/2 overflow-visible md:block"
-          viewBox="0 0 100 400"
-          preserveAspectRatio="none"
-          fill="none"
-          aria-hidden="true"
-        >
-          <path
-            className="journey-curve-path"
-            d="M 50 0 C 50 35, 20 45, 20 100 S 80 145, 80 200 S 20 255, 20 300 S 50 365, 50 400"
-            stroke="var(--mk-accent)"
-            strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
-            pathLength={1}
-          />
-        </svg>
+        {/* Central trajectory line — hidden on mobile */}
+        <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2 hidden md:block">
+          <div className="journey-line w-full origin-top" />
+        </div>
 
         {/* Stages */}
         <div className="journey-list relative flex w-full max-w-4xl flex-col gap-8 px-5 py-12 md:h-[70%] md:justify-between md:gap-0 md:px-8 md:py-0">
           {STAGES.map((stage, i) => {
-            const stageStart = i * 0.18;
+            const stageStart = i * 0.25;
             const isLeft = i % 2 === 0;
             const contentClass = isLeft
               ? "md:col-start-1 md:justify-self-end md:pr-10 md:text-right"
