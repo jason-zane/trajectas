@@ -191,7 +191,7 @@ function ParticipantRowActions({ participant }: { participant: ParticipantTableR
         Open participant
       </DropdownMenuItem>
       <DropdownMenuItem
-        onClick={() => router.push(`/partner/campaigns/${participant.campaignId}/overview`)}
+        onClick={() => router.push(`/partner/campaigns/${participant.campaignId}`)}
       >
         <ExternalLink className="size-4" />
         Open campaign

@@ -65,7 +65,7 @@ function MetricCard({
   icon: Icon,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
 }) {
@@ -150,10 +150,10 @@ export default async function PartnerCampaignDetailPage({
         <div className="flex flex-wrap gap-3">
           {backLink}
           <Link
-            href="/partner/results"
+            href="/partner/participants"
             className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
-            View results
+            View participants
           </Link>
         </div>
       </PageHeader>
@@ -161,8 +161,8 @@ export default async function PartnerCampaignDetailPage({
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard
           label="Status"
-          value={campaign.status === "active" ? 1 : 0}
-          description={campaign.status}
+          value={campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+          description={`Opens ${formatDate(campaign.opensAt)}`}
           icon={Megaphone}
         />
         <MetricCard
