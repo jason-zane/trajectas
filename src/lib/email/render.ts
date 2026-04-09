@@ -75,13 +75,16 @@ export async function renderEmailHtml(
     import('@react-email/components'),
   ])
 
-  // Step 1: Render Maily editor JSON to body HTML
+  // Step 1: Render Maily editor JSON to body HTML with variables resolved.
+  // Maily has its own variable system ({{var,fallback=...}}) that differs from
+  // our simple {{var}} format — we must call setVariableValues() so Maily
+  // substitutes them during render rather than outputting raw placeholders.
   const maily = new Maily(editorJson as ConstructorParameters<typeof Maily>[0])
+  maily.setVariableValues(variables)
   const mailyHtml = await maily.render()
 
-  // Step 2: Substitute merge variables in body HTML
-  // Maily's render() produces a full HTML document — extract just the body
-  // content for embedding inside EmailBrandFrame.
+  // Step 2: Run our own substituteVariables as a fallback for any {{key}}
+  // placeholders that Maily didn't handle (e.g. raw text nodes).
   const bodyHtml = substituteVariables(mailyHtml, variables)
 
   // Step 3: Substitute merge variables in preview text (if provided)
