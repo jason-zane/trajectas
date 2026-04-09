@@ -1,7 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { getPartnerBySlug, getPartnerStats } from "@/app/actions/partners";
+import { getPartnerBySlug, getPartnerStats, getRecentPartnerCampaigns } from "@/app/actions/partners";
 import { canManagePartnerDirectory, resolveAuthorizedScope } from "@/lib/auth/authorization";
-import { PartnerEditForm } from "../edit/partner-edit-form";
 import { PartnerOverview } from "./partner-overview";
 
 export default async function PartnerOverviewPage({
@@ -19,14 +18,16 @@ export default async function PartnerOverviewPage({
     redirect("/unauthorized?reason=partner-directory");
   }
 
-  const stats = await getPartnerStats(partner.id);
+  const [stats, recentCampaigns] = await Promise.all([
+    getPartnerStats(partner.id),
+    getRecentPartnerCampaigns(partner.id),
+  ]);
 
   return (
     <PartnerOverview
-      partner={{ id: partner.id, name: partner.name, slug: partner.slug }}
+      partner={partner}
       stats={stats}
-    >
-      <PartnerEditForm partner={partner} />
-    </PartnerOverview>
+      recentCampaigns={recentCampaigns}
+    />
   );
 }

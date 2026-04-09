@@ -637,3 +637,58 @@ export async function revokePartnerInvite(
   revalidatePath(`/partners`)
   return { success: true as const }
 }
+
+// ---------------------------------------------------------------------------
+// Recent Partner Campaigns
+// ---------------------------------------------------------------------------
+
+export async function getRecentPartnerCampaigns(partnerId: string): Promise<
+  Array<{
+    id: string
+    title: string
+    clientName: string
+    status: string
+    participantCount: number
+    completedCount: number
+  }>
+> {
+  await requirePartnerAccess(partnerId)
+  const db = await createClient()
+
+  // Get client IDs for this partner
+  const { data: clientRows } = await db
+    .from('clients')
+    .select('id')
+    .eq('partner_id', partnerId)
+    .is('deleted_at', null)
+
+  const clientIds = (clientRows ?? []).map((c) => c.id)
+  if (clientIds.length === 0) return []
+
+  // Note: participant_count and completed_count are NOT columns on campaigns.
+  // They must be derived from campaign_participants. Use a count join.
+  const { data, error } = await db
+    .from('campaigns')
+    .select('id, title, status, clients(name), campaign_participants(count)')
+    .in('client_id', clientIds)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  if (error) return []
+
+  return (data ?? []).map((row) => {
+    const client = Array.isArray(row.clients) ? row.clients[0] : row.clients
+    const participantCount = row.campaign_participants
+      ? ((row.campaign_participants as { count: number }[])[0]?.count ?? 0)
+      : 0
+    return {
+      id: row.id,
+      title: row.title,
+      clientName: (client as { name: string })?.name ?? 'Unknown',
+      status: row.status,
+      participantCount,
+      completedCount: 0, // TODO: derive from campaign_participants with status='completed' if needed
+    }
+  })
+}
