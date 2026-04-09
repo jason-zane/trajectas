@@ -165,7 +165,7 @@
 }
 
 [data-surface="marketing"] .journey-line {
-  height: min(100%, calc(var(--scroll-progress, 0) * 120%));
+  height: min(100%, calc(var(--scroll-progress, 0) * 150%));
   background: var(--mk-accent);
   opacity: 0.3;
 }

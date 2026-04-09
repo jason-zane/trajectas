@@ -43,7 +43,7 @@ export function Journey() {
     <section
       ref={ref}
       data-section="journey"
-      className="relative min-h-[250vh]"
+      className="relative min-h-[350vh]"
     >
       <div className="journey-sticky sticky top-0 flex h-[100svh] items-center justify-center overflow-hidden">
         {/* Central trajectory line — hidden on mobile */}
@@ -54,7 +54,7 @@ export function Journey() {
         {/* Stages */}
         <div className="journey-list relative flex w-full max-w-4xl flex-col gap-8 px-5 py-12 md:h-[70%] md:justify-between md:gap-0 md:px-8 md:py-0">
           {STAGES.map((stage, i) => {
-            const stageStart = i * 0.25;
+            const stageStart = i * 0.18;
             const isLeft = i % 2 === 0;
             const contentClass = isLeft
               ? "md:col-start-1 md:justify-self-end md:pr-10 md:text-right"
