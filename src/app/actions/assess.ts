@@ -618,6 +618,71 @@ export async function updateSessionProgress(
 }
 
 // ---------------------------------------------------------------------------
+// Lightweight save actions (single DB round-trip via RPC)
+// ---------------------------------------------------------------------------
+
+/**
+ * Save a response using a single Postgres RPC call that combines
+ * ownership validation + upsert. Used by the optimistic save queue
+ * in the assessment runner.
+ */
+export async function saveResponseLite(input: {
+  token: string
+  sessionId: string
+  itemId: string
+  sectionId: string
+  responseValue: number
+  responseData?: Record<string, unknown>
+  responseTimeMs?: number
+}) {
+  const db = createAdminClient()
+
+  const { data, error } = await db.rpc('save_response_for_session', {
+    p_access_token: input.token,
+    p_session_id: input.sessionId,
+    p_item_id: input.itemId,
+    p_section_id: input.sectionId,
+    p_response_value: input.responseValue,
+    p_response_data: input.responseData ?? {},
+    p_response_time_ms: input.responseTimeMs ?? null,
+  })
+
+  if (error || data === false) {
+    logActionError('saveResponseLite.rpc', error ?? 'ownership check failed')
+    return { error: 'Unable to save response' }
+  }
+  return { success: true as const }
+}
+
+/**
+ * Update session progress using a single Postgres RPC call.
+ * Used by the debounced progress updater in the assessment runner.
+ */
+export async function updateSessionProgressLite(
+  token: string,
+  sessionId: string,
+  update: {
+    sectionId: string
+    itemIndex: number
+  },
+) {
+  const db = createAdminClient()
+
+  const { data, error } = await db.rpc('update_session_progress_for_session', {
+    p_access_token: token,
+    p_session_id: sessionId,
+    p_current_section_id: update.sectionId,
+    p_current_item_index: update.itemIndex,
+  })
+
+  if (error || data === false) {
+    logActionError('updateSessionProgressLite.rpc', error ?? 'ownership check failed')
+    return { error: 'Unable to save progress' }
+  }
+  return { success: true as const }
+}
+
+// ---------------------------------------------------------------------------
 // Session completion
 // ---------------------------------------------------------------------------
 
