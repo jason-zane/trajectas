@@ -15,6 +15,11 @@ export default async function PartnerPortalPage({
 }) {
   const { slug } = await params;
   const key = slug?.join("/") ?? "";
+
+  if (key === "") {
+    redirect("/partner/dashboard");
+  }
+
   const config = resolveWorkspacePortalPageConfig(partnerPortalPages, key);
 
   if (!config) {
