@@ -24,11 +24,13 @@ Total: ~850ms minimum
 
 **New flow (optimistic):**
 ```
-Click → update local state → advance item [~150ms animation] → item appears
+Click → update local state → advance item [~120ms animation] → item appears
          └→ background: saveResponse() [fire-and-forget with retry]
          └→ background: debounced updateSessionProgress()
-Total: ~150ms perceived
+Total: ~120ms perceived
 ```
+
+**Timing constant:** Define `ADVANCE_DELAY_MS = 120` used for both the slide animation timeout and the auto-advance delay after selection. Single source of truth — no separate "selection flash" delay needed since the optimistic state update is instant.
 
 **Implementation:**
 
@@ -44,7 +46,7 @@ function handleResponse(itemId: string, value: number, data?: Record<string, unk
 
   // 3. Auto-advance for single-select formats (no await)
   if (shouldAutoAdvance(responseFormatType, value, data)) {
-    setTimeout(() => goToNextItem(), 150);
+    setTimeout(() => goToNextItem(), ADVANCE_DELAY_MS);
   }
 }
 ```
@@ -67,12 +69,13 @@ async function processSaveQueue() {
   isProcessingRef.current = true;
   while (saveQueueRef.current.length > 0) {
     const entry = saveQueueRef.current[0];
-    const result = await saveResponseLite({ sessionId, ...entry });
+    const result = await saveResponseLite({ token, sessionId, ...entry });
     if (result.error) {
       entry.retries = (entry.retries ?? 0) + 1;
       if (entry.retries >= 3) {
-        saveQueueRef.current.shift(); // drop after 3 failures
-        setSaveError(true); // show persistent error to user
+        // Move to failed list (keep for retry), don't discard
+        failedSavesRef.current.push(saveQueueRef.current.shift()!);
+        setSaveError(true);
       } else {
         await delay(500 * entry.retries); // backoff
       }
@@ -81,7 +84,21 @@ async function processSaveQueue() {
     }
   }
   isProcessingRef.current = false;
-  setSaveStatus("saved");
+  if (failedSavesRef.current.length === 0) {
+    setSaveStatus("saved");
+  }
+}
+
+// Retry failed saves — called from the error banner's Retry button.
+// Re-enqueues all failed entries and re-processes.
+function retryFailedSaves() {
+  const failed = failedSavesRef.current.splice(0);
+  for (const entry of failed) {
+    entry.retries = 0;
+    saveQueueRef.current.push(entry);
+  }
+  setSaveError(false);
+  if (!isProcessingRef.current) processSaveQueue();
 }
 ```
 
@@ -91,11 +108,58 @@ async function processSaveQueue() {
 
 **Current problem:** Every `saveResponse()` and `updateSessionProgress()` call re-validates the access token by querying `campaign_participants` + `campaigns` + `participant_sessions` — 2-3 DB queries just for auth, before the actual write.
 
-**Solution:** Create `saveResponseLite()` and `updateSessionProgressLite()` server actions that skip full token re-validation. Instead, they accept only `sessionId` and validate ownership with a **single query** that combines the ownership check with the write:
+**Solution:** Create Postgres RPC functions that combine ownership validation + write in a **single DB round-trip**, then call them from lightweight server actions.
+
+**Important:** The app uses `createAdminClient()` (service-role key) which bypasses RLS. We cannot rely on RLS for security — we must validate ownership explicitly. The current approach does this with 2-3 separate queries. The new approach does it in one round-trip via a Postgres function.
+
+**Postgres function — `save_response_for_session`:**
+
+```sql
+CREATE OR REPLACE FUNCTION save_response_for_session(
+  p_access_token text,
+  p_session_id uuid,
+  p_item_id uuid,
+  p_section_id uuid,
+  p_response_value numeric,
+  p_response_data jsonb DEFAULT '{}',
+  p_response_time_ms integer DEFAULT NULL
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_valid boolean;
+BEGIN
+  -- Single-query ownership check: token → participant → session
+  SELECT EXISTS(
+    SELECT 1
+    FROM participant_sessions ps
+    JOIN campaign_participants cp ON cp.id = ps.campaign_participant_id
+    WHERE ps.id = p_session_id
+      AND cp.access_token = p_access_token
+      AND ps.status = 'in_progress'
+  ) INTO v_valid;
+
+  IF NOT v_valid THEN
+    RETURN false;
+  END IF;
+
+  INSERT INTO participant_responses (session_id, item_id, section_id, response_value, response_data, response_time_ms)
+  VALUES (p_session_id, p_item_id, p_section_id, p_response_value, p_response_data, p_response_time_ms)
+  ON CONFLICT (session_id, item_id)
+  DO UPDATE SET
+    response_value = EXCLUDED.response_value,
+    response_data = EXCLUDED.response_data,
+    response_time_ms = EXCLUDED.response_time_ms;
+
+  RETURN true;
+END;
+$$;
+```
+
+**Server action — `saveResponseLite`:**
 
 ```typescript
-// saveResponseLite — single DB operation, no separate auth query
 export async function saveResponseLite(input: {
+  token: string;      // access token for ownership validation
   sessionId: string;
   itemId: string;
   sectionId: string;
@@ -105,39 +169,74 @@ export async function saveResponseLite(input: {
 }) {
   const db = createAdminClient();
 
-  // Single upsert — the (session_id, item_id) constraint + RLS
-  // ensures only the owning session can write.
-  // The session was already validated at page load.
-  const { error } = await db
-    .from('participant_responses')
-    .upsert({
-      session_id: input.sessionId,
-      item_id: input.itemId,
-      section_id: input.sectionId,
-      response_value: input.responseValue,
-      response_data: input.responseData ?? {},
-      response_time_ms: input.responseTimeMs ?? null,
-    }, { onConflict: 'session_id,item_id' });
+  const { data, error } = await db.rpc('save_response_for_session', {
+    p_access_token: input.token,
+    p_session_id: input.sessionId,
+    p_item_id: input.itemId,
+    p_section_id: input.sectionId,
+    p_response_value: input.responseValue,
+    p_response_data: input.responseData ?? {},
+    p_response_time_ms: input.responseTimeMs ?? null,
+  });
 
-  if (error) {
-    logActionError('saveResponseLite.upsert', error);
+  if (error || data === false) {
+    logActionError('saveResponseLite.rpc', error ?? 'ownership check failed');
     return { error: 'Unable to save response' };
   }
   return { success: true as const };
 }
 ```
 
-**Security model:** The session ID is a UUID generated server-side and never exposed in URLs (only the access token is in the URL). The page-level `validateAccessToken()` + `startSession()` already proved ownership. The session ID acts as a capability token for the duration of the assessment. This is the same trust boundary used by the existing `existingResponses` prop — if we trust the session ID enough to load all responses, we can trust it enough to write them.
+**Similarly, `update_session_progress_for_session`:**
+
+```sql
+CREATE OR REPLACE FUNCTION update_session_progress_for_session(
+  p_access_token text,
+  p_session_id uuid,
+  p_current_section_id uuid DEFAULT NULL,
+  p_current_item_index integer DEFAULT NULL,
+  p_time_remaining jsonb DEFAULT NULL
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_participant_id uuid;
+BEGIN
+  SELECT cp.id INTO v_participant_id
+  FROM participant_sessions ps
+  JOIN campaign_participants cp ON cp.id = ps.campaign_participant_id
+  WHERE ps.id = p_session_id
+    AND cp.access_token = p_access_token;
+
+  IF v_participant_id IS NULL THEN
+    RETURN false;
+  END IF;
+
+  UPDATE participant_sessions
+  SET current_section_id = COALESCE(p_current_section_id, current_section_id),
+      current_item_index = COALESCE(p_current_item_index, current_item_index),
+      time_remaining_seconds = COALESCE(p_time_remaining, time_remaining_seconds)
+  WHERE id = p_session_id
+    AND campaign_participant_id = v_participant_id;
+
+  RETURN true;
+END;
+$$;
+```
+
+**Security model:** The access token is still validated on every write — but the validation happens inside a single Postgres function call (1 DB round-trip) rather than across 2-3 separate queries. The `SECURITY DEFINER` functions run with elevated privileges but enforce the ownership check internally. The access token is passed from the client component (it already has it from the URL prop) through the server action to Postgres.
 
 The original `saveResponse()` and `updateSessionProgress()` functions remain unchanged for any other callers that need full validation.
+
+**Migration file:** `supabase/migrations/YYYYMMDD_assessment_runner_rpc.sql` containing both functions.
 
 ### 3. Debounce Session Progress Updates
 
 **Current:** `updateSessionProgress()` fires on every item navigation, creating a DB write per item.
 
-**New:** Debounce progress updates to fire at most once every 3 seconds, and on `beforeunload`. Progress is only needed for crash recovery (so the participant resumes at roughly the right item), so slight staleness is acceptable.
+**New:** Debounce progress updates to fire at most once every 3 seconds. Progress is only needed for crash recovery (so the participant resumes at roughly the right item), so slight staleness is acceptable.
 
 ```typescript
+const PROGRESS_DEBOUNCE_MS = 3000;
 const progressTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 const pendingProgressRef = useRef<{ sectionId: string; itemIndex: number } | null>(null);
 
@@ -147,7 +246,7 @@ function scheduleProgressUpdate(sectionId: string, itemIndex: number) {
     progressTimerRef.current = setTimeout(() => {
       flushProgress();
       progressTimerRef.current = null;
-    }, 3000);
+    }, PROGRESS_DEBOUNCE_MS);
   }
 }
 
@@ -156,19 +255,31 @@ function flushProgress() {
   if (!pending) return;
   pendingProgressRef.current = null;
   // Fire-and-forget — progress is best-effort
-  updateSessionProgressLite(sessionId, pending);
+  updateSessionProgressLite(token, sessionId, pending);
 }
 
-// Flush on unmount / page leave
+// Flush on page leave via sendBeacon (works during unload).
+// Server actions can't be called during beforeunload (async fetch gets cancelled),
+// so we hit a lightweight API route with sendBeacon instead.
 useEffect(() => {
-  const handler = () => flushProgress();
+  const handler = () => {
+    const pending = pendingProgressRef.current;
+    if (!pending) return;
+    pendingProgressRef.current = null;
+    navigator.sendBeacon(
+      '/api/assess/progress',
+      JSON.stringify({ token, sessionId, ...pending })
+    );
+  };
   window.addEventListener('beforeunload', handler);
   return () => {
     window.removeEventListener('beforeunload', handler);
-    flushProgress();
+    flushProgress(); // normal unmount (e.g. section change) — use server action
   };
 }, []);
 ```
+
+**API route for sendBeacon:** Create `src/app/api/assess/progress/route.ts` — a minimal POST handler that calls the same Postgres RPC. This is only used for the `beforeunload` edge case; normal progress updates use the server action directly.
 
 ### 4. Navigation Lock (Fix Race Conditions)
 
@@ -189,7 +300,7 @@ const navigateToItem = useCallback((newLocalIdx: number, direction: "left" | "ri
     setLocalItemIndex(newLocalIdx);
     setIsAnimating(false);
     navLockRef.current = false;
-  }, 120);  // tightened from 200ms
+  }, ADVANCE_DELAY_MS);
 }, []);
 ```
 
@@ -229,7 +340,14 @@ Key changes:
 - `grid-cols-5` forces all 5 columns to identical width (and grid rows align height automatically)
 - `min-h-[56px]` (up from 44px) — gives enough room for 2-line labels like "Strongly Disagree" without needing a third line at most screen widths
 - `place-items-center` centers text both horizontally and vertically within each cell
-- Dynamic column count: use `md:grid-cols-${options.length}` to handle formats with fewer/more than 5 options (via a lookup map to avoid Tailwind purge issues)
+- Dynamic column count via a static lookup map (avoids Tailwind purge issues):
+  ```typescript
+  const GRID_COLS: Record<number, string> = {
+    2: "md:grid-cols-2", 3: "md:grid-cols-3", 4: "md:grid-cols-4",
+    5: "md:grid-cols-5", 6: "md:grid-cols-6", 7: "md:grid-cols-7",
+  };
+  // Usage: className={`grid grid-cols-1 gap-2 ${GRID_COLS[options.length] ?? "md:grid-cols-5"}`}
+  ```
 
 ### 6. Save Status Indicator Update
 
@@ -257,7 +375,9 @@ The retry button re-processes the failed queue entries. The participant can cont
 |------|--------|
 | `src/components/assess/section-wrapper.tsx` | Optimistic response handling, save queue, debounced progress, nav lock |
 | `src/components/assess/formats/likert-response.tsx` | Grid layout, larger boxes, equal sizing |
-| `src/app/actions/assess.ts` | Add `saveResponseLite()` and `updateSessionProgressLite()` |
+| `src/app/actions/assess.ts` | Add `saveResponseLite()` and `updateSessionProgressLite()` server actions |
+| `src/app/api/assess/progress/route.ts` | **New** — sendBeacon endpoint for beforeunload progress flush |
+| `supabase/migrations/YYYYMMDD_assessment_runner_rpc.sql` | **New** — Postgres RPC functions for single-roundtrip auth+write |
 | `src/lib/auth/participant-runtime.ts` | No changes (existing functions untouched) |
 | `src/components/assess/item-card.tsx` | No changes expected |
 
