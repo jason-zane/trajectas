@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { mapPartnerRow, toPartnerInsert } from '@/lib/supabase/mappers'
+import { mapClientRow, mapPartnerRow, toPartnerInsert } from '@/lib/supabase/mappers'
 import {
   AuthorizationError,
   canManagePartnerDirectory,
@@ -691,4 +691,103 @@ export async function getRecentPartnerCampaigns(partnerId: string): Promise<
       completedCount: 0, // TODO: derive from campaign_participants with status='completed' if needed
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// Partner Clients
+// ---------------------------------------------------------------------------
+
+export type PartnerClientRow = ReturnType<typeof mapClientRow> & {
+  campaignCount: number
+  assessmentCount: number
+}
+
+export async function getPartnerClients(partnerId: string): Promise<PartnerClientRow[]> {
+  await requirePartnerAccess(partnerId)
+  const db = await createClient()
+
+  const { data, error } = await db
+    .from('clients')
+    .select('*, campaigns(count), client_assessment_assignments(count)')
+    .eq('partner_id', partnerId)
+    .is('deleted_at', null)
+    .order('name', { ascending: true })
+
+  if (error) {
+    throwActionError('getPartnerClients', 'Unable to load partner clients.', error)
+  }
+
+  return (data ?? []).map((row) => ({
+    ...mapClientRow(row),
+    campaignCount: row.campaigns ? ((row.campaigns as { count: number }[])[0]?.count ?? 0) : 0,
+    assessmentCount: row.client_assessment_assignments
+      ? ((row.client_assessment_assignments as { count: number }[])[0]?.count ?? 0) : 0,
+  }))
+}
+
+export async function getUnassignedClients() {
+  await requireAdminScope()
+  const db = await createClient()
+
+  const { data, error } = await db
+    .from('clients')
+    .select('id, name, slug, industry')
+    .is('partner_id', null)
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  if (error) {
+    throwActionError('getUnassignedClients', 'Unable to load unassigned clients.', error)
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    slug: String(row.slug),
+    industry: row.industry ? String(row.industry) : null,
+  }))
+}
+
+export async function assignClientToPartner(clientId: string, partnerId: string) {
+  const scope = await requireAdminScope()
+  if (!canManagePartnerDirectory(scope)) {
+    return { error: 'You do not have permission to assign clients.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('clients')
+    .update({ partner_id: partnerId })
+    .eq('id', clientId)
+    .is('partner_id', null) // only assign unassigned clients
+
+  if (error) {
+    logActionError('assignClientToPartner', error)
+    return { error: 'Unable to assign client.' }
+  }
+
+  revalidateDirectoryPaths()
+  return { success: true as const }
+}
+
+export async function unassignClientFromPartner(clientId: string) {
+  const scope = await requireAdminScope()
+  if (!canManagePartnerDirectory(scope)) {
+    return { error: 'You do not have permission to unassign clients.' }
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('clients')
+    .update({ partner_id: null })
+    .eq('id', clientId)
+
+  if (error) {
+    logActionError('unassignClientFromPartner', error)
+    return { error: 'Unable to unassign client.' }
+  }
+
+  revalidateDirectoryPaths()
+  return { success: true as const }
 }

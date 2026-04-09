@@ -5,10 +5,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { FileText } from "lucide-react";
 import { toast } from "sonner";
 
-import { toggleReportTemplateAssignment } from "@/app/actions/client-entitlements";
+import { togglePartnerReportTemplateAssignment } from "@/app/actions/partner-entitlements";
 import type {
   ReportTemplate,
-  ClientReportTemplateAssignment,
+  PartnerReportTemplateAssignment,
 } from "@/types/database";
 
 import {
@@ -50,17 +50,11 @@ interface TemplateRow {
 
 function buildRows(
   templates: ReportTemplate[],
-  assignments: ClientReportTemplateAssignment[],
-  partnerId: string | null,
+  assignments: PartnerReportTemplateAssignment[],
 ): TemplateRow[] {
   const assignedIds = new Set(assignments.map((a) => a.reportTemplateId));
   return templates
-    .filter((t) => {
-      if (!t.isActive) return false;
-      if (!t.partnerId) return true; // platform-global
-      if (partnerId && t.partnerId === partnerId) return true; // org's partner
-      return false;
-    })
+    .filter((t) => t.isActive)
     .map((t) => ({
       id: t.id,
       name: t.name,
@@ -76,26 +70,24 @@ function buildRows(
 // Props
 // ---------------------------------------------------------------------------
 
-interface ReportAssignmentsProps {
-  clientId: string;
-  partnerId: string | null;
-  assignments: ClientReportTemplateAssignment[];
-  allTemplates: ReportTemplate[];
+interface PartnerReportAssignmentsProps {
+  templates: ReportTemplate[];
+  assignments: PartnerReportTemplateAssignment[];
+  partnerId: string;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function ReportAssignments({
-  clientId,
-  partnerId,
+export function PartnerReportAssignments({
+  templates,
   assignments,
-  allTemplates,
-}: ReportAssignmentsProps) {
+  partnerId,
+}: PartnerReportAssignmentsProps) {
   const initialRows = useMemo(
-    () => buildRows(allTemplates, assignments, partnerId),
-    [allTemplates, assignments, partnerId],
+    () => buildRows(templates, assignments),
+    [templates, assignments],
   );
 
   // Optimistic state for toggle
@@ -118,8 +110,8 @@ export function ReportAssignments({
       // Optimistic update
       setOptimisticRows(templateId);
 
-      const result = await toggleReportTemplateAssignment(
-        clientId,
+      const result = await togglePartnerReportTemplateAssignment(
+        partnerId,
         templateId,
         newState,
       );

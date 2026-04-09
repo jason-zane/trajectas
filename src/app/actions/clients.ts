@@ -349,7 +349,7 @@ export async function getClientStats(clientId: string): Promise<{
   activeCampaignCount: number
   totalParticipants: number
   assignedAssessmentCount: number
-  teamMemberCount: number
+  reportsGenerated: number
 }> {
   await requireClientAccess(clientId)
   const db = await createSupabaseClient()
@@ -384,18 +384,54 @@ export async function getClientStats(clientId: string): Promise<{
     .eq('client_id', clientId)
     .eq('is_active', true)
 
-  const { count: teamMemberCount } = await db
-    .from('client_memberships')
+  // Reports generated (diagnostic sessions) for this client
+  const { count: reportsGenerated } = await db
+    .from('diagnostic_sessions')
     .select('*', { count: 'exact', head: true })
     .eq('client_id', clientId)
-    .is('revoked_at', null)
 
   return {
     activeCampaignCount: activeCampaignCount ?? 0,
     totalParticipants,
     assignedAssessmentCount: assignedAssessmentCount ?? 0,
-    teamMemberCount: teamMemberCount ?? 0,
+    reportsGenerated: reportsGenerated ?? 0,
   }
+}
+
+export async function getRecentClientCampaigns(clientId: string): Promise<
+  Array<{
+    id: string
+    title: string
+    status: string
+    participantCount: number
+    completedCount: number
+  }>
+> {
+  await requireClientAccess(clientId)
+  const db = await createSupabaseClient()
+
+  const { data, error } = await db
+    .from('campaigns')
+    .select('id, title, status, campaign_participants(count)')
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  if (error) return []
+
+  return (data ?? []).map((row) => {
+    const participantCount = row.campaign_participants
+      ? ((row.campaign_participants as { count: number }[])[0]?.count ?? 0)
+      : 0
+    return {
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      participantCount,
+      completedCount: 0,
+    }
+  })
 }
 
 export async function restoreClient(id: string) {

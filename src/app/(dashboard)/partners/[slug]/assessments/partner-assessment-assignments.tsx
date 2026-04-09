@@ -12,11 +12,11 @@ import {
 import { toast } from "sonner";
 
 import {
-  assignAssessment,
-  updateAssessmentAssignment,
-  removeAssessmentAssignment,
-} from "@/app/actions/client-entitlements";
-import type { AssessmentAssignmentWithUsage } from "@/types/database";
+  assignAssessmentToPartner,
+  updatePartnerAssessmentAssignment,
+  removePartnerAssessmentAssignment,
+} from "@/app/actions/partner-entitlements";
+import type { PartnerAssessmentAssignmentWithUsage } from "@/types/database";
 import type { AssessmentWithMeta } from "@/app/actions/assessments";
 
 import {
@@ -61,24 +61,21 @@ import { getSelectLabel } from "@/lib/select-display";
 // Props
 // ---------------------------------------------------------------------------
 
-interface AssessmentAssignmentsProps {
-  clientId: string;
-  assignments: AssessmentAssignmentWithUsage[];
+interface PartnerAssessmentAssignmentsProps {
+  assignments: PartnerAssessmentAssignmentWithUsage[];
   allAssessments: AssessmentWithMeta[];
-  /** When client belongs to a partner, only these assessment IDs are available. */
-  partnerPoolAssessmentIds?: string[];
+  partnerId: string;
 }
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
-export function AssessmentAssignments({
-  clientId,
+export function PartnerAssessmentAssignments({
   assignments,
   allAssessments,
-  partnerPoolAssessmentIds,
-}: AssessmentAssignmentsProps) {
+  partnerId,
+}: PartnerAssessmentAssignmentsProps) {
   const router = useRouter();
 
   // Assign dialog state
@@ -92,7 +89,7 @@ export function AssessmentAssignments({
 
   // Remove dialog state
   const [removeTarget, setRemoveTarget] =
-    useState<AssessmentAssignmentWithUsage | null>(null);
+    useState<PartnerAssessmentAssignmentWithUsage | null>(null);
   const [isRemoving, startRemove] = useTransition();
 
   // Inline-edit state
@@ -102,15 +99,10 @@ export function AssessmentAssignments({
   const [isSavingQuota, startSaveQuota] = useTransition();
 
   // Filter available assessments (exclude already-assigned ones)
-  // If partnerPoolAssessmentIds is provided, further restrict to partner pool
   const assignedIds = new Set(assignments.map((a) => a.assessmentId));
-  const availableAssessments = allAssessments.filter((a) => {
-    if (assignedIds.has(a.id)) return false;
-    if (a.status !== "active") return false;
-    if (partnerPoolAssessmentIds && !partnerPoolAssessmentIds.includes(a.id))
-      return false;
-    return true;
-  });
+  const availableAssessments = allAssessments.filter(
+    (a) => !assignedIds.has(a.id)
+  );
 
   // ----- Handlers -----
 
@@ -127,7 +119,7 @@ export function AssessmentAssignments({
     const quotaLimit = unlimited ? null : Number(quotaInput) || null;
 
     startAssign(async () => {
-      const result = await assignAssessment(clientId, {
+      const result = await assignAssessmentToPartner(partnerId, {
         assessmentId: selectedAssessmentId,
         quotaLimit,
       });
@@ -147,9 +139,9 @@ export function AssessmentAssignments({
     if (!removeTarget) return;
 
     startRemove(async () => {
-      const result = await removeAssessmentAssignment(
+      const result = await removePartnerAssessmentAssignment(
         removeTarget.id,
-        clientId
+        partnerId
       );
 
       if ("error" in result) {
@@ -163,7 +155,7 @@ export function AssessmentAssignments({
     });
   }
 
-  function startQuotaEdit(assignment: AssessmentAssignmentWithUsage) {
+  function startQuotaEdit(assignment: PartnerAssessmentAssignmentWithUsage) {
     setEditingId(assignment.id);
     setEditValue(
       assignment.quotaLimit !== null ? String(assignment.quotaLimit) : ""
@@ -179,9 +171,9 @@ export function AssessmentAssignments({
     }
 
     startSaveQuota(async () => {
-      const result = await updateAssessmentAssignment(
+      const result = await updatePartnerAssessmentAssignment(
         assignmentId,
-        clientId,
+        partnerId,
         { quotaLimit: newLimit }
       );
 
@@ -214,7 +206,7 @@ export function AssessmentAssignments({
 
   // ----- Columns -----
 
-  const columns = useMemo<ColumnDef<AssessmentAssignmentWithUsage>[]>(
+  const columns = useMemo<ColumnDef<PartnerAssessmentAssignmentWithUsage>[]>(
     () => [
       {
         accessorKey: "assessmentName",
@@ -426,8 +418,8 @@ export function AssessmentAssignments({
           <DialogHeader>
             <DialogTitle>Assign Assessment</DialogTitle>
             <DialogDescription>
-              Choose an assessment to make available for this client&apos;s
-              campaigns.
+              Choose an assessment to make available for this partner&apos;s
+              clients.
             </DialogDescription>
           </DialogHeader>
 
@@ -468,9 +460,7 @@ export function AssessmentAssignments({
                 </Select>
               ) : (
                 <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-3 text-center">
-                  {partnerPoolAssessmentIds
-                    ? "All assessments from the partner pool have been assigned."
-                    : "All active assessments have already been assigned."}
+                  All active assessments have already been assigned.
                 </p>
               )}
             </div>
@@ -521,7 +511,7 @@ export function AssessmentAssignments({
           if (!open) setRemoveTarget(null);
         }}
         title="Remove Assessment Assignment"
-        description={`This will remove "${removeTarget?.assessmentName}" from this client. Existing campaigns using it won't be affected, but new campaigns can no longer use it.`}
+        description={`This will remove "${removeTarget?.assessmentName}" from this partner. Clients currently using it must have it removed first.`}
         confirmLabel="Remove"
         variant="destructive"
         onConfirm={handleRemove}

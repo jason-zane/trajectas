@@ -1,15 +1,13 @@
 import { notFound, redirect } from "next/navigation";
-import { getAssignablePartners } from "@/app/actions/partners";
-import { getClientBySlug, getClientStats } from "@/app/actions/clients";
+import { getClientBySlug, getClientStats, getRecentClientCampaigns } from "@/app/actions/clients";
 import {
   canManageClient,
-  canManageClientAssignment,
   resolveAuthorizedScope,
 } from "@/lib/auth/authorization";
-import { ClientEditForm } from "./client-edit-form";
+import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { ClientOverview } from "./client-overview";
 
-export default async function EditClientPage({
+export default async function ClientOverviewPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
@@ -24,25 +22,30 @@ export default async function EditClientPage({
     redirect("/unauthorized?reason=client-directory");
   }
 
-  const canAssignPartner = canManageClientAssignment(scope);
-  const [partners, stats] = await Promise.all([
-    canAssignPartner ? getAssignablePartners() : Promise.resolve([]),
+  const [stats, recentCampaigns, partnerInfo] = await Promise.all([
     getClientStats(client.id),
+    getRecentClientCampaigns(client.id),
+    client.partnerId
+      ? createSupabaseClient().then((db) =>
+          db
+            .from("partners")
+            .select("name, slug")
+            .eq("id", client.partnerId!)
+            .single()
+            .then(({ data }) =>
+              data ? { name: data.name as string, slug: data.slug as string } : undefined
+            )
+        )
+      : Promise.resolve(undefined),
   ]);
 
   return (
     <ClientOverview
-      client={{ id: client.id, name: client.name, slug: client.slug }}
+      client={client}
+      partnerName={partnerInfo?.name}
+      partnerSlug={partnerInfo?.slug}
       stats={stats}
-    >
-      <ClientEditForm
-        client={client}
-        partnerOptions={partners.map((partner) => ({
-          id: partner.id,
-          name: partner.name,
-        }))}
-        canAssignPartner={canAssignPartner}
-      />
-    </ClientOverview>
+      recentCampaigns={recentCampaigns}
+    />
   );
 }
