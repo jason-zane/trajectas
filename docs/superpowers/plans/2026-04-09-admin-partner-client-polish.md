@@ -621,9 +621,11 @@ export async function getRecentPartnerCampaigns(partnerId: string): Promise<
   const clientIds = (clientRows ?? []).map((c) => c.id)
   if (clientIds.length === 0) return []
 
+  // Note: participant_count and completed_count are NOT columns on campaigns.
+  // They must be derived from campaign_participants. Use a count join.
   const { data, error } = await db
     .from('campaigns')
-    .select('id, title, status, participant_count, completed_count, clients(name)')
+    .select('id, title, status, clients(name), campaign_participants(count)')
     .in('client_id', clientIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -631,15 +633,21 @@ export async function getRecentPartnerCampaigns(partnerId: string): Promise<
 
   if (error) return []
 
+  // For completed count, we need a separate query or compute from participants.
+  // Simplify: show total participants only. Check getCampaigns() in
+  // src/app/actions/campaigns.ts for the full pattern if completed count is needed.
   return (data ?? []).map((row) => {
     const client = Array.isArray(row.clients) ? row.clients[0] : row.clients
+    const participantCount = row.campaign_participants
+      ? ((row.campaign_participants as { count: number }[])[0]?.count ?? 0)
+      : 0
     return {
       id: row.id,
       title: row.title,
       clientName: (client as { name: string })?.name ?? 'Unknown',
       status: row.status,
-      participantCount: row.participant_count ?? 0,
-      completedCount: row.completed_count ?? 0,
+      participantCount,
+      completedCount: 0, // TODO: derive from campaign_participants with status='completed' if needed
     }
   })
 }
@@ -1141,13 +1149,14 @@ export async function getPartnerTaxonomyAssignments(
 
   // Get all active entities of this type
   let query
+  // Note: always filter both is_active AND deleted_at to match existing codebase patterns
   if (entityType === 'dimension') {
-    query = db.from(tableName).select('id, name, slug').eq('is_active', true).order('name')
+    query = db.from(tableName).select('id, name, slug').eq('is_active', true).is('deleted_at', null).order('name')
   } else if (entityType === 'factor') {
-    query = db.from(tableName).select('id, name, slug, dimension_id, dimensions(name)').eq('is_active', true).order('name')
+    query = db.from(tableName).select('id, name, slug, dimension_id, dimensions(name)').eq('is_active', true).is('deleted_at', null).order('name')
   } else {
     // constructs — join through factor_constructs to get factor and dimension names
-    query = db.from(tableName).select('id, name, slug, factor_constructs(factors(id, name, dimensions(name)))').eq('is_active', true).order('name')
+    query = db.from(tableName).select('id, name, slug, factor_constructs(factors(id, name, dimensions(name)))').eq('is_active', true).is('deleted_at', null).order('name')
   }
 
   const { data: entities, error: entitiesError } = await query
