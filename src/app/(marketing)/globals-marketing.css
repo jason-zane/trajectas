@@ -164,10 +164,10 @@
   );
 }
 
-[data-surface="marketing"] .journey-line {
-  height: min(100%, calc(var(--scroll-progress, 0) * 150%));
-  background: var(--mk-accent);
-  opacity: 0.3;
+[data-surface="marketing"] .journey-curve-path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: calc(1 - clamp(0, calc(var(--scroll-progress, 0) * 1.5), 1));
+  opacity: 0.35;
 }
 
 [data-surface="marketing"] .journey-stage {
@@ -280,8 +280,9 @@
     gap: 2rem;
   }
 
-  [data-surface="marketing"] .journey-line {
-    height: 100%;
+  [data-surface="marketing"] .journey-curve-path {
+    stroke-dashoffset: 0;
+    opacity: 0.35;
   }
 
   [data-surface="marketing"] .journey-stage {
