@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getSelectLabel } from '@/lib/select-display'
 import { BLOCK_REGISTRY } from '@/lib/reports/registry'
 import type { BlockConfig } from '@/lib/reports/types'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
@@ -62,7 +63,17 @@ export function BlockPresentationPanel({ block, onUpdateBlock }: BlockPresentati
             onValueChange={(v) => onUpdateBlock({ presentationMode: v as PresentationMode })}
           >
             <SelectTrigger className="w-full h-8 text-sm">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value,
+                    supportedModes.map((mode) => ({
+                      value: mode,
+                      label: mode.charAt(0).toUpperCase() + mode.slice(1),
+                    }))
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {supportedModes.map((mode) => (
@@ -84,7 +95,17 @@ export function BlockPresentationPanel({ block, onUpdateBlock }: BlockPresentati
             onValueChange={(v) => onUpdateBlock({ chartType: v as ChartType })}
           >
             <SelectTrigger className="w-full h-8 text-sm">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value,
+                    supportedCharts.map((chart) => ({
+                      value: chart,
+                      label: chart.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+                    }))
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {supportedCharts.map((chart) => (
@@ -106,7 +127,15 @@ export function BlockPresentationPanel({ block, onUpdateBlock }: BlockPresentati
             onValueChange={(v) => onUpdateBlock({ columns: Number(v) as 1 | 2 | 3 })}
           >
             <SelectTrigger className="w-full h-8 text-sm">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(value, [
+                    { value: '1', label: '1 Column' },
+                    { value: '2', label: '2 Columns' },
+                    { value: '3', label: '3 Columns' },
+                  ])
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="1">1 Column</SelectItem>
@@ -126,7 +155,18 @@ export function BlockPresentationPanel({ block, onUpdateBlock }: BlockPresentati
             onValueChange={(v) => onUpdateBlock({ insetAccent: v ?? undefined })}
           >
             <SelectTrigger className="w-full h-8 text-sm">
-              <SelectValue placeholder="Default (Sage)" />
+              <SelectValue placeholder="Default (Sage)">
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value,
+                    INSET_ACCENT_OPTIONS.map((option) => ({
+                      value: option.value,
+                      label: option.label,
+                    })),
+                    "Default (Sage)"
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {INSET_ACCENT_OPTIONS.map((opt) => (

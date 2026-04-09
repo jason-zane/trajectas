@@ -42,6 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { getSelectLabel } from "@/lib/select-display";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -390,7 +391,18 @@ export function AssessmentAssignments({
                   }
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select an assessment..." />
+                    <SelectValue placeholder="Select an assessment...">
+                      {(value: string | null) =>
+                        getSelectLabel(
+                          value,
+                          availableAssessments.map((assessment) => ({
+                            value: assessment.id,
+                            label: assessment.title,
+                          })),
+                          "Select an assessment..."
+                        )
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>

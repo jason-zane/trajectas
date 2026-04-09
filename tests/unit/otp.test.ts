@@ -23,7 +23,6 @@ vi.mock("@/lib/email/send", () => ({
 
 import {
   buildAuthRedirectUrl,
-  sendInviteOtpEmail,
   sendStaffOtpEmail,
 } from "@/lib/auth/otp";
 
@@ -114,39 +113,4 @@ describe("OTP auth", () => {
     });
   });
 
-  describe("sendInviteOtpEmail", () => {
-    it("sends an invite email with the OTP code", async () => {
-      await sendInviteOtpEmail({
-        email: "invitee@example.com",
-        redirectUrl: "https://trajectas.com/auth/callback?invite=abc",
-        inviteeName: "Alice",
-      });
-
-      expect(mocks.sendEmail).toHaveBeenCalledWith({
-        type: "staff_invite",
-        to: "invitee@example.com",
-        variables: {
-          brandName: "Trajectas",
-          inviteeName: "Alice",
-          otpCode: "384291",
-        },
-      });
-    });
-
-    it("falls back to email when inviteeName is blank", async () => {
-      await sendInviteOtpEmail({
-        email: "invitee@example.com",
-        redirectUrl: "https://trajectas.com/auth/callback",
-        inviteeName: "  ",
-      });
-
-      expect(mocks.sendEmail).toHaveBeenCalledWith(
-        expect.objectContaining({
-          variables: expect.objectContaining({
-            inviteeName: "invitee@example.com",
-          }),
-        })
-      );
-    });
-  });
 });

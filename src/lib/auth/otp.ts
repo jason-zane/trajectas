@@ -85,20 +85,3 @@ export async function sendStaffOtpEmail(input: {
     },
   });
 }
-
-export async function sendInviteOtpEmail(input: {
-  email: string;
-  redirectUrl: string;
-  inviteeName?: string | null;
-}) {
-  const otpCode = await generateOtpCode(input);
-  await sendEmail({
-    type: "staff_invite",
-    to: input.email,
-    variables: {
-      brandName: "Trajectas",
-      inviteeName: input.inviteeName?.trim() || input.email,
-      otpCode,
-    },
-  });
-}

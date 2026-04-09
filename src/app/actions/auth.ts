@@ -4,7 +4,6 @@ import { headers } from 'next/headers'
 import { z } from 'zod'
 import {
   buildAuthRedirectUrl,
-  sendInviteOtpEmail,
   sendStaffOtpEmail,
 } from '@/lib/auth/otp'
 import { logActionError } from '@/lib/security/action-errors'
@@ -108,8 +107,6 @@ async function buildCodeEntryRedirect(input: {
 async function sendOtp(input: {
   email: string
   redirectPath: string
-  template: 'magic_link' | 'staff_invite'
-  inviteeName?: string | null
 }) {
   const redirectUrl = buildAuthRedirectUrl({
     redirectPath: input.redirectPath,
@@ -117,15 +114,6 @@ async function sendOtp(input: {
     adminAppUrl: process.env.ADMIN_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
     fallbackUrl: 'http://localhost:3002',
   })
-
-  if (input.template === 'staff_invite') {
-    await sendInviteOtpEmail({
-      email: input.email,
-      redirectUrl,
-      inviteeName: input.inviteeName,
-    })
-    return
-  }
 
   await sendStaffOtpEmail({
     email: input.email,
@@ -154,7 +142,6 @@ export async function requestStaffOtp(
         {
           email: parsed.data.email,
           redirectPath: buildCallbackPath(parsed.data.next ?? null, null),
-          template: 'magic_link',
         }
       )
     } catch (error) {
@@ -202,8 +189,6 @@ export async function requestInviteOtp(
     await sendOtp({
       email: invite.email,
       redirectPath: buildCallbackPath(next, token),
-      template: 'staff_invite',
-      inviteeName: invite.email,
     })
   } catch (error) {
     logActionError('requestInviteOtp.sendOtp', error)

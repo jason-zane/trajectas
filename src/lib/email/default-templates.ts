@@ -86,13 +86,13 @@ const STAFF_INVITE = doc(
   paragraph([
     text('You have been invited to join '),
     bold('Trajectas'),
-    text(' as a team member. Enter this code to accept your invitation and set up your account.'),
+    text(' as a team member. Click below to accept your invitation and set up your account.'),
   ]),
   spacer(8),
-  paragraph([variable('otpCode', '------')]),
+  button('Accept Invitation', 'acceptUrl'),
   spacer(8),
   paragraph([
-    text('This code will expire in 7 days.'),
+    text('This invitation link will expire in 7 days.'),
   ]),
 )
 

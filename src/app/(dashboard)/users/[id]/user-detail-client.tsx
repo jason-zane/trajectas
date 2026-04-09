@@ -56,6 +56,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getSelectLabel } from "@/lib/select-display";
 import { cn } from "@/lib/utils";
 
 type TenantOption = {
@@ -83,6 +84,21 @@ const ROLE_CHOICES: Array<{
   { value: "org_admin", label: "Client Admin", dbRole: "org_admin" },
   { value: "client_member", label: "Client Member", dbRole: "consultant" },
 ];
+
+const ROLE_CHOICE_OPTIONS = ROLE_CHOICES.map(({ value, label }) => ({
+  value,
+  label,
+}));
+
+const MEMBERSHIP_ROLE_OPTIONS = [
+  { value: "admin", label: "Admin" },
+  { value: "member", label: "Member" },
+] as const;
+
+const TENANT_TYPE_OPTIONS = [
+  { value: "partner", label: "Partner" },
+  { value: "client", label: "Client" },
+] as const;
 
 function formatDateTime(dateString: string) {
   return new Date(dateString).toLocaleString("en-AU", {
@@ -398,7 +414,11 @@ export function UserDetailClient({
                 onValueChange={(value) => setRoleChoice(value as RoleChoiceValue)}
               >
                 <SelectTrigger id="user-role" className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(value as RoleChoiceValue | null, ROLE_CHOICE_OPTIONS)
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -502,7 +522,14 @@ export function UserDetailClient({
                             disabled={membershipRoleTarget === membership.id || isMembershipChanging}
                           >
                             <SelectTrigger className="w-[110px]" size="sm">
-                              <SelectValue />
+                              <SelectValue>
+                                {(value: string | null) =>
+                                  getSelectLabel(
+                                    value as MembershipRole | null,
+                                    MEMBERSHIP_ROLE_OPTIONS
+                                  )
+                                }
+                              </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
@@ -621,7 +648,14 @@ export function UserDetailClient({
                             disabled={membershipRoleTarget === membership.id || isMembershipChanging}
                           >
                             <SelectTrigger className="w-[110px]" size="sm">
-                              <SelectValue />
+                              <SelectValue>
+                                {(value: string | null) =>
+                                  getSelectLabel(
+                                    value as MembershipRole | null,
+                                    MEMBERSHIP_ROLE_OPTIONS
+                                  )
+                                }
+                              </SelectValue>
                             </SelectTrigger>
                             <SelectContent>
                               <SelectGroup>
@@ -712,7 +746,11 @@ export function UserDetailClient({
                     }}
                   >
                     <SelectTrigger id="tenant-type" className="w-full">
-                      <SelectValue />
+                      <SelectValue>
+                        {(value: string | null) =>
+                          getSelectLabel(value as TenantType | null, TENANT_TYPE_OPTIONS)
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
@@ -781,7 +819,11 @@ export function UserDetailClient({
                     onValueChange={(value) => setMembershipFormRole(value as MembershipRole)}
                   >
                     <SelectTrigger id="membership-role" className="w-full">
-                      <SelectValue />
+                      <SelectValue>
+                        {(value: string | null) =>
+                          getSelectLabel(value as MembershipRole | null, MEMBERSHIP_ROLE_OPTIONS)
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>

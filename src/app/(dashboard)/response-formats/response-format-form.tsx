@@ -27,6 +27,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
+import { getSelectLabel } from "@/lib/select-display"
 import {
   createResponseFormat,
   updateResponseFormat,
@@ -50,6 +51,20 @@ interface ResponseFormatFormProps {
     config: Record<string, unknown>
   }
 }
+
+const RESPONSE_FORMAT_TYPE_OPTIONS = [
+  { value: "likert", label: "Likert Scale" },
+  { value: "forced_choice", label: "Forced Choice" },
+  { value: "binary", label: "Binary" },
+  { value: "free_text", label: "Free Text" },
+  { value: "sjt", label: "Situational Judgement (SJT)" },
+] as const
+
+const SJT_SCORING_OPTIONS = [
+  { value: "distance", label: "Distance-based" },
+  { value: "consensus", label: "Consensus-based" },
+  { value: "expert", label: "Expert-keyed" },
+] as const
 
 // ---------------------------------------------------------------------------
 // Type-specific config panels
@@ -106,7 +121,17 @@ function LikertConfigPanel({
             onValueChange={(v) => setPoints(Number(v))}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value,
+                    Array.from({ length: 8 }, (_, i) => {
+                      const pointValue = String(i + 3)
+                      return { value: pointValue, label: `${pointValue}-point scale` }
+                    })
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {Array.from({ length: 8 }, (_, i) => i + 3).map((n) => (
@@ -128,7 +153,20 @@ function LikertConfigPanel({
             onValueChange={(v) => setAnchorType(v ?? "agreement")}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value,
+                    [
+                      ...Object.keys(anchorPresets).map((key) => ({
+                        value: key,
+                        label: key.charAt(0).toUpperCase() + key.slice(1),
+                      })),
+                      { value: "custom", label: "Custom" },
+                    ]
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {Object.keys(anchorPresets).map((key) => (
@@ -274,7 +312,9 @@ function SJTConfigPanel({
             onValueChange={(v) => onChange({ ...config, scoringMethod: v })}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) => getSelectLabel(value, SJT_SCORING_OPTIONS)}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="distance">Distance-based</SelectItem>
@@ -538,7 +578,14 @@ export function ResponseFormatForm({
                       onValueChange={handleTypeChange}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue />
+                        <SelectValue>
+                          {(value: string | null) =>
+                            getSelectLabel(
+                              value as typeof RESPONSE_FORMAT_TYPE_OPTIONS[number]["value"] | null,
+                              RESPONSE_FORMAT_TYPE_OPTIONS
+                            )
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="likert">Likert Scale</SelectItem>

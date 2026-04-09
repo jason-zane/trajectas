@@ -21,15 +21,6 @@ export function InviteDetailClient({ invite }: InviteDetailClientProps) {
   const [isResending, startResend] = useTransition();
   const [isRevoking, startRevoke] = useTransition();
 
-  async function handleCopyLink(link: string) {
-    try {
-      await navigator.clipboard.writeText(link);
-      toast.success("Invite link copied");
-    } catch {
-      toast.error("Failed to copy link to clipboard");
-    }
-  }
-
   function handleResend() {
     startResend(async () => {
       const result = await resendInvite(invite.id);
@@ -39,8 +30,7 @@ export function InviteDetailClient({ invite }: InviteDetailClientProps) {
         return;
       }
 
-      await handleCopyLink(result.inviteLink);
-      toast.success(`Invite resent to ${invite.email}`);
+      toast.success(`Invite email resent to ${invite.email}`);
       router.refresh();
     });
   }

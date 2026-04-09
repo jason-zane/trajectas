@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getSelectLabel } from "@/lib/select-display";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -33,6 +34,11 @@ import {
 interface InvitePartnerUserDialogProps {
   partnerId: string;
 }
+
+const membershipRoleOptions = [
+  { value: "member", label: "Member" },
+  { value: "admin", label: "Admin" },
+] as const;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -133,7 +139,11 @@ export function InvitePartnerUserDialog({ partnerId }: InvitePartnerUserDialogPr
                 disabled={isInviting}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(value as "admin" | "member" | null, membershipRoleOptions)
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>

@@ -45,6 +45,7 @@ import {
   SheetDescription,
   SheetFooter,
 } from '@/components/ui/sheet'
+import { getSelectLabel } from '@/lib/select-display'
 import { cn } from '@/lib/utils'
 import { BLOCK_REGISTRY } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig } from '@/lib/reports/types'
@@ -72,6 +73,37 @@ import type { ReportDisplayLevel, PersonReferenceType } from '@/types/database'
 // ---------------------------------------------------------------------------
 
 type ReportType = 'self_report' | '360'
+
+const reportTypeOptions = [
+  { value: 'self_report', label: 'Self-report' },
+  { value: '360', label: '360' },
+] as const
+
+const reportDisplayLevelOptions = [
+  { value: 'dimension', label: 'Dimension' },
+  { value: 'factor', label: 'Factor' },
+  { value: 'construct', label: 'Construct' },
+] as const
+
+const personReferenceOptions = [
+  { value: 'you', label: 'You' },
+  { value: 'first_name', label: 'First name' },
+  { value: 'participant', label: 'Participant' },
+  { value: 'the_participant', label: 'The participant' },
+  { value: 'neutral', label: 'Neutral' },
+] as const
+
+const pageHeaderLogoOptions = [
+  { value: 'primary', label: 'Primary' },
+  { value: 'secondary', label: 'Secondary' },
+  { value: 'none', label: 'None' },
+] as const
+
+const audienceTypeOptions = [
+  { value: 'participant', label: 'Participant' },
+  { value: 'hr_manager', label: 'HR / Manager' },
+  { value: 'consultant', label: 'Consultant' },
+] as const
 
 export type PromptOption = { id: string; name: string; purpose: string }
 
@@ -464,7 +496,11 @@ export function BlockBuilderClient({
           }}
         >
           <SelectTrigger className="h-7 w-auto text-xs border-dashed gap-1">
-            <SelectValue />
+            <SelectValue>
+              {(value: string | null) =>
+                getSelectLabel(value as ReportType | null, reportTypeOptions)
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="self_report">Self-report</SelectItem>
@@ -677,7 +713,14 @@ export function BlockBuilderClient({
                 onValueChange={(v) => setSettings((s) => ({ ...s, displayLevel: v as ReportDisplayLevel }))}
               >
                 <SelectTrigger className="w-full h-8 text-sm">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(
+                        value as ReportDisplayLevel | null,
+                        reportDisplayLevelOptions
+                      )
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="dimension">Dimension</SelectItem>
@@ -696,7 +739,14 @@ export function BlockBuilderClient({
                 onValueChange={(v) => setSettings((s) => ({ ...s, personReference: v as PersonReferenceType }))}
               >
                 <SelectTrigger className="w-full h-8 text-sm">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(
+                        value as PersonReferenceType | null,
+                        personReferenceOptions
+                      )
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="you">You</SelectItem>
@@ -717,7 +767,14 @@ export function BlockBuilderClient({
                 onValueChange={(v) => setSettings((s) => ({ ...s, pageHeaderLogo: v as 'primary' | 'secondary' | 'none' }))}
               >
                 <SelectTrigger className="w-full h-8 text-sm">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(
+                        value as typeof pageHeaderLogoOptions[number]["value"] | null,
+                        pageHeaderLogoOptions
+                      )
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="primary">Primary</SelectItem>
@@ -913,7 +970,11 @@ function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }:
             <>
               <Select value={selectedAudience} onValueChange={(v) => setSelectedAudience(v as AudienceType)}>
                 <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(value as AudienceType | null, audienceTypeOptions)
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="participant">Participant</SelectItem>

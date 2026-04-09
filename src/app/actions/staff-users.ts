@@ -4,12 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import {
-  createInviteLink,
   createStaffInvite,
   revokeInvite,
   revokeMembership,
   setProfileActiveState,
 } from '@/lib/auth/staff-auth'
+import { sendStaffInviteEmail } from '@/lib/auth/staff-invite-email'
 
 type InviteFormState =
   | {
@@ -48,11 +48,18 @@ export async function createStaffInviteAction(
     }
   }
 
+  const { inviteLink } = await sendStaffInviteEmail({
+    email: result.data.email,
+    inviteToken: result.inviteToken,
+    tenantType: result.data.tenantType,
+    tenantId: result.data.tenantId,
+  })
+
   revalidatePath('/users')
 
   return {
-    success: `Invite created for ${result.data.email}. Copy the acceptance link below.`,
-    inviteLink: createInviteLink(result.inviteToken),
+    success: `Invite email sent to ${result.data.email}.`,
+    inviteLink,
   }
 }
 

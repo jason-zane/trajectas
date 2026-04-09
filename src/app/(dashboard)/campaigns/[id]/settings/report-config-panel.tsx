@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getSelectLabel } from '@/lib/select-display'
 import { upsertCampaignReportConfig, type UpsertCampaignReportConfigInput } from '@/app/actions/reports'
 import type { CampaignReportConfig, ReportTemplate } from '@/types/database'
 
@@ -32,6 +33,11 @@ interface TemplateSelectProps {
 }
 
 const NONE = '__none__'
+const brandModeOptions = [
+  { value: 'platform', label: 'Platform — your brand colours' },
+  { value: 'client', label: 'Client — client brand colours' },
+  { value: 'custom', label: 'Custom — coming soon' },
+] as const
 
 function TemplateSelect({
   id,
@@ -42,13 +48,29 @@ function TemplateSelect({
   selfReportTemplates,
   templates360,
 }: TemplateSelectProps) {
+  const templateOptions = [
+    { value: NONE, label: 'No report' },
+    ...selfReportTemplates.map((template) => ({
+      value: template.id,
+      label: template.name,
+    })),
+    ...templates360.map((template) => ({
+      value: template.id,
+      label: template.name,
+    })),
+  ]
+
   return (
     <div className="space-y-1.5">
       <Label htmlFor={id}>{label}</Label>
       <p className="text-xs text-muted-foreground">{description}</p>
       <Select value={value} onValueChange={(nextValue) => onChange(nextValue ?? NONE)}>
         <SelectTrigger id={id} className="w-full">
-          <SelectValue placeholder="No report" />
+          <SelectValue placeholder="No report">
+            {(selectedValue: string | null) =>
+              getSelectLabel(selectedValue, templateOptions, 'No report')
+            }
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE}>No report</SelectItem>
@@ -158,7 +180,14 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
         </p>
         <Select value={brandMode} onValueChange={(v) => { if (v) setBrandMode(v) }}>
           <SelectTrigger id="brand-mode" className="w-full sm:w-64">
-            <SelectValue />
+            <SelectValue>
+              {(value: string | null) =>
+                getSelectLabel(
+                  value as typeof brandModeOptions[number]["value"] | null,
+                  brandModeOptions
+                )
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="platform">Platform — your brand colours</SelectItem>

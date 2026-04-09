@@ -30,6 +30,7 @@ import { Separator } from "@/components/ui/separator"
 import { PageHeader } from "@/components/page-header"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { AutoSaveIndicator } from "@/components/auto-save-indicator"
+import { getSelectLabel } from "@/lib/select-display"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { useAutoSave } from "@/hooks/use-auto-save"
 import { FactorSource } from "./factor-source"
@@ -79,6 +80,18 @@ const itemSelectionInfo: Record<string, { label: string; description: string }> 
     description: "Computerised Adaptive Testing — selects items in real time based on the participant's estimated ability. Requires IRT-calibrated items. Shorter tests, higher precision.",
   },
 }
+
+const assessmentStatusOptions = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+] as const
+
+const creationModeOptions = [
+  { value: "manual", label: "Manual" },
+  { value: "ai_generated", label: "AI Generated" },
+  { value: "org_choice", label: "Org Choice" },
+] as const
 
 type SaveButtonState = "idle" | "saving" | "saved"
 
@@ -443,7 +456,15 @@ export function AssessmentBuilder({
                   onValueChange={(v) => v !== null && setStatus(v)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Select status">
+                      {(value: string | null) =>
+                        getSelectLabel(
+                          value as typeof assessmentStatusOptions[number]["value"] | null,
+                          assessmentStatusOptions,
+                          "Select status"
+                        )
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="draft">Draft</SelectItem>
@@ -493,7 +514,18 @@ export function AssessmentBuilder({
                     }
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select strategy" />
+                      <SelectValue placeholder="Select strategy">
+                        {(value: string | null) =>
+                          getSelectLabel(
+                            value,
+                            Object.entries(itemSelectionInfo).map(([optionValue, info]) => ({
+                              value: optionValue,
+                              label: info.label,
+                            })),
+                            "Select strategy"
+                          )
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {Object.entries(itemSelectionInfo).map(([value, info]) => (
@@ -519,7 +551,15 @@ export function AssessmentBuilder({
                     onValueChange={(v) => v !== null && setCreationMode(v)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select mode" />
+                      <SelectValue placeholder="Select mode">
+                        {(value: string | null) =>
+                          getSelectLabel(
+                            value as typeof creationModeOptions[number]["value"] | null,
+                            creationModeOptions,
+                            "Select mode"
+                          )
+                        }
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">Manual</SelectItem>

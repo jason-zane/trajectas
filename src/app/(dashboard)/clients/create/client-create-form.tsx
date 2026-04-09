@@ -139,7 +139,7 @@ export function ClientCreateForm({
                   onValueChange={(value) => setPartnerId(value ?? PLATFORM_OWNED_VALUE)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue />
+                    <SelectValue>{selectedPartnerLabel}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={PLATFORM_OWNED_VALUE}>

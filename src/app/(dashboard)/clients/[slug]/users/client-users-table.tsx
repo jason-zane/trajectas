@@ -26,10 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getSelectLabel } from "@/lib/select-display";
 
 type ClientMemberRow = ClientMember & {
   displayName: string;
 };
+
+const membershipRoleOptions = [
+  { value: "admin", label: "Admin" },
+  { value: "member", label: "Member" },
+] as const;
 
 function formatMemberName(member: ClientMember) {
   const parts = [member.firstName, member.lastName].filter(Boolean);
@@ -135,7 +141,11 @@ export function ClientUsersTable({
             disabled={changingRoleId === row.original.membershipId}
           >
             <SelectTrigger size="sm" className="w-[110px]">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(value as "admin" | "member" | null, membershipRoleOptions)
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>

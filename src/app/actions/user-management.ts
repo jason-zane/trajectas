@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireAdminScope } from "@/lib/auth/authorization";
+import { sendStaffInviteEmail } from "@/lib/auth/staff-invite-email";
 import {
-  createInviteLink,
   hashInviteToken,
   type InviteRole,
   type InviteTenantType,
@@ -888,9 +888,16 @@ export async function resendInvite(inviteId: string): Promise<
     revalidatePath("/users");
     revalidatePath(`/users/invite/${parsedInviteId}`);
 
+    const { inviteLink } = await sendStaffInviteEmail({
+      email: inviteRow.email,
+      inviteToken: token,
+      tenantType: inviteRow.tenant_type,
+      tenantId: inviteRow.tenant_id,
+    });
+
     return {
       success: true,
-      inviteLink: createInviteLink(token),
+      inviteLink,
     };
   } catch (error) {
     return {

@@ -29,6 +29,7 @@ import { PageHeader } from "@/components/page-header";
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AutoSaveIndicator } from "@/components/auto-save-indicator";
+import { getSelectLabel } from "@/lib/select-display";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import {
@@ -42,6 +43,12 @@ import type { SelectOption } from "@/app/actions/items";
 import type { ResponseFormat, ActiveResponseFormatType, ItemPurpose } from "@/types/database";
 
 type SaveButtonState = "idle" | "saving" | "saved";
+
+const itemStatusOptions = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+] as const;
 
 interface ItemFormProps {
   constructs: SelectOption[];
@@ -408,7 +415,17 @@ export function ItemForm({
                       }}
                     >
                       <SelectTrigger className="w-full sm:w-64">
-                        <SelectValue />
+                        <SelectValue>
+                          {(value: string | null) =>
+                            getSelectLabel(
+                              value as ItemPurpose | null,
+                              purposeOptions.map(({ value: optionValue, label }) => ({
+                                value: optionValue,
+                                label,
+                              }))
+                            )
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {purposeOptions.map(({ value, label, icon: Icon }) => (
@@ -468,7 +485,14 @@ export function ItemForm({
                       onValueChange={(v) => setStatus(v ?? "draft")}
                     >
                       <SelectTrigger className="w-full sm:w-48">
-                        <SelectValue />
+                        <SelectValue>
+                          {(value: string | null) =>
+                            getSelectLabel(
+                              value as typeof itemStatusOptions[number]["value"] | null,
+                              itemStatusOptions
+                            )
+                          }
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="draft">Draft</SelectItem>

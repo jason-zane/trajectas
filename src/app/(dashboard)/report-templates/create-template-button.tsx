@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { getSelectLabel } from '@/lib/select-display'
 import { createReportTemplate } from '@/app/actions/reports'
 
 export function CreateTemplateButton() {
@@ -74,7 +75,14 @@ export function CreateTemplateButton() {
               <Label htmlFor="report-type">Report type</Label>
               <Select value={reportType} onValueChange={v => setReportType(v as typeof reportType)}>
                 <SelectTrigger id="report-type">
-                  <SelectValue />
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(value, [
+                        { value: 'self_report', label: 'Self-report' },
+                        { value: '360', label: '360' },
+                      ])
+                    }
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="self_report">Self-report</SelectItem>

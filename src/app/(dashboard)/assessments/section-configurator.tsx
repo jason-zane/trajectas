@@ -789,7 +789,11 @@ function SectionFields({
             onValueChange={(v) => onChange({ itemOrdering: v as ItemOrdering })}
           >
             <SelectTrigger className="h-9 text-sm">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  (value ? ORDERING_INFO[value as ItemOrdering]?.label : null) ?? value
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {Object.entries(ORDERING_INFO).map(([value, info]) => (

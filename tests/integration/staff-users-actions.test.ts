@@ -6,7 +6,10 @@ const auth = vi.hoisted(() => ({
 
 const staffAuth = vi.hoisted(() => ({
   createStaffInvite: vi.fn(),
-  createInviteLink: vi.fn(),
+}));
+
+const inviteEmail = vi.hoisted(() => ({
+  sendStaffInviteEmail: vi.fn(),
 }));
 
 const cache = vi.hoisted(() => ({
@@ -19,7 +22,10 @@ vi.mock("@/lib/auth/authorization", () => ({
 
 vi.mock("@/lib/auth/staff-auth", () => ({
   createStaffInvite: staffAuth.createStaffInvite,
-  createInviteLink: staffAuth.createInviteLink,
+}));
+
+vi.mock("@/lib/auth/staff-invite-email", () => ({
+  sendStaffInviteEmail: inviteEmail.sendStaffInviteEmail,
 }));
 
 vi.mock("next/cache", () => ({
@@ -32,7 +38,7 @@ describe("staff user actions", () => {
   beforeEach(() => {
     auth.requireAdminScope.mockReset();
     staffAuth.createStaffInvite.mockReset();
-    staffAuth.createInviteLink.mockReset();
+    inviteEmail.sendStaffInviteEmail.mockReset();
     cache.revalidatePath.mockReset();
   });
 
@@ -67,12 +73,14 @@ describe("staff user actions", () => {
       data: {
         id: "invite-1",
         email: "person@example.com",
+        tenantType: "platform",
+        tenantId: null,
       },
       inviteToken: "token-1",
     });
-    staffAuth.createInviteLink.mockReturnValueOnce(
-      "https://trajectas.test/auth/accept?invite=token-1"
-    );
+    inviteEmail.sendStaffInviteEmail.mockResolvedValueOnce({
+      inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
+    });
 
     const formData = new FormData();
     formData.set("email", "person@example.com");
@@ -80,7 +88,7 @@ describe("staff user actions", () => {
     formData.set("role", "platform_admin");
 
     await expect(createStaffInviteAction(undefined, formData)).resolves.toEqual({
-      success: "Invite created for person@example.com. Copy the acceptance link below.",
+      success: "Invite email sent to person@example.com.",
       inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
     });
   });

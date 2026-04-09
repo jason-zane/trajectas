@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getSelectLabel } from "@/lib/select-display";
 import { cn } from "@/lib/utils";
 
 type InviteTenantType = "platform" | "partner" | "client";
@@ -238,17 +239,7 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
         return;
       }
 
-      if (!nextResult.inviteLink) {
-        toast.error("Invite was created, but no acceptance link was returned.");
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(nextResult.inviteLink);
-        toast.success(`Invite sent to ${email.trim()}. Acceptance link copied.`);
-      } catch {
-        toast.success(`Invite sent to ${email.trim()}.`);
-      }
+      toast.success(`Invite email sent to ${email.trim()}.`);
 
       setOpen(false);
       resetForm();
@@ -273,7 +264,7 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
           <DialogHeader>
             <DialogTitle>Invite User</DialogTitle>
             <DialogDescription>
-              Send a staff invite and copy the acceptance link. Invites expire in 7 days.
+              Send a staff invite email. Invites expire in 7 days.
             </DialogDescription>
           </DialogHeader>
 
@@ -335,7 +326,11 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
                   disabled={isPending}
                 >
                   <SelectTrigger id="invite-role" className="w-full">
-                    <SelectValue />
+                    <SelectValue>
+                      {(value: string | null) =>
+                        getSelectLabel(value as InviteRole | null, roleOptions)
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectGroup>

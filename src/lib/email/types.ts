@@ -59,7 +59,7 @@ export const EMAIL_TYPE_CATEGORIES: Record<string, EmailType[]> = {
 
 export const MERGE_VARIABLES: Record<EmailType, readonly string[]> = {
   magic_link: ['otpCode', 'brandName'],
-  staff_invite: ['inviteeName', 'brandName', 'otpCode'],
+  staff_invite: ['inviteeName', 'brandName', 'acceptUrl'],
   assessment_invite: [
     'participantFirstName',
     'campaignTitle',
@@ -91,7 +91,7 @@ export const SAMPLE_VARIABLES: Record<EmailType, Record<string, string | number>
   staff_invite: {
     inviteeName: 'Alex Johnson',
     brandName: 'Trajectas',
-    otpCode: '572 048',
+    acceptUrl: 'https://trajectas.com/auth/accept?invite=sample-token-abc123',
   },
   assessment_invite: {
     participantFirstName: 'Jordan',

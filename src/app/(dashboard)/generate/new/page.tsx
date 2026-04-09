@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
+import { getSelectLabel } from "@/lib/select-display";
 import {
   getConstructsForGeneration,
   getResponseFormatsForGeneration,
@@ -76,6 +77,11 @@ interface WizardModelBootstrap {
 }
 
 type ConstructDraftMap = Record<string, ConstructDraftState>;
+
+const promptPurposeOptions = [
+  { value: "item_generation", label: "Construct" },
+  { value: "factor_item_generation", label: "Factor" },
+] as const;
 
 function createConstructDraftState(construct?: Partial<Construct>): ConstructDraftState {
   return {
@@ -1302,7 +1308,14 @@ function Step3Configure({
             }
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value as typeof promptPurposeOptions[number]["value"] | null,
+                    promptPurposeOptions
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="item_generation">
@@ -1407,7 +1420,20 @@ function Step3Configure({
             }}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(value: string | null) =>
+                  getSelectLabel(
+                    value,
+                    [
+                      { value: "__none__", label: "None" },
+                      ...(responseFormats ?? []).map((responseFormat) => ({
+                        value: responseFormat.id,
+                        label: responseFormat.name,
+                      })),
+                    ]
+                  )
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__none__">None</SelectItem>

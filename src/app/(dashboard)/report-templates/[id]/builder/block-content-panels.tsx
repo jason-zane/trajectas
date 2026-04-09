@@ -22,6 +22,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command'
+import { getSelectLabel } from '@/lib/select-display'
 import { cn } from '@/lib/utils'
 import type { BlockConfig, BlockType } from '@/lib/reports/types'
 import type { EntityOption } from '@/app/actions/reports'
@@ -95,7 +96,15 @@ function DisplayLevelSelect({
     <Field label="Display Level" help="Which taxonomy level to show scores for">
       <Select value={value} onValueChange={(v) => { if (v) onChange(v) }}>
         <SelectTrigger className="w-full h-8 text-sm">
-          <SelectValue />
+          <SelectValue>
+            {(selectedValue: string | null) =>
+              getSelectLabel(selectedValue, [
+                { value: 'dimension', label: 'Dimension' },
+                { value: 'factor', label: 'Factor' },
+                { value: 'construct', label: 'Construct' },
+              ])
+            }
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="dimension">Dimension</SelectItem>
@@ -433,7 +442,15 @@ function ScoreDetailContent({ block, entityOptions, onUpdateConfig }: BlockConte
           onValueChange={(v) => onUpdateConfig('chartType', v)}
         >
           <SelectTrigger className="w-full h-8 text-sm">
-            <SelectValue />
+            <SelectValue>
+              {(value: string | null) =>
+                getSelectLabel(value, [
+                  { value: 'bar', label: 'Bar' },
+                  { value: 'segment', label: 'Segment' },
+                  { value: 'none', label: 'None' },
+                ])
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="bar">Bar</SelectItem>
@@ -538,7 +555,18 @@ function AiTextContent({ block, promptOptions, onUpdateConfig }: BlockContentPan
           onValueChange={(v) => onUpdateConfig('promptId', v)}
         >
           <SelectTrigger className="w-full h-8 text-sm">
-            <SelectValue placeholder="Select a prompt template\u2026" />
+            <SelectValue placeholder="Select a prompt template\u2026">
+              {(value: string | null) =>
+                getSelectLabel(
+                  value,
+                  promptOptions.map((prompt) => ({
+                    value: prompt.id,
+                    label: prompt.name,
+                  })),
+                  "Select a prompt template..."
+                )
+              }
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {promptOptions.map((p) => (
