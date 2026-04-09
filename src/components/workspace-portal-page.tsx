@@ -22,7 +22,7 @@ function AccessStateCard({ access }: { access: WorkspaceAccessResult }) {
             Access resolved
           </CardTitle>
           <CardDescription>
-            This surface is running with an authenticated actor context.
+            Authenticated
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
@@ -52,11 +52,11 @@ function AccessStateCard({ access }: { access: WorkspaceAccessResult }) {
             Membership required
           </CardTitle>
           <CardDescription>
-            Your current authenticated actor does not have membership for this workspace.
+            You don't have access to this workspace.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          The UI is available for build-out, but tenant-scoped data will remain inaccessible until the actor is granted the right membership context.
+          Contact your administrator to request access.
         </CardContent>
       </Card>
     );
@@ -70,11 +70,11 @@ function AccessStateCard({ access }: { access: WorkspaceAccessResult }) {
           Authentication still required
         </CardTitle>
         <CardDescription>
-          This workspace is isolated now, but it is not yet connected to a complete sign-in and membership selection flow.
+          Sign in to access this workspace.
         </CardDescription>
       </CardHeader>
       <CardContent className="text-sm text-muted-foreground">
-        The surface is ready for real host routing and future access control, while still being previewable during implementation.
+        Please sign in to continue.
       </CardContent>
     </Card>
   );
