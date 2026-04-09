@@ -1,18 +1,13 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
+import { ParticleMesh } from "./particle-mesh";
 
 const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
 
-const ParticleMesh = dynamic(
-  () => import("./particle-mesh").then((mod) => mod.ParticleMesh),
-  { ssr: false }
-);
-
 export function MarketingInteractive() {
   const [activeSection, setActiveSection] = useState<string>("hero");
-  const [showParticles, setShowParticles] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(true);
   const glowRef = useRef<HTMLDivElement>(null);
   const mouseRef = useRef({ x: -9999, y: -9999 });
 
@@ -20,6 +15,7 @@ export function MarketingInteractive() {
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
+    setReducedMotion(prefersReduced);
     if (prefersReduced) return;
 
     function applyPosition(x: number, y: number) {
@@ -43,22 +39,9 @@ export function MarketingInteractive() {
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
 
-    if ("requestIdleCallback" in window) {
-      const idleId = window.requestIdleCallback(() => setShowParticles(true));
-
-      return () => {
-        window.removeEventListener("mousemove", handleMouseMove);
-        window.removeEventListener("touchmove", handleTouchMove);
-        window.cancelIdleCallback(idleId);
-      };
-    }
-
-    const timer = globalThis.setTimeout(() => setShowParticles(true), 200);
-
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("touchmove", handleTouchMove);
-      globalThis.clearTimeout(timer);
     };
   }, []);
 
@@ -87,7 +70,7 @@ export function MarketingInteractive() {
 
   return (
     <>
-      {showParticles ? (
+      {!reducedMotion ? (
         <ParticleMesh activeSection={activeSection} mouseRef={mouseRef} />
       ) : null}
       <div
