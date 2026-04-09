@@ -11,10 +11,26 @@ export const partnerSchema = z.object({
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
     .default(true),
-  description: z.string().nullable().optional().default(null),
-  website: z.string().nullable().optional().default(null),
-  contactEmail: z.string().nullable().optional().default(null),
-  notes: z.string().nullable().optional().default(null),
+  description: z.string().trim().nullable().optional().default(null),
+  website: z
+    .string()
+    .trim()
+    .max(2000)
+    .url('Valid URL is required')
+    .nullable()
+    .optional()
+    .default(null)
+    .or(z.literal('').transform(() => null)),
+  contactEmail: z
+    .string()
+    .trim()
+    .email('Valid email is required')
+    .toLowerCase()
+    .nullable()
+    .optional()
+    .default(null)
+    .or(z.literal('').transform(() => null)),
+  notes: z.string().trim().nullable().optional().default(null),
 })
 
 export type PartnerInput = z.infer<typeof partnerSchema>
