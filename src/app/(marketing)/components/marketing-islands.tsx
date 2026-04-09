@@ -40,45 +40,8 @@ export function MarketingInteractive() {
       }
     }
 
-    function handleDeviceOrientation(e: DeviceOrientationEvent) {
-      if (e.gamma === null || e.beta === null) return;
-
-      const x = ((e.gamma + 45) / 90) * window.innerWidth;
-      const y = ((e.beta - 20) / 70) * window.innerHeight;
-      applyPosition(
-        Math.max(0, Math.min(window.innerWidth, x)),
-        Math.max(0, Math.min(window.innerHeight, y))
-      );
-    }
-
-    function attachOrientationListener() {
-      const DevOri = DeviceOrientationEvent as unknown as {
-        requestPermission?: () => Promise<string>;
-      };
-
-      if (typeof DevOri.requestPermission === "function") {
-        DevOri.requestPermission()
-          .then((state) => {
-            if (state === "granted") {
-              window.addEventListener("deviceorientation", handleDeviceOrientation, {
-                passive: true,
-              });
-            }
-          })
-          .catch(() => {});
-      } else {
-        window.addEventListener("deviceorientation", handleDeviceOrientation, {
-          passive: true,
-        });
-      }
-    }
-
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
-    window.addEventListener("touchstart", attachOrientationListener, {
-      once: true,
-      passive: true,
-    });
 
     if ("requestIdleCallback" in window) {
       const idleId = window.requestIdleCallback(() => setShowParticles(true));
@@ -86,7 +49,6 @@ export function MarketingInteractive() {
       return () => {
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("touchmove", handleTouchMove);
-        window.removeEventListener("deviceorientation", handleDeviceOrientation);
         window.cancelIdleCallback(idleId);
       };
     }
@@ -96,7 +58,6 @@ export function MarketingInteractive() {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("touchmove", handleTouchMove);
-      window.removeEventListener("deviceorientation", handleDeviceOrientation);
       globalThis.clearTimeout(timer);
     };
   }, []);
