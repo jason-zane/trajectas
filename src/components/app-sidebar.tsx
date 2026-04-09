@@ -129,12 +129,12 @@ const adminNav: NavSection[] = [
 const partnerNav: NavSection[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", href: "/", icon: Home }],
+    items: [{ title: "Dashboard", href: "/dashboard", icon: Home }],
   },
   {
     label: "Clients",
     items: [
-      { title: "Clients", href: "/directory?tab=clients", icon: Building2 },
+      { title: "Clients", href: "/clients", icon: Building2 },
     ],
   },
   {
@@ -142,17 +142,7 @@ const partnerNav: NavSection[] = [
     items: [
       { title: "Assessments", href: "/assessments", icon: ClipboardList },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
-      { title: "Results", href: "/results", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "Diagnostics",
-    items: [{ title: "Sessions", href: "/diagnostics", icon: Layers }],
-  },
-  {
-    label: "AI Tools",
-    items: [
-      { title: "Matching Results", href: "/matching", icon: Sparkles },
+      { title: "Participants", href: "/participants", icon: Users },
     ],
   },
 ];
