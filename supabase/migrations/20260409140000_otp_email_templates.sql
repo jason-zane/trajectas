@@ -1,5 +1,5 @@
--- Replace magic-link button templates with OTP code display.
--- The app now sends a 6-digit code instead of a clickable link.
+-- Replace magic-link button templates with OTP code display
+-- and update the sign-in email subject line.
 
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
@@ -21,6 +21,9 @@ UPDATE email_templates SET editor_json = '{
     ]}
   ]
 }'::jsonb
+WHERE type = 'magic_link' AND scope_type = 'platform' AND scope_id IS NULL;
+
+UPDATE email_templates SET subject = 'Your sign-in code for {{brandName}}'
 WHERE type = 'magic_link' AND scope_type = 'platform' AND scope_id IS NULL;
 
 UPDATE email_templates SET editor_json = '{

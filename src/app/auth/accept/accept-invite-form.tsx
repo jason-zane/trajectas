@@ -56,19 +56,19 @@ export function AcceptInviteForm({
       <div className="space-y-4">
         <div>
           <p className="text-sm text-[var(--mk-text-muted)]">
-            Enter the 6-digit code sent to{" "}
+            Enter the code sent to{" "}
             <span className="font-medium text-[var(--mk-primary-dark)]">{state.email}</span>
           </p>
         </div>
         <div className="space-y-1.5">
           <Input
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+            placeholder="00000000"
             inputMode="numeric"
             autoComplete="one-time-code"
             autoFocus
-            maxLength={6}
+            maxLength={8}
             className="h-11 text-center text-lg font-semibold tracking-[0.3em] placeholder:tracking-[0.3em]"
           />
         </div>
@@ -77,7 +77,7 @@ export function AcceptInviteForm({
         <Button
           type="button"
           className="w-full"
-          disabled={code.length < 6 || verifying}
+          disabled={code.length < 6 || code.length > 8 || verifying}
           onClick={handleVerify}
         >
           {verifying ? "Verifying..." : "Verify"}

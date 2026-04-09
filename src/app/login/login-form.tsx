@@ -52,7 +52,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
             Check your email
           </h1>
           <p className="mt-1 text-sm text-[var(--mk-text-muted)]">
-            Enter the 6-digit code sent to{" "}
+            Enter the code sent to{" "}
             <span className="font-medium text-[var(--mk-primary-dark)]">{state.email}</span>
           </p>
         </div>
@@ -60,12 +60,12 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           <div className="space-y-1.5">
             <Input
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-              placeholder="000000"
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+              placeholder="00000000"
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
-              maxLength={6}
+              maxLength={8}
               className="h-11 rounded-xl border-[rgba(30,74,62,0.18)] bg-white/88 px-4 text-center text-lg font-semibold tracking-[0.3em] shadow-none placeholder:text-[var(--mk-text-muted)]/60 placeholder:tracking-[0.3em] focus-visible:border-[var(--mk-accent)] focus-visible:ring-[var(--mk-accent)]/30"
             />
           </div>
@@ -76,7 +76,7 @@ export function LoginForm({ nextPath }: { nextPath?: string }) {
           <Button
             type="button"
             className="h-11 w-full rounded-xl bg-[var(--mk-primary-dark)] text-white hover:bg-[var(--mk-primary)]"
-            disabled={code.length < 6 || verifying}
+            disabled={code.length < 6 || code.length > 8 || verifying}
             onClick={handleVerify}
           >
             {verifying ? "Verifying..." : "Verify"}
