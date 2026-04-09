@@ -1,15 +1,24 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { LayoutTemplate } from "lucide-react";
+import { Copy, ExternalLink, LayoutTemplate, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { cloneReportTemplate, deleteReportTemplate } from "@/app/actions/reports";
 import type { ReportTemplate } from "@/types/database";
-import { DataTable, DataTableColumnHeader, DataTableRowActions } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableActionsMenu,
+  DataTableColumnHeader,
+  DataTableRowLink,
+} from "@/components/data-table";
 import { CreateTemplateButton } from "./create-template-button";
 import { Badge } from "@/components/ui/badge";
 import { ActiveToggle } from "./active-toggle";
-import { CloneTemplateButton } from "./clone-template-button";
-import { DeleteTemplateButton } from "./delete-template-button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 const REPORT_TYPE_LABELS: Record<string, string> = {
   self_report: "Self-report",
@@ -33,19 +42,24 @@ const columns: ColumnDef<ReportTemplateRow>[] = [
       <DataTableColumnHeader column={column} title="Template" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-          <LayoutTemplate className="size-4" />
+      <DataTableRowLink
+        href={`/report-templates/${row.original.id}/builder`}
+        ariaLabel={`Open ${row.original.name}`}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <LayoutTemplate className="size-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">{row.original.name}</p>
+            {row.original.description ? (
+              <p className="truncate text-sm text-muted-foreground">
+                {row.original.description}
+              </p>
+            ) : null}
+          </div>
         </div>
-        <div className="min-w-0">
-          <p className="truncate font-semibold">{row.original.name}</p>
-          {row.original.description ? (
-            <p className="truncate text-sm text-muted-foreground">
-              {row.original.description}
-            </p>
-          ) : null}
-        </div>
-      </div>
+      </DataTableRowLink>
     ),
   },
   {
@@ -95,14 +109,74 @@ const columns: ColumnDef<ReportTemplateRow>[] = [
   {
     id: "actions",
     enableSorting: false,
-    cell: ({ row }) => (
-      <DataTableRowActions>
-        <CloneTemplateButton templateId={row.original.id} />
-        <DeleteTemplateButton templateId={row.original.id} />
-      </DataTableRowActions>
-    ),
+    cell: ({ row }) => <ReportTemplateRowActions template={row.original} />,
   },
 ];
+
+function ReportTemplateRowActions({ template }: { template: ReportTemplateRow }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleClone() {
+    startTransition(async () => {
+      try {
+        const cloned = await cloneReportTemplate(template.id);
+        toast.success("Template cloned");
+        router.push(`/report-templates/${cloned.id}/builder`);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to clone template");
+      }
+    });
+  }
+
+  function handleDelete() {
+    startTransition(async () => {
+      try {
+        await deleteReportTemplate(template.id);
+        toast.success("Template deleted");
+        setOpen(false);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to delete template");
+      }
+    });
+  }
+
+  return (
+    <>
+      <DataTableActionsMenu label={`Open actions for ${template.name}`}>
+        <DropdownMenuItem onClick={() => router.push(`/report-templates/${template.id}/builder`)}>
+          <ExternalLink className="size-4" />
+          Open builder
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleClone} disabled={isPending}>
+          <Copy className="size-4" />
+          Clone template
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setOpen(true)}
+          disabled={isPending}
+          variant="destructive"
+        >
+          <Trash2 className="size-4" />
+          Delete template
+        </DropdownMenuItem>
+      </DataTableActionsMenu>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete template?"
+        description={`Delete "${template.name}". Any campaigns using this template will lose their report config.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={isPending}
+      />
+    </>
+  );
+}
 
 export function ReportTemplatesTable({
   templates,

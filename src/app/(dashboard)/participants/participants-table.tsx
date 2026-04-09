@@ -1,11 +1,19 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
+import { ExternalLink } from "lucide-react";
 
 import type { ParticipantWithMeta } from "@/app/actions/participants";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableActionsMenu,
+  DataTableColumnHeader,
+  DataTableRowLink,
+} from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -83,15 +91,23 @@ const columns: ColumnDef<ParticipantTableRow>[] = [
       <DataTableColumnHeader column={column} title="Participant" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-3">
-        <Avatar className="size-9">
-          <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="truncate font-semibold">{row.original.displayName}</p>
-          <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+      <DataTableRowLink
+        href={`/participants/${row.original.id}`}
+        ariaLabel={`Open ${row.original.displayName}`}
+        className="min-w-0"
+      >
+        <div className="flex items-center gap-3">
+          <Avatar className="size-9">
+            <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">
+              {row.original.displayName}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+          </div>
         </div>
-      </div>
+      </DataTableRowLink>
     ),
   },
   {
@@ -152,7 +168,31 @@ const columns: ColumnDef<ParticipantTableRow>[] = [
         <span className="text-sm text-muted-foreground">—</span>
       ),
   },
+  {
+    id: "actions",
+    enableSorting: false,
+    cell: ({ row }) => <ParticipantRowActions participant={row.original} />,
+  },
 ];
+
+function ParticipantRowActions({ participant }: { participant: ParticipantTableRow }) {
+  const router = useRouter();
+
+  return (
+    <DataTableActionsMenu label={`Open actions for ${participant.displayName}`}>
+      <DropdownMenuItem onClick={() => router.push(`/participants/${participant.id}`)}>
+        <ExternalLink className="size-4" />
+        Open participant
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        onClick={() => router.push(`/campaigns/${participant.campaignId}/overview`)}
+      >
+        <ExternalLink className="size-4" />
+        Open campaign
+      </DropdownMenuItem>
+    </DataTableActionsMenu>
+  );
+}
 
 export function ParticipantsTable({
   participants,

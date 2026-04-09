@@ -1,10 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { ExternalLink, Trash2, Users } from "lucide-react";
+import { toast } from "sonner";
 
+import { deleteCampaign } from "@/app/actions/campaigns";
 import type { CampaignWithMeta } from "@/app/actions/campaigns";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableActionsMenu,
+  DataTableColumnHeader,
+  DataTableRowLink,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 
 const STATUS_VARIANT: Record<
@@ -56,9 +68,15 @@ const columns: ColumnDef<CampaignWithMeta>[] = [
       <DataTableColumnHeader column={column} title="Title" />
     ),
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <p className="truncate font-semibold text-foreground">{row.original.title}</p>
-      </div>
+      <DataTableRowLink
+        href={`/campaigns/${row.original.id}/overview`}
+        ariaLabel={`Open ${row.original.title}`}
+        className="min-w-0"
+      >
+        <p className="truncate font-semibold text-foreground hover:text-primary">
+          {row.original.title}
+        </p>
+      </DataTableRowLink>
     ),
   },
   {
@@ -139,7 +157,68 @@ const columns: ColumnDef<CampaignWithMeta>[] = [
       </span>
     ),
   },
+  {
+    id: "actions",
+    enableSorting: false,
+    cell: ({ row }) => <CampaignRowActions campaign={row.original} />,
+  },
 ];
+
+function CampaignRowActions({ campaign }: { campaign: CampaignWithMeta }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete() {
+    startTransition(async () => {
+      const result = await deleteCampaign(campaign.id);
+      if (result && "error" in result && result.error) {
+        toast.error(
+          typeof result.error === "string" ? result.error : "Failed to delete campaign"
+        );
+        return;
+      }
+
+      toast.success("Campaign deleted");
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <DataTableActionsMenu label={`Open actions for ${campaign.title}`}>
+        <DropdownMenuItem onClick={() => router.push(`/campaigns/${campaign.id}/overview`)}>
+          <ExternalLink className="size-4" />
+          Open campaign
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push(`/campaigns/${campaign.id}/participants`)}>
+          <Users className="size-4" />
+          View participants
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setOpen(true)}
+          disabled={isPending}
+          variant="destructive"
+        >
+          <Trash2 className="size-4" />
+          Delete campaign
+        </DropdownMenuItem>
+      </DataTableActionsMenu>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Delete campaign?"
+        description={`Delete "${campaign.title}". This removes it from the list, but the action can still be undone later.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={isPending}
+      />
+    </>
+  );
+}
 
 const statusFilter = [
   { label: "Draft", value: "draft" },

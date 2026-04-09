@@ -1,10 +1,22 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Archive, ExternalLink, RotateCcw } from "lucide-react";
+import { toast } from "sonner";
 
+import { deleteClient, restoreClient } from "@/app/actions/clients";
 import type { ClientWithCounts } from "@/app/actions/clients";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableActionsMenu,
+  DataTableColumnHeader,
+  DataTableRowLink,
+} from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 type DirectoryClientRow = ClientWithCounts & {
   status: "active" | "inactive" | "archived";
@@ -24,7 +36,15 @@ const columns: ColumnDef<DirectoryClientRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Name" />
     ),
-    cell: ({ row }) => <span className="font-semibold">{row.original.name}</span>,
+    cell: ({ row }) => (
+      <DataTableRowLink
+        href={`/clients/${row.original.slug}/overview`}
+        ariaLabel={`Open ${row.original.name}`}
+        className="font-semibold text-foreground hover:text-primary"
+      >
+        {row.original.name}
+      </DataTableRowLink>
+    ),
   },
   {
     accessorKey: "partnerName",
@@ -90,7 +110,76 @@ const columns: ColumnDef<DirectoryClientRow>[] = [
       </span>
     ),
   },
+  {
+    id: "actions",
+    enableSorting: false,
+    cell: ({ row }) => <ClientDirectoryRowActions client={row.original} />,
+  },
 ];
+
+function ClientDirectoryRowActions({ client }: { client: DirectoryClientRow }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const isArchived = Boolean(client.deletedAt);
+
+  function handleConfirm() {
+    startTransition(async () => {
+      const result = isArchived
+        ? await restoreClient(client.id)
+        : await deleteClient(client.id);
+
+      if (result && "error" in result && result.error) {
+        toast.error(
+          typeof result.error === "string"
+            ? result.error
+            : isArchived
+              ? "Failed to restore client"
+              : "Failed to archive client"
+        );
+        return;
+      }
+
+      toast.success(isArchived ? "Client restored" : "Client archived");
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <DataTableActionsMenu label={`Open actions for ${client.name}`}>
+        <DropdownMenuItem onClick={() => router.push(`/clients/${client.slug}/overview`)}>
+          <ExternalLink className="size-4" />
+          Open client
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setOpen(true)}
+          disabled={isPending}
+          variant={isArchived ? "default" : "destructive"}
+        >
+          {isArchived ? <RotateCcw className="size-4" /> : <Archive className="size-4" />}
+          {isArchived ? "Restore client" : "Archive client"}
+        </DropdownMenuItem>
+      </DataTableActionsMenu>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={isArchived ? "Restore client?" : "Archive client?"}
+        description={
+          isArchived
+            ? `Restore "${client.name}" to the active directory.`
+            : `Archive "${client.name}". You can restore it later from the directory.`
+        }
+        confirmLabel={isArchived ? "Restore" : "Archive"}
+        variant={isArchived ? "default" : "destructive"}
+        onConfirm={handleConfirm}
+        loading={isPending}
+      />
+    </>
+  );
+}
 
 export function ClientDirectoryTable({ clients }: { clients: ClientWithCounts[] }) {
   const rows = clients.map((client) => ({

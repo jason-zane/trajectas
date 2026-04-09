@@ -3,6 +3,8 @@ export * from "./data-table-column-header";
 export * from "./data-table-faceted-filter";
 export * from "./data-table-loading";
 export * from "./data-table-pagination";
+export * from "./data-table-actions-menu";
 export * from "./data-table-row-actions";
+export * from "./data-table-row-link";
 export * from "./data-table-search";
 export * from "./data-table-toolbar";
