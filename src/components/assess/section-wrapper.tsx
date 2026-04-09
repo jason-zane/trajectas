@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProgressBar } from "./progress-bar";
 import { ItemCard } from "./item-card";
-import {
-  saveResponse,
-  updateSessionProgress,
-} from "@/app/actions/assess";
+import { updateSessionProgressLite } from "@/app/actions/assess";
+import { useSaveQueue } from "./use-save-queue";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
 
@@ -48,6 +46,12 @@ const AUTO_ADVANCE_FORMATS = new Set([
 
 /** Formats that need a Continue button (multi-step input). */
 const CONTINUE_FORMATS = new Set(["free_text", "ranking"]);
+
+/** Animation + auto-advance delay. Single source of truth. */
+const ADVANCE_DELAY_MS = 120;
+
+/** Debounce interval for session progress updates. */
+const PROGRESS_DEBOUNCE_MS = 3000;
 
 /**
  * Flatten all sections to get a global item list for navigation.
@@ -90,6 +94,11 @@ export function SectionWrapper({
   void privacyUrl;
   void termsUrl;
 
+  const { enqueueSave, retryFailedSaves, saveStatus, saveError } = useSaveQueue({
+    token,
+    sessionId,
+  });
+
   // Build a flat global item list from all sections
   const globalItems = flattenItems(allSections);
   const totalItems = globalItems.length;
@@ -119,10 +128,46 @@ export function SectionWrapper({
   const [responses, setResponses] = useState(existingResponses);
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
   const [isAnimating, setIsAnimating] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">(
-    "idle"
-  );
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const navLockRef = useRef(false);
+
+  const progressTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const pendingProgressRef = useRef<{ sectionId: string; itemIndex: number } | null>(null);
+
+  function scheduleProgressUpdate(sectionId: string, itemIndex: number) {
+    pendingProgressRef.current = { sectionId, itemIndex };
+    if (!progressTimerRef.current) {
+      progressTimerRef.current = setTimeout(() => {
+        flushProgress();
+        progressTimerRef.current = null;
+      }, PROGRESS_DEBOUNCE_MS);
+    }
+  }
+
+  function flushProgress() {
+    const pending = pendingProgressRef.current;
+    if (!pending) return;
+    pendingProgressRef.current = null;
+    updateSessionProgressLite(token, sessionId, pending);
+  }
+
+  useEffect(() => {
+    const handler = () => {
+      const pending = pendingProgressRef.current;
+      if (!pending) return;
+      pendingProgressRef.current = null;
+      navigator.sendBeacon(
+        "/api/assess/progress",
+        JSON.stringify({ token, sessionId, ...pending }),
+      );
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      flushProgress();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, sessionId]);
 
   const currentItem = section.items[localItemIndex];
   const globalIndex = sectionStartGlobal + localItemIndex;
@@ -149,44 +194,39 @@ export function SectionWrapper({
 
   const navigateToItem = useCallback(
     (newLocalIdx: number, direction: "left" | "right") => {
-      if (isAnimating) return;
+      if (navLockRef.current) return;
+      navLockRef.current = true;
       setSlideDirection(direction);
       setIsAnimating(true);
-      // Brief delay for animation
+
       setTimeout(() => {
         setLocalItemIndex(newLocalIdx);
         setIsAnimating(false);
-      }, 200);
+        navLockRef.current = false;
+      }, ADVANCE_DELAY_MS);
     },
-    [isAnimating]
+    [],
   );
 
-  const goToNextItem = useCallback(async () => {
+  const goToNextItem = useCallback(() => {
     if (localItemIndex < section.items.length - 1) {
-      // Next item in same section
       navigateToItem(localItemIndex + 1, "left");
-      await updateSessionProgress(token, sessionId, {
-        currentSectionId: section.id,
-        currentItemIndex: localItemIndex + 1,
-      });
+      scheduleProgressUpdate(section.id, localItemIndex + 1);
     } else if (sectionIndex < totalSections - 1) {
-      // Next section
-      await updateSessionProgress(token, sessionId, {
-        currentSectionId: undefined,
-        currentItemIndex: 0,
-      });
+      scheduleProgressUpdate(section.id, localItemIndex);
+      flushProgress();
       router.push(`/assess/${token}/section/${sectionIndex + 1}`);
     } else {
-      // End of assessment — go to post-assessment URL (next assessment intro or complete)
+      flushProgress();
       router.push(postAssessmentUrl);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     localItemIndex,
     section.items.length,
     section.id,
     sectionIndex,
     totalSections,
-    sessionId,
     token,
     postAssessmentUrl,
     router,
@@ -202,38 +242,23 @@ export function SectionWrapper({
     }
   }, [localItemIndex, sectionIndex, token, router, navigateToItem]);
 
-  async function handleResponse(
+  function handleResponse(
     itemId: string,
     value: number,
-    data?: Record<string, unknown>
+    data?: Record<string, unknown>,
   ) {
+    // 1. Optimistic local update (instant)
     setResponses((prev) => ({
       ...prev,
       [itemId]: { value, data: data ?? {} },
     }));
 
-    // Zone 1: immediate save with status indicator
-    setSaveStatus("saving");
-    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    // 2. Queue background save (non-blocking)
+    enqueueSave({ itemId, sectionId: section.id, value, data });
 
-    await saveResponse({
-      token,
-      sessionId,
-      itemId,
-      sectionId: section.id,
-      responseValue: value,
-      responseData: data,
-    });
-
-    setSaveStatus("saved");
-    saveTimeoutRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
-
-    // Auto-advance for single-select formats
+    // 3. Auto-advance for single-select formats
     if (shouldAutoAdvance(responseFormatType, value, data)) {
-      // Brief delay so the user sees their selection
-      setTimeout(() => {
-        goToNextItem();
-      }, 350);
+      setTimeout(() => goToNextItem(), ADVANCE_DELAY_MS);
     }
   }
 
@@ -294,6 +319,25 @@ export function SectionWrapper({
           </button>
         )}
       </header>
+
+      {/* Save error banner */}
+      {saveError && (
+        <div
+          className="flex items-center justify-center gap-3 px-4 py-2.5 text-sm"
+          style={{
+            background: "var(--brand-error-surface, hsl(var(--destructive) / 0.1))",
+            color: "var(--brand-error, hsl(var(--destructive)))",
+          }}
+        >
+          <span>Some responses couldn&apos;t be saved. Check your connection.</span>
+          <button
+            onClick={retryFailedSaves}
+            className="rounded-md px-3 py-1 text-xs font-semibold underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Progress bar */}
       {showProgress && <ProgressBar currentIndex={globalIndex} totalItems={totalItems} />}
