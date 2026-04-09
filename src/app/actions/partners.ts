@@ -153,6 +153,10 @@ export async function updatePartner(id: string, formData: FormData) {
     name: formData.get('name') as string,
     slug: formData.get('slug') as string,
     isActive: formData.get('isActive') !== 'false',
+    description: (formData.get('description') as string | null) || null,
+    website: (formData.get('website') as string | null) || null,
+    contactEmail: (formData.get('contactEmail') as string | null) || null,
+    notes: (formData.get('notes') as string | null) || null,
   }
 
   const parsed = partnerSchema.safeParse(raw)
@@ -181,6 +185,10 @@ export async function updatePartner(id: string, formData: FormData) {
       name: parsed.data.name,
       slug: parsed.data.slug,
       is_active: parsed.data.isActive,
+      description: parsed.data.description,
+      website: parsed.data.website,
+      contact_email: parsed.data.contactEmail,
+      notes: parsed.data.notes,
     })
     .eq('id', id)
 

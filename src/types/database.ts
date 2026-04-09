@@ -196,6 +196,14 @@ export interface Partner {
   isActive: boolean
   /** Whether the partner can customise their own brand and control client branding. */
   canCustomizeBranding: boolean
+  /** Optional description of the partner. */
+  description?: string
+  /** Partner website URL. */
+  website?: string
+  /** Primary contact email. */
+  contactEmail?: string
+  /** Internal notes (not visible to partner users). */
+  notes?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
