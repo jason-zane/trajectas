@@ -12,7 +12,6 @@ import {
   Mail,
   Megaphone,
   Timer,
-  ShieldCheck,
   Sparkles,
   Users,
   XCircle,
@@ -158,62 +157,6 @@ function HeaderActions({
   );
 }
 
-function WorkspaceAccessCard({ access }: { access: WorkspaceAccessResult }) {
-  const selectedContext = access.isLocalDevelopmentBypass
-    ? access.previewContext
-    : access.activeContext;
-  const contextHeading = access.isLocalDevelopmentBypass
-    ? "Preview scope"
-    : "Active context";
-  const contextLabel = selectedContext?.tenantType
-    ? `${selectedContext.tenantType}:${selectedContext.tenantId ?? "unknown"}`
-    : access.isLocalDevelopmentBypass
-      ? "Preview all accessible data"
-      : "Global workspace scope";
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ShieldCheck className="size-4" />
-          Workspace scope
-        </CardTitle>
-        <CardDescription>
-          This portal is rendering through the new tenant-aware access layer.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 text-sm text-muted-foreground md:grid-cols-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Actor</p>
-          <p className="mt-1 font-medium text-foreground">
-            {access.actor?.email ?? "Local development bypass"}
-          </p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">{contextHeading}</p>
-          <p className="mt-1 font-medium text-foreground">{contextLabel}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Accessible partners</p>
-          <p className="mt-1 font-medium text-foreground">{access.accessiblePartnerCount}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground/70">Accessible clients</p>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="font-medium text-foreground">{access.accessibleClientCount}</span>
-            {access.hasSupportSession ? (
-              <Badge variant="outline">Support session</Badge>
-            ) : null}
-            {access.isLocalDevelopmentBypass ? (
-              <Badge variant="secondary">Local preview</Badge>
-            ) : null}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function MetricCard({
   label,
   value,
@@ -288,12 +231,10 @@ function formatDuration(start?: string, end?: string) {
 }
 
 async function WorkspaceOverview({
-  access,
   config,
   routePrefix,
   surface,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
   surface: Extract<WorkspaceSurface, "partner" | "client">;
@@ -318,21 +259,20 @@ async function WorkspaceOverview({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {surface === "partner" ? (
           <MetricCard
             label="Assigned clients"
             value={clients.length}
-            description="Accessible through partner scope"
+            description="In your portfolio"
             icon={Building2}
           />
         ) : null}
         <MetricCard
           label="Campaigns"
           value={campaigns.length}
-          description="Currently visible in this portal"
+          description="Active campaigns"
           icon={ClipboardList}
         />
         <MetricCard
@@ -354,7 +294,7 @@ async function WorkspaceOverview({
           <Card>
             <CardHeader>
               <CardTitle>Client portfolio</CardTitle>
-              <CardDescription>Client scope available through the current partner context.</CardDescription>
+              <CardDescription>Your assigned clients.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {clients.slice(0, 6).map((client) => (
@@ -372,23 +312,18 @@ async function WorkspaceOverview({
                 </div>
               ))}
               {clients.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No clients are accessible in the current scope yet.</p>
+                <p className="text-sm text-muted-foreground">No clients available yet.</p>
               ) : null}
             </CardContent>
           </Card>
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Client boundary</CardTitle>
-              <CardDescription>This portal stays inside the currently accessible client scope.</CardDescription>
+              <CardTitle>Your workspace</CardTitle>
+              <CardDescription>Your organisation&apos;s campaigns and diagnostics.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm text-muted-foreground">
-              <p>
-                The client surface now resolves campaigns, diagnostics, and reporting through the same
-                membership-based access layer as the rest of the platform.
-              </p>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{access.accessibleClientCount} accessible client scope(s)</Badge>
                 <Badge variant="outline">{campaigns.length} campaigns</Badge>
                 <Badge variant="outline">{diagnostics.length} diagnostic sessions</Badge>
               </div>
@@ -399,7 +334,7 @@ async function WorkspaceOverview({
         <Card>
           <CardHeader>
             <CardTitle>Recent campaign activity</CardTitle>
-            <CardDescription>Newest visible campaigns across the active workspace scope.</CardDescription>
+            <CardDescription>Most recent campaigns.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {campaigns.slice(0, 6).map((campaign) => (
@@ -423,7 +358,7 @@ async function WorkspaceOverview({
               </div>
             ))}
             {campaigns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No campaigns are visible in this workspace yet.</p>
+              <p className="text-sm text-muted-foreground">No campaigns available yet.</p>
             ) : null}
           </CardContent>
         </Card>
@@ -433,11 +368,9 @@ async function WorkspaceOverview({
 }
 
 async function WorkspaceClientsPage({
-  access,
   config,
   routePrefix,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
 }) {
@@ -449,18 +382,17 @@ async function WorkspaceClientsPage({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <Card>
         <CardHeader>
-          <CardTitle>Accessible clients</CardTitle>
-          <CardDescription>Only clients granted through partner scope are listed here.</CardDescription>
+          <CardTitle>Clients</CardTitle>
+          <CardDescription>Clients in your portfolio.</CardDescription>
         </CardHeader>
         <CardContent>
           {clients.length === 0 ? (
             <EmptyState
               title="No clients available"
-              description="Partner memberships are wired, but there are no accessible clients in the current context yet."
+              description="No clients available yet."
             />
           ) : (
             <Table>
@@ -504,11 +436,9 @@ async function WorkspaceClientsPage({
 }
 
 async function WorkspaceCampaignsPage({
-  access,
   config,
   routePrefix,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
 }) {
@@ -520,18 +450,17 @@ async function WorkspaceCampaignsPage({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <Card>
         <CardHeader>
-          <CardTitle>Campaigns in scope</CardTitle>
-          <CardDescription>Campaign visibility is enforced through client and partner memberships.</CardDescription>
+          <CardTitle>Campaigns</CardTitle>
+          <CardDescription>Active campaigns across your portfolio.</CardDescription>
         </CardHeader>
         <CardContent>
           {campaigns.length === 0 ? (
             <EmptyState
               title="No campaigns available"
-              description="There are no visible campaigns in the current workspace scope yet."
+              description="No campaigns available yet."
             />
           ) : (
             <Table>
@@ -596,7 +525,7 @@ async function WorkspaceCampaignDetailPage({
   if (!campaign) {
     return (
       <div className="space-y-8">
-        <PageHeader eyebrow={config.eyebrow} title="Campaign detail" description="Campaign scope is enforced through the same tenant-aware access layer.">
+        <PageHeader eyebrow={config.eyebrow} title="Campaign detail" description="Campaign not found.">
           <Link
             href={applyRoutePrefix(routePrefix, "/campaigns")}
             className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
@@ -605,10 +534,9 @@ async function WorkspaceCampaignDetailPage({
             Back to campaigns
           </Link>
         </PageHeader>
-        <WorkspaceAccessCard access={access} />
         <EmptyState
           title="Campaign not available"
-          description="This campaign is either outside the current workspace scope or no longer exists."
+          description="This campaign could not be found."
         />
       </div>
     );
@@ -619,7 +547,7 @@ async function WorkspaceCampaignDetailPage({
       <PageHeader
         eyebrow={config.eyebrow}
         title={campaign.title}
-        description={campaign.description || "Campaign detail is scoped through client and partner memberships."}
+        description={campaign.description || ""}
       >
         <div className="flex flex-wrap gap-3">
           <Link
@@ -638,7 +566,6 @@ async function WorkspaceCampaignDetailPage({
         </div>
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard
@@ -656,7 +583,7 @@ async function WorkspaceCampaignDetailPage({
         <MetricCard
           label="Participants"
           value={campaign.participants.length}
-          description="Currently visible in this scope"
+          description="In this campaign"
           icon={Users}
         />
         <MetricCard
@@ -703,12 +630,12 @@ async function WorkspaceCampaignDetailPage({
           <CardHeader>
             <CardTitle>Participants</CardTitle>
             <CardDescription>
-              Participant visibility is scoped through the same campaign access boundary.
+              Participants in this campaign.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {campaign.participants.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No participants are visible for this campaign yet.</p>
+              <p className="text-sm text-muted-foreground">No participants yet.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -809,7 +736,7 @@ async function WorkspaceParticipantDetailPage({
   if (!participant || participant.campaignId !== campaignId) {
     return (
       <div className="space-y-8">
-        <PageHeader eyebrow={config.eyebrow} title="Participant detail" description="Participant access remains campaign-scoped and token-separated from the runtime.">
+        <PageHeader eyebrow={config.eyebrow} title="Participant detail" description="Participant not found.">
           <Link
             href={applyRoutePrefix(routePrefix, `/campaigns/${campaignId}`)}
             className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
@@ -818,10 +745,9 @@ async function WorkspaceParticipantDetailPage({
             Back to campaign
           </Link>
         </PageHeader>
-        <WorkspaceAccessCard access={access} />
         <EmptyState
           title="Participant not available"
-          description="This participant is either outside the current workspace scope or no longer exists."
+          description="This participant could not be found."
         />
       </div>
     );
@@ -839,7 +765,7 @@ async function WorkspaceParticipantDetailPage({
       <PageHeader
         eyebrow={config.eyebrow}
         title={displayName}
-        description="Participant detail is visible here because it belongs to the active campaign and workspace scope."
+        description={participant.campaignTitle ?? ""}
       >
         <div className="flex flex-wrap gap-3">
           <Link
@@ -870,7 +796,6 @@ async function WorkspaceParticipantDetailPage({
         </div>
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard
@@ -942,7 +867,7 @@ async function WorkspaceParticipantDetailPage({
           <CardHeader>
             <CardTitle>Assessment sessions</CardTitle>
             <CardDescription>
-              Session visibility stays bounded to the participant and campaign you are authorised to view.
+              Assessment sessions for this participant.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -1018,11 +943,9 @@ async function WorkspaceParticipantDetailPage({
 }
 
 async function WorkspaceAssessmentsPage({
-  access,
   config,
   routePrefix,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
 }) {
@@ -1039,25 +962,24 @@ async function WorkspaceAssessmentsPage({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
-          label="Assessments in scope"
+          label="Assessments"
           value={assessments.length}
-          description="Visible through the current workspace boundary"
+          description="In your library"
           icon={ClipboardList}
         />
         <MetricCard
           label="Active"
           value={activeAssessments}
-          description="Currently deployable assessments"
+          description="Deployable assessments"
           icon={Sparkles}
         />
         <MetricCard
           label="Campaign deployments"
           value={deployedCampaigns}
-          description={`${clientScopeCount} client scope(s) currently using them`}
+          description={`Across ${clientScopeCount} client(s)`}
           icon={Building2}
         />
       </div>
@@ -1066,21 +988,21 @@ async function WorkspaceAssessmentsPage({
         <CardHeader>
           <CardTitle>Assessments currently in use</CardTitle>
           <CardDescription>
-            This view shows campaign-linked assessments available inside the current client boundary.
+            Assessments deployed across your campaigns.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {assessments.length === 0 ? (
             <EmptyState
               title="No assessments visible yet"
-              description="No assessments are currently deployed inside this workspace scope."
+              description="No assessments deployed yet."
             />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Assessment</TableHead>
-                  <TableHead>Client scope</TableHead>
+                  <TableHead>Clients</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Campaigns</TableHead>
                   <TableHead>Participants</TableHead>
@@ -1133,11 +1055,9 @@ async function WorkspaceAssessmentsPage({
 }
 
 async function WorkspaceDiagnosticsPage({
-  access,
   config,
   routePrefix,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
 }) {
@@ -1152,13 +1072,12 @@ async function WorkspaceDiagnosticsPage({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           label="Diagnostic sessions"
           value={diagnostics.length}
-          description="Visible inside the current scope"
+          description="Across your portfolio"
           icon={Layers}
         />
         <MetricCard
@@ -1178,13 +1097,13 @@ async function WorkspaceDiagnosticsPage({
       <Card>
         <CardHeader>
           <CardTitle>Diagnostic sessions</CardTitle>
-          <CardDescription>These sessions are now filtered through the authorised client boundary.</CardDescription>
+          <CardDescription>Diagnostic sessions for your assigned clients.</CardDescription>
         </CardHeader>
         <CardContent>
           {diagnostics.length === 0 ? (
             <EmptyState
               title="No diagnostic sessions available"
-              description="No diagnostics are visible in this scope yet."
+              description="No diagnostic sessions yet."
             />
           ) : (
             <Table>
@@ -1230,14 +1149,12 @@ async function WorkspaceDiagnosticsPage({
 }
 
 async function WorkspaceDiagnosticDetailPage({
-  access,
   config,
   routePrefix,
   sessionId,
   surface,
   resultsMode = false,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
   sessionId: string;
@@ -1257,7 +1174,7 @@ async function WorkspaceDiagnosticDetailPage({
         <PageHeader
           eyebrow={config.eyebrow}
           title="Diagnostic session detail"
-          description="Diagnostic visibility remains scoped through the active client boundary."
+          description="Session not found."
         >
           <Link
             href={applyRoutePrefix(routePrefix, backHref)}
@@ -1267,10 +1184,9 @@ async function WorkspaceDiagnosticDetailPage({
             Back
           </Link>
         </PageHeader>
-        <WorkspaceAccessCard access={access} />
         <EmptyState
           title="Diagnostic session not available"
-          description="This diagnostic session is either outside the current workspace scope or no longer exists."
+          description="This diagnostic session could not be found."
         />
       </div>
     );
@@ -1313,13 +1229,12 @@ async function WorkspaceDiagnosticDetailPage({
         </div>
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 md:grid-cols-4">
         <MetricCard
           label="Respondents"
           value={respondents.length}
-          description="Visible in the current workspace scope"
+          description="In this session"
           icon={Users}
         />
         <MetricCard
@@ -1347,7 +1262,7 @@ async function WorkspaceDiagnosticDetailPage({
           <CardHeader>
             <CardTitle>Session overview</CardTitle>
             <CardDescription>
-              This diagnostic session is rendered through the same tenant-aware access layer as the rest of the portal.
+              Session details and configuration.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
@@ -1408,13 +1323,13 @@ async function WorkspaceDiagnosticDetailPage({
           <CardHeader>
             <CardTitle>Respondents</CardTitle>
             <CardDescription>
-              Respondent visibility remains inside the authorised client boundary for this session.
+              Respondents in this session.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {respondents.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No respondents are visible for this diagnostic session yet.
+                No respondents yet.
               </p>
             ) : (
               <Table>
@@ -1507,20 +1422,19 @@ async function WorkspaceResultsPage({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       {!diagnosticsOnly ? (
         <div className="grid gap-4 xl:grid-cols-[1fr_1.05fr]">
           <Card>
             <CardHeader>
-              <CardTitle>Assessment results in scope</CardTitle>
-              <CardDescription>Campaigns with at least one completed participant in the visible workspace.</CardDescription>
+              <CardTitle>Assessment results</CardTitle>
+              <CardDescription>Campaigns with completed participants.</CardDescription>
             </CardHeader>
             <CardContent>
               {campaignsWithResults.length === 0 ? (
                 <EmptyState
                   title="No assessment results yet"
-                  description="Visible campaigns do not have completed participant results yet."
+                  description="No completed participants yet."
                 />
               ) : (
                 <div className="space-y-3">
@@ -1551,19 +1465,16 @@ async function WorkspaceResultsPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Participant reports in scope</CardTitle>
+              <CardTitle>Participant reports</CardTitle>
               <CardDescription>
-                Completed participants can be launched into the runtime report through an audited, tenant-scoped handoff.
-                {access.canExportReports
-                  ? " Export remains a separate audited action."
-                  : " Export actions remain hidden until you are in an admin-level workspace context."}
+                Completed participants with available reports.
               </CardDescription>
             </CardHeader>
             <CardContent>
               {completedParticipants.data.length === 0 ? (
                 <EmptyState
                   title="No participant reports yet"
-                  description="Completed participant reports will appear here once assessments finish inside the current scope."
+                  description="No participant reports yet."
                 />
               ) : (
                 <div className="space-y-3">
@@ -1629,7 +1540,7 @@ async function WorkspaceResultsPage({
             {completedDiagnostics.length === 0 ? (
               <EmptyState
                 title="No diagnostic results yet"
-                description="There are no completed diagnostic sessions in the current scope yet."
+                description="No completed diagnostic sessions yet."
               />
             ) : (
               <div className="space-y-3">
@@ -1663,11 +1574,9 @@ async function WorkspaceResultsPage({
 }
 
 async function WorkspaceMatchingPage({
-  access,
   config,
   routePrefix,
 }: {
-  access: WorkspaceAccessResult;
   config: WorkspacePortalPageConfig;
   routePrefix: string;
 }) {
@@ -1682,13 +1591,12 @@ async function WorkspaceMatchingPage({
         <HeaderActions config={config} routePrefix={routePrefix} />
       </PageHeader>
 
-      <WorkspaceAccessCard access={access} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           label="Matching runs"
           value={runs.length}
-          description="Visible inside the current workspace scope"
+          description="Across your portfolio"
           icon={Sparkles}
         />
         <MetricCard
@@ -1709,14 +1617,14 @@ async function WorkspaceMatchingPage({
         <CardHeader>
           <CardTitle>Matching outputs</CardTitle>
           <CardDescription>
-            Partners can consume published matching recommendations without accessing engine controls.
+            Published matching recommendations.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {runs.length === 0 ? (
             <EmptyState
               title="No matching outputs available"
-              description="No matching runs are visible inside the current partner scope yet."
+              description="No matching outputs yet."
             />
           ) : (
             <Table>
@@ -1822,7 +1730,6 @@ export async function WorkspacePortalLivePage({
   if (supportedKey === "diagnostics" && segments.length === 2) {
     return (
       <WorkspaceDiagnosticDetailPage
-        access={access}
         config={config}
         routePrefix={routePrefix}
         sessionId={segments[1]}
@@ -1835,7 +1742,6 @@ export async function WorkspacePortalLivePage({
     case "":
       return (
         <WorkspaceOverview
-          access={access}
           config={config}
           routePrefix={routePrefix}
           surface={surface}
@@ -1845,7 +1751,6 @@ export async function WorkspacePortalLivePage({
       if (surface === "partner") {
         return (
           <WorkspaceClientsPage
-            access={access}
             config={config}
             routePrefix={routePrefix}
           />
@@ -1855,7 +1760,6 @@ export async function WorkspacePortalLivePage({
     case "campaigns":
       return (
         <WorkspaceCampaignsPage
-          access={access}
           config={config}
           routePrefix={routePrefix}
         />
@@ -1863,7 +1767,6 @@ export async function WorkspacePortalLivePage({
     case "assessments":
       return (
         <WorkspaceAssessmentsPage
-          access={access}
           config={config}
           routePrefix={routePrefix}
         />
@@ -1871,7 +1774,6 @@ export async function WorkspacePortalLivePage({
     case "diagnostics":
       return (
         <WorkspaceDiagnosticsPage
-          access={access}
           config={config}
           routePrefix={routePrefix}
         />
@@ -1889,7 +1791,6 @@ export async function WorkspacePortalLivePage({
       if (surface === "partner") {
         return (
           <WorkspaceMatchingPage
-            access={access}
             config={config}
             routePrefix={routePrefix}
           />
