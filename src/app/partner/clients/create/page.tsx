@@ -23,6 +23,7 @@ export default async function PartnerCreateClientPage() {
       canAssignPartner={false}
       fixedPartnerId={partnerId}
       fixedPartnerName={partner?.name ?? null}
+      redirectPath="/partner/clients"
     />
   );
 }

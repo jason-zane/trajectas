@@ -137,7 +137,7 @@ export function CampaignForm({
 
     if (mode === "create") {
       toast.success("Campaign created")
-      router.replace(`${routePrefix}/campaigns/${result.id}/overview`)
+      router.replace(`${routePrefix}/campaigns/${result.id}`)
     } else {
       toast.success("Campaign saved")
       setSaveState("saved")

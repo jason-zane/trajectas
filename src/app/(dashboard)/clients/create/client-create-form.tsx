@@ -39,11 +39,13 @@ export function ClientCreateForm({
   canAssignPartner,
   fixedPartnerId = null,
   fixedPartnerName = null,
+  redirectPath = "/directory?tab=clients",
 }: {
   partnerOptions: Array<{ id: string; name: string }>;
   canAssignPartner: boolean;
   fixedPartnerId?: string | null;
   fixedPartnerName?: string | null;
+  redirectPath?: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -104,7 +106,7 @@ export function ClientCreateForm({
     }
 
     if (result && "success" in result) {
-      router.push("/directory?tab=clients");
+      router.push(redirectPath);
     }
   }
 

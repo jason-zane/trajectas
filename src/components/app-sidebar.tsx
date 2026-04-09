@@ -252,9 +252,7 @@ export function AppSidebar() {
               href={
                 portal === "admin"
                   ? href("/")
-                  : portal === "client"
-                    ? href("/dashboard")
-                    : href("/")
+                  : href("/dashboard")
               }
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
             >

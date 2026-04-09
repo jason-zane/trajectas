@@ -558,10 +558,10 @@ async function WorkspaceCampaignDetailPage({
             Back to campaigns
           </Link>
           <Link
-            href={applyRoutePrefix(routePrefix, "/results")}
+            href={applyRoutePrefix(routePrefix, "/participants")}
             className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
-            View results
+            View participants
           </Link>
         </div>
       </PageHeader>
