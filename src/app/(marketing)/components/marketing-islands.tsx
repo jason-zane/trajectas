@@ -20,7 +20,6 @@ export function MarketingInteractive() {
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    const isMobile = window.innerWidth < 768;
     if (prefersReduced) return;
 
     function applyPosition(x: number, y: number) {
@@ -81,32 +80,24 @@ export function MarketingInteractive() {
       passive: true,
     });
 
-    if (!isMobile) {
-      if ("requestIdleCallback" in window) {
-        const idleId = window.requestIdleCallback(() => setShowParticles(true));
-
-        return () => {
-          window.removeEventListener("mousemove", handleMouseMove);
-          window.removeEventListener("touchmove", handleTouchMove);
-          window.removeEventListener("deviceorientation", handleDeviceOrientation);
-          window.cancelIdleCallback(idleId);
-        };
-      }
-
-      const timer = globalThis.setTimeout(() => setShowParticles(true), 200);
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(() => setShowParticles(true));
 
       return () => {
         window.removeEventListener("mousemove", handleMouseMove);
         window.removeEventListener("touchmove", handleTouchMove);
         window.removeEventListener("deviceorientation", handleDeviceOrientation);
-        globalThis.clearTimeout(timer);
+        window.cancelIdleCallback(idleId);
       };
     }
+
+    const timer = globalThis.setTimeout(() => setShowParticles(true), 200);
 
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("touchmove", handleTouchMove);
       window.removeEventListener("deviceorientation", handleDeviceOrientation);
+      globalThis.clearTimeout(timer);
     };
   }, []);
 
