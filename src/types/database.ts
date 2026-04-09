@@ -1869,3 +1869,14 @@ export interface PartnerAssessmentAssignmentWithUsage extends PartnerAssessmentA
   assessmentName: string
   quotaUsed: number
 }
+
+export interface PartnerTaxonomyAssignment {
+  id: string
+  partnerId: string
+  entityType: 'dimension' | 'factor' | 'construct'
+  entityId: string
+  isActive: boolean
+  assignedBy: string
+  created_at: string
+  updated_at: string
+}
