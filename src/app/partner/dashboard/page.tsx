@@ -16,32 +16,38 @@ import { TiltCard } from "@/components/tilt-card";
 import { getClients } from "@/app/actions/clients";
 import { getCampaigns } from "@/app/actions/campaigns";
 
-const glowColor = "var(--muted-foreground)";
-
 const quickActions = [
   {
     title: "View Clients",
     href: "/partner/clients",
     icon: Building2,
     description: "Browse your client portfolio",
+    bgClass: "bg-primary/10",
+    iconClass: "text-primary",
   },
   {
     title: "Review Campaigns",
     href: "/partner/campaigns",
     icon: Megaphone,
     description: "Monitor campaign progress",
+    bgClass: "bg-brand/10",
+    iconClass: "text-brand",
   },
   {
     title: "View Participants",
     href: "/partner/participants",
     icon: Users,
     description: "Track participant outcomes",
+    bgClass: "bg-accent",
+    iconClass: "text-accent-foreground",
   },
   {
     title: "View Assessments",
     href: "/partner/assessments",
     icon: ClipboardList,
     description: "Browse deployed assessments",
+    bgClass: "bg-muted",
+    iconClass: "text-muted-foreground",
   },
 ];
 
@@ -97,6 +103,10 @@ export default async function PartnerDashboardPage() {
       value: clients.length,
       icon: Building2,
       href: "/partner/clients",
+      bgClass: "bg-primary/10",
+      iconClass: "text-primary",
+      accentClass: "bg-primary/50",
+      glowColor: "var(--primary)",
     },
     {
       key: "campaigns",
@@ -104,6 +114,10 @@ export default async function PartnerDashboardPage() {
       value: campaigns.length,
       icon: Megaphone,
       href: "/partner/campaigns",
+      bgClass: "bg-brand/10",
+      iconClass: "text-brand",
+      accentClass: "bg-brand/50",
+      glowColor: "var(--brand)",
     },
     {
       key: "participants",
@@ -111,6 +125,10 @@ export default async function PartnerDashboardPage() {
       value: participantCount,
       icon: Users,
       href: "/partner/participants",
+      bgClass: "bg-accent",
+      iconClass: "text-accent-foreground",
+      accentClass: "bg-accent-foreground/30",
+      glowColor: "var(--accent-foreground)",
     },
     {
       key: "completed",
@@ -118,6 +136,10 @@ export default async function PartnerDashboardPage() {
       value: completedCount,
       icon: CheckCircle2,
       href: "/partner/participants",
+      bgClass: "bg-muted",
+      iconClass: "text-muted-foreground",
+      accentClass: "bg-muted-foreground/30",
+      glowColor: "var(--muted-foreground)",
     },
   ];
 
@@ -155,24 +177,24 @@ export default async function PartnerDashboardPage() {
                           value={stat.value}
                           className="text-3xl font-bold tabular-nums"
                         />
-                        <MiniBars color={glowColor} />
+                        <MiniBars color={stat.glowColor} />
                         <p className="text-caption text-muted-foreground mt-1">
                           {stat.title}
                         </p>
                       </div>
                       <div
-                        className="flex size-10 items-center justify-center rounded-xl bg-muted transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
+                        className={`flex size-10 items-center justify-center rounded-xl ${stat.bgClass} transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]`}
                         style={
                           {
-                            "--glow-color": glowColor,
+                            "--glow-color": stat.glowColor,
                           } as React.CSSProperties
                         }
                       >
-                        <stat.icon className="size-5 text-muted-foreground" />
+                        <stat.icon className={`size-5 ${stat.iconClass}`} />
                       </div>
                     </div>
                   </CardContent>
-                  <div className="h-[2px] bg-muted-foreground/30 opacity-50" />
+                  <div className={`h-[2px] ${stat.accentClass} opacity-50`} />
                 </Card>
               </Link>
             </TiltCard>
@@ -193,8 +215,8 @@ export default async function PartnerDashboardPage() {
                   <Card variant="interactive">
                     <CardContent className="py-4 px-5">
                       <div className="flex items-center gap-4">
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-muted transition-colors">
-                          <action.icon className="size-5 text-muted-foreground" />
+                        <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${action.bgClass} transition-colors`}>
+                          <action.icon className={`size-5 ${action.iconClass}`} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium">{action.title}</p>
