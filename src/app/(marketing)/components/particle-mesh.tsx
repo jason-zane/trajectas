@@ -75,8 +75,8 @@ export function ParticleMesh({
     const particles: Particle[] = [];
     for (let i = 0; i < config.count; i++) {
       particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
+        x: Math.pow(Math.random(), 0.65) * width,
+        y: (1 - Math.pow(Math.random(), 0.85)) * height,
         vx: (Math.random() - 0.5) * config.speed,
         vy: (Math.random() - 0.5) * config.speed,
         radius:
