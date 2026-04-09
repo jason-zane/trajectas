@@ -8,6 +8,7 @@ import type { Client } from "@/types/database";
 
 const tabs = [
   { label: "Overview", segment: "overview" },
+  { label: "Details", segment: "details" },
   { label: "Assessments", segment: "assessments" },
   { label: "Reports", segment: "reports" },
   { label: "Users", segment: "users" },
@@ -27,7 +28,7 @@ export function ClientDetailShell({
     tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-6xl">
       <PageHeader
         eyebrow="Clients"
         title={client.name}

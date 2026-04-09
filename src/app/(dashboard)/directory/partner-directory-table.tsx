@@ -38,7 +38,7 @@ const columns: ColumnDef<DirectoryPartnerRow>[] = [
     ),
     cell: ({ row }) => (
       <DataTableRowLink
-        href={`/partners/${row.original.slug}/edit`}
+        href={`/partners/${row.original.slug}/overview`}
         ariaLabel={`Open ${row.original.name}`}
         className="font-semibold text-foreground hover:text-primary"
       >
@@ -116,7 +116,7 @@ function PartnerDirectoryRowActions({ partner }: { partner: DirectoryPartnerRow 
   return (
     <>
       <DataTableActionsMenu label={`Open actions for ${partner.name}`}>
-        <DropdownMenuItem onClick={() => router.push(`/partners/${partner.slug}/edit`)}>
+        <DropdownMenuItem onClick={() => router.push(`/partners/${partner.slug}/overview`)}>
           <ExternalLink className="size-4" />
           Open partner
         </DropdownMenuItem>
@@ -176,7 +176,7 @@ export function PartnerDirectoryTable({
         },
       ]}
       defaultSort={{ id: "name", desc: false }}
-      rowHref={(row) => `/partners/${row.slug}/edit`}
+      rowHref={(row) => `/partners/${row.slug}/overview`}
       pageSize={20}
     />
   );
