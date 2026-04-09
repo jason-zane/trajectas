@@ -9,53 +9,44 @@ export function AuthConfirmClient() {
   const [status, setStatus] = useState<'processing' | 'error'>('processing')
 
   useEffect(() => {
-    const hash = window.location.hash.slice(1)
-    const params = new URLSearchParams(hash)
-
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-    const errorCode = params.get('error')
-
-    if (errorCode) {
-      const description = params.get('error_description') ?? errorCode
-      setStatus('error')
-      window.location.replace(`/login?error=${encodeURIComponent(description)}`)
-      return
-    }
-
-    if (!accessToken || !refreshToken) {
-      setStatus('error')
-      window.location.replace('/login?error=missing_code')
-      return
-    }
-
+    // The @supabase/ssr browser client has detectSessionInUrl enabled by
+    // default. When created on a page whose URL contains #access_token=...,
+    // it automatically processes the hash, sets the session in cookies, and
+    // fires onAuthStateChange. We just need to wait for that event.
     const supabase = createBrowserSupabaseClient()
-    supabase.auth
-      .setSession({ access_token: accessToken, refresh_token: refreshToken })
-      .then(({ error }) => {
-        if (error) {
-          setStatus('error')
-          window.location.replace('/login?error=callback_failed')
-          return
-        }
+    let settled = false
 
-        // Full browser navigation — Next.js client-side router.replace() does a
-        // fetch-based navigation that doesn't properly propagate Set-Cookie headers
-        // through server-side redirects, losing the session before the dashboard sees it.
-        const next = searchParams.get('next') ?? ''
-        const invite = searchParams.get('invite') ?? ''
-        const callbackParams = new URLSearchParams()
-        if (invite) callbackParams.set('invite', invite)
-        if (next && next.startsWith('/') && !next.startsWith('//')) {
-          callbackParams.set('next', next)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event) => {
+        if (settled) return
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          settled = true
+          const next = searchParams.get('next') ?? ''
+          const invite = searchParams.get('invite') ?? ''
+          const callbackParams = new URLSearchParams()
+          if (invite) callbackParams.set('invite', invite)
+          if (next && next.startsWith('/') && !next.startsWith('//')) {
+            callbackParams.set('next', next)
+          }
+          const query = callbackParams.toString()
+          window.location.replace(query ? `/auth/callback?${query}` : '/auth/callback')
         }
-        const callbackQuery = callbackParams.toString()
-        window.location.replace(callbackQuery ? `/auth/callback?${callbackQuery}` : '/auth/callback')
-      })
-      .catch(() => {
-        setStatus('error')
-        window.location.replace('/login?error=callback_failed')
-      })
+      },
+    )
+
+    // Fallback: if no auth event fires within 10 seconds, redirect to login.
+    const timeout = setTimeout(() => {
+      if (settled) return
+      settled = true
+      setStatus('error')
+      window.location.replace('/login?error=callback_failed')
+    }, 10_000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [searchParams])
 
   if (status === 'error') return null
