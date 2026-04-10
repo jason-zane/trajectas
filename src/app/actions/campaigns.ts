@@ -1093,14 +1093,28 @@ export async function bulkInviteParticipants(
     },
   })
 
-  // Best-effort: send invite emails for all newly created participants
+  // Best-effort: send invite emails for all newly created participants with
+  // bounded concurrency. Previously this ran sequentially (one SMTP call at
+  // a time), which made bulk imports of 50-100 participants feel frozen for
+  // 10-20 seconds. Chunked Promise.all keeps the SMTP provider from being
+  // overwhelmed while dropping wall-clock time ~5x.
   if (data && data.length > 0) {
-    for (const row of data) {
-      try {
-        await sendParticipantInviteEmail(campaignId, row.id)
-      } catch (emailErr) {
-        console.warn('[bulkInviteParticipants] Email send failed for', row.id, emailErr)
-      }
+    const EMAIL_CONCURRENCY = 5
+    for (let i = 0; i < data.length; i += EMAIL_CONCURRENCY) {
+      const chunk = data.slice(i, i + EMAIL_CONCURRENCY)
+      await Promise.all(
+        chunk.map(async (row) => {
+          try {
+            await sendParticipantInviteEmail(campaignId, row.id)
+          } catch (emailErr) {
+            console.warn(
+              '[bulkInviteParticipants] Email send failed for',
+              row.id,
+              emailErr
+            )
+          }
+        })
+      )
     }
   }
 
