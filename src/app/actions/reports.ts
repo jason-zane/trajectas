@@ -761,3 +761,119 @@ export async function getEntityOptions(): Promise<EntityOption[]> {
   ]
   return options.sort((a, b) => a.label.localeCompare(b.label))
 }
+
+// ---------------------------------------------------------------------------
+// On-Demand Report Generation
+// ---------------------------------------------------------------------------
+
+export type ReportTemplateOption = {
+  id: string
+  name: string
+  description?: string
+}
+
+export async function getActiveReportTemplates(): Promise<ReportTemplateOption[]> {
+  const db = await createClient()
+  const { data, error } = await db
+    .from('report_templates')
+    .select('id, name, description')
+    .is('deleted_at', null)
+    .order('name', { ascending: true })
+
+  if (error) {
+    throwActionError('getActiveReportTemplates', 'Unable to load templates.', error)
+  }
+
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    name: String(r.name),
+    description: r.description ? String(r.description) : undefined,
+  }))
+}
+
+export async function generateReportSnapshot(input: {
+  sessionId: string
+  templateId: string
+  audienceType: 'participant' | 'hr_manager' | 'consultant'
+  narrativeMode?: 'ai_enhanced' | 'derived'
+}): Promise<{ success: true; snapshotId: string } | { error: string }> {
+  const { sessionId, templateId, audienceType, narrativeMode = 'derived' } = input
+
+  try {
+    const scope = await resolveAuthorizedScope()
+    if (!scope.isPlatformAdmin && !scope.isLocalDevelopmentBypass) {
+      const db = await createClient()
+      const { data: sessionRow } = await db
+        .from('participant_sessions')
+        .select('id, campaign_participants(campaigns(client_id))')
+        .eq('id', sessionId)
+        .single()
+
+      const cp = (sessionRow as any)?.campaign_participants
+      const campaign = Array.isArray(cp) ? cp[0]?.campaigns : cp?.campaigns
+      const clientId = (Array.isArray(campaign) ? campaign[0]?.client_id : campaign?.client_id) as string | undefined
+
+      if (!clientId || !scope.clientIds.includes(clientId)) {
+        return { error: 'Not authorized to generate reports for this session.' }
+      }
+    }
+  } catch (err) {
+    logActionError('generateReportSnapshot.auth', err)
+    return { error: 'Authorization check failed.' }
+  }
+
+  const adminDb = createAdminClient()
+
+  const { data: sessionData, error: sessionErr } = await adminDb
+    .from('participant_sessions')
+    .select('id, campaign_participants(campaign_id)')
+    .eq('id', sessionId)
+    .single()
+
+  if (sessionErr || !sessionData) {
+    logActionError('generateReportSnapshot.session', sessionErr)
+    return { error: 'Session not found.' }
+  }
+
+  const cp = (sessionData as any).campaign_participants
+  const campaignId = (Array.isArray(cp) ? cp[0]?.campaign_id : cp?.campaign_id) as string | undefined
+
+  if (!campaignId) {
+    return { error: 'Session is not linked to a campaign.' }
+  }
+
+  const { data: snapshotRow, error: insertErr } = await adminDb
+    .from('report_snapshots')
+    .insert({
+      campaign_id: campaignId,
+      participant_session_id: sessionId,
+      template_id: templateId,
+      audience_type: audienceType,
+      narrative_mode: narrativeMode,
+      status: 'pending',
+    })
+    .select('id')
+    .single()
+
+  if (insertErr || !snapshotRow) {
+    logActionError('generateReportSnapshot.insert', insertErr)
+    return { error: 'Failed to create snapshot.' }
+  }
+
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
+      },
+      body: JSON.stringify({ snapshotId: snapshotRow.id }),
+    })
+  } catch (fetchErr) {
+    logActionError('generateReportSnapshot.fetch', fetchErr)
+  }
+
+  revalidatePath('/participants')
+
+  return { success: true, snapshotId: String(snapshotRow.id) }
+}
