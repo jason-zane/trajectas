@@ -23,7 +23,7 @@ export default async function ClientReportViewerPage({ params }: Props) {
     <div className="max-w-3xl mx-auto space-y-6 pb-16 p-6">
       {snapshot.pdfUrl && (
         <div className="flex justify-end">
-          <a href={snapshot.pdfUrl} download>
+          <a href={`/api/reports/${snapshotId}/pdf`} download>
             <Button variant="outline">
               <Download className="size-4" />
               Download PDF

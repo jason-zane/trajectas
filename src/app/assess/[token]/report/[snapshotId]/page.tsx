@@ -19,11 +19,9 @@ export default async function ParticipantReportPage({ params }: Props) {
 
   const blocks = (snapshot.renderedData ?? []) as ResolvedBlockData[]
 
-  // Build PDF download URL — use the API endpoint with participant token
-  // so that PDFs are generated on-demand if they don't exist yet
-  const pdfDownloadUrl = snapshot.pdfUrl
-    ? snapshot.pdfUrl
-    : `/api/reports/${snapshotId}/pdf?token=${encodeURIComponent(token)}`
+  // Always route through the API endpoint with the participant token.
+  // This avoids exposing the signed Supabase Storage URL in the DOM.
+  const pdfDownloadUrl = `/api/reports/${snapshotId}/pdf?token=${encodeURIComponent(token)}`
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16 p-6">

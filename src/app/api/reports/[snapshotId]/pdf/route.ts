@@ -1,5 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { AuthenticationRequiredError, AuthorizationError, requireAdminScope } from '@/lib/auth/authorization'
+import {
+  AuthenticationRequiredError,
+  AuthorizationError,
+  canAccessClient,
+  canAccessPartner,
+  requireAdminScope,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
 
@@ -93,8 +100,41 @@ export async function GET(
       return Response.json({ error: 'Report not available' }, { status: 403 })
     }
   } else {
+    // Authenticated workspace user path (platform admin, partner admin, or
+    // client admin with scope access to the snapshot's campaign).
     try {
-      await requireAdminScope()
+      const scope = await resolveAuthorizedScope()
+
+      if (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass) {
+        // Platform admins and local-dev bypass always have full access — skip
+        // the campaign lookup to avoid an unnecessary query.
+      } else {
+        // Look up the snapshot's campaign to enforce scope.
+        const { data: snapshotRow } = await db
+          .from('report_snapshots')
+          .select('campaign_id, campaigns(client_id, partner_id)')
+          .eq('id', snapshotId)
+          .maybeSingle()
+
+        if (!snapshotRow) {
+          return Response.json({ error: 'Report not found' }, { status: 404 })
+        }
+
+        const campaign = Array.isArray(snapshotRow.campaigns)
+          ? snapshotRow.campaigns[0]
+          : snapshotRow.campaigns
+
+        const campaignClientId = campaign?.client_id ? String(campaign.client_id) : null
+        const campaignPartnerId = campaign?.partner_id ? String(campaign.partner_id) : null
+
+        const authorized =
+          (campaignClientId ? canAccessClient(scope, campaignClientId) : false) ||
+          (campaignPartnerId ? canAccessPartner(scope, campaignPartnerId) : false)
+
+        if (!authorized) {
+          return Response.json({ error: 'Not authorized' }, { status: 403 })
+        }
+      }
     } catch (error) {
       if (error instanceof AuthenticationRequiredError) {
         return Response.json({ error: 'Authentication required' }, { status: 401 })
