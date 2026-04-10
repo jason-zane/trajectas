@@ -1981,10 +1981,14 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { FileText, ExternalLink } from "lucide-react";
 import { LocalTime } from "@/components/local-time";
-import type { ReportSnapshotListItem } from "@/app/actions/reports";
+import type { ReportSnapshot } from "@/types/database";
+
+// ReportSnapshot may have optional templateName when joined with report_templates;
+// accept a superset type here.
+type SnapshotWithTemplate = ReportSnapshot & { templateName?: string };
 
 interface ParticipantReportsPanelProps {
-  snapshots: ReportSnapshotListItem[];
+  snapshots: SnapshotWithTemplate[];
   sessionBaseHref: string;
 }
 
@@ -2033,7 +2037,7 @@ export function ParticipantReportsPanel({
           {snapshots.map((s) => (
             <TableRow key={s.id}>
               <TableCell className="font-medium">
-                {(s as any).templateName ?? "Template"}
+                {s.templateName ?? "Template"}
               </TableCell>
               <TableCell>
                 <Badge variant="outline">{audienceLabel(s.audienceType)}</Badge>
@@ -2100,13 +2104,15 @@ import { ParticipantActivityPanel } from "./participant-activity-panel";
 import { ParticipantSessionsPanel } from "./participant-sessions-panel";
 import { ParticipantReportsPanel } from "./participant-reports-panel";
 import type { ParticipantDetail, ParticipantSession, ActivityEvent } from "@/app/actions/participants";
-import type { ReportSnapshotListItem } from "@/app/actions/reports";
+import type { ReportSnapshot } from "@/types/database";
+
+type SnapshotWithTemplate = ReportSnapshot & { templateName?: string };
 
 interface ParticipantDetailViewProps {
   participant: ParticipantDetail;
   sessions: ParticipantSession[];
   activity: ActivityEvent[];
-  snapshots: ReportSnapshotListItem[];
+  snapshots: SnapshotWithTemplate[];
   backHref: string;
   backLabel: string;
   sessionBaseHref: string;
@@ -2224,6 +2230,8 @@ git commit -m "feat(results): add ParticipantDetailView shared component"
 
 **Files:**
 - Modify: `src/app/(dashboard)/participants/[id]/page.tsx` (rewrite)
+- Modify: `src/app/(dashboard)/participants/[id]/loading.tsx` (update skeleton to match new 4-tab layout)
+- Optional: `src/app/actions/reports.ts` — update `getReportSnapshotsForParticipant` to join `report_templates(name)` and return the template name in each row. If not updated, the Reports tab will show "Template" as a fallback label for all rows, which is a minor UX regression but not a blocker.
 
 - [ ] **Step 1: Rewrite the page**
 
@@ -2267,16 +2275,47 @@ export default async function AdminParticipantDetailPage({
 }
 ```
 
-- [ ] **Step 2: Verify build and test manually**
+- [ ] **Step 2: Update existing loading.tsx**
+
+The existing `src/app/(dashboard)/participants/[id]/loading.tsx` was written for the old 5-tab layout. Replace its content with a skeleton matching the new 4-tab layout (Overview/Activity/Sessions/Reports):
+
+```tsx
+export default function Loading() {
+  return (
+    <div className="space-y-6 max-w-6xl">
+      <div className="h-4 w-32 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+      <div className="flex items-start gap-4">
+        <div className="size-14 rounded-full bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-24 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+          <div className="h-8 w-72 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+          <div className="h-4 w-96 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+        </div>
+      </div>
+      <div className="h-10 w-80 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+      <div className="grid gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-24 rounded-xl bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+- [ ] **Step 3: Verify build and test manually**
 
 Run: `npm run build 2>&1 | grep -iE "(error|✓ Compiled)" | head -10`
 
 Visit `/participants/[some-id]` in dev mode. Verify tabs render, session drill-in works.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add src/app/\(dashboard\)/participants/\[id\]/page.tsx
+git add src/app/\(dashboard\)/participants/\[id\]/page.tsx src/app/\(dashboard\)/participants/\[id\]/loading.tsx
 git commit -m "refactor(admin): use ParticipantDetailView for participant detail page"
 ```
 
@@ -2340,6 +2379,7 @@ git commit -m "feat(partner): add session detail route"
 
 **Files:**
 - Modify: `src/app/partner/campaigns/[id]/participants/[participantId]/page.tsx` (rewrite)
+- Modify: `src/app/partner/campaigns/[id]/participants/[participantId]/loading.tsx` (update to match new 4-tab layout — reuse the skeleton from Task 11 Step 2)
 
 - [ ] **Step 1: Rewrite**
 
@@ -2383,11 +2423,15 @@ export default async function PartnerParticipantDetailPage({
 }
 ```
 
-- [ ] **Step 2: Verify and commit**
+- [ ] **Step 2: Update loading.tsx**
+
+Replace the existing `src/app/partner/campaigns/[id]/participants/[participantId]/loading.tsx` with the same skeleton from Task 11 Step 2 (4-tab layout with avatar header).
+
+- [ ] **Step 3: Verify and commit**
 
 ```bash
 npm run build 2>&1 | grep -iE "(error|✓ Compiled)" | head -10
-git add src/app/partner/campaigns/\[id\]/participants/\[participantId\]/page.tsx
+git add src/app/partner/campaigns/\[id\]/participants/\[participantId\]/page.tsx src/app/partner/campaigns/\[id\]/participants/\[participantId\]/loading.tsx
 git commit -m "refactor(partner): use ParticipantDetailView for participant detail"
 ```
 
@@ -2939,10 +2983,12 @@ export function CampaignResultsHub({
   const completed = participants.filter((p) => p.status === "completed").length;
   const pct = invited > 0 ? Math.round((completed / invited) * 100) : 0;
 
-  // Build assessment options for the by-session filter
+  // Build assessment options for the by-session filter.
+  // The filter column is `assessmentTitle`, so both value and label must be
+  // the title string for the faceted filter to match rows correctly.
   const assessmentOptions = Array.from(
-    new Map(sessions.map((s) => [s.assessmentId, s.assessmentTitle])).entries()
-  ).map(([value, label]) => ({ value: String(label), label }));
+    new Set(sessions.map((s) => s.assessmentTitle))
+  ).map((title) => ({ value: title, label: title }));
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -3026,6 +3072,7 @@ git commit -m "feat(results): add CampaignResultsHub with participant/session to
 
 **Files:**
 - Modify: `src/app/(dashboard)/campaigns/[id]/results/page.tsx` (rewrite)
+- Modify: `src/app/(dashboard)/campaigns/[id]/results/loading.tsx` (update existing if present, create if not) — skeleton should match new hub layout (stat strip + toggle + table)
 
 - [ ] **Step 1: Rewrite**
 
@@ -3063,11 +3110,38 @@ export default async function AdminCampaignResultsPage({
 }
 ```
 
-- [ ] **Step 2: Verify and commit**
+- [ ] **Step 2: Update loading.tsx**
+
+Check if `src/app/(dashboard)/campaigns/[id]/results/loading.tsx` exists. If it does, replace its content; if not, create it with:
+
+```tsx
+export default function Loading() {
+  return (
+    <div className="space-y-6 max-w-6xl">
+      <div className="space-y-2">
+        <div className="h-4 w-24 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+        <div className="h-8 w-80 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-20 rounded-xl bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent"
+          />
+        ))}
+      </div>
+      <div className="h-10 w-60 rounded-lg bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+      <div className="h-96 rounded-xl bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+    </div>
+  );
+}
+```
+
+- [ ] **Step 3: Verify and commit**
 
 ```bash
 npm run build 2>&1 | grep -iE "(error|✓ Compiled)" | head -10
-git add src/app/\(dashboard\)/campaigns/\[id\]/results/page.tsx
+git add src/app/\(dashboard\)/campaigns/\[id\]/results/
 git commit -m "refactor(admin): rewrite campaign results page with new hub"
 ```
 
@@ -3212,7 +3286,58 @@ git commit -m "refactor(client): rewrite campaign results page with new hub"
 
 ---
 
-## Task 21: Final verification
+## Task 21: Lightweight tests
+
+**Files:**
+- Create: `src/components/local-time.test.tsx` (if test infrastructure exists)
+- Create: `src/app/actions/sessions.test.ts` (if test infrastructure exists)
+
+**Note to implementer:** First check if the project has a test runner configured. Run:
+```
+cat package.json | grep -iE "(vitest|jest|test)" | head -10
+```
+
+If no test infrastructure exists, **skip this task entirely** and proceed to Task 22. The spec calls for light-touch tests but not at the cost of bootstrapping a test framework that doesn't exist. Note the skip in the commit for Task 22.
+
+If vitest/jest is configured:
+
+- [ ] **Step 1: LocalTime unit test**
+
+```tsx
+import { describe, it, expect } from "vitest";
+import { render } from "@testing-library/react";
+import { LocalTime } from "./local-time";
+
+describe("LocalTime", () => {
+  it("renders fallback when iso is null", () => {
+    const { container } = render(<LocalTime iso={null} fallback="—" />);
+    expect(container.textContent).toBe("—");
+  });
+
+  it("renders the iso string before hydration", () => {
+    const iso = "2026-04-10T12:00:00Z";
+    const { container } = render(<LocalTime iso={iso} format="date-time" />);
+    // Before effect runs, server-equivalent output is the iso string
+    expect(container.textContent?.length).toBeGreaterThan(0);
+  });
+});
+```
+
+- [ ] **Step 2: Run tests**
+
+Run: `npm test -- local-time`
+Expected: pass
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add src/components/local-time.test.tsx
+git commit -m "test(results): add LocalTime unit test"
+```
+
+---
+
+## Task 22: Final verification
 
 - [ ] **Step 1: Full build**
 
