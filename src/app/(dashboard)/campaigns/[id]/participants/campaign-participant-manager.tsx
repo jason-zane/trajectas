@@ -82,8 +82,9 @@ export function CampaignParticipantManager({
     event.preventDefault();
     setErrors({});
 
+    const invitedEmail = email;
     const result = await inviteParticipant(campaignId, {
-      email,
+      email: invitedEmail,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
     });
@@ -93,11 +94,32 @@ export function CampaignParticipantManager({
       return;
     }
 
-    toast.success(`Invited ${email}`);
     setEmail("");
     setFirstName("");
     setLastName("");
     setShowInvite(false);
+
+    if (result.emailSent) {
+      toast.success(`Invited ${invitedEmail}`);
+    } else {
+      const participantId = result.id;
+      toast.warning(`${invitedEmail} added but email failed to send`, {
+        description: result.emailError,
+        action: {
+          label: "Retry email",
+          onClick: async () => {
+            const retry = await sendParticipantInviteEmail(campaignId, participantId);
+            if (retry.success) {
+              toast.success(`Invite sent to ${invitedEmail}`);
+            } else {
+              toast.error(retry.error ?? "Email still failed");
+            }
+          },
+        },
+        duration: 10000,
+      });
+    }
+
     router.refresh();
   }
 

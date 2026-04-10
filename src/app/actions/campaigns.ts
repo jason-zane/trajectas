@@ -868,15 +868,31 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     metadata: { campaignId, email: parsed.data.email },
   })
 
-  // Auto-send invite email (best-effort — don't fail the invite on email error)
+  // Auto-send invite email — surface failures to the caller so the UI can
+  // show a retry button. The participant row is still created even if email
+  // fails, so the admin can retry without re-creating.
+  let emailSent = false
+  let emailError: string | undefined
   try {
-    await sendParticipantInviteEmail(campaignId, data.id)
-  } catch (emailErr) {
-    console.warn('[inviteParticipant] Email send failed, participant created:', emailErr)
+    const emailResult = await sendParticipantInviteEmail(campaignId, data.id)
+    if (emailResult.success) {
+      emailSent = true
+    } else {
+      emailError = emailResult.error
+    }
+  } catch (err) {
+    emailError = err instanceof Error ? err.message : 'Email delivery failed'
+    console.warn('[inviteParticipant] Email send failed, participant created:', err)
   }
 
   revalidatePath(`/campaigns/${campaignId}`)
-  return { success: true as const, id: data.id, accessToken: data.access_token }
+  return {
+    success: true as const,
+    id: data.id,
+    accessToken: data.access_token,
+    emailSent,
+    emailError,
+  }
 }
 
 /**
