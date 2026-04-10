@@ -7,18 +7,18 @@ import {
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
 import { ParticipantDetailView } from "@/components/results/participant-detail-view";
 
-export default async function PartnerParticipantDetailPage({
+export default async function ClientParticipantDetailPage({
   params,
 }: {
-  params: Promise<{ id: string; participantId: string }>;
+  params: Promise<{ id: string; pid: string }>;
 }) {
-  const { id: campaignId, participantId } = await params;
+  const { id: campaignId, pid } = await params;
 
   const [participant, sessions, activity, snapshots] = await Promise.all([
-    getParticipant(participantId),
-    getParticipantSessions(participantId),
-    getParticipantActivity(participantId),
-    getReportSnapshotsForParticipant(participantId),
+    getParticipant(pid),
+    getParticipantSessions(pid),
+    getParticipantActivity(pid),
+    getReportSnapshotsForParticipant(pid),
   ]);
 
   if (!participant) notFound();
@@ -29,9 +29,9 @@ export default async function PartnerParticipantDetailPage({
       sessions={sessions}
       activity={activity}
       snapshots={snapshots}
-      backHref={`/partner/campaigns/${campaignId}`}
+      backHref={`/client/campaigns/${campaignId}`}
       backLabel="Back to campaign"
-      sessionBaseHref={`/partner/campaigns/${campaignId}/participants/${participantId}/sessions`}
+      sessionBaseHref={`/client/campaigns/${campaignId}/participants/${pid}/sessions`}
     />
   );
 }
