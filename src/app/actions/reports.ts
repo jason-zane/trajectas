@@ -406,13 +406,12 @@ export async function getReportSnapshotsForCampaign(
     logActionError('getReportSnapshotsForCampaign.audit', auditError)
   }
 
-  const snapshots = (data ?? []).map(mapReportSnapshotRow)
-  // Resolve signed URLs for private storage paths
-  return Promise.all(
-    snapshots.map(async (s) =>
-      s.pdfUrl ? { ...s, pdfUrl: await getSignedReportPdfUrl(s.pdfUrl) } : s
-    )
-  )
+  // Return the raw snapshots WITHOUT eagerly signing PDF storage paths.
+  // Previously this action signed every snapshot's pdfUrl, one Supabase
+  // Storage call per row, even though the user rarely downloads more than
+  // one. Consumers should route downloads through /api/reports/{id}/pdf
+  // which signs on demand and enforces scope on every request.
+  return (data ?? []).map(mapReportSnapshotRow)
 }
 
 export async function getReportSnapshot(id: string): Promise<ReportSnapshot | null> {
