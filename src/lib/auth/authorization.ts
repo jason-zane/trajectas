@@ -391,6 +391,39 @@ export function canManagePartner(scope: AuthorizedScope, partnerId: string) {
   return scope.isPlatformAdmin || scope.partnerAdminIds.includes(partnerId);
 }
 
+export function canAccessAssessment(
+  scope: AuthorizedScope,
+  assessmentPartnerId?: string | null,
+  assessmentClientId?: string | null
+) {
+  return (
+    scope.isPlatformAdmin ||
+    (assessmentPartnerId != null && scope.partnerIds.includes(assessmentPartnerId)) ||
+    (assessmentClientId != null && scope.clientIds.includes(assessmentClientId)) ||
+    (assessmentPartnerId == null && assessmentClientId == null)
+  );
+}
+
+export function canManageAssessment(
+  scope: AuthorizedScope,
+  assessmentPartnerId?: string | null,
+  assessmentClientId?: string | null
+) {
+  return (
+    scope.isPlatformAdmin ||
+    (assessmentPartnerId != null && scope.partnerAdminIds.includes(assessmentPartnerId)) ||
+    (assessmentClientId != null && scope.clientAdminIds.includes(assessmentClientId))
+  );
+}
+
+export function canManageAssessmentLibrary(scope: AuthorizedScope) {
+  return (
+    scope.isPlatformAdmin ||
+    scope.partnerAdminIds.length > 0 ||
+    scope.clientAdminIds.length > 0
+  );
+}
+
 export function canManageClientDirectory(scope: AuthorizedScope) {
   return scope.isPlatformAdmin || scope.partnerAdminIds.length > 0;
 }
@@ -586,6 +619,64 @@ export function getPreferredPartnerIdForClientCreation(scope: AuthorizedScope) {
   throw new AuthorizationError(
     "Select an active partner context before creating a client."
   );
+}
+
+export function getPreferredPartnerIdForAssessmentCreation(scope: AuthorizedScope) {
+  if (scope.isPlatformAdmin) {
+    return null;
+  }
+
+  if (scope.activeContext?.tenantType === "partner" && scope.activeContext.tenantId) {
+    if (scope.partnerAdminIds.includes(scope.activeContext.tenantId)) {
+      return scope.activeContext.tenantId;
+    }
+  }
+
+  if (scope.partnerAdminIds.length === 1) {
+    return scope.partnerAdminIds[0];
+  }
+
+  throw new AuthorizationError(
+    "Select an active partner context before creating an assessment."
+  );
+}
+
+export async function requireAssessmentAccess(
+  assessmentId: string,
+  options: { includeArchived?: boolean; forWrite?: boolean } = {}
+) {
+  const scope = await resolveAuthorizedScope();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("assessments")
+    .select("id, partner_id, client_id, deleted_at")
+    .eq("id", assessmentId)
+    .single();
+
+  if (error || !data || (!options.includeArchived && data.deleted_at)) {
+    throw new AuthorizationError("Assessment not found or inaccessible.");
+  }
+
+  const partnerId = data.partner_id ? String(data.partner_id) : null;
+  const clientId = data.client_id ? String(data.client_id) : null;
+  const hasAccess = options.forWrite
+    ? canManageAssessment(scope, partnerId, clientId)
+    : canAccessAssessment(scope, partnerId, clientId);
+
+  if (!hasAccess) {
+    throw new AuthorizationError(
+      options.forWrite
+        ? "You do not have permission to modify this assessment."
+        : "You do not have access to this assessment."
+    );
+  }
+
+  return {
+    scope,
+    assessmentId: String(data.id),
+    partnerId,
+    clientId,
+  };
 }
 
 export function assertAdminOnly(scope: AuthorizedScope) {

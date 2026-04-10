@@ -1,15 +1,17 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 
-import type { WorkspaceAssessmentSummary } from "@/app/actions/assessments";
+import type { AssessmentLibrarySummary } from "@/app/actions/assessments";
 import {
   DataTable,
   DataTableColumnHeader,
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 
-const columns: ColumnDef<WorkspaceAssessmentSummary>[] = [
+const columns: ColumnDef<AssessmentLibrarySummary>[] = [
   {
     accessorKey: "title",
     header: ({ column }) => (
@@ -24,6 +26,17 @@ const columns: ColumnDef<WorkspaceAssessmentSummary>[] = [
           </div>
         )}
       </div>
+    ),
+  },
+  {
+    accessorKey: "ownerScope",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Owner" />
+    ),
+    cell: ({ row }) => (
+      <Badge variant={row.original.ownerScope === "partner" ? "default" : "secondary"}>
+        {row.original.ownerScope === "partner" ? "Partner-owned" : "Platform"}
+      </Badge>
     ),
   },
   {
@@ -90,12 +103,26 @@ const columns: ColumnDef<WorkspaceAssessmentSummary>[] = [
       </span>
     ),
   },
+  {
+    id: "actions",
+    cell: ({ row }) =>
+      row.original.canEdit ? (
+        <Link
+          href={`/partner/assessments/${row.original.id}/edit`}
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
+        >
+          Edit
+        </Link>
+      ) : (
+        <span className="text-xs text-muted-foreground">Read-only</span>
+      ),
+  },
 ];
 
 export function AssessmentsTable({
   assessments,
 }: {
-  assessments: WorkspaceAssessmentSummary[];
+  assessments: AssessmentLibrarySummary[];
 }) {
   return (
     <DataTable

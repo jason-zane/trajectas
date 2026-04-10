@@ -45,7 +45,7 @@ const quickActions = [
     title: "View Assessments",
     href: "/partner/assessments",
     icon: ClipboardList,
-    description: "Browse deployed assessments",
+    description: "Manage your assessment library",
     bgClass: "bg-muted",
     iconClass: "text-muted-foreground",
   },

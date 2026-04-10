@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import { requireAdminScope, canManageAssessmentLibrary, resolveAuthorizedScope, AuthorizationError } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { itemSelectionRulesArraySchema } from '@/lib/validations/item-selection-rules'
 import type { ItemSelectionRule } from '@/types/database'
@@ -135,7 +135,10 @@ export async function getItemsPerConstructLimit(factorIds: string[]): Promise<{
   itemsPerConstruct: number | null
   shortfalls: ConstructShortfall[]
 }> {
-  await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  if (!canManageAssessmentLibrary(scope)) {
+    throw new AuthorizationError('You do not have permission to manage assessments.')
+  }
   if (factorIds.length === 0) {
     return { constructCount: 0, itemsPerConstruct: null, shortfalls: [] }
   }

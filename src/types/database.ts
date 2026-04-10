@@ -705,6 +705,8 @@ export type IntroOverride =
 export interface Assessment {
   /** UUID primary key. */
   id: string
+  /** Owning partner for partner-scoped assessments. */
+  partnerId?: string
   /** Owning client (optional — assigned when deployed to an org). */
   clientId?: string
   /** Assessment display title. */

@@ -24,6 +24,7 @@ export default async function PartnerCreateClientPage() {
       fixedPartnerId={partnerId}
       fixedPartnerName={partner?.name ?? null}
       redirectPath="/partner/clients"
+      cancelPath="/partner/clients"
     />
   );
 }

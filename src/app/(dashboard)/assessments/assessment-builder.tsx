@@ -101,6 +101,7 @@ interface AssessmentBuilderProps {
   existingSections?: ExistingSection[]
   existingBlocks?: ExistingFCBlock[]
   allFactors: BuilderFactor[]
+  basePath?: string
 }
 
 export function AssessmentBuilder({
@@ -109,6 +110,7 @@ export function AssessmentBuilder({
   existingSections,
   existingBlocks,
   allFactors,
+  basePath = "/assessments",
 }: AssessmentBuilderProps) {
   const router = useRouter()
   const isEditing = !!assessment
@@ -300,7 +302,7 @@ export function AssessmentBuilder({
           factorIds: selectedFactors.map((f) => f.id).sort().join(","),
         })
         if (!isEditing && result.id) {
-          router.replace(`/assessments/${result.id}/edit`, { scroll: false })
+          router.replace(`${basePath}/${result.id}/edit`, { scroll: false })
         }
       }
     })
@@ -321,7 +323,7 @@ export function AssessmentBuilder({
 
     let undone = false
     const timer = setTimeout(() => {
-      if (!undone) router.push("/assessments")
+      if (!undone) router.push(basePath)
     }, 5000)
 
     toast.success("Assessment deleted", {
@@ -723,7 +725,7 @@ export function AssessmentBuilder({
             </Button>
           )}
           <div className="flex items-center gap-3">
-            <Link href="/assessments">
+            <Link href={basePath}>
               <Button type="button" variant="outline">
                 Cancel
               </Button>

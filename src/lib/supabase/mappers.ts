@@ -348,6 +348,7 @@ export function toPartnerInsert(p: {
 export function mapAssessmentRow(row: any): Assessment {
   return {
     id: row.id,
+    partnerId: row.partner_id ?? undefined,
     clientId: row.client_id ?? undefined,
     title: row.title,
     description: row.description ?? undefined,
@@ -368,6 +369,7 @@ export function mapAssessmentRow(row: any): Assessment {
 
 export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 'created_at' | 'updated_at'>) {
   return {
+    partner_id: a.partnerId ?? null,
     client_id: a.clientId ?? null,
     title: a.title,
     description: a.description ?? null,

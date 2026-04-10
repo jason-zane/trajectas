@@ -40,12 +40,14 @@ export function ClientCreateForm({
   fixedPartnerId = null,
   fixedPartnerName = null,
   redirectPath = "/directory?tab=clients",
+  cancelPath = "/directory?tab=clients",
 }: {
   partnerOptions: Array<{ id: string; name: string }>;
   canAssignPartner: boolean;
   fixedPartnerId?: string | null;
   fixedPartnerName?: string | null;
   redirectPath?: string;
+  cancelPath?: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -236,7 +238,7 @@ export function ClientCreateForm({
         </Card>
 
         <div className="sticky bottom-0 mt-6 flex items-center justify-end gap-3 border-t border-border/50 bg-background/80 px-4 py-4 backdrop-blur-sm -mx-4">
-          <Link href="/directory?tab=clients">
+          <Link href={cancelPath}>
             <Button type="button" variant="outline">
               Cancel
             </Button>

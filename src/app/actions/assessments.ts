@@ -3,7 +3,16 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { getAccessibleCampaignIds, requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
+import {
+  AuthorizationError,
+  canManageAssessment,
+  canManageAssessmentLibrary,
+  getAccessibleCampaignIds,
+  getPreferredPartnerIdForAssessmentCreation,
+  requireAdminScope,
+  requireAssessmentAccess,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
@@ -100,6 +109,12 @@ export type WorkspaceAssessmentSummary = {
   updatedAt?: string
 }
 
+export type AssessmentLibrarySummary = WorkspaceAssessmentSummary & {
+  ownerScope: 'partner' | 'platform'
+  partnerId?: string
+  canEdit: boolean
+}
+
 function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   if (Array.isArray(value)) {
     const first = value[0]
@@ -112,6 +127,23 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
 function getRelatedCount(value: unknown) {
   const record = getRelatedRecord(value)
   return record?.count ? Number(record.count) : 0
+}
+
+function revalidateAssessmentPaths() {
+  revalidatePath('/assessments')
+  revalidatePath('/partner/assessments')
+  revalidatePath('/partner')
+  revalidatePath('/')
+}
+
+async function requireAssessmentBuilderScope() {
+  const scope = await resolveAuthorizedScope()
+
+  if (!canManageAssessmentLibrary(scope)) {
+    throw new AuthorizationError('You do not have permission to manage assessments.')
+  }
+
+  return scope
 }
 
 export async function getAssessments(): Promise<AssessmentWithMeta[]> {
@@ -298,9 +330,171 @@ export async function getWorkspaceAssessmentSummaries(): Promise<WorkspaceAssess
     })
 }
 
+export async function getPartnerAssessmentLibrary(): Promise<AssessmentLibrarySummary[]> {
+  const scope = await resolveAuthorizedScope()
+
+  if (!scope.isPlatformAdmin && scope.partnerIds.length === 0) {
+    return []
+  }
+
+  const db = createAdminClient()
+  let query = db
+    .from('assessments')
+    .select('id, title, description, status, partner_id, updated_at')
+    .is('deleted_at', null)
+    .is('client_id', null)
+
+  if (!scope.isPlatformAdmin) {
+    query = query.or(
+      `partner_id.in.(${scope.partnerIds.join(',')}),and(partner_id.is.null,client_id.is.null)`
+    )
+  }
+
+  const { data, error } = await query.order('updated_at', { ascending: false })
+
+  if (error) {
+    throwActionError('getPartnerAssessmentLibrary', 'Unable to load assessments.', error)
+  }
+
+  const assessmentRows = (data ?? []) as Array<Record<string, unknown>>
+  if (assessmentRows.length === 0) {
+    return []
+  }
+
+  const assessmentIds = assessmentRows.map((row) => String(row.id))
+  const accessibleCampaignIds = scope.isPlatformAdmin
+    ? null
+    : await getAccessibleCampaignIds(scope)
+
+  let deploymentRows:
+    | Array<Record<string, unknown>>
+    | null = []
+  let deploymentError: unknown = null
+
+  if (accessibleCampaignIds === null || accessibleCampaignIds.length > 0) {
+    let deploymentQuery = db
+      .from('campaign_assessments')
+      .select(
+        'assessment_id, campaign_id, campaigns(id, title, client_id, clients(name), campaign_participants(count))'
+      )
+      .in('assessment_id', assessmentIds)
+
+    if (accessibleCampaignIds) {
+      deploymentQuery = deploymentQuery.in('campaign_id', accessibleCampaignIds)
+    }
+
+    const response = await deploymentQuery
+    deploymentRows = (response.data ?? []) as Array<Record<string, unknown>>
+    deploymentError = response.error
+  }
+
+  if (deploymentError) {
+    throwActionError(
+      'getPartnerAssessmentLibrary.deployments',
+      'Unable to load assessments.',
+      deploymentError
+    )
+  }
+
+  const campaignIds = Array.from(
+    new Set((deploymentRows ?? []).map((row) => String(row.campaign_id ?? '')).filter(Boolean))
+  )
+  const completedCounts = new Map<string, number>()
+
+  if (campaignIds.length > 0) {
+    const { data: completedRows, error: completedError } = await db
+      .from('campaign_participants')
+      .select('campaign_id')
+      .in('campaign_id', campaignIds)
+      .eq('status', 'completed')
+
+    if (completedError) {
+      throwActionError(
+        'getPartnerAssessmentLibrary.completedCounts',
+        'Unable to load assessments.',
+        completedError
+      )
+    }
+
+    for (const row of completedRows ?? []) {
+      const campaignId = String(row.campaign_id)
+      completedCounts.set(campaignId, (completedCounts.get(campaignId) ?? 0) + 1)
+    }
+  }
+
+  const summaries = new Map<string, AssessmentLibrarySummary>()
+
+  for (const row of assessmentRows) {
+    const assessmentId = String(row.id)
+    const partnerId = row.partner_id ? String(row.partner_id) : undefined
+
+    summaries.set(assessmentId, {
+      id: assessmentId,
+      title: String(row.title),
+      description: row.description ? String(row.description) : undefined,
+      status: row.status as Assessment['status'],
+      partnerId,
+      campaignCount: 0,
+      participantCount: 0,
+      completedCount: 0,
+      campaignTitles: [],
+      clientNames: [],
+      updatedAt: row.updated_at ? String(row.updated_at) : undefined,
+      ownerScope: partnerId ? 'partner' : 'platform',
+      canEdit: canManageAssessment(scope, partnerId ?? null, null),
+    })
+  }
+
+  for (const row of deploymentRows ?? []) {
+    const summary = summaries.get(String(row.assessment_id))
+    if (!summary) {
+      continue
+    }
+
+    const campaignRow = getRelatedRecord(row.campaigns)
+    const campaignId = campaignRow?.id ? String(campaignRow.id) : String(row.campaign_id ?? '')
+    const campaignTitle = campaignRow?.title ? String(campaignRow.title) : null
+    const clientRow = getRelatedRecord(campaignRow?.clients)
+    const clientName = clientRow?.name ? String(clientRow.name) : null
+    const participantCount = getRelatedCount(campaignRow?.campaign_participants)
+
+    summary.campaignCount += campaignId ? 1 : 0
+    summary.participantCount += participantCount
+    summary.completedCount += campaignId ? (completedCounts.get(campaignId) ?? 0) : 0
+
+    if (campaignTitle && !summary.campaignTitles.includes(campaignTitle)) {
+      summary.campaignTitles = [...summary.campaignTitles, campaignTitle]
+    }
+
+    if (clientName && !summary.clientNames.includes(clientName)) {
+      summary.clientNames = [...summary.clientNames, clientName]
+    }
+  }
+
+  return Array.from(summaries.values()).sort((a, b) => {
+    if (a.ownerScope !== b.ownerScope) {
+      return a.ownerScope === 'partner' ? -1 : 1
+    }
+
+    if (b.updatedAt && a.updatedAt && b.updatedAt !== a.updatedAt) {
+      return b.updatedAt.localeCompare(a.updatedAt)
+    }
+
+    return a.title.localeCompare(b.title)
+  })
+}
+
 export async function getAssessmentById(id: string): Promise<Assessment | null> {
-  await requireAdminScope()
-  const db = await createClient()
+  try {
+    await requireAssessmentAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
     .select('*')
@@ -317,7 +511,15 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   factors: AssessmentFactorLink[]
   sections: ExistingSection[]
 } | null> {
-  await requireAdminScope()
+  try {
+    await requireAssessmentAccess(id, { forWrite: true })
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
@@ -374,7 +576,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
  * across the given factors' constructs.
  */
 export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGroup[]> {
-  await requireAdminScope()
+  await requireAssessmentBuilderScope()
   if (factorIds.length === 0) return []
 
   const db = createAdminClient()
@@ -434,7 +636,7 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
 }
 
 export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
-  await requireAdminScope()
+  await requireAssessmentBuilderScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
@@ -488,7 +690,24 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
 }
 
 export async function createAssessment(payload: Record<string, unknown>) {
-  const scope = await requireAdminScope()
+  let scope = null as Awaited<ReturnType<typeof requireAssessmentBuilderScope>> | null
+  let partnerId: string | null = null
+  try {
+    scope = await requireAssessmentBuilderScope()
+    partnerId = scope.isPlatformAdmin
+      ? null
+      : getPreferredPartnerIdForAssessmentCreation(scope)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: { _form: ['Unable to resolve assessment scope.'] } }
+  }
+
   const parsed = assessmentSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -496,6 +715,7 @@ export async function createAssessment(payload: Record<string, unknown>) {
 
   const db = createAdminClient()
   const { data: assessment, error } = await db.from('assessments').insert({
+    partner_id: partnerId,
     title: parsed.data.title,
     description: parsed.data.description ?? null,
     status: parsed.data.status,
@@ -535,13 +755,13 @@ export async function createAssessment(payload: Record<string, unknown>) {
     if (blockErr) return { error: { _form: [blockErr] } }
   }
 
-  revalidatePath('/assessments')
-  revalidatePath('/')
+  revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.created',
     targetTable: 'assessments',
     targetId: assessment.id,
+    partnerId,
     metadata: {
       formatMode: parsed.data.formatMode,
       factorCount: parsed.data.factors.length,
@@ -551,7 +771,20 @@ export async function createAssessment(payload: Record<string, unknown>) {
 }
 
 export async function updateAssessment(id: string, payload: Record<string, unknown>) {
-  const scope = await requireAdminScope()
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(id, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: { _form: [error.message] } }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: { _form: ['Unable to resolve assessment scope.'] } }
+  }
+
   const parsed = assessmentSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -680,8 +913,7 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     }
   }
 
-  revalidatePath('/assessments')
-  revalidatePath('/')
+  revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.updated',
@@ -696,7 +928,20 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 }
 
 export async function deleteAssessment(id: string) {
-  const scope = await requireAdminScope()
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(id, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: 'Unable to resolve assessment scope.' }
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('assessments')
@@ -705,8 +950,7 @@ export async function deleteAssessment(id: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/assessments')
-  revalidatePath('/')
+  revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.deleted',
@@ -716,7 +960,20 @@ export async function deleteAssessment(id: string) {
 }
 
 export async function restoreAssessment(id: string) {
-  const scope = await requireAdminScope()
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(id, { includeArchived: true, forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: 'Unable to resolve assessment scope.' }
+  }
+
   const db = createAdminClient()
   const { error } = await db
     .from('assessments')
@@ -725,8 +982,7 @@ export async function restoreAssessment(id: string) {
 
   if (error) return { error: error.message }
 
-  revalidatePath('/assessments')
-  revalidatePath('/')
+  revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.restored',
@@ -736,7 +992,20 @@ export async function restoreAssessment(id: string) {
 }
 
 export async function updateAssessmentField(id: string, field: string, value: string) {
-  const scope = await requireAdminScope()
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(id, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: 'Unable to resolve assessment scope.' }
+  }
+
   if (field !== 'description') {
     return { error: 'Only description can be auto-saved' }
   }
@@ -749,7 +1018,7 @@ export async function updateAssessmentField(id: string, field: string, value: st
 
   if (error) return { error: error.message }
 
-  revalidatePath('/assessments')
+  revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.description.updated',
@@ -767,7 +1036,20 @@ export async function updateAssessmentCustomisation(
   assessmentId: string,
   minCustomFactors: number | null
 ): Promise<{ success: true } | { error: string }> {
-  const scope = await requireAdminScope()
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: 'Unable to resolve assessment scope.' }
+  }
+
   const db = createAdminClient()
 
   if (minCustomFactors !== null) {
@@ -795,7 +1077,7 @@ export async function updateAssessmentCustomisation(
     return { error: 'Unable to update customisation settings.' }
   }
 
-  revalidatePath('/assessments')
+  revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.customisation.updated',
@@ -948,7 +1230,7 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   stem: string
   constructName: string
 }[]> {
-  await requireAdminScope()
+  await requireAssessmentBuilderScope()
   if (factorIds.length === 0) return []
 
   const db = createAdminClient()
@@ -1030,7 +1312,7 @@ function applyPerConstructLimit<T extends Record<string, any> & { construct_id: 
  * Load existing FC blocks for an assessment (for editing).
  */
 export async function getExistingBlocks(assessmentId: string): Promise<ExistingFCBlock[]> {
-  await requireAdminScope()
+  await requireAssessmentAccess(assessmentId, { forWrite: true })
   const db = createAdminClient()
 
   const { data: blocks } = await db
