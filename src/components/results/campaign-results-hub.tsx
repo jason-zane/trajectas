@@ -5,25 +5,33 @@ import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { ResultsByParticipantTable } from "./results-by-participant-table";
 import { ResultsBySessionTable } from "./results-by-session-table";
+import { ResultsFactorScoresTable } from "./results-factor-scores-table";
 import type { ParticipantWithMeta } from "@/app/actions/participants";
 import type { CampaignSessionRow } from "@/app/actions/sessions";
+import type { CampaignFactorScoreRow } from "@/app/actions/campaign-results";
 
 interface CampaignResultsHubProps {
   campaignTitle: string;
   participants: ParticipantWithMeta[];
   sessions: CampaignSessionRow[];
+  factorScoreRows?: CampaignFactorScoreRow[];
   participantHref: (p: ParticipantWithMeta) => string;
   sessionHref: (s: CampaignSessionRow) => string;
+  factorSessionHref: (row: CampaignFactorScoreRow) => string;
+  reportHref: (snapshotId: string) => string;
 }
 
 export function CampaignResultsHub({
   campaignTitle,
   participants,
   sessions,
+  factorScoreRows = [],
   participantHref,
   sessionHref,
+  factorSessionHref,
+  reportHref,
 }: CampaignResultsHubProps) {
-  const [view, setView] = useState<"participants" | "sessions">("participants");
+  const [view, setView] = useState<"participants" | "sessions" | "scores">("participants");
 
   const invited = participants.length;
   const started = participants.filter(
@@ -77,6 +85,17 @@ export function CampaignResultsHub({
         >
           By session
         </button>
+        <button
+          type="button"
+          onClick={() => setView("scores")}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            view === "scores"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Factor scores
+        </button>
       </div>
 
       {view === "participants" ? (
@@ -84,11 +103,17 @@ export function CampaignResultsHub({
           participants={participants}
           participantHref={participantHref}
         />
-      ) : (
+      ) : view === "sessions" ? (
         <ResultsBySessionTable
           sessions={sessions}
           sessionHref={sessionHref}
           assessmentOptions={assessmentOptions}
+        />
+      ) : (
+        <ResultsFactorScoresTable
+          rows={factorScoreRows}
+          sessionHref={factorSessionHref}
+          reportHref={reportHref}
         />
       )}
     </div>

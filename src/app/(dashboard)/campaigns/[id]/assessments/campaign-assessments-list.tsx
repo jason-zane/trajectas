@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import {
   addAssessmentToCampaign,
   removeAssessmentFromCampaign,
@@ -62,6 +63,15 @@ type AvailableAssessment = {
   id: string;
   title: string;
   status: string;
+  formatLabel?: string;
+  description?: string;
+  factorCount?: number;
+  sectionCount?: number;
+  totalItemCount?: number;
+  estimatedDurationMinutes?: number;
+  quotaLimit?: number | null;
+  quotaUsed?: number;
+  quotaRemaining?: number | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -88,12 +98,35 @@ export function CampaignAssessmentsList({
   hasCompletedParticipants?: boolean;
 }) {
   const [showPicker, setShowPicker] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
   const [expandedFactorPickers, setExpandedFactorPickers] = useState<
     Set<string>
   >(new Set());
 
   const linkedIds = new Set(linkedAssessments.map((a) => a.assessmentId));
   const available = allAssessments.filter((a) => !linkedIds.has(a.id));
+  const visibleAvailable = available.filter(
+    (assessment) => showDrafts || assessment.status !== "draft",
+  );
+
+  function getAssessmentSummary(assessment: AvailableAssessment) {
+    const parts = [
+      assessment.factorCount != null
+        ? `${assessment.factorCount} factor${assessment.factorCount === 1 ? "" : "s"}`
+        : null,
+      assessment.sectionCount != null
+        ? `${assessment.sectionCount} section${assessment.sectionCount === 1 ? "" : "s"}`
+        : null,
+      assessment.totalItemCount != null
+        ? `${assessment.totalItemCount} item${assessment.totalItemCount === 1 ? "" : "s"}`
+        : null,
+      assessment.estimatedDurationMinutes != null
+        ? `${assessment.estimatedDurationMinutes} min`
+        : null,
+    ].filter(Boolean);
+
+    return parts.join(" · ");
+  }
 
   async function handleAdd(assessmentId: string) {
     const result = await addAssessmentToCampaign(campaignId, assessmentId);
@@ -260,22 +293,53 @@ export function CampaignAssessmentsList({
           <DialogHeader>
             <DialogTitle>Add Assessment</DialogTitle>
           </DialogHeader>
-          {available.length === 0 ? (
+          <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
+            <div>
+              <p className="text-sm font-medium">Show draft assessments</p>
+              <p className="text-xs text-muted-foreground">
+                Published assessments stay visible by default.
+              </p>
+            </div>
+            <Switch checked={showDrafts} onCheckedChange={setShowDrafts} />
+          </div>
+          {visibleAvailable.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              All active assessments are already linked.
+              {available.length === 0
+                ? "All available assessments are already linked."
+                : "No assessments match the current filter."}
             </p>
           ) : (
             <div className="space-y-2 max-h-80 overflow-y-auto">
-              {available.map((a) => (
+              {visibleAvailable.map((a) => (
                 <button
                   key={a.id}
                   onClick={() => handleAdd(a.id)}
-                  className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+                  className="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
                 >
                   <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
                     <ClipboardList className="size-4 text-primary" />
                   </div>
-                  <span className="text-sm font-medium">{a.title}</span>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">{a.title}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {a.status === "active" ? "Published" : "Draft"}
+                      </Badge>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {a.formatLabel}
+                      </Badge>
+                    </div>
+                    {a.description && (
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
+                        {a.description}
+                      </p>
+                    )}
+                    {getAssessmentSummary(a) && (
+                      <p className="text-xs text-muted-foreground">
+                        {getAssessmentSummary(a)}
+                      </p>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>

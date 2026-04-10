@@ -1,5 +1,5 @@
 import { getCampaignById } from "@/app/actions/campaigns";
-import { getAvailableAssessmentsForClient } from "@/app/actions/client-entitlements";
+import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
 import {
   getFactorsForAssessment,
   getFactorSelectionForCampaignAssessment,
@@ -19,15 +19,34 @@ export default async function ClientCampaignAssessmentsPage({
   if (!campaign) notFound();
 
   // Fetch only the assessments assigned to this client
-  let availableAssessments: { id: string; title: string; status: string }[] = [];
+  let availableAssessments: Array<{
+    id: string;
+    title: string;
+    status: string;
+    description?: string;
+    factorCount?: number;
+    sectionCount?: number;
+    totalItemCount?: number;
+    estimatedDurationMinutes?: number;
+    quotaLimit?: number | null;
+    quotaUsed?: number;
+    quotaRemaining?: number | null;
+  }> = [];
   if (campaign.clientId) {
-    const clientAssessments = await getAvailableAssessmentsForClient(
+    const clientAssessments = await getClientAssessmentLibrary(
       campaign.clientId,
     );
     availableAssessments = clientAssessments.map((a) => ({
-      id: a.assessmentId,
-      title: a.assessmentName,
-      status: "active",
+      id: a.id,
+      title: a.title,
+      status: a.status,
+      description: a.description,
+      factorCount: a.factorCount,
+      sectionCount: a.sectionCount,
+      totalItemCount: a.totalItemCount,
+      quotaLimit: a.quotaLimit,
+      quotaUsed: a.quotaUsed,
+      quotaRemaining: a.quotaRemaining,
     }));
   }
 
