@@ -36,7 +36,15 @@ export default async function ClientCampaignOverviewPage({
       {/* Status + quick actions */}
       <CampaignStatusActions
         campaignId={campaign.id}
+        campaignTitle={campaign.title}
         status={campaign.status}
+        assessmentCount={campaign.assessments.length}
+        pendingInviteCount={
+          campaign.participants.filter((participant) => participant.status === "invited")
+            .length
+        }
+        opensAt={campaign.opensAt}
+        closesAt={campaign.closesAt}
       />
 
       {/* Stats row */}

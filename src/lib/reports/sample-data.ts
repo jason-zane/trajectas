@@ -4,7 +4,7 @@
 
 import type { ResolvedBlockData, BlockConfig, BlockType } from './types'
 import type { ReportTheme } from './presentation'
-import { parseBlocks } from './registry'
+import { isDeferredBlockType, parseBlocks } from './registry'
 
 // ---------------------------------------------------------------------------
 // Sample entity pool — enough entries to support topN/maxItems up to 10
@@ -66,6 +66,25 @@ export function generateSampleData(
   const resolved: ResolvedBlockData[] = []
 
   for (const block of blocks) {
+    if (isDeferredBlockType(block.type)) {
+      resolved.push({
+        blockId: block.id,
+        type: block.type,
+        order: block.order,
+        presentationMode: block.presentationMode,
+        columns: block.columns,
+        chartType: block.chartType,
+        insetAccent: block.insetAccent,
+        printBreakBefore: block.printBreakBefore,
+        printHide: block.printHide,
+        screenHide: block.screenHide,
+        data: {},
+        skipped: true,
+        skipReason: 'block deferred',
+      })
+      continue
+    }
+
     const data = generateBlockSampleData(block.type, block.config as Record<string, unknown>)
 
     resolved.push({
@@ -83,9 +102,10 @@ export function generateSampleData(
     })
   }
 
-  // Attach brand theme to first block
-  if (resolved.length > 0) {
-    resolved[0].resolvedBrandTheme = reportTheme
+  // Attach brand theme to the first visible block.
+  const firstVisibleBlock = resolved.find((block) => !block.skipped)
+  if (firstVisibleBlock) {
+    firstVisibleBlock.resolvedBrandTheme = reportTheme
   }
 
   return resolved

@@ -13,7 +13,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
-import { parseBlocks } from './registry'
+import { isDeferredBlockType, parseBlocks } from './registry'
 import { resolveBand, DEFAULT_BAND_GLOBALS } from './band-resolution'
 import { buildDerivedNarrative, buildDevelopmentSuggestion, resolvePersonToken } from './narrative'
 import { enhanceNarrative } from './ai-narrative'
@@ -153,6 +153,25 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     const resolvedBlocks: ResolvedBlockData[] = []
 
     for (const block of blocks) {
+      if (isDeferredBlockType(block.type)) {
+        resolvedBlocks.push({
+          blockId: block.id,
+          type: block.type,
+          order: block.order,
+          printBreakBefore: block.printBreakBefore,
+          printHide: block.printHide,
+          screenHide: block.screenHide,
+          presentationMode: block.presentationMode,
+          columns: block.columns,
+          chartType: block.chartType,
+          insetAccent: block.insetAccent,
+          data: {},
+          skipped: true,
+          skipReason: 'block deferred',
+        })
+        continue
+      }
+
       // Step 2: Condition check
       const conditionResult = evaluateCondition(block, scoreMap)
       if (!conditionResult.pass) {

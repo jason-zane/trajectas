@@ -13,8 +13,7 @@ export interface BlockMeta {
   supportedModes: PresentationMode[]
   supportedCharts?: ChartType[]
   defaultMode: PresentationMode
-  is360Only?: boolean
-  isDeferred?: boolean
+  status?: 'hidden' | 'deferred'
 }
 
 export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
@@ -92,7 +91,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     supportedModes: ['open', 'carded', 'split'],
     supportedCharts: ['bar', 'segment', 'scorecard'],
     defaultMode: 'carded',
-    isDeferred: true,
+    status: 'deferred',
   },
   rater_comparison: {
     label: 'Rater Comparison',
@@ -102,7 +101,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     supportedModes: ['open', 'carded', 'split'],
     supportedCharts: ['grouped_bar', 'radar_360'],
     defaultMode: 'open',
-    is360Only: true,
+    status: 'deferred',
   },
   gap_analysis: {
     label: 'Gap Analysis',
@@ -112,7 +111,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     supportedModes: ['open', 'split', 'inset'],
     supportedCharts: ['gap'],
     defaultMode: 'open',
-    is360Only: true,
+    status: 'deferred',
   },
   open_comments: {
     label: 'Open Comments',
@@ -121,7 +120,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     defaultConfig: { minRatersForDisplay: 3, groupByFactor: true },
     supportedModes: ['open', 'inset'],
     defaultMode: 'open',
-    is360Only: true,
+    status: 'deferred',
   },
 }
 
@@ -131,6 +130,19 @@ export const BLOCK_CATEGORIES: Record<BlockCategory, { label: string; order: num
   highlight: { label: 'Highlights', order: 3 },
   ai: { label: 'AI Content', order: 3.5 },
   '360': { label: '360 Blocks', order: 4 },
+}
+
+export function isDeferredBlockType(type: BlockType): boolean {
+  return BLOCK_REGISTRY[type].status === 'deferred'
+}
+
+export function getBuilderBlockEntries(reportType: 'self_report' | '360') {
+  return (Object.entries(BLOCK_REGISTRY) as Array<[BlockType, BlockMeta]>).filter(
+    ([, meta]) =>
+      meta.status !== 'deferred' &&
+      meta.status !== 'hidden' &&
+      (reportType === '360' || meta.category !== '360'),
+  )
 }
 
 /** Parse and validate template blocks JSONB into typed BlockConfig array. */

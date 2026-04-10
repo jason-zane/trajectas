@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/sheet'
 import { getSelectLabel } from '@/lib/select-display'
 import { cn } from '@/lib/utils'
-import { BLOCK_REGISTRY } from '@/lib/reports/registry'
+import { BLOCK_REGISTRY, isDeferredBlockType } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig } from '@/lib/reports/types'
 import {
   updateReportTemplateBlocks,
@@ -331,6 +331,11 @@ export function BlockBuilderClient({
   // Add block (at position or end)
   // ---------------------------------------------------------------------------
   function addBlock(type: BlockType, atIndex?: number) {
+    if (isDeferredBlockType(type)) {
+      toast.error('This block is not available yet.')
+      return
+    }
+
     const meta = BLOCK_REGISTRY[type]
     const newBlock: BlockConfig = {
       id: generateId(),
@@ -551,6 +556,7 @@ export function BlockBuilderClient({
           <div className="mx-auto max-w-3xl space-y-0">
             {blocks.map((block, index) => {
               const meta = BLOCK_REGISTRY[block.type]
+              const isDeferredBlock = isDeferredBlockType(block.type)
               const isExpanded = expandedBlockId === block.id
               const summary = getBlockSummary(block, entityOptions, promptOptions)
 
@@ -592,6 +598,11 @@ export function BlockBuilderClient({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-sm">{meta.label}</p>
+                          {isDeferredBlock && (
+                            <Badge className="border-amber-500/30 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200">
+                              Coming soon
+                            </Badge>
+                          )}
                           <ModeTag mode={block.presentationMode ?? meta.defaultMode} />
                           {block.chartType && meta.supportedCharts && (
                             <Badge variant="outline" className="text-[10px] capitalize">
@@ -624,6 +635,12 @@ export function BlockBuilderClient({
                     {/* Expanded block detail with tabs */}
                     {isExpanded && (
                       <div className="border-t border-border">
+                        {isDeferredBlock && (
+                          <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                            Coming soon — this block stays hidden from participants until its data pipeline is implemented.
+                          </div>
+                        )}
+
                         {/* Tab bar */}
                         <div className="flex gap-0 border-b border-border px-4">
                           {BLOCK_TABS.map((tab) => (

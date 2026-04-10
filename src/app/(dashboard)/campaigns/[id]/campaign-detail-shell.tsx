@@ -51,6 +51,7 @@ export function CampaignDetailShell({
     tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
 
   const basePath = href(`/campaigns/${campaign.id}`);
+  const showAssessmentsAlert = campaign.assessments.length === 0;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -77,7 +78,18 @@ export function CampaignDetailShell({
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {tab.label}
+              <span className="inline-flex items-center gap-2">
+                {tab.label}
+                {tab.segment === "assessments" && showAssessmentsAlert && (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className="size-2 rounded-full bg-destructive"
+                    />
+                    <span className="sr-only">No assessments attached</span>
+                  </>
+                )}
+              </span>
               {isActive && (
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
               )}
