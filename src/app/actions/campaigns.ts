@@ -79,9 +79,14 @@ async function getClientPartnerId(clientId: string) {
 export async function getCampaigns(options?: { clientId?: string }): Promise<CampaignWithMeta[]> {
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
+
+  // Query the campaigns_with_counts view which inlines participant_count,
+  // completed_count, and assessment_count via correlated subqueries. This
+  // eliminates the previous sequential completed-count round-trip while
+  // preserving RLS (view is security_invoker=true).
   let query = db
-    .from('campaigns')
-    .select('*, clients(name), campaign_participants(count), campaign_assessments(count)')
+    .from('campaigns_with_counts')
+    .select('*, clients(name)')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -110,36 +115,12 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
     throwActionError('getCampaigns', 'Unable to load campaigns.', error)
   }
 
-  // Get completed counts per campaign
-  const campaignIds = (data ?? []).map((r) => r.id)
-  let completedMap: Record<string, number> = {}
-  if (campaignIds.length > 0) {
-    const { data: completed, error: completedError } = await db
-      .from('campaign_participants')
-      .select('campaign_id')
-      .in('campaign_id', campaignIds)
-      .eq('status', 'completed')
-
-    if (completedError) {
-      throwActionError(
-        'getCampaigns.completedCounts',
-        'Unable to load campaigns.',
-        completedError
-      )
-    }
-
-    completedMap = (completed ?? []).reduce<Record<string, number>>((acc, r) => {
-      acc[r.campaign_id] = (acc[r.campaign_id] ?? 0) + 1
-      return acc
-    }, {})
-  }
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (data ?? []).map((row: any) => ({
     ...mapCampaignRow(row),
-    assessmentCount: row.campaign_assessments?.[0]?.count ?? 0,
-    participantCount: row.campaign_participants?.[0]?.count ?? 0,
-    completedCount: completedMap[row.id] ?? 0,
+    assessmentCount: row.assessment_count ?? 0,
+    participantCount: row.participant_count ?? 0,
+    completedCount: row.completed_count ?? 0,
     clientName: row.clients?.name ?? undefined,
   }))
 }
