@@ -147,6 +147,7 @@ export type ClientAssessmentLibrarySummary = {
   factorCount: number
   sectionCount: number
   totalItemCount: number
+  estimatedDurationMinutes: number
   updatedAt?: string
 }
 
@@ -258,6 +259,10 @@ export async function getClientAssessmentLibrary(
         factorCount: getNestedCount(row.assessment_factors),
         sectionCount: stats.sectionCount,
         totalItemCount: stats.totalItemCount,
+        estimatedDurationMinutes: estimateAssessmentDurationMinutes(
+          row.format_mode as Assessment['formatMode'],
+          [{ itemCount: stats.totalItemCount, timeLimitSeconds: null }]
+        ),
         updatedAt: row.updated_at ? String(row.updated_at) : undefined,
       },
     ]

@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import {
   AuthorizationError,
   assertAdminOnly,
+  canManageCampaign,
   canAccessClient,
   canAccessPartner,
   canManageClientAssignment,
   canManageClient,
   canManageClientDirectory,
   canManagePartnerDirectory,
+  canManageReportTemplateLibrary,
   getPreferredPartnerIdForClientCreation,
+  getPreferredPartnerIdForReportTemplateCreation,
   type AuthorizedScope,
 } from "@/lib/auth/authorization";
 
@@ -46,10 +49,13 @@ describe("authorization rules", () => {
       expect(canManageClient(scope, "client-1", "partner-1")).toBe(true);
       expect(canManageClientDirectory(scope)).toBe(true);
       expect(canManageClientAssignment(scope)).toBe(true);
+      expect(canManageCampaign(scope, "partner-1", "client-1")).toBe(true);
+      expect(canManageReportTemplateLibrary(scope)).toBe(true);
       expect(canManagePartnerDirectory(scope)).toBe(true);
       expect(canAccessPartner(scope, "partner-1")).toBe(true);
       expect(canAccessPartner(scope, "partner-999")).toBe(true);
       expect(getPreferredPartnerIdForClientCreation(scope)).toBeNull();
+      expect(getPreferredPartnerIdForReportTemplateCreation(scope)).toBeNull();
       expect(() => assertAdminOnly(scope)).not.toThrow();
     });
 
@@ -108,8 +114,18 @@ describe("authorization rules", () => {
       expect(canManageClient(partnerAScope, "client-a1", "partner-a")).toBe(true);
     });
 
+    it("can manage campaigns and report templates for their own partner", () => {
+      expect(canManageCampaign(partnerAScope, "partner-a", "client-a1")).toBe(true);
+      expect(canManageReportTemplateLibrary(partnerAScope)).toBe(true);
+      expect(getPreferredPartnerIdForReportTemplateCreation(partnerAScope)).toBe("partner-a");
+    });
+
     it("cannot manage clients belonging to other partners", () => {
       expect(canManageClient(partnerAScope, "client-b1", "partner-b")).toBe(false);
+    });
+
+    it("cannot manage campaigns for other partners", () => {
+      expect(canManageCampaign(partnerAScope, "partner-b", "client-b1")).toBe(false);
     });
 
     it("cannot manage clients with unknown partner relationship", () => {
@@ -150,6 +166,11 @@ describe("authorization rules", () => {
       expect(canManageClient(memberScope, "client-a1", "partner-a")).toBe(false);
     });
 
+    it("cannot manage campaigns or report templates", () => {
+      expect(canManageCampaign(memberScope, "partner-a", "client-a1")).toBe(false);
+      expect(canManageReportTemplateLibrary(memberScope)).toBe(false);
+    });
+
     it("can still access their partner's clients", () => {
       expect(canAccessClient(memberScope, "client-a1")).toBe(true);
     });
@@ -164,6 +185,9 @@ describe("authorization rules", () => {
 
       expect(() => getPreferredPartnerIdForClientCreation(scope)).toThrow(
         "Select an active partner context before creating a client."
+      );
+      expect(() => getPreferredPartnerIdForReportTemplateCreation(scope)).toThrow(
+        "Select an active partner context before creating a report template."
       );
     });
   });
@@ -202,6 +226,10 @@ describe("authorization rules", () => {
 
     it("can manage their own client", () => {
       expect(canManageClient(clientA1Scope, "client-a1", null)).toBe(true);
+    });
+
+    it("can manage campaigns for their own client", () => {
+      expect(canManageCampaign(clientA1Scope, null, "client-a1")).toBe(true);
     });
 
     it("cannot manage other clients", () => {
@@ -291,6 +319,8 @@ describe("authorization rules", () => {
       expect(canManageClientDirectory(emptyScope)).toBe(false);
       expect(canManagePartnerDirectory(emptyScope)).toBe(false);
       expect(canManageClientAssignment(emptyScope)).toBe(false);
+      expect(canManageCampaign(emptyScope, "partner-1", "client-1")).toBe(false);
+      expect(canManageReportTemplateLibrary(emptyScope)).toBe(false);
     });
 
     it("fails admin-only check", () => {

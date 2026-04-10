@@ -3,7 +3,11 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import {
+  canManageCampaign,
+  requireAssessmentAccess,
+  requireCampaignAccess,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import type { AssessmentIntroContent, IntroOverride } from '@/types/database'
 
@@ -16,7 +20,7 @@ const uuidSchema = z.uuid()
 export async function getAssessmentIntro(
   assessmentId: string
 ): Promise<AssessmentIntroContent | null> {
-  await requireAdminScope()
+  await requireAssessmentAccess(assessmentId)
   const db = createAdminClient()
 
   const { data, error } = await db
@@ -38,7 +42,7 @@ export async function updateAssessmentIntro(
   assessmentId: string,
   content: AssessmentIntroContent
 ): Promise<{ success: true } | { error: string }> {
-  const scope = await requireAdminScope()
+  const access = await requireAssessmentAccess(assessmentId, { forWrite: true })
 
   const parsed = uuidSchema.safeParse(assessmentId)
   if (!parsed.success) {
@@ -55,7 +59,7 @@ export async function updateAssessmentIntro(
   if (error) return { error: error.message }
 
   await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
+    actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'assessment.intro_content.updated',
     targetTable: 'assessments',
     targetId: assessmentId,
@@ -63,6 +67,10 @@ export async function updateAssessmentIntro(
 
   revalidatePath('/assessments')
   revalidatePath(`/assessments/${assessmentId}/edit`)
+  revalidatePath(`/assessments/${assessmentId}/edit/intro`)
+  revalidatePath('/partner/assessments')
+  revalidatePath(`/partner/assessments/${assessmentId}/edit`)
+  revalidatePath(`/partner/assessments/${assessmentId}/edit/intro`)
 
   return { success: true }
 }
@@ -75,7 +83,7 @@ export async function toggleAssessmentIntro(
   assessmentId: string,
   enabled: boolean
 ): Promise<{ success: true } | { error: string }> {
-  const scope = await requireAdminScope()
+  const access = await requireAssessmentAccess(assessmentId, { forWrite: true })
 
   const db = createAdminClient()
 
@@ -124,7 +132,7 @@ export async function toggleAssessmentIntro(
   if (updateError) return { error: updateError.message }
 
   await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
+    actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'assessment.intro_enabled.toggled',
     targetTable: 'assessments',
     targetId: assessmentId,
@@ -133,6 +141,10 @@ export async function toggleAssessmentIntro(
 
   revalidatePath('/assessments')
   revalidatePath(`/assessments/${assessmentId}/edit`)
+  revalidatePath(`/assessments/${assessmentId}/edit/intro`)
+  revalidatePath('/partner/assessments')
+  revalidatePath(`/partner/assessments/${assessmentId}/edit`)
+  revalidatePath(`/partner/assessments/${assessmentId}/edit/intro`)
 
   return { success: true }
 }
@@ -146,7 +158,10 @@ export async function updateCampaignIntroOverride(
   assessmentId: string,
   override: IntroOverride
 ): Promise<{ success: true } | { error: string }> {
-  const scope = await requireAdminScope()
+  const access = await requireCampaignAccess(campaignId)
+  if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
+    return { error: 'You do not have permission to update this campaign.' }
+  }
 
   const campaignParsed = uuidSchema.safeParse(campaignId)
   const assessmentParsed = uuidSchema.safeParse(assessmentId)
@@ -165,7 +180,7 @@ export async function updateCampaignIntroOverride(
   if (error) return { error: error.message }
 
   await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
+    actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'campaign_assessment.intro_override.updated',
     targetTable: 'campaign_assessments',
     targetId: campaignId,
@@ -194,7 +209,7 @@ export type CampaignAssessmentIntro = {
 export async function getCampaignAssessmentIntros(
   campaignId: string
 ): Promise<CampaignAssessmentIntro[]> {
-  await requireAdminScope()
+  await requireCampaignAccess(campaignId)
 
   const db = createAdminClient()
 

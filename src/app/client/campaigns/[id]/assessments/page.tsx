@@ -28,6 +28,7 @@ export default async function ClientCampaignAssessmentsPage({
     sectionCount?: number;
     totalItemCount?: number;
     estimatedDurationMinutes?: number;
+    formatLabel?: string;
     quotaLimit?: number | null;
     quotaUsed?: number;
     quotaRemaining?: number | null;
@@ -44,6 +45,13 @@ export default async function ClientCampaignAssessmentsPage({
       factorCount: a.factorCount,
       sectionCount: a.sectionCount,
       totalItemCount: a.totalItemCount,
+      estimatedDurationMinutes: a.estimatedDurationMinutes,
+      formatLabel:
+        a.formatMode === "forced_choice"
+          ? "Forced-choice"
+          : a.sectionCount > 1
+            ? "Mixed"
+            : "Traditional",
       quotaLimit: a.quotaLimit,
       quotaUsed: a.quotaUsed,
       quotaRemaining: a.quotaRemaining,

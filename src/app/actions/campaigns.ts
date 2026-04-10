@@ -1326,6 +1326,73 @@ export type ClientParticipant = {
   created_at: string
 }
 
+export type CampaignAssessmentOption = {
+  id: string
+  title: string
+  description?: string
+  status: 'draft' | 'active' | 'archived'
+  factorCount: number
+  sectionCount: number
+  totalItemCount: number
+  formatLabel?: string
+  estimatedDurationMinutes: number
+}
+
+function getNestedCount(value: unknown) {
+  if (Array.isArray(value)) {
+    const first = value[0]
+    if (first && typeof first === 'object' && 'count' in first) {
+      const count = (first as { count?: number }).count
+      return Number.isFinite(count) ? Number(count) : 0
+    }
+    return value.length
+  }
+
+  if (value && typeof value === 'object' && 'count' in value) {
+    const count = (value as { count?: number }).count
+    return Number.isFinite(count) ? Number(count) : 0
+  }
+
+  return 0
+}
+
+function getFormatLabel(formatTypes: string[], formatMode?: string | null) {
+  const uniqueTypes = [...new Set(formatTypes.filter(Boolean))]
+  if (formatMode === 'forced_choice') return 'Forced-choice'
+  if (uniqueTypes.length === 0) return 'Traditional'
+  if (uniqueTypes.length > 1) return 'Mixed'
+
+  switch (uniqueTypes[0]) {
+    case 'likert':
+      return 'Likert'
+    case 'binary':
+      return 'Binary'
+    case 'sjt':
+      return 'SJT'
+    case 'forced_choice':
+      return 'Forced-choice'
+    case 'free_text':
+      return 'Free text'
+    default:
+      return uniqueTypes[0]
+  }
+}
+
+function getSecondsPerItem(formatType: string) {
+  switch (formatType) {
+    case 'likert':
+    case 'binary':
+      return 15
+    case 'sjt':
+    case 'forced_choice':
+      return 30
+    case 'free_text':
+      return 60
+    default:
+      return 20
+  }
+}
+
 export async function getParticipantsForClient(
   clientId: string,
 ): Promise<ClientParticipant[]> {
@@ -1385,14 +1452,26 @@ export async function getParticipantsForClient(
 // Helpers for assessment picker
 // ---------------------------------------------------------------------------
 
-export async function getActiveAssessments() {
+export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]> {
   const scope = await resolveAuthorizedScope()
   assertAdminOnly(scope)
   const db = await createClient()
   const { data, error } = await db
     .from('assessments')
-    .select('id, title, status')
-    .eq('status', 'active')
+    .select(`
+      id,
+      title,
+      description,
+      status,
+      format_mode,
+      assessment_factors(count),
+      assessment_sections(
+        id,
+        response_formats(type),
+        assessment_section_items(count)
+      )
+    `)
+    .in('status', ['active', 'draft'])
     .is('deleted_at', null)
     .order('title', { ascending: true })
 
@@ -1403,5 +1482,37 @@ export async function getActiveAssessments() {
       error
     )
   }
-  return data ?? []
+  return (data ?? []).map((row) => {
+    const sections = Array.isArray(row.assessment_sections) ? row.assessment_sections : []
+    const totalItemCount = sections.reduce(
+      (sum, section) => sum + getNestedCount(section.assessment_section_items),
+      0
+    )
+    const formatTypes = sections.map((section) => {
+      const responseFormat = Array.isArray(section.response_formats)
+        ? section.response_formats[0]
+        : section.response_formats
+      return String(responseFormat?.type ?? '')
+    })
+    const estimatedDurationSeconds = sections.reduce((sum, section) => {
+      const responseFormat = Array.isArray(section.response_formats)
+        ? section.response_formats[0]
+        : section.response_formats
+      const formatType = String(responseFormat?.type ?? '')
+      return sum + getNestedCount(section.assessment_section_items) * getSecondsPerItem(formatType)
+    }, 0)
+
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description ?? undefined,
+      status: row.status,
+      factorCount: getNestedCount(row.assessment_factors),
+      sectionCount: sections.length,
+      totalItemCount,
+      formatLabel: getFormatLabel(formatTypes, row.format_mode),
+      estimatedDurationMinutes:
+        estimatedDurationSeconds > 0 ? Math.max(1, Math.ceil(estimatedDurationSeconds / 60)) : 0,
+    }
+  })
 }
