@@ -796,10 +796,6 @@ export async function submitSession(token: string, sessionId: string) {
     }
   }
 
-  // Trigger report generation for any pending snapshots created by DB trigger.
-  // Fire-and-forget — don't block the participant response.
-  triggerReportGeneration(sessionId)
-
   return { success: true as const }
 }
 
