@@ -1,50 +1,22 @@
-function Skeleton({ className }: { className?: string }) {
+export default function Loading() {
   return (
-    <div className={`animate-shimmer rounded-md bg-gradient-to-r from-muted via-muted/60 to-muted bg-[length:200%_100%] ${className ?? ""}`} />
-  );
-}
-
-export default function ParticipantDetailLoading() {
-  return (
-    <div className="space-y-8 max-w-5xl">
-      {/* Header */}
+    <div className="space-y-6 max-w-6xl">
+      <div className="h-4 w-32 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
       <div className="flex items-start gap-4">
-        <Skeleton className="size-14 rounded-full" />
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-7 w-48" />
-          <Skeleton className="h-4 w-64" />
+        <div className="size-14 rounded-full bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+        <div className="flex-1 space-y-2">
+          <div className="h-4 w-24 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+          <div className="h-8 w-72 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
+          <div className="h-4 w-96 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
         </div>
       </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b">
-        {["Overview", "Activity", "Scores", "Responses"].map((t) => (
-          <Skeleton key={t} className="h-9 w-24 rounded-t-md" />
-        ))}
-      </div>
-
-      {/* Content */}
+      <div className="h-10 w-80 rounded bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent" />
       <div className="grid gap-4 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/[0.06]"
-          >
-            <Skeleton className="h-3 w-20 mb-2" />
-            <Skeleton className="h-8 w-16" />
-          </div>
-        ))}
-      </div>
-      <div className="rounded-xl bg-card p-6 shadow-sm ring-1 ring-foreground/[0.06] space-y-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex gap-3">
-            <Skeleton className="size-8 rounded-full" />
-            <div className="space-y-1.5 flex-1">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-32" />
-            </div>
-          </div>
+            className="h-24 rounded-xl bg-muted animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-foreground/[0.03] to-transparent"
+          />
         ))}
       </div>
     </div>
