@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope, AuthorizationError } from '@/lib/auth/authorization'
+import { resolveAuthorizedScope, AuthorizationError, requireCampaignAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 
 export type SessionDetailScore = {
@@ -264,7 +264,17 @@ export type CampaignSessionRow = {
 }
 
 export async function getCampaignSessions(campaignId: string): Promise<CampaignSessionRow[]> {
-  const scope = await resolveAuthorizedScope()
+  // Fail closed: verify the caller can access this specific campaign before
+  // returning any session data. This replaces the previous post-filter which
+  // only checked clientIds (not partnerIds) and was not fail-closed.
+  try {
+    await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return []
+    }
+    throw error
+  }
 
   const db = await createClient()
   const { data, error } = await db
@@ -294,19 +304,7 @@ export async function getCampaignSessions(campaignId: string): Promise<CampaignS
     throwActionError('getCampaignSessions', 'Unable to load sessions.', error)
   }
 
-  const rows = data ?? []
-
-  // Client scope filter (platform admin sees all)
-  const filtered = (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass)
-    ? rows
-    : rows.filter((row: any) => {
-        const cp = Array.isArray(row.campaign_participants) ? row.campaign_participants[0] : row.campaign_participants
-        const campaign = Array.isArray(cp?.campaigns) ? cp.campaigns[0] : cp?.campaigns
-        const clientId = campaign?.client_id
-        return clientId && scope.clientIds.includes(clientId)
-      })
-
-  return mapCampaignSessionRows(filtered)
+  return mapCampaignSessionRows(data ?? [])
 }
 
 function mapCampaignSessionRows(data: any[]): CampaignSessionRow[] {

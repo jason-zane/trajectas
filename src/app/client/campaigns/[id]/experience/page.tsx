@@ -3,6 +3,8 @@ import {
   getPlatformExperienceTemplate,
 } from "@/app/actions/experience";
 import { getPlatformBrand } from "@/app/actions/brand";
+import { requireCampaignAccess } from "@/lib/auth/authorization";
+import { notFound } from "next/navigation";
 import { FlowEditor } from "@/components/flow-editor";
 
 export default async function ClientCampaignExperiencePage({
@@ -11,6 +13,15 @@ export default async function ClientCampaignExperiencePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  // Enforce scope before fetching experience template. getExperienceTemplate
+  // uses the admin client (needed for unauthenticated participant-runtime
+  // callers) so it performs no auth check of its own.
+  try {
+    await requireCampaignAccess(id);
+  } catch {
+    notFound();
+  }
 
   const [campaignTemplate, platformTemplate, brandRecord] = await Promise.all([
     getExperienceTemplate("campaign", id),
