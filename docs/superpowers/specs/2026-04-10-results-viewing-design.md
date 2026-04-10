@@ -71,7 +71,7 @@ A **session** becomes the canonical unit for "results of one attempt." It gets i
 **Route status notes:**
 - Admin `/campaigns/[id]/results` exists today with completion funnel + per-assessment breakdown + snapshot list; this file is **rewritten** to host the new results hub.
 - Admin `/participants/[id]` exists today with 5 tabs (Overview, Activity, Scores, Responses, Reports); this file is **rewritten** to use the new shared `participant-detail-view` (4 tabs, Scores/Responses moved to session detail).
-- Partner `/partner/campaigns/[id]/results` is **new** — no tabbed layout exists on the partner campaign detail today; this requires adding tab navigation or a new nav entry.
+- Partner `/partner/campaigns/[id]/results` is **new**. The existing partner campaign detail at `/partner/campaigns/[id]/page.tsx` is a single flat page with no tabbed layout. To surface the results hub without restructuring the whole partner campaign experience, we will add a **Results** link as a secondary action in the campaign detail header (next to the existing "View participants" action), pointing at `/partner/campaigns/[id]/results`. No new tab layout is added to the campaign page. This mirrors how the admin campaign page links out to its sub-pages.
 - Client `/client/campaigns/[id]/results` exists today as a placeholder page; this file is **rewritten**.
 - Partner `/partner/campaigns/[id]/participants/[participantId]` exists as a flat page with stat cards + timeline; this is a substantial **rewrite** into the shared tabbed view.
 - Client `/client/campaigns/[id]/participants/[pid]` does **not exist** — this is a fully new route file; only the participants list page exists today.
@@ -225,10 +225,10 @@ Each per-surface route is a thin server component that fetches data and renders 
 
 ## Server actions
 
-**New file:** `src/app/actions/sessions.ts` (does not exist today)
+**New file:** `src/app/actions/sessions.ts` (does not exist today). Session-scoped **read** actions live here. Report-related actions stay in `src/app/actions/reports.ts` alongside the existing snapshot/release/retry functions — this keeps all report lifecycle logic in one place.
 
 **New actions:**
-- `generateReportSnapshot({ sessionId, templateId, audienceType, narrativeMode })` in `src/app/actions/reports.ts` — creates a new `ReportSnapshot` row and invokes the existing generation pipeline (`/api/reports/generate` or equivalent). Must use `requireSessionAccess(sessionId)` for authorization.
+- `generateReportSnapshot({ sessionId, templateId, audienceType, narrativeMode })` in `src/app/actions/reports.ts` — creates a new `ReportSnapshot` row with `status: "pending"` and then POSTs to `/api/reports/generate` with the internal API key, identical to how `triggerReportGeneration` in `assess.ts` already does it. The implementer can refactor shared logic between the two if useful, but the contract for this action is: insert row, invoke the same generation endpoint, return the new snapshot id. Must use `requireSessionAccess(sessionId)` for authorization.
 - `getSessionDetail(sessionId)` in `src/app/actions/sessions.ts` — returns the full session view data: session metadata, scores (via existing query pattern from `getParticipantSessions`), report snapshots filtered to this session, and conditionally responses (only for admin callers). Uses `requireSessionAccess(sessionId)` for authorization. The returned shape is designed to be a superset of what the current `getParticipantSessions` row provides for scores, so the session detail view has a single data source.
 - `getSessionSnapshots(sessionId)` in `src/app/actions/reports.ts` — lightweight action returning just the snapshot list for polling on the Reports tab. Uses `requireSessionAccess(sessionId)`.
 
@@ -261,7 +261,7 @@ Every new or rewritten route MUST have a `loading.tsx` file with shimmer-animate
 - `src/app/partner/campaigns/[id]/results/loading.tsx` (new)
 - `src/app/partner/campaigns/[id]/participants/[participantId]/loading.tsx` (update existing)
 - `src/app/partner/campaigns/[id]/participants/[participantId]/sessions/[sid]/loading.tsx` (new)
-- `src/app/client/campaigns/[id]/results/loading.tsx` (update existing)
+- `src/app/client/campaigns/[id]/results/loading.tsx` (new)
 - `src/app/client/campaigns/[id]/participants/[pid]/loading.tsx` (new)
 - `src/app/client/campaigns/[id]/participants/[pid]/sessions/[sid]/loading.tsx` (new)
 
