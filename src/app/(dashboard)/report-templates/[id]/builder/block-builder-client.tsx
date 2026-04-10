@@ -138,6 +138,7 @@ interface Props {
   campaigns?: { id: string; title: string }[]
   templateSettings: TemplateSettings
   promptOptions?: PromptOption[]
+  basePath?: string
 }
 
 function generateId(): string {
@@ -247,6 +248,7 @@ export function BlockBuilderClient({
   campaigns: allCampaigns,
   templateSettings: initialSettings,
   promptOptions: initialPromptOptions = [],
+  basePath = '/report-templates',
 }: Props) {
   const router = useRouter()
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks)
@@ -475,7 +477,7 @@ export function BlockBuilderClient({
           variant="ghost"
           size="icon"
           className="size-8"
-          onClick={() => router.push('/report-templates')}
+          onClick={() => router.push(basePath)}
         >
           <ChevronLeft className="size-4" />
         </Button>
@@ -525,7 +527,7 @@ export function BlockBuilderClient({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => window.open(`/report-templates/${templateId}/preview`, '_blank')}
+            onClick={() => window.open(`${basePath}/${templateId}/preview`, '_blank')}
           >
             <Eye className="size-3.5" />
             Preview

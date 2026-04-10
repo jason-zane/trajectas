@@ -9,6 +9,7 @@ import {
   getAccessibleCampaignIds,
   getAccessiblePartnerIds,
   getPreferredPartnerIdForReportTemplateCreation,
+  requireAdminScope,
   requireCampaignAccess,
   requireParticipantAccess,
   requireReportTemplateAccess,
@@ -100,8 +101,8 @@ function ensureReportTemplateLibraryAccess(
 // ---------------------------------------------------------------------------
 
 export async function getReportTemplates(): Promise<ReportTemplate[]> {
-  await requireAdminScope()
-  const db = await createClient()
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
   const { data, error } = await db
     .from('report_templates')
     .select('*')
@@ -114,7 +115,7 @@ export async function getReportTemplates(): Promise<ReportTemplate[]> {
       error
     )
   }
-  return (data ?? []).map(mapReportTemplateRow)
+  return filterTemplatesForScope(scope, (data ?? []).map(mapReportTemplateRow))
 }
 
 function getRelatedRecord(value: unknown): Record<string, unknown> | null {
@@ -151,8 +152,16 @@ type SessionCampaignLookupRow = {
 }
 
 export async function getReportTemplate(id: string): Promise<ReportTemplate | null> {
-  await requireAdminScope()
-  const db = await createClient()
+  try {
+    await requireReportTemplateAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
   const { data, error } = await db
     .from('report_templates')
     .select('*')
@@ -183,8 +192,13 @@ export interface CreateReportTemplateInput {
 export async function createReportTemplate(
   input: CreateReportTemplateInput,
 ): Promise<ReportTemplate> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  const scope = await resolveAuthorizedScope()
+  ensureReportTemplateLibraryAccess(scope)
+
+  const db = createAdminClient()
+  const partnerId = scope.isPlatformAdmin
+    ? input.partnerId ?? null
+    : getPreferredPartnerIdForReportTemplateCreation(scope)
   const { data, error } = await db
     .from('report_templates')
     .insert({
@@ -195,21 +209,25 @@ export async function createReportTemplate(
       group_by_dimension: input.groupByDimension ?? false,
       person_reference: input.personReference ?? 'the_participant',
       page_header_logo: input.pageHeaderLogo ?? 'none',
-      partner_id: input.partnerId ?? null,
+      partner_id: partnerId,
       blocks: [],
     })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
   return mapReportTemplateRow(data)
 }
 
 export async function cloneReportTemplate(id: string): Promise<ReportTemplate> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  const access = await requireReportTemplateAccess(id)
+  const db = createAdminClient()
   const source = await getReportTemplate(id)
   if (!source) throw new Error('Template not found')
+  const partnerId = access.scope.isPlatformAdmin
+    ? source.partnerId ?? null
+    : getPreferredPartnerIdForReportTemplateCreation(access.scope)
   const { data, error } = await db
     .from('report_templates')
     .insert({
@@ -221,13 +239,14 @@ export async function cloneReportTemplate(id: string): Promise<ReportTemplate> {
       person_reference: source.personReference,
       auto_release: false,  // never auto-release a clone by default
       page_header_logo: source.pageHeaderLogo ?? 'none',
-      partner_id: source.partnerId ?? null,
+      partner_id: partnerId,
       blocks: source.blocks,
     })
     .select('*')
     .single()
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
   return mapReportTemplateRow(data)
 }
 
@@ -235,22 +254,23 @@ export async function updateReportTemplateBlocks(
   id: string,
   blocks: Record<string, unknown>[],
 ): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  await requireReportTemplateAccess(id, { forWrite: true })
+  const db = createAdminClient()
   const { error } = await db
     .from('report_templates')
     .update({ blocks })
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/builder`)
 }
 
 export async function updateReportTemplateSettings(
   id: string,
   updates: Partial<CreateReportTemplateInput>,
 ): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  await requireReportTemplateAccess(id, { forWrite: true })
+  const db = createAdminClient()
   const row: Record<string, unknown> = {}
   if (updates.name !== undefined) row.name = updates.name
   if (updates.description !== undefined) row.description = updates.description
@@ -263,31 +283,35 @@ export async function updateReportTemplateSettings(
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath('/partner/report-templates')
+  revalidatePath(`/partner/report-templates/${id}/builder`)
 }
 
 export async function deleteReportTemplate(id: string): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  await requireReportTemplateAccess(id, { forWrite: true })
+  const db = createAdminClient()
   const { error } = await db
     .from('report_templates')
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
 }
 
 export async function toggleReportTemplateActive(
   id: string,
   isActive: boolean,
 ): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  await requireReportTemplateAccess(id, { forWrite: true })
+  const db = createAdminClient()
   const { error } = await db
     .from('report_templates')
     .update({ is_active: isActive })
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
 }
 
 // ---------------------------------------------------------------------------
@@ -640,16 +664,26 @@ const AUDIENCE_FK_COLUMNS: Record<AudienceType, string> = {
 
 /** Returns campaigns linked to a template, with their assessments. */
 export async function getTemplateUsage(templateId: string): Promise<TemplateUsageEntry[]> {
-  await requireAdminScope()
-  const db = await createClient()
+  const access = await requireReportTemplateAccess(templateId)
+  const db = createAdminClient()
+  const accessibleCampaignIds = await getAccessibleCampaignIds(access.scope)
+  if (!access.scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+    return []
+  }
 
   // Find all campaign_report_config rows that reference this template
-  const { data: configs, error } = await db
+  let configQuery = db
     .from('campaign_report_config')
     .select('campaign_id, participant_template_id, hr_manager_template_id, consultant_template_id')
     .or(
       `participant_template_id.eq.${templateId},hr_manager_template_id.eq.${templateId},consultant_template_id.eq.${templateId}`,
     )
+
+  if (!access.scope.isPlatformAdmin && accessibleCampaignIds) {
+    configQuery = configQuery.in('campaign_id', accessibleCampaignIds)
+  }
+
+  const { data: configs, error } = await configQuery
   if (error) {
     throwActionError(
       'getTemplateUsage',
@@ -702,8 +736,13 @@ export async function linkTemplateToCampaign(
   campaignId: string,
   audienceType: AudienceType,
 ): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  await requireReportTemplateAccess(templateId)
+  const campaignAccess = await requireCampaignAccess(campaignId)
+  if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
+    throw new AuthorizationError('You do not have permission to update this campaign.')
+  }
+
+  const db = createAdminClient()
   const column = AUDIENCE_FK_COLUMNS[audienceType]
 
   const { error } = await db
@@ -714,6 +753,7 @@ export async function linkTemplateToCampaign(
     )
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
@@ -723,8 +763,13 @@ export async function unlinkTemplateFromCampaign(
   campaignId: string,
   audienceType: AudienceType,
 ): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+  await requireReportTemplateAccess(templateId)
+  const campaignAccess = await requireCampaignAccess(campaignId)
+  if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
+    throw new AuthorizationError('You do not have permission to update this campaign.')
+  }
+
+  const db = createAdminClient()
   const column = AUDIENCE_FK_COLUMNS[audienceType]
 
   const { error } = await db
@@ -734,17 +779,28 @@ export async function unlinkTemplateFromCampaign(
     .eq(column, templateId)
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
 /** Returns template usage counts for the template list page. */
 export async function getTemplateUsageCounts(): Promise<Record<string, number>> {
-  await requireAdminScope()
-  const db = await createClient()
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
+  const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
+  if (!scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+    return {}
+  }
 
-  const { data, error } = await db
+  let query = db
     .from('campaign_report_config')
     .select('participant_template_id, hr_manager_template_id, consultant_template_id')
+
+  if (!scope.isPlatformAdmin && accessibleCampaignIds) {
+    query = query.in('campaign_id', accessibleCampaignIds)
+  }
+
+  const { data, error } = await query
   if (error) {
     throwActionError(
       'getTemplateUsageCounts',
@@ -766,13 +822,24 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
 
 /** Returns all campaigns (for linking UI). */
 export async function getAllCampaigns(): Promise<{ id: string; title: string }[]> {
-  await requireAdminScope()
-  const db = await createClient()
-  const { data, error } = await db
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
+  const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
+  if (!scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+    return []
+  }
+
+  let query = db
     .from('campaigns')
     .select('id, title')
     .is('deleted_at', null)
     .order('title')
+
+  if (!scope.isPlatformAdmin && accessibleCampaignIds) {
+    query = query.in('id', accessibleCampaignIds)
+  }
+
+  const { data, error } = await query
   if (error) {
     throwActionError('getAllCampaigns', 'Unable to load campaigns.', error)
   }
@@ -784,8 +851,10 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
 // ---------------------------------------------------------------------------
 
 export async function getReportPrompts(): Promise<{ id: string; name: string; purpose: string }[]> {
-  await requireAdminScope()
-  const db = await createClient()
+  const scope = await resolveAuthorizedScope()
+  ensureReportTemplateLibraryAccess(scope)
+
+  const db = createAdminClient()
   const { data, error } = await db
     .from('ai_system_prompts')
     .select('id, name, purpose')
@@ -809,8 +878,10 @@ export interface EntityOption {
 }
 
 export async function getEntityOptions(): Promise<EntityOption[]> {
-  await requireAdminScope()
-  const db = await createClient()
+  const scope = await resolveAuthorizedScope()
+  ensureReportTemplateLibraryAccess(scope)
+
+  const db = createAdminClient()
   const [{ data: dimensions }, { data: factors }, { data: constructs }] = await Promise.all([
     db.from('dimensions').select('id, name').is('deleted_at', null).eq('is_active', true),
     db.from('factors').select('id, name').is('deleted_at', null).eq('is_active', true),
@@ -835,10 +906,11 @@ export type ReportTemplateOption = {
 }
 
 export async function getActiveReportTemplates(): Promise<ReportTemplateOption[]> {
-  const db = await createClient()
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
   const { data, error } = await db
     .from('report_templates')
-    .select('id, name, description')
+    .select('id, name, description, partner_id')
     .is('deleted_at', null)
     .order('name', { ascending: true })
 
@@ -846,7 +918,17 @@ export async function getActiveReportTemplates(): Promise<ReportTemplateOption[]
     throwActionError('getActiveReportTemplates', 'Unable to load templates.', error)
   }
 
-  return (data ?? []).map((r) => ({
+  const filtered = await filterTemplatesForScope(
+    scope,
+    (data ?? []).map((r) => ({
+      id: String(r.id),
+      name: String(r.name),
+      description: r.description ? String(r.description) : undefined,
+      partnerId: r.partner_id ? String(r.partner_id) : undefined,
+    })),
+  )
+
+  return filtered.map((r) => ({
     id: String(r.id),
     name: String(r.name),
     description: r.description ? String(r.description) : undefined,

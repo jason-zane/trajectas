@@ -24,7 +24,11 @@ import {
 import { getSelectLabel } from '@/lib/select-display'
 import { createReportTemplate } from '@/app/actions/reports'
 
-export function CreateTemplateButton() {
+export function CreateTemplateButton({
+  basePath = '/report-templates',
+}: {
+  basePath?: string
+}) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -42,7 +46,7 @@ export function CreateTemplateButton() {
         })
         toast.success('Template created')
         setOpen(false)
-        router.push(`/report-templates/${template.id}/builder`)
+        router.push(`${basePath}/${template.id}/builder`)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to create template')
       }
