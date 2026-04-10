@@ -117,6 +117,7 @@ export async function getParticipants(filters?: {
       campaigns!inner(title, slug),
       participant_sessions(id, status)
     `, { count: 'exact' })
+    .is('deleted_at', null)
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -190,6 +191,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
       campaigns(title, slug, client_id, clients(name))
     `)
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
   if (error || !row) return null

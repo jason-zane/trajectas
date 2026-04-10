@@ -43,6 +43,19 @@ export type CampaignDetail = Campaign & {
   clientName?: string
 }
 
+export type BulkInviteRowError = {
+  row: number
+  email?: string
+  message: string
+}
+
+export type BulkInvitePendingExisting = {
+  row: number
+  email: string
+  firstName?: string
+  lastName?: string
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -159,6 +172,7 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
     .from('campaign_assessments')
     .select('*, assessments(title, status, min_custom_factors)')
     .eq('campaign_id', id)
+    .is('deleted_at', null)
     .order('display_order', { ascending: true })
 
   // Load participants
@@ -166,6 +180,7 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
     .from('campaign_participants')
     .select('*')
     .eq('campaign_id', id)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   // Load access links
@@ -889,6 +904,7 @@ export async function sendParticipantInviteEmail(
       .select('email, first_name, access_token')
       .eq('id', participantId)
       .eq('campaign_id', campaignId)
+      .is('deleted_at', null)
       .single(),
     db
       .from('campaigns')
@@ -947,6 +963,7 @@ export async function sendParticipantInviteEmail(
 export async function bulkInviteParticipants(
   campaignId: string,
   participants: { email: string; firstName?: string; lastName?: string }[],
+  options?: { allowExisting?: boolean },
 ) {
   let access
   try {
@@ -959,17 +976,102 @@ export async function bulkInviteParticipants(
   }
 
   const db = createAdminClient()
-  const rows = participants.map((c) => ({
-    campaign_id: campaignId,
-    email: c.email,
-    first_name: c.firstName ?? null,
-    last_name: c.lastName ?? null,
-  }))
+  const rowErrors: BulkInviteRowError[] = []
+  const validatedParticipants: Array<{
+    row: number
+    email: string
+    firstName?: string
+    lastName?: string
+  }> = []
+  const seenEmails = new Set<string>()
 
-  const { data, error } = await db
-    .from('campaign_participants')
-    .upsert(rows, { onConflict: 'campaign_id,email', ignoreDuplicates: true })
-    .select('id')
+  for (const [index, participant] of participants.entries()) {
+    const email = participant.email.trim()
+    const firstName = participant.firstName?.trim() || undefined
+    const lastName = participant.lastName?.trim() || undefined
+    const parsed = inviteParticipantSchema.safeParse({
+      email,
+      firstName,
+      lastName,
+    })
+
+    if (!parsed.success) {
+      rowErrors.push({
+        row: index + 1,
+        email: email || undefined,
+        message:
+          Object.values(parsed.error.flatten().fieldErrors)
+            .flat()
+            .join(', ') || 'Invalid row',
+      })
+      continue
+    }
+
+    const normalizedEmail = parsed.data.email.toLowerCase()
+    if (seenEmails.has(normalizedEmail)) {
+      rowErrors.push({
+        row: index + 1,
+        email: parsed.data.email,
+        message: 'Duplicate email in upload',
+      })
+      continue
+    }
+
+    seenEmails.add(normalizedEmail)
+    validatedParticipants.push({
+      row: index + 1,
+      email: parsed.data.email,
+      firstName: parsed.data.firstName || undefined,
+      lastName: parsed.data.lastName || undefined,
+    })
+  }
+
+  const existingEmailSet = new Set<string>()
+  if (validatedParticipants.length > 0) {
+    const { data: existingParticipants, error: existingError } = await db
+      .from('campaign_participants')
+      .select('email')
+      .eq('campaign_id', campaignId)
+      .is('deleted_at', null)
+
+    if (existingError) {
+      logActionError('bulkInviteParticipants.existingLookup', existingError)
+      return { error: 'Unable to validate existing participants.' }
+    }
+
+    for (const row of existingParticipants ?? []) {
+      if (row.email) {
+        existingEmailSet.add(String(row.email).toLowerCase())
+      }
+    }
+  }
+
+  const pendingExisting = validatedParticipants.filter((participant) =>
+    existingEmailSet.has(participant.email.toLowerCase())
+  )
+  const rowsToInsert = validatedParticipants.filter((participant) =>
+    options?.allowExisting ? true : !existingEmailSet.has(participant.email.toLowerCase())
+  )
+
+  let data: Array<{ id: string }> | null = null
+  let error: { message?: string } | null = null
+
+  if (rowsToInsert.length > 0) {
+    const insertResult = await db
+      .from('campaign_participants')
+      .insert(
+        rowsToInsert.map((participant) => ({
+          campaign_id: campaignId,
+          email: participant.email,
+          first_name: participant.firstName ?? null,
+          last_name: participant.lastName ?? null,
+        }))
+      )
+      .select('id')
+
+    data = insertResult.data
+    error = insertResult.error
+  }
 
   if (error) {
     logActionError('bulkInviteParticipants', error)
@@ -984,7 +1086,10 @@ export async function bulkInviteParticipants(
     partnerId: access.partnerId,
     clientId: access.clientId,
     metadata: {
-      count: data?.length ?? 0,
+      inserted: data?.length ?? 0,
+      existingCount: pendingExisting.length,
+      errorCount: rowErrors.length,
+      allowExisting: options?.allowExisting ?? false,
     },
   })
 
@@ -1000,7 +1105,19 @@ export async function bulkInviteParticipants(
   }
 
   revalidatePath(`/campaigns/${campaignId}`)
-  return { success: true as const, count: data?.length ?? 0 }
+  return {
+    success: true as const,
+    inserted: data?.length ?? 0,
+    existingCount: pendingExisting.length,
+    errors: rowErrors,
+    requiresConfirmation: pendingExisting.length > 0 && !(options?.allowExisting ?? false),
+    pendingExisting: pendingExisting.map((participant) => ({
+      row: participant.row,
+      email: participant.email,
+      firstName: participant.firstName,
+      lastName: participant.lastName,
+    })),
+  }
 }
 
 export async function removeParticipant(campaignId: string, participantId: string) {
@@ -1038,6 +1155,48 @@ export async function removeParticipant(campaignId: string, participantId: strin
   })
 
   revalidatePath(`/campaigns/${campaignId}`)
+  revalidatePath(`/campaigns/${campaignId}/participants`)
+  revalidatePath('/participants')
+  return { success: true as const }
+}
+
+export async function restoreParticipant(campaignId: string, participantId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_participants')
+    .update({ deleted_at: null })
+    .eq('id', participantId)
+    .eq('campaign_id', campaignId)
+
+  if (error) {
+    logActionError('restoreParticipant', error)
+    return { error: 'Unable to restore participant.' }
+  }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.participant.restored',
+    targetTable: 'campaign_participants',
+    targetId: participantId,
+    partnerId: access.partnerId,
+    clientId: access.clientId,
+    metadata: { campaignId },
+  })
+
+  revalidatePath(`/campaigns/${campaignId}`)
+  revalidatePath(`/campaigns/${campaignId}/participants`)
+  revalidatePath('/participants')
+  return { success: true as const }
 }
 
 // ---------------------------------------------------------------------------
@@ -1178,6 +1337,7 @@ export async function getParticipantsForClient(
     .from('campaign_participants')
     .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at')
     .in('campaign_id', campaignIds)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (participantsError) {

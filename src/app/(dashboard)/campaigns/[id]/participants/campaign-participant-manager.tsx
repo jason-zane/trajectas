@@ -11,7 +11,10 @@ import {
   bulkInviteParticipants,
   inviteParticipant,
   removeParticipant,
+  restoreParticipant,
   sendParticipantInviteEmail,
+  type BulkInvitePendingExisting,
+  type BulkInviteRowError,
 } from "@/app/actions/campaigns";
 import type { CampaignParticipant } from "@/types/database";
 import {
@@ -21,6 +24,7 @@ import {
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -65,6 +69,12 @@ export function CampaignParticipantManager({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [csvText, setCsvText] = useState("");
+  const [showBulkErrors, setShowBulkErrors] = useState(false);
+  const [bulkErrors, setBulkErrors] = useState<BulkInviteRowError[]>([]);
+  const [pendingDuplicateRows, setPendingDuplicateRows] = useState<
+    BulkInvitePendingExisting[]
+  >([]);
+  const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [errors, setErrors] = useState<Record<string, any>>({});
 
@@ -115,9 +125,63 @@ export function CampaignParticipantManager({
       return;
     }
 
-    toast.success(`Invited ${result.count} participants`);
+    if (!("success" in result) || !result.success) {
+      toast.error("Upload failed");
+      return;
+    }
+
+    const summary = [
+      result.inserted > 0
+        ? `${result.inserted} participant${result.inserted === 1 ? "" : "s"} invited`
+        : "No new participants invited",
+      result.existingCount > 0
+        ? `${result.existingCount} already existed`
+        : null,
+      result.errors.length > 0
+        ? `${result.errors.length} invalid row${result.errors.length === 1 ? "" : "s"}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    toast.success(summary);
+
+    if (result.errors.length > 0) {
+      setBulkErrors(result.errors);
+      setShowBulkErrors(true);
+    }
+    if (result.requiresConfirmation && result.pendingExisting.length > 0) {
+      setPendingDuplicateRows(result.pendingExisting);
+      setShowDuplicateConfirm(true);
+    } else {
+      setPendingDuplicateRows([]);
+    }
+
     setCsvText("");
     setShowBulk(false);
+    router.refresh();
+  }
+
+  async function handleConfirmDuplicateInvites() {
+    const result = await bulkInviteParticipants(campaignId, pendingDuplicateRows, {
+      allowExisting: true,
+    });
+
+    if ("error" in result && result.error) {
+      toast.error(typeof result.error === "string" ? result.error : "Retake invite failed");
+      return;
+    }
+
+    if (!("success" in result) || !result.success) {
+      toast.error("Retake invite failed");
+      return;
+    }
+
+    toast.success(
+      `${result.inserted} retake invite${result.inserted === 1 ? "" : "s"} created`,
+    );
+    setPendingDuplicateRows([]);
+    setShowDuplicateConfirm(false);
     router.refresh();
   }
 
@@ -128,7 +192,22 @@ export function CampaignParticipantManager({
       return;
     }
 
-    toast.success(`Removed ${name}`);
+    toast.success("Participant removed", {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          const restoreResult = await restoreParticipant(campaignId, participantId);
+          if (restoreResult?.error) {
+            toast.error(restoreResult.error);
+            return;
+          }
+
+          toast.success(`${name} restored`);
+          router.refresh();
+        },
+      },
+      duration: 5000,
+    });
     router.refresh();
   }
 
@@ -324,6 +403,63 @@ export function CampaignParticipantManager({
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showBulkErrors} onOpenChange={setShowBulkErrors}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rows that were not imported</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Fix these rows and re-import them if you still want to invite those participants.
+            </p>
+            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+              {bulkErrors.map((error) => (
+                <div
+                  key={`${error.row}-${error.email ?? error.message}`}
+                  className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                >
+                  <p className="text-sm font-medium">
+                    Row {error.row}
+                    {error.email ? ` · ${error.email}` : ""}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{error.message}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={showDuplicateConfirm}
+        onOpenChange={setShowDuplicateConfirm}
+        title="Create retake invites for existing participants?"
+        description={`${pendingDuplicateRows.length} uploaded email${
+          pendingDuplicateRows.length === 1 ? "" : "s"
+        } already exist in this campaign.`}
+        confirmLabel="Create retake invites"
+        onConfirm={handleConfirmDuplicateInvites}
+        details={
+          <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4 text-sm">
+            <p className="text-muted-foreground">
+              Continuing will create additional participant records for these existing emails.
+            </p>
+            <div className="space-y-2">
+              {pendingDuplicateRows.slice(0, 5).map((participant) => (
+                <p key={`${participant.row}-${participant.email}`} className="font-medium text-foreground">
+                  Row {participant.row} · {participant.email}
+                </p>
+              ))}
+              {pendingDuplicateRows.length > 5 && (
+                <p className="text-muted-foreground">
+                  And {pendingDuplicateRows.length - 5} more.
+                </p>
+              )}
+            </div>
+          </div>
+        }
+      />
     </div>
   );
 }
