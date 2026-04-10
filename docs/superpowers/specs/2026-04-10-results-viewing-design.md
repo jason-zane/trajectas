@@ -39,15 +39,17 @@ No database changes are required. The existing tables already support everything
 ```
 Campaign (1) ──→ (N) CampaignParticipant
                         │
-                        ├─ (N) ParticipantSession ──→ Assessment
-                        │        │
-                        │        ├─ (N) ParticipantResponse ──→ Item
-                        │        │
-                        │        └─ (N) ParticipantScore ──→ Factor
-                        │
-                        └─ (N) ReportSnapshot (one per session per audience type)
-                             └─ renderedData: Block[]
+                        └─ (N) ParticipantSession ──→ Assessment
+                                 │
+                                 ├─ (N) ParticipantResponse ──→ Item
+                                 │
+                                 ├─ (N) ParticipantScore ──→ Factor
+                                 │
+                                 └─ (N) ReportSnapshot (one per session per audience type)
+                                        └─ renderedData: Block[]
 ```
+
+`ReportSnapshot` rows are linked via `participant_session_id`, so snapshots belong to sessions, not directly to participants.
 
 **Key facts:**
 - A `CampaignParticipant` is the invited person (email, status, one row per enrollment).
@@ -62,9 +64,18 @@ A **session** becomes the canonical unit for "results of one attempt." It gets i
 
 | Route | Admin | Partner | Client |
 |---|---|---|---|
-| Campaign results hub | `/campaigns/[id]/results` (modified) | `/partner/campaigns/[id]/results` (new) | `/client/campaigns/[id]/results` (new) |
-| Participant detail | `/participants/[id]` (modified) | `/partner/campaigns/[id]/participants/[pid]` (modified) | `/client/campaigns/[id]/participants/[pid]` (modified) |
-| Session detail | `/participants/[id]/sessions/[sid]` (new) | `/partner/campaigns/[id]/participants/[pid]/sessions/[sid]` (new) | `/client/campaigns/[id]/participants/[pid]/sessions/[sid]` (new) |
+| Campaign results hub | `/campaigns/[id]/results` (rewrite) | `/partner/campaigns/[id]/results` (new) | `/client/campaigns/[id]/results` (rewrite) |
+| Participant detail | `/participants/[id]` (rewrite) | `/partner/campaigns/[id]/participants/[participantId]` (rewrite) | `/client/campaigns/[id]/participants/[pid]` (new) |
+| Session detail | `/participants/[id]/sessions/[sid]` (new) | `/partner/campaigns/[id]/participants/[participantId]/sessions/[sid]` (new) | `/client/campaigns/[id]/participants/[pid]/sessions/[sid]` (new) |
+
+**Route status notes:**
+- Admin `/campaigns/[id]/results` exists today with completion funnel + per-assessment breakdown + snapshot list; this file is **rewritten** to host the new results hub.
+- Admin `/participants/[id]` exists today with 5 tabs (Overview, Activity, Scores, Responses, Reports); this file is **rewritten** to use the new shared `participant-detail-view` (4 tabs, Scores/Responses moved to session detail).
+- Partner `/partner/campaigns/[id]/results` is **new** — no tabbed layout exists on the partner campaign detail today; this requires adding tab navigation or a new nav entry.
+- Client `/client/campaigns/[id]/results` exists today as a placeholder page; this file is **rewritten**.
+- Partner `/partner/campaigns/[id]/participants/[participantId]` exists as a flat page with stat cards + timeline; this is a substantial **rewrite** into the shared tabbed view.
+- Client `/client/campaigns/[id]/participants/[pid]` does **not exist** — this is a fully new route file; only the participants list page exists today.
+- All session detail routes are new.
 
 The partner/client nesting under campaign matches existing patterns. Admin uses a flatter path consistent with its current structure.
 
@@ -177,19 +188,20 @@ Each per-surface route is a thin server component that fetches data and renders 
 
 - Opened from the session detail header button
 - Fields:
-  - **Template** — dropdown of report templates (filtered to those compatible with the session's assessment, if such compatibility metadata exists; otherwise all templates)
-  - **Audience type** — Participant / HR Manager / Consultant
-  - **Narrative mode** — AI-enhanced / Derived (optional)
+  - **Template** — dropdown of all active report templates. There is no assessment/template compatibility metadata today (`ReportTemplate` has no `assessmentId` field), so the dropdown shows all active templates unfiltered. A future enhancement could add filtering once compatibility metadata exists.
+  - **Audience type** — Participant / HR Manager / Consultant (required)
+  - **Narrative mode** — AI-enhanced / Derived (required, defaults to Derived). The `ReportSnapshot` schema makes this non-optional; the dialog must always send a value.
 - Submit calls new server action `generateReportSnapshot({ sessionId, templateId, audienceType, narrativeMode })`
 - Dialog closes, toast confirms, new snapshot appears in Reports tab in "pending" state
-- The Reports tab polls or re-fetches to surface "ready" state (polling or a simple "refresh" button — implementation detail for the plan stage)
+- **Refresh mechanism:** The Reports tab on session detail uses a client-side polling component that refetches snapshot state every 3 seconds while any snapshot is in `pending` or `generating` status, and stops polling once all snapshots are in a terminal state (ready/released/failed). A manual refresh button is also provided as a fallback. Polling uses an existing server action (`getSessionDetail` or a dedicated `getSessionSnapshots` action) — no new polling infrastructure required.
 
 ## Auto-generation removal
 
-- Find all call sites of `queueSnapshotsForSession` (likely in session completion triggers)
-- Replace with a no-op or remove the call entirely
-- Underlying snapshot generation plumbing stays intact — it's still needed for on-demand generation
-- Existing pending auto-generated snapshots in the database remain as harmless data
+- The actual auto-generation call site is `triggerReportGeneration(sessionId)` in `src/app/actions/assess.ts` (around line 801), invoked on session completion
+- Remove or comment out this call
+- The underlying snapshot generation plumbing (the `/api/reports/generate` route, the snapshot rendering code, and `retrySnapshot`) stays intact — it's still needed for on-demand generation
+- `queueSnapshotsForSession` in `src/app/actions/reports.ts` currently has zero call sites; no action needed on it
+- Existing pending/ready snapshots in the database remain as harmless data
 
 ## Surface authorization (defense-in-depth)
 
@@ -213,12 +225,23 @@ Each per-surface route is a thin server component that fetches data and renders 
 
 ## Server actions
 
-**New:**
-- `generateReportSnapshot({ sessionId, templateId, audienceType, narrativeMode })` in `src/app/actions/reports.ts` — creates a new `ReportSnapshot` row and triggers the existing generation pipeline
+**New file:** `src/app/actions/sessions.ts` (does not exist today)
 
-**Modified:**
-- Add `getSessionDetail(sessionId)` in `src/app/actions/sessions.ts` (new file if it doesn't exist) — returns session + scores + (conditionally) responses + report snapshots for that session, with authorization scoping
-- Existing `getParticipantSessions`, `getParticipantResponses`, `getReportSnapshotsForParticipant` stay as-is
+**New actions:**
+- `generateReportSnapshot({ sessionId, templateId, audienceType, narrativeMode })` in `src/app/actions/reports.ts` — creates a new `ReportSnapshot` row and invokes the existing generation pipeline (`/api/reports/generate` or equivalent). Must use `requireSessionAccess(sessionId)` for authorization.
+- `getSessionDetail(sessionId)` in `src/app/actions/sessions.ts` — returns the full session view data: session metadata, scores (via existing query pattern from `getParticipantSessions`), report snapshots filtered to this session, and conditionally responses (only for admin callers). Uses `requireSessionAccess(sessionId)` for authorization. The returned shape is designed to be a superset of what the current `getParticipantSessions` row provides for scores, so the session detail view has a single data source.
+- `getSessionSnapshots(sessionId)` in `src/app/actions/reports.ts` — lightweight action returning just the snapshot list for polling on the Reports tab. Uses `requireSessionAccess(sessionId)`.
+
+**Kept:**
+- `getParticipantSessions(participantId)` — still used by the participant detail page's Sessions tab to list all sessions for a participant (with embedded score counts). Returns the same shape as today.
+- `getParticipantActivity(participantId)` — still used by the Activity tab.
+- `getParticipantResponses(sessionId)` — still used by the session detail Responses tab (admin only).
+- `getReportSnapshotsForParticipant(participantId)` — still used by the participant detail Reports tab (rolled-up view).
+
+**Derived field — Attempt ordinal:**
+- The by-session results table and the participant's Sessions tab show an "Attempt #" column for multi-attempt visibility.
+- This ordinal is **not stored** in `participant_sessions`. It is computed at query time by ranking sessions per (campaign_participant_id, assessment_id) tuple, ordered by `started_at` ascending.
+- `getParticipantSessions` and the campaign results by-session query are updated to compute and return this ordinal.
 
 ## Authorization
 
@@ -226,6 +249,40 @@ Each per-surface route is a thin server component that fetches data and renders 
 - Partner sees only data within their assigned clients (existing scope resolution)
 - Client sees only data within their own organization (existing scope resolution)
 - Responses are admin-only (partner and client never receive response data from server)
+- All new/modified session-scoped actions (`getSessionDetail`, `getSessionSnapshots`, `generateReportSnapshot`) use the existing `requireSessionAccess(sessionId)` helper, which applies the same scoping rules as the rest of the platform.
+
+## Loading states
+
+Every new or rewritten route MUST have a `loading.tsx` file with shimmer-animated skeletons matching the page layout, per the project's UI standards in `CLAUDE.md`. Specifically:
+
+- `src/app/(dashboard)/campaigns/[id]/results/loading.tsx` (update existing)
+- `src/app/(dashboard)/participants/[id]/loading.tsx` (update existing)
+- `src/app/(dashboard)/participants/[id]/sessions/[sid]/loading.tsx` (new)
+- `src/app/partner/campaigns/[id]/results/loading.tsx` (new)
+- `src/app/partner/campaigns/[id]/participants/[participantId]/loading.tsx` (update existing)
+- `src/app/partner/campaigns/[id]/participants/[participantId]/sessions/[sid]/loading.tsx` (new)
+- `src/app/client/campaigns/[id]/results/loading.tsx` (update existing)
+- `src/app/client/campaigns/[id]/participants/[pid]/loading.tsx` (new)
+- `src/app/client/campaigns/[id]/participants/[pid]/sessions/[sid]/loading.tsx` (new)
+
+## Back-link resolution
+
+The back link on the participant detail and session detail pages depends on how the user arrived. Since there's no persistent session state across navigations, use a simple approach:
+
+- **Participant detail back link:** Always goes up one level based on the route's portal context:
+  - Admin: back to `/participants`
+  - Partner: back to `/partner/campaigns/[id]` (campaign detail — the parent in the nested route)
+  - Client: back to `/client/campaigns/[id]`
+- **Session detail back link:** Always goes back to the participant detail page (the parent in its nested route).
+
+If more nuanced behavior is needed later (e.g., "back to Campaign Results" when arriving from the hub), an optional `from` query param can be added — but this is out of scope for now.
+
+## Persistence and feedback (CLAUDE.md compliance)
+
+- All new interactions on these pages are Zone 1 (immediate) or simple read-only views.
+- The Generate Report dialog is Zone 1: submit → server action → toast → close. No `useUnsavedChanges` needed.
+- Report release and PDF download actions use `toast.success` / `toast.error` for feedback.
+- No auto-saved text fields in this feature.
 
 ## Testing
 
