@@ -5,11 +5,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireClientAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import { getFactorsForAssessment } from '@/app/actions/factor-selection'
 import {
   mapClientAssessmentAssignmentRow,
   mapClientReportTemplateAssignmentRow,
 } from '@/lib/supabase/mappers'
 import type {
+  Assessment,
   AssessmentAssignmentWithUsage,
   ClientReportTemplateAssignment,
 } from '@/types/database'
@@ -99,6 +101,272 @@ export async function getAvailableAssessmentsForClient(
     quotaRemaining:
       a.quotaLimit !== null ? Math.max(0, a.quotaLimit - a.quotaUsed) : null,
   }))
+}
+
+function getNestedCount(value: unknown) {
+  const record = Array.isArray(value) ? value[0] : value
+  if (!record || typeof record !== 'object') {
+    return 0
+  }
+
+  const count = (record as { count?: number }).count
+  return Number.isFinite(count) ? Number(count) : 0
+}
+
+function estimateAssessmentDurationMinutes(
+  formatMode: Assessment['formatMode'],
+  sections: Array<{ itemCount: number; timeLimitSeconds: number | null }>
+) {
+  const explicitSeconds = sections.reduce(
+    (sum, section) => sum + (section.timeLimitSeconds ?? 0),
+    0
+  )
+
+  if (explicitSeconds > 0) {
+    return Math.max(1, Math.ceil(explicitSeconds / 60))
+  }
+
+  const totalItems = sections.reduce((sum, section) => sum + section.itemCount, 0)
+  if (totalItems === 0) {
+    return 0
+  }
+
+  const secondsPerItem = formatMode === 'forced_choice' ? 45 : 30
+  return Math.max(5, Math.ceil((totalItems * secondsPerItem) / 60))
+}
+
+export type ClientAssessmentLibrarySummary = {
+  id: string
+  title: string
+  description?: string
+  status: Assessment['status']
+  formatMode: Assessment['formatMode']
+  quotaLimit: number | null
+  quotaUsed: number
+  quotaRemaining: number | null
+  factorCount: number
+  sectionCount: number
+  totalItemCount: number
+  updatedAt?: string
+}
+
+export type ClientAssessmentLibrarySection = {
+  id: string
+  title: string
+  instructions?: string
+  displayOrder: number
+  formatName: string
+  formatType: string
+  itemCount: number
+  itemsPerPage: number | null
+  timeLimitSeconds: number | null
+  allowBackNav: boolean
+}
+
+export type ClientAssessmentLibraryDetail = ClientAssessmentLibrarySummary & {
+  sections: ClientAssessmentLibrarySection[]
+  factorsByDimension: Awaited<ReturnType<typeof getFactorsForAssessment>>
+  estimatedDurationMinutes: number
+}
+
+export async function getClientAssessmentLibrary(
+  clientId: string,
+): Promise<ClientAssessmentLibrarySummary[]> {
+  const assignments = await getAssessmentAssignments(clientId)
+  if (assignments.length === 0) {
+    return []
+  }
+
+  const assessmentIds = assignments.map((assignment) => assignment.assessmentId)
+  const assignmentMap = new Map(
+    assignments.map((assignment) => [assignment.assessmentId, assignment])
+  )
+
+  const db = createAdminClient()
+  const [assessmentResult, sectionResult] = await Promise.all([
+    db
+      .from('assessments')
+      .select(
+        'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
+      )
+      .in('id', assessmentIds)
+      .is('deleted_at', null)
+      .order('title', { ascending: true }),
+    db
+      .from('assessment_sections')
+      .select('assessment_id, assessment_section_items(count)')
+      .in('assessment_id', assessmentIds),
+  ])
+
+  if (assessmentResult.error) {
+    throwActionError(
+      'getClientAssessmentLibrary.assessments',
+      'Unable to load assessments.',
+      assessmentResult.error
+    )
+  }
+
+  if (sectionResult.error) {
+    throwActionError(
+      'getClientAssessmentLibrary.sections',
+      'Unable to load assessment sections.',
+      sectionResult.error
+    )
+  }
+
+  const sectionStats = new Map<
+    string,
+    { sectionCount: number; totalItemCount: number }
+  >()
+
+  for (const row of sectionResult.data ?? []) {
+    const assessmentId = String(row.assessment_id)
+    const existing = sectionStats.get(assessmentId) ?? {
+      sectionCount: 0,
+      totalItemCount: 0,
+    }
+
+    existing.sectionCount += 1
+    existing.totalItemCount += getNestedCount(row.assessment_section_items)
+    sectionStats.set(assessmentId, existing)
+  }
+
+  return (assessmentResult.data ?? []).flatMap((row) => {
+    const assignment = assignmentMap.get(String(row.id))
+    if (!assignment) {
+      return []
+    }
+
+    const stats = sectionStats.get(String(row.id)) ?? {
+      sectionCount: 0,
+      totalItemCount: 0,
+    }
+
+    return [
+      {
+        id: String(row.id),
+        title: String(row.title),
+        description: row.description ? String(row.description) : undefined,
+        status: row.status as Assessment['status'],
+        formatMode: row.format_mode as Assessment['formatMode'],
+        quotaLimit: assignment.quotaLimit,
+        quotaUsed: assignment.quotaUsed,
+        quotaRemaining:
+          assignment.quotaLimit === null
+            ? null
+            : Math.max(0, assignment.quotaLimit - assignment.quotaUsed),
+        factorCount: getNestedCount(row.assessment_factors),
+        sectionCount: stats.sectionCount,
+        totalItemCount: stats.totalItemCount,
+        updatedAt: row.updated_at ? String(row.updated_at) : undefined,
+      },
+    ]
+  })
+}
+
+export async function getClientAssessmentLibraryDetail(
+  clientId: string,
+  assessmentId: string,
+): Promise<ClientAssessmentLibraryDetail | null> {
+  await requireClientAccess(clientId)
+
+  const assignments = await getAssessmentAssignments(clientId)
+  const assignment = assignments.find(
+    (currentAssignment) => currentAssignment.assessmentId === assessmentId
+  )
+
+  if (!assignment) {
+    return null
+  }
+
+  const db = createAdminClient()
+  const [assessmentResult, sectionResult, factorsByDimension] = await Promise.all([
+    db
+      .from('assessments')
+      .select(
+        'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
+      )
+      .eq('id', assessmentId)
+      .is('deleted_at', null)
+      .maybeSingle(),
+    db
+      .from('assessment_sections')
+      .select(
+        'id, title, instructions, display_order, items_per_page, time_limit_seconds, allow_back_nav, response_formats(name, type), assessment_section_items(count)'
+      )
+      .eq('assessment_id', assessmentId)
+      .order('display_order', { ascending: true }),
+    getFactorsForAssessment(assessmentId),
+  ])
+
+  if (assessmentResult.error) {
+    throwActionError(
+      'getClientAssessmentLibraryDetail.assessment',
+      'Unable to load assessment.',
+      assessmentResult.error
+    )
+  }
+
+  if (sectionResult.error) {
+    throwActionError(
+      'getClientAssessmentLibraryDetail.sections',
+      'Unable to load assessment sections.',
+      sectionResult.error
+    )
+  }
+
+  if (!assessmentResult.data) {
+    return null
+  }
+
+  const sections = (sectionResult.data ?? []).map((row) => {
+    const responseFormat = Array.isArray(row.response_formats)
+      ? row.response_formats[0]
+      : row.response_formats
+
+    return {
+      id: String(row.id),
+      title: row.title ? String(row.title) : '',
+      instructions: row.instructions ? String(row.instructions) : undefined,
+      displayOrder: Number(row.display_order ?? 0),
+      formatName: responseFormat?.name ? String(responseFormat.name) : 'Assessment',
+      formatType: responseFormat?.type ? String(responseFormat.type) : 'unknown',
+      itemCount: getNestedCount(row.assessment_section_items),
+      itemsPerPage:
+        row.items_per_page == null ? null : Number(row.items_per_page),
+      timeLimitSeconds:
+        row.time_limit_seconds == null ? null : Number(row.time_limit_seconds),
+      allowBackNav: Boolean(row.allow_back_nav),
+    }
+  })
+
+  return {
+    id: String(assessmentResult.data.id),
+    title: String(assessmentResult.data.title),
+    description: assessmentResult.data.description
+      ? String(assessmentResult.data.description)
+      : undefined,
+    status: assessmentResult.data.status as Assessment['status'],
+    formatMode: assessmentResult.data.format_mode as Assessment['formatMode'],
+    quotaLimit: assignment.quotaLimit,
+    quotaUsed: assignment.quotaUsed,
+    quotaRemaining:
+      assignment.quotaLimit === null
+        ? null
+        : Math.max(0, assignment.quotaLimit - assignment.quotaUsed),
+    factorCount: getNestedCount(assessmentResult.data.assessment_factors),
+    sectionCount: sections.length,
+    totalItemCount: sections.reduce((sum, section) => sum + section.itemCount, 0),
+    updatedAt: assessmentResult.data.updated_at
+      ? String(assessmentResult.data.updated_at)
+      : undefined,
+    sections,
+    factorsByDimension,
+    estimatedDurationMinutes: estimateAssessmentDurationMinutes(
+      assessmentResult.data.format_mode as Assessment['formatMode'],
+      sections
+    ),
+  }
 }
 
 export async function getReportTemplateAssignments(

@@ -25,6 +25,7 @@ import {
   deleteCampaign,
   restoreCampaign,
   updateCampaignField,
+  addAssessmentToCampaign,
 } from "@/app/actions/campaigns"
 import type { Campaign } from "@/types/database"
 import type { Client } from "@/types/database"
@@ -46,6 +47,8 @@ interface CampaignFormProps {
   defaultClientId?: string
   /** Route prefix for redirects (e.g. "/client") */
   routePrefix?: string
+  /** Optional assessment to attach immediately after create. */
+  initialAssessmentId?: string
 }
 
 export function CampaignForm({
@@ -54,6 +57,7 @@ export function CampaignForm({
   clients = [],
   defaultClientId,
   routePrefix = "",
+  initialAssessmentId,
 }: CampaignFormProps) {
   const router = useRouter()
 
@@ -136,6 +140,25 @@ export function CampaignForm({
     }
 
     if (mode === "create") {
+      if (initialAssessmentId) {
+        const attachResult = await addAssessmentToCampaign(
+          result.id,
+          initialAssessmentId,
+        )
+
+        if (attachResult?.error) {
+          toast.error(
+            `Campaign created, but the assessment could not be added: ${attachResult.error}`,
+          )
+          router.replace(`${routePrefix}/campaigns/${result.id}/assessments`)
+          return
+        }
+
+        toast.success("Campaign created and assessment added")
+        router.replace(`${routePrefix}/campaigns/${result.id}/assessments`)
+        return
+      }
+
       toast.success("Campaign created")
       router.replace(`${routePrefix}/campaigns/${result.id}`)
     } else {

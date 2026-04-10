@@ -188,6 +188,24 @@ export const clientPortalPages: Record<string, WorkspacePortalPageConfig> = {
       },
     ],
   },
+  assessments: {
+    eyebrow: "Assessments",
+    title: "Assessment library",
+    description: "Review the assessments available to launch in your campaigns.",
+    primaryAction: { label: "View campaigns", href: "/campaigns" },
+    secondaryAction: { label: "Create campaign", href: "/campaigns/create" },
+    sections: [
+      {
+        title: "Assigned assessments",
+        description: "Browse the assessments your organisation can deploy.",
+        highlights: [
+          "Review assessment structure before launch.",
+          "See quota availability and usage.",
+          "Jump straight into a new campaign with a chosen assessment.",
+        ],
+      },
+    ],
+  },
   results: {
     eyebrow: "Results",
     title: "Results and reporting",

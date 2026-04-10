@@ -155,6 +155,7 @@ const clientNav: NavSection[] = [
   {
     label: "Assessments",
     items: [
+      { title: "Assessments", href: "/assessments", icon: ClipboardList },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
     ],
