@@ -248,3 +248,101 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
     }
   })
 }
+
+export type CampaignSessionRow = {
+  id: string
+  assessmentId: string
+  assessmentTitle: string
+  participantId: string
+  participantName: string
+  participantEmail: string
+  status: string
+  startedAt?: string
+  completedAt?: string
+  scoreCount: number
+  attemptNumber: number
+}
+
+export async function getCampaignSessions(campaignId: string): Promise<CampaignSessionRow[]> {
+  const scope = await resolveAuthorizedScope()
+
+  const db = await createClient()
+  const { data, error } = await db
+    .from('participant_sessions')
+    .select(`
+      id,
+      assessment_id,
+      status,
+      started_at,
+      completed_at,
+      campaign_participant_id,
+      assessments(title),
+      campaign_participants!inner(
+        id,
+        email,
+        first_name,
+        last_name,
+        campaign_id,
+        campaigns!inner(client_id)
+      ),
+      participant_scores(id)
+    `)
+    .eq('campaign_participants.campaign_id', campaignId)
+    .order('started_at', { ascending: false, nullsFirst: false })
+
+  if (error) {
+    throwActionError('getCampaignSessions', 'Unable to load sessions.', error)
+  }
+
+  const rows = data ?? []
+
+  // Client scope filter (platform admin sees all)
+  const filtered = (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass)
+    ? rows
+    : rows.filter((row: any) => {
+        const cp = Array.isArray(row.campaign_participants) ? row.campaign_participants[0] : row.campaign_participants
+        const campaign = Array.isArray(cp?.campaigns) ? cp.campaigns[0] : cp?.campaigns
+        const clientId = campaign?.client_id
+        return clientId && scope.clientIds.includes(clientId)
+      })
+
+  return mapCampaignSessionRows(filtered)
+}
+
+function mapCampaignSessionRows(data: any[]): CampaignSessionRow[] {
+  // Group by (participantId, assessmentId) to compute attempt ordinal
+  const ordinalMap = new Map<string, number[]>()
+  for (const row of data) {
+    const cp = Array.isArray(row.campaign_participants) ? row.campaign_participants[0] : row.campaign_participants
+    const key = `${cp?.id}:${row.assessment_id}`
+    const list = ordinalMap.get(key) ?? []
+    list.push(new Date(row.started_at ?? 0).getTime())
+    ordinalMap.set(key, list)
+  }
+  for (const list of ordinalMap.values()) list.sort((a, b) => a - b)
+
+  return data.map((row) => {
+    const cp = Array.isArray(row.campaign_participants) ? row.campaign_participants[0] : row.campaign_participants
+    const assessment = Array.isArray(row.assessments) ? row.assessments[0] : row.assessments
+    const participantName =
+      `${cp?.first_name ?? ""} ${cp?.last_name ?? ""}`.trim() || String(cp?.email ?? "")
+    const key = `${cp?.id}:${row.assessment_id}`
+    const list = ordinalMap.get(key) ?? []
+    const ts = new Date(row.started_at ?? 0).getTime()
+    const attemptNumber = list.indexOf(ts) + 1 || 1
+
+    return {
+      id: String(row.id),
+      assessmentId: String(row.assessment_id),
+      assessmentTitle: String(assessment?.title ?? "Unknown"),
+      participantId: String(cp?.id ?? ""),
+      participantName,
+      participantEmail: String(cp?.email ?? ""),
+      status: String(row.status),
+      startedAt: row.started_at ?? undefined,
+      completedAt: row.completed_at ?? undefined,
+      scoreCount: Array.isArray(row.participant_scores) ? row.participant_scores.length : 0,
+      attemptNumber,
+    }
+  })
+}
