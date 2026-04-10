@@ -126,6 +126,8 @@ describe("assessment intro actions", () => {
       "assessment-1",
       {
         heading: "Custom heading",
+        body: "<p>Custom body</p>",
+        buttonLabel: "Continue",
       },
     );
 
