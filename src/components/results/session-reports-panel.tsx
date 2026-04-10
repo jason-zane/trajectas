@@ -63,7 +63,10 @@ export function SessionReportsPanel({
 
   useEffect(() => {
     const hasActive = snapshots.some(
-      (s) => s.status === "pending" || s.status === "generating"
+      (s) =>
+        s.status === "pending" ||
+        s.status === "generating" ||
+        ((s.status === "ready" || s.status === "released") && !s.pdfUrl)
     );
     if (!hasActive) return;
 

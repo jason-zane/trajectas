@@ -416,6 +416,28 @@ export function canManageAssessment(
   );
 }
 
+export function canManageCampaign(
+  scope: AuthorizedScope,
+  campaignPartnerId?: string | null,
+  campaignClientId?: string | null
+) {
+  return (
+    scope.isPlatformAdmin ||
+    (campaignPartnerId != null && scope.partnerAdminIds.includes(campaignPartnerId)) ||
+    (campaignClientId != null && scope.clientAdminIds.includes(campaignClientId))
+  );
+}
+
+export function canManageReportTemplate(
+  scope: AuthorizedScope,
+  templatePartnerId?: string | null
+) {
+  return (
+    scope.isPlatformAdmin ||
+    (templatePartnerId != null && scope.partnerAdminIds.includes(templatePartnerId))
+  );
+}
+
 export function canManageAssessmentLibrary(scope: AuthorizedScope) {
   return (
     scope.isPlatformAdmin ||
@@ -425,6 +447,10 @@ export function canManageAssessmentLibrary(scope: AuthorizedScope) {
 }
 
 export function canManageClientDirectory(scope: AuthorizedScope) {
+  return scope.isPlatformAdmin || scope.partnerAdminIds.length > 0;
+}
+
+export function canManageReportTemplateLibrary(scope: AuthorizedScope) {
   return scope.isPlatformAdmin || scope.partnerAdminIds.length > 0;
 }
 
@@ -569,6 +595,53 @@ export async function requireSessionAccess(sessionId: string) {
   };
 }
 
+export async function requireReportSnapshotAccess(snapshotId: string) {
+  const scope = await resolveAuthorizedScope();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("report_snapshots")
+    .select(
+      "id, campaign_id, participant_session_id, campaigns(client_id, partner_id), participant_sessions(campaign_participant_id)"
+    )
+    .eq("id", snapshotId)
+    .maybeSingle();
+
+  if (error || !data) {
+    throw new AuthorizationError("Report snapshot not found or inaccessible.");
+  }
+
+  const campaign = Array.isArray(data.campaigns) ? data.campaigns[0] : data.campaigns;
+  const session = Array.isArray(data.participant_sessions)
+    ? data.participant_sessions[0]
+    : data.participant_sessions;
+  const clientId = campaign?.client_id ? String(campaign.client_id) : null;
+  const partnerId = campaign?.partner_id ? String(campaign.partner_id) : null;
+  const participantId = session?.campaign_participant_id
+    ? String(session.campaign_participant_id)
+    : null;
+  const hasAccess =
+    scope.isPlatformAdmin ||
+    scope.isLocalDevelopmentBypass ||
+    (clientId ? canAccessClient(scope, clientId) : false) ||
+    (partnerId ? canAccessPartner(scope, partnerId) : false);
+
+  if (!hasAccess) {
+    throw new AuthorizationError("You do not have access to this report.");
+  }
+
+  return {
+    scope,
+    snapshotId: String(data.id),
+    campaignId: data.campaign_id ? String(data.campaign_id) : null,
+    participantSessionId: data.participant_session_id
+      ? String(data.participant_session_id)
+      : null,
+    participantId,
+    clientId,
+    partnerId,
+  };
+}
+
 export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
   if (scope.isPlatformAdmin) {
     return null;
@@ -599,6 +672,47 @@ export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
   }
 
   return (data ?? []).map((row) => String(row.id));
+}
+
+export async function getAccessiblePartnerIds(scope: AuthorizedScope) {
+  if (scope.activeContext?.tenantType === "partner" && scope.activeContext.tenantId) {
+    const activePartnerId = scope.activeContext.tenantId;
+    if (
+      scope.isPlatformAdmin ||
+      scope.partnerIds.includes(activePartnerId) ||
+      scope.partnerAdminIds.includes(activePartnerId)
+    ) {
+      return [activePartnerId];
+    }
+    return [];
+  }
+
+  const effectiveClientIds =
+    scope.activeContext?.tenantType === "client" && scope.activeContext.tenantId
+      ? [scope.activeContext.tenantId]
+      : scope.clientIds;
+
+  if (effectiveClientIds.length === 0) {
+    return dedupe(scope.partnerIds);
+  }
+
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("clients")
+    .select("partner_id")
+    .in("id", effectiveClientIds)
+    .is("deleted_at", null);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return dedupe([
+    ...scope.partnerIds,
+    ...(data ?? [])
+      .map((row) => (row.partner_id ? String(row.partner_id) : ""))
+      .filter(Boolean),
+  ]);
 }
 
 export function getPreferredPartnerIdForClientCreation(scope: AuthorizedScope) {
@@ -641,6 +755,26 @@ export function getPreferredPartnerIdForAssessmentCreation(scope: AuthorizedScop
   );
 }
 
+export function getPreferredPartnerIdForReportTemplateCreation(scope: AuthorizedScope) {
+  if (scope.isPlatformAdmin) {
+    return null;
+  }
+
+  if (scope.activeContext?.tenantType === "partner" && scope.activeContext.tenantId) {
+    if (scope.partnerAdminIds.includes(scope.activeContext.tenantId)) {
+      return scope.activeContext.tenantId;
+    }
+  }
+
+  if (scope.partnerAdminIds.length === 1) {
+    return scope.partnerAdminIds[0];
+  }
+
+  throw new AuthorizationError(
+    "Select an active partner context before creating a report template."
+  );
+}
+
 export async function requireAssessmentAccess(
   assessmentId: string,
   options: { includeArchived?: boolean; forWrite?: boolean } = {}
@@ -676,6 +810,44 @@ export async function requireAssessmentAccess(
     assessmentId: String(data.id),
     partnerId,
     clientId,
+  };
+}
+
+export async function requireReportTemplateAccess(
+  templateId: string,
+  options: { includeArchived?: boolean; forWrite?: boolean } = {}
+) {
+  const scope = await resolveAuthorizedScope();
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("report_templates")
+    .select("id, partner_id, deleted_at")
+    .eq("id", templateId)
+    .single();
+
+  if (error || !data || (!options.includeArchived && data.deleted_at)) {
+    throw new AuthorizationError("Report template not found or inaccessible.");
+  }
+
+  const partnerId = data.partner_id ? String(data.partner_id) : null;
+  const hasAccess = options.forWrite
+    ? canManageReportTemplate(scope, partnerId)
+    : scope.isPlatformAdmin ||
+      partnerId == null ||
+      (await getAccessiblePartnerIds(scope)).includes(partnerId);
+
+  if (!hasAccess) {
+    throw new AuthorizationError(
+      options.forWrite
+        ? "You do not have permission to modify this report template."
+        : "You do not have access to this report template."
+    );
+  }
+
+  return {
+    scope,
+    templateId: String(data.id),
+    partnerId,
   };
 }
 

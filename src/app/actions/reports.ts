@@ -4,10 +4,17 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
-  requireAdminScope,
+  canManageCampaign,
+  canManageReportTemplateLibrary,
+  getAccessibleCampaignIds,
+  getAccessiblePartnerIds,
+  getPreferredPartnerIdForReportTemplateCreation,
   requireCampaignAccess,
   requireParticipantAccess,
+  requireReportTemplateAccess,
+  requireReportSnapshotAccess,
   resolveAuthorizedScope,
+  AuthorizationError,
 } from '@/lib/auth/authorization'
 import {
   logReportViewed,
@@ -63,6 +70,31 @@ export async function getSignedReportPdfUrl(
   return data.signedUrl
 }
 
+async function filterTemplatesForScope<T extends { partnerId?: string }>(
+  scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
+  templates: T[],
+) {
+  if (scope.isPlatformAdmin) {
+    return templates
+  }
+
+  const accessiblePartnerIds = await getAccessiblePartnerIds(scope)
+  return templates.filter(
+    (template) =>
+      !template.partnerId || accessiblePartnerIds.includes(template.partnerId),
+  )
+}
+
+function ensureReportTemplateLibraryAccess(
+  scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
+) {
+  if (!canManageReportTemplateLibrary(scope)) {
+    throw new AuthorizationError(
+      'Only platform or partner administrators can manage report templates.',
+    )
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Report Templates
 // ---------------------------------------------------------------------------
@@ -92,6 +124,30 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   }
 
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+type SessionScopeLookupRow = {
+  campaign_participants:
+    | {
+        campaigns:
+          | { client_id: string | null }
+          | Array<{ client_id: string | null }>
+          | null
+      }
+    | Array<{
+        campaigns:
+          | { client_id: string | null }
+          | Array<{ client_id: string | null }>
+          | null
+      }>
+    | null
+}
+
+type SessionCampaignLookupRow = {
+  campaign_participants:
+    | { campaign_id: string | null }
+    | Array<{ campaign_id: string | null }>
+    | null
 }
 
 export async function getReportTemplate(id: string): Promise<ReportTemplate | null> {
@@ -336,11 +392,20 @@ export async function getReportSnapshotsForCampaign(
 }
 
 export async function getReportSnapshot(id: string): Promise<ReportSnapshot | null> {
-  const scope = await resolveAuthorizedScope()
+  let access: Awaited<ReturnType<typeof requireReportSnapshotAccess>>
+  try {
+    access = await requireReportSnapshotAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
   const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
-    .select('*, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)')
+    .select('*')
     .eq('id', id)
     .maybeSingle()
   if (error) {
@@ -349,41 +414,23 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
   if (!data) return null
 
   const snapshot = mapReportSnapshotRow(data)
-  const campaign = Array.isArray(data.campaigns) ? data.campaigns[0] : data.campaigns
-  const participantSession = Array.isArray(data.participant_sessions)
-    ? data.participant_sessions[0]
-    : data.participant_sessions
-  const clientId =
-    campaign && typeof campaign === 'object' && campaign.client_id
-      ? String(campaign.client_id)
-      : null
-  const partnerId =
-    campaign && typeof campaign === 'object' && campaign.partner_id
-      ? String(campaign.partner_id)
-      : null
-  const participantId =
-    participantSession &&
-    typeof participantSession === 'object' &&
-    participantSession.campaign_participant_id
-      ? String(participantSession.campaign_participant_id)
-      : null
 
   try {
     await logReportViewed({
-      actorProfileId: scope.actor?.id ?? null,
+      actorProfileId: access.scope.actor?.id ?? null,
       snapshotId: snapshot.id,
-      participantId,
+      participantId: access.participantId,
       audienceType: snapshot.audienceType,
-      partnerId,
-      clientId,
-      supportSessionId: scope.supportSession?.id ?? null,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
+      supportSessionId: access.scope.supportSession?.id ?? null,
     })
     await logSupportSessionDataAccess({
-      scope,
+      scope: access.scope,
       resourceType: 'report_snapshots',
       resourceId: snapshot.id,
-      partnerId,
-      clientId,
+      partnerId: access.partnerId,
+      clientId: access.clientId,
       metadata: { action: 'detail', audienceType: snapshot.audienceType },
     })
   } catch (auditError) {
@@ -824,7 +871,7 @@ export async function generateReportSnapshot(input: {
         .eq('id', sessionId)
         .single()
 
-      const cp = (sessionRow as any)?.campaign_participants
+      const cp = (sessionRow as SessionScopeLookupRow | null)?.campaign_participants
       const campaign = Array.isArray(cp) ? cp[0]?.campaigns : cp?.campaigns
       const clientId = (Array.isArray(campaign) ? campaign[0]?.client_id : campaign?.client_id) as string | undefined
 
@@ -850,7 +897,7 @@ export async function generateReportSnapshot(input: {
     return { error: 'Session not found.' }
   }
 
-  const cp = (sessionData as any).campaign_participants
+  const cp = (sessionData as SessionCampaignLookupRow).campaign_participants
   const campaignId = (Array.isArray(cp) ? cp[0]?.campaign_id : cp?.campaign_id) as string | undefined
 
   if (!campaignId) {
