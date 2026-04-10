@@ -4,7 +4,7 @@ import { getParticipants } from "@/app/actions/participants";
 import { getCampaignSessions } from "@/app/actions/sessions";
 import { CampaignResultsHub } from "@/components/results/campaign-results-hub";
 
-export default async function ClientCampaignResultsPage({
+export default async function PartnerCampaignResultsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -23,8 +23,8 @@ export default async function ClientCampaignResultsPage({
       campaignTitle={campaign.title}
       participants={participants}
       sessions={sessions}
-      participantHref={(p) => `/client/campaigns/${id}/participants/${p.id}`}
-      sessionHref={(s) => `/client/campaigns/${id}/participants/${s.participantId}/sessions/${s.id}`}
+      participantHref={(p) => `/partner/campaigns/${id}/participants/${p.id}`}
+      sessionHref={(s) => `/partner/campaigns/${id}/participants/${s.participantId}/sessions/${s.id}`}
     />
   );
 }

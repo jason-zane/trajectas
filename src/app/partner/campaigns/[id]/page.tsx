@@ -150,6 +150,12 @@ export default async function PartnerCampaignDetailPage({
         <div className="flex flex-wrap gap-3">
           {backLink}
           <Link
+            href={`/partner/campaigns/${campaign.id}/results`}
+            className="inline-flex items-center rounded-full border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            Results
+          </Link>
+          <Link
             href="/partner/participants"
             className="inline-flex items-center rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
