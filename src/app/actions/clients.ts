@@ -354,21 +354,40 @@ export async function getClientStats(clientId: string): Promise<{
   await requireClientAccess(clientId)
   const db = await createSupabaseClient()
 
-  const { count: activeCampaignCount } = await db
-    .from('campaigns')
-    .select('*', { count: 'exact', head: true })
-    .eq('client_id', clientId)
-    .eq('status', 'active')
-    .is('deleted_at', null)
+  // Group A: four independent queries scoped by client_id.
+  // campaigns list (for ids) also returns the count for active campaigns
+  // via a single query to avoid a duplicate round-trip.
+  const [
+    activeCampaignsResult,
+    campaignIdsResult,
+    assignedAssessmentsResult,
+    reportsGeneratedResult,
+  ] = await Promise.all([
+    db
+      .from('campaigns')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('status', 'active')
+      .is('deleted_at', null),
+    db
+      .from('campaigns')
+      .select('id')
+      .eq('client_id', clientId)
+      .is('deleted_at', null),
+    db
+      .from('client_assessment_assignments')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('is_active', true),
+    db
+      .from('diagnostic_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId),
+  ])
 
-  // Total participants across all client's campaigns
-  const { data: campaignIds } = await db
-    .from('campaigns')
-    .select('id')
-    .eq('client_id', clientId)
-    .is('deleted_at', null)
-  const ids = (campaignIds ?? []).map((c) => c.id)
+  const ids = (campaignIdsResult.data ?? []).map((c) => c.id)
 
+  // Group B: participant count needs the campaign ids from Group A.
   let totalParticipants = 0
   if (ids.length > 0) {
     const { count } = await db
@@ -378,23 +397,11 @@ export async function getClientStats(clientId: string): Promise<{
     totalParticipants = count ?? 0
   }
 
-  const { count: assignedAssessmentCount } = await db
-    .from('client_assessment_assignments')
-    .select('*', { count: 'exact', head: true })
-    .eq('client_id', clientId)
-    .eq('is_active', true)
-
-  // Reports generated (diagnostic sessions) for this client
-  const { count: reportsGenerated } = await db
-    .from('diagnostic_sessions')
-    .select('*', { count: 'exact', head: true })
-    .eq('client_id', clientId)
-
   return {
-    activeCampaignCount: activeCampaignCount ?? 0,
+    activeCampaignCount: activeCampaignsResult.count ?? 0,
     totalParticipants,
-    assignedAssessmentCount: assignedAssessmentCount ?? 0,
-    reportsGenerated: reportsGenerated ?? 0,
+    assignedAssessmentCount: assignedAssessmentsResult.count ?? 0,
+    reportsGenerated: reportsGeneratedResult.count ?? 0,
   }
 }
 

@@ -309,55 +309,54 @@ export async function getPartnerStats(partnerId: string): Promise<{
   await requirePartnerAccess(partnerId)
   const db = await createClient()
 
-  // Clients under this partner
-  const { count: clientCount } = await db
-    .from('clients')
-    .select('*', { count: 'exact', head: true })
-    .eq('partner_id', partnerId)
-    .is('deleted_at', null)
+  // Group A: clients list (with count) + partner members — independent.
+  // Combining clients list + count into a single query eliminates a prior
+  // duplicate round-trip.
+  const [clientsResult, partnerMembersResult] = await Promise.all([
+    db
+      .from('clients')
+      .select('id', { count: 'exact' })
+      .eq('partner_id', partnerId)
+      .is('deleted_at', null),
+    db
+      .from('partner_memberships')
+      .select('*', { count: 'exact', head: true })
+      .eq('partner_id', partnerId)
+      .is('revoked_at', null),
+  ])
 
-  // Get all client IDs for aggregate queries
-  const { data: clientRows } = await db
-    .from('clients')
-    .select('id')
-    .eq('partner_id', partnerId)
-    .is('deleted_at', null)
-  const clientIds = (clientRows ?? []).map((c) => c.id)
+  const clientIds = (clientsResult.data ?? []).map((c) => c.id)
+  const clientCount = clientsResult.count ?? 0
+  const partnerMemberCount = partnerMembersResult.count ?? 0
 
-  // Active campaigns across partner's clients
+  // Group B: campaigns + assessments — both need clientIds but are
+  // independent of each other.
   let activeCampaignCount = 0
-  if (clientIds.length > 0) {
-    const { count } = await db
-      .from('campaigns')
-      .select('*', { count: 'exact', head: true })
-      .in('client_id', clientIds)
-      .eq('status', 'active')
-      .is('deleted_at', null)
-    activeCampaignCount = count ?? 0
-  }
-
-  // Partner members
-  const { count: partnerMemberCount } = await db
-    .from('partner_memberships')
-    .select('*', { count: 'exact', head: true })
-    .eq('partner_id', partnerId)
-    .is('revoked_at', null)
-
-  // Total assessments assigned across all partner's clients
   let totalAssessmentsAssigned = 0
+
   if (clientIds.length > 0) {
-    const { count } = await db
-      .from('client_assessment_assignments')
-      .select('*', { count: 'exact', head: true })
-      .in('client_id', clientIds)
-      .eq('is_active', true)
-    totalAssessmentsAssigned = count ?? 0
+    const [campaignsResult, assessmentsResult] = await Promise.all([
+      db
+        .from('campaigns')
+        .select('*', { count: 'exact', head: true })
+        .in('client_id', clientIds)
+        .eq('status', 'active')
+        .is('deleted_at', null),
+      db
+        .from('client_assessment_assignments')
+        .select('*', { count: 'exact', head: true })
+        .in('client_id', clientIds)
+        .eq('is_active', true),
+    ])
+
+    activeCampaignCount = campaignsResult.count ?? 0
+    totalAssessmentsAssigned = assessmentsResult.count ?? 0
   }
 
   return {
-    clientCount: clientCount ?? 0,
+    clientCount,
     activeCampaignCount,
-    partnerMemberCount: partnerMemberCount ?? 0,
+    partnerMemberCount,
     totalAssessmentsAssigned,
   }
 }

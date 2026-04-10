@@ -167,28 +167,31 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = data as any
 
-  // Load assessments with titles
-  const { data: assessmentRows } = await db
-    .from('campaign_assessments')
-    .select('*, assessments(title, status, min_custom_factors)')
-    .eq('campaign_id', id)
-    .is('deleted_at', null)
-    .order('display_order', { ascending: true })
+  // Load assessments, participants, and access links in parallel —
+  // they are independent and previously ran sequentially.
+  const [assessmentResult, participantResult, linkResult] = await Promise.all([
+    db
+      .from('campaign_assessments')
+      .select('*, assessments(title, status, min_custom_factors)')
+      .eq('campaign_id', id)
+      .is('deleted_at', null)
+      .order('display_order', { ascending: true }),
+    db
+      .from('campaign_participants')
+      .select('*')
+      .eq('campaign_id', id)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false }),
+    db
+      .from('campaign_access_links')
+      .select('*')
+      .eq('campaign_id', id)
+      .order('created_at', { ascending: false }),
+  ])
 
-  // Load participants
-  const { data: participantRows } = await db
-    .from('campaign_participants')
-    .select('*')
-    .eq('campaign_id', id)
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-
-  // Load access links
-  const { data: linkRows } = await db
-    .from('campaign_access_links')
-    .select('*')
-    .eq('campaign_id', id)
-    .order('created_at', { ascending: false })
+  const assessmentRows = assessmentResult.data
+  const participantRows = participantResult.data
+  const linkRows = linkResult.data
 
   return {
     ...mapCampaignRow(row),
