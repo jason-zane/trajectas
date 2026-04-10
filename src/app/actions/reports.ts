@@ -475,9 +475,23 @@ export type ReportSnapshotListItem = ReportSnapshot & {
   participantEmail?: string
 }
 
-export async function getAllReadySnapshots(): Promise<ReportSnapshotListItem[]> {
+export interface GetAllReadySnapshotsOptions {
+  /**
+   * Maximum rows to return. Defaults to 1000. This is a soft upper bound
+   * to prevent pathological queries; the admin UI uses client-side pagination
+   * (DataTable) so the entire result set is rendered in-browser.
+   */
+  limit?: number
+}
+
+export async function getAllReadySnapshots(
+  options: GetAllReadySnapshotsOptions = {},
+): Promise<ReportSnapshotListItem[]> {
   await requireAdminScope()
   const db = await createClient()
+
+  const limit = Math.min(Math.max(options.limit ?? 1000, 1), 5000)
+
   const { data, error } = await db
     .from('report_snapshots')
     .select(
@@ -485,7 +499,8 @@ export async function getAllReadySnapshots(): Promise<ReportSnapshotListItem[]> 
     )
     .in('status', ['ready', 'released', 'failed'])
     .order('created_at', { ascending: false })
-    .limit(200)
+    .limit(limit)
+
   if (error) {
     throwActionError(
       'getAllReadySnapshots',
