@@ -839,9 +839,6 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     .single()
 
   if (error) {
-    if (error.code === '23505') {
-      return { error: { email: ['This email is already invited to this campaign'] } }
-    }
     logActionError('inviteParticipant', error)
     return { error: { _form: ['Unable to invite participant.'] } }
   }

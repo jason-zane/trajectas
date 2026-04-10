@@ -32,23 +32,29 @@ export default async function AssessmentIntroPage({
   const idx = parseInt(idxStr, 10)
   const assessment = assessments[idx]
 
-  // Load experience template (needed for post-sections URL)
-  const experience = await getEffectiveExperience(campaign.id)
+  const db = createAdminClient()
+
+  // Load experience + brand + campaign-level intro override in parallel.
+  // Experience is needed for the post-sections URL and all three are independent.
+  const [experience, brandConfig, caRowResult] = await Promise.all([
+    getEffectiveExperience(campaign.id),
+    getEffectiveBrand(campaign.clientId, campaign.id),
+    assessment
+      ? db
+          .from("campaign_assessments")
+          .select("intro_override")
+          .eq("campaign_id", campaign.id)
+          .eq("assessment_id", assessment.assessmentId)
+          .single()
+      : Promise.resolve({ data: null }),
+  ])
 
   // No assessment at this index -- move to post-sections flow
   if (!assessment) {
     redirect(getPostSectionsUrl(experience, token))
   }
 
-  const db = createAdminClient()
-
-  // Check campaign-level intro override
-  const { data: caRow } = await db
-    .from("campaign_assessments")
-    .select("intro_override")
-    .eq("campaign_id", campaign.id)
-    .eq("assessment_id", assessment.assessmentId)
-    .single()
+  const caRow = caRowResult.data
 
   const introOverride = caRow?.intro_override as IntroOverride | undefined
 
@@ -91,8 +97,6 @@ export default async function AssessmentIntroPage({
     buttonLabel = introContent.buttonLabel
   }
 
-  // Load brand config
-  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id)
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name
 
   // Interpolate template variables

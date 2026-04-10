@@ -81,12 +81,12 @@ export default async function SectionPage({
   const clampedIdx = Math.min(sectionIdx, sections.length - 1);
   const section = sections[clampedIdx];
 
-  // Load brand config for the campaign's client
-  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
+  // Load brand + experience in parallel — they're independent.
+  const [brandConfig, experience] = await Promise.all([
+    getEffectiveBrand(campaign.clientId, campaign.id),
+    getEffectiveExperience(campaign.id),
+  ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
-
-  // Load experience template for runner content + flow routing
-  const experience = await getEffectiveExperience(campaign.id);
   const runnerContent = getPageContent(experience, "runner");
 
   // Find current assessment's position in the campaign's assessment list

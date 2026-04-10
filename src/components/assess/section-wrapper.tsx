@@ -345,7 +345,7 @@ export function SectionWrapper({
 
       {/* Main content area */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px]">
+        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px]">
           {/* Assessment name label */}
           <p
             className="mb-4 text-xs font-medium uppercase tracking-widest"

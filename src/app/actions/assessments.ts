@@ -589,9 +589,55 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
+  // Guard: if any existing section of this assessment has participant responses,
+  // we cannot safely replace sections — the participant_responses.section_id FK
+  // is ON DELETE NO ACTION, so the delete would silently fail and persistSections
+  // would insert duplicates alongside the old ones. Surface a clear error instead.
+  const { data: existingSectionRows, error: existingSectionsErr } = await db
+    .from('assessment_sections')
+    .select('id')
+    .eq('assessment_id', id)
+
+  if (existingSectionsErr) {
+    logActionError('updateAssessment.loadExistingSections', existingSectionsErr)
+    return { error: { _form: ['Unable to load existing sections.'] } }
+  }
+
+  const existingSectionIds = (existingSectionRows ?? []).map((s: { id: string }) => s.id)
+
+  if (existingSectionIds.length > 0) {
+    const { count: responseCount, error: responseCountErr } = await db
+      .from('participant_responses')
+      .select('*', { count: 'exact', head: true })
+      .in('section_id', existingSectionIds)
+
+    if (responseCountErr) {
+      logActionError('updateAssessment.countResponses', responseCountErr)
+      return { error: { _form: ['Unable to check existing responses.'] } }
+    }
+
+    if (responseCount && responseCount > 0) {
+      return {
+        error: {
+          _form: [
+            `Cannot modify this assessment's structure: ${responseCount} participant response(s) already exist. Clone this assessment into a new version to make structural changes.`,
+          ],
+        },
+      }
+    }
+  }
+
   if (parsed.data.formatMode === 'traditional') {
     // Replace sections (cascade deletes section_items)
-    await db.from('assessment_sections').delete().eq('assessment_id', id)
+    const { error: deleteSectionsErr } = await db
+      .from('assessment_sections')
+      .delete()
+      .eq('assessment_id', id)
+
+    if (deleteSectionsErr) {
+      logActionError('updateAssessment.deleteSections', deleteSectionsErr)
+      return { error: { _form: [`Unable to replace sections: ${deleteSectionsErr.message}`] } }
+    }
 
     const sections = (payload.sections ?? []) as SectionDraft[]
     if (sections.length > 0) {
@@ -606,7 +652,15 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     await db.from('forced_choice_blocks').delete().eq('assessment_id', id)
   } else {
     // Forced-choice mode: persist blocks, clean up sections
-    await db.from('assessment_sections').delete().eq('assessment_id', id)
+    const { error: deleteSectionsErr } = await db
+      .from('assessment_sections')
+      .delete()
+      .eq('assessment_id', id)
+
+    if (deleteSectionsErr) {
+      logActionError('updateAssessment.deleteSections', deleteSectionsErr)
+      return { error: { _form: [`Unable to clear sections: ${deleteSectionsErr.message}`] } }
+    }
 
     const fcBlocks = (payload.forcedChoiceBlocks ?? []) as ForcedChoiceBlockDraft[]
     if (fcBlocks.length > 0) {

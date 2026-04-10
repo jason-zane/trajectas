@@ -304,37 +304,48 @@ export async function getSessionState(token: string, sessionId: string) {
 
   if (error || !session) return { error: 'Session not found' }
 
-  // Load sections with items
-  const { data: sectionRows, error: sectionRowsError } = await db
-    .from('assessment_sections')
-    .select(`
-      *,
-      response_formats(type, config),
-      assessment_section_items(
-        id,
-        item_id,
-        display_order,
-        items(id, stem, construct_id, purpose, selection_priority, item_options(id, label, value, display_order))
-      )
-    `)
-    .eq('assessment_id', session.assessment_id)
-    .order('display_order', { ascending: true })
+  // Fan out all queries that depend only on session.assessment_id / session.campaign_id
+  // in parallel. Previously these ran sequentially (4+ round-trips).
+  const [sectionResult, campaignAssessmentResult, assessmentFactorsResult] =
+    await Promise.all([
+      db
+        .from('assessment_sections')
+        .select(`
+          *,
+          response_formats(type, config),
+          assessment_section_items(
+            id,
+            item_id,
+            display_order,
+            items(id, stem, construct_id, purpose, selection_priority, item_options(id, label, value, display_order))
+          )
+        `)
+        .eq('assessment_id', session.assessment_id)
+        .order('display_order', { ascending: true }),
+      db
+        .from('campaign_assessments')
+        .select('id')
+        .eq('campaign_id', session.campaign_id)
+        .eq('assessment_id', session.assessment_id)
+        .maybeSingle(),
+      db
+        .from('assessment_factors')
+        .select('factor_id')
+        .eq('assessment_id', session.assessment_id),
+    ])
 
+  const { data: sectionRows, error: sectionRowsError } = sectionResult
   if (sectionRowsError) {
     logActionError('getSessionState.sections', sectionRowsError)
     return { error: 'Unable to load this assessment right now' }
   }
 
+  const campaignAssessment = campaignAssessmentResult.data
+  const assessmentFactorIds = assessmentFactorsResult.data
+
   // -------------------------------------------------------------------------
   // Resolve custom factor selection for this campaign-assessment
   // -------------------------------------------------------------------------
-  const { data: campaignAssessment } = await db
-    .from('campaign_assessments')
-    .select('id')
-    .eq('campaign_id', session.campaign_id)
-    .eq('assessment_id', session.assessment_id)
-    .maybeSingle()
-
   let allowedConstructIds: Set<string> | null = null
   let itemsPerConstruct: number | null = null
 
@@ -346,12 +357,6 @@ export async function getSessionState(token: string, sessionId: string) {
 
     if (factorRows && factorRows.length > 0) {
       const selectedFactorIds = new Set(factorRows.map(r => r.factor_id))
-
-      // Get constructs that belong to selected factors (scoped to this assessment)
-      const { data: assessmentFactorIds } = await db
-        .from('assessment_factors')
-        .select('factor_id')
-        .eq('assessment_id', session.assessment_id)
 
       const assessmentFactorSet = new Set(
         (assessmentFactorIds ?? []).map(af => af.factor_id)

@@ -13,8 +13,6 @@ interface ReviewScreenProps {
   sessionId: string;
   sections: SectionForRunner[];
   responses: Record<string, { value: number; data: Record<string, unknown> }>;
-  totalItems: number;
-  answeredCount: number;
   assessmentName?: string;
   brandLogoUrl?: string;
   brandName?: string;
@@ -25,13 +23,26 @@ interface ReviewScreenProps {
   termsUrl?: string;
 }
 
+/** Default section titles that are admin-side placeholders and should not be shown to participants. */
+const DEFAULT_SECTION_TITLES = new Set([
+  "Self-Report Questionnaire",
+  "Quick Checks",
+  "Situational Judgement",
+  "Forced Choice",
+  "Open Response",
+  "Section",
+]);
+
+function isDefaultTitle(title: string | undefined): boolean {
+  if (!title) return true;
+  return DEFAULT_SECTION_TITLES.has(title.trim());
+}
+
 export function ReviewScreen({
   token,
   sessionId,
   sections,
   responses,
-  totalItems,
-  answeredCount,
   assessmentName,
   brandLogoUrl,
   brandName,
@@ -44,7 +55,24 @@ export function ReviewScreen({
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
 
-  const allAnswered = answeredCount >= totalItems;
+  // Dedupe items by id across sections — defensive against historical duplicate-section
+  // data and also the correct way to count "unique questions asked".
+  const uniqueItemIds = new Set<string>();
+  for (const s of sections) {
+    for (const item of s.items) uniqueItemIds.add(item.id);
+  }
+  const uniqueTotalItems = uniqueItemIds.size;
+  const uniqueAnsweredCount = Array.from(uniqueItemIds).filter(
+    (id) => responses[id] !== undefined,
+  ).length;
+
+  // Show per-section breakdown only when there are ≥2 sections AND at least one
+  // has a non-default, custom title. Otherwise it's noise.
+  const hasMeaningfulSectionTitles =
+    sections.length >= 2 &&
+    sections.some((s) => !isDefaultTitle(s.title));
+
+  const allAnswered = uniqueAnsweredCount >= uniqueTotalItems;
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -135,29 +163,28 @@ export function ReviewScreen({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-6">
+        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px] space-y-6">
           {/* Assessment label */}
-          {assessmentName && (
-            <p
-              className="text-xs font-medium uppercase tracking-widest"
-              style={{
-                color: "var(--brand-primary, hsl(var(--primary)))",
-              }}
-            >
-              {assessmentName}
-            </p>
-          )}
+          {/* Review eyebrow */}
+          <p
+            className="text-xs font-medium uppercase tracking-widest"
+            style={{
+              color: "var(--brand-primary, hsl(var(--primary)))",
+            }}
+          >
+            {content.heading}
+          </p>
 
-          {/* Title */}
+          {/* Assessment name as main heading */}
           <div className="space-y-2">
             <h1
-              className="text-2xl font-semibold tracking-tight"
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
               }}
             >
-              {content.heading}
+              {assessmentName ?? content.heading}
             </h1>
             <p
               className="text-sm"
@@ -166,21 +193,18 @@ export function ReviewScreen({
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
               }}
             >
-              {answeredCount} of {totalItems} questions answered
+              {uniqueAnsweredCount} of {uniqueTotalItems} questions answered
             </p>
           </div>
 
-          {/* Per-section status cards */}
+          {/* Assessment-level status card (single card per assessment) */}
           <div className="space-y-2.5">
-            {sections.map((section, idx) => {
-              const answered = section.items.filter(
-                (i) => responses[i.id] !== undefined
-              ).length;
-              const complete = answered === section.items.length;
-
+            {(() => {
+              const firstIncompleteSectionIdx = sections.findIndex((s) =>
+                s.items.some((i) => responses[i.id] === undefined),
+              );
               return (
                 <div
-                  key={section.id}
                   className="flex items-center gap-3 rounded-xl border px-4 py-3.5"
                   style={{
                     borderColor:
@@ -188,7 +212,7 @@ export function ReviewScreen({
                     background: "transparent",
                   }}
                 >
-                  {complete ? (
+                  {allAnswered ? (
                     <CheckCircle2
                       className="size-5 shrink-0"
                       style={{
@@ -207,7 +231,7 @@ export function ReviewScreen({
                           "var(--brand-text, hsl(var(--foreground)))",
                       }}
                     >
-                      {section.title}
+                      {assessmentName ?? "Assessment"}
                     </p>
                     <p
                       className="text-xs"
@@ -216,15 +240,17 @@ export function ReviewScreen({
                           "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
                       }}
                     >
-                      {answered} / {section.items.length} answered
+                      {uniqueAnsweredCount} / {uniqueTotalItems} answered
                     </p>
                   </div>
-                  {!complete && (
+                  {!allAnswered && firstIncompleteSectionIdx >= 0 && (
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() =>
-                        router.push(`/assess/${token}/section/${idx}`)
+                        router.push(
+                          `/assess/${token}/section/${firstIncompleteSectionIdx}`,
+                        )
                       }
                     >
                       Complete
@@ -232,7 +258,70 @@ export function ReviewScreen({
                   )}
                 </div>
               );
-            })}
+            })()}
+
+            {/* Per-section sub-rows — only when we have ≥2 sections with custom titles */}
+            {hasMeaningfulSectionTitles &&
+              sections.map((section, idx) => {
+                const answered = section.items.filter(
+                  (i) => responses[i.id] !== undefined,
+                ).length;
+                const complete = answered === section.items.length;
+                return (
+                  <div
+                    key={section.id}
+                    className="flex items-center gap-3 rounded-xl border px-4 py-3 ml-6"
+                    style={{
+                      borderColor:
+                        "var(--brand-neutral-200, hsl(var(--border)))",
+                      background: "transparent",
+                    }}
+                  >
+                    {complete ? (
+                      <CheckCircle2
+                        className="size-4 shrink-0"
+                        style={{
+                          color:
+                            "var(--brand-primary, hsl(var(--primary)))",
+                        }}
+                      />
+                    ) : (
+                      <AlertCircle className="size-4 shrink-0 text-amber-500" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className="text-xs font-medium"
+                        style={{
+                          color:
+                            "var(--brand-text, hsl(var(--foreground)))",
+                        }}
+                      >
+                        {section.title}
+                      </p>
+                      <p
+                        className="text-xs"
+                        style={{
+                          color:
+                            "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+                        }}
+                      >
+                        {answered} / {section.items.length}
+                      </p>
+                    </div>
+                    {!complete && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          router.push(`/assess/${token}/section/${idx}`)
+                        }
+                      >
+                        Complete
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
           </div>
 
           {/* Submit */}

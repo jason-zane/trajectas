@@ -36,20 +36,18 @@ export default async function ReviewPage({
   }
 
   const { sections, responses } = stateResult.data;
-  const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
-  const answeredCount = Object.keys(responses).length;
 
   // Find the assessment name for the current session
   const currentAssessment = assessments.find(
     (a) => a.assessmentId === currentSession.assessmentId
   );
 
-  // Load brand config for the campaign's client
-  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
+  // Load brand + experience in parallel — independent.
+  const [brandConfig, experience] = await Promise.all([
+    getEffectiveBrand(campaign.clientId, campaign.id),
+    getEffectiveExperience(campaign.id),
+  ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
-
-  // Load experience template
-  const experience = await getEffectiveExperience(campaign.id);
   const rawContent = getPageContent(experience, "review");
   const variables: TemplateVariables = {
     campaignTitle: campaign.title,
@@ -80,8 +78,6 @@ export default async function ReviewPage({
         sessionId={currentSession.id}
         sections={sections}
         responses={responses}
-        totalItems={totalItems}
-        answeredCount={answeredCount}
         assessmentName={currentAssessment?.title}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}

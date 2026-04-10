@@ -42,7 +42,7 @@ export function ItemCard({
 
   return (
     <div
-      className="rounded-2xl border p-6 sm:p-8 shadow-sm dark:shadow-none"
+      className="rounded-2xl border p-6 sm:p-8 lg:p-10 shadow-sm dark:shadow-none"
       style={{
         background: "var(--brand-neutral-50, hsl(var(--card)))",
         borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
