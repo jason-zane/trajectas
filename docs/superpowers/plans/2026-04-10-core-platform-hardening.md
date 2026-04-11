@@ -445,7 +445,7 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - [x] Filter the Add dropdown
 - [x] Gate rendering in the runner + in the preview
 - [x] Test: existing templates with these blocks still load without error
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 2 hours
 
@@ -465,9 +465,9 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Before activation, the existing validation in `activateCampaign` still catches it — but now the admin can't be surprised.
 
 **Steps:**
-- [x] Add the warning banner component to campaign overview page
+- [x] Add the warning banner component to campaign overview page (admin + client)
 - [x] Add the red-dot indicator to the Assessments tab
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 2 hours
 
@@ -495,13 +495,13 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - [x] Add the ConfirmDialog wrapper
 - [x] Wire up the confirm action
 - [ ] Test: click activate, confirm modal shows correct data, confirm button activates, cancel does nothing
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 2 hours
 
 ---
 
-### P2.4 — Enrich Add-Assessment dialog (factor count, duration, items)
+### P2.4 — Enrich Add-Assessment dialog (factor count, duration, items) ⚠️ **DEFERRED**
 
 **Problem:** The "Add Assessment" dialog on the campaign assessments page shows only the assessment title. Admins can't tell which assessment they're picking.
 
@@ -544,10 +544,10 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 **Note:** The review screen already treats these defaults as noise and hides them. This task is about giving admins a way to set meaningful titles for multi-section assessments.
 
 **Steps:**
-- [ ] Add the editable title input to each section card
-- [ ] Wire it to the section state
-- [ ] On save, persist null when empty
-- [ ] Commit
+- [x] Add the editable title input to each section card
+- [x] Wire it to the section state
+- [x] On save, persist null when empty
+- [x] Commit
 
 **Effort:** 2 hours
 
@@ -572,11 +572,11 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Empty state: "No scores yet — participants haven't completed the assessment."
 
 **Steps:**
-- [ ] Write the server action that fetches `participant_scores` joined with `campaign_participants` and factor metadata
-- [ ] Build the table component with column-per-factor
-- [ ] Add the band colour logic (reuse `lib/reports/band-resolution.ts`)
-- [ ] Wire into the results page
-- [ ] Commit
+- [x] Write the server action that fetches `participant_scores` joined with `campaign_participants` and factor metadata (`getCampaignFactorScores` in `src/app/actions/campaign-results.ts`)
+- [x] Build the table component with column-per-factor (`ResultsFactorScoresTable`)
+- [x] Add the band colour logic (with dark-mode variants)
+- [x] Wire into the results page (admin, partner, client — partner fixed to use `/partner/reports/{id}`)
+- [x] Commit
 
 **Effort:** 5 hours
 
@@ -588,7 +588,7 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 
 ---
 
-### P2.8 — PDF generation status polling
+### P2.8 — PDF generation status polling ⚠️ **DEFERRED**
 
 **Problem:** Clicking "Generate PDF" fires off a Puppeteer job that takes 5–15 seconds. During that time the UI shows nothing. Users assume it's broken and click again, causing duplicate generations.
 
@@ -616,7 +616,7 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 
 ---
 
-### P2.9 — Report template builder: live preview pane
+### P2.9 — Report template builder: live preview pane ⚠️ **DEFERRED**
 
 **Problem:** The template builder is form-based. To see what a block looks like, users have to click "Preview" which opens a separate route. No live feedback while editing.
 
@@ -644,7 +644,7 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 
 ---
 
-### P2.10 — Report template builder: inline settings
+### P2.10 — Report template builder: inline settings ⚠️ **DEFERRED**
 
 **Problem:** Template-level settings (display level, person reference, logo) live in a Sheet modal that has to be opened separately. Builder state feels fragmented.
 
@@ -678,10 +678,10 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - After remove, call `toast.success("Participant removed", { action: { label: "Undo", onClick: () => restoreParticipant(id) }, duration: 5000 })`.
 
 **Steps:**
-- [ ] Add `restoreParticipant` action
-- [ ] Update the remove handler to show undo toast
+- [x] Add `restoreParticipant` action
+- [x] Update the remove handler to show undo toast
 - [ ] Test: remove, click undo, participant reappears
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 1 hour
 
@@ -717,14 +717,14 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Add the `/partner/assessments/**` route tree. Reuse existing components from `(dashboard)/assessments/**` — they should work with minimal changes if the scope is passed through.
 
 **Steps:**
-- [ ] Write the migration
-- [ ] Add the new RLS policies
-- [ ] Replace `requireAdminScope()` calls with the new helper
-- [ ] Create the partner assessment route tree
-- [ ] Update `getWorkspaceAssessmentSummaries` filter logic
-- [ ] Add "Your assessments" vs "Platform assessments" tabs on the list page
+- [x] Write the migration (`20260411103000_partner_owned_assessments.sql`)
+- [x] Add the new RLS policies (select_all + partner_admin_manage)
+- [x] Replace `requireAdminScope()` calls with `requireAssessmentAccess` helper
+- [x] Create the partner assessment route tree (`/partner/assessments/{create,[id]/edit}`)
+- [x] Update `getWorkspaceAssessmentSummaries` filter logic
+- [x] Add "Your assessments" vs "Platform assessments" tabs on the list page
 - [ ] Test: partner can create assessment, cannot see other partners' assessments, admin sees all
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 8 hours
 
@@ -746,11 +746,11 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Add "New client" button on the partner clients page.
 
 **Steps:**
-- [ ] Create the route + form
-- [ ] Update the server action to accept partner scope
-- [ ] Add the CTA button on the list page
+- [x] Create the route + form (pre-existing from partner portal polish work)
+- [x] Update the server action to accept partner scope
+- [x] Add the CTA button on the list page
 - [ ] Test: partner creates client, appears in their list, invisible to other partners
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 3 hours
 
@@ -769,11 +769,11 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Both admin and partner pages import the same components and pass their scope.
 
 **Steps:**
-- [ ] Move the shared components
-- [ ] Update imports in the admin tree
-- [ ] Create the partner tree that reuses them
+- [ ] Move the shared components — **NOTE:** not lifted; partner tree imports `AssessmentBuilder` directly from `@/app/(dashboard)/assessments/assessment-builder`. Functional but architecturally deviates from plan. Defer lifting to future refactor.
+- [x] Update imports in the admin tree (no changes needed — admin uses existing path)
+- [x] Create the partner tree that reuses them
 - [ ] Test: partner builds an assessment end-to-end
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 6 hours
 
@@ -795,11 +795,11 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Enforce scope in `createReportTemplate`, `updateReportTemplate`, `deleteReportTemplate`.
 
 **Steps:**
-- [ ] Lift shared template builder components (if not already shared)
-- [ ] Create partner routes
-- [ ] Scope-enforce the actions
+- [ ] Lift shared template builder components — same architectural note as P3.3: components imported from `(dashboard)` tree, not lifted.
+- [x] Create partner routes (`/partner/report-templates/{,[id]/builder,[id]/preview}`)
+- [x] Scope-enforce the actions (`requireReportTemplateAccess` replaces `requireAdminScope` in all template mutations)
 - [ ] Test: partner creates a template, uses it on a campaign
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 4 hours
 
@@ -821,10 +821,10 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Add a unit/integration test for each changed action confirming cross-tenant calls are denied.
 
 **Steps:**
-- [ ] Produce the audit list
-- [ ] Update each action
-- [ ] Add denial tests
-- [ ] Commit
+- [x] Produce the audit list (session and experience pages found to lack guards)
+- [x] Update each action (`getCampaignSessions` + `client/campaigns/[id]/experience/page.tsx` now call `requireCampaignAccess`)
+- [x] Add denial tests (`tests/integration/report-template-actions.test.ts`, `tests/integration/assessment-intro-actions.test.ts`, unit tests in `authorization-rules.test.ts`)
+- [x] Commit
 
 **Effort:** 4 hours
 
@@ -844,16 +844,14 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Audit: `src/app/client/campaigns/**` — confirm all admin P2 improvements also appear here
 - Modify as needed
 
-**Scope:**
-- Pre-activation confirmation modal
-- Enriched Add-Assessment dialog
-- Validation at creation, not activation
-- Bulk invite detailed result toast
-- Participant removal undo
-- Campaign results page with factor scores
-- PDF generation status polling
-
-**Fix approach:** If the components were lifted into `src/components/` in P3, wiring them into the client portal is just a matter of passing the client scope.
+**Scope / status:**
+- [x] Pre-activation confirmation modal (shared `CampaignStatusActions`)
+- [ ] Enriched Add-Assessment dialog (deferred with P2.4)
+- [x] Validation at creation, not activation (warning banner now present on client overview too)
+- [x] Bulk invite detailed result toast (shared)
+- [x] Participant removal undo (shared `CampaignParticipantManager`)
+- [x] Campaign results page with factor scores (`ResultsFactorScoresTable` wired into client results page)
+- [ ] PDF generation status polling (deferred with P2.8)
 
 **Effort:** 4 hours (assuming P3.3 lifted the shared components)
 
@@ -874,8 +872,8 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 
 **Steps:**
 - [ ] End-to-end test as a client admin
-- [ ] Fix any gaps found
-- [ ] Commit
+- [x] Fix any gaps found (`requireReportSnapshotAccess` on client report page; PDF signed via API)
+- [x] Commit
 
 **Effort:** 2 hours
 
@@ -902,6 +900,8 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 ### P4.4 — Client scope audit
 
 Same as P3.5 but for `requireClientAccess` guards.
+
+**Status:** ✅ Covered via P3.5 sweep — client portal routes rely on `requireCampaignAccess` (which delegates to client scope checks). Client report access hardened in commit `2f270f5`. No dedicated standalone audit commit; work folded into P3.5.
 
 **Effort:** 2 hours
 
