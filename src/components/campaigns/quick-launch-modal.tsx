@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Rocket, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, Rocket, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import type { CampaignAssessmentOption } from "@/app/actions/campaigns";
 
 interface QuickLaunchModalProps {
@@ -225,10 +227,102 @@ export function QuickLaunchModal({
             </div>
           )}
           {step === 2 && (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Step 2 placeholder — assessment picker (P5.1c)
-              <br />
-              <span className="text-xs">{assessments.length} assessment(s) available</span>
+            <div className="space-y-4">
+              {assessments.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No assessments available to launch.
+                  </p>
+                  <a
+                    href="/assessments/create"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <Plus className="size-4" />
+                    Create an assessment (opens in a new tab)
+                  </a>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Pick one assessment to launch with this campaign. You can add more later from the campaign edit page.
+                  </p>
+                  <div className="max-h-[360px] overflow-y-auto space-y-2 pr-1">
+                    {assessments.map((a) => {
+                      const selected = state.selectedAssessmentId === a.id;
+                      return (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() =>
+                            setState((s) => ({ ...s, selectedAssessmentId: a.id }))
+                          }
+                          className={cn(
+                            "w-full rounded-lg border p-4 text-left transition-colors",
+                            selected
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-border/80 hover:bg-muted/40"
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-medium truncate">{a.title}</h4>
+                                {a.status === "draft" && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Draft
+                                  </Badge>
+                                )}
+                              </div>
+                              {a.description && (
+                                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                                  {a.description}
+                                </p>
+                              )}
+                              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                {a.factorCount > 0 && (
+                                  <span>
+                                    {a.factorCount} {a.factorCount === 1 ? "factor" : "factors"}
+                                  </span>
+                                )}
+                                {a.sectionCount > 0 && (
+                                  <span>
+                                    {a.sectionCount} {a.sectionCount === 1 ? "section" : "sections"}
+                                  </span>
+                                )}
+                                {a.formatLabel && <span>{a.formatLabel}</span>}
+                                {a.totalItemCount > 0 && (
+                                  <span>
+                                    {a.totalItemCount} {a.totalItemCount === 1 ? "item" : "items"}
+                                  </span>
+                                )}
+                                {a.estimatedDurationMinutes > 0 && (
+                                  <span>~{a.estimatedDurationMinutes} min</span>
+                                )}
+                              </div>
+                            </div>
+                            <div
+                              className={cn(
+                                "mt-1 size-4 shrink-0 rounded-full border-2 transition-colors",
+                                selected
+                                  ? "border-primary bg-primary"
+                                  : "border-muted-foreground/30"
+                              )}
+                            >
+                              {selected && (
+                                <div className="flex size-full items-center justify-center">
+                                  <div className="size-1.5 rounded-full bg-primary-foreground" />
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </div>
           )}
           {step === 3 && (
