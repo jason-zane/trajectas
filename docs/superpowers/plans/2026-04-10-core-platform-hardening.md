@@ -426,6 +426,8 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 5. Async report generation UX: P2.8
 6. Builder workflow improvements: P2.9, P2.10
 
+**Status update (2026-04-11):** P2 implementation work is now in code. Any remaining unchecked items below are browser-level QA follow-ups, not missing engineering tasks.
+
 ### P2.1 — Hide 360-dependent blocks from builder registry
 
 **Problem:** The report template builder exposes 4 blocks (`rater_comparison`, `gap_analysis`, `open_comments`, `norm_comparison`) that depend on pipelines not yet implemented. The blocks render empty or show placeholders. Admins will add them to templates and be confused when reports are blank.
@@ -501,7 +503,7 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 
 ---
 
-### P2.4 — Enrich Add-Assessment dialog (factor count, duration, items) ⚠️ **DEFERRED**
+### P2.4 — Enrich Add-Assessment dialog (factor count, duration, items)
 
 **Problem:** The "Add Assessment" dialog on the campaign assessments page shows only the assessment title. Admins can't tell which assessment they're picking.
 
@@ -520,10 +522,10 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Filter out draft assessments by default, with a toggle to show them.
 
 **Steps:**
-- [ ] Extend the server action to return the enriched fields
-- [ ] Update the dialog UI
+- [x] Extend the server action to return the enriched fields
+- [x] Update the dialog UI
 - [ ] Test with 5+ assessments of mixed formats
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 3 hours
 
@@ -588,35 +590,38 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 
 ---
 
-### P2.8 — PDF generation status polling ⚠️ **DEFERRED**
+### P2.8 — PDF generation status polling
 
 **Problem:** Clicking "Generate PDF" fires off a Puppeteer job that takes 5–15 seconds. During that time the UI shows nothing. Users assume it's broken and click again, causing duplicate generations.
 
 **Files:**
-- Modify: `src/app/api/reports/generate/route.ts` (return a job ID immediately)
+- Modify: `src/app/api/reports/[snapshotId]/pdf/route.ts` (return a job ID immediately from `POST` and keep `GET` for download / fallback regeneration)
 - New: `src/app/api/reports/[snapshotId]/status/route.ts` (polling endpoint)
-- Modify: the "Generate PDF" button in the reports page + report preview page
+- New: `src/lib/reports/pdf.ts` (shared queue / generate / status helpers)
+- Modify: the "Generate PDF" button in the admin, partner, and client report preview pages
+
+**Implementation note:** In the current repo, Puppeteer PDF generation already lives under `/api/reports/[snapshotId]/pdf`, not `/api/reports/generate`. The implementation therefore queues and polls PDF work from that route and persists `pdf_status` / `pdf_error_message` on `report_snapshots`.
 
 **Fix:**
-- POST `/api/reports/generate` returns `{ jobId, status: 'queued' }` immediately and kicks off Puppeteer in a background task.
-- GET `/api/reports/[snapshotId]/status` returns `{ status: 'queued' | 'generating' | 'ready' | 'failed', pdfUrl?, error? }` by reading `snapshot.status`.
+- POST `/api/reports/[snapshotId]/pdf` returns `{ jobId, status: 'queued' }` immediately and kicks off Puppeteer in a background task via `after(...)`.
+- GET `/api/reports/[snapshotId]/status` returns `{ status: 'idle' | 'queued' | 'generating' | 'ready' | 'failed', pdfUrl?, error? }` by reading `snapshot.pdf_status` / `snapshot.pdf_url`.
 - Client polls every 2s with exponential backoff, up to 60s total.
 - UI shows "Generating report... ⟳" with a spinner during poll, then switches to "Download PDF" when ready.
 - Guard against duplicate clicks: disable button while polling.
 
 **Steps:**
-- [ ] Split the generate endpoint into queue + background
-- [ ] Add the status endpoint
-- [ ] Add the polling hook (`useReportStatus`)
-- [ ] Wire into the UI button
+- [x] Split the PDF route into queue + background work
+- [x] Add the status endpoint
+- [x] Add the polling button / hook logic
+- [x] Wire into the UI button
 - [ ] Test: click generate, see spinner, PDF appears in <15s, duplicate click is blocked
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 4 hours
 
 ---
 
-### P2.9 — Report template builder: live preview pane ⚠️ **DEFERRED**
+### P2.9 — Report template builder: live preview pane
 
 **Problem:** The template builder is form-based. To see what a block looks like, users have to click "Preview" which opens a separate route. No live feedback while editing.
 
@@ -633,18 +638,18 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - On small screens, hide the preview and add a "Preview" floating button that opens a Sheet.
 
 **Steps:**
-- [ ] Extract the sample-data fetcher from the preview route
-- [ ] Build the split-pane layout
-- [ ] Wire the block editor state into the preview
-- [ ] Add debounced re-render
-- [ ] Mobile: collapse into Sheet
-- [ ] Commit
+- [x] Extract the sample-data fetcher from the preview route
+- [x] Build the split-pane layout
+- [x] Wire the block editor state into the preview
+- [x] Add debounced re-render
+- [x] Mobile: collapse into Sheet
+- [x] Commit
 
 **Effort:** 6 hours
 
 ---
 
-### P2.10 — Report template builder: inline settings ⚠️ **DEFERRED**
+### P2.10 — Report template builder: inline settings
 
 **Problem:** Template-level settings (display level, person reference, logo) live in a Sheet modal that has to be opened separately. Builder state feels fragmented.
 
@@ -656,9 +661,9 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 - Keep the existing form controls; just change the container.
 
 **Steps:**
-- [ ] Replace the Sheet with a Collapsible component
+- [x] Replace the Sheet with an inline collapsed settings section
 - [ ] Verify all settings still save correctly
-- [ ] Commit
+- [x] Commit
 
 **Effort:** 1 hour
 
