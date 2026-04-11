@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, Plus, Rocket, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, Link2, Mail, Plus, Rocket, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -326,8 +326,146 @@ export function QuickLaunchModal({
             </div>
           )}
           {step === 3 && (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Step 3 placeholder — invite mode (P5.1d)
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Choose how you want to invite participants. You can always add more later from the campaign participants page.
+              </p>
+
+              {/* Mode selector — segmented control */}
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  {
+                    value: "single" as const,
+                    label: "Single email",
+                    description: "Invite one person",
+                    icon: Mail,
+                  },
+                  {
+                    value: "csv" as const,
+                    label: "Paste CSV",
+                    description: "Bulk invite",
+                    icon: FileText,
+                  },
+                  {
+                    value: "link" as const,
+                    label: "Access link",
+                    description: "Share a URL",
+                    icon: Link2,
+                  },
+                ]).map((mode) => {
+                  const Icon = mode.icon;
+                  const selected = state.inviteMode === mode.value;
+                  return (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() =>
+                        setState((s) => ({ ...s, inviteMode: mode.value }))
+                      }
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors",
+                        selected
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-border/80 hover:bg-muted/40"
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "size-5",
+                          selected ? "text-primary" : "text-muted-foreground"
+                        )}
+                      />
+                      <div className="text-xs font-medium">{mode.label}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {mode.description}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Mode-specific input */}
+              {state.inviteMode === "single" && (
+                <div className="space-y-3 rounded-lg border border-border p-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ql-invite-email">
+                      Email <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="ql-invite-email"
+                      type="email"
+                      placeholder="participant@company.com"
+                      value={state.inviteSingleEmail}
+                      onChange={(e) =>
+                        setState((s) => ({ ...s, inviteSingleEmail: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="ql-invite-first">First name</Label>
+                      <Input
+                        id="ql-invite-first"
+                        placeholder="Jane"
+                        value={state.inviteSingleFirstName}
+                        onChange={(e) =>
+                          setState((s) => ({
+                            ...s,
+                            inviteSingleFirstName: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ql-invite-last">Last name</Label>
+                      <Input
+                        id="ql-invite-last"
+                        placeholder="Doe"
+                        value={state.inviteSingleLastName}
+                        onChange={(e) =>
+                          setState((s) => ({
+                            ...s,
+                            inviteSingleLastName: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {state.inviteMode === "csv" && (
+                <div className="space-y-2 rounded-lg border border-border p-4">
+                  <Label htmlFor="ql-invite-csv">
+                    Paste CSV <span className="text-destructive">*</span>
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    One row per participant. Format:{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                      email,first_name,last_name
+                    </code>
+                    . First name and last name are optional.
+                  </p>
+                  <Textarea
+                    id="ql-invite-csv"
+                    placeholder={`jane@example.com,Jane,Doe\njohn@example.com,John,Smith`}
+                    value={state.inviteCsv}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, inviteCsv: e.target.value }))
+                    }
+                    rows={6}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              )}
+
+              {state.inviteMode === "link" && (
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-sm text-muted-foreground">
+                    A shareable access link will be generated when you click Launch. Anyone with the link can take the assessment — no per-participant invite emails will be sent. You can still add individual participants later.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
