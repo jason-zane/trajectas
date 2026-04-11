@@ -4,6 +4,16 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, Rocket, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CampaignAssessmentOption } from "@/app/actions/campaigns";
 
 interface QuickLaunchModalProps {
@@ -134,13 +144,84 @@ export function QuickLaunchModal({
         {/* Step content — filled in by P5.1b / P5.1c / P5.1d */}
         <div className="py-4">
           {step === 1 && (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Step 1 placeholder — campaign details form (P5.1b)
-              <br />
-              <span className="text-xs">
-                {clients.length} client(s) available
-                {forcedClientId && " — forced to one"}
-              </span>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="ql-title">
+                  Campaign title <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="ql-title"
+                  placeholder="e.g. Q2 Leadership Assessment"
+                  value={state.title}
+                  onChange={(e) => setState((s) => ({ ...s, title: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+
+              {!forcedClientId && (
+                <div className="space-y-2">
+                  <Label htmlFor="ql-client">
+                    Client <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={state.clientId ?? ""}
+                    onValueChange={(value) =>
+                      setState((s) => ({ ...s, clientId: value || null }))
+                    }
+                  >
+                    <SelectTrigger id="ql-client">
+                      <SelectValue placeholder="Select a client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.length === 0 ? (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          No clients available
+                        </div>
+                      ) : (
+                        clients.map((client) => (
+                          <SelectItem key={client.id} value={client.id}>
+                            {client.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="ql-opens">Opens at</Label>
+                  <Input
+                    id="ql-opens"
+                    type="date"
+                    value={state.opensAt}
+                    onChange={(e) => setState((s) => ({ ...s, opensAt: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ql-closes">Closes at</Label>
+                  <Input
+                    id="ql-closes"
+                    type="date"
+                    value={state.closesAt}
+                    onChange={(e) => setState((s) => ({ ...s, closesAt: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ql-description">Description (optional)</Label>
+                <Textarea
+                  id="ql-description"
+                  placeholder="A short internal note about this campaign"
+                  value={state.description}
+                  onChange={(e) =>
+                    setState((s) => ({ ...s, description: e.target.value }))
+                  }
+                  rows={3}
+                />
+              </div>
             </div>
           )}
           {step === 2 && (
