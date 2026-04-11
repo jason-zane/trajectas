@@ -804,6 +804,8 @@ export function mapReportSnapshotRow(row: any): ReportSnapshot {
     narrativeMode: row.narrative_mode,
     renderedData: row.rendered_data ?? undefined,
     pdfUrl: row.pdf_url ?? undefined,
+    pdfStatus: row.pdf_status ?? undefined,
+    pdfErrorMessage: row.pdf_error_message ?? undefined,
     releasedAt: row.released_at ?? undefined,
     releasedBy: row.released_by ?? undefined,
     generatedAt: row.generated_at ?? undefined,

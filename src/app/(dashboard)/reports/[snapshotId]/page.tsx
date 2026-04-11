@@ -1,9 +1,8 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import { Download } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { ReportRenderer } from '@/components/reports/report-renderer'
+import { ReportPdfButton } from '@/components/reports/report-pdf-button'
 import { getReportSnapshot } from '@/app/actions/reports'
 import { verifyReportPdfToken } from '@/lib/reports/pdf-token'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -66,12 +65,12 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
           {snapshot.status === 'ready' && (
             <ReleaseSnapshotButton snapshotId={snapshotId} />
           )}
-          <a href={`/api/reports/${snapshotId}/pdf`}>
-            <Button variant="outline">
-              <Download className="size-4" />
-              {snapshot.pdfUrl ? 'Download PDF' : 'Generate PDF'}
-            </Button>
-          </a>
+          <ReportPdfButton
+            snapshotId={snapshotId}
+            initialPdfUrl={snapshot.pdfUrl}
+            initialPdfStatus={snapshot.pdfStatus}
+            variant="outline"
+          />
         </div>
       </PageHeader>
 

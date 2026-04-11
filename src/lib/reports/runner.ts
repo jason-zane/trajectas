@@ -49,7 +49,12 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
   // Mark as generating
   await db
     .from('report_snapshots')
-    .update({ status: 'generating' })
+    .update({
+      status: 'generating',
+      pdf_url: null,
+      pdf_status: null,
+      pdf_error_message: null,
+    })
     .eq('id', snapshotId)
     .eq('status', 'pending')
 

@@ -149,6 +149,9 @@ export type BrandModeType = 'platform' | 'client' | 'custom'
 /** Lifecycle status of a report snapshot. */
 export type ReportSnapshotStatus = 'pending' | 'generating' | 'ready' | 'released' | 'failed'
 
+/** Lifecycle status of an asynchronously generated report PDF. */
+export type ReportPdfStatus = 'queued' | 'generating' | 'ready' | 'failed'
+
 /** The intended audience for a report snapshot. */
 export type ReportAudienceType = 'participant' | 'hr_manager' | 'consultant'
 
@@ -1808,6 +1811,8 @@ export interface ReportSnapshot {
   narrativeMode: NarrativeModeType
   renderedData?: Record<string, unknown>  // ResolvedBlockData[] — typed in runner
   pdfUrl?: string
+  pdfStatus?: ReportPdfStatus
+  pdfErrorMessage?: string
   releasedAt?: string
   releasedBy?: string
   generatedAt?: string

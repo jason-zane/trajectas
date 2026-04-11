@@ -1,39 +1,36 @@
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthenticationRequiredError,
   AuthorizationError,
   requireReportSnapshotAccess,
 } from '@/lib/auth/authorization'
-import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
-import { createReportPdfToken } from '@/lib/reports/pdf-token'
+import {
+  generateAndStoreReportPdf,
+  getSnapshotPdfState,
+  mapReportPdfStatus,
+  queueReportPdfGeneration,
+} from '@/lib/reports/pdf'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const REPORTS_BUCKET = 'reports'
 
-async function ensureReportsBucket() {
-  const db = createAdminClient()
-  const { data: bucket, error } = await db.storage.getBucket(REPORTS_BUCKET)
-
-  if (bucket && !error) {
-    return db
+async function requirePdfAccess(snapshotId: string) {
+  try {
+    await requireReportSnapshotAccess(snapshotId)
+  } catch (error) {
+    if (error instanceof AuthenticationRequiredError) {
+      return Response.json({ error: 'Authentication required' }, { status: 401 })
+    }
+    if (error instanceof AuthorizationError) {
+      return Response.json({ error: error.message }, { status: 403 })
+    }
+    throw error
   }
 
-  const { error: createError } = await db.storage.createBucket(REPORTS_BUCKET, {
-    public: false,
-    fileSizeLimit: 25 * 1024 * 1024,
-    allowedMimeTypes: ['application/pdf'],
-  })
-
-  if (
-    createError &&
-    !createError.message.toLowerCase().includes('already exists')
-  ) {
-    throw createError
-  }
-
-  return db
+  return null
 }
 
 async function respondWithStoredPdf(storagePath: string) {
@@ -97,29 +94,13 @@ export async function GET(
       return Response.json({ error: 'Report not available' }, { status: 403 })
     }
   } else {
-    try {
-      await requireReportSnapshotAccess(snapshotId)
-    } catch (error) {
-      if (error instanceof AuthenticationRequiredError) {
-        return Response.json({ error: 'Authentication required' }, { status: 401 })
-      }
-      if (error instanceof AuthorizationError) {
-        return Response.json({ error: error.message }, { status: 403 })
-      }
-      throw error
+    const authError = await requirePdfAccess(snapshotId)
+    if (authError) {
+      return authError
     }
   }
 
-  const { data: snapshot, error: snapshotError } = await db
-    .from('report_snapshots')
-    .select('id, status, pdf_url')
-    .eq('id', snapshotId)
-    .maybeSingle()
-
-  if (snapshotError) {
-    return Response.json({ error: snapshotError.message }, { status: 500 })
-  }
-
+  const snapshot = await getSnapshotPdfState(snapshotId)
   if (!snapshot) {
     return Response.json({ error: 'Report not found' }, { status: 404 })
   }
@@ -131,84 +112,37 @@ export async function GET(
     )
   }
 
+  let shouldForceRefresh = forceRefresh
   if (snapshot.pdf_url && !forceRefresh) {
     try {
       return await respondWithStoredPdf(storagePath)
     } catch {
       // Fall through to regeneration if the stored file has gone missing.
+      shouldForceRefresh = true
     }
   }
 
-  let browser: Awaited<ReturnType<typeof launchReportPdfBrowser>> | null = null
+  const pdfState = mapReportPdfStatus(snapshot, snapshotId)
+  if (pdfState.status === 'queued' || pdfState.status === 'generating') {
+    return Response.json(
+      {
+        error: 'PDF generation is already in progress',
+        status: pdfState.status,
+      },
+      { status: 409 },
+    )
+  }
 
   try {
-    const appUrl =
-      process.env.ADMIN_APP_URL ??
-      process.env.NEXT_PUBLIC_APP_URL ??
-      'http://localhost:3002'
-    const pdfToken = createReportPdfToken(snapshotId)
-    const url = `${appUrl}/reports/${snapshotId}?format=print&pdfToken=${encodeURIComponent(pdfToken)}`
-
-    browser = await launchReportPdfBrowser()
-    const page = await browser.newPage()
-    await page.emulateMediaType('print')
-
-    const response = await page.goto(url, {
-      waitUntil: 'networkidle0',
-      timeout: 30000,
-    })
-    if (!response || !response.ok()) {
-      throw new Error(
-        `Print render failed with status ${response?.status() ?? 'unknown'}`
-      )
-    }
-
-    await page.waitForSelector('[data-print="true"]', { timeout: 10000 })
-    await page.evaluate(async () => {
-      if ('fonts' in document) {
-        await document.fonts.ready
-      }
+    const generated = await generateAndStoreReportPdf(snapshotId, {
+      forceRefresh: shouldForceRefresh,
     })
 
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm',
-      },
-    })
-    const body = pdf.buffer.slice(
-      pdf.byteOffset,
-      pdf.byteOffset + pdf.byteLength
-    ) as ArrayBuffer
-
-    const storage = await ensureReportsBucket()
-    const { error: uploadError } = await storage.storage
-      .from(REPORTS_BUCKET)
-      .upload(storagePath, pdf, {
-        contentType: 'application/pdf',
-        upsert: true,
-      })
-
-    if (uploadError) {
-      throw uploadError
+    if (!generated) {
+      return await respondWithStoredPdf(storagePath)
     }
 
-    // Store the private storage path (not a public URL) — consumers
-    // generate short-lived signed URLs on demand via getSignedReportPdfUrl().
-    const { error: updateError } = await storage
-      .from('report_snapshots')
-      .update({ pdf_url: storagePath })
-      .eq('id', snapshotId)
-
-    if (updateError) {
-      throw updateError
-    }
-
-    return new Response(body, {
+    return new Response(generated.body, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="report-${snapshotId}.pdf"`,
@@ -218,7 +152,46 @@ export async function GET(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'PDF generation failed'
     return Response.json({ error: message }, { status: 500 })
-  } finally {
-    await browser?.close()
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ snapshotId: string }> },
+) {
+  const { snapshotId } = await params
+  const authError = await requirePdfAccess(snapshotId)
+  if (authError) {
+    return authError
+  }
+
+  try {
+    const body = (await request.json().catch(() => ({}))) as {
+      forceRefresh?: boolean
+    }
+
+    const queued = await queueReportPdfGeneration(snapshotId)
+    if (queued.queued) {
+      after(async () => {
+        try {
+          await generateAndStoreReportPdf(snapshotId, {
+            forceRefresh: body.forceRefresh,
+          })
+        } catch (error) {
+          console.error(`[reports] PDF generation failed for ${snapshotId}:`, error)
+        }
+      })
+    }
+
+    return Response.json({
+      jobId: queued.jobId,
+      status: queued.status,
+      pdfUrl: queued.pdfUrl,
+      error: queued.error,
+    })
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Failed to queue PDF generation'
+    return Response.json({ error: message }, { status: 500 })
   }
 }

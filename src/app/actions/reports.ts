@@ -511,7 +511,13 @@ export async function retrySnapshot(id: string): Promise<void> {
   const db = await createAdminClient()
   const { error } = await db
     .from('report_snapshots')
-    .update({ status: 'pending', error_message: null })
+    .update({
+      status: 'pending',
+      error_message: null,
+      pdf_url: null,
+      pdf_status: null,
+      pdf_error_message: null,
+    })
     .eq('id', id)
     .eq('status', 'failed')
   if (error) throw new Error(error.message)

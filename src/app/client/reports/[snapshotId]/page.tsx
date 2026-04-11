@@ -1,8 +1,7 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import { Download } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { ReportRenderer } from '@/components/reports/report-renderer'
+import { ReportPdfButton } from '@/components/reports/report-pdf-button'
 import { getReportSnapshot } from '@/app/actions/reports'
 import type { ResolvedBlockData } from '@/lib/reports/types'
 
@@ -22,12 +21,12 @@ export default async function ClientReportViewerPage({ params }: Props) {
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16 p-6">
       <div className="flex justify-end">
-        <a href={`/api/reports/${snapshotId}/pdf`}>
-          <Button variant="outline">
-            <Download className="size-4" />
-            {snapshot.pdfUrl ? 'Download PDF' : 'Generate PDF'}
-          </Button>
-        </a>
+        <ReportPdfButton
+          snapshotId={snapshotId}
+          initialPdfUrl={snapshot.pdfUrl}
+          initialPdfStatus={snapshot.pdfStatus}
+          variant="outline"
+        />
       </div>
       <div className="rounded-xl border border-border bg-card shadow-sm p-8">
         <Suspense>
