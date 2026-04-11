@@ -43,12 +43,13 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
 } from '@/components/ui/sheet'
 import { getSelectLabel } from '@/lib/select-display'
 import { cn } from '@/lib/utils'
 import { BLOCK_REGISTRY, isDeferredBlockType } from '@/lib/reports/registry'
-import type { BlockType, BlockConfig } from '@/lib/reports/types'
+import type { BlockType, BlockConfig, ResolvedBlockData } from '@/lib/reports/types'
+import { ReportRenderer } from '@/components/reports/report-renderer'
+import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
@@ -263,9 +264,13 @@ export function BlockBuilderClient({
   const [usage, setUsage] = useState<TemplateUsageEntry[]>(initialUsage ?? [])
   const [isLinking, startLinking] = useTransition()
   const [promptOptions] = useState<PromptOption[]>(initialPromptOptions)
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewBlocks, setPreviewBlocks] = useState(() =>
+    buildTemplatePreviewBlocks(initialBlocks),
+  )
 
   // Template settings state
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsExpanded, setSettingsExpanded] = useState(false)
   const [settings, setSettings] = useState<TemplateSettings>(initialSettings)
   const [settingsSaveState, setSettingsSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [isSavingSettings, startSaveSettings] = useTransition()
@@ -282,6 +287,16 @@ export function BlockBuilderClient({
   useEffect(() => {
     getEntityOptions().then(setEntityOptions)
   }, [])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setPreviewBlocks(buildTemplatePreviewBlocks(blocks))
+    }, 500)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [blocks])
 
   // ---------------------------------------------------------------------------
   // Save blocks + name
@@ -471,7 +486,6 @@ export function BlockBuilderClient({
   // ---------------------------------------------------------------------------
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col overflow-hidden">
-      {/* Top bar */}
       <div className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-card px-4">
         <Button
           variant="ghost"
@@ -517,22 +531,6 @@ export function BlockBuilderClient({
         <div className="ml-auto flex items-center gap-2">
           <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
           <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => setSettingsOpen(true)}
-          >
-            <Settings className="size-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.open(`${basePath}/${templateId}/preview`, '_blank')}
-          >
-            <Eye className="size-3.5" />
-            Preview
-          </Button>
-          <Button
             size="sm"
             onClick={handleSave}
             disabled={isSaving || saveState === 'saved'}
@@ -543,291 +541,207 @@ export function BlockBuilderClient({
         </div>
       </div>
 
-      {/* Full-width canvas */}
-      <div className="flex-1 overflow-y-auto bg-background p-6">
-        {blocks.length === 0 ? (
-          <div className="flex h-full items-center justify-center">
-            <div className="text-center space-y-3">
-              <p className="text-sm text-muted-foreground">
-                No blocks yet. Add your first block to get started.
-              </p>
-              <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
-            </div>
-          </div>
-        ) : (
-          <div className="mx-auto max-w-3xl space-y-0">
-            {blocks.map((block, index) => {
-              const meta = BLOCK_REGISTRY[block.type]
-              const isDeferredBlock = isDeferredBlockType(block.type)
-              const isExpanded = expandedBlockId === block.id
-              const summary = getBlockSummary(block, entityOptions, promptOptions)
+      <div className="flex-1 overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(420px,46vw)]">
+        <div className="overflow-y-auto bg-background p-6">
+          <div className="mx-auto max-w-3xl space-y-6">
+            <InlineTemplateSettingsPanel
+              expanded={settingsExpanded}
+              onExpandedChange={setSettingsExpanded}
+              descriptionAutoSave={descriptionAutoSave}
+              settings={settings}
+              onChangeSettings={setSettings}
+              onSaveSettings={handleSaveSettings}
+              isSavingSettings={isSavingSettings}
+              disableSaveSettings={settingsSaveState === 'saved'}
+              settingsSaveLabel={settingsSaveLabel}
+              usage={usage}
+              campaigns={allCampaigns}
+              isLinking={isLinking}
+              onLink={handleLinkCampaign}
+              onUnlink={handleUnlinkCampaign}
+            />
 
-              return (
-                <div key={block.id}>
-                  {/* Inline add button between blocks */}
-                  <InlineAddButton
-                    reportType={reportType}
-                    onAdd={(type) => addBlock(type, index)}
-                  />
+            {blocks.length === 0 ? (
+              <div className="flex min-h-[18rem] items-center justify-center rounded-2xl border border-dashed border-border bg-card/60">
+                <div className="text-center space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    No blocks yet. Add your first block to get started.
+                  </p>
+                  <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-0">
+                {blocks.map((block, index) => {
+                  const meta = BLOCK_REGISTRY[block.type]
+                  const isDeferredBlock = isDeferredBlockType(block.type)
+                  const isExpanded = expandedBlockId === block.id
+                  const summary = getBlockSummary(block, entityOptions, promptOptions)
 
-                  {/* Block card */}
-                  <div
-                    draggable={!isExpanded}
-                    onDragStart={() => handleDragStart(block.id)}
-                    onDragOver={(e) => handleDragOver(e, block.id)}
-                    onDrop={() => handleDrop(block.id)}
-                    onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
-                    className={cn(
-                      'group rounded-xl border transition-all bg-card',
-                      isExpanded
-                        ? 'border-primary shadow-sm'
-                        : 'border-border hover:border-primary/40',
-                      dragOverId === block.id && draggingId !== block.id
-                        ? 'border-primary/60 bg-primary/5'
-                        : '',
-                      draggingId === block.id ? 'opacity-50' : '',
-                    )}
-                  >
-                    {/* Collapsed header — always visible */}
-                    <div
-                      className="flex cursor-pointer items-center gap-3 px-4 py-3"
-                      onClick={() => toggleExpand(block.id)}
-                    >
-                      <GripVertical className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground cursor-grab shrink-0" />
-                      <span className="text-xs font-mono text-muted-foreground/50 shrink-0 w-5 text-right">
-                        {index + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-sm">{meta.label}</p>
-                          {isDeferredBlock && (
-                            <Badge className="border-amber-500/30 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200">
-                              Coming soon
+                  return (
+                    <div key={block.id}>
+                      <InlineAddButton
+                        reportType={reportType}
+                        onAdd={(type) => addBlock(type, index)}
+                      />
+
+                      <div
+                        draggable={!isExpanded}
+                        onDragStart={() => handleDragStart(block.id)}
+                        onDragOver={(e) => handleDragOver(e, block.id)}
+                        onDrop={() => handleDrop(block.id)}
+                        onDragEnd={() => { setDraggingId(null); setDragOverId(null) }}
+                        className={cn(
+                          'group rounded-xl border bg-card transition-all',
+                          isExpanded
+                            ? 'border-primary shadow-sm'
+                            : 'border-border hover:border-primary/40',
+                          dragOverId === block.id && draggingId !== block.id
+                            ? 'border-primary/60 bg-primary/5'
+                            : '',
+                          draggingId === block.id ? 'opacity-50' : '',
+                        )}
+                      >
+                        <div
+                          className="flex cursor-pointer items-center gap-3 px-4 py-3"
+                          onClick={() => toggleExpand(block.id)}
+                        >
+                          <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground" />
+                          <span className="w-5 shrink-0 text-right font-mono text-xs text-muted-foreground/50">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-semibold">{meta.label}</p>
+                              {isDeferredBlock && (
+                                <Badge className="border-amber-500/30 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200">
+                                  Coming soon
+                                </Badge>
+                              )}
+                              <ModeTag mode={block.presentationMode ?? meta.defaultMode} />
+                              {block.chartType && meta.supportedCharts && (
+                                <Badge variant="outline" className="text-[10px] capitalize">
+                                  {block.chartType.replace(/_/g, ' ')}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              {summary}
+                            </p>
+                          </div>
+                          {block.printBreakBefore && (
+                            <Badge variant="outline" className="shrink-0 text-xs text-muted-foreground">
+                              Page break
                             </Badge>
                           )}
-                          <ModeTag mode={block.presentationMode ?? meta.defaultMode} />
-                          {block.chartType && meta.supportedCharts && (
-                            <Badge variant="outline" className="text-[10px] capitalize">
-                              {block.chartType.replace(/_/g, ' ')}
-                            </Badge>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeBlock(block.id) }}
+                            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                          >
+                            <Trash2 className="size-4 text-muted-foreground transition-colors hover:text-destructive" />
+                          </button>
+                          {isExpanded ? (
+                            <ChevronUp className="size-4 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {summary}
-                        </p>
-                      </div>
-                      {block.printBreakBefore && (
-                        <Badge variant="outline" className="text-xs text-muted-foreground shrink-0">
-                          Page break
-                        </Badge>
-                      )}
-                      <button
-                        onClick={(e) => { e.stopPropagation(); removeBlock(block.id) }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                      >
-                        <Trash2 className="size-4 text-muted-foreground hover:text-destructive transition-colors" />
-                      </button>
-                      {isExpanded ? (
-                        <ChevronUp className="size-4 text-muted-foreground shrink-0" />
-                      ) : (
-                        <ChevronDown className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                      )}
-                    </div>
 
-                    {/* Expanded block detail with tabs */}
-                    {isExpanded && (
-                      <div className="border-t border-border">
-                        {isDeferredBlock && (
-                          <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
-                            Coming soon — this block stays hidden from participants until its data pipeline is implemented.
+                        {isExpanded && (
+                          <div className="border-t border-border">
+                            {isDeferredBlock && (
+                              <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                                Coming soon — this block stays hidden from participants until its data pipeline is implemented.
+                              </div>
+                            )}
+
+                            <div className="flex gap-0 border-b border-border px-4">
+                              {BLOCK_TABS.map((tab) => (
+                                <button
+                                  key={tab.id}
+                                  onClick={() => setActiveTab(tab.id)}
+                                  className={cn(
+                                    'relative px-3 py-2.5 text-sm font-medium transition-colors',
+                                    activeTab === tab.id
+                                      ? 'text-foreground'
+                                      : 'text-muted-foreground hover:text-foreground',
+                                  )}
+                                >
+                                  {tab.label}
+                                  {activeTab === tab.id && (
+                                    <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="px-4 py-4">
+                              {activeTab === 'content' && (
+                                <BlockContentPanel
+                                  block={block}
+                                  entityOptions={entityOptions}
+                                  promptOptions={promptOptions}
+                                  onUpdateConfig={updateConfig}
+                                />
+                              )}
+                              {activeTab === 'headers' && (
+                                <BlockHeadersPanel block={block} onUpdateBlock={updateBlock} />
+                              )}
+                              {activeTab === 'presentation' && (
+                                <BlockPresentationPanel block={block} onUpdateBlock={updateBlock} />
+                              )}
+                              {activeTab === 'print' && (
+                                <BlockPrintPanel block={block} onUpdateBlock={updateBlock} />
+                              )}
+                            </div>
                           </div>
                         )}
-
-                        {/* Tab bar */}
-                        <div className="flex gap-0 border-b border-border px-4">
-                          {BLOCK_TABS.map((tab) => (
-                            <button
-                              key={tab.id}
-                              onClick={() => setActiveTab(tab.id)}
-                              className={cn(
-                                'px-3 py-2.5 text-sm font-medium transition-colors relative',
-                                activeTab === tab.id
-                                  ? 'text-foreground'
-                                  : 'text-muted-foreground hover:text-foreground',
-                              )}
-                            >
-                              {tab.label}
-                              {activeTab === tab.id && (
-                                <span className="absolute inset-x-0 bottom-0 h-0.5 bg-primary rounded-full" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Tab content */}
-                        <div className="px-4 py-4">
-                          {activeTab === 'content' && (
-                            <BlockContentPanel
-                              block={block}
-                              entityOptions={entityOptions}
-                              promptOptions={promptOptions}
-                              onUpdateConfig={updateConfig}
-                            />
-                          )}
-                          {activeTab === 'headers' && (
-                            <BlockHeadersPanel block={block} onUpdateBlock={updateBlock} />
-                          )}
-                          {activeTab === 'presentation' && (
-                            <BlockPresentationPanel block={block} onUpdateBlock={updateBlock} />
-                          )}
-                          {activeTab === 'print' && (
-                            <BlockPrintPanel block={block} onUpdateBlock={updateBlock} />
-                          )}
-                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+                    </div>
+                  )
+                })}
 
-            {/* Trailing inline add button */}
-            <InlineAddButton
-              reportType={reportType}
-              onAdd={(type) => addBlock(type, blocks.length)}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Template Settings Sheet */}
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Template Settings</SheetTitle>
-            <SheetDescription>Configure template-level defaults that apply across all blocks.</SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-6 px-4">
-            {/* Description — auto-save */}
-            <div className="space-y-1.5">
-              <Label className="text-sm">Description</Label>
-              <Textarea
-                value={descriptionAutoSave.value}
-                onChange={descriptionAutoSave.handleChange}
-                onBlur={descriptionAutoSave.handleBlur}
-                className="text-sm min-h-20 resize-y"
-                placeholder="Brief description of this template\u2026"
-              />
-              <AutoSaveIndicator status={descriptionAutoSave.status} onRetry={descriptionAutoSave.retry} />
-            </div>
-
-            <Separator />
-
-            {/* Display Level */}
-            <div className="space-y-1.5">
-              <Label className="text-sm">Display Level</Label>
-              <Select
-                value={settings.displayLevel}
-                onValueChange={(v) => setSettings((s) => ({ ...s, displayLevel: v as ReportDisplayLevel }))}
-              >
-                <SelectTrigger className="w-full h-8 text-sm">
-                  <SelectValue>
-                    {(value: string | null) =>
-                      getSelectLabel(
-                        value as ReportDisplayLevel | null,
-                        reportDisplayLevelOptions
-                      )
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dimension">Dimension</SelectItem>
-                  <SelectItem value="factor">Factor</SelectItem>
-                  <SelectItem value="construct">Construct</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Which taxonomy level is the primary unit across score blocks</p>
-            </div>
-
-            {/* Person Reference */}
-            <div className="space-y-1.5">
-              <Label className="text-sm">Person Reference</Label>
-              <Select
-                value={settings.personReference}
-                onValueChange={(v) => setSettings((s) => ({ ...s, personReference: v as PersonReferenceType }))}
-              >
-                <SelectTrigger className="w-full h-8 text-sm">
-                  <SelectValue>
-                    {(value: string | null) =>
-                      getSelectLabel(
-                        value as PersonReferenceType | null,
-                        personReferenceOptions
-                      )
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="you">You</SelectItem>
-                  <SelectItem value="first_name">First name</SelectItem>
-                  <SelectItem value="participant">Participant</SelectItem>
-                  <SelectItem value="the_participant">The participant</SelectItem>
-                  <SelectItem value="neutral">Neutral</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">How the report refers to the participant in narrative text</p>
-            </div>
-
-            {/* Page Header Logo */}
-            <div className="space-y-1.5">
-              <Label className="text-sm">Page Header Logo</Label>
-              <Select
-                value={settings.pageHeaderLogo}
-                onValueChange={(v) => setSettings((s) => ({ ...s, pageHeaderLogo: v as 'primary' | 'secondary' | 'none' }))}
-              >
-                <SelectTrigger className="w-full h-8 text-sm">
-                  <SelectValue>
-                    {(value: string | null) =>
-                      getSelectLabel(
-                        value as typeof pageHeaderLogoOptions[number]["value"] | null,
-                        pageHeaderLogoOptions
-                      )
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="primary">Primary</SelectItem>
-                  <SelectItem value="secondary">Secondary</SelectItem>
-                  <SelectItem value="none">None</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Logo in the header of each printed page</p>
-            </div>
-
-            <Separator />
-
-            {/* Campaign Linkage */}
-            {allCampaigns && (
-              <CampaignLinkagePanel
-                usage={usage}
-                campaigns={allCampaigns}
-                isLinking={isLinking}
-                onLink={handleLinkCampaign}
-                onUnlink={handleUnlinkCampaign}
-              />
+                <InlineAddButton
+                  reportType={reportType}
+                  onAdd={(type) => addBlock(type, blocks.length)}
+                />
+              </div>
             )}
           </div>
+        </div>
 
-          <SheetFooter>
-            <Button
-              onClick={handleSaveSettings}
-              disabled={isSavingSettings || settingsSaveState === 'saved'}
-              className="w-full"
-            >
-              <Save className="size-3.5" />
-              {settingsSaveLabel}
-            </Button>
-          </SheetFooter>
+        <div className="hidden min-h-0 flex-col border-l border-border bg-muted/15 lg:flex">
+          <TemplatePreviewSurface
+            templateId={templateId}
+            basePath={basePath}
+            blocks={previewBlocks}
+          />
+        </div>
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        className="fixed right-6 bottom-6 z-20 shadow-lg lg:hidden"
+        onClick={() => setPreviewOpen(true)}
+      >
+        <Eye className="size-3.5" />
+        Preview
+      </Button>
+
+      <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
+        <SheetContent side="right" className="w-full p-0 sm:max-w-none">
+          <SheetHeader>
+            <SheetTitle>Live Preview</SheetTitle>
+            <SheetDescription>
+              Sample data refreshes about 500ms after you change the builder.
+            </SheetDescription>
+          </SheetHeader>
+          <TemplatePreviewSurface
+            templateId={templateId}
+            basePath={basePath}
+            blocks={previewBlocks}
+          />
         </SheetContent>
       </Sheet>
     </div>
@@ -854,6 +768,258 @@ function ModeTag({ mode }: { mode: string }) {
     )}>
       {mode}
     </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Inline template settings
+// ---------------------------------------------------------------------------
+
+interface InlineTemplateSettingsPanelProps {
+  expanded: boolean
+  onExpandedChange: (expanded: boolean) => void
+  descriptionAutoSave: ReturnType<typeof useAutoSave>
+  settings: TemplateSettings
+  onChangeSettings: React.Dispatch<React.SetStateAction<TemplateSettings>>
+  onSaveSettings: () => void
+  isSavingSettings: boolean
+  disableSaveSettings: boolean
+  settingsSaveLabel: string
+  usage: TemplateUsageEntry[]
+  campaigns?: { id: string; title: string }[]
+  isLinking: boolean
+  onLink: (campaignId: string, audienceType: AudienceType) => void
+  onUnlink: (campaignId: string, audienceType: AudienceType) => void
+}
+
+function InlineTemplateSettingsPanel({
+  expanded,
+  onExpandedChange,
+  descriptionAutoSave,
+  settings,
+  onChangeSettings,
+  onSaveSettings,
+  isSavingSettings,
+  disableSaveSettings,
+  settingsSaveLabel,
+  usage,
+  campaigns,
+  isLinking,
+  onLink,
+  onUnlink,
+}: InlineTemplateSettingsPanelProps) {
+  return (
+    <div className="rounded-2xl border border-border bg-card">
+      <button
+        type="button"
+        onClick={() => onExpandedChange(!expanded)}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+            <Settings className="size-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Template Settings</p>
+            <p className="text-xs text-muted-foreground">
+              Description, display defaults, person reference, and campaign links.
+            </p>
+          </div>
+        </div>
+        {expanded ? (
+          <ChevronUp className="size-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-4 text-muted-foreground" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="space-y-6 border-t border-border px-4 py-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm">Description</Label>
+            <Textarea
+              value={descriptionAutoSave.value}
+              onChange={descriptionAutoSave.handleChange}
+              onBlur={descriptionAutoSave.handleBlur}
+              className="min-h-20 resize-y text-sm"
+              placeholder="Brief description of this template…"
+            />
+            <AutoSaveIndicator
+              status={descriptionAutoSave.status}
+              onRetry={descriptionAutoSave.retry}
+            />
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Display Level</Label>
+              <Select
+                value={settings.displayLevel}
+                onValueChange={(value) =>
+                  onChangeSettings((current) => ({
+                    ...current,
+                    displayLevel: value as ReportDisplayLevel,
+                  }))
+                }
+              >
+                <SelectTrigger className="h-8 w-full text-sm">
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(
+                        value as ReportDisplayLevel | null,
+                        reportDisplayLevelOptions,
+                      )
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="dimension">Dimension</SelectItem>
+                  <SelectItem value="factor">Factor</SelectItem>
+                  <SelectItem value="construct">Construct</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Which taxonomy level is the primary unit across score blocks.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">Person Reference</Label>
+              <Select
+                value={settings.personReference}
+                onValueChange={(value) =>
+                  onChangeSettings((current) => ({
+                    ...current,
+                    personReference: value as PersonReferenceType,
+                  }))
+                }
+              >
+                <SelectTrigger className="h-8 w-full text-sm">
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(
+                        value as PersonReferenceType | null,
+                        personReferenceOptions,
+                      )
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="you">You</SelectItem>
+                  <SelectItem value="first_name">First name</SelectItem>
+                  <SelectItem value="participant">Participant</SelectItem>
+                  <SelectItem value="the_participant">The participant</SelectItem>
+                  <SelectItem value="neutral">Neutral</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                How the report refers to the participant in narrative text.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm">Page Header Logo</Label>
+            <Select
+              value={settings.pageHeaderLogo}
+              onValueChange={(value) =>
+                onChangeSettings((current) => ({
+                  ...current,
+                  pageHeaderLogo: value as 'primary' | 'secondary' | 'none',
+                }))
+              }
+            >
+              <SelectTrigger className="h-8 w-full text-sm md:max-w-xs">
+                <SelectValue>
+                  {(value: string | null) =>
+                    getSelectLabel(
+                      value as typeof pageHeaderLogoOptions[number]['value'] | null,
+                      pageHeaderLogoOptions,
+                    )
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="primary">Primary</SelectItem>
+                <SelectItem value="secondary">Secondary</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Logo shown in the header of each printed page.
+            </p>
+          </div>
+
+          {campaigns && (
+            <>
+              <Separator />
+              <CampaignLinkagePanel
+                usage={usage}
+                campaigns={campaigns}
+                isLinking={isLinking}
+                onLink={onLink}
+                onUnlink={onUnlink}
+              />
+            </>
+          )}
+
+          <div className="flex justify-end">
+            <Button
+              onClick={onSaveSettings}
+              disabled={isSavingSettings || disableSaveSettings}
+            >
+              <Save className="size-3.5" />
+              {settingsSaveLabel}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Preview surface
+// ---------------------------------------------------------------------------
+
+function TemplatePreviewSurface({
+  templateId,
+  basePath,
+  blocks,
+}: {
+  templateId: string
+  basePath: string
+  blocks: ResolvedBlockData[]
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center justify-between border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
+        <div>
+          <p className="text-sm font-semibold">Live Preview</p>
+          <p className="text-xs text-muted-foreground">
+            Sample data refreshes about 500ms after edits.
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => window.open(`${basePath}/${templateId}/preview`, '_blank')}
+        >
+          <Eye className="size-3.5" />
+          Full preview
+        </Button>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--report-page-bg,#fafaf8)] p-4">
+        <div className="mb-4 rounded-xl border border-amber-300/60 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-900">
+          Preview only — rendered with sample participant data.
+        </div>
+        <div className="mx-auto max-w-3xl rounded-[1.5rem] border border-black/5 bg-white p-6 shadow-xl">
+          <ReportRenderer blocks={blocks} />
+        </div>
+      </div>
+    </div>
   )
 }
 

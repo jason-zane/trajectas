@@ -1,17 +1,17 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { getReportTemplate } from '@/app/actions/reports'
-import { generateSampleData } from '@/lib/reports/sample-data'
 import { ReportRenderer } from '@/components/reports/report-renderer'
-import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
+import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 
 export default async function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const template = await getReportTemplate(id)
   if (!template) notFound()
 
-  const reportTheme = DEFAULT_REPORT_THEME
-  const sampleBlocks = generateSampleData(template.blocks as Record<string, unknown>[], reportTheme)
+  const sampleBlocks = buildTemplatePreviewBlocks(
+    template.blocks as Record<string, unknown>[],
+  )
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--report-page-bg, #fafaf8)' }}>
