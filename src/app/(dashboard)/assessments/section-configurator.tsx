@@ -83,12 +83,16 @@ const ORDERING_INFO: Record<ItemOrdering, { label: string; description: string }
   },
 }
 
+function getSectionTitle(section: Pick<SectionDraft, "title" | "formatType">) {
+  return section.title.trim() || DEFAULT_TITLES[section.formatType] || "Assessment Section"
+}
+
 function defaultSectionFromFormat(group: FormatGroup, order: number): SectionDraft {
   return {
     responseFormatId: group.responseFormatId,
     formatName: group.formatName,
     formatType: group.formatType,
-    title: DEFAULT_TITLES[group.formatType] ?? "Assessment Section",
+    title: "",
     instructions: DEFAULT_INSTRUCTIONS[group.formatType] ?? "",
     displayOrder: order,
     itemOrdering: group.formatType === "sjt" ? "fixed" : "interleaved_by_construct",
@@ -714,7 +718,7 @@ function SectionCard({
       >
         <span className="text-lg leading-none">{FORMAT_ICONS[section.formatType] ?? "📋"}</span>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{section.title}</p>
+          <p className="text-sm font-medium truncate">{getSectionTitle(section)}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <Badge variant="outline" className="text-[10px] h-4 px-1.5">
               {section.formatName}
@@ -763,7 +767,7 @@ function SectionFields({
           <Input
             value={section.title}
             onChange={(e) => onChange({ title: e.target.value })}
-            placeholder="e.g. Self-Report Questionnaire"
+            placeholder={DEFAULT_TITLES[section.formatType] ?? "Assessment Section"}
             className="h-9 text-sm"
           />
         </div>

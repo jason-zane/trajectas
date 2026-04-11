@@ -546,7 +546,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
     responseFormatId: s.response_format_id,
     formatName: s.response_formats?.name ?? '',
     formatType: s.response_formats?.type ?? '',
-    title: s.title,
+    title: s.title ?? '',
     instructions: s.instructions ?? '',
     displayOrder: s.display_order,
     itemOrdering: s.item_ordering,
@@ -1107,7 +1107,7 @@ async function persistSections(
   const sectionInserts = sections.map((s) => ({
     assessment_id: assessmentId,
     response_format_id: s.responseFormatId,
-    title: s.title,
+    title: s.title.trim() || null,
     instructions: s.instructions || null,
     display_order: s.displayOrder,
     item_ordering: s.itemOrdering,
