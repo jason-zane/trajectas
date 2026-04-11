@@ -29,7 +29,7 @@ export default async function PartnerCampaignResultsPage({
       participantHref={(p) => `/partner/campaigns/${id}/participants/${p.id}`}
       sessionHref={(s) => `/partner/campaigns/${id}/participants/${s.participantId}/sessions/${s.id}`}
       factorSessionHref={(row) => `/partner/campaigns/${id}/participants/${row.participantId}/sessions/${row.sessionId}`}
-      reportHref={(snapshotId) => `/reports/${snapshotId}`}
+      reportHref={(snapshotId) => `/partner/reports/${snapshotId}`}
     />
   );
 }

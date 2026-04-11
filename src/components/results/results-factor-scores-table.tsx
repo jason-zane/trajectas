@@ -30,9 +30,13 @@ const STATUS_VARIANT: Record<
 };
 
 function bandToneClass(band: CampaignFactorScoreRow["factors"][number]["band"]) {
-  if (band === "high") return "border-emerald-200 bg-emerald-50 text-emerald-900";
-  if (band === "low") return "border-amber-200 bg-amber-50 text-amber-900";
-  return "border-slate-200 bg-slate-50 text-slate-900";
+  if (band === "high") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100";
+  }
+  if (band === "low") {
+    return "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100";
+  }
+  return "border-border bg-muted text-foreground";
 }
 
 export function ResultsFactorScoresTable({

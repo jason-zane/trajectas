@@ -3,8 +3,10 @@ import {
   PlayCircle,
   CheckCircle2,
   Megaphone,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getCampaignById } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { CampaignStatusActions } from "@/app/(dashboard)/campaigns/[id]/overview/campaign-status-actions";
@@ -46,6 +48,16 @@ export default async function ClientCampaignOverviewPage({
         opensAt={campaign.opensAt}
         closesAt={campaign.closesAt}
       />
+
+      {campaign.assessments.length === 0 && (
+        <Alert className="border-amber-500/30 bg-amber-500/[0.08] text-amber-900 dark:text-amber-100">
+          <AlertTriangle className="size-4 text-amber-600 dark:text-amber-300" />
+          <AlertTitle>No assessments attached</AlertTitle>
+          <AlertDescription className="text-amber-800/90 dark:text-amber-200/90">
+            This campaign has no assessments. If you activate it now, participants will have nothing to complete.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Stats row */}
       <div className="grid gap-4 sm:grid-cols-4">
