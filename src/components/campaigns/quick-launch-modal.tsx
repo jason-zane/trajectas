@@ -221,7 +221,7 @@ export function QuickLaunchModal({
 
   function canAdvance(): boolean {
     if (step === 1) {
-      return campaignTitle.length > 0 && !!effectiveClientId && !scheduleError;
+      return campaignTitle.length > 0 && !scheduleError;
     }
     if (step === 2) {
       return !!state.selectedAssessmentId;
@@ -248,7 +248,7 @@ export function QuickLaunchModal({
   }
 
   async function handleLaunch() {
-    if (!canAdvance() || !effectiveClientId || !state.selectedAssessmentId) {
+    if (!canAdvance() || !state.selectedAssessmentId) {
       return;
     }
 
@@ -260,7 +260,7 @@ export function QuickLaunchModal({
         title: campaignTitle,
         slug: generateSlug(campaignTitle),
         description: state.description.trim() || undefined,
-        clientId: effectiveClientId,
+        clientId: effectiveClientId || undefined,
         opensAt: toIsoDateTime(state.opensAt),
         closesAt: toIsoDateTime(state.closesAt),
         status: "draft",
@@ -472,7 +472,7 @@ export function QuickLaunchModal({
               {!forcedClientId && (
                 <div className="space-y-2">
                   <Label htmlFor="ql-client">
-                    Client <span className="text-destructive">*</span>
+                    Client <span className="text-muted-foreground text-xs font-normal">(optional)</span>
                   </Label>
                   <Select
                     value={state.clientId ?? ""}
