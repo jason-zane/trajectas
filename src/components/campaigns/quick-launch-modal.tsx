@@ -172,6 +172,7 @@ export function QuickLaunchModal({
     inviteCsv: "",
   });
   const [isLaunching, setIsLaunching] = useState(false);
+  const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
   const router = useRouter();
 
   const campaignTitle = state.title.trim();
@@ -237,12 +238,14 @@ export function QuickLaunchModal({
 
   function handleNext() {
     if (step < 3 && canAdvance()) {
+      setSlideDirection("left");
       setStep((currentStep) => (currentStep + 1) as WizardStep);
     }
   }
 
   function handleBack() {
     if (step > 1) {
+      setSlideDirection("right");
       setStep((currentStep) => (currentStep - 1) as WizardStep);
     }
   }
@@ -399,50 +402,87 @@ export function QuickLaunchModal({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
+      {/* Keyframe animations for step transitions */}
+      <style>{`
+        @keyframes ql-slide-left {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes ql-slide-right {
+          from { opacity: 0; transform: translateX(-20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}</style>
       <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Quick Launch Campaign</DialogTitle>
-          <DialogDescription>
-            Step {step} of 3 —{" "}
-            {step === 1
-              ? "Campaign details"
-              : step === 2
-                ? "Select assessment"
-                : "Invite participants"}
-          </DialogDescription>
-        </DialogHeader>
+        {/* Progress header */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <DialogHeader className="p-0">
+              <DialogTitle className="text-lg">Quick Launch</DialogTitle>
+            </DialogHeader>
+            <span className="text-xs font-medium text-muted-foreground tabular-nums">
+              {step} / 3
+            </span>
+          </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {([
-            { id: 1 as const, label: "Campaign" },
-            { id: 2 as const, label: "Assessment" },
-            { id: 3 as const, label: "Invite" },
-          ]).map((item) => {
-            const isActive = step === item.id;
-            const isComplete = step > item.id;
+          {/* Progress bar */}
+          <div className="relative h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-out"
+              style={{
+                width: `${(step / 3) * 100}%`,
+                background: "var(--brand-primary, hsl(var(--primary)))",
+              }}
+            />
+          </div>
 
-            return (
-              <div
-                key={item.id}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-sm transition-colors",
-                  isActive
-                    ? "border-primary bg-primary/5"
-                    : isComplete
-                      ? "border-border bg-muted/40"
-                      : "border-border/60",
-                )}
-              >
-                <div className="text-xs font-medium text-muted-foreground">
-                  Step {item.id}
+          {/* Step labels */}
+          <div className="flex items-center gap-4">
+            {([
+              { id: 1 as const, label: "Campaign" },
+              { id: 2 as const, label: "Assessment" },
+              { id: 3 as const, label: "Invite" },
+            ]).map((item) => {
+              const isActive = step === item.id;
+              const isComplete = step > item.id;
+              return (
+                <div key={item.id} className="flex items-center gap-1.5">
+                  <div
+                    className={cn(
+                      "flex size-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
+                      isActive
+                        ? "bg-primary text-primary-foreground"
+                        : isComplete
+                          ? "bg-primary/20 text-primary"
+                          : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    {isComplete ? "\u2713" : item.id}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-xs font-medium transition-colors",
+                      isActive
+                        ? "text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {item.label}
+                  </span>
                 </div>
-                <div className="mt-1 font-medium">{item.label}</div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        <div className="py-4">
+        {/* Step content — animated slide on step change */}
+        <div
+          key={step}
+          className="py-4"
+          style={{
+            animation: `${slideDirection === "left" ? "ql-slide-left" : "ql-slide-right"} 200ms ease-out`,
+          }}
+        >
           {step === 1 && (
             <div className="space-y-4">
               {forcedClientId && selectedClient && (
