@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
+import { ReportPdfButton } from "@/components/reports/report-pdf-button";
 import {
   Table,
   TableBody,
@@ -132,16 +133,11 @@ export function ResultsFactorScoresTable({
                         >
                           Preview
                         </Link>
-                        {row.reportPdfReady ? (
-                          <a
-                            href={`/api/reports/${row.reportSnapshotId}/pdf`}
-                            className="font-medium text-foreground hover:text-primary"
-                          >
-                            PDF
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">PDF pending</span>
-                        )}
+                        <ReportPdfButton
+                          snapshotId={row.reportSnapshotId}
+                          initialPdfStatus={row.reportPdfStatus}
+                          size="sm"
+                        />
                       </div>
                     )}
                 </div>

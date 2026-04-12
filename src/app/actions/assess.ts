@@ -25,6 +25,7 @@ import type {
   Campaign,
   CampaignParticipant,
   CampaignAssessment,
+  ReportPdfStatus,
 } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -694,6 +695,75 @@ export async function updateSessionProgressLite(
 // Session completion
 // ---------------------------------------------------------------------------
 
+const ASSESSMENT_PROCESSING_ERROR =
+  'We saved your answers, but couldn’t finish processing your assessment. Please try again in a moment.'
+
+async function finalizeCompletedSessionProcessing(input: {
+  sessionId: string
+  campaignId: string | null
+  campaignParticipantId: string | null
+  assessmentId: string | null
+  completedAt: string
+  emitAssessmentCompletedEvent: boolean
+}) {
+  const scoringResult = await scoreSessionCTT(input.sessionId)
+  if (scoringResult.error) {
+    logActionError('submitSession.scoring', scoringResult.error)
+    return { error: ASSESSMENT_PROCESSING_ERROR }
+  }
+
+  const db = createAdminClient()
+  let allDone = false
+
+  if (input.campaignParticipantId && input.campaignId) {
+    const [{ data: required }, { data: completed }] = await Promise.all([
+      db
+        .from('campaign_assessments')
+        .select('assessment_id')
+        .eq('campaign_id', input.campaignId)
+        .eq('is_required', true),
+      db
+        .from('participant_sessions')
+        .select('assessment_id')
+        .eq('campaign_participant_id', input.campaignParticipantId)
+        .eq('status', 'completed'),
+    ])
+
+    const requiredIds = new Set((required ?? []).map((row) => row.assessment_id))
+    const completedIds = new Set((completed ?? []).map((row) => row.assessment_id))
+    allDone = [...requiredIds].every((id) => completedIds.has(id))
+
+    if (allDone) {
+      await db
+        .from('campaign_participants')
+        .update({
+          status: 'completed',
+          completed_at: input.completedAt,
+        })
+        .eq('id', input.campaignParticipantId)
+    }
+
+    if (input.emitAssessmentCompletedEvent && input.assessmentId) {
+      try {
+        await enqueueAssessmentCompletedEvent({
+          sessionId: input.sessionId,
+          campaignId: input.campaignId,
+          participantId: input.campaignParticipantId,
+          assessmentId: input.assessmentId,
+          allRequiredAssessmentsCompleted: allDone,
+          completedAt: input.completedAt,
+        })
+      } catch (eventError) {
+        console.error('[integrations] Failed to enqueue assessment.completed event:', eventError)
+      }
+    }
+  }
+
+  await triggerReportGeneration(input.sessionId)
+
+  return { success: true as const }
+}
+
 export async function submitSession(token: string, sessionId: string) {
   let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
   try {
@@ -709,7 +779,7 @@ export async function submitSession(token: string, sessionId: string) {
 
   const { data: session, error: fetchErr } = await db
     .from('participant_sessions')
-    .select('campaign_participant_id, assessment_id, campaign_id, status')
+    .select('campaign_participant_id, assessment_id, campaign_id, status, completed_at')
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
     .single()
@@ -721,7 +791,14 @@ export async function submitSession(token: string, sessionId: string) {
 
   // Guard: prevent duplicate submission (double-click, network retry)
   if (session.status === 'completed') {
-    return { success: true as const }
+    return finalizeCompletedSessionProcessing({
+      sessionId,
+      campaignId: session.campaign_id ?? null,
+      campaignParticipantId: session.campaign_participant_id ?? null,
+      assessmentId: session.assessment_id ?? null,
+      completedAt: session.completed_at ?? new Date().toISOString(),
+      emitAssessmentCompletedEvent: false,
+    })
   }
 
   const completedAt = new Date().toISOString()
@@ -742,67 +819,14 @@ export async function submitSession(token: string, sessionId: string) {
     return { error: 'Unable to submit this assessment right now' }
   }
 
-  // Run CTT scoring (synchronous — simple mean POMP per factor)
-  const scoringResult = await scoreSessionCTT(sessionId)
-  if (scoringResult.error) {
-    logActionError('submitSession.scoring', scoringResult.error)
-  }
-
-  // Check if all required assessments are complete
-  if (session.campaign_participant_id) {
-    const { data: participantRow } = await db
-      .from('campaign_participants')
-      .select('campaign_id')
-      .eq('id', session.campaign_participant_id)
-      .single()
-
-    if (participantRow) {
-      // Get required assessments
-      const { data: required } = await db
-        .from('campaign_assessments')
-        .select('assessment_id')
-        .eq('campaign_id', participantRow.campaign_id)
-        .eq('is_required', true)
-
-      const requiredIds = new Set((required ?? []).map((r) => r.assessment_id))
-
-      // Get completed sessions for this participant
-      const { data: completed } = await db
-        .from('participant_sessions')
-        .select('assessment_id')
-        .eq('campaign_participant_id', session.campaign_participant_id)
-        .eq('status', 'completed')
-
-      const completedIds = new Set((completed ?? []).map((s) => s.assessment_id))
-
-      const allDone = [...requiredIds].every((id) => completedIds.has(id))
-
-      if (allDone) {
-        await db
-          .from('campaign_participants')
-          .update({
-            status: 'completed',
-            completed_at: completedAt,
-          })
-          .eq('id', session.campaign_participant_id)
-      }
-
-      try {
-        await enqueueAssessmentCompletedEvent({
-          sessionId,
-          campaignId: String(session.campaign_id),
-          participantId: String(session.campaign_participant_id),
-          assessmentId: String(session.assessment_id),
-          allRequiredAssessmentsCompleted: allDone,
-          completedAt,
-        })
-      } catch (eventError) {
-        console.error('[integrations] Failed to enqueue assessment.completed event:', eventError)
-      }
-    }
-  }
-
-  return { success: true as const }
+  return finalizeCompletedSessionProcessing({
+    sessionId,
+    campaignId: session.campaign_id ?? null,
+    campaignParticipantId: session.campaign_participant_id ?? null,
+    assessmentId: session.assessment_id ?? null,
+    completedAt,
+    emitAssessmentCompletedEvent: true,
+  })
 }
 
 /**
@@ -820,7 +844,11 @@ export async function triggerReportGeneration(sessionId: string): Promise<void> 
   }
 
   try {
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
+    const appUrl =
+      process.env.ADMIN_APP_URL ??
+      process.env.NEXT_PUBLIC_APP_URL ??
+      'http://localhost:3002'
+    const response = await fetch(`${appUrl}/api/reports/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -828,6 +856,12 @@ export async function triggerReportGeneration(sessionId: string): Promise<void> 
       },
       body: JSON.stringify({ sessionId }),
     })
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string
+      }
+      throw new Error(payload.error ?? 'Auto-generation trigger failed')
+    }
   } catch (error) {
     // Non-fatal — snapshots remain pending for manual retry
     console.error('[reports] Auto-generation trigger failed:', error)
@@ -842,7 +876,14 @@ export async function triggerReportGeneration(sessionId: string): Promise<void> 
 export async function getParticipantReportSnapshot(
   token: string,
   snapshotId?: string,
-): Promise<{ renderedData: unknown[]; status: string; pdfUrl?: string } | null> {
+): Promise<{
+  id: string
+  renderedData: unknown[]
+  status: string
+  pdfUrl?: string
+  pdfStatus?: ReportPdfStatus
+  errorMessage?: string
+} | null> {
   const result = await validateAccessToken(token)
   if (result.error || !result.data) return null
 
@@ -857,11 +898,10 @@ export async function getParticipantReportSnapshot(
   let query = db
     .from('report_snapshots')
     .select(
-      'id, rendered_data, status, pdf_url, audience_type, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)'
+      'id, rendered_data, status, pdf_url, pdf_status, error_message, audience_type, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)'
     )
     .in('participant_session_id', sessionIds)
     .eq('audience_type', 'participant')
-    .eq('status', 'released')
     .order('created_at', { ascending: false })
 
   if (snapshotId) {
@@ -881,20 +921,22 @@ export async function getParticipantReportSnapshot(
 
   try {
     const campaign = Array.isArray(data.campaigns) ? data.campaigns[0] : data.campaigns
-    await logReportViewed({
-      snapshotId: String(data.id),
-      participantId: result.data.participant.id,
-      audienceType: String(data.audience_type),
-      partnerId:
-        campaign && typeof campaign === 'object' && campaign.partner_id
-          ? String(campaign.partner_id)
-          : null,
-      clientId:
-        campaign && typeof campaign === 'object' && campaign.client_id
-          ? String(campaign.client_id)
-          : result.data.campaign.clientId ?? null,
-      metadata: { surface: 'assess' },
-    })
+    if (data.status === 'released') {
+      await logReportViewed({
+        snapshotId: String(data.id),
+        participantId: result.data.participant.id,
+        audienceType: String(data.audience_type),
+        partnerId:
+          campaign && typeof campaign === 'object' && campaign.partner_id
+            ? String(campaign.partner_id)
+            : null,
+        clientId:
+          campaign && typeof campaign === 'object' && campaign.client_id
+            ? String(campaign.client_id)
+            : result.data.campaign.clientId ?? null,
+        metadata: { surface: 'assess' },
+      })
+    }
   } catch (auditError) {
     logActionError('getParticipantReportSnapshot.audit', auditError)
   }
@@ -904,9 +946,12 @@ export async function getParticipantReportSnapshot(
   const pdfUrl = await getSignedReportPdfUrl(data.pdf_url)
 
   return {
+    id: String(data.id),
     renderedData: data.rendered_data ?? [],
     status: data.status,
     pdfUrl,
+    pdfStatus: data.pdf_status ?? undefined,
+    errorMessage: data.error_message ?? undefined,
   }
 }
 

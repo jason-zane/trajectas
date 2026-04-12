@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { processSnapshot } from '@/lib/reports/runner'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json() as {
+    const body = await request.json().catch(() => ({})) as {
       snapshotId?: string
       sessionId?: string
     }
@@ -48,21 +49,35 @@ export async function POST(request: Request) {
     const db = createAdminClient()
 
     if (body.snapshotId) {
-      // Process one specific snapshot
-      await processSnapshot(body.snapshotId)
-      return Response.json({ processed: [body.snapshotId] })
+      after(async () => {
+        try {
+          await processSnapshot(body.snapshotId!)
+        } catch (error) {
+          console.error('[reports] Failed to process snapshot:', error)
+        }
+      })
+      return Response.json({ queued: [body.snapshotId] }, { status: 202 })
     }
 
     if (body.sessionId) {
-      // Process all pending snapshots for a session
       const { data } = await db
         .from('report_snapshots')
         .select('id')
         .eq('participant_session_id', body.sessionId)
         .eq('status', 'pending')
       const ids = (data ?? []).map((r: { id: string }) => r.id)
-      await Promise.all(ids.map(processSnapshot))
-      return Response.json({ processed: ids })
+      after(async () => {
+        await Promise.all(
+          ids.map(async (id) => {
+            try {
+              await processSnapshot(id)
+            } catch (error) {
+              console.error(`[reports] Failed to process snapshot ${id}:`, error)
+            }
+          }),
+        )
+      })
+      return Response.json({ queued: ids }, { status: 202 })
     }
 
     // Process the oldest pending snapshot in queue
@@ -75,11 +90,17 @@ export async function POST(request: Request) {
       .maybeSingle()
 
     if (!next) {
-      return Response.json({ processed: [], message: 'No pending snapshots' })
+      return Response.json({ queued: [], message: 'No pending snapshots' })
     }
 
-    await processSnapshot(next.id)
-    return Response.json({ processed: [next.id] })
+    after(async () => {
+      try {
+        await processSnapshot(next.id)
+      } catch (error) {
+        console.error(`[reports] Failed to process snapshot ${next.id}:`, error)
+      }
+    })
+    return Response.json({ queued: [next.id] }, { status: 202 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Runner failed'
     return Response.json({ error: message }, { status: 500 })

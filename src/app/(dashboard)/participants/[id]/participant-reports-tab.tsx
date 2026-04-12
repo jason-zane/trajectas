@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReleaseSnapshotButton } from "@/app/(dashboard)/reports/[snapshotId]/release-snapshot-button";
+import { ReportPdfButton } from "@/components/reports/report-pdf-button";
 import type { ReportSnapshot } from "@/types/database";
 
 const audienceLabel: Record<string, string> = {
@@ -106,13 +107,12 @@ export function ParticipantReportsTab({
                   <ReleaseSnapshotButton snapshotId={snapshot.id} />
                 )}
                 {["ready", "released"].includes(snapshot.status) && (
-                  <Button
-                    variant="outline"
+                  <ReportPdfButton
+                    snapshotId={snapshot.id}
+                    initialPdfUrl={snapshot.pdfUrl}
+                    initialPdfStatus={snapshot.pdfStatus}
                     size="sm"
-                    render={<a href={`/api/reports/${snapshot.id}/pdf`} />}
-                  >
-                    {snapshot.pdfUrl ? "Download PDF" : "Generate PDF"}
-                  </Button>
+                  />
                 )}
               </div>
             </div>

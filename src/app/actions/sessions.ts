@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError, requireCampaignAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import type { ReportPdfStatus } from '@/types/database'
 
 export type SessionDetailScore = {
   factorId: string
@@ -26,6 +27,8 @@ export type SessionDetailSnapshot = {
   releasedAt?: string
   errorMessage?: string
   pdfUrl?: string
+  pdfStatus?: ReportPdfStatus
+  pdfErrorMessage?: string
   narrativeMode: string
 }
 
@@ -157,7 +160,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
   // Snapshots for this session
   const { data: snapshotRows } = await db
     .from('report_snapshots')
-    .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, narrative_mode, report_templates(name)')
+    .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
     .eq('participant_session_id', sessionId)
     .order('created_at', { ascending: false })
 
@@ -188,6 +191,8 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       releasedAt: r.released_at ?? undefined,
       errorMessage: r.error_message ?? undefined,
       pdfUrl: r.pdf_url ?? undefined,
+      pdfStatus: r.pdf_status ?? undefined,
+      pdfErrorMessage: r.pdf_error_message ?? undefined,
       narrativeMode: String(r.narrative_mode ?? 'derived'),
     }
   })
@@ -238,7 +243,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
 
   const { data, error } = await db
     .from('report_snapshots')
-    .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, narrative_mode, report_templates(name)')
+    .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
     .eq('participant_session_id', sessionId)
     .order('created_at', { ascending: false })
 
@@ -258,6 +263,8 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
       releasedAt: r.released_at ?? undefined,
       errorMessage: r.error_message ?? undefined,
       pdfUrl: r.pdf_url ?? undefined,
+      pdfStatus: r.pdf_status ?? undefined,
+      pdfErrorMessage: r.pdf_error_message ?? undefined,
       narrativeMode: String(r.narrative_mode ?? 'derived'),
     }
   })

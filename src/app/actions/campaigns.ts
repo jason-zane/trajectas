@@ -56,6 +56,12 @@ export type BulkInvitePendingExisting = {
   lastName?: string
 }
 
+export type BulkInviteEmailFailure = {
+  participantId: string
+  email: string
+  error: string
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -1053,7 +1059,7 @@ export async function bulkInviteParticipants(
     options?.allowExisting ? true : !existingEmailSet.has(participant.email.toLowerCase())
   )
 
-  let data: Array<{ id: string }> | null = null
+  let data: Array<{ id: string; email: string | null }> | null = null
   let error: { message?: string } | null = null
 
   if (rowsToInsert.length > 0) {
@@ -1067,7 +1073,7 @@ export async function bulkInviteParticipants(
           last_name: participant.lastName ?? null,
         }))
       )
-      .select('id')
+      .select('id, email')
 
     data = insertResult.data
     error = insertResult.error
@@ -1093,6 +1099,8 @@ export async function bulkInviteParticipants(
     },
   })
 
+  const emailFailures: BulkInviteEmailFailure[] = []
+
   // Best-effort: send invite emails for all newly created participants with
   // bounded concurrency. Previously this ran sequentially (one SMTP call at
   // a time), which made bulk imports of 50-100 participants feel frozen for
@@ -1102,18 +1110,39 @@ export async function bulkInviteParticipants(
     const EMAIL_CONCURRENCY = 5
     for (let i = 0; i < data.length; i += EMAIL_CONCURRENCY) {
       const chunk = data.slice(i, i + EMAIL_CONCURRENCY)
-      await Promise.all(
+      const chunkFailures = await Promise.all(
         chunk.map(async (row) => {
           try {
-            await sendParticipantInviteEmail(campaignId, row.id)
+            const result = await sendParticipantInviteEmail(campaignId, row.id)
+            if (!result.success) {
+              return {
+                participantId: row.id,
+                email: row.email ?? '',
+                error: result.error ?? 'Email delivery failed',
+              } satisfies BulkInviteEmailFailure
+            }
           } catch (emailErr) {
             console.warn(
               '[bulkInviteParticipants] Email send failed for',
               row.id,
               emailErr
             )
+            return {
+              participantId: row.id,
+              email: row.email ?? '',
+              error:
+                emailErr instanceof Error
+                  ? emailErr.message
+                  : 'Email delivery failed',
+            } satisfies BulkInviteEmailFailure
           }
+          return null
         })
+      )
+      emailFailures.push(
+        ...chunkFailures.filter(
+          (failure): failure is BulkInviteEmailFailure => failure !== null
+        )
       )
     }
   }
@@ -1124,6 +1153,7 @@ export async function bulkInviteParticipants(
     inserted: data?.length ?? 0,
     existingCount: pendingExisting.length,
     errors: rowErrors,
+    emailFailures,
     requiresConfirmation: pendingExisting.length > 0 && !(options?.allowExisting ?? false),
     pendingExisting: pendingExisting.map((participant) => ({
       row: participant.row,

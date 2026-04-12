@@ -2,8 +2,15 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle2, Clock, ArrowRight, ExternalLink } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
 import type { ResolvedBlockData } from "@/lib/reports/types";
@@ -18,6 +25,9 @@ interface ReportScreenProps {
   termsUrl?: string;
   /** When provided, renders the actual generated report instead of placeholder */
   renderedData?: unknown[];
+  reportStatus?: string;
+  reportError?: string;
+  autoRefresh?: boolean;
 }
 
 export function ReportScreen({
@@ -29,7 +39,11 @@ export function ReportScreen({
   privacyUrl,
   termsUrl,
   renderedData,
+  reportStatus,
+  reportError,
+  autoRefresh = false,
 }: ReportScreenProps) {
+  const router = useRouter();
   const hasReport = renderedData && renderedData.length > 0;
   const isHolding = content.reportMode === "holding";
   const [countdown, setCountdown] = useState(5);
@@ -51,6 +65,30 @@ export function ReportScreen({
 
     return () => clearInterval(interval);
   }, [content.redirectUrl]);
+
+  useEffect(() => {
+    if (!autoRefresh || hasReport) return;
+
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      if (Date.now() - startedAt >= 45000) {
+        clearInterval(interval);
+        return;
+      }
+      router.refresh();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, hasReport, router]);
+
+  const placeholderHint =
+    reportStatus === "failed"
+      ? reportError ?? "We hit a problem preparing your report. Please try again later."
+      : reportStatus === "ready"
+        ? "Your report is ready and will appear here once it has been released."
+        : autoRefresh
+          ? "Your report is being prepared. This page updates automatically."
+          : "Your report is being prepared. This usually takes a moment.";
 
   // Render the actual report when data is available
   if (hasReport) {
@@ -240,15 +278,37 @@ export function ReportScreen({
           </div>
 
           {!isHolding && (
-            <p
-              className="text-sm"
-              style={{
-                color:
-                  "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-              }}
-            >
-              Your report is being prepared. This usually takes a moment.
-            </p>
+            <div className="space-y-3">
+              <p
+                className={
+                  reportStatus === "failed"
+                    ? "text-sm text-destructive"
+                    : "text-sm"
+                }
+                style={
+                  reportStatus === "failed"
+                    ? undefined
+                    : {
+                        color:
+                          "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+                      }
+                }
+              >
+                {placeholderHint}
+              </p>
+              {autoRefresh && reportStatus !== "failed" && (
+                <div
+                  className="inline-flex items-center gap-2 text-sm"
+                  style={{
+                    color:
+                      "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+                  }}
+                >
+                  <Loader2 className="size-4 animate-spin" />
+                  Checking for updates
+                </div>
+              )}
+            </div>
           )}
 
           {/* Redirect countdown */}

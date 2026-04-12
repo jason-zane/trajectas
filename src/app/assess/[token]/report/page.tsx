@@ -35,6 +35,8 @@ export default async function ReportPage({
     getParticipantReportSnapshot(token),
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
+  const shouldAutoRefresh =
+    snapshot?.status === "pending" || snapshot?.status === "generating";
 
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {
@@ -72,6 +74,9 @@ export default async function ReportPage({
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
         renderedData={snapshot?.renderedData}
+        reportStatus={snapshot?.status}
+        reportError={snapshot?.errorMessage}
+        autoRefresh={shouldAutoRefresh}
       />
     </>
   );

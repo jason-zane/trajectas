@@ -13,6 +13,7 @@ import {
   removeParticipant,
   restoreParticipant,
   sendParticipantInviteEmail,
+  type BulkInviteEmailFailure,
   type BulkInvitePendingExisting,
   type BulkInviteRowError,
 } from "@/app/actions/campaigns";
@@ -71,6 +72,9 @@ export function CampaignParticipantManager({
   const [csvText, setCsvText] = useState("");
   const [showBulkErrors, setShowBulkErrors] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<BulkInviteRowError[]>([]);
+  const [bulkEmailFailures, setBulkEmailFailures] = useState<
+    BulkInviteEmailFailure[]
+  >([]);
   const [pendingDuplicateRows, setPendingDuplicateRows] = useState<
     BulkInvitePendingExisting[]
   >([]);
@@ -162,15 +166,31 @@ export function CampaignParticipantManager({
       result.errors.length > 0
         ? `${result.errors.length} invalid row${result.errors.length === 1 ? "" : "s"}`
         : null,
+      result.emailFailures.length > 0
+        ? `${result.emailFailures.length} email delivery failure${
+            result.emailFailures.length === 1 ? "" : "s"
+          }`
+        : null,
     ]
       .filter(Boolean)
       .join(", ");
 
-    toast.success(summary);
+    if (result.emailFailures.length > 0) {
+      toast.warning(summary, {
+        description:
+          "Some participants were added, but their invite emails need to be retried from the participant table.",
+      });
+    } else {
+      toast.success(summary);
+    }
 
-    if (result.errors.length > 0) {
+    if (result.errors.length > 0 || result.emailFailures.length > 0) {
       setBulkErrors(result.errors);
+      setBulkEmailFailures(result.emailFailures);
       setShowBulkErrors(true);
+    } else {
+      setBulkErrors([]);
+      setBulkEmailFailures([]);
     }
     if (result.requiresConfirmation && result.pendingExisting.length > 0) {
       setPendingDuplicateRows(result.pendingExisting);
@@ -199,9 +219,24 @@ export function CampaignParticipantManager({
       return;
     }
 
-    toast.success(
-      `${result.inserted} retake invite${result.inserted === 1 ? "" : "s"} created`,
-    );
+    if (result.emailFailures.length > 0) {
+      toast.warning(
+        `${result.inserted} retake invite${
+          result.inserted === 1 ? "" : "s"
+        } created, ${result.emailFailures.length} email${
+          result.emailFailures.length === 1 ? "" : "s"
+        } failed`,
+      );
+      setBulkErrors([]);
+      setBulkEmailFailures(result.emailFailures);
+      setShowBulkErrors(true);
+    } else {
+      setBulkErrors([]);
+      setBulkEmailFailures([]);
+      toast.success(
+        `${result.inserted} retake invite${result.inserted === 1 ? "" : "s"} created`,
+      );
+    }
     setPendingDuplicateRows([]);
     setShowDuplicateConfirm(false);
     router.refresh();
@@ -429,26 +464,48 @@ export function CampaignParticipantManager({
       <Dialog open={showBulkErrors} onOpenChange={setShowBulkErrors}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rows that were not imported</DialogTitle>
+            <DialogTitle>Import issues</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Fix these rows and re-import them if you still want to invite those participants.
+              Review the rows that were rejected and any invite emails that need
+              to be retried from the participant table.
             </p>
-            <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-              {bulkErrors.map((error) => (
-                <div
-                  key={`${error.row}-${error.email ?? error.message}`}
-                  className="rounded-lg border border-border bg-muted/30 px-3 py-2"
-                >
-                  <p className="text-sm font-medium">
-                    Row {error.row}
-                    {error.email ? ` · ${error.email}` : ""}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{error.message}</p>
+            {bulkErrors.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Rows not imported</p>
+                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {bulkErrors.map((error) => (
+                    <div
+                      key={`${error.row}-${error.email ?? error.message}`}
+                      className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                    >
+                      <p className="text-sm font-medium">
+                        Row {error.row}
+                        {error.email ? ` · ${error.email}` : ""}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{error.message}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
+            {bulkEmailFailures.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Invite emails that failed</p>
+                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
+                  {bulkEmailFailures.map((failure) => (
+                    <div
+                      key={`${failure.participantId}-${failure.email}`}
+                      className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                    >
+                      <p className="text-sm font-medium">{failure.email}</p>
+                      <p className="text-sm text-muted-foreground">{failure.error}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

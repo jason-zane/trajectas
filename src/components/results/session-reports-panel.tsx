@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { getSessionSnapshots, type SessionDetailSnapshot } from "@/app/actions/sessions";
 import { releaseSnapshot, retrySnapshot } from "@/app/actions/reports";
 import { LocalTime } from "@/components/local-time";
+import { ReportPdfButton } from "@/components/reports/report-pdf-button";
 
 interface SessionReportsPanelProps {
   sessionId: string;
@@ -66,7 +67,8 @@ export function SessionReportsPanel({
       (s) =>
         s.status === "pending" ||
         s.status === "generating" ||
-        ((s.status === "ready" || s.status === "released") && !s.pdfUrl)
+        s.pdfStatus === "queued" ||
+        s.pdfStatus === "generating"
     );
     if (!hasActive) return;
 
@@ -180,14 +182,13 @@ export function SessionReportsPanel({
                   Retry
                 </Button>
               )}
-              {snapshot.pdfUrl && (snapshot.status === "ready" || snapshot.status === "released") && (
-                <Link
-                  href={`/api/reports/${snapshot.id}/pdf`}
-                  className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:text-primary"
-                >
-                  PDF
-                  <ExternalLink className="size-3.5" />
-                </Link>
+              {(snapshot.status === "ready" || snapshot.status === "released") && (
+                <ReportPdfButton
+                  snapshotId={snapshot.id}
+                  initialPdfUrl={snapshot.pdfUrl}
+                  initialPdfStatus={snapshot.pdfStatus}
+                  size="sm"
+                />
               )}
             </div>
           </CardContent>

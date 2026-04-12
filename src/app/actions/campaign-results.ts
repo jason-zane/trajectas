@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/authorization'
 import { resolveBand, type BandEntity } from '@/lib/reports/band-resolution'
 import { throwActionError } from '@/lib/security/action-errors'
+import type { ReportPdfStatus } from '@/types/database'
 
 type AudienceType = 'participant' | 'hr_manager' | 'consultant'
 
@@ -44,6 +45,8 @@ type EmbeddedSnapshot = {
   audience_type: string | null
   status: string | null
   pdf_url: string | null
+  pdf_status: ReportPdfStatus | null
+  pdf_error_message: string | null
   created_at: string | null
 }
 
@@ -83,7 +86,8 @@ export type CampaignFactorScoreRow = {
   factors: CampaignFactorScore[]
   reportSnapshotId?: string
   reportStatus?: string
-  reportPdfReady: boolean
+  reportPdfStatus?: ReportPdfStatus
+  reportPdfErrorMessage?: string
 }
 
 function getEmbeddedRecord<T extends Record<string, unknown>>(
@@ -146,6 +150,8 @@ export async function getCampaignFactorScores(
         audience_type,
         status,
         pdf_url,
+        pdf_status,
+        pdf_error_message,
         created_at
       )
     `)
@@ -241,7 +247,8 @@ export async function getCampaignFactorScores(
       factors,
       reportSnapshotId: snapshot?.id ?? undefined,
       reportStatus: snapshot?.status ?? undefined,
-      reportPdfReady: Boolean(snapshot?.pdf_url),
+      reportPdfStatus: snapshot?.pdf_url ? 'ready' : snapshot?.pdf_status ?? undefined,
+      reportPdfErrorMessage: snapshot?.pdf_error_message ?? undefined,
     } satisfies CampaignFactorScoreRow
   })
 }
