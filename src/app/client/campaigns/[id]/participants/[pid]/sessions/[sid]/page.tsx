@@ -3,6 +3,15 @@ import { getSessionDetail } from "@/app/actions/sessions";
 import { getActiveReportTemplates } from "@/app/actions/reports";
 import { SessionDetailView } from "@/components/results/session-detail-view";
 
+async function loadSessionDetail(sessionId: string) {
+  try {
+    return await getSessionDetail(sessionId);
+  } catch (error) {
+    console.error("[client-session-detail] Failed to load session detail:", error);
+    return null;
+  }
+}
+
 async function loadTemplates() {
   try {
     return await getActiveReportTemplates();
@@ -19,7 +28,7 @@ export default async function ClientSessionDetailPage({
 }) {
   const { id: campaignId, pid, sid: sessionId } = await params;
 
-  const session = await getSessionDetail(sessionId);
+  const session = await loadSessionDetail(sessionId);
   if (!session || session.participantId !== pid) notFound();
   const templates = await loadTemplates();
 
