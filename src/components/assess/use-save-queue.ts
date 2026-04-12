@@ -26,6 +26,7 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
   const failedRef = useRef<SaveEntry[]>([]);
   const isProcessingRef = useRef(false);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const drainWaitersRef = useRef<Array<(ok: boolean) => void>>([]);
 
   const processQueue = useCallback(async () => {
     if (isProcessingRef.current) return;
@@ -59,11 +60,17 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     }
 
     isProcessingRef.current = false;
+    const ok = failedRef.current.length === 0;
 
-    if (failedRef.current.length === 0) {
+    if (ok) {
       setSaveStatus("saved");
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
       savedTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+    }
+
+    const waiters = drainWaitersRef.current.splice(0);
+    for (const resolve of waiters) {
+      resolve(ok);
     }
   }, [config.token, config.sessionId]);
 
@@ -86,5 +93,16 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     processQueue();
   }, [processQueue]);
 
-  return { enqueueSave, retryFailedSaves, saveStatus, saveError };
+  const flushSaves = useCallback(async () => {
+    if (!isProcessingRef.current && queueRef.current.length === 0) {
+      return failedRef.current.length === 0;
+    }
+
+    return new Promise<boolean>((resolve) => {
+      drainWaitersRef.current.push(resolve);
+      processQueue();
+    });
+  }, [processQueue]);
+
+  return { enqueueSave, retryFailedSaves, flushSaves, saveStatus, saveError };
 }

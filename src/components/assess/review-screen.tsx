@@ -54,6 +54,7 @@ export function ReviewScreen({
 }: ReviewScreenProps) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Dedupe items by id across sections — defensive against historical duplicate-section
   // data and also the correct way to count "unique questions asked".
@@ -75,15 +76,23 @@ export function ReviewScreen({
   const allAnswered = uniqueAnsweredCount >= uniqueTotalItems;
 
   async function handleSubmit() {
+    setSubmitError(null);
     setSubmitting(true);
-    const result = await submitSession(token, sessionId);
+    try {
+      const result = await submitSession(token, sessionId);
+      if (result.error) {
+        setSubmitError(result.error);
+        setSubmitting(false);
+        return;
+      }
 
-    if (result.error) {
+      router.push(nextUrl);
+    } catch {
+      setSubmitError(
+        "We couldn't submit your assessment right now. Please try again.",
+      );
       setSubmitting(false);
-      return;
     }
-
-    router.push(nextUrl);
   }
 
   return (
@@ -330,6 +339,21 @@ export function ReviewScreen({
               <p className="text-sm text-amber-500">
                 {content.incompleteWarning}
               </p>
+            )}
+            {submitError && (
+              <div
+                className="flex items-start gap-2 rounded-xl border px-4 py-3 text-sm"
+                style={{
+                  borderColor:
+                    "var(--brand-error, hsl(var(--destructive) / 0.25))",
+                  background:
+                    "var(--brand-error-surface, hsl(var(--destructive) / 0.08))",
+                  color: "var(--brand-error, hsl(var(--destructive)))",
+                }}
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <p>{submitError}</p>
+              </div>
             )}
             <div className="flex justify-center">
               <Button

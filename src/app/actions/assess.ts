@@ -740,7 +740,10 @@ export async function submitSession(token: string, sessionId: string) {
   }
 
   // Run CTT scoring (synchronous — simple mean POMP per factor)
-  await scoreSessionCTT(sessionId)
+  const scoringResult = await scoreSessionCTT(sessionId)
+  if (scoringResult.error) {
+    logActionError('submitSession.scoring', scoringResult.error)
+  }
 
   // Check if all required assessments are complete
   if (session.campaign_participant_id) {

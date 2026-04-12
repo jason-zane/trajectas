@@ -78,7 +78,14 @@ async function assertSessionAccess(sessionId: string): Promise<string> {
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
-  await assertSessionAccess(sessionId)
+  try {
+    await assertSessionAccess(sessionId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
   const db = await createClient()
 
   const { data: session, error } = await db
@@ -219,7 +226,14 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 }
 
 export async function getSessionSnapshots(sessionId: string): Promise<SessionDetailSnapshot[]> {
-  await assertSessionAccess(sessionId)
+  try {
+    await assertSessionAccess(sessionId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return []
+    }
+    throw error
+  }
   const db = await createClient()
 
   const { data, error } = await db

@@ -10,14 +10,11 @@ export default async function AdminSessionDetailPage({
 }) {
   const { id: participantId, sid: sessionId } = await params;
 
-  const [session, templates] = await Promise.all([
-    getSessionDetail(sessionId),
-    getActiveReportTemplates(),
-  ]);
-
+  const session = await getSessionDetail(sessionId);
   if (!session || session.participantId !== participantId) {
     notFound();
   }
+  const templates = await getActiveReportTemplates();
 
   return (
     <SessionDetailView

@@ -19,6 +19,7 @@ interface ItemCardProps {
   onContinue: () => void;
   showContinue: boolean;
   continueButtonLabel?: string;
+  continueButtonDisabled?: boolean;
 }
 
 /**
@@ -35,6 +36,7 @@ export function ItemCard({
   onContinue,
   showContinue,
   continueButtonLabel,
+  continueButtonDisabled,
 }: ItemCardProps) {
   if (!item) return null;
 
@@ -112,6 +114,7 @@ export function ItemCard({
         <div className="mt-6 flex justify-end">
           <Button
             onClick={onContinue}
+            disabled={continueButtonDisabled}
             className="gap-1.5"
             style={{
               background: "var(--brand-primary, hsl(var(--primary)))",

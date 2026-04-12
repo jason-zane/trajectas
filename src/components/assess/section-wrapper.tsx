@@ -53,6 +53,13 @@ const ADVANCE_DELAY_MS = 120;
 /** Debounce interval for session progress updates. */
 const PROGRESS_DEBOUNCE_MS = 3000;
 
+function getAssessmentBoundaryActionLabel(postAssessmentUrl: string): string {
+  if (postAssessmentUrl.includes("/review")) {
+    return "Review answers";
+  }
+  return "Complete assessment";
+}
+
 /**
  * Flatten all sections to get a global item list for navigation.
  * Returns array of { sectionIdx, itemIdx, item, section }.
@@ -94,7 +101,7 @@ export function SectionWrapper({
   void privacyUrl;
   void termsUrl;
 
-  const { enqueueSave, retryFailedSaves, saveStatus, saveError } = useSaveQueue({
+  const { enqueueSave, retryFailedSaves, flushSaves, saveStatus, saveError } = useSaveQueue({
     token,
     sessionId,
   });
@@ -128,8 +135,10 @@ export function SectionWrapper({
   const [responses, setResponses] = useState(existingResponses);
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isBoundaryPending, setIsBoundaryPending] = useState(false);
 
   const navLockRef = useRef(false);
+  const boundaryLockRef = useRef(false);
 
   const progressTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingProgressRef = useRef<{ sectionId: string; itemIndex: number } | null>(null);
@@ -144,13 +153,13 @@ export function SectionWrapper({
     }
   }
 
-  function flushProgress() {
+  const flushProgress = useCallback(() => {
     const pending = pendingProgressRef.current;
     if (!pending) return;
     pendingProgressRef.current = null;
     // Fire-and-forget — progress is best-effort for crash recovery
     updateSessionProgressLite(token, sessionId, pending).catch(() => {});
-  }
+  }, [token, sessionId]);
 
   useEffect(() => {
     const handler = () => {
@@ -167,15 +176,47 @@ export function SectionWrapper({
       window.removeEventListener("beforeunload", handler);
       flushProgress();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, sessionId]);
+  }, [flushProgress, sessionId, token]);
 
   const currentItem = section.items[localItemIndex];
   const globalIndex = sectionStartGlobal + localItemIndex;
   const responseFormatType = section.responseFormatType;
-
-  // Determine if this format needs a Continue button
   const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
+  const isFinalItemInAssessment =
+    sectionIndex === totalSections - 1 &&
+    localItemIndex === section.items.length - 1;
+  const hasCurrentResponse =
+    currentItem != null && responses[currentItem.id] !== undefined;
+  const showManualAdvanceButton =
+    hasCurrentResponse && (needsContinue || isFinalItemInAssessment);
+  const manualAdvanceLabel = isFinalItemInAssessment
+    ? isBoundaryPending
+      ? "Completing assessment..."
+      : getAssessmentBoundaryActionLabel(postAssessmentUrl)
+    : runnerContent?.continueButtonLabel ?? "Continue";
+
+  const pushAcrossBoundary = useCallback(
+    async (href: string, progressItemIndex: number) => {
+      if (boundaryLockRef.current) return;
+      boundaryLockRef.current = true;
+      setIsBoundaryPending(true);
+      pendingProgressRef.current = {
+        sectionId: section.id,
+        itemIndex: progressItemIndex,
+      };
+      flushProgress();
+
+      const saved = await flushSaves();
+      if (!saved) {
+        boundaryLockRef.current = false;
+        setIsBoundaryPending(false);
+        return;
+      }
+
+      router.push(href);
+    },
+    [flushProgress, flushSaves, router, section.id],
+  );
 
   // For forced_choice, auto-advance only after both most+least are selected
   // For SJT, auto-advance only if single-select mode
@@ -214,12 +255,12 @@ export function SectionWrapper({
       navigateToItem(localItemIndex + 1, "left");
       scheduleProgressUpdate(section.id, localItemIndex + 1);
     } else if (sectionIndex < totalSections - 1) {
-      scheduleProgressUpdate(section.id, localItemIndex);
-      flushProgress();
-      router.push(`/assess/${token}/section/${sectionIndex + 1}`);
+      void pushAcrossBoundary(
+        `/assess/${token}/section/${sectionIndex + 1}`,
+        localItemIndex,
+      );
     } else {
-      flushProgress();
-      router.push(postAssessmentUrl);
+      void pushAcrossBoundary(postAssessmentUrl, localItemIndex);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -230,8 +271,8 @@ export function SectionWrapper({
     totalSections,
     token,
     postAssessmentUrl,
-    router,
     navigateToItem,
+    pushAcrossBoundary,
   ]);
 
   const goToPreviousItem = useCallback(() => {
@@ -239,9 +280,12 @@ export function SectionWrapper({
       navigateToItem(localItemIndex - 1, "right");
     } else if (sectionIndex > 0) {
       // Go to previous section's last item
-      router.push(`/assess/${token}/section/${sectionIndex - 1}?resume=last`);
+      void pushAcrossBoundary(
+        `/assess/${token}/section/${sectionIndex - 1}?resume=last`,
+        localItemIndex,
+      );
     }
-  }, [localItemIndex, sectionIndex, token, router, navigateToItem]);
+  }, [localItemIndex, sectionIndex, token, navigateToItem, pushAcrossBoundary]);
 
   function handleResponse(
     itemId: string,
@@ -258,8 +302,10 @@ export function SectionWrapper({
     enqueueSave({ itemId, sectionId: section.id, value, data });
 
     // 3. Auto-advance for single-select formats
-    if (shouldAutoAdvance(responseFormatType, value, data)) {
-      setTimeout(() => goToNextItem(), ADVANCE_DELAY_MS);
+    if (!isFinalItemInAssessment && shouldAutoAdvance(responseFormatType, value, data)) {
+      setTimeout(() => {
+        void goToNextItem();
+      }, ADVANCE_DELAY_MS);
     }
   }
 
@@ -312,6 +358,7 @@ export function SectionWrapper({
         {canGoBack && (
           <button
             onClick={goToPreviousItem}
+            disabled={isBoundaryPending}
             className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
             style={{ color: "var(--brand-text-muted, hsl(var(--muted-foreground)))" }}
           >
@@ -374,8 +421,9 @@ export function SectionWrapper({
                 handleResponse(currentItem.id, value, data)
               }
               onContinue={goToNextItem}
-              showContinue={needsContinue}
-              continueButtonLabel={runnerContent?.continueButtonLabel}
+              showContinue={showManualAdvanceButton}
+              continueButtonLabel={manualAdvanceLabel}
+              continueButtonDisabled={isBoundaryPending}
             />
           </div>
         </div>

@@ -68,7 +68,7 @@ export type ParticipantResponseGroup = {
   items: {
     itemId: string
     stem: string
-    responseValue: number
+    responseValue?: number
     responseTimeMs?: number
     displayOrder: number
   }[]
@@ -470,7 +470,7 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
         return {
           itemId: si.items?.id ?? si.item_id,
           stem: si.items?.stem ?? '',
-          responseValue: resp?.value ?? 0,
+          responseValue: resp?.value,
           responseTimeMs: resp?.timeMs,
           displayOrder: si.display_order,
         }
