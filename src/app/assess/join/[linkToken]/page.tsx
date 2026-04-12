@@ -1,5 +1,5 @@
-import { getEffectiveExperience } from "@/app/actions/experience";
-import { getEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getPageContent } from "@/lib/experience/resolve";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
@@ -39,8 +39,8 @@ export default async function JoinPage({
   const clientId = campaignRow?.client_id ?? undefined;
 
   const [experience, brandConfig] = await Promise.all([
-    getEffectiveExperience(campaignId),
-    getEffectiveBrand(clientId, campaignId),
+    getCachedEffectiveExperience(campaignId),
+    getCachedEffectiveBrand(clientId, campaignId),
   ]);
 
   const content = getPageContent(experience, "join");

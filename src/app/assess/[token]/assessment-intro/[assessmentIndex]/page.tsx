@@ -3,8 +3,8 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { validateAccessToken } from "@/app/actions/assess"
-import { getEffectiveBrand } from "@/app/actions/brand"
-import { getEffectiveExperience } from "@/app/actions/experience"
+import { getCachedEffectiveBrand } from "@/app/actions/brand"
+import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
 import { interpolateContent } from "@/lib/experience/interpolate"
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
@@ -37,8 +37,8 @@ export default async function AssessmentIntroPage({
   // Load experience + brand + campaign-level intro override in parallel.
   // Experience is needed for the post-sections URL and all three are independent.
   const [experience, brandConfig, caRowResult] = await Promise.all([
-    getEffectiveExperience(campaign.id),
-    getEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
     assessment
       ? db
           .from("campaign_assessments")

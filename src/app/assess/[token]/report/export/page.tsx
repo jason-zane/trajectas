@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
@@ -33,13 +33,13 @@ export default async function ReportExportPage({
   }
 
   const { campaign, participant } = result.data!;
-  const experience = await getEffectiveExperience(campaign.id);
+  const experience = await getCachedEffectiveExperience(campaign.id);
 
   if (!isPageEnabled(experience, "report")) {
     redirect(`/assess/${token}/complete`);
   }
 
-  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
+  const brandConfig = await getCachedEffectiveBrand(campaign.clientId, campaign.id);
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {
     participantName: participant.firstName,

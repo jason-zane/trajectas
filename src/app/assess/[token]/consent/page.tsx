@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
@@ -24,7 +24,7 @@ export default async function ConsentPage({
   }
 
   const { campaign, participant } = result.data!;
-  const experience = await getEffectiveExperience(campaign.id);
+  const experience = await getCachedEffectiveExperience(campaign.id);
 
   const nextUrl = getNextFlowUrl(experience, "consent", token) ?? `/assess/${token}/section/0`;
 
@@ -38,7 +38,7 @@ export default async function ConsentPage({
     redirect(nextUrl);
   }
 
-  const brandConfig = await getEffectiveBrand(campaign.clientId, campaign.id);
+  const brandConfig = await getCachedEffectiveBrand(campaign.clientId, campaign.id);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "consent");

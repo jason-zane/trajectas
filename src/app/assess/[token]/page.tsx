@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 
 export default async function TokenPage({
@@ -23,7 +23,7 @@ export default async function TokenPage({
   }
 
   // Load experience template for flow routing
-  const experience = await getEffectiveExperience(campaign.id);
+  const experience = await getCachedEffectiveExperience(campaign.id);
 
   // Check for in-progress session to resume (only if campaign allows resume)
   const inProgress = sessions.find((s) => s.status === "in_progress");

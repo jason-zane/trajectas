@@ -3,8 +3,8 @@ import {
   validateAccessToken,
   getSessionState,
 } from "@/app/actions/assess";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
@@ -44,8 +44,8 @@ export default async function ReviewPage({
 
   // Load brand + experience in parallel — independent.
   const [brandConfig, experience] = await Promise.all([
-    getEffectiveBrand(campaign.clientId, campaign.id),
-    getEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveExperience(campaign.id),
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "review");

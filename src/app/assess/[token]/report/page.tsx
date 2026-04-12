@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { validateAccessToken, getParticipantReportSnapshot } from "@/app/actions/assess";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
@@ -24,14 +24,14 @@ export default async function ReportPage({
   }
 
   const { campaign, participant } = result.data!;
-  const experience = await getEffectiveExperience(campaign.id);
+  const experience = await getCachedEffectiveExperience(campaign.id);
 
   if (!isPageEnabled(experience, "report")) {
     redirect(`/assess/${token}/complete`);
   }
 
   const [brandConfig, snapshot] = await Promise.all([
-    getEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
     getParticipantReportSnapshot(token),
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import type { BrandConfig } from "@/lib/brand/types";
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
 export default async function AssessLayout({ children }: AssessLayoutProps) {
   // Load the platform brand as the baseline. Child pages (section runner)
   // will override with org-specific tokens via inline style when needed.
-  const brandConfig: BrandConfig = await getEffectiveBrand();
+  const brandConfig: BrandConfig = await getCachedEffectiveBrand();
 
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled

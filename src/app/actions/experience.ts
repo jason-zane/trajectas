@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag, unstable_cache } from 'next/cache'
 import {
   ParticipantRuntimeAccessError,
   requireParticipantRuntimeParticipantAccess,
@@ -60,6 +60,15 @@ export async function getPlatformExperienceTemplate(): Promise<ExperienceTemplat
   return getExperienceTemplate('platform', null)
 }
 
+export const getCachedPlatformExperienceTemplate = unstable_cache(
+  async () => getPlatformExperienceTemplate(),
+  ['platform-experience'],
+  {
+    revalidate: 300,
+    tags: ['experience'],
+  }
+)
+
 /**
  * Resolve the effective experience template for a campaign.
  *
@@ -71,7 +80,7 @@ export async function getPlatformExperienceTemplate(): Promise<ExperienceTemplat
 export async function getEffectiveExperience(
   campaignId?: string | null
 ): Promise<ExperienceTemplate> {
-  const platform = await getPlatformExperienceTemplate()
+  const platform = await getCachedPlatformExperienceTemplate()
 
   let campaign: ExperienceTemplateRecord | null = null
   if (campaignId) {
@@ -80,6 +89,15 @@ export async function getEffectiveExperience(
 
   return resolveTemplate(platform, campaign)
 }
+
+export const getCachedEffectiveExperience = unstable_cache(
+  async (campaignId?: string | null) => getEffectiveExperience(campaignId),
+  ['effective-experience'],
+  {
+    revalidate: 300,
+    tags: ['experience'],
+  }
+)
 
 // ---------------------------------------------------------------------------
 // Write
@@ -118,6 +136,7 @@ export async function upsertExperiencePageContent(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  revalidateTag('experience', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -166,6 +185,7 @@ export async function upsertExperienceFlowConfig(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  revalidateTag('experience', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -214,6 +234,7 @@ export async function upsertExperienceDemographics(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  revalidateTag('experience', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -270,6 +291,7 @@ export async function upsertExperienceTemplate(
 
   revalidatePath('/settings/experience')
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  revalidateTag('experience', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -311,6 +333,7 @@ export async function resetExperienceToDefault(
   if (error) return { error: error.message }
 
   if (ownerId) revalidatePath(`/campaigns/${ownerId}`)
+  revalidateTag('experience', 'max')
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,

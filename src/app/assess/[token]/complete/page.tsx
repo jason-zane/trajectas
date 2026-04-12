@@ -1,6 +1,6 @@
 import { validateAccessToken } from "@/app/actions/assess";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
@@ -18,7 +18,7 @@ export default async function CompletePage({
   const { token } = await params;
 
   // Try to load brand config and experience template from the campaign
-  let brandConfig = await getEffectiveBrand();
+  let brandConfig = await getCachedEffectiveBrand();
   let isCustomBrand = false;
   let campaignId: string | undefined;
 
@@ -27,7 +27,7 @@ export default async function CompletePage({
     if (result.data?.campaign) {
       campaignId = result.data.campaign.id;
       if (result.data.campaign.clientId) {
-        brandConfig = await getEffectiveBrand(
+        brandConfig = await getCachedEffectiveBrand(
           result.data.campaign.clientId,
           result.data.campaign.id,
         );
@@ -38,7 +38,7 @@ export default async function CompletePage({
     // Use default brand if token validation fails
   }
 
-  const experience = await getEffectiveExperience(campaignId);
+  const experience = await getCachedEffectiveExperience(campaignId);
   const rawContent = getPageContent(experience, "complete");
   const variables: TemplateVariables = {};
   const content = interpolateContent(rawContent, variables);

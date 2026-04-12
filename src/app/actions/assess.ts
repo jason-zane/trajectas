@@ -1,5 +1,6 @@
 'use server'
 
+import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logReportViewed } from '@/lib/auth/support-sessions'
 import { logActionError } from '@/lib/security/action-errors'
@@ -122,7 +123,7 @@ type AssessmentSectionRow = {
 // Token validation
 // ---------------------------------------------------------------------------
 
-export async function validateAccessToken(
+async function validateAccessTokenImpl(
   token: string,
 ): Promise<{ data?: TokenValidationResult; error?: string }> {
   const db = createAdminClient()
@@ -140,13 +141,19 @@ export async function validateAccessToken(
 
   const participant = mapCampaignParticipantRow(participantRow)
 
-  // Load campaign
-  const { data: campaignRow, error: campaignErr } = await db
-    .from('campaigns')
-    .select('*')
-    .eq('id', participant.campaignId)
-    .is('deleted_at', null)
-    .single()
+  const [{ data: campaignRow, error: campaignErr }, { data: sessionRows, error: sessionRowsError }] =
+    await Promise.all([
+      db
+        .from('campaigns')
+        .select('*')
+        .eq('id', participant.campaignId)
+        .is('deleted_at', null)
+        .single(),
+      db
+        .from('participant_sessions')
+        .select('*')
+        .eq('campaign_participant_id', participant.id),
+    ])
 
   if (campaignErr || !campaignRow) {
     return { error: 'Campaign not found' }
@@ -189,12 +196,6 @@ export async function validateAccessToken(
     sectionCount: r.assessments?.assessment_sections?.[0]?.count ?? 0,
   }))
 
-  // Load existing sessions for this participant
-  const { data: sessionRows, error: sessionRowsError } = await db
-    .from('participant_sessions')
-    .select('*')
-    .eq('campaign_participant_id', participant.id)
-
   if (sessionRowsError) {
     logActionError('validateAccessToken.sessions', sessionRowsError)
     return { error: 'Unable to load this assessment right now' }
@@ -214,6 +215,8 @@ export async function validateAccessToken(
     data: { campaign, participant, assessments, sessions },
   }
 }
+
+export const validateAccessToken = cache(validateAccessTokenImpl)
 
 // ---------------------------------------------------------------------------
 // Session management

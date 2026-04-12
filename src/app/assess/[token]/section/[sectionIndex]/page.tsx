@@ -4,8 +4,8 @@ import {
   startSession,
   getSessionState,
 } from "@/app/actions/assess";
-import { getEffectiveBrand } from "@/app/actions/brand";
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveBrand } from "@/app/actions/brand";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getPageContent } from "@/lib/experience/resolve";
 import { getPostSectionsUrl } from "@/lib/experience/flow-router";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
@@ -83,8 +83,8 @@ export default async function SectionPage({
 
   // Load brand + experience in parallel — they're independent.
   const [brandConfig, experience] = await Promise.all([
-    getEffectiveBrand(campaign.clientId, campaign.id),
-    getEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveExperience(campaign.id),
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const runnerContent = getPageContent(experience, "runner");

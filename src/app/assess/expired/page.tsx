@@ -1,9 +1,9 @@
-import { getEffectiveExperience } from "@/app/actions/experience";
+import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getPageContent } from "@/lib/experience/resolve";
 import { XCircle } from "lucide-react";
 
 export default async function ExpiredPage() {
-  const experience = await getEffectiveExperience();
+  const experience = await getCachedEffectiveExperience();
   const content = getPageContent(experience, "expired");
 
   return (
