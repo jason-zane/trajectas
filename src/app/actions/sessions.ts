@@ -1,5 +1,6 @@
 'use server'
 
+import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError, requireCampaignAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
@@ -54,6 +55,83 @@ export type SessionDetail = {
   totalAttempts: number
 }
 
+type EmbeddedClientRecord = {
+  id?: string | null
+  name?: string | null
+}
+
+type EmbeddedCampaignRecord = {
+  id?: string | null
+  title?: string | null
+  client_id?: string | null
+  clients?: EmbeddedClientRecord | EmbeddedClientRecord[] | null
+}
+
+type EmbeddedParticipantRecord = {
+  id?: string | null
+  email?: string | null
+  first_name?: string | null
+  last_name?: string | null
+  campaign_id?: string | null
+  campaigns?: EmbeddedCampaignRecord | EmbeddedCampaignRecord[] | null
+}
+
+type EmbeddedFactorRecord = {
+  name?: string | null
+}
+
+type SessionScoreLookupRow = {
+  factor_id?: string | null
+  raw_score?: number | string | null
+  scaled_score?: number | string | null
+  percentile?: number | string | null
+  confidence_lower?: number | string | null
+  confidence_upper?: number | string | null
+  scoring_method?: string | null
+  items_used?: number | string | null
+  factors?: EmbeddedFactorRecord | EmbeddedFactorRecord[] | null
+}
+
+type SnapshotLookupRow = {
+  id?: string | null
+  template_id?: string | null
+  audience_type?: string | null
+  status?: string | null
+  generated_at?: string | null
+  released_at?: string | null
+  error_message?: string | null
+  pdf_url?: string | null
+  pdf_status?: ReportPdfStatus | null
+  pdf_error_message?: string | null
+  narrative_mode?: string | null
+  report_templates?: { name?: string | null } | { name?: string | null }[] | null
+}
+
+type SessionAccessLookupRow = {
+  campaign_participants?: {
+    campaigns?: { client_id?: string | null } | { client_id?: string | null }[] | null
+  } | {
+    campaigns?: { client_id?: string | null } | { client_id?: string | null }[] | null
+  }[] | null
+}
+
+type CampaignSessionLookupRow = {
+  id?: string | null
+  assessment_id?: string | null
+  status?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  campaign_participants?: EmbeddedParticipantRecord | EmbeddedParticipantRecord[] | null
+  assessments?: { title?: string | null } | { title?: string | null }[] | null
+  participant_scores?: Array<{ id?: string | null }> | null
+}
+
+function getEmbeddedRecord<T extends Record<string, unknown>>(
+  value: T | T[] | null | undefined
+) {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null
+}
+
 async function assertSessionAccess(sessionId: string): Promise<string> {
   const scope = await resolveAuthorizedScope()
   if (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass) return sessionId
@@ -69,9 +147,10 @@ async function assertSessionAccess(sessionId: string): Promise<string> {
     throw new AuthorizationError('Session not found or not accessible.')
   }
 
-  const cp = (data as any).campaign_participants
-  const campaign = Array.isArray(cp) ? cp[0]?.campaigns : cp?.campaigns
-  const clientId = (Array.isArray(campaign) ? campaign[0]?.client_id : campaign?.client_id) as string | undefined
+  const accessRow = data as SessionAccessLookupRow
+  const cp = getEmbeddedRecord(accessRow.campaign_participants)
+  const campaign = getEmbeddedRecord(cp?.campaigns)
+  const clientId = campaign?.client_id ? String(campaign.client_id) : undefined
 
   if (!clientId || !scope.clientIds.includes(clientId)) {
     throw new AuthorizationError('Session not accessible in current scope.')
@@ -89,28 +168,67 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     }
     throw error
   }
-  const db = await createClient()
+  const db = createAdminClient()
 
   const { data: session, error } = await db
     .from('participant_sessions')
-    .select(`
-      id,
-      assessment_id,
-      status,
-      started_at,
-      completed_at,
-      campaign_participant_id,
-      assessments(title),
-      campaign_participants(
+    .select('id, assessment_id, status, started_at, completed_at, campaign_participant_id')
+    .eq('id', sessionId)
+    .maybeSingle()
+
+  if (error) {
+    throwActionError('getSessionDetail', 'Unable to load session.', error)
+  }
+  if (!session) return null
+
+  const [
+    assessmentResult,
+    participantResult,
+    responseCountResult,
+    attemptResult,
+    snapshotResult,
+    scoresResult,
+  ] = await Promise.all([
+    db
+      .from('assessments')
+      .select('id, title')
+      .eq('id', session.assessment_id)
+      .maybeSingle(),
+    db
+      .from('campaign_participants')
+      .select(`
         id,
         email,
         first_name,
         last_name,
         campaign_id,
-        campaigns(title, client_id, clients(name))
-      ),
-      participant_scores(
-        id,
+        campaigns(
+          id,
+          title,
+          client_id,
+          clients(id, name)
+        )
+      `)
+      .eq('id', session.campaign_participant_id)
+      .maybeSingle(),
+    db
+      .from('participant_responses')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', sessionId),
+    db
+      .from('participant_sessions')
+      .select('id, started_at')
+      .eq('campaign_participant_id', session.campaign_participant_id)
+      .eq('assessment_id', session.assessment_id)
+      .order('started_at', { ascending: true, nullsFirst: false }),
+    db
+      .from('report_snapshots')
+      .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+      .eq('participant_session_id', sessionId)
+      .order('created_at', { ascending: false }),
+    db
+      .from('participant_scores')
+      .select(`
         factor_id,
         raw_score,
         scaled_score,
@@ -120,52 +238,42 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
         scoring_method,
         items_used,
         factors(name)
-      )
-    `)
-    .eq('id', sessionId)
-    .single()
+      `)
+      .eq('session_id', sessionId),
+  ])
 
-  if (error) {
-    if (error.code === 'PGRST116') return null
-    throwActionError('getSessionDetail', 'Unable to load session.', error)
+  if (assessmentResult.error) {
+    throwActionError('getSessionDetail.assessment', 'Unable to load assessment metadata.', assessmentResult.error)
   }
-  if (!session) return null
+  if (participantResult.error) {
+    throwActionError('getSessionDetail.participant', 'Unable to load participant metadata.', participantResult.error)
+  }
+  if (responseCountResult.error) {
+    throwActionError('getSessionDetail.responses', 'Unable to load response count.', responseCountResult.error)
+  }
+  if (attemptResult.error) {
+    throwActionError('getSessionDetail.attempts', 'Unable to load session attempts.', attemptResult.error)
+  }
+  if (snapshotResult.error) {
+    throwActionError('getSessionDetail.snapshots', 'Unable to load report snapshots.', snapshotResult.error)
+  }
+  if (scoresResult.error) {
+    throwActionError('getSessionDetail.scores', 'Unable to load session scores.', scoresResult.error)
+  }
 
-  const cp = (session as any).campaign_participants
-  const cpRecord = Array.isArray(cp) ? cp[0] : cp
-  const campaignRecord = Array.isArray(cpRecord?.campaigns) ? cpRecord.campaigns[0] : cpRecord?.campaigns
-  const clientRecord = Array.isArray(campaignRecord?.clients) ? campaignRecord.clients[0] : campaignRecord?.clients
-  const assessmentRecord = Array.isArray((session as any).assessments)
-    ? (session as any).assessments[0]
-    : (session as any).assessments
-
-  // Count item responses for this session
-  const { count: responseCount } = await db
-    .from('participant_responses')
-    .select('id', { count: 'exact', head: true })
-    .eq('session_id', sessionId)
-
-  // Attempt ordinal: rank this session among all sessions for same participant + assessment
-  const { data: attemptSessions } = await db
-    .from('participant_sessions')
-    .select('id, started_at')
-    .eq('campaign_participant_id', cpRecord?.id)
-    .eq('assessment_id', (session as any).assessment_id)
-    .order('started_at', { ascending: true, nullsFirst: false })
-
-  const attemptRows = attemptSessions ?? []
-  const attemptNumber = attemptRows.findIndex((r: any) => r.id === sessionId) + 1 || 1
+  const assessmentRecord = assessmentResult.data
+  const cpRecord = (participantResult.data ?? null) as EmbeddedParticipantRecord | null
+  const campaignRecord = getEmbeddedRecord(cpRecord?.campaigns)
+  const clientRecord = getEmbeddedRecord(campaignRecord?.clients)
+  const responseCount = responseCountResult.count ?? 0
+  const attemptRows = attemptResult.data ?? []
+  const attemptNumber = attemptRows.findIndex((r) => r.id === sessionId) + 1 || 1
   const totalAttempts = attemptRows.length || 1
+  const snapshotRows = (snapshotResult.data ?? []) as SnapshotLookupRow[]
+  const scoreRows = (scoresResult.data ?? []) as SessionScoreLookupRow[]
 
-  // Snapshots for this session
-  const { data: snapshotRows } = await db
-    .from('report_snapshots')
-    .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
-    .eq('participant_session_id', sessionId)
-    .order('created_at', { ascending: false })
-
-  const scores: SessionDetailScore[] = (((session as any).participant_scores ?? []) as any[]).map((s) => {
-    const factor = Array.isArray(s.factors) ? s.factors[0] : s.factors
+  const scores: SessionDetailScore[] = scoreRows.map((s) => {
+    const factor = getEmbeddedRecord(s.factors)
     return {
       factorId: String(s.factor_id),
       factorName: String(factor?.name ?? 'Unknown'),
@@ -179,8 +287,8 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     }
   })
 
-  const snapshots: SessionDetailSnapshot[] = ((snapshotRows ?? []) as any[]).map((r) => {
-    const tpl = Array.isArray(r.report_templates) ? r.report_templates[0] : r.report_templates
+  const snapshots: SessionDetailSnapshot[] = snapshotRows.map((r) => {
+    const tpl = getEmbeddedRecord(r.report_templates)
     return {
       id: String(r.id),
       templateId: String(r.template_id),
@@ -197,8 +305,8 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     }
   })
 
-  const startedAt = (session as any).started_at ?? undefined
-  const completedAt = (session as any).completed_at ?? undefined
+  const startedAt = session.started_at ?? undefined
+  const completedAt = session.completed_at ?? undefined
   const durationMinutes = (startedAt && completedAt)
     ? Math.max(0, Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 60000))
     : undefined
@@ -208,17 +316,17 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
   const participantName = `${firstName} ${lastName}`.trim() || (cpRecord?.email ?? 'Unknown')
 
   return {
-    id: String((session as any).id),
-    assessmentId: String((session as any).assessment_id),
+    id: String(session.id),
+    assessmentId: String(session.assessment_id),
     assessmentTitle: String(assessmentRecord?.title ?? 'Unknown'),
     campaignId: String(campaignRecord?.id ?? cpRecord?.campaign_id ?? ''),
     campaignTitle: String(campaignRecord?.title ?? ''),
-    clientId: clientRecord?.id ? String(clientRecord.id) : undefined,
+    clientId: campaignRecord?.client_id ? String(campaignRecord.client_id) : undefined,
     clientName: clientRecord?.name ? String(clientRecord.name) : undefined,
-    participantId: String(cpRecord?.id ?? ''),
+    participantId: String(session.campaign_participant_id),
     participantName,
     participantEmail: String(cpRecord?.email ?? ''),
-    status: String((session as any).status),
+    status: String(session.status),
     startedAt,
     completedAt,
     durationMinutes,
@@ -251,8 +359,10 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
     throwActionError('getSessionSnapshots', 'Unable to load snapshots.', error)
   }
 
-  return ((data ?? []) as any[]).map((r) => {
-    const tpl = Array.isArray(r.report_templates) ? r.report_templates[0] : r.report_templates
+  const snapshotRows = (data ?? []) as SnapshotLookupRow[]
+
+  return snapshotRows.map((r) => {
+    const tpl = getEmbeddedRecord(r.report_templates)
     return {
       id: String(r.id),
       templateId: String(r.template_id),
@@ -328,7 +438,7 @@ export async function getCampaignSessions(campaignId: string): Promise<CampaignS
   return mapCampaignSessionRows(data ?? [])
 }
 
-function mapCampaignSessionRows(data: any[]): CampaignSessionRow[] {
+function mapCampaignSessionRows(data: CampaignSessionLookupRow[]): CampaignSessionRow[] {
   // Group by (participantId, assessmentId) to compute attempt ordinal
   const ordinalMap = new Map<string, number[]>()
   for (const row of data) {
