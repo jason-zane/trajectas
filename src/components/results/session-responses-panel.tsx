@@ -7,7 +7,18 @@ interface SessionResponsesPanelProps {
 }
 
 export async function SessionResponsesPanel({ sessionId }: SessionResponsesPanelProps) {
-  const groups = await getParticipantResponses(sessionId);
+  let groups;
+  try {
+    groups = await getParticipantResponses(sessionId);
+  } catch (error) {
+    console.error("[session-responses] Failed to load responses:", error);
+    return (
+      <EmptyState
+        title="Responses unavailable"
+        description="The session loaded, but the response details could not be retrieved right now."
+      />
+    );
+  }
 
   if (groups.length === 0) {
     return (

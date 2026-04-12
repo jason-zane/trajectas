@@ -3,6 +3,15 @@ import { getSessionDetail } from "@/app/actions/sessions";
 import { getActiveReportTemplates } from "@/app/actions/reports";
 import { SessionDetailView } from "@/components/results/session-detail-view";
 
+async function loadTemplates() {
+  try {
+    return await getActiveReportTemplates();
+  } catch (error) {
+    console.error("[client-session-detail] Failed to load report templates:", error);
+    return [];
+  }
+}
+
 export default async function ClientSessionDetailPage({
   params,
 }: {
@@ -12,7 +21,7 @@ export default async function ClientSessionDetailPage({
 
   const session = await getSessionDetail(sessionId);
   if (!session || session.participantId !== pid) notFound();
-  const templates = await getActiveReportTemplates();
+  const templates = await loadTemplates();
 
   return (
     <SessionDetailView

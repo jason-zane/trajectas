@@ -1479,9 +1479,9 @@ export async function getParticipantsForClient(
 
 export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]> {
   const scope = await resolveAuthorizedScope()
-  assertAdminOnly(scope)
   const db = await createClient()
-  const { data, error } = await db
+
+  let query = db
     .from('assessments')
     .select(`
       id,
@@ -1499,6 +1499,22 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
     .in('status', ['active', 'draft'])
     .is('deleted_at', null)
     .order('title', { ascending: true })
+
+  // Scope-aware: partners see their own + platform-owned assessments.
+  // Clients should use getClientAssessmentLibrary instead — this
+  // function serves admin + partner portals only.
+  if (!scope.isPlatformAdmin && !scope.isLocalDevelopmentBypass) {
+    if (scope.partnerIds.length > 0) {
+      query = query.or(
+        `partner_id.in.(${scope.partnerIds.join(',')}),partner_id.is.null`
+      )
+    } else {
+      // Non-admin, non-partner — shouldn't be calling this function
+      return []
+    }
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throwActionError(

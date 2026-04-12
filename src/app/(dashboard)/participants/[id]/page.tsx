@@ -7,6 +7,25 @@ import {
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
 import { ParticipantDetailView } from "@/components/results/participant-detail-view";
 
+async function loadParticipantAuxiliaryData(participantId: string) {
+  const [sessions, activity, snapshots] = await Promise.all([
+    getParticipantSessions(participantId).catch((error) => {
+      console.error("[participant-detail] Failed to load sessions:", error);
+      return [];
+    }),
+    getParticipantActivity(participantId).catch((error) => {
+      console.error("[participant-detail] Failed to load activity:", error);
+      return [];
+    }),
+    getReportSnapshotsForParticipant(participantId).catch((error) => {
+      console.error("[participant-detail] Failed to load report snapshots:", error);
+      return [];
+    }),
+  ]);
+
+  return { sessions, activity, snapshots };
+}
+
 export default async function AdminParticipantDetailPage({
   params,
 }: {
@@ -14,14 +33,11 @@ export default async function AdminParticipantDetailPage({
 }) {
   const { id } = await params;
 
-  const [participant, sessions, activity, snapshots] = await Promise.all([
-    getParticipant(id),
-    getParticipantSessions(id),
-    getParticipantActivity(id),
-    getReportSnapshotsForParticipant(id),
-  ]);
+  const participant = await getParticipant(id);
 
   if (!participant) notFound();
+
+  const { sessions, activity, snapshots } = await loadParticipantAuxiliaryData(id);
 
   return (
     <ParticipantDetailView

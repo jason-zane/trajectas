@@ -60,10 +60,12 @@ export function SessionDetailView({
           session.clientName ? ` · ${session.clientName}` : ""
         }`}
       >
-        <GenerateReportTrigger
-          sessionId={session.id}
-          templates={templates}
-        />
+        {templates.length > 0 ? (
+          <GenerateReportTrigger
+            sessionId={session.id}
+            templates={templates}
+          />
+        ) : null}
       </PageHeader>
 
       {/* Stats strip */}
