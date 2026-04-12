@@ -132,6 +132,10 @@ function getEmbeddedRecord<T extends Record<string, unknown>>(
   return Array.isArray(value) ? value[0] ?? null : value ?? null
 }
 
+function logSessionDetailError(scope: string, error: unknown) {
+  console.error(`[getSessionDetail] ${scope} failed:`, error)
+}
+
 async function assertSessionAccess(sessionId: string): Promise<string> {
   const scope = await resolveAuthorizedScope()
   if (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass) return sessionId
@@ -188,7 +192,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     attemptResult,
     snapshotResult,
     scoresResult,
-  ] = await Promise.all([
+  ] = await Promise.allSettled([
     db
       .from('assessments')
       .select('id, title')
@@ -242,35 +246,77 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       .eq('session_id', sessionId),
   ])
 
-  if (assessmentResult.error) {
-    throwActionError('getSessionDetail.assessment', 'Unable to load assessment metadata.', assessmentResult.error)
-  }
-  if (participantResult.error) {
-    throwActionError('getSessionDetail.participant', 'Unable to load participant metadata.', participantResult.error)
-  }
-  if (responseCountResult.error) {
-    throwActionError('getSessionDetail.responses', 'Unable to load response count.', responseCountResult.error)
-  }
-  if (attemptResult.error) {
-    throwActionError('getSessionDetail.attempts', 'Unable to load session attempts.', attemptResult.error)
-  }
-  if (snapshotResult.error) {
-    throwActionError('getSessionDetail.snapshots', 'Unable to load report snapshots.', snapshotResult.error)
-  }
-  if (scoresResult.error) {
-    throwActionError('getSessionDetail.scores', 'Unable to load session scores.', scoresResult.error)
-  }
+  const assessmentRecord =
+    assessmentResult.status === 'fulfilled'
+      ? (() => {
+          if (assessmentResult.value.error) {
+            logSessionDetailError('assessment lookup', assessmentResult.value.error)
+            return null
+          }
+          return assessmentResult.value.data
+        })()
+      : (logSessionDetailError('assessment lookup', assessmentResult.reason), null)
 
-  const assessmentRecord = assessmentResult.data
-  const cpRecord = (participantResult.data ?? null) as EmbeddedParticipantRecord | null
+  const cpRecord =
+    participantResult.status === 'fulfilled'
+      ? (() => {
+          if (participantResult.value.error) {
+            logSessionDetailError('participant lookup', participantResult.value.error)
+            return null
+          }
+          return (participantResult.value.data ?? null) as EmbeddedParticipantRecord | null
+        })()
+      : (logSessionDetailError('participant lookup', participantResult.reason), null)
+
   const campaignRecord = getEmbeddedRecord(cpRecord?.campaigns)
   const clientRecord = getEmbeddedRecord(campaignRecord?.clients)
-  const responseCount = responseCountResult.count ?? 0
-  const attemptRows = attemptResult.data ?? []
+
+  const responseCount =
+    responseCountResult.status === 'fulfilled'
+      ? (() => {
+          if (responseCountResult.value.error) {
+            logSessionDetailError('response count lookup', responseCountResult.value.error)
+            return 0
+          }
+          return responseCountResult.value.count ?? 0
+        })()
+      : (logSessionDetailError('response count lookup', responseCountResult.reason), 0)
+
+  const attemptRows =
+    attemptResult.status === 'fulfilled'
+      ? (() => {
+          if (attemptResult.value.error) {
+            logSessionDetailError('attempt lookup', attemptResult.value.error)
+            return []
+          }
+          return attemptResult.value.data ?? []
+        })()
+      : (logSessionDetailError('attempt lookup', attemptResult.reason), [])
+
   const attemptNumber = attemptRows.findIndex((r) => r.id === sessionId) + 1 || 1
   const totalAttempts = attemptRows.length || 1
-  const snapshotRows = (snapshotResult.data ?? []) as SnapshotLookupRow[]
-  const scoreRows = (scoresResult.data ?? []) as SessionScoreLookupRow[]
+
+  const snapshotRows =
+    snapshotResult.status === 'fulfilled'
+      ? (() => {
+          if (snapshotResult.value.error) {
+            logSessionDetailError('snapshot lookup', snapshotResult.value.error)
+            return [] as SnapshotLookupRow[]
+          }
+          return (snapshotResult.value.data ?? []) as SnapshotLookupRow[]
+        })()
+      : (logSessionDetailError('snapshot lookup', snapshotResult.reason), [])
+
+  const scoreRows =
+    scoresResult.status === 'fulfilled'
+      ? (() => {
+          if (scoresResult.value.error) {
+            logSessionDetailError('score lookup', scoresResult.value.error)
+            return [] as SessionScoreLookupRow[]
+          }
+          return (scoresResult.value.data ?? []) as SessionScoreLookupRow[]
+        })()
+      : (logSessionDetailError('score lookup', scoresResult.reason), [])
 
   const scores: SessionDetailScore[] = scoreRows.map((s) => {
     const factor = getEmbeddedRecord(s.factors)

@@ -1,16 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getSessionDetail } from "@/app/actions/sessions";
 import { getActiveReportTemplates } from "@/app/actions/reports";
 import { SessionDetailView } from "@/components/results/session-detail-view";
-
-async function loadSessionDetail(sessionId: string) {
-  try {
-    return await getSessionDetail(sessionId);
-  } catch (error) {
-    console.error("[session-detail] Failed to load session detail:", error);
-    return null;
-  }
-}
 
 async function loadTemplates() {
   try {
@@ -28,9 +19,12 @@ export default async function AdminSessionDetailPage({
 }) {
   const { id: participantId, sid: sessionId } = await params;
 
-  const session = await loadSessionDetail(sessionId);
-  if (!session || session.participantId !== participantId) {
+  const session = await getSessionDetail(sessionId);
+  if (!session) {
     notFound();
+  }
+  if (session.participantId !== participantId) {
+    redirect(`/participants/${session.participantId}/sessions/${sessionId}`);
   }
   const templates = await loadTemplates();
 
