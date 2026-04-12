@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Plus,
@@ -97,6 +98,7 @@ export function CampaignAssessmentsList({
   }>;
   hasCompletedParticipants?: boolean;
 }) {
+  const router = useRouter();
   const [showPicker, setShowPicker] = useState(false);
   const [showDrafts, setShowDrafts] = useState(false);
   const [expandedFactorPickers, setExpandedFactorPickers] = useState<
@@ -136,6 +138,7 @@ export function CampaignAssessmentsList({
     }
     toast.success("Assessment added");
     setShowPicker(false);
+    router.refresh();
   }
 
   async function handleRemove(assessmentId: string) {
@@ -148,6 +151,7 @@ export function CampaignAssessmentsList({
       return;
     }
     toast.success("Assessment removed");
+    router.refresh();
   }
 
   function toggleFactorPicker(campaignAssessmentId: string) {
