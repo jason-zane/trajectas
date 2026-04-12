@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ArrowRight, FileText, Link2, Mail, Plus, Rocket, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,16 +22,114 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import type { CampaignAssessmentOption } from "@/app/actions/campaigns";
+import { toast } from "sonner";
+import {
+  activateCampaign,
+  addAssessmentToCampaign,
+  bulkInviteParticipants,
+  createAccessLink,
+  createCampaign,
+  deleteCampaign,
+  inviteParticipant,
+  type CampaignAssessmentOption,
+} from "@/app/actions/campaigns";
+import { ArrowLeft, ArrowRight, FileText, Link2, Mail, Plus, Rocket, X } from "lucide-react";
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function generateSlug(title: string): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 180);
+
+  const suffix = Math.random().toString(36).slice(2, 8);
+  return base ? `${base}-${suffix}` : `campaign-${suffix}`;
+}
+
+function isValidEmail(value: string): boolean {
+  return EMAIL_PATTERN.test(value.trim());
+}
+
+function isInviteCsvHeader(parts: string[]): boolean {
+  const [first = "", second = "", third = ""] = parts.map((part) =>
+    part.toLowerCase().replace(/\s+/g, "_"),
+  );
+
+  return (
+    first === "email" &&
+    (!second || second === "first_name" || second === "firstname") &&
+    (!third || third === "last_name" || third === "lastname")
+  );
+}
+
+function parseCsvInvites(
+  csv: string,
+): Array<{ email: string; firstName?: string; lastName?: string }> {
+  return csv
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .reduce<Array<{ email: string; firstName?: string; lastName?: string }>>(
+      (rows, line, index) => {
+        const parts = line.split(",").map((part) => part.trim());
+        if (index === 0 && isInviteCsvHeader(parts)) {
+          return rows;
+        }
+
+        rows.push({
+          email: parts[0] ?? "",
+          firstName: parts[1] || undefined,
+          lastName: parts[2] || undefined,
+        });
+
+        return rows;
+      },
+      [],
+    );
+}
+
+function toIsoDateTime(value: string): string | undefined {
+  return value ? new Date(value).toISOString() : undefined;
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === "string" && error.length > 0) {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const values = Object.values(error as Record<string, unknown>).flatMap((value) => {
+      if (typeof value === "string") {
+        return [value];
+      }
+
+      if (Array.isArray(value)) {
+        return value.filter((item): item is string => typeof item === "string");
+      }
+
+      return [];
+    });
+
+    if (values.length > 0) {
+      return values[0];
+    }
+  }
+
+  return "Something went wrong.";
+}
 
 interface QuickLaunchModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   assessments: CampaignAssessmentOption[];
   clients: Array<{ id: string; name: string }>;
-  /** When a client id is forced (e.g., client portal), hide the client dropdown and pre-select. */
   forcedClientId?: string;
-  /** Redirect target after successful launch — defaults to /campaigns/{id}/overview but portals can override */
   successHrefPrefix?: string;
 }
 
@@ -34,8 +138,8 @@ type WizardStep = 1 | 2 | 3;
 interface WizardState {
   title: string;
   clientId: string | null;
-  opensAt: string; // ISO string
-  closesAt: string; // ISO string
+  opensAt: string;
+  closesAt: string;
   description: string;
   selectedAssessmentId: string | null;
   inviteMode: "single" | "csv" | "link";
@@ -68,6 +172,28 @@ export function QuickLaunchModal({
     inviteCsv: "",
   });
   const [isLaunching, setIsLaunching] = useState(false);
+  const router = useRouter();
+
+  const campaignTitle = state.title.trim();
+  const effectiveClientId = state.clientId ?? forcedClientId ?? null;
+  const selectedClient = clients.find((client) => client.id === effectiveClientId);
+  const selectedAssessment = assessments.find(
+    (assessment) => assessment.id === state.selectedAssessmentId,
+  );
+  const csvInviteRows = parseCsvInvites(state.inviteCsv);
+  const csvValidInviteCount = csvInviteRows.filter((row) => isValidEmail(row.email)).length;
+  const csvInvalidInviteCount = csvInviteRows.length - csvValidInviteCount;
+  const scheduleError =
+    state.opensAt && state.closesAt && state.closesAt < state.opensAt
+      ? "Close time must be after the open time."
+      : null;
+  const singleEmailError =
+    state.inviteSingleEmail.trim().length > 0 && !isValidEmail(state.inviteSingleEmail)
+      ? "Enter a valid email address."
+      : null;
+  const successBaseHref = successHrefPrefix.endsWith("/")
+    ? successHrefPrefix.slice(0, -1)
+    : successHrefPrefix;
 
   function reset() {
     setStep(1);
@@ -87,46 +213,189 @@ export function QuickLaunchModal({
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) reset();
+    if (!next) {
+      reset();
+    }
     onOpenChange(next);
   }
 
-  // Step validation — determines whether Next/Launch is enabled.
-  // Placeholder implementations; later tasks will tighten these.
   function canAdvance(): boolean {
-    if (step === 1) return state.title.trim().length > 0 && !!state.clientId;
-    if (step === 2) return !!state.selectedAssessmentId;
-    if (step === 3) {
-      if (state.inviteMode === "link") return true;
-      if (state.inviteMode === "single") return state.inviteSingleEmail.trim().length > 0;
-      if (state.inviteMode === "csv") return state.inviteCsv.trim().length > 0;
+    if (step === 1) {
+      return campaignTitle.length > 0 && !!effectiveClientId && !scheduleError;
     }
-    return false;
+    if (step === 2) {
+      return !!state.selectedAssessmentId;
+    }
+    if (state.inviteMode === "link") {
+      return true;
+    }
+    if (state.inviteMode === "single") {
+      return state.inviteSingleEmail.trim().length > 0 && !singleEmailError;
+    }
+    return csvValidInviteCount > 0;
   }
 
   function handleNext() {
-    if (step < 3) setStep((s) => (s + 1) as WizardStep);
+    if (step < 3 && canAdvance()) {
+      setStep((currentStep) => (currentStep + 1) as WizardStep);
+    }
   }
 
   function handleBack() {
-    if (step > 1) setStep((s) => (s - 1) as WizardStep);
+    if (step > 1) {
+      setStep((currentStep) => (currentStep - 1) as WizardStep);
+    }
   }
 
   async function handleLaunch() {
-    // Stub — fully implemented in P5.1e.
+    if (!canAdvance() || !effectiveClientId || !state.selectedAssessmentId) {
+      return;
+    }
+
     setIsLaunching(true);
+    let createdCampaignId: string | null = null;
+
     try {
-      console.log("[quick-launch] Would launch with state:", state);
-      // Simulate success for now
-      alert("Launch handler not yet implemented. See P5.1e.");
+      const createResult = await createCampaign({
+        title: campaignTitle,
+        slug: generateSlug(campaignTitle),
+        description: state.description.trim() || undefined,
+        clientId: effectiveClientId,
+        opensAt: toIsoDateTime(state.opensAt),
+        closesAt: toIsoDateTime(state.closesAt),
+        status: "draft",
+        allowResume: true,
+        showProgress: true,
+        randomizeAssessmentOrder: false,
+      });
+
+      if ("error" in createResult && createResult.error) {
+        throw new Error(getErrorMessage(createResult.error));
+      }
+
+      const campaignId = createResult.id;
+      createdCampaignId = campaignId;
+
+      const addAssessmentResult = await addAssessmentToCampaign(
+        campaignId,
+        state.selectedAssessmentId,
+      );
+      if (addAssessmentResult?.error) {
+        throw new Error(addAssessmentResult.error);
+      }
+
+      let successDetail = "";
+      let successDescription: string | undefined;
+
+      if (state.inviteMode === "single") {
+        const inviteResult = await inviteParticipant(campaignId, {
+          email: state.inviteSingleEmail.trim(),
+          firstName: state.inviteSingleFirstName.trim() || undefined,
+          lastName: state.inviteSingleLastName.trim() || undefined,
+        });
+
+        if ("error" in inviteResult && inviteResult.error) {
+          throw new Error(getErrorMessage(inviteResult.error));
+        }
+
+        if (inviteResult.emailSent) {
+          successDetail = "1 invite sent";
+        } else {
+          successDetail = "participant added";
+          successDescription =
+            inviteResult.emailError ??
+            "Invite email failed. You can resend it from the participants page.";
+        }
+      }
+
+      if (state.inviteMode === "csv") {
+        const bulkResult = await bulkInviteParticipants(campaignId, csvInviteRows);
+
+        if ("error" in bulkResult && bulkResult.error) {
+          throw new Error(getErrorMessage(bulkResult.error));
+        }
+
+        if (!("success" in bulkResult) || !bulkResult.success || bulkResult.inserted === 0) {
+          const bulkErrors = "errors" in bulkResult ? bulkResult.errors ?? [] : [];
+          const firstRowError =
+            bulkErrors[0]?.message ?? "No participants were added.";
+          throw new Error(firstRowError);
+        }
+
+        const bulkErrors = "errors" in bulkResult ? bulkResult.errors ?? [] : [];
+        successDetail = `${pluralize(bulkResult.inserted, "invite")} sent`;
+
+        const notes = [];
+        if (bulkResult.existingCount > 0) {
+          notes.push(`${pluralize(bulkResult.existingCount, "invite")} already existed`);
+        }
+        if (bulkErrors.length > 0) {
+          notes.push(`${pluralize(bulkErrors.length, "row")} skipped`);
+        }
+        if (notes.length > 0) {
+          successDescription = notes.join(" · ");
+        }
+      }
+
+      if (state.inviteMode === "link") {
+        const linkResult = await createAccessLink(campaignId, {
+          label: campaignTitle,
+        });
+
+        if ("error" in linkResult && linkResult.error) {
+          throw new Error(getErrorMessage(linkResult.error));
+        }
+
+        let copied = false;
+        try {
+          await navigator.clipboard.writeText(
+            `${window.location.origin}/assess/join/${linkResult.token}`,
+          );
+          copied = true;
+        } catch {
+          copied = false;
+        }
+
+        successDetail = copied ? "access link copied" : "access link created";
+        if (!copied) {
+          successDescription = "The access link is available on the campaign overview.";
+        }
+      }
+
+      const activateResult = await activateCampaign(campaignId);
+      if (activateResult?.error) {
+        throw new Error(activateResult.error);
+      }
+
       handleOpenChange(false);
+      toast.success(`Campaign "${campaignTitle}" launched — ${successDetail}`, {
+        description: successDescription,
+      });
+      router.push(`${successBaseHref}/${campaignId}/overview`);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to complete quick launch.";
+
+      if (createdCampaignId) {
+        const rollbackResult = await deleteCampaign(createdCampaignId);
+        const rollbackNote = rollbackResult?.error
+          ? ` Rollback also failed: ${rollbackResult.error}. Delete the draft campaign manually.`
+          : "";
+
+        toast.error("Quick launch failed", {
+          description: `${message}${rollbackNote}`,
+          duration: 10000,
+        });
+      } else {
+        toast.error("Quick launch failed", {
+          description: message,
+          duration: 10000,
+        });
+      }
     } finally {
       setIsLaunching(false);
     }
   }
-
-  // Suppress unused variable warning — successHrefPrefix is used in P5.1e
-  void successHrefPrefix;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -138,15 +407,50 @@ export function QuickLaunchModal({
             {step === 1
               ? "Campaign details"
               : step === 2
-              ? "Select assessment"
-              : "Invite participants"}
+                ? "Select assessment"
+                : "Invite participants"}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step content — filled in by P5.1b / P5.1c / P5.1d */}
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { id: 1 as const, label: "Campaign" },
+            { id: 2 as const, label: "Assessment" },
+            { id: 3 as const, label: "Invite" },
+          ]).map((item) => {
+            const isActive = step === item.id;
+            const isComplete = step > item.id;
+
+            return (
+              <div
+                key={item.id}
+                className={cn(
+                  "rounded-lg border px-3 py-2 text-sm transition-colors",
+                  isActive
+                    ? "border-primary bg-primary/5"
+                    : isComplete
+                      ? "border-border bg-muted/40"
+                      : "border-border/60",
+                )}
+              >
+                <div className="text-xs font-medium text-muted-foreground">
+                  Step {item.id}
+                </div>
+                <div className="mt-1 font-medium">{item.label}</div>
+              </div>
+            );
+          })}
+        </div>
+
         <div className="py-4">
           {step === 1 && (
             <div className="space-y-4">
+              {forcedClientId && selectedClient && (
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+                  Launching inside <span className="font-medium">{selectedClient.name}</span>.
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="ql-title">
                   Campaign title <span className="text-destructive">*</span>
@@ -155,7 +459,12 @@ export function QuickLaunchModal({
                   id="ql-title"
                   placeholder="e.g. Q2 Leadership Assessment"
                   value={state.title}
-                  onChange={(e) => setState((s) => ({ ...s, title: e.target.value }))}
+                  onChange={(event) =>
+                    setState((currentState) => ({
+                      ...currentState,
+                      title: event.target.value,
+                    }))
+                  }
                   autoFocus
                 />
               </div>
@@ -168,7 +477,10 @@ export function QuickLaunchModal({
                   <Select
                     value={state.clientId ?? ""}
                     onValueChange={(value) =>
-                      setState((s) => ({ ...s, clientId: value || null }))
+                      setState((currentState) => ({
+                        ...currentState,
+                        clientId: value || null,
+                      }))
                     }
                   >
                     <SelectTrigger id="ql-client">
@@ -196,21 +508,35 @@ export function QuickLaunchModal({
                   <Label htmlFor="ql-opens">Opens at</Label>
                   <Input
                     id="ql-opens"
-                    type="date"
+                    type="datetime-local"
                     value={state.opensAt}
-                    onChange={(e) => setState((s) => ({ ...s, opensAt: e.target.value }))}
+                    onChange={(event) =>
+                      setState((currentState) => ({
+                        ...currentState,
+                        opensAt: event.target.value,
+                      }))
+                    }
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="ql-closes">Closes at</Label>
                   <Input
                     id="ql-closes"
-                    type="date"
+                    type="datetime-local"
                     value={state.closesAt}
-                    onChange={(e) => setState((s) => ({ ...s, closesAt: e.target.value }))}
+                    onChange={(event) =>
+                      setState((currentState) => ({
+                        ...currentState,
+                        closesAt: event.target.value,
+                      }))
+                    }
                   />
                 </div>
               </div>
+
+              {scheduleError && (
+                <p className="text-sm text-destructive">{scheduleError}</p>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="ql-description">Description (optional)</Label>
@@ -218,16 +544,29 @@ export function QuickLaunchModal({
                   id="ql-description"
                   placeholder="A short internal note about this campaign"
                   value={state.description}
-                  onChange={(e) =>
-                    setState((s) => ({ ...s, description: e.target.value }))
+                  onChange={(event) =>
+                    setState((currentState) => ({
+                      ...currentState,
+                      description: event.target.value,
+                    }))
                   }
                   rows={3}
                 />
               </div>
             </div>
           )}
+
           {step === 2 && (
             <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+                <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
+                {selectedClient && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Client: {selectedClient.name}
+                  </div>
+                )}
+              </div>
+
               {assessments.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-8 text-center">
                   <p className="text-sm text-muted-foreground">
@@ -248,57 +587,64 @@ export function QuickLaunchModal({
                   <p className="text-sm text-muted-foreground">
                     Pick one assessment to launch with this campaign. You can add more later from the campaign edit page.
                   </p>
-                  <div className="max-h-[360px] overflow-y-auto space-y-2 pr-1">
-                    {assessments.map((a) => {
-                      const selected = state.selectedAssessmentId === a.id;
+                  <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+                    {assessments.map((assessment) => {
+                      const selected = state.selectedAssessmentId === assessment.id;
+
                       return (
                         <button
-                          key={a.id}
+                          key={assessment.id}
                           type="button"
                           onClick={() =>
-                            setState((s) => ({ ...s, selectedAssessmentId: a.id }))
+                            setState((currentState) => ({
+                              ...currentState,
+                              selectedAssessmentId: assessment.id,
+                            }))
                           }
                           className={cn(
                             "w-full rounded-lg border p-4 text-left transition-colors",
                             selected
                               ? "border-primary bg-primary/5"
-                              : "border-border hover:border-border/80 hover:bg-muted/40"
+                              : "border-border hover:border-border/80 hover:bg-muted/40",
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <h4 className="font-medium truncate">{a.title}</h4>
-                                {a.status === "draft" && (
+                                <h4 className="truncate font-medium">{assessment.title}</h4>
+                                {assessment.status === "draft" && (
                                   <Badge variant="outline" className="text-xs">
                                     Draft
                                   </Badge>
                                 )}
                               </div>
-                              {a.description && (
-                                <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                                  {a.description}
+                              {assessment.description && (
+                                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                  {assessment.description}
                                 </p>
                               )}
                               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                {a.factorCount > 0 && (
+                                {assessment.factorCount > 0 && (
                                   <span>
-                                    {a.factorCount} {a.factorCount === 1 ? "factor" : "factors"}
+                                    {assessment.factorCount}{" "}
+                                    {assessment.factorCount === 1 ? "factor" : "factors"}
                                   </span>
                                 )}
-                                {a.sectionCount > 0 && (
+                                {assessment.sectionCount > 0 && (
                                   <span>
-                                    {a.sectionCount} {a.sectionCount === 1 ? "section" : "sections"}
+                                    {assessment.sectionCount}{" "}
+                                    {assessment.sectionCount === 1 ? "section" : "sections"}
                                   </span>
                                 )}
-                                {a.formatLabel && <span>{a.formatLabel}</span>}
-                                {a.totalItemCount > 0 && (
+                                {assessment.formatLabel && <span>{assessment.formatLabel}</span>}
+                                {assessment.totalItemCount > 0 && (
                                   <span>
-                                    {a.totalItemCount} {a.totalItemCount === 1 ? "item" : "items"}
+                                    {assessment.totalItemCount}{" "}
+                                    {assessment.totalItemCount === 1 ? "item" : "items"}
                                   </span>
                                 )}
-                                {a.estimatedDurationMinutes > 0 && (
-                                  <span>~{a.estimatedDurationMinutes} min</span>
+                                {assessment.estimatedDurationMinutes > 0 && (
+                                  <span>~{assessment.estimatedDurationMinutes} min</span>
                                 )}
                               </div>
                             </div>
@@ -307,7 +653,7 @@ export function QuickLaunchModal({
                                 "mt-1 size-4 shrink-0 rounded-full border-2 transition-colors",
                                 selected
                                   ? "border-primary bg-primary"
-                                  : "border-muted-foreground/30"
+                                  : "border-muted-foreground/30",
                               )}
                             >
                               {selected && (
@@ -325,13 +671,21 @@ export function QuickLaunchModal({
               )}
             </div>
           )}
+
           {step === 3 && (
             <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+                <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {selectedClient && <span>{selectedClient.name}</span>}
+                  {selectedAssessment && <span>{selectedAssessment.title}</span>}
+                </div>
+              </div>
+
               <p className="text-sm text-muted-foreground">
                 Choose how you want to invite participants. You can always add more later from the campaign participants page.
               </p>
 
-              {/* Mode selector — segmented control */}
               <div className="grid grid-cols-3 gap-2">
                 {([
                   {
@@ -355,24 +709,28 @@ export function QuickLaunchModal({
                 ]).map((mode) => {
                   const Icon = mode.icon;
                   const selected = state.inviteMode === mode.value;
+
                   return (
                     <button
                       key={mode.value}
                       type="button"
                       onClick={() =>
-                        setState((s) => ({ ...s, inviteMode: mode.value }))
+                        setState((currentState) => ({
+                          ...currentState,
+                          inviteMode: mode.value,
+                        }))
                       }
                       className={cn(
                         "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors",
                         selected
                           ? "border-primary bg-primary/5"
-                          : "border-border hover:border-border/80 hover:bg-muted/40"
+                          : "border-border hover:border-border/80 hover:bg-muted/40",
                       )}
                     >
                       <Icon
                         className={cn(
                           "size-5",
-                          selected ? "text-primary" : "text-muted-foreground"
+                          selected ? "text-primary" : "text-muted-foreground",
                         )}
                       />
                       <div className="text-xs font-medium">{mode.label}</div>
@@ -384,7 +742,6 @@ export function QuickLaunchModal({
                 })}
               </div>
 
-              {/* Mode-specific input */}
               {state.inviteMode === "single" && (
                 <div className="space-y-3 rounded-lg border border-border p-4">
                   <div className="space-y-2">
@@ -396,10 +753,16 @@ export function QuickLaunchModal({
                       type="email"
                       placeholder="participant@company.com"
                       value={state.inviteSingleEmail}
-                      onChange={(e) =>
-                        setState((s) => ({ ...s, inviteSingleEmail: e.target.value }))
+                      onChange={(event) =>
+                        setState((currentState) => ({
+                          ...currentState,
+                          inviteSingleEmail: event.target.value,
+                        }))
                       }
                     />
+                    {singleEmailError && (
+                      <p className="text-xs text-destructive">{singleEmailError}</p>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -408,10 +771,10 @@ export function QuickLaunchModal({
                         id="ql-invite-first"
                         placeholder="Jane"
                         value={state.inviteSingleFirstName}
-                        onChange={(e) =>
-                          setState((s) => ({
-                            ...s,
-                            inviteSingleFirstName: e.target.value,
+                        onChange={(event) =>
+                          setState((currentState) => ({
+                            ...currentState,
+                            inviteSingleFirstName: event.target.value,
                           }))
                         }
                       />
@@ -422,10 +785,10 @@ export function QuickLaunchModal({
                         id="ql-invite-last"
                         placeholder="Doe"
                         value={state.inviteSingleLastName}
-                        onChange={(e) =>
-                          setState((s) => ({
-                            ...s,
-                            inviteSingleLastName: e.target.value,
+                        onChange={(event) =>
+                          setState((currentState) => ({
+                            ...currentState,
+                            inviteSingleLastName: event.target.value,
                           }))
                         }
                       />
@@ -448,14 +811,33 @@ export function QuickLaunchModal({
                   </p>
                   <Textarea
                     id="ql-invite-csv"
-                    placeholder={`jane@example.com,Jane,Doe\njohn@example.com,John,Smith`}
+                    placeholder={`email,first_name,last_name\njane@example.com,Jane,Doe\njohn@example.com,John,Smith`}
                     value={state.inviteCsv}
-                    onChange={(e) =>
-                      setState((s) => ({ ...s, inviteCsv: e.target.value }))
+                    onChange={(event) =>
+                      setState((currentState) => ({
+                        ...currentState,
+                        inviteCsv: event.target.value,
+                      }))
                     }
                     rows={6}
                     className="font-mono text-xs"
                   />
+                  <p
+                    className={cn(
+                      "text-xs",
+                      csvInvalidInviteCount > 0
+                        ? "text-amber-700 dark:text-amber-300"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {csvInviteRows.length === 0
+                      ? "Paste one or more rows to bulk invite participants."
+                      : `Ready to send ${pluralize(csvValidInviteCount, "invite")}${
+                          csvInvalidInviteCount > 0
+                            ? ` · ${pluralize(csvInvalidInviteCount, "row")} need attention`
+                            : ""
+                        }.`}
+                  </p>
                 </div>
               )}
 
@@ -470,7 +852,6 @@ export function QuickLaunchModal({
           )}
         </div>
 
-        {/* Footer navigation */}
         <div className="flex items-center justify-between border-t border-border pt-4">
           <Button
             variant="ghost"
