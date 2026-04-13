@@ -167,26 +167,29 @@ export function DataTable<TData, TValue>({
   const allColumns: ColumnDef<TData, TValue>[] = enableRowSelection
     ? [
         {
-          id: "select",
+          id: "_select",
+          enableSorting: false,
           header: ({ table }) => (
-            <Checkbox
-              checked={table.getIsAllPageRowsSelected()}
-              indeterminate={table.getIsSomePageRowsSelected()}
-              onCheckedChange={(value) =>
-                table.toggleAllPageRowsSelected(Boolean(value))
-              }
-              aria-label="Select all"
-            />
+            <div data-stop-row-click className="flex items-center">
+              <Checkbox
+                checked={table.getIsAllPageRowsSelected()}
+                indeterminate={table.getIsSomePageRowsSelected()}
+                onCheckedChange={(value) =>
+                  table.toggleAllPageRowsSelected(Boolean(value))
+                }
+                aria-label="Select all"
+              />
+            </div>
           ),
           cell: ({ row }) => (
-            <Checkbox
-              checked={row.getIsSelected()}
-              onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
-              aria-label="Select row"
-            />
+            <div data-stop-row-click className="flex items-center">
+              <Checkbox
+                checked={row.getIsSelected()}
+                onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
+                aria-label="Select row"
+              />
+            </div>
           ),
-          enableSorting: false,
-          enableHiding: false,
         } as ColumnDef<TData, TValue>,
         ...resolvedColumns,
       ]
