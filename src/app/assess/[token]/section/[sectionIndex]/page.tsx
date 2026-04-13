@@ -43,8 +43,18 @@ export default async function SectionPage({
     }
   }
 
+  // If the target assessment already has a completed session, all assessments
+  // are done — redirect to the end of the flow rather than reusing the completed
+  // session (which would cause all saves to fail and loop the user back here).
+  const targetSessionCompleted = sessions.some(
+    (s) => s.assessmentId === targetAssessment.assessmentId && s.status === "completed"
+  );
+  if (targetSessionCompleted) {
+    redirect(`/assess/${token}/complete`);
+  }
+
   const existingSession = sessions.find(
-    (session) => session.assessmentId === targetAssessment.assessmentId
+    (session) => session.assessmentId === targetAssessment.assessmentId && session.status === "in_progress"
   );
 
   let sessionId = existingSession?.id;
@@ -86,14 +96,14 @@ export default async function SectionPage({
   const { sections, responses } = stateResult.data;
 
   if (sections.length === 0) {
-    redirect(`/assess/${token}/review`);
+    redirect(`/assess/${token}/complete`);
   }
 
   const clampedIdx = Math.min(sectionIdx, sections.length - 1);
   const section = sections[clampedIdx];
 
   if (!section) {
-    redirect(`/assess/${token}/review`);
+    redirect(`/assess/${token}/complete`);
   }
 
   // Load brand + experience in parallel — they're independent.
