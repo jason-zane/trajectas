@@ -14,6 +14,11 @@ type SaveEntry = {
 
 type SaveStatus = "idle" | "saving" | "saved";
 
+/** Per-item save timeout before treating as a transient failure and retrying. */
+const SAVE_TIMEOUT_MS = 8_000;
+/** Absolute ceiling for flushSaves — prevents pushAcrossBoundary from hanging forever. */
+const FLUSH_TIMEOUT_MS = 35_000;
+
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -36,15 +41,18 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     while (queueRef.current.length > 0) {
       const entry = queueRef.current[0];
 
-      const result = await saveResponseLite({
-        token: config.token,
-        sessionId: config.sessionId,
-        itemId: entry.itemId,
-        sectionId: entry.sectionId,
-        responseValue: entry.value,
-        responseData: entry.data,
-        responseTimeMs: entry.responseTimeMs,
-      });
+      const result = await Promise.race([
+        saveResponseLite({
+          token: config.token,
+          sessionId: config.sessionId,
+          itemId: entry.itemId,
+          sectionId: entry.sectionId,
+          responseValue: entry.value,
+          responseData: entry.data,
+          responseTimeMs: entry.responseTimeMs,
+        }),
+        delay(SAVE_TIMEOUT_MS).then(() => ({ error: "Save timed out" as const })),
+      ]);
 
       if (result.error) {
         entry.retries = (entry.retries ?? 0) + 1;
@@ -98,10 +106,13 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
       return failedRef.current.length === 0;
     }
 
-    return new Promise<boolean>((resolve) => {
-      drainWaitersRef.current.push(resolve);
-      processQueue();
-    });
+    return Promise.race([
+      new Promise<boolean>((resolve) => {
+        drainWaitersRef.current.push(resolve);
+        processQueue();
+      }),
+      delay(FLUSH_TIMEOUT_MS).then(() => false),
+    ]);
   }, [processQueue]);
 
   return { enqueueSave, retryFailedSaves, flushSaves, saveStatus, saveError };

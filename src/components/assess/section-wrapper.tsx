@@ -7,6 +7,7 @@ import { ProgressBar } from "./progress-bar";
 import { ItemCard } from "./item-card";
 import { updateSessionProgressLite } from "@/app/actions/assess";
 import { useSaveQueue } from "./use-save-queue";
+import { SavingOverlay } from "./saving-overlay";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
 
@@ -310,6 +311,8 @@ export function SectionWrapper({
 
   const canGoBack = localItemIndex > 0 || sectionIndex > 0;
 
+  const showFinaliserOverlay = isBoundaryPending && isFinalItemInAssessment;
+
   return (
     <div className="flex min-h-dvh flex-col">
       {/* Header */}
@@ -454,6 +457,14 @@ export function SectionWrapper({
           </span>
         )}
       </footer>
+
+      {showFinaliserOverlay && (
+        <SavingOverlay
+          message="Saving your responses..."
+          brandLogoUrl={brandLogoUrl}
+          brandName={brandName}
+        />
+      )}
     </div>
   );
 }

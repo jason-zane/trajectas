@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertCircle, Send, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { submitSession } from "@/app/actions/assess";
+import { SavingOverlay } from "./saving-overlay";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { ReviewContent } from "@/lib/experience/types";
 
@@ -444,6 +445,18 @@ export function ReviewScreen({
           </a>
         )}
       </footer>
+
+      {submitting && (
+        <SavingOverlay
+          message={
+            submitStage === "preparing_report"
+              ? "Opening your report..."
+              : "Submitting your assessment..."
+          }
+          brandLogoUrl={brandLogoUrl}
+          brandName={brandName}
+        />
+      )}
     </div>
   );
 }
