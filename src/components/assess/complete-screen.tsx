@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { CompleteContent } from "@/lib/experience/types";
 
 interface CompleteScreenProps {
@@ -105,14 +106,14 @@ export function CompleteScreen({
         <div className="w-full max-w-[540px] text-center space-y-6">
           <div className="flex justify-center">
             <div
-              className="flex size-20 items-center justify-center rounded-full"
+              className="flex size-24 items-center justify-center rounded-full"
               style={{
                 background:
                   "var(--brand-surface, hsl(var(--primary) / 0.1))",
               }}
             >
               <CheckCircle2
-                className="size-10 animate-in zoom-in duration-500"
+                className="size-12 animate-in zoom-in duration-500"
                 style={{
                   color: "var(--brand-primary, hsl(var(--primary)))",
                 }}
@@ -169,17 +170,22 @@ export function CompleteScreen({
 
           {/* Continue to next flow page */}
           {nextUrl && !content.redirectUrl && (
-            <Link
-              href={nextUrl}
-              className="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-medium transition-colors"
-              style={{
-                background: "var(--brand-primary, hsl(var(--primary)))",
-                color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-              }}
-            >
-              Continue
-              <ArrowRight className="size-4" />
-            </Link>
+            <div className="flex justify-center">
+              <Button
+                size="lg"
+                asChild
+                className="min-w-[200px] gap-1.5"
+                style={{
+                  background: "var(--brand-primary, hsl(var(--primary)))",
+                  color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
+                }}
+              >
+                <Link href={nextUrl}>
+                  Continue
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
       </main>
