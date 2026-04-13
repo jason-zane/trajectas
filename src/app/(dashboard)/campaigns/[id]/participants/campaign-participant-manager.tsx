@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Mail, Plus, Trash2, Upload } from "lucide-react";
+import { Copy, Download, ExternalLink, Mail, Plus, Trash2, Upload } from "lucide-react";
 
 import {
   bulkInviteParticipants,
@@ -70,6 +70,7 @@ export function CampaignParticipantManager({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [csvText, setCsvText] = useState("");
+  const [csvFile, setCsvFile] = useState<File | null>(null);
   const [showBulkErrors, setShowBulkErrors] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<BulkInviteRowError[]>([]);
   const [bulkEmailFailures, setBulkEmailFailures] = useState<
@@ -127,22 +128,46 @@ export function CampaignParticipantManager({
     router.refresh();
   }
 
-  async function handleBulkUpload() {
-    const lines = csvText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+  async function parseCsvToParticipants(source: string | File) {
+    const Papa = (await import("papaparse")).default;
+    let rows: string[][];
+    if (typeof source === "string") {
+      rows = Papa.parse<string[]>(source.trim(), { skipEmptyLines: true }).data;
+    } else {
+      rows = await new Promise<string[][]>((resolve) => {
+        Papa.parse<string[]>(source, {
+          skipEmptyLines: true,
+          complete: (result) => resolve(result.data),
+        });
+      });
+    }
+    return rows
+      .filter((row) => row.length > 0 && row[0]?.trim())
+      .map((row) => ({
+        email: row[0]?.trim() ?? "",
+        firstName: row[1]?.trim() || undefined,
+        lastName: row[2]?.trim() || undefined,
+      }));
+  }
 
-    const parsed = lines.map((line) => {
-      const [emailValue, firstNameValue, lastNameValue] = line
-        .split(",")
-        .map((segment) => segment.trim());
-      return {
-        email: emailValue,
-        firstName: firstNameValue,
-        lastName: lastNameValue,
-      };
-    });
+  function downloadTemplate() {
+    const content = "email,first_name,last_name\njane@example.com,Jane,Doe\njohn@example.com,John,Smith\n";
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "participants-template.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleBulkUpload() {
+    const source = csvFile ?? csvText;
+    if (!csvFile && !csvText.trim()) {
+      toast.error("Paste CSV text or select a file.");
+      return;
+    }
+    const parsed = await parseCsvToParticipants(source);
 
     const result = await bulkInviteParticipants(campaignId, parsed);
 
@@ -200,6 +225,7 @@ export function CampaignParticipantManager({
     }
 
     setCsvText("");
+    setCsvFile(null);
     setShowBulk(false);
     router.refresh();
   }
@@ -441,23 +467,58 @@ export function CampaignParticipantManager({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showBulk} onOpenChange={setShowBulk}>
+      <Dialog open={showBulk} onOpenChange={(open) => { setShowBulk(open); if (!open) { setCsvText(""); setCsvFile(null); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Bulk Import Participants</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Paste CSV rows: <code>email, first_name, last_name</code> (one per line). First
-              name and last name are optional.
-            </p>
-            <textarea
-              value={csvText}
-              onChange={(event) => setCsvText(event.target.value)}
-              rows={8}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder={"jane@example.com, Jane, Doe\njohn@example.com, John, Smith"}
-            />
+            <div className="flex items-start justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                Upload a CSV file or paste rows with columns:{" "}
+                <code className="text-xs">email, first_name, last_name</code>. First name and last name are optional.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={downloadTemplate}
+                className="shrink-0 text-muted-foreground"
+              >
+                <Download className="size-3.5" />
+                Template
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-file">CSV file</Label>
+              <Input
+                id="bulk-file"
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setCsvFile(file);
+                  if (file) setCsvText("");
+                }}
+                className="cursor-pointer"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bulk-text">Or paste CSV text</Label>
+              <textarea
+                id="bulk-text"
+                value={csvText}
+                onChange={(event) => { setCsvText(event.target.value); if (event.target.value) setCsvFile(null); }}
+                rows={6}
+                className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                placeholder={"jane@example.com,Jane,Doe\njohn@example.com,John,Smith"}
+              />
+            </div>
+            {csvFile && (
+              <p className="text-sm text-muted-foreground">
+                File selected: <span className="font-medium">{csvFile.name}</span>
+              </p>
+            )}
             <Button onClick={handleBulkUpload} className="w-full">
               <Upload className="size-4" />
               Import Participants
