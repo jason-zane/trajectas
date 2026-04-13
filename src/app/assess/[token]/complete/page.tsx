@@ -1,4 +1,4 @@
-import { validateAccessToken } from "@/app/actions/assess";
+import { validateAccessToken, submitSession } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
@@ -33,6 +33,14 @@ export default async function CompletePage({
         );
         isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
       }
+    }
+    // Auto-submit any in-progress session — handles the case where the review
+    // page is disabled and submitSession was never triggered by review-screen.
+    const inProgressSession = result.data?.sessions?.find(
+      (s) => s.status === "in_progress",
+    );
+    if (inProgressSession) {
+      await submitSession(token, inProgressSession.id).catch(() => {});
     }
   } catch {
     // Use default brand if token validation fails
