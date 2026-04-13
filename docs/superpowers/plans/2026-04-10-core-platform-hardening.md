@@ -426,7 +426,7 @@ Or, better: don't sign URLs server-side at all. Pass snapshot IDs to the client 
 5. Async report generation UX: P2.8
 6. Builder workflow improvements: P2.9, P2.10
 
-**Status update (2026-04-11):** P2 implementation work is now in code. Any remaining unchecked items below are browser-level QA follow-ups, not missing engineering tasks.
+**Status update (2026-04-11):** P2 implementation work is now in code. Follow-on remediation for the assessment -> results -> report -> PDF path is tracked separately in [2026-04-13-assessment-results-report-pipeline-hardening.md](./2026-04-13-assessment-results-report-pipeline-hardening.md). Any remaining unchecked items below are browser-level QA follow-ups, not missing engineering tasks.
 
 ### P2.1 — Hide 360-dependent blocks from builder registry
 
