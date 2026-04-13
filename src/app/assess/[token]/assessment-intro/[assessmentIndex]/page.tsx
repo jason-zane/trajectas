@@ -36,7 +36,7 @@ export default async function AssessmentIntroPage({
 
   // Load experience + brand + campaign-level intro override in parallel.
   // Experience is needed for the post-sections URL and all three are independent.
-  const [experience, brandConfig, caRowResult] = await Promise.all([
+  const [experience, brandConfig, caRowResult, assessmentRowResult] = await Promise.all([
     getCachedEffectiveExperience(campaign.id),
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
     assessment
@@ -45,6 +45,13 @@ export default async function AssessmentIntroPage({
           .select("intro_override")
           .eq("campaign_id", campaign.id)
           .eq("assessment_id", assessment.assessmentId)
+          .single()
+      : Promise.resolve({ data: null }),
+    assessment
+      ? db
+          .from("assessments")
+          .select("intro_content")
+          .eq("id", assessment.assessmentId)
           .single()
       : Promise.resolve({ data: null }),
   ])
@@ -76,13 +83,7 @@ export default async function AssessmentIntroPage({
     buttonLabel = introOverride.buttonLabel
   } else {
     // Fall back to the assessment's own intro_content
-    const { data: assessmentRow } = await db
-      .from("assessments")
-      .select("intro_content")
-      .eq("id", assessment.assessmentId)
-      .single()
-
-    const introContent = assessmentRow?.intro_content as
+    const introContent = assessmentRowResult.data?.intro_content as
       | AssessmentIntroContent
       | null
       | undefined

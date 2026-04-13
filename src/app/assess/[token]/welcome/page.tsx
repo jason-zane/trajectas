@@ -25,12 +25,11 @@ export default async function WelcomePage({
 
   const { campaign, participant, assessments, sessions } = result.data!;
 
-  // Load brand config for the campaign's client
-  const brandConfig = await getCachedEffectiveBrand(campaign.clientId, campaign.id);
+  const [brandConfig, experience] = await Promise.all([
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveExperience(campaign.id),
+  ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
-
-  // Load experience template
-  const experience = await getCachedEffectiveExperience(campaign.id);
   const rawContent = getPageContent(experience, "welcome");
 
   // Interpolate template variables

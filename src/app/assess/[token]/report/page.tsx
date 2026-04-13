@@ -24,24 +24,23 @@ export default async function ReportPage({
     redirect("/assess/expired");
   }
 
-  const { campaign, participant } = result.data!;
-  const latestCompletedSession = [...result.data!.sessions]
+  const { campaign, participant, sessions } = result.data!;
+  const latestCompletedSession = [...sessions]
     .filter((session) => session.status === "completed")
     .sort((left, right) => {
       const leftTime = Date.parse(left.completedAt ?? left.startedAt ?? "0");
       const rightTime = Date.parse(right.completedAt ?? right.startedAt ?? "0");
       return rightTime - leftTime;
     })[0];
-  const experience = await getCachedEffectiveExperience(campaign.id);
+  const [experience, brandConfig, snapshot] = await Promise.all([
+    getCachedEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+    getParticipantReportSnapshot(token),
+  ]);
 
   if (!isPageEnabled(experience, "report")) {
     redirect(`/assess/${token}/complete`);
   }
-
-  const [brandConfig, snapshot] = await Promise.all([
-    getCachedEffectiveBrand(campaign.clientId, campaign.id),
-    getParticipantReportSnapshot(token),
-  ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const sessionProcessingActive = isSessionProcessingActive(
     latestCompletedSession?.processingStatus,

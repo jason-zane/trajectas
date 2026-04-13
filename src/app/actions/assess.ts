@@ -161,7 +161,11 @@ async function validateAccessTokenImpl(
 
   const participant = mapCampaignParticipantRow(participantRow)
 
-  const [{ data: campaignRow, error: campaignErr }, { data: sessionRows, error: sessionRowsError }] =
+  const [
+    { data: campaignRow, error: campaignErr },
+    { data: sessionRows, error: sessionRowsError },
+    { data: caRows, error: campaignAssessmentsError },
+  ] =
     await Promise.all([
       db
         .from('campaigns')
@@ -173,6 +177,11 @@ async function validateAccessTokenImpl(
         .from('participant_sessions')
         .select('*')
         .eq('campaign_participant_id', participant.id),
+      db
+        .from('campaign_assessments')
+        .select('*, assessments(id, title, description, assessment_sections(count))')
+        .eq('campaign_id', participant.campaignId)
+        .order('display_order', { ascending: true }),
     ])
 
   if (campaignErr || !campaignRow) {
@@ -194,13 +203,6 @@ async function validateAccessTokenImpl(
   if (participantAccessError) {
     return { error: participantAccessError.replace(/\.$/, "") }
   }
-
-  // Load campaign assessments
-  const { data: caRows, error: campaignAssessmentsError } = await db
-    .from('campaign_assessments')
-    .select('*, assessments(id, title, description, assessment_sections(count))')
-    .eq('campaign_id', campaign.id)
-    .order('display_order', { ascending: true })
 
   if (campaignAssessmentsError) {
     logActionError('validateAccessToken.campaignAssessments', campaignAssessmentsError)
