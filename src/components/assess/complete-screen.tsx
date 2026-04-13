@@ -173,17 +173,15 @@ export function CompleteScreen({
             <div className="flex justify-center">
               <Button
                 size="lg"
-                asChild
+                render={<Link href={nextUrl} />}
                 className="min-w-[200px] gap-1.5"
                 style={{
                   background: "var(--brand-primary, hsl(var(--primary)))",
                   color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
                 }}
               >
-                <Link href={nextUrl}>
-                  Continue
-                  <ArrowRight className="size-4" />
-                </Link>
+                Continue
+                <ArrowRight className="size-4" />
               </Button>
             </div>
           )}
