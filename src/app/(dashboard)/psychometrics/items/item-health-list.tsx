@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
+import { useVirtualList } from "@/hooks/use-virtual-list"
 import { Info, ChevronDown, Search, X } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -320,6 +321,7 @@ function ItemHealthCard({ row, index }: { row: ItemHealthRow; index: number }) {
 export function ItemHealthList({ items }: { items: ItemHealthRow[] }) {
   const [searchQuery, setSearchQuery] = useState("")
   const [healthFilter, setHealthFilter] = useState<HealthFilter>("all")
+  const VIRTUAL_THRESHOLD = 40
 
   const enriched = useMemo(
     () =>
@@ -357,6 +359,12 @@ export function ItemHealthList({ items }: { items: ItemHealthRow[] }) {
   }, [enriched, healthFilter, searchQuery])
 
   const hasFilters = searchQuery !== "" || healthFilter !== "all"
+  const isVirtual = filtered.length > VIRTUAL_THRESHOLD
+
+  const { virtualItems, totalSize, virtualizer } = useVirtualList({
+    count: isVirtual ? filtered.length : 0,
+    estimateSize: () => 160,
+  })
 
   function clearFilters() {
     setSearchQuery("")
@@ -452,6 +460,19 @@ export function ItemHealthList({ items }: { items: ItemHealthRow[] }) {
               Clear all filters
             </Button>
           )}
+        </div>
+      ) : isVirtual ? (
+        <div style={{ height: totalSize, position: "relative" }}>
+          {virtualItems.map((vItem) => (
+            <div
+              key={vItem.key}
+              data-index={vItem.index}
+              ref={virtualizer.measureElement}
+              style={{ position: "absolute", top: vItem.start, left: 0, right: 0, paddingBottom: "12px" }}
+            >
+              <ItemHealthCard row={filtered[vItem.index]} index={0} />
+            </div>
+          ))}
         </div>
       ) : (
         <div className="grid gap-3">
