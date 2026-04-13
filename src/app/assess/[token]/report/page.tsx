@@ -10,6 +10,7 @@ import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { ReportScreen } from "@/components/assess/report-screen";
 import type { TemplateVariables, ReportContent } from "@/lib/experience/types";
+import { isSessionProcessingActive } from "@/lib/assess/session-processing";
 
 export default async function ReportPage({
   params,
@@ -24,6 +25,13 @@ export default async function ReportPage({
   }
 
   const { campaign, participant } = result.data!;
+  const latestCompletedSession = [...result.data!.sessions]
+    .filter((session) => session.status === "completed")
+    .sort((left, right) => {
+      const leftTime = Date.parse(left.completedAt ?? left.startedAt ?? "0");
+      const rightTime = Date.parse(right.completedAt ?? right.startedAt ?? "0");
+      return rightTime - leftTime;
+    })[0];
   const experience = await getCachedEffectiveExperience(campaign.id);
 
   if (!isPageEnabled(experience, "report")) {
@@ -35,8 +43,18 @@ export default async function ReportPage({
     getParticipantReportSnapshot(token),
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
+  const sessionProcessingActive = isSessionProcessingActive(
+    latestCompletedSession?.processingStatus,
+  );
+  const effectiveReportStatus =
+    snapshot?.status ??
+    (latestCompletedSession?.processingStatus === "failed" ? "failed" : undefined);
+  const effectiveReportError =
+    snapshot?.errorMessage ?? latestCompletedSession?.processingError;
   const shouldAutoRefresh =
-    snapshot?.status === "pending" || snapshot?.status === "generating";
+    snapshot?.status === "pending" ||
+    snapshot?.status === "generating" ||
+    (!snapshot && sessionProcessingActive);
 
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {
@@ -74,8 +92,8 @@ export default async function ReportPage({
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
         renderedData={snapshot?.renderedData}
-        reportStatus={snapshot?.status}
-        reportError={snapshot?.errorMessage}
+        reportStatus={effectiveReportStatus}
+        reportError={effectiveReportError}
         autoRefresh={shouldAutoRefresh}
       />
     </>

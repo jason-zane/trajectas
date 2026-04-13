@@ -246,6 +246,17 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       error_message: null,
     }).eq('id', snapshotId)
 
+    if (snapshot.audienceType === 'participant') {
+      await db
+        .from('participant_sessions')
+        .update({
+          processing_status: 'ready',
+          processing_error: null,
+          processed_at: generatedAt,
+        })
+        .eq('id', snapshot.participantSessionId)
+    }
+
     try {
       await enqueueReportSnapshotEvent({
         snapshotId,
@@ -263,10 +274,27 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[runner] processSnapshot failed for ${snapshotId}:`, message)
+    const { data: failedSnapshot } = await db
+      .from('report_snapshots')
+      .select('participant_session_id, audience_type')
+      .eq('id', snapshotId)
+      .maybeSingle()
+
     await db.from('report_snapshots').update({
       status: 'failed',
       error_message: message,
     }).eq('id', snapshotId)
+
+    if (failedSnapshot?.audience_type === 'participant') {
+      await db
+        .from('participant_sessions')
+        .update({
+          processing_status: 'failed',
+          processing_error: message,
+          processed_at: null,
+        })
+        .eq('id', failedSnapshot.participant_session_id)
+    }
   }
 }
 

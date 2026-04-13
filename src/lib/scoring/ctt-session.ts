@@ -40,7 +40,9 @@ interface FactorConstructLink {
  * @param sessionId - The participant session to score.
  * @returns Object with success flag or error message.
  */
-export async function scoreSessionCTT(sessionId: string): Promise<{ success?: true; error?: string }> {
+export async function scoreSessionCTT(
+  sessionId: string,
+): Promise<{ success: true; scoreCount: number } | { error: string }> {
   const db = createAdminClient()
 
   // 1. Get session metadata
@@ -61,7 +63,9 @@ export async function scoreSessionCTT(sessionId: string): Promise<{ success?: tr
     .eq('session_id', sessionId)
 
   if (respErr) return { error: respErr.message }
-  if (!responseRows || responseRows.length === 0) return { success: true }
+  if (!responseRows || responseRows.length === 0) {
+    return { error: 'No responses were recorded for this session' }
+  }
 
   const responses: ResponseRow[] = responseRows
 
@@ -113,7 +117,9 @@ export async function scoreSessionCTT(sessionId: string): Promise<{ success?: tr
     .eq('assessment_id', session.assessment_id)
 
   const factorIds = (assessmentFactors ?? []).map((af) => af.factor_id)
-  if (factorIds.length === 0) return { success: true }
+  if (factorIds.length === 0) {
+    return { error: 'No assessment factors are configured for this assessment' }
+  }
 
   const { data: fcRows, error: fcErr } = await db
     .from('factor_constructs')
@@ -202,7 +208,9 @@ export async function scoreSessionCTT(sessionId: string): Promise<{ success?: tr
     })
   }
 
-  if (factorScores.length === 0) return { success: true }
+  if (factorScores.length === 0) {
+    return { error: 'No factor scores could be calculated for this assessment' }
+  }
 
   // 8. Upsert into participant_scores
   const scoreRows = factorScores.map((fs) => ({
@@ -219,5 +227,5 @@ export async function scoreSessionCTT(sessionId: string): Promise<{ success?: tr
 
   if (upsertErr) return { error: upsertErr.message }
 
-  return { success: true }
+  return { success: true, scoreCount: factorScores.length }
 }

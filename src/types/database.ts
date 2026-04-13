@@ -85,6 +85,15 @@ export type ParticipantSessionStatus =
   | 'completed'
   | 'expired'
 
+/** Processing lifecycle for work performed after a session is submitted. */
+export type ParticipantSessionProcessingStatus =
+  | 'idle'
+  | 'scoring'
+  | 'scored'
+  | 'reporting'
+  | 'ready'
+  | 'failed'
+
 /** Execution status for an AI-driven competency-matching run. */
 export type MatchingRunStatus = 'pending' | 'running' | 'completed' | 'failed'
 
@@ -1080,10 +1089,16 @@ export interface ParticipantSession {
   participantProfileId: string
   /** Current session progress status. */
   status: ParticipantSessionStatus
+  /** Downstream processing state after submission. */
+  processingStatus: ParticipantSessionProcessingStatus
+  /** Most recent downstream processing error. */
+  processingError?: string
   /** ISO-8601 timestamp when the participant started the assessment. */
   startedAt?: string
   /** ISO-8601 timestamp when the session was completed or expired. */
   completedAt?: string
+  /** ISO-8601 timestamp when downstream processing last reached a ready state. */
+  processedAt?: string
   /** Browser / OS information captured at session start. */
   userAgent?: string
   /** Client IP address captured at session start. */

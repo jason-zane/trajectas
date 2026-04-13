@@ -21,10 +21,14 @@ import {
   mapCampaignAssessmentRow,
 } from '@/lib/supabase/mappers'
 import { enqueueAssessmentCompletedEvent } from '@/lib/integrations/events'
+import type { SubmitSessionResult } from '@/lib/assess/session-processing'
 import type {
   Campaign,
   CampaignParticipant,
   CampaignAssessment,
+  ParticipantSessionProcessingStatus,
+  ReportAudienceType,
+  ReportSnapshotStatus,
   ReportPdfStatus,
 } from '@/types/database'
 
@@ -43,10 +47,13 @@ export type SessionForRunner = {
   id: string
   assessmentId: string
   status: string
+  processingStatus: ParticipantSessionProcessingStatus
+  processingError?: string
   currentSectionId?: string
   currentItemIndex: number
   startedAt?: string
   completedAt?: string
+  processedAt?: string
 }
 
 export type TokenValidationResult = {
@@ -118,6 +125,18 @@ type AssessmentSectionRow = {
   allow_back_nav: boolean
   response_formats: AssessmentSectionResponseFormatRow
   assessment_section_items: AssessmentSectionItemRow[] | null
+}
+
+type CampaignReportConfigRow = {
+  participant_template_id: string | null
+  hr_manager_template_id: string | null
+  consultant_template_id: string | null
+}
+
+type SnapshotStatusRow = {
+  id: string
+  audience_type: ReportAudienceType
+  status: ReportSnapshotStatus
 }
 
 // ---------------------------------------------------------------------------
@@ -206,10 +225,13 @@ async function validateAccessTokenImpl(
     id: s.id,
     assessmentId: s.assessment_id,
     status: s.status,
+    processingStatus: (s.processing_status ?? 'idle') as ParticipantSessionProcessingStatus,
+    processingError: s.processing_error ?? undefined,
     currentSectionId: s.current_section_id ?? undefined,
     currentItemIndex: s.current_item_index ?? 0,
     startedAt: s.started_at ?? undefined,
     completedAt: s.completed_at ?? undefined,
+    processedAt: s.processed_at ?? undefined,
   }))
 
   return {
@@ -265,6 +287,7 @@ export async function startSession(
       campaign_id: campaignId,
       campaign_participant_id: campaignParticipantId,
       status: 'in_progress',
+      processing_status: 'idle',
       started_at: new Date().toISOString(),
     })
     .select('id')
@@ -697,6 +720,236 @@ export async function updateSessionProgressLite(
 
 const ASSESSMENT_PROCESSING_ERROR =
   'We saved your answers, but couldn’t finish processing your assessment. Please try again in a moment.'
+const REPORT_PROCESSING_ERROR =
+  'We saved your answers and calculated your scores, but couldn’t start preparing your report. Please try again in a moment.'
+
+async function ensureReportSnapshotsForSession(input: {
+  sessionId: string
+  campaignId: string
+}): Promise<
+  | {
+      hasParticipantReport: boolean
+      participantSnapshotStatus: ReportSnapshotStatus | null
+      hasPendingSnapshotWork: boolean
+    }
+  | { error: string }
+> {
+  const db = createAdminClient()
+  const { data: config, error: configError } = await db
+    .from('campaign_report_config')
+    .select(
+      'participant_template_id, hr_manager_template_id, consultant_template_id',
+    )
+    .eq('campaign_id', input.campaignId)
+    .maybeSingle()
+
+  if (configError) {
+    logActionError('submitSession.reportConfig', configError)
+    return { error: 'Unable to load this campaign report configuration' }
+  }
+
+  const typedConfig = config as CampaignReportConfigRow | null
+  if (!typedConfig) {
+    return {
+      hasParticipantReport: false,
+      participantSnapshotStatus: null,
+      hasPendingSnapshotWork: false,
+    }
+  }
+
+  const desiredSnapshots: Array<{
+    audienceType: ReportAudienceType
+    templateId: string
+  }> = [
+    {
+      audienceType: 'participant' as const,
+      templateId: typedConfig.participant_template_id ?? '',
+    },
+    {
+      audienceType: 'hr_manager' as const,
+      templateId: typedConfig.hr_manager_template_id ?? '',
+    },
+    {
+      audienceType: 'consultant' as const,
+      templateId: typedConfig.consultant_template_id ?? '',
+    },
+  ].filter((row) => row.templateId.length > 0)
+
+  if (desiredSnapshots.length === 0) {
+    return {
+      hasParticipantReport: false,
+      participantSnapshotStatus: null,
+      hasPendingSnapshotWork: false,
+    }
+  }
+
+  const { data: existingRows, error: existingError } = await db
+    .from('report_snapshots')
+    .select('id, audience_type, status')
+    .eq('participant_session_id', input.sessionId)
+
+  if (existingError) {
+    logActionError('submitSession.reportSnapshots.fetch', existingError)
+    return { error: 'Unable to inspect the current report state' }
+  }
+
+  const existingByAudience = new Map<ReportAudienceType, SnapshotStatusRow>()
+  for (const row of (existingRows ?? []) as SnapshotStatusRow[]) {
+    existingByAudience.set(row.audience_type, row)
+  }
+
+  let hasPendingSnapshotWork = false
+  let participantSnapshotStatus: ReportSnapshotStatus | null = null
+
+  for (const desired of desiredSnapshots) {
+    const existing = existingByAudience.get(desired.audienceType)
+
+    if (!existing) {
+      const { data: inserted, error: insertError } = await db
+        .from('report_snapshots')
+        .insert({
+          campaign_id: input.campaignId,
+          participant_session_id: input.sessionId,
+          template_id: desired.templateId,
+          audience_type: desired.audienceType,
+          narrative_mode: 'derived',
+          status: 'pending',
+        })
+        .select('id, audience_type, status')
+        .single()
+
+      if (insertError || !inserted) {
+        logActionError('submitSession.reportSnapshots.insert', insertError)
+        return { error: 'Unable to prepare this report right now' }
+      }
+
+      existingByAudience.set(
+        desired.audienceType,
+        inserted as SnapshotStatusRow,
+      )
+      hasPendingSnapshotWork = true
+    } else if (existing.status === 'failed') {
+      const { error: resetError } = await db
+        .from('report_snapshots')
+        .update({
+          status: 'pending',
+          error_message: null,
+          generated_at: null,
+          released_at: null,
+          rendered_data: null,
+          pdf_url: null,
+          pdf_status: null,
+          pdf_error_message: null,
+        })
+        .eq('id', existing.id)
+
+      if (resetError) {
+        logActionError('submitSession.reportSnapshots.reset', resetError)
+        return { error: 'Unable to retry this report right now' }
+      }
+
+      existing.status = 'pending'
+      hasPendingSnapshotWork = true
+    } else if (existing.status === 'pending') {
+      hasPendingSnapshotWork = true
+    }
+
+    if (desired.audienceType === 'participant') {
+      participantSnapshotStatus =
+        existingByAudience.get('participant')?.status ?? null
+    }
+  }
+
+  return {
+    hasParticipantReport: Boolean(typedConfig.participant_template_id),
+    participantSnapshotStatus,
+    hasPendingSnapshotWork,
+  }
+}
+
+async function markParticipantSessionProcessing(
+  sessionId: string,
+  update: {
+    status: ParticipantSessionProcessingStatus
+    error?: string | null
+    processedAt?: string | null
+  },
+): Promise<boolean> {
+  const db = createAdminClient()
+  const { error } = await db
+    .from('participant_sessions')
+    .update({
+      processing_status: update.status,
+      processing_error:
+        update.error === undefined ? undefined : update.error,
+      processed_at:
+        update.processedAt === undefined ? undefined : update.processedAt,
+    })
+    .eq('id', sessionId)
+
+  if (error) {
+    logActionError('submitSession.processingState', error)
+    return false
+  }
+
+  return true
+}
+
+async function getExistingCompletedSessionOutcome(
+  sessionId: string,
+): Promise<SubmitSessionResult> {
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('report_snapshots')
+    .select('status')
+    .eq('participant_session_id', sessionId)
+    .eq('audience_type', 'participant')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    logActionError('submitSession.reportSnapshots.outcome', error)
+    return {
+      ok: false,
+      error: 'report_failed',
+      message: REPORT_PROCESSING_ERROR,
+    }
+  }
+
+  if (!data) {
+    return {
+      ok: true,
+      outcome: 'completed_no_report',
+      sessionId,
+      processingStatus: 'ready',
+    }
+  }
+
+  if (data.status === 'failed') {
+    return {
+      ok: false,
+      error: 'report_failed',
+      message: REPORT_PROCESSING_ERROR,
+    }
+  }
+
+  if (data.status === 'ready' || data.status === 'released') {
+    return {
+      ok: true,
+      outcome: 'ready',
+      sessionId,
+      processingStatus: 'ready',
+    }
+  }
+
+  return {
+    ok: true,
+    outcome: 'report_pending',
+    sessionId,
+    processingStatus: 'reporting',
+  }
+}
 
 async function finalizeCompletedSessionProcessing(input: {
   sessionId: string
@@ -705,11 +958,48 @@ async function finalizeCompletedSessionProcessing(input: {
   assessmentId: string | null
   completedAt: string
   emitAssessmentCompletedEvent: boolean
-}) {
+}): Promise<SubmitSessionResult> {
+  const scoringStateSet = await markParticipantSessionProcessing(input.sessionId, {
+    status: 'scoring',
+    error: null,
+    processedAt: null,
+  })
+
+  if (!scoringStateSet) {
+    return {
+      ok: false,
+      error: 'submit_failed',
+      message: 'Unable to update this assessment state right now',
+    }
+  }
+
   const scoringResult = await scoreSessionCTT(input.sessionId)
-  if (scoringResult.error) {
+  if ('error' in scoringResult) {
     logActionError('submitSession.scoring', scoringResult.error)
-    return { error: ASSESSMENT_PROCESSING_ERROR }
+    await markParticipantSessionProcessing(input.sessionId, {
+      status: 'failed',
+      error: scoringResult.error,
+      processedAt: null,
+    })
+    return {
+      ok: false,
+      error: 'scoring_failed',
+      message: ASSESSMENT_PROCESSING_ERROR,
+    }
+  }
+
+  const scoredStateSet = await markParticipantSessionProcessing(input.sessionId, {
+    status: 'scored',
+    error: null,
+    processedAt: null,
+  })
+
+  if (!scoredStateSet) {
+    return {
+      ok: false,
+      error: 'submit_failed',
+      message: 'Unable to update this assessment state right now',
+    }
   }
 
   const db = createAdminClient()
@@ -759,18 +1049,137 @@ async function finalizeCompletedSessionProcessing(input: {
     }
   }
 
-  await triggerReportGeneration(input.sessionId)
+  let participantReportState:
+    | {
+        hasParticipantReport: boolean
+        participantSnapshotStatus: ReportSnapshotStatus | null
+        hasPendingSnapshotWork: boolean
+      }
+    | undefined
 
-  return { success: true as const }
+  if (input.campaignId) {
+    const snapshotState = await ensureReportSnapshotsForSession({
+      sessionId: input.sessionId,
+      campaignId: input.campaignId,
+    })
+
+    if ('error' in snapshotState) {
+      await markParticipantSessionProcessing(input.sessionId, {
+        status: 'failed',
+        error: snapshotState.error,
+        processedAt: null,
+      })
+      return {
+        ok: false,
+        error: 'report_failed',
+        message: REPORT_PROCESSING_ERROR,
+      }
+    }
+
+    participantReportState = snapshotState
+
+    if (snapshotState.hasPendingSnapshotWork) {
+      const triggerResult = await triggerReportGeneration(input.sessionId)
+      if (!triggerResult.ok && snapshotState.hasParticipantReport) {
+        await markParticipantSessionProcessing(input.sessionId, {
+          status: 'failed',
+          error: triggerResult.error,
+          processedAt: null,
+        })
+        return {
+          ok: false,
+          error: 'report_failed',
+          message: REPORT_PROCESSING_ERROR,
+        }
+      }
+    }
+  }
+
+  if (!participantReportState?.hasParticipantReport) {
+    const readyStateSet = await markParticipantSessionProcessing(input.sessionId, {
+      status: 'ready',
+      error: null,
+      processedAt: new Date().toISOString(),
+    })
+
+    if (!readyStateSet) {
+      return {
+        ok: false,
+        error: 'submit_failed',
+        message: 'Unable to update this assessment state right now',
+      }
+    }
+
+    return {
+      ok: true,
+      outcome: 'completed_no_report',
+      sessionId: input.sessionId,
+      processingStatus: 'ready',
+    }
+  }
+
+  if (
+    participantReportState.participantSnapshotStatus === 'ready' ||
+    participantReportState.participantSnapshotStatus === 'released'
+  ) {
+    const readyStateSet = await markParticipantSessionProcessing(input.sessionId, {
+      status: 'ready',
+      error: null,
+      processedAt: new Date().toISOString(),
+    })
+
+    if (!readyStateSet) {
+      return {
+        ok: false,
+        error: 'submit_failed',
+        message: 'Unable to update this assessment state right now',
+      }
+    }
+
+    return {
+      ok: true,
+      outcome: 'ready',
+      sessionId: input.sessionId,
+      processingStatus: 'ready',
+    }
+  }
+
+  const reportingStateSet = await markParticipantSessionProcessing(input.sessionId, {
+    status: 'reporting',
+    error: null,
+    processedAt: null,
+  })
+
+  if (!reportingStateSet) {
+    return {
+      ok: false,
+      error: 'submit_failed',
+      message: 'Unable to update this assessment state right now',
+    }
+  }
+
+  return {
+    ok: true,
+    outcome: 'report_pending',
+    sessionId: input.sessionId,
+    processingStatus: 'reporting',
+  }
 }
 
-export async function submitSession(token: string, sessionId: string) {
+export async function submitSession(
+  token: string,
+  sessionId: string,
+): Promise<SubmitSessionResult> {
   let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
   try {
     access = await requireParticipantRuntimeSessionAccess(token, sessionId)
   } catch (error) {
     if (error instanceof ParticipantRuntimeAccessError) {
-      return { error: error.message }
+      return {
+        ok: false,
+        error: 'invalid_access',
+        message: error.message,
+      }
     }
     throw error
   }
@@ -779,17 +1188,32 @@ export async function submitSession(token: string, sessionId: string) {
 
   const { data: session, error: fetchErr } = await db
     .from('participant_sessions')
-    .select('campaign_participant_id, assessment_id, campaign_id, status, completed_at')
+    .select(
+      'campaign_participant_id, assessment_id, campaign_id, status, completed_at, processing_status, processing_error',
+    )
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
     .single()
 
   if (fetchErr) {
     logActionError('submitSession.fetch', fetchErr)
-    return { error: 'Unable to submit this assessment right now' }
+    return {
+      ok: false,
+      error: 'submit_failed',
+      message: 'Unable to submit this assessment right now',
+    }
   }
 
-  // Guard: prevent duplicate submission (double-click, network retry)
+  if (
+    session.status === 'completed' &&
+    (session.processing_status === 'ready' ||
+      session.processing_status === 'reporting')
+  ) {
+    return getExistingCompletedSessionOutcome(sessionId)
+  }
+
+  // Guard: duplicate submission / retry should re-run processing if the session
+  // is complete but not yet ready.
   if (session.status === 'completed') {
     return finalizeCompletedSessionProcessing({
       sessionId,
@@ -809,6 +1233,9 @@ export async function submitSession(token: string, sessionId: string) {
     .update({
       status: 'completed',
       completed_at: completedAt,
+      processing_status: 'scoring',
+      processing_error: null,
+      processed_at: null,
     })
     .eq('id', sessionId)
     .eq('campaign_participant_id', access.participantId)
@@ -816,7 +1243,11 @@ export async function submitSession(token: string, sessionId: string) {
 
   if (updateErr) {
     logActionError('submitSession.update', updateErr)
-    return { error: 'Unable to submit this assessment right now' }
+    return {
+      ok: false,
+      error: 'submit_failed',
+      message: 'Unable to submit this assessment right now',
+    }
   }
 
   return finalizeCompletedSessionProcessing({
@@ -830,17 +1261,18 @@ export async function submitSession(token: string, sessionId: string) {
 }
 
 /**
- * Fire-and-forget: trigger report generation for all pending snapshots
- * created by the DB trigger after session completion.
+ * Trigger report generation for any pending snapshots linked to a session.
  *
- * Uses internal API key to bypass admin auth since this runs in
- * participant context (no admin session).
+ * Uses the internal API key to bypass admin auth because this runs from the
+ * participant completion flow.
  */
-export async function triggerReportGeneration(sessionId: string): Promise<void> {
+export async function triggerReportGeneration(
+  sessionId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const apiKey = process.env.INTERNAL_API_KEY
   if (!apiKey) {
     console.warn('[reports] INTERNAL_API_KEY not set — skipping auto-generation')
-    return
+    return { ok: false, error: 'Report generation is not configured right now' }
   }
 
   try {
@@ -862,9 +1294,16 @@ export async function triggerReportGeneration(sessionId: string): Promise<void> 
       }
       throw new Error(payload.error ?? 'Auto-generation trigger failed')
     }
+    return { ok: true }
   } catch (error) {
-    // Non-fatal — snapshots remain pending for manual retry
     console.error('[reports] Auto-generation trigger failed:', error)
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Auto-generation trigger failed',
+    }
   }
 }
 
