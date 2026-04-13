@@ -67,13 +67,15 @@ A dedicated page for the campaign→session entry point. URL pattern: `/campaign
 
 **No generate dialog.** No audience selector. No narrative mode selector at runtime.
 
+**Empty state:** If the campaign has no templates configured in `campaign_report_config`, the reports section shows an empty state message — e.g. "No report templates configured for this campaign" — with a link to the campaign settings page where templates can be assigned. This prevents confusion when a session is complete but no reports appear.
+
 ### 3. Auto-Generation on Session Completion
 
-When a participant session completes, the system automatically queues report snapshot generation for every template configured on that campaign. This is triggered server-side on session completion — no admin action required.
+Auto-generation on session completion **already exists** in the `submitSession` server action (`src/app/actions/assess.ts`). When a session is submitted, the action reads `campaign_report_config` for all configured template slots, creates `report_snapshots` rows with `status: 'pending'`, and queues generation. The manual generate dialog was a parallel path sitting alongside this — it is now being removed; the auto path becomes the only path.
 
-If auto-generation fails (e.g. AI error, timeout), the row shows a "Retry" affordance. This is the exception path, not the primary flow.
+`audienceType` is derived from which slot in `campaign_report_config` the template occupies (participant / hr_manager / consultant). `narrativeMode` is always `'derived'` in the auto path — `ai_enhanced` was only accessible via the manual dialog being removed. No schema changes required.
 
-`audienceType` and `narrativeMode` are read from the campaign's report template configuration, not supplied at generation time.
+If auto-generation fails, the row shows a **Retry** action. Retry re-triggers the existing generation job with the same parameters (template from campaign config, audience from slot, `narrativeMode: 'derived'`). No dialog — it is a single click.
 
 ### 4. Report Page (web view)
 
