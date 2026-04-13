@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import { ForceLightTheme } from "@/components/assess/force-light-theme";
 import type { BrandConfig } from "@/lib/brand/types";
 
 interface AssessLayoutProps {
@@ -32,10 +33,8 @@ export default async function AssessLayout({ children }: AssessLayoutProps) {
   // will override with org-specific tokens via inline style when needed.
   const brandConfig: BrandConfig = await getCachedEffectiveBrand();
 
-  const { css: lightCss } = generateCSSTokens(brandConfig);
-  const darkCss = brandConfig.darkModeEnabled
-    ? generateDarkCSSTokens(brandConfig)
-    : "";
+  // Assessment runner is always light mode — never emit dark CSS tokens.
+  const { css: brandCss } = generateCSSTokens(brandConfig);
 
   // Build Google Fonts URL for custom fonts
   const fontsUrl = buildGoogleFontsUrl([
@@ -43,9 +42,6 @@ export default async function AssessLayout({ children }: AssessLayoutProps) {
     brandConfig.bodyFont,
     brandConfig.monoFont,
   ]);
-
-  // CSS is generated server-side from trusted brand config, not user HTML
-  const brandCss = `${lightCss}\n${darkCss}`;
 
   return (
     <>
@@ -55,6 +51,7 @@ export default async function AssessLayout({ children }: AssessLayoutProps) {
       {/* Load custom Google Fonts if needed */}
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
+      <ForceLightTheme />
       <div
         className="flex min-h-dvh flex-col"
         style={{

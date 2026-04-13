@@ -8,7 +8,7 @@ import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getPageContent } from "@/lib/experience/resolve";
 import { getPostSectionsUrl } from "@/lib/experience/flow-router";
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
@@ -130,11 +130,7 @@ export default async function SectionPage({
   }
 
   // Generate org-specific CSS tokens
-  const { css: lightCss } = generateCSSTokens(brandConfig);
-  const darkCss = brandConfig.darkModeEnabled
-    ? generateDarkCSSTokens(brandConfig)
-    : "";
-  const brandCss = `${lightCss}\n${darkCss}`;
+  const { css: brandCss } = generateCSSTokens(brandConfig);
 
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,
