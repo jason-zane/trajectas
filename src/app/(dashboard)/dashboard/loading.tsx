@@ -22,7 +22,7 @@ export default function DashboardLoading() {
           <div
             key={i}
             className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/[0.06]"
-            style={{ animationDelay: `${i * 80}ms` }}
+            style={{ animationDelay: `${i * 60}ms` }}
           >
             <div className="flex items-start justify-between">
               <div className="space-y-2">
@@ -43,7 +43,7 @@ export default function DashboardLoading() {
             <div
               key={i}
               className="rounded-xl bg-card p-4 shadow-sm ring-1 ring-foreground/[0.06]"
-              style={{ animationDelay: `${(i + 6) * 80}ms` }}
+              style={{ animationDelay: `${(i + 6) * 60}ms` }}
             >
               <div className="flex items-center gap-4">
                 <Skeleton className="size-11 rounded-xl shrink-0" />

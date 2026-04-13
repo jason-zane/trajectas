@@ -9,15 +9,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AutoSaveIndicator } from "@/components/auto-save-indicator";
+import { SectionCard } from "@/components/section-card";
+import { SaveButton, type SaveState } from "@/components/save-button";
+import {
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { slugify } from "@/lib/utils";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useAutoSave } from "@/hooks/use-auto-save";
 import {
@@ -26,17 +28,6 @@ import {
   updatePartner,
 } from "@/app/actions/partners";
 import type { Partner } from "@/types/database";
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-type SaveState = "idle" | "saving" | "saved";
 
 /**
  * Build a minimal FormData from the current partner + overridden fields.
@@ -151,7 +142,7 @@ export function PartnerDetailsForm({ partner }: { partner: Partner }) {
           ? (errors as Record<string, string[]>)._form?.[0]
           : Object.values(errors).flat().join(", ");
       setError(msg ?? "Validation failed");
-      setSaveState("idle");
+      setSaveState("error");
       return;
     }
 
@@ -242,145 +233,137 @@ export function PartnerDetailsForm({ partner }: { partner: Partner }) {
 
       {/* ── Profile Card (Zone 2 + Zone 3 description) ── */}
       <form action={handleSubmit}>
-        <Card>
-          <CardHeader>
-            <CardTitle>Profile</CardTitle>
-            <CardDescription>
-              Core partner identity and contact information.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {error && (
-              <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                value={name}
-                onChange={handleNameChange}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="slug">Slug</Label>
-              <Input
-                id="slug"
-                name="slug"
-                value={slug}
-                onChange={handleSlugChange}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="description">Description</Label>
-                <AutoSaveIndicator
-                  status={description.status}
-                  onRetry={description.retry}
-                />
-              </div>
-              <Textarea
-                id="description"
-                rows={3}
-                placeholder="A brief description of this partner..."
-                value={description.value}
-                onChange={description.handleChange}
-                onBlur={description.handleBlur}
-                className="resize-none"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="website">Website</Label>
-              <Input
-                id="website"
-                name="website"
-                type="url"
-                placeholder="https://example.com"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail">Contact Email</Label>
-              <Input
-                id="contactEmail"
-                name="contactEmail"
-                type="email"
-                placeholder="contact@partner.com"
-                value={contactEmail}
-                onChange={(e) => setContactEmail(e.target.value)}
-              />
-            </div>
-
-            {/* Hidden inputs so auto-save fields survive form submission */}
-            <input type="hidden" name="isActive" value={String(isActive)} />
-            <input
-              type="hidden"
-              name="description"
-              value={description.value}
+        <SectionCard
+          title="Profile"
+          description="Core partner identity and contact information."
+          footer={
+            <SaveButton
+              state={saveState}
+              onClick={(e) => {
+                e.preventDefault();
+                const form = (e.target as HTMLElement).closest("form");
+                if (form) {
+                  const submitEvent = new Event("submit", { bubbles: true });
+                  form.dispatchEvent(submitEvent);
+                }
+              }}
+              disabled={!name.trim()}
             />
-            <input type="hidden" name="notes" value={notes.value} />
-
-            <div className="flex justify-end pt-2">
-              <Button type="submit" disabled={!name.trim() || pending}>
-                {pending
-                  ? "Saving..."
-                  : saveState === "saved"
-                    ? "Saved"
-                    : "Save Changes"}
-              </Button>
+          }
+        >
+          {error && (
+            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="name">Name</Label>
+            <Input
+              id="name"
+              name="name"
+              value={name}
+              onChange={handleNameChange}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="slug">Slug</Label>
+            <Input
+              id="slug"
+              name="slug"
+              value={slug}
+              onChange={handleSlugChange}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">Description</Label>
+              <AutoSaveIndicator
+                status={description.status}
+                onRetry={description.retry}
+              />
+            </div>
+            <Textarea
+              id="description"
+              rows={3}
+              placeholder="A brief description of this partner..."
+              value={description.value}
+              onChange={description.handleChange}
+              onBlur={description.handleBlur}
+              className="resize-none"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="website">Website</Label>
+            <Input
+              id="website"
+              name="website"
+              type="url"
+              placeholder="https://example.com"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="contactEmail">Contact Email</Label>
+            <Input
+              id="contactEmail"
+              name="contactEmail"
+              type="email"
+              placeholder="contact@partner.com"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+            />
+          </div>
+
+          {/* Hidden inputs so auto-save fields survive form submission */}
+          <input type="hidden" name="isActive" value={String(isActive)} />
+          <input
+            type="hidden"
+            name="description"
+            value={description.value}
+          />
+          <input type="hidden" name="notes" value={notes.value} />
+        </SectionCard>
       </form>
 
       {/* ── Notes Card (Zone 3 auto-save) ── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Internal Notes</CardTitle>
-              <CardDescription>
-                Notes visible only to platform administrators.
-              </CardDescription>
-            </div>
-            <AutoSaveIndicator
-              status={notes.status}
-              onRetry={notes.retry}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            id="notes"
-            rows={4}
-            placeholder="Add internal notes about this partner..."
-            value={notes.value}
-            onChange={notes.handleChange}
-            onBlur={notes.handleBlur}
-            className="resize-none"
+      <SectionCard
+        title="Internal Notes"
+        description="Notes visible only to platform administrators."
+        action={
+          <AutoSaveIndicator
+            status={notes.status}
+            onRetry={notes.retry}
           />
-        </CardContent>
-      </Card>
+        }
+      >
+        <Textarea
+          id="notes"
+          rows={4}
+          placeholder="Add internal notes about this partner..."
+          value={notes.value}
+          onChange={notes.handleChange}
+          onBlur={notes.handleBlur}
+          className="resize-none"
+        />
+      </SectionCard>
 
       {/* ── Danger Zone Card ── */}
-      <Card className="border-destructive/30">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="size-4 text-destructive" />
-            <CardTitle>Danger Zone</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
+      <SectionCard
+        title="Danger Zone"
+        className="border-destructive/30"
+        action={
+          <AlertTriangle className="size-4 text-destructive" />
+        }
+      >
+        <div className="space-y-6">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-0.5">
               <Label htmlFor="active">Active</Label>
@@ -419,8 +402,8 @@ export function PartnerDetailsForm({ partner }: { partner: Partner }) {
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SectionCard>
 
       {/* ── Dialogs ── */}
       <ConfirmDialog

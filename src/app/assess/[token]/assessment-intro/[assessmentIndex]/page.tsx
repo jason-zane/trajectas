@@ -6,6 +6,7 @@ import { validateAccessToken } from "@/app/actions/assess"
 import { getCachedEffectiveBrand } from "@/app/actions/brand"
 import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
+import { getPageContent } from "@/lib/experience/resolve"
 import { interpolateContent } from "@/lib/experience/interpolate"
 import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
@@ -99,6 +100,7 @@ export default async function AssessmentIntroPage({
   }
 
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name
+  const runnerFooterText = getPageContent(experience, "runner").footerText
 
   // Interpolate template variables
   const variables: TemplateVariables = {
@@ -252,7 +254,7 @@ export default async function AssessmentIntroPage({
             }}
           >
             {isCustomBrand
-              ? "Powered by Trajectas"
+              ? (runnerFooterText ?? "Powered by Trajectas")
               : "Your responses are confidential"}
           </span>
         </footer>

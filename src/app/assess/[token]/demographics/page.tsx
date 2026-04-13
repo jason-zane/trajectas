@@ -43,11 +43,16 @@ export default async function DemographicsPage({
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "demographics");
+  const rawRunnerContent = getPageContent(experience, "runner");
   const variables: TemplateVariables = {
     participantName: participant.firstName,
     campaignTitle: campaign.title,
   };
-  const content = interpolateContent(rawContent, variables);
+  const interpolated = interpolateContent(rawContent, variables);
+  const content = {
+    ...interpolated,
+    footerText: interpolated.footerText ?? rawRunnerContent.footerText,
+  };
   const fields = experience.demographicsConfig.fields;
 
   const { css: lightCss } = generateCSSTokens(brandConfig);

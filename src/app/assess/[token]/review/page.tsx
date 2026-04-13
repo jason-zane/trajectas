@@ -49,11 +49,16 @@ export default async function ReviewPage({
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "review");
+  const rawRunnerContent = getPageContent(experience, "runner");
   const variables: TemplateVariables = {
     campaignTitle: campaign.title,
     clientName: undefined,
   };
-  const content = interpolateContent(rawContent, variables);
+  const interpolated = interpolateContent(rawContent, variables);
+  const content = {
+    ...interpolated,
+    footerText: interpolated.footerText ?? rawRunnerContent.footerText,
+  };
 
   // Server-generated CSS from trusted DB brand config
   const { css: lightCss } = generateCSSTokens(brandConfig);

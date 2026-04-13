@@ -31,6 +31,7 @@ export default async function WelcomePage({
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "welcome");
+  const rawRunnerContent = getPageContent(experience, "runner");
 
   // Interpolate template variables
   const variables: TemplateVariables = {
@@ -40,7 +41,11 @@ export default async function WelcomePage({
     assessmentCount: assessments.length,
     clientName: undefined,
   };
-  const content = interpolateContent(rawContent, variables);
+  const interpolated = interpolateContent(rawContent, variables);
+  const content = {
+    ...interpolated,
+    footerText: interpolated.footerText ?? rawRunnerContent.footerText,
+  };
 
   // Generate org-specific CSS tokens (server-generated from trusted DB brand config)
   const { css: lightCss } = generateCSSTokens(brandConfig);

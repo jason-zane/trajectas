@@ -125,7 +125,7 @@ describe("table navigation and actions", () => {
 
     expect(screen.getByRole("link", { name: "Open Alliance" })).toHaveAttribute(
       "href",
-      "/partners/alliance/edit"
+      "/partners/alliance/overview"
     );
     expect(screen.getByRole("button", { name: "Open actions for Alliance" })).toBeVisible();
   });
