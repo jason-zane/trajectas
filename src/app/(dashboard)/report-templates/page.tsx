@@ -7,7 +7,7 @@ export default async function ReportTemplatesPage() {
   const templates = await getReportTemplates()
 
   return (
-    <div className="flex flex-col gap-8 p-6">
+    <div className="flex flex-col gap-8 p-6 max-w-6xl">
       <PageHeader
         eyebrow="Assessments"
         title="Report Templates"

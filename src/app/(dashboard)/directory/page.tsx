@@ -56,7 +56,7 @@ export default async function DirectoryPage({
   ]);
 
   return (
-    <div className="max-w-5xl space-y-8">
+    <div className="max-w-6xl space-y-8">
       <PageHeader
         title="Directory"
         description="Manage partner firms and client accounts from one place."

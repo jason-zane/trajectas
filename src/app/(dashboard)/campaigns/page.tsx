@@ -15,7 +15,7 @@ export default async function CampaignsPage() {
   ]);
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-6xl">
       <PageHeader
         eyebrow="Campaigns"
         title="Campaigns"

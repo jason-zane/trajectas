@@ -9,7 +9,7 @@ export default async function GeneratePage() {
   const runs = await getGenerationRuns();
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-6xl">
       <PageHeader
         eyebrow="Library"
         title="Item Generator"

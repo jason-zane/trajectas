@@ -19,7 +19,7 @@ export default async function DiagnosticTemplatesPage() {
   const templates = await getDiagnosticTemplates();
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-6xl">
       <PageHeader
         title="Diagnostic Templates"
         description="Templates define the structure of a diagnostic survey — which dimensions are measured and how."

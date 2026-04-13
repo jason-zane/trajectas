@@ -20,7 +20,7 @@ export default async function AssessmentsPage({
   ]);
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 max-w-6xl">
       <PageHeader
         eyebrow="Assessments"
         title="Assessments"
