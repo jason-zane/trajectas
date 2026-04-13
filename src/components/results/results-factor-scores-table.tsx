@@ -30,6 +30,24 @@ const STATUS_VARIANT: Record<
   failed: "destructive",
 };
 
+const PDF_STATUS_VARIANT: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  queued: "secondary",
+  generating: "secondary",
+  ready: "default",
+  failed: "destructive",
+};
+
+function pdfStatusLabel(status: string): string {
+  if (status === "queued") return "PDF queued";
+  if (status === "generating") return "PDF generating";
+  if (status === "ready") return "PDF ready";
+  if (status === "failed") return "PDF failed";
+  return status;
+}
+
 function bandToneClass(band: CampaignFactorScoreRow["factors"][number]["band"]) {
   if (band === "high") {
     return "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100";
@@ -118,11 +136,27 @@ export function ResultsFactorScoresTable({
               <TableCell>
                 <div className="flex flex-col items-start gap-2">
                   {row.reportStatus ? (
-                    <Badge variant={STATUS_VARIANT[row.reportStatus] ?? "outline"}>
-                      {row.reportStatus}
-                    </Badge>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={STATUS_VARIANT[row.reportStatus] ?? "outline"}>
+                        {row.reportStatus}
+                      </Badge>
+                      {row.reportPdfStatus && (
+                        <Badge
+                          variant={
+                            PDF_STATUS_VARIANT[row.reportPdfStatus] ?? "outline"
+                          }
+                        >
+                          {pdfStatusLabel(row.reportPdfStatus)}
+                        </Badge>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-sm text-muted-foreground">Not generated</span>
+                  )}
+                  {row.reportPdfStatus === "failed" && row.reportPdfErrorMessage && (
+                    <p className="text-xs text-destructive">
+                      {row.reportPdfErrorMessage}
+                    </p>
                   )}
                   {row.reportSnapshotId &&
                     (row.reportStatus === "ready" || row.reportStatus === "released") && (

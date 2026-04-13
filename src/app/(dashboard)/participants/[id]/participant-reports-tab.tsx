@@ -31,6 +31,23 @@ const statusLabel: Record<string, string> = {
   failed: "Failed",
 };
 
+const pdfStatusVariant: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  queued: "secondary",
+  generating: "secondary",
+  ready: "default",
+  failed: "destructive",
+};
+
+const pdfStatusLabel: Record<string, string> = {
+  queued: "PDF queued",
+  generating: "PDF generating",
+  ready: "PDF ready",
+  failed: "PDF failed",
+};
+
 function relativeTime(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
@@ -86,6 +103,14 @@ export function ParticipantReportsTab({
                 >
                   {statusLabel[snapshot.status] ?? snapshot.status}
                 </Badge>
+                {snapshot.pdfStatus && (
+                  <Badge
+                    variant={pdfStatusVariant[snapshot.pdfStatus] ?? "secondary"}
+                    className="text-xs shrink-0"
+                  >
+                    {pdfStatusLabel[snapshot.pdfStatus] ?? snapshot.pdfStatus}
+                  </Badge>
+                )}
                 <span className="text-xs text-muted-foreground">
                   {snapshot.narrativeMode === "ai_enhanced"
                     ? "AI Enhanced"
@@ -94,6 +119,11 @@ export function ParticipantReportsTab({
                 <span className="text-xs text-muted-foreground">
                   {relativeTime(snapshot.created_at)}
                 </span>
+                {snapshot.pdfStatus === "failed" && snapshot.pdfErrorMessage && (
+                  <span className="text-xs text-destructive">
+                    {snapshot.pdfErrorMessage}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <Button
