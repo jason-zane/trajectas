@@ -4,6 +4,7 @@ import { WorkspaceShell } from "@/components/workspace-shell";
 import { SessionActivityProvider } from "@/components/auth/session-activity-provider";
 import { SessionExpiryWarning } from "@/components/auth/session-expiry-warning";
 import { getWorkspaceBootstrap } from "@/lib/auth/workspace-bootstrap";
+import { SentryUserContext } from "@/components/sentry-user-context";
 
 export const metadata: Metadata = {
   robots: {
@@ -25,6 +26,9 @@ export default async function ClientLayout({
 
   return (
     <SessionActivityProvider>
+      {bootstrap.actor && (
+        <SentryUserContext userId={bootstrap.actor.id} email={bootstrap.actor.email} />
+      )}
       <SessionExpiryWarning />
       <WorkspaceShell bootstrap={bootstrap}>{children}</WorkspaceShell>
     </SessionActivityProvider>

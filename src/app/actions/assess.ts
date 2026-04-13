@@ -1,5 +1,6 @@
 'use server'
 
+import * as Sentry from '@sentry/nextjs'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logReportViewed } from '@/lib/auth/support-sessions'
@@ -1299,6 +1300,7 @@ export async function triggerReportGeneration(
     return { ok: true }
   } catch (error) {
     console.error('[reports] Auto-generation trigger failed:', error)
+    Sentry.captureException(error, { extra: { context: 'triggerReportGeneration', sessionId } })
     return {
       ok: false,
       error:

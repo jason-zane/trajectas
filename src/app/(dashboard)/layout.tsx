@@ -5,6 +5,7 @@ import { SessionExpiryWarning } from "@/components/auth/session-expiry-warning";
 import { EmptyState } from "@/components/empty-state";
 import { WorkspaceShell } from "@/components/workspace-shell";
 import { getWorkspaceBootstrap } from "@/lib/auth/workspace-bootstrap";
+import { SentryUserContext } from "@/components/sentry-user-context";
 
 export const metadata: Metadata = {
   robots: {
@@ -38,6 +39,9 @@ export default async function DashboardLayout({
 
   return (
     <SessionActivityProvider>
+      {bootstrap.actor && (
+        <SentryUserContext userId={bootstrap.actor.id} email={bootstrap.actor.email} />
+      )}
       <SessionExpiryWarning />
       <WorkspaceShell bootstrap={bootstrap}>{children}</WorkspaceShell>
     </SessionActivityProvider>
