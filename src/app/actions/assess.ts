@@ -1445,16 +1445,22 @@ export async function registerViaLink(
     return { error: 'This campaign is not currently accepting registrations' }
   }
 
-  // Create or find participant
+  // Find the most recent non-completed participant for this email.
+  // If one exists (registered or in_progress), return their token so they can
+  // resume. Completed participants are intentionally excluded so the same
+  // email can start a fresh attempt (the DB unique constraint was dropped in
+  // allow_repeat_campaign_invites to support this).
   const { data: existing } = await db
     .from('campaign_participants')
-    .select('id, access_token')
+    .select('id, access_token, status')
     .eq('campaign_id', link.campaign_id)
     .eq('email', email.toLowerCase())
-    .single()
+    .not('status', 'eq', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   if (existing) {
-    // Already registered — return their token
     return { accessToken: existing.access_token }
   }
 
