@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { saveConsent } from "@/app/actions/experience";
@@ -103,7 +103,7 @@ export function ConsentScreen({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-6">
+        <div className="w-full max-w-[540px] space-y-8">
           {/* Eyebrow + Title */}
           <div className="space-y-3 text-center">
             {content.eyebrow && (
@@ -117,7 +117,7 @@ export function ConsentScreen({
               </p>
             )}
             <h1
-              className="text-2xl font-semibold tracking-tight sm:text-3xl"
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -129,10 +129,11 @@ export function ConsentScreen({
 
           {/* Body content card */}
           <div
-            className="rounded-2xl border p-6 shadow-sm dark:shadow-none"
+            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none"
             style={{
               background: "var(--brand-neutral-50, hsl(var(--card)))",
               borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
+              borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
             }}
           >
             <div
@@ -159,10 +160,10 @@ export function ConsentScreen({
                 if (line.startsWith("- ")) {
                   return (
                     <div key={idx} className="flex items-start gap-2 ml-1 mb-1">
-                      <span
-                        className="mt-1.5 size-1.5 shrink-0 rounded-full"
+                      <Check
+                        className="mt-0.5 size-4 shrink-0"
                         style={{
-                          background:
+                          color:
                             "var(--brand-primary, hsl(var(--primary)))",
                         }}
                       />

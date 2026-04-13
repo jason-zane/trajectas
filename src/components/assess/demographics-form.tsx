@@ -140,7 +140,7 @@ export function DemographicsForm({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-6">
+        <div className="w-full max-w-[540px] space-y-8">
           {/* Title */}
           <div className="space-y-3 text-center">
             {content.eyebrow && (
@@ -154,7 +154,7 @@ export function DemographicsForm({
               </p>
             )}
             <h1
-              className="text-2xl font-semibold tracking-tight sm:text-3xl"
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -176,9 +176,10 @@ export function DemographicsForm({
           {/* Form */}
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl border p-6 shadow-sm dark:shadow-none space-y-4"
+            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none space-y-4"
             style={{
               borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
+              borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
               background: "var(--brand-neutral-50, hsl(var(--card)))",
             }}
           >

@@ -123,10 +123,10 @@ export function JoinForm({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-6">
+        <div className="w-full max-w-[540px] space-y-8">
           <div className="space-y-2 text-center">
             <h1
-              className="text-2xl font-semibold tracking-tight"
+              className="text-3xl sm:text-4xl font-semibold tracking-tight"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -147,10 +147,11 @@ export function JoinForm({
 
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl border p-6 shadow-sm dark:shadow-none space-y-4"
+            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none space-y-4"
             style={{
               borderColor:
                 "var(--brand-neutral-200, hsl(var(--border)))",
+              borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
               background:
                 "var(--brand-neutral-50, hsl(var(--card)))",
             }}
