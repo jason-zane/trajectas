@@ -2,14 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 
+import { bulkDeleteParticipants, bulkUpdateParticipantStatus } from "@/app/actions/participants";
 import type { ParticipantWithMeta } from "@/app/actions/participants";
 import {
   DataTable,
   DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
+  type BulkAction,
 } from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -194,6 +196,29 @@ function ParticipantRowActions({ participant }: { participant: ParticipantTableR
   );
 }
 
+const bulkActions: BulkAction<ParticipantTableRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteParticipants(ids);
+    },
+  },
+  {
+    label: "Mark Completed",
+    action: async (ids) => {
+      await bulkUpdateParticipantStatus(ids, "completed");
+    },
+  },
+  {
+    label: "Withdraw",
+    action: async (ids) => {
+      await bulkUpdateParticipantStatus(ids, "withdrawn");
+    },
+  },
+];
+
 export function ParticipantsTable({
   participants,
 }: {
@@ -236,6 +261,9 @@ export function ParticipantsTable({
       defaultSort={{ id: "lastActivity", desc: true }}
       rowHref={(row) => `/participants/${row.id}`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

@@ -6,8 +6,9 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { deleteAssessment } from "@/app/actions/assessments";
+import { deleteAssessment, bulkDeleteAssessments, bulkUpdateAssessmentStatus } from "@/app/actions/assessments";
 import type { AssessmentWithMeta } from "@/app/actions/assessments";
+import type { BulkAction } from "@/components/data-table";
 import {
   DataTable,
   DataTableActionsMenu,
@@ -140,6 +141,23 @@ function AssessmentRowActions({ assessment }: { assessment: AssessmentWithMeta }
   );
 }
 
+const bulkActions: BulkAction<AssessmentWithMeta>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteAssessments(ids);
+    },
+  },
+  {
+    label: "Archive",
+    action: async (ids) => {
+      await bulkUpdateAssessmentStatus(ids, "archived");
+    },
+  },
+];
+
 export function AssessmentsDataTable({
   assessments,
 }: {
@@ -165,6 +183,9 @@ export function AssessmentsDataTable({
       defaultSort={{ id: "title", desc: false }}
       rowHref={(row) => `/assessments/${row.id}/edit`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

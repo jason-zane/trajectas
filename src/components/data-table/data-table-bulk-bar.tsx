@@ -2,6 +2,7 @@
 "use client";
 
 import { type ReactNode, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ export function DataTableBulkBar<TData>({
   actions,
   onClear,
 }: DataTableBulkBarProps<TData>) {
+  const router = useRouter();
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -36,6 +38,7 @@ export function DataTableBulkBar<TData>({
     startTransition(async () => {
       try {
         await bulkAction.action(selectedIds, selectedRows);
+        router.refresh();
       } catch (err) {
         toast.error(
           err instanceof Error ? err.message : "Action failed. Please try again."

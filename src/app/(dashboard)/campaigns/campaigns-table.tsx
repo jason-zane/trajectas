@@ -6,8 +6,9 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 
-import { deleteCampaign } from "@/app/actions/campaigns";
+import { deleteCampaign, bulkDeleteCampaigns, bulkUpdateCampaignStatus } from "@/app/actions/campaigns";
 import type { CampaignWithMeta } from "@/app/actions/campaigns";
+import type { BulkAction } from "@/components/data-table";
 import {
   DataTable,
   DataTableActionsMenu,
@@ -228,6 +229,23 @@ const statusFilter = [
   { label: "Archived", value: "archived" },
 ];
 
+const bulkActions: BulkAction<CampaignWithMeta>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteCampaigns(ids);
+    },
+  },
+  {
+    label: "Archive",
+    action: async (ids) => {
+      await bulkUpdateCampaignStatus(ids, "archived");
+    },
+  },
+];
+
 export function CampaignsTable({ campaigns }: { campaigns: CampaignWithMeta[] }) {
   return (
     <DataTable
@@ -245,6 +263,9 @@ export function CampaignsTable({ campaigns }: { campaigns: CampaignWithMeta[] })
       defaultSort={{ id: "dateRange", desc: true }}
       rowHref={(row) => `/campaigns/${row.id}/overview`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }
