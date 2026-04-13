@@ -524,7 +524,11 @@ export function QuickLaunchModal({
                     }
                   >
                     <SelectTrigger id="ql-client">
-                      <SelectValue placeholder="Select a client" />
+                      <SelectValue>
+                        {clients.find((c) => c.id === state.clientId)?.name ?? (
+                          <span className="text-muted-foreground">Select a client</span>
+                        )}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {clients.length === 0 ? (
