@@ -186,7 +186,7 @@ export function ReviewScreen({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px] space-y-6">
+        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px] space-y-8">
           {/* Assessment label */}
           {/* Review eyebrow */}
           <p
@@ -293,10 +293,12 @@ export function ReviewScreen({
                 return (
                   <div
                     key={section.id}
-                    className="flex items-center gap-3 rounded-xl border px-4 py-3 ml-6"
+                    className="flex items-center gap-3 rounded-xl border border-l-2 px-4 py-3 pl-4"
                     style={{
                       borderColor:
                         "var(--brand-neutral-200, hsl(var(--border)))",
+                      borderLeftColor:
+                        "var(--brand-neutral-300, hsl(var(--border)))",
                       background: "transparent",
                     }}
                   >
