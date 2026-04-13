@@ -1026,3 +1026,67 @@ export async function generateReportSnapshot(input: {
 
   return { success: true, snapshotId: String(snapshotRow.id) }
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions — report templates
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteReportTemplates(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('report_templates')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
+}
+
+export async function bulkSetReportTemplateActive(ids: string[], active: boolean): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('report_templates')
+    .update({ is_active: active })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/report-templates')
+  revalidatePath('/partner/report-templates')
+}
+
+// ---------------------------------------------------------------------------
+// Bulk actions — reports
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteReports(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('report_snapshots')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/reports')
+  revalidatePath('/participants')
+}
+
+export async function bulkUpdateReportStatus(ids: string[], status: string): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('report_snapshots')
+    .update({ status })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/reports')
+  revalidatePath('/participants')
+}

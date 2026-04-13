@@ -1339,3 +1339,33 @@ export async function getExistingBlocks(assessmentId: string): Promise<ExistingF
       })),
   }))
 }
+
+export async function bulkDeleteAssessments(ids: string[]) {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessments')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+
+  if (error) return { error: error.message }
+  revalidateAssessmentPaths()
+}
+
+export async function bulkUpdateAssessmentStatus(ids: string[], status: string) {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessments')
+    .update({ status })
+    .in('id', ids)
+
+  if (error) return { error: error.message }
+  revalidateAssessmentPaths()
+}

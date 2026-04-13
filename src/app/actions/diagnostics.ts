@@ -530,3 +530,33 @@ export async function getTemplatesForSelect(): Promise<SelectOption[]> {
   if (error) throw new Error(error.message)
   return data ?? []
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteDiagnosticSessions(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('diagnostic_sessions')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/diagnostics')
+}
+
+export async function bulkUpdateDiagnosticSessionStatus(ids: string[], status: string): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('diagnostic_sessions')
+    .update({ status })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/diagnostics')
+}

@@ -1,5 +1,6 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError, requireCampaignAccess } from '@/lib/auth/authorization'
@@ -537,4 +538,22 @@ function mapCampaignSessionRows(data: CampaignSessionLookupRow[]): CampaignSessi
       attemptNumber,
     }
   })
+}
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteParticipantSessions(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  // Hard delete with cascade through responses and reports
+  const { error } = await db
+    .from('participant_sessions')
+    .delete()
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/participants')
 }

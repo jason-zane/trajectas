@@ -751,3 +751,33 @@ export async function revokeClientInvite(
   revalidatePath(`/clients`)
   return { success: true as const }
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteClients(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('clients')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/directory')
+}
+
+export async function bulkUpdateClientStatus(ids: string[], status: 'active' | 'inactive'): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('clients')
+    .update({ status })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/directory')
+}

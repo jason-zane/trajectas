@@ -1557,3 +1557,35 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
     }
   })
 }
+
+export async function bulkDeleteCampaigns(ids: string[]) {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaigns')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+
+  if (error) return { error: error.message }
+  revalidatePath('/campaigns')
+  revalidatePath('/')
+}
+
+export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaigns')
+    .update({ status })
+    .in('id', ids)
+
+  if (error) return { error: error.message }
+  revalidatePath('/campaigns')
+  revalidatePath('/')
+}

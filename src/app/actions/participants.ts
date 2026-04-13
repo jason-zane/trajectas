@@ -1,6 +1,8 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthorizationError,
   getAccessibleCampaignIds,
@@ -504,4 +506,37 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
   }
 
   return groups
+}
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_participants')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/participants')
+}
+
+export async function bulkUpdateParticipantStatus(
+  ids: string[],
+  status: CampaignParticipantStatus
+): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_participants')
+    .update({ status })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/participants')
 }

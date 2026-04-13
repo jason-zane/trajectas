@@ -790,3 +790,33 @@ export async function unassignClientFromPartner(clientId: string) {
   revalidateDirectoryPaths()
   return { success: true as const }
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeletePartners(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('partners')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidateDirectoryPaths()
+}
+
+export async function bulkArchivePartners(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('partners')
+    .update({ status: 'archived' })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidateDirectoryPaths()
+}

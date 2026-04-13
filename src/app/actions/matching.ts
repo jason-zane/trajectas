@@ -1,6 +1,8 @@
 'use server'
 
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 
@@ -212,4 +214,21 @@ export async function getSessionsForMatchingSelect(clientId?: string): Promise<{
           ? row.name
           : 'Untitled session',
   }))
+}
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteMatchingRuns(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { error } = await db
+    .from('matching_runs')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/matching')
 }

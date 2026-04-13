@@ -905,3 +905,31 @@ export async function resendInvite(inviteId: string): Promise<
     };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteUsers(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  await requireAdminScope()
+  const db = createAdminClient()
+  const { error } = await db
+    .from('profiles')
+    .update({ deleted_at: new Date().toISOString() })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/users')
+}
+
+export async function bulkUpdateUserStatus(ids: string[], status: 'active' | 'inactive'): Promise<void> {
+  if (ids.length === 0) return
+  await requireAdminScope()
+  const db = createAdminClient()
+  const { error } = await db
+    .from('profiles')
+    .update({ status })
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/users')
+}

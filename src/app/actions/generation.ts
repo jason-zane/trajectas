@@ -1102,3 +1102,25 @@ export async function suggestConstructRefinements(params: {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Bulk actions
+// ---------------------------------------------------------------------------
+
+export async function bulkDeleteGenerationRuns(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  await requireAdminScope()
+  const db = createAdminClient()
+  // Delete child rows first, then parent (hard delete, no soft-delete column)
+  const { error: itemsError } = await db
+    .from('generated_items')
+    .delete()
+    .in('generation_run_id', ids)
+  if (itemsError) throw new Error(itemsError.message)
+  const { error } = await db
+    .from('generation_runs')
+    .delete()
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  revalidatePath('/generate')
+}
