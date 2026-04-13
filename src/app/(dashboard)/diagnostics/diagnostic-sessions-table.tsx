@@ -1,9 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { Trash2 } from "lucide-react";
 
+import { bulkDeleteDiagnosticSessions, bulkUpdateDiagnosticSessionStatus } from "@/app/actions/diagnostics";
 import type { DiagnosticSessionWithMeta } from "@/app/actions/diagnostics";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { DataTable, DataTableColumnHeader, type BulkAction } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 
 const STATUS_META: Record<
@@ -36,6 +38,23 @@ function formatRelativeDate(value: string) {
     year: "numeric",
   });
 }
+
+const bulkActions: BulkAction<DiagnosticSessionWithMeta>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteDiagnosticSessions(ids);
+    },
+  },
+  {
+    label: "Archive",
+    action: async (ids) => {
+      await bulkUpdateDiagnosticSessionStatus(ids, "archived");
+    },
+  },
+];
 
 const columns: ColumnDef<DiagnosticSessionWithMeta>[] = [
   {
@@ -127,6 +146,9 @@ export function DiagnosticSessionsTable({
       defaultSort={{ id: "created_at", desc: true }}
       rowHref={(row) => `/diagnostics/${row.id}`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

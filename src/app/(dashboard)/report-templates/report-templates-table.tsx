@@ -6,13 +6,14 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { Copy, ExternalLink, LayoutTemplate, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { cloneReportTemplate, deleteReportTemplate } from "@/app/actions/reports";
+import { cloneReportTemplate, deleteReportTemplate, bulkDeleteReportTemplates, bulkSetReportTemplateActive } from "@/app/actions/reports";
 import type { ReportTemplate } from "@/types/database";
 import {
   DataTable,
   DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
+  type BulkAction,
 } from "@/components/data-table";
 import { CreateTemplateButton } from "./create-template-button";
 import { Badge } from "@/components/ui/badge";
@@ -188,6 +189,23 @@ function ReportTemplateRowActions({
   );
 }
 
+const bulkActions: BulkAction<ReportTemplateRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteReportTemplates(ids);
+    },
+  },
+  {
+    label: "Deactivate",
+    action: async (ids) => {
+      await bulkSetReportTemplateActive(ids, false);
+    },
+  },
+];
+
 export function ReportTemplatesTable({
   templates,
   basePath = "/report-templates",
@@ -209,6 +227,9 @@ export function ReportTemplatesTable({
       defaultSort={{ id: "name", desc: false }}
       rowHref={(row) => `${basePath}/${row.id}/builder`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
       emptyState={
         <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
           <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary">

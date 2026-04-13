@@ -1,10 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Trash2, XCircle } from "lucide-react";
 
+import { bulkDeleteMatchingRuns } from "@/app/actions/matching";
 import type { MatchingRunWithMeta } from "@/app/actions/matching";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { DataTable, DataTableColumnHeader, type BulkAction } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 
 const STATUS_CONFIG: Record<
@@ -41,6 +42,17 @@ function formatRelativeDate(value: string) {
     year: "numeric",
   });
 }
+
+const bulkActions: BulkAction<MatchingRunWithMeta>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteMatchingRuns(ids);
+    },
+  },
+];
 
 const columns: ColumnDef<MatchingRunWithMeta>[] = [
   {
@@ -117,6 +129,9 @@ export function MatchingRunsTable({ runs }: { runs: MatchingRunWithMeta[] }) {
       ]}
       defaultSort={{ id: "created_at", desc: true }}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

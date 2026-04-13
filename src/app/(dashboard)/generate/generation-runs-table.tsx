@@ -1,9 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { Trash2 } from "lucide-react";
 
+import { bulkDeleteGenerationRuns } from "@/app/actions/generation";
 import type { GenerationRunWithConstructNames } from "@/app/actions/generation";
-import { DataTable, DataTableColumnHeader, DataTableRowActions } from "@/components/data-table";
+import { DataTable, DataTableColumnHeader, DataTableRowActions, type BulkAction } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { DeleteRunButton } from "./delete-run-button";
 import type { GenerationRunStatus } from "@/types/database";
@@ -52,6 +54,17 @@ function formatRunTitle(names: string[]) {
   if (names.length <= 3) return names.join(", ");
   return `${names[0]}, ${names[1]} +${names.length - 2}`;
 }
+
+const bulkActions: BulkAction<GenerationRunRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteGenerationRuns(ids);
+    },
+  },
+];
 
 const columns: ColumnDef<GenerationRunRow>[] = [
   {
@@ -151,6 +164,9 @@ export function GenerationRunsTable({
       defaultSort={{ id: "created_at", desc: true }}
       rowHref={(row) => `/generate/${row.id}`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

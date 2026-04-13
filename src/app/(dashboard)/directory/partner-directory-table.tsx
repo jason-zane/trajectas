@@ -3,16 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Archive, ExternalLink, RotateCcw } from "lucide-react";
+import { Archive, ExternalLink, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { deletePartner, restorePartner } from "@/app/actions/partners";
+import { deletePartner, restorePartner, bulkDeletePartners, bulkArchivePartners } from "@/app/actions/partners";
 import type { PartnerWithCounts } from "@/app/actions/partners";
 import {
   DataTable,
   DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
+  type BulkAction,
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -29,6 +30,23 @@ function getStatus(partner: PartnerWithCounts): DirectoryPartnerRow["status"] {
 
   return partner.isActive ? "active" : "inactive";
 }
+
+const bulkActions: BulkAction<DirectoryPartnerRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeletePartners(ids);
+    },
+  },
+  {
+    label: "Archive",
+    action: async (ids) => {
+      await bulkArchivePartners(ids);
+    },
+  },
+];
 
 const columns: ColumnDef<DirectoryPartnerRow>[] = [
   {
@@ -178,6 +196,9 @@ export function PartnerDirectoryTable({
       defaultSort={{ id: "name", desc: false }}
       rowHref={(row) => `/partners/${row.slug}/overview`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

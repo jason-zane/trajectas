@@ -1,23 +1,24 @@
-import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+"use client";
+
+import type { ColumnDef } from "@tanstack/react-table";
+import { ExternalLink, Trash2 } from "lucide-react";
+
+import { bulkDeleteParticipantSessions } from "@/app/actions/sessions";
+import type { ParticipantSession } from "@/app/actions/participants";
+import { DataTable, DataTableColumnHeader, DataTableRowLink, type BulkAction } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { LocalTime } from "@/components/local-time";
 import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing";
-import type { ParticipantSession } from "@/app/actions/participants";
 
 interface ParticipantSessionsPanelProps {
   sessions: ParticipantSession[];
   sessionBaseHref: string;
 }
+
+type SessionRow = ParticipantSession & {
+  attemptNumber: number;
+};
 
 function statusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
   if (status === "completed") return "default";
@@ -52,6 +53,115 @@ function computeAttempts(sessions: ParticipantSession[]): Map<string, number> {
   return attempts;
 }
 
+function getColumns(sessionBaseHref: string): ColumnDef<SessionRow>[] {
+  return [
+    {
+      accessorKey: "assessmentTitle",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Assessment" />
+      ),
+      cell: ({ row }) => (
+        <DataTableRowLink
+          href={`${sessionBaseHref}/${row.original.id}`}
+          ariaLabel={`Open session for ${row.original.assessmentTitle}`}
+        >
+          <span className="font-medium hover:text-primary">
+            {row.original.assessmentTitle}
+          </span>
+        </DataTableRowLink>
+      ),
+    },
+    {
+      accessorKey: "attemptNumber",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Attempt" />
+      ),
+      cell: ({ row }) => (
+        <span className="tabular-nums text-sm text-muted-foreground">
+          #{row.original.attemptNumber}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Status" />
+      ),
+      cell: ({ row }) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={statusVariant(row.original.status)}>
+            {row.original.status}
+          </Badge>
+          {row.original.status === "completed" && (
+            <Badge variant={processingVariant(row.original.processingStatus)}>
+              {getSessionProcessingStatusLabel(row.original.processingStatus)}
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "startedAt",
+      accessorFn: (row) => row.startedAt ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Started" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          <LocalTime iso={row.original.startedAt} format="date-time" />
+        </span>
+      ),
+    },
+    {
+      id: "completedAt",
+      accessorFn: (row) => row.completedAt ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Completed" />
+      ),
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          <LocalTime iso={row.original.completedAt} format="date-time" />
+        </span>
+      ),
+    },
+    {
+      id: "scores",
+      accessorFn: (row) => row.scores?.length ?? 0,
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Scores" />
+      ),
+      cell: ({ row }) => (
+        <span className="tabular-nums text-sm text-muted-foreground">
+          {row.original.scores?.length ?? 0}
+        </span>
+      ),
+    },
+    {
+      id: "open",
+      enableSorting: false,
+      cell: ({ row }) => (
+        <a
+          href={`${sessionBaseHref}/${row.original.id}`}
+          className="text-muted-foreground hover:text-primary"
+        >
+          <ExternalLink className="size-4" />
+        </a>
+      ),
+    },
+  ];
+}
+
+const bulkActions: BulkAction<SessionRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteParticipantSessions(ids);
+    },
+  },
+];
+
 export function ParticipantSessionsPanel({
   sessions,
   sessionBaseHref,
@@ -67,68 +177,20 @@ export function ParticipantSessionsPanel({
   }
 
   const attempts = computeAttempts(sessions);
+  const rows: SessionRow[] = sessions.map((s) => ({
+    ...s,
+    attemptNumber: attempts.get(s.id) ?? 1,
+  }));
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Assessment</TableHead>
-            <TableHead>Attempt</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Started</TableHead>
-            <TableHead>Completed</TableHead>
-            <TableHead>Scores</TableHead>
-            <TableHead className="w-12"></TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sessions.map((session) => (
-            <TableRow key={session.id}>
-              <TableCell>
-                <Link
-                  href={`${sessionBaseHref}/${session.id}`}
-                  className="font-medium hover:text-primary transition-colors"
-                >
-                  {session.assessmentTitle}
-                </Link>
-              </TableCell>
-              <TableCell className="tabular-nums">
-                #{attempts.get(session.id) ?? 1}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={statusVariant(session.status)}>
-                    {session.status}
-                  </Badge>
-                  {session.status === "completed" && (
-                    <Badge variant={processingVariant(session.processingStatus)}>
-                      {getSessionProcessingStatusLabel(session.processingStatus)}
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
-                <LocalTime iso={session.startedAt} format="date-time" />
-              </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
-                <LocalTime iso={session.completedAt} format="date-time" />
-              </TableCell>
-              <TableCell className="tabular-nums">
-                {session.scores?.length ?? 0}
-              </TableCell>
-              <TableCell>
-                <Link
-                  href={`${sessionBaseHref}/${session.id}`}
-                  className="text-muted-foreground hover:text-primary"
-                >
-                  <ExternalLink className="size-4" />
-                </Link>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <DataTable
+      columns={getColumns(sessionBaseHref)}
+      data={rows}
+      defaultSort={{ id: "startedAt", desc: true }}
+      pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
+    />
   );
 }

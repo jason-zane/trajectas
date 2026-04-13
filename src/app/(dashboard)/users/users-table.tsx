@@ -4,16 +4,17 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, RotateCcw, X } from "lucide-react";
+import { ExternalLink, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { resendInvite, type UserListItem } from "@/app/actions/user-management";
+import { resendInvite, bulkDeleteUsers, bulkUpdateUserStatus, type UserListItem } from "@/app/actions/user-management";
 import { revokeInviteById, toggleUserActiveState } from "@/app/actions/staff-users";
 import {
   DataTable,
   DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
+  type BulkAction,
 } from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -60,6 +61,23 @@ const STATUS_DOT_CLASSES: Record<StatusKey, string> = {
   inactive: "bg-muted-foreground/50",
   pending: "bg-amber-500",
 };
+
+const bulkActions: BulkAction<UserTableRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteUsers(ids);
+    },
+  },
+  {
+    label: "Deactivate",
+    action: async (ids) => {
+      await bulkUpdateUserStatus(ids, "inactive");
+    },
+  },
+];
 
 function getInitials(value: string | null, fallbackEmail: string) {
   const source = value?.trim() || fallbackEmail;
@@ -496,6 +514,9 @@ export function UsersTable({ users }: { users: UserListItem[] }) {
           row.type === "profile" ? `/users/${row.id}` : `/users/invite/${row.id}`
         }
         pageSize={20}
+        enableRowSelection
+        getRowId={(row) => row.id}
+        bulkActions={bulkActions}
       />
     </div>
   );

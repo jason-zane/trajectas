@@ -3,16 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Archive, ExternalLink, RotateCcw } from "lucide-react";
+import { Archive, ExternalLink, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { deleteClient, restoreClient } from "@/app/actions/clients";
+import { deleteClient, restoreClient, bulkDeleteClients, bulkUpdateClientStatus } from "@/app/actions/clients";
 import type { ClientWithCounts } from "@/app/actions/clients";
 import {
   DataTable,
   DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
+  type BulkAction,
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -29,6 +30,23 @@ function getStatus(client: ClientWithCounts): DirectoryClientRow["status"] {
 
   return client.isActive ? "active" : "inactive";
 }
+
+const bulkActions: BulkAction<DirectoryClientRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteClients(ids);
+    },
+  },
+  {
+    label: "Deactivate",
+    action: async (ids) => {
+      await bulkUpdateClientStatus(ids, "inactive");
+    },
+  },
+];
 
 const columns: ColumnDef<DirectoryClientRow>[] = [
   {
@@ -207,6 +225,9 @@ export function ClientDirectoryTable({ clients }: { clients: ClientWithCounts[] 
       defaultSort={{ id: "name", desc: false }}
       rowHref={(row) => `/clients/${row.slug}/overview`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }

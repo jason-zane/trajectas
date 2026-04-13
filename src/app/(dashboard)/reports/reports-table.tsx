@@ -1,9 +1,11 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import { Trash2 } from "lucide-react";
 
+import { bulkDeleteReports, bulkUpdateReportStatus } from "@/app/actions/reports";
 import type { ReportSnapshotListItem } from "@/app/actions/reports";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { DataTable, DataTableColumnHeader, type BulkAction } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReportAudienceType, ReportSnapshotStatus } from "@/types/database";
@@ -70,6 +72,23 @@ function formatDateTime(value: string) {
     minute: "2-digit",
   });
 }
+
+const bulkActions: BulkAction<ReportTableRow>[] = [
+  {
+    label: "Delete",
+    variant: "destructive",
+    icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+    action: async (ids) => {
+      await bulkDeleteReports(ids);
+    },
+  },
+  {
+    label: "Release",
+    action: async (ids) => {
+      await bulkUpdateReportStatus(ids, "released");
+    },
+  },
+];
 
 const columns: ColumnDef<ReportTableRow>[] = [
   {
@@ -170,6 +189,9 @@ export function ReportsTable({
       defaultSort={{ id: "generated", desc: true }}
       rowHref={(row) => `/reports/${row.id}`}
       pageSize={20}
+      enableRowSelection
+      getRowId={(row) => row.id}
+      bulkActions={bulkActions}
     />
   );
 }
