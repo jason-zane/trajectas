@@ -4,12 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
+import { RouteTabs } from "@/components/route-tabs";
 import { usePortal } from "@/components/portal-context";
 import type { CampaignDetail } from "@/app/actions/campaigns";
 
-const allTabs = [
+const allTabs = (showAssessmentsAlert: boolean) => [
   { label: "Overview", segment: "overview" },
-  { label: "Assessments", segment: "assessments" },
+  {
+    label: "Assessments",
+    segment: "assessments",
+    badge: showAssessmentsAlert ? (
+      <>
+        <span aria-hidden="true" className="size-2 rounded-full bg-destructive" />
+        <span className="sr-only">No assessments attached</span>
+      </>
+    ) : undefined,
+  },
   { label: "Participants", segment: "participants" },
   { label: "Results", segment: "results" },
   { label: "Experience", segment: "experience" },
@@ -40,7 +50,8 @@ export function CampaignDetailShell({
   const pathname = usePathname();
   const { portal, href } = usePortal();
 
-  const tabs = allTabs.filter((tab) => {
+  const showAssessmentsAlert = campaign.assessments.length === 0;
+  const tabs = allTabs(showAssessmentsAlert).filter((tab) => {
     if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
       return false;
     }
@@ -51,7 +62,6 @@ export function CampaignDetailShell({
     tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
 
   const basePath = href(`/campaigns/${campaign.id}`);
-  const showAssessmentsAlert = campaign.assessments.length === 0;
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -65,38 +75,12 @@ export function CampaignDetailShell({
         </Badge>
       </PageHeader>
 
-      <nav className="flex gap-1 border-b border-border">
-        {tabs.map((tab) => {
-          const isActive = activeSegment === tab.segment;
-          return (
-            <Link
-              key={tab.segment}
-              href={`${basePath}/${tab.segment}`}
-              className={`px-4 py-2 text-sm font-medium transition-colors relative ${
-                isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                {tab.label}
-                {tab.segment === "assessments" && showAssessmentsAlert && (
-                  <>
-                    <span
-                      aria-hidden="true"
-                      className="size-2 rounded-full bg-destructive"
-                    />
-                    <span className="sr-only">No assessments attached</span>
-                  </>
-                )}
-              </span>
-              {isActive && (
-                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+      <RouteTabs
+        tabs={tabs}
+        basePath={basePath}
+        activeSegment={activeSegment}
+        className="gap-1"
+      />
 
       {children}
     </div>
