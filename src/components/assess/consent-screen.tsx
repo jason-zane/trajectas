@@ -161,7 +161,7 @@ export function ConsentScreen({
                   return (
                     <div key={idx} className="flex items-start gap-2 ml-1 mb-1">
                       <Check
-                        className="mt-0.5 size-4 shrink-0"
+                        className="mt-0.5 size-3.5 shrink-0"
                         style={{
                           color:
                             "var(--brand-primary, hsl(var(--primary)))",
