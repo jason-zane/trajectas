@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp/
+
+# Build output
+.next/
+dist/
+out/
+build/
+
+# Lock files (large, low signal)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Type build cache
+tsconfig.tsbuildinfo
+
+# Test artifacts
+test-results/
+playwright-report/
+coverage/
+
+# Supabase local state
+supabase/.branches/
+supabase/.temp/
+
+# Screenshots / binaries
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.woff
+*.woff2
+
+# Large docs (PDFs, binary research files)
+docs/*.pdf
+docs/**/*.pdf
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env files (also sensitive)
+.env.local
+.env.e2e.local
