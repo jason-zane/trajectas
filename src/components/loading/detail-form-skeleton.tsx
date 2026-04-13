@@ -28,11 +28,12 @@ function FieldRow({ columns = 2, delayStart = 0 }: FieldRowProps) {
 interface DetailFormSkeletonProps {
   sections?: number;
   fieldsPerSection?: number;
+  className?: string;
 }
 
-export function DetailFormSkeleton({ sections = 3, fieldsPerSection = 2 }: DetailFormSkeletonProps) {
+export function DetailFormSkeleton({ sections = 2, fieldsPerSection = 2, className }: DetailFormSkeletonProps) {
   return (
-    <div className="max-w-4xl mx-auto space-y-10">
+    <div className={`max-w-4xl mx-auto space-y-10${className ? ` ${className}` : ""}`}>
       {/* Form Header */}
       <div className="space-y-2">
         <Skeleton className="h-8 w-48" style={{ animationDelay: "0ms" }} />

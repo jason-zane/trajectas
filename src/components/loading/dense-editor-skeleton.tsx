@@ -7,9 +7,13 @@ function Skeleton({ className, style }: { className?: string; style?: React.CSSP
   );
 }
 
-export function DenseEditorSkeleton() {
+interface DenseEditorSkeletonProps {
+  className?: string;
+}
+
+export function DenseEditorSkeleton({ className }: DenseEditorSkeletonProps) {
   return (
-    <div className="flex h-screen flex-col bg-background">
+    <div className={`flex h-screen flex-col bg-background${className ? ` ${className}` : ""}`}>
       {/* Header Toolbar */}
       <div className="flex items-center gap-2 border-b border-foreground/[0.06] bg-muted/30 px-4 py-3">
         {/* Toolbar buttons */}
