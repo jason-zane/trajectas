@@ -15,12 +15,15 @@ import {
   type ColumnFiltersState,
   type FilterFn,
   type PaginationState,
+  type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table";
 
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import type { DataTableFilterConfig } from "@/components/data-table/data-table-faceted-filter";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableBulkBar, type BulkAction } from "@/components/data-table/data-table-bulk-bar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EmptyState } from "@/components/empty-state";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import {
@@ -88,6 +91,9 @@ export interface DataTableProps<TData, TValue> {
   emptyState?: ReactNode;
   defaultSort?: { id: string; desc: boolean };
   pageSize?: number;
+  enableRowSelection?: boolean;
+  getRowId?: (row: TData) => string;
+  bulkActions?: BulkAction<TData>[];
 }
 
 export function DataTable<TData, TValue>({
@@ -101,6 +107,9 @@ export function DataTable<TData, TValue>({
   emptyState,
   defaultSort,
   pageSize = 20,
+  enableRowSelection = false,
+  getRowId,
+  bulkActions = [],
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(() =>
@@ -113,6 +122,7 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize,
   });
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -126,6 +136,7 @@ export function DataTable<TData, TValue>({
     setPagination((current) =>
       current.pageIndex === 0 ? current : { ...current, pageIndex: 0 }
     );
+    setRowSelection({});
   }, [debouncedSearch, columnFilters]);
 
   const searchedData =
@@ -153,11 +164,39 @@ export function DataTable<TData, TValue>({
     } as ColumnDef<TData, TValue>;
   }) as ColumnDef<TData, TValue>[];
 
+  const allColumns: ColumnDef<TData, TValue>[] = enableRowSelection
+    ? [
+        {
+          id: "select",
+          header: ({ table }) => (
+            <Checkbox
+              checked={table.getIsAllPageRowsSelected()}
+              indeterminate={table.getIsSomePageRowsSelected()}
+              onCheckedChange={(value) =>
+                table.toggleAllPageRowsSelected(Boolean(value))
+              }
+              aria-label="Select all"
+            />
+          ),
+          cell: ({ row }) => (
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(Boolean(value))}
+              aria-label="Select row"
+            />
+          ),
+          enableSorting: false,
+          enableHiding: false,
+        } as ColumnDef<TData, TValue>,
+        ...resolvedColumns,
+      ]
+    : resolvedColumns;
+
   // TanStack Table is the intended engine for this component.
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: searchedData,
-    columns: resolvedColumns,
+    columns: allColumns,
     filterFns: {
       multiValue: multiValueFilter,
     },
@@ -165,10 +204,12 @@ export function DataTable<TData, TValue>({
       sorting,
       columnFilters,
       pagination,
+      rowSelection,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -176,6 +217,9 @@ export function DataTable<TData, TValue>({
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
+
+  const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
+  const selectedIds = Object.keys(rowSelection);
 
   const isInteractive = Boolean(onRowClick || rowHref);
   const hasToolbar = searchableColumns.length > 0 || filterableColumns.length > 0;
@@ -246,6 +290,16 @@ export function DataTable<TData, TValue>({
             onSearchChange={setSearch}
             searchPlaceholder={searchPlaceholder}
             filterableColumns={filterableColumns}
+          />
+        ) : null}
+
+        {selectedRows.length > 0 ? (
+          <DataTableBulkBar
+            selectedCount={selectedRows.length}
+            selectedRows={selectedRows}
+            selectedIds={selectedIds}
+            actions={bulkActions}
+            onClear={() => setRowSelection({})}
           />
         ) : null}
 
