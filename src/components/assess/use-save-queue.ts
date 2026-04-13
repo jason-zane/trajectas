@@ -41,18 +41,25 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     while (queueRef.current.length > 0) {
       const entry = queueRef.current[0];
 
-      const result = await Promise.race([
-        saveResponseLite({
-          token: config.token,
-          sessionId: config.sessionId,
-          itemId: entry.itemId,
-          sectionId: entry.sectionId,
-          responseValue: entry.value,
-          responseData: entry.data,
-          responseTimeMs: entry.responseTimeMs,
-        }),
-        delay(SAVE_TIMEOUT_MS).then(() => ({ error: "Save timed out" as const })),
-      ]);
+      let result: { error?: string; success?: true };
+      try {
+        result = await Promise.race([
+          saveResponseLite({
+            token: config.token,
+            sessionId: config.sessionId,
+            itemId: entry.itemId,
+            sectionId: entry.sectionId,
+            responseValue: entry.value,
+            responseData: entry.data,
+            responseTimeMs: entry.responseTimeMs,
+          }),
+          delay(SAVE_TIMEOUT_MS).then(() => ({ error: "Save timed out" as const })),
+        ]);
+      } catch {
+        // Server action threw (e.g. 429 rate-limit, network error).
+        // Treat identically to a returned error so the retry logic handles it.
+        result = { error: "Server action failed" };
+      }
 
       if (result.error) {
         entry.retries = (entry.retries ?? 0) + 1;

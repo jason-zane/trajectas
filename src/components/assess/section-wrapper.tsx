@@ -206,7 +206,13 @@ export function SectionWrapper({
       };
       flushProgress();
 
-      const saved = await flushSaves();
+      let saved = await flushSaves();
+      if (!saved) {
+        // Transient failures (e.g. 429 rate-limit) may have resolved — auto-retry
+        // failed saves once before blocking the participant.
+        retryFailedSaves();
+        saved = await flushSaves();
+      }
       if (!saved) {
         boundaryLockRef.current = false;
         setIsBoundaryPending(false);
@@ -215,7 +221,7 @@ export function SectionWrapper({
 
       router.push(href);
     },
-    [flushProgress, flushSaves, router, section.id],
+    [flushProgress, flushSaves, retryFailedSaves, router, section.id],
   );
 
   // For forced_choice, auto-advance only after both most+least are selected
