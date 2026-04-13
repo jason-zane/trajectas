@@ -8,3 +8,4 @@ export * from "./data-table-row-actions";
 export * from "./data-table-row-link";
 export * from "./data-table-search";
 export * from "./data-table-toolbar";
+export * from "./data-table-bulk-bar";
