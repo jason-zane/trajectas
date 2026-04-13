@@ -91,10 +91,9 @@ type SessionScoreLookupRow = {
   raw_score?: number | string | null
   scaled_score?: number | string | null
   percentile?: number | string | null
-  confidence_lower?: number | string | null
-  confidence_upper?: number | string | null
+  confidence_interval_lower?: number | string | null
+  confidence_interval_upper?: number | string | null
   scoring_method?: string | null
-  items_used?: number | string | null
   factors?: EmbeddedFactorRecord | EmbeddedFactorRecord[] | null
 }
 
@@ -247,10 +246,9 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
         raw_score,
         scaled_score,
         percentile,
-        confidence_lower,
-        confidence_upper,
+        confidence_interval_lower,
+        confidence_interval_upper,
         scoring_method,
-        items_used,
         factors(name)
       `)
       .eq('session_id', sessionId),
@@ -336,10 +334,10 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       rawScore: Number(s.raw_score ?? 0),
       scaledScore: Number(s.scaled_score ?? 0),
       percentile: s.percentile != null ? Number(s.percentile) : undefined,
-      confidenceLower: s.confidence_lower != null ? Number(s.confidence_lower) : undefined,
-      confidenceUpper: s.confidence_upper != null ? Number(s.confidence_upper) : undefined,
+      confidenceLower: s.confidence_interval_lower != null ? Number(s.confidence_interval_lower) : undefined,
+      confidenceUpper: s.confidence_interval_upper != null ? Number(s.confidence_interval_upper) : undefined,
       scoringMethod: String(s.scoring_method ?? 'ctt'),
-      itemsUsed: Number(s.items_used ?? 0),
+      itemsUsed: 0,
     }
   })
 

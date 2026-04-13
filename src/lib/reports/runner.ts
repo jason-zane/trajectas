@@ -146,10 +146,13 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       }
     }
 
-    // Fetch all taxonomy entities needed by score blocks
+    // Fetch all taxonomy entities needed by score blocks.
+    // Include all scored factor IDs so that score_overview / strengths_highlights /
+    // development_plan blocks (which iterate scoreMap directly) can resolve names.
     const entityIds = extractEntityIds(blocks)
+    const allEntityIds = Array.from(new Set([...entityIds, ...Object.keys(scoreMap)]))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const taxonomyMap = await fetchTaxonomyEntities(db as any, entityIds)
+    const taxonomyMap = await fetchTaxonomyEntities(db as any, allEntityIds)
 
     // -----------------------------------------------------------------------
     // Steps 2–5: Process each block
