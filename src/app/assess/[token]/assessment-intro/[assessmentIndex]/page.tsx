@@ -188,11 +188,11 @@ export default async function AssessmentIntroPage({
 
         {/* Main content */}
         <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-          <div className="w-full max-w-[540px] space-y-6">
+          <div className="w-full max-w-[540px] space-y-8">
             {/* Heading and body */}
             <div className="space-y-3 text-center">
               <h1
-                className="text-2xl font-semibold tracking-tight sm:text-3xl"
+                className="text-3xl font-semibold tracking-tight sm:text-4xl"
                 style={{
                   color: "var(--brand-text, hsl(var(--foreground)))",
                   fontFamily: "var(--brand-font-heading, inherit)",
@@ -202,13 +202,22 @@ export default async function AssessmentIntroPage({
               </h1>
               {body && (
                 <div
-                  className="prose prose-sm max-w-none leading-relaxed dark:prose-invert"
+                  className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none"
                   style={{
-                    color:
-                      "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                    background: "var(--brand-neutral-50, hsl(var(--card)))",
+                    borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
+                    borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
                   }}
-                  dangerouslySetInnerHTML={{ __html: body }}
-                />
+                >
+                  <div
+                    className="prose prose-sm max-w-none leading-relaxed dark:prose-invert"
+                    style={{
+                      color:
+                        "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                    }}
+                    dangerouslySetInnerHTML={{ __html: body }}
+                  />
+                </div>
               )}
             </div>
 
