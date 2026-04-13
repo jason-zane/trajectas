@@ -133,7 +133,6 @@ export function SectionWrapper({
     return firstUnanswered >= 0 ? firstUnanswered : 0;
   });
   const [responses, setResponses] = useState(existingResponses);
-  const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
   const [isAnimating, setIsAnimating] = useState(false);
   const [isBoundaryPending, setIsBoundaryPending] = useState(false);
 
@@ -236,9 +235,9 @@ export function SectionWrapper({
 
   const navigateToItem = useCallback(
     (newLocalIdx: number, direction: "left" | "right") => {
+      void direction;
       if (navLockRef.current) return;
       navLockRef.current = true;
-      setSlideDirection(direction);
       setIsAnimating(true);
 
       setTimeout(() => {
@@ -395,20 +394,16 @@ export function SectionWrapper({
         <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px]">
           {/* Assessment name label */}
           <p
-            className="mb-4 text-xs font-medium uppercase tracking-widest"
+            className="mb-8 text-xs font-medium uppercase tracking-widest"
             style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
           >
             {assessmentName}
           </p>
 
-          {/* Item card with slide animation */}
+          {/* Item card with crossfade animation */}
           <div
-            className={`transition-all duration-200 ease-out ${
-              isAnimating
-                ? slideDirection === "left"
-                  ? "translate-x-[-8px] opacity-0"
-                  : "translate-x-[8px] opacity-0"
-                : "translate-x-0 opacity-100"
+            className={`transition-opacity duration-150 ease-out motion-reduce:transition-none motion-reduce:!opacity-100 ${
+              isAnimating ? "opacity-0" : "opacity-100"
             }`}
           >
             <ItemCard
