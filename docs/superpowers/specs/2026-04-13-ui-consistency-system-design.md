@@ -106,7 +106,7 @@ Replaces ~25 hand-rolled save-state implementations. Current drift: `"Saving..."
 - `saved` → label: `"Saved"`, disabled, checkmark icon, auto-resets to `idle` after 2000ms
 - `error` → label: `"Save Changes"`, enabled (error shown inline, not in button)
 
-**Separate fix:** `src/components/ui/confirm-dialog.tsx:60` — replace `"Please wait..."` with a `loadingLabel` prop defaulting to `"Please wait…"` — not a `SaveButton` concern but tracked here.
+**Separate fix — ConfirmDialog:** `src/components/ui/confirm-dialog.tsx:60` — replace hardcoded `"Please wait..."` with a `loadingLabel` prop defaulting to `"Please wait…"`. This is a Track 1 deliverable, not a `SaveButton` concern. Add to Phase 1 and Definition of Done.
 
 ---
 
@@ -136,14 +136,14 @@ Standardises edit section anatomy across all settings and detail pages.
 
 ### 4. Skeleton Templates — `src/components/loading/`
 
-Four reusable structural skeletons. All use `animate-shimmer`, never `animate-pulse`.
+Four separate files, each exporting one named component. All use `animate-shimmer`, never `animate-pulse`.
 
-| Template | File | Used by |
+| Component | File | Used by |
 |---|---|---|
-| `CardGridSkeleton` | `card-grid-skeleton.tsx` | Dashboard, library list pages, AI settings |
-| `DataTableSkeleton` | `data-table-skeleton.tsx` | Client/partner list pages, users, participants |
-| `DetailFormSkeleton` | `detail-form-skeleton.tsx` | Detail shells (overview + settings tabs) |
-| `DenseEditorSkeleton` | `dense-editor-skeleton.tsx` | Brand editor, flow editor, block builder |
+| `CardGridSkeleton` | `src/components/loading/card-grid-skeleton.tsx` | Dashboard, library list pages, AI settings |
+| `DataTableSkeleton` | `src/components/loading/data-table-skeleton.tsx` | Client/partner list pages, users, participants |
+| `DetailFormSkeleton` | `src/components/loading/detail-form-skeleton.tsx` | Detail shells (overview + settings tabs) |
+| `DenseEditorSkeleton` | `src/components/loading/dense-editor-skeleton.tsx` | Brand editor, flow editor, block builder |
 
 Each skeleton accepts a `className` prop for max-width constraints. They render the same structural grid as the real page — same column count, same card proportions, same header region.
 
@@ -212,7 +212,7 @@ These three pages are brought to full Apple standard in the admin portal. They b
 
 ### Phase 1 — Admin portal (review gate before Phase 2)
 
-1. Build Track 1 infrastructure (RouteTabs, SaveButton, SectionCard, skeleton templates, SelectValue fix)
+1. Build Track 1 infrastructure (RouteTabs, SaveButton, SectionCard, skeleton templates, SelectValue fix, ConfirmDialog `loadingLabel` prop)
 2. Bring three gold standard pages to Apple bar
 3. Jason reviews — sign-off required before Phase 2
 4. Migrate remaining admin surfaces:
@@ -244,6 +244,7 @@ A surface is complete when it passes all of the following:
 - [ ] Motion is within the Apple bar: 150–250ms, ease-out, no gratuitous animation
 - [ ] Typography hierarchy is correct: eyebrow → title → description → section label → body → caption
 - [ ] Dark mode verified: shadows in light, borders in dark, no raw colour values
+- [ ] `ConfirmDialog` uses `loadingLabel` prop — no hardcoded `"Please wait..."` strings anywhere
 - [ ] Would this look out of place on apple.com or in an Apple product? If yes, it goes back.
 
 ---
