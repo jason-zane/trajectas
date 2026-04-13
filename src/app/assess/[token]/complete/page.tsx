@@ -26,13 +26,11 @@ export default async function CompletePage({
     const result = await validateAccessToken(token);
     if (result.data?.campaign) {
       campaignId = result.data.campaign.id;
-      if (result.data.campaign.clientId) {
-        brandConfig = await getCachedEffectiveBrand(
-          result.data.campaign.clientId,
-          result.data.campaign.id,
-        );
-        isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
-      }
+      brandConfig = await getCachedEffectiveBrand(
+        result.data.campaign.clientId,
+        result.data.campaign.id,
+      );
+      isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
     }
     // Auto-submit any in-progress session — handles the case where the review
     // page is disabled and submitSession was never triggered by review-screen.
@@ -48,8 +46,13 @@ export default async function CompletePage({
 
   const experience = await getCachedEffectiveExperience(campaignId);
   const rawContent = getPageContent(experience, "complete");
+  const rawRunnerContent = getPageContent(experience, "runner");
   const variables: TemplateVariables = {};
-  const content = interpolateContent(rawContent, variables);
+  const interpolated = interpolateContent(rawContent, variables);
+  const content = {
+    ...interpolated,
+    footerText: interpolated.footerText ?? rawRunnerContent.footerText,
+  };
 
   // Compute next URL from flow router (e.g. Report page if it comes after Complete)
   const nextUrl = getNextFlowUrl(experience, "complete", token);

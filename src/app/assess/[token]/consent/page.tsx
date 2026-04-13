@@ -42,11 +42,16 @@ export default async function ConsentPage({
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "consent");
+  const rawRunnerContent = getPageContent(experience, "runner");
   const variables: TemplateVariables = {
     participantName: participant.firstName,
     campaignTitle: campaign.title,
   };
-  const content = interpolateContent(rawContent, variables);
+  const interpolated = interpolateContent(rawContent, variables);
+  const content = {
+    ...interpolated,
+    footerText: interpolated.footerText ?? rawRunnerContent.footerText,
+  };
 
   const { css: lightCss } = generateCSSTokens(brandConfig);
   const darkCss = brandConfig.darkModeEnabled
