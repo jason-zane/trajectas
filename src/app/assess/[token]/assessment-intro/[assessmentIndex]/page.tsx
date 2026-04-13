@@ -8,7 +8,7 @@ import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
 import { getPageContent } from "@/lib/experience/resolve"
 import { interpolateContent } from "@/lib/experience/interpolate"
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
+import { generateCSSTokens } from "@/lib/brand/tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -112,11 +112,7 @@ export default async function AssessmentIntroPage({
   buttonLabel = interpolateContent(buttonLabel, variables)
 
   // Generate brand CSS tokens
-  const { css: lightCss } = generateCSSTokens(brandConfig)
-  const darkCss = brandConfig.darkModeEnabled
-    ? generateDarkCSSTokens(brandConfig)
-    : ""
-  const brandCss = `${lightCss}\n${darkCss}`
+  const { css: brandCss } = generateCSSTokens(brandConfig)
 
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,

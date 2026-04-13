@@ -5,7 +5,7 @@ import {
 } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent } from "@/lib/experience/resolve";
@@ -61,11 +61,7 @@ export default async function ReviewPage({
   };
 
   // Server-generated CSS from trusted DB brand config
-  const { css: lightCss } = generateCSSTokens(brandConfig);
-  const darkCss = brandConfig.darkModeEnabled
-    ? generateDarkCSSTokens(brandConfig)
-    : "";
-  const brandCss = `${lightCss}\n${darkCss}`;
+  const { css: brandCss } = generateCSSTokens(brandConfig);
 
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,
