@@ -20,6 +20,7 @@ import {
 
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import type { DataTableFilterConfig } from "@/components/data-table/data-table-faceted-filter";
+import type { ExportColumn } from "@/lib/export";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/empty-state";
 import { ScrollReveal } from "@/components/scroll-reveal";
@@ -77,6 +78,11 @@ const multiValueFilter: FilterFn<unknown> = (row, columnId, filterValue) => {
 
 multiValueFilter.autoRemove = (value) => !Array.isArray(value) || value.length === 0;
 
+export interface DataTableExportConfig<TData> {
+  columns: ExportColumn<TData>[];
+  filename?: string;
+}
+
 export interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -88,6 +94,7 @@ export interface DataTableProps<TData, TValue> {
   emptyState?: ReactNode;
   defaultSort?: { id: string; desc: boolean };
   pageSize?: number;
+  exportConfig?: DataTableExportConfig<TData>;
 }
 
 export function DataTable<TData, TValue>({
@@ -101,6 +108,7 @@ export function DataTable<TData, TValue>({
   emptyState,
   defaultSort,
   pageSize = 20,
+  exportConfig,
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(() =>
@@ -177,8 +185,25 @@ export function DataTable<TData, TValue>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
   });
 
+  function getFilteredRows() {
+    return table.getFilteredRowModel().rows.map((r) => r.original);
+  }
+
+  async function handleExportCsv() {
+    if (!exportConfig) return;
+    const { exportToCsv } = await import("@/lib/export");
+    exportToCsv(getFilteredRows(), exportConfig.columns, exportConfig.filename ?? "export.csv");
+  }
+
+  async function handleExportXlsx() {
+    if (!exportConfig) return;
+    const { exportToXlsx } = await import("@/lib/export");
+    exportToXlsx(getFilteredRows(), exportConfig.columns, exportConfig.filename ?? "export.xlsx");
+  }
+
   const isInteractive = Boolean(onRowClick || rowHref);
-  const hasToolbar = searchableColumns.length > 0 || filterableColumns.length > 0;
+  const hasToolbar =
+    searchableColumns.length > 0 || filterableColumns.length > 0 || Boolean(exportConfig);
   const rows = table.getRowModel().rows;
   const defaultEmptyState =
     data.length === 0 ? (
@@ -246,6 +271,8 @@ export function DataTable<TData, TValue>({
             onSearchChange={setSearch}
             searchPlaceholder={searchPlaceholder}
             filterableColumns={filterableColumns}
+            onExportCsv={exportConfig ? handleExportCsv : undefined}
+            onExportXlsx={exportConfig ? handleExportXlsx : undefined}
           />
         ) : null}
 

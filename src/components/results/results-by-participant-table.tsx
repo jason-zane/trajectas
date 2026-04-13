@@ -127,6 +127,16 @@ export function ResultsByParticipantTable({ participants, participantHref }: Pro
       defaultSort={{ id: "displayName", desc: false }}
       rowHref={(row) => participantHref(row)}
       pageSize={20}
+      exportConfig={{
+        filename: "participants.xlsx",
+        columns: [
+          { header: "Name", accessor: "displayName" },
+          { header: "Email", accessor: "email" },
+          { header: "Status", accessor: "status" },
+          { header: "Sessions Completed", accessor: (r) => `${r.completedSessionCount}/${r.sessionCount}` },
+          { header: "Last Activity", accessor: "lastActivityValue" },
+        ],
+      }}
     />
   );
 }

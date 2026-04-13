@@ -138,6 +138,19 @@ export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions
       defaultSort={{ id: "startedAt", desc: true }}
       rowHref={(row) => sessionHref(row)}
       pageSize={20}
+      exportConfig={{
+        filename: "sessions.xlsx",
+        columns: [
+          { header: "Participant", accessor: "participantName" },
+          { header: "Email", accessor: "participantEmail" },
+          { header: "Assessment", accessor: "assessmentTitle" },
+          { header: "Attempt", accessor: "attemptNumber" },
+          { header: "Status", accessor: "status" },
+          { header: "Started", accessor: "startedAt" },
+          { header: "Completed", accessor: "completedAt" },
+          { header: "Scores", accessor: "scoreCount" },
+        ],
+      }}
     />
   );
 }
