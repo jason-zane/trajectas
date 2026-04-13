@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RotateCcw } from "lucide-react";
+import { ArrowRight, RotateCcw, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { WelcomeContent } from "@/lib/experience/types";
 
@@ -97,7 +97,7 @@ export function WelcomeScreen({
 
       {/* Main content */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-6">
+        <div className="w-full max-w-[540px] space-y-8">
           {/* Greeting */}
           <div className="space-y-3 text-center">
             {content.eyebrow && (
@@ -112,7 +112,7 @@ export function WelcomeScreen({
               </p>
             )}
             <h1
-              className="text-2xl font-semibold tracking-tight sm:text-3xl"
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -135,12 +135,13 @@ export function WelcomeScreen({
 
           {/* Info card */}
           <div
-            className="rounded-2xl border p-6 shadow-sm dark:shadow-none"
+            className="rounded-2xl border border-l-[3px] p-6 shadow-sm dark:shadow-none"
             style={{
               background:
                 "var(--brand-neutral-50, hsl(var(--card)))",
               borderColor:
                 "var(--brand-neutral-200, hsl(var(--border)))",
+              borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
             }}
           >
             <h2
@@ -229,10 +230,10 @@ export function WelcomeScreen({
 function InfoBullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-2.5 text-sm">
-      <span
-        className="mt-1.5 size-1.5 shrink-0 rounded-full"
+      <Check
+        className="mt-0.5 size-3.5 shrink-0"
         style={{
-          background: "var(--brand-primary, hsl(var(--primary)))",
+          color: "var(--brand-primary, hsl(var(--primary)))",
         }}
       />
       <span
