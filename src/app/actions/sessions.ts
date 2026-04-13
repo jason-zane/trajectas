@@ -4,7 +4,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError, requireCampaignAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
-import type { ReportPdfStatus } from '@/types/database'
+import type {
+  ParticipantSessionProcessingStatus,
+  ReportPdfStatus,
+} from '@/types/database'
 
 export type SessionDetailScore = {
   factorId: string
@@ -45,8 +48,11 @@ export type SessionDetail = {
   participantName: string
   participantEmail: string
   status: string
+  processingStatus: ParticipantSessionProcessingStatus
+  processingError?: string
   startedAt?: string
   completedAt?: string
+  processedAt?: string
   durationMinutes?: number
   responseCount: number
   scores: SessionDetailScore[]
@@ -119,6 +125,8 @@ type CampaignSessionLookupRow = {
   id?: string | null
   assessment_id?: string | null
   status?: string | null
+  processing_status?: ParticipantSessionProcessingStatus | null
+  processing_error?: string | null
   started_at?: string | null
   completed_at?: string | null
   campaign_participants?: EmbeddedParticipantRecord | EmbeddedParticipantRecord[] | null
@@ -176,7 +184,9 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 
   const { data: session, error } = await db
     .from('participant_sessions')
-    .select('id, assessment_id, status, started_at, completed_at, campaign_participant_id')
+    .select(
+      'id, assessment_id, status, processing_status, processing_error, processed_at, started_at, completed_at, campaign_participant_id',
+    )
     .eq('id', sessionId)
     .maybeSingle()
 
@@ -373,8 +383,11 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     participantName,
     participantEmail: String(cpRecord?.email ?? ''),
     status: String(session.status),
+    processingStatus: (session.processing_status ?? 'idle') as ParticipantSessionProcessingStatus,
+    processingError: session.processing_error ?? undefined,
     startedAt,
     completedAt,
+    processedAt: session.processed_at ?? undefined,
     durationMinutes,
     responseCount: responseCount ?? 0,
     scores,
@@ -434,6 +447,8 @@ export type CampaignSessionRow = {
   participantName: string
   participantEmail: string
   status: string
+  processingStatus: ParticipantSessionProcessingStatus
+  processingError?: string
   startedAt?: string
   completedAt?: string
   scoreCount: number
@@ -460,6 +475,8 @@ export async function getCampaignSessions(campaignId: string): Promise<CampaignS
       id,
       assessment_id,
       status,
+      processing_status,
+      processing_error,
       started_at,
       completed_at,
       campaign_participant_id,
@@ -514,6 +531,8 @@ function mapCampaignSessionRows(data: CampaignSessionLookupRow[]): CampaignSessi
       participantName,
       participantEmail: String(cp?.email ?? ""),
       status: String(row.status),
+      processingStatus: (row.processing_status ?? 'idle') as ParticipantSessionProcessingStatus,
+      processingError: row.processing_error ?? undefined,
       startedAt: row.started_at ?? undefined,
       completedAt: row.completed_at ?? undefined,
       scoreCount: Array.isArray(row.participant_scores) ? row.participant_scores.length : 0,

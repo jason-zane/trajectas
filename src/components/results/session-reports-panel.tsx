@@ -12,10 +12,18 @@ import { getSessionSnapshots, type SessionDetailSnapshot } from "@/app/actions/s
 import { releaseSnapshot, retrySnapshot } from "@/app/actions/reports";
 import { LocalTime } from "@/components/local-time";
 import { ReportPdfButton } from "@/components/reports/report-pdf-button";
+import {
+  getSessionProcessingStatusLabel,
+  isSessionProcessingActive,
+} from "@/lib/assess/session-processing";
+import type { ParticipantSessionProcessingStatus } from "@/types/database";
 
 interface SessionReportsPanelProps {
   sessionId: string;
   initialSnapshots: SessionDetailSnapshot[];
+  sessionStatus: string;
+  processingStatus: ParticipantSessionProcessingStatus;
+  processingError?: string;
 }
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -42,9 +50,30 @@ function audienceLabel(a: string): string {
   return a;
 }
 
+const PDF_STATUS_VARIANT: Record<
+  string,
+  "default" | "secondary" | "outline" | "destructive"
+> = {
+  queued: "secondary",
+  generating: "secondary",
+  ready: "default",
+  failed: "destructive",
+};
+
+function pdfStatusLabel(status: string): string {
+  if (status === "queued") return "PDF queued";
+  if (status === "generating") return "PDF generating";
+  if (status === "ready") return "PDF ready";
+  if (status === "failed") return "PDF failed";
+  return status;
+}
+
 export function SessionReportsPanel({
   sessionId,
   initialSnapshots,
+  sessionStatus,
+  processingStatus,
+  processingError,
 }: SessionReportsPanelProps) {
   const [snapshots, setSnapshots] = useState(initialSnapshots);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -101,10 +130,22 @@ export function SessionReportsPanel({
   }
 
   if (snapshots.length === 0) {
+    const description =
+      sessionStatus !== "completed"
+        ? "Reports can be generated after the participant completes the assessment."
+        : processingStatus === "failed"
+          ? processingError ??
+            "This session completed, but report preparation could not start."
+          : isSessionProcessingActive(processingStatus)
+            ? `This session is still ${getSessionProcessingStatusLabel(
+                processingStatus,
+              ).toLowerCase()}. Reports will appear here once processing finishes.`
+            : "Use the Generate Report button above to create a report for this session.";
+
     return (
       <EmptyState
         title="No reports generated yet"
-        description="Use the Generate Report button above to create a report for this session."
+        description={description}
       />
     );
   }
@@ -137,6 +178,13 @@ export function SessionReportsPanel({
                 <Badge variant={STATUS_VARIANT[snapshot.status] ?? "outline"}>
                   {statusLabel(snapshot.status)}
                 </Badge>
+                {snapshot.pdfStatus && (
+                  <Badge
+                    variant={PDF_STATUS_VARIANT[snapshot.pdfStatus] ?? "outline"}
+                  >
+                    {pdfStatusLabel(snapshot.pdfStatus)}
+                  </Badge>
+                )}
               </div>
               <p className="text-caption text-muted-foreground mt-1">
                 {snapshot.generatedAt ? (
@@ -149,6 +197,11 @@ export function SessionReportsPanel({
                 {snapshot.errorMessage && (
                   <span className="text-destructive ml-2">
                     · {snapshot.errorMessage}
+                  </span>
+                )}
+                {snapshot.pdfStatus === "failed" && snapshot.pdfErrorMessage && (
+                  <span className="text-destructive ml-2">
+                    · {snapshot.pdfErrorMessage}
                   </span>
                 )}
               </p>

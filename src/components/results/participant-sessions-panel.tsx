@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { LocalTime } from "@/components/local-time";
+import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing";
 import type { ParticipantSession } from "@/app/actions/participants";
 
 interface ParticipantSessionsPanelProps {
@@ -22,6 +23,15 @@ function statusVariant(status: string): "default" | "secondary" | "outline" | "d
   if (status === "completed") return "default";
   if (status === "in_progress") return "secondary";
   if (status === "expired") return "destructive";
+  return "outline";
+}
+
+function processingVariant(
+  status: string,
+): "default" | "secondary" | "outline" | "destructive" {
+  if (status === "ready") return "default";
+  if (status === "scoring" || status === "reporting") return "secondary";
+  if (status === "failed") return "destructive";
   return "outline";
 }
 
@@ -87,9 +97,16 @@ export function ParticipantSessionsPanel({
                 #{attempts.get(session.id) ?? 1}
               </TableCell>
               <TableCell>
-                <Badge variant={statusVariant(session.status)}>
-                  {session.status}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={statusVariant(session.status)}>
+                    {session.status}
+                  </Badge>
+                  {session.status === "completed" && (
+                    <Badge variant={processingVariant(session.processingStatus)}>
+                      {getSessionProcessingStatusLabel(session.processingStatus)}
+                    </Badge>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 <LocalTime iso={session.startedAt} format="date-time" />

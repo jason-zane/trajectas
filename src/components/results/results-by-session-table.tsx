@@ -8,6 +8,7 @@ import {
   DataTableRowLink,
 } from "@/components/data-table";
 import { LocalTime } from "@/components/local-time";
+import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing";
 import type { CampaignSessionRow } from "@/app/actions/sessions";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -21,6 +22,15 @@ interface Props {
   sessions: CampaignSessionRow[];
   sessionHref: (s: CampaignSessionRow) => string;
   assessmentOptions: Array<{ label: string; value: string }>;
+}
+
+function processingVariant(
+  status: string,
+): "default" | "secondary" | "outline" | "destructive" {
+  if (status === "ready") return "default";
+  if (status === "scoring" || status === "reporting") return "secondary";
+  if (status === "failed") return "destructive";
+  return "outline";
 }
 
 export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions }: Props) {
@@ -63,9 +73,16 @@ export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions
       accessorKey: "status",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Status" />,
       cell: ({ row }) => (
-        <Badge variant={STATUS_VARIANT[row.original.status] ?? "outline"}>
-          {row.original.status}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant={STATUS_VARIANT[row.original.status] ?? "outline"}>
+            {row.original.status}
+          </Badge>
+          {row.original.status === "completed" && (
+            <Badge variant={processingVariant(row.original.processingStatus)}>
+              {getSessionProcessingStatusLabel(row.original.processingStatus)}
+            </Badge>
+          )}
+        </div>
       ),
     },
     {

@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalTime } from "@/components/local-time";
+import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing";
 import { SessionScoresPanel } from "./session-scores-panel";
 import { SessionResponsesPanel } from "./session-responses-panel";
 import { SessionReportsPanel } from "./session-reports-panel";
@@ -29,6 +30,15 @@ function statusBadgeVariant(
   return "outline";
 }
 
+function processingBadgeVariant(
+  status: string,
+): "default" | "secondary" | "outline" | "destructive" {
+  if (status === "ready") return "default";
+  if (status === "scoring" || status === "reporting") return "secondary";
+  if (status === "failed") return "destructive";
+  return "outline";
+}
+
 export function SessionDetailView({
   session,
   templates,
@@ -42,6 +52,10 @@ export function SessionDetailView({
         ? `${session.durationMinutes}m`
         : `${Math.floor(session.durationMinutes / 60)}h ${session.durationMinutes % 60}m`
       : "—";
+  const showProcessingBanner =
+    session.processingStatus === "scoring" ||
+    session.processingStatus === "reporting" ||
+    session.processingStatus === "failed";
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -69,14 +83,51 @@ export function SessionDetailView({
       </PageHeader>
 
       {/* Stats strip */}
+      {showProcessingBanner && (
+        <Card
+          className={
+            session.processingStatus === "failed"
+              ? "border-destructive/30 bg-destructive/5"
+              : "border-primary/15 bg-primary/5"
+          }
+        >
+          <CardContent className="py-4 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={processingBadgeVariant(session.processingStatus)}>
+                {getSessionProcessingStatusLabel(session.processingStatus)}
+              </Badge>
+              <span className="font-medium">
+                {session.processingStatus === "scoring"
+                  ? "This session is still being scored."
+                  : session.processingStatus === "reporting"
+                    ? "Scores are stored and report generation is still running."
+                    : "This session completed, but downstream processing failed."}
+              </span>
+            </div>
+            {session.processingError && (
+              <p className="mt-2 text-muted-foreground">
+                {session.processingError}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="py-5">
             <p className="text-caption text-muted-foreground">Status</p>
             <div className="mt-2">
-              <Badge variant={statusBadgeVariant(session.status)}>
-                {session.status}
-              </Badge>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={statusBadgeVariant(session.status)}>
+                  {session.status}
+                </Badge>
+                {session.status === "completed" && (
+                  <Badge variant={processingBadgeVariant(session.processingStatus)}>
+                    {getSessionProcessingStatusLabel(session.processingStatus)}
+                  </Badge>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -116,6 +167,9 @@ export function SessionDetailView({
         <p>
           Completed: <LocalTime iso={session.completedAt} format="date-time" />
         </p>
+        <p>
+          Processed: <LocalTime iso={session.processedAt} format="date-time" />
+        </p>
       </div>
 
       {/* Tabs */}
@@ -127,7 +181,12 @@ export function SessionDetailView({
         </TabsList>
 
         <TabsContent value="scores" className="mt-4">
-          <SessionScoresPanel scores={session.scores} />
+          <SessionScoresPanel
+            scores={session.scores}
+            sessionStatus={session.status}
+            processingStatus={session.processingStatus}
+            processingError={session.processingError}
+          />
         </TabsContent>
 
         {canSeeResponses && (
@@ -140,6 +199,9 @@ export function SessionDetailView({
           <SessionReportsPanel
             sessionId={session.id}
             initialSnapshots={session.snapshots}
+            sessionStatus={session.status}
+            processingStatus={session.processingStatus}
+            processingError={session.processingError}
           />
         </TabsContent>
       </Tabs>

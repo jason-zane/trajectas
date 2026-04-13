@@ -14,7 +14,11 @@ import {
 } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
-import type { CampaignParticipant, CampaignParticipantStatus } from '@/types/database'
+import type {
+  CampaignParticipant,
+  CampaignParticipantStatus,
+  ParticipantSessionProcessingStatus,
+} from '@/types/database'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,8 +43,11 @@ export type ParticipantSession = {
   assessmentId: string
   assessmentTitle: string
   status: string
+  processingStatus: ParticipantSessionProcessingStatus
+  processingError?: string
   startedAt?: string
   completedAt?: string
+  processedAt?: string
   scores: ParticipantSessionScore[]
 }
 
@@ -244,8 +251,11 @@ export async function getParticipantSessions(participantId: string): Promise<Par
       id,
       assessment_id,
       status,
+      processing_status,
+      processing_error,
       started_at,
       completed_at,
+      processed_at,
       assessments(title),
       participant_scores(
         factor_id,
@@ -273,8 +283,11 @@ export async function getParticipantSessions(participantId: string): Promise<Par
     assessmentId: s.assessment_id,
     assessmentTitle: s.assessments?.title ?? 'Untitled',
     status: s.status,
+    processingStatus: (s.processing_status ?? 'idle') as ParticipantSessionProcessingStatus,
+    processingError: s.processing_error ?? undefined,
     startedAt: s.started_at ?? undefined,
     completedAt: s.completed_at ?? undefined,
+    processedAt: s.processed_at ?? undefined,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     scores: (s.participant_scores ?? []).map((sc: any) => ({
       factorId: sc.factor_id,

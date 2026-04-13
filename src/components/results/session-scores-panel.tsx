@@ -2,17 +2,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import type { SessionDetailScore } from "@/app/actions/sessions";
+import type { ParticipantSessionProcessingStatus } from "@/types/database";
 
 interface SessionScoresPanelProps {
   scores: SessionDetailScore[];
+  sessionStatus: string;
+  processingStatus: ParticipantSessionProcessingStatus;
+  processingError?: string;
 }
 
-export function SessionScoresPanel({ scores }: SessionScoresPanelProps) {
+export function SessionScoresPanel({
+  scores,
+  sessionStatus,
+  processingStatus,
+  processingError,
+}: SessionScoresPanelProps) {
   if (scores.length === 0) {
+    const description =
+      sessionStatus !== "completed"
+        ? "Scores will appear here after the participant completes the assessment."
+        : processingStatus === "scoring"
+          ? "Scores are still being calculated for this session."
+          : processingStatus === "failed"
+            ? processingError ??
+              "This session completed, but scoring did not finish successfully."
+            : processingStatus === "reporting"
+              ? "Scores are being finalized while report generation runs."
+              : "Scores will appear here when this session is completed and scored.";
+
     return (
       <EmptyState
         title="No scores yet"
-        description="Scores will appear here when this session is completed and scored."
+        description={description}
       />
     );
   }
