@@ -8,7 +8,7 @@ export type SaveState = "idle" | "saving" | "saved" | "error"
 
 interface SaveButtonProps extends Omit<ComponentPropsWithoutRef<"button">, "onClick"> {
   state: SaveState
-  onClick: () => void
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
 }
 
 const LABELS: Record<SaveState, string> = {
