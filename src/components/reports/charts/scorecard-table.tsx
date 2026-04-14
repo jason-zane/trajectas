@@ -58,7 +58,15 @@ export function ScorecardTable({ items, className }: ScorecardTableProps) {
               </td>
             )}
             <td className="py-3 pr-4" style={{ width: '160px' }}>
-              <MiniBar value={item.value} band={item.band} />
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-[13px] font-semibold tabular-nums shrink-0"
+                  style={{ color: 'var(--report-heading-colour)' }}
+                >
+                  {item.value}
+                </span>
+                <MiniBar value={item.value} band={item.band} className="flex-1" />
+              </div>
             </td>
             <td className="py-3 text-center">
               <BandBadge band={item.band} label={item.bandLabel} />

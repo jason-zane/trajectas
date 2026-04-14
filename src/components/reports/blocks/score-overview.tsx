@@ -60,6 +60,7 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 }))}
                 showScore={showScore}
                 showBandLabel={showBandLabel}
+                variant={isFeatured ? 'dark' : 'light'}
               />
             </div>
           ))}
