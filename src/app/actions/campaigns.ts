@@ -1333,6 +1333,78 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
   revalidatePath(`/campaigns/${campaignId}`)
 }
 
+export async function reactivateAccessLink(campaignId: string, linkId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_access_links')
+    .update({ is_active: true })
+    .eq('id', linkId)
+    .eq('campaign_id', campaignId)
+
+  if (error) {
+    logActionError('reactivateAccessLink', error)
+    return { error: 'Unable to reactivate access link.' }
+  }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.access_link.reactivated',
+    targetTable: 'campaign_access_links',
+    targetId: linkId,
+    partnerId: access.partnerId,
+    clientId: access.clientId,
+    metadata: { campaignId },
+  })
+
+  revalidatePath(`/campaigns/${campaignId}`)
+}
+
+export async function deleteAccessLink(campaignId: string, linkId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_access_links')
+    .delete()
+    .eq('id', linkId)
+    .eq('campaign_id', campaignId)
+
+  if (error) {
+    logActionError('deleteAccessLink', error)
+    return { error: 'Unable to delete access link.' }
+  }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.access_link.deleted',
+    targetTable: 'campaign_access_links',
+    targetId: linkId,
+    partnerId: access.partnerId,
+    clientId: access.clientId,
+    metadata: { campaignId },
+  })
+
+  revalidatePath(`/campaigns/${campaignId}`)
+}
+
 // ---------------------------------------------------------------------------
 // Cross-campaign participant view (client portal)
 // ---------------------------------------------------------------------------
