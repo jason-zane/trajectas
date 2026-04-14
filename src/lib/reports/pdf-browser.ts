@@ -69,5 +69,21 @@ async function getLaunchOptions(): Promise<LaunchOptions> {
 
 export async function launchReportPdfBrowser(): Promise<Browser> {
   const puppeteer = (await import('puppeteer-core')).default
-  return puppeteer.launch(await getLaunchOptions())
+  let options: LaunchOptions
+  try {
+    options = await getLaunchOptions()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `[PDF] Failed to resolve Chromium executable (chromium-min v${CHROMIUM_MIN_VERSION}): ${message}`,
+    )
+  }
+  try {
+    return await puppeteer.launch(options)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      `[PDF] Puppeteer launch failed (executablePath: ${options.executablePath ?? 'unknown'}): ${message}`,
+    )
+  }
 }
