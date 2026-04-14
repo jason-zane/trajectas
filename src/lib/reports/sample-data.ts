@@ -225,16 +225,15 @@ function generateBlockSampleData(
       const showNested = config.showNestedScores === true
       const detailEntities = filtered.map((e, i) => {
         const definition = `A measure of capability and effectiveness in ${e.name.toLowerCase()}.`
+        const description = `${e.name} encompasses the knowledge, skills, and behaviours required to operate effectively in this area. It reflects both theoretical understanding and practical application across a range of professional contexts.`
         const indicatorText = SAMPLE_INDICATORS[e.band][i % SAMPLE_INDICATORS[e.band].length]
-        // Build narrative from indicators only (definition rendered separately)
-        const narrativeParts: string[] = []
-        if (showIndicators) narrativeParts.push(indicatorText)
-        const narrative = narrativeParts.length > 0 ? narrativeParts.join(' ') : null
+        const narrative = showIndicators ? indicatorText : null
 
         // Find child entities whose parentId matches this entity — full detail shape
         const children = showNested
           ? entities.filter((c) => c.parentId === e.id).map((c, ci) => {
               const childDef = `A measure of capability and effectiveness in ${c.name.toLowerCase()}.`
+              const childDesc = `${c.name} reflects the ability to apply relevant skills consistently and effectively in professional settings.`
               const childIndicator = SAMPLE_INDICATORS[c.band][ci % SAMPLE_INDICATORS[c.band].length]
               const childNarrative = showIndicators ? childIndicator : null
               return {
@@ -242,6 +241,7 @@ function generateBlockSampleData(
                 entityName: c.name,
                 entitySlug: c.name.toLowerCase().replace(/\s+/g, '-'),
                 definition: childDef,
+                description: childDesc,
                 pompScore: c.pompScore,
                 bandResult: makeBandResult(c),
                 narrative: childNarrative,
@@ -255,6 +255,7 @@ function generateBlockSampleData(
           entityName: e.name,
           entitySlug: e.name.toLowerCase().replace(/\s+/g, '-'),
           definition,
+          description,
           pompScore: e.pompScore,
           bandResult: makeBandResult(e),
           narrative,
@@ -268,9 +269,11 @@ function generateBlockSampleData(
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
           showDefinition: showDefinition,
+          showDescription: config.showDescription === true,
           showIndicators: showIndicators,
           showDevelopment: config.showDevelopment === true,
           showNestedScores: config.showNestedScores === true,
+          nestedLabel: typeof config.nestedLabel === 'string' ? config.nestedLabel : 'Factors',
         },
       }
     }

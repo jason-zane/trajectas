@@ -21,7 +21,7 @@ export function BlockHeaders({
       {eyebrow && (
         <p
           className="text-[10px] uppercase tracking-[2px]"
-          style={{ color: isFeatured ? 'rgba(255,255,255,0.5)' : 'var(--report-label-colour)' }}
+          style={{ color: isFeatured ? 'var(--report-featured-accent)' : 'var(--report-cover-accent)' }}
         >
           {eyebrow}
         </p>

@@ -78,9 +78,11 @@ export interface ScoreDetailConfig {
   showScore?: boolean
   showBandLabel?: boolean
   showDefinition?: boolean
+  showDescription?: boolean
   showIndicators?: boolean
   showDevelopment?: boolean
   showNestedScores?: boolean
+  nestedLabel?: string                   // e.g. "Factors", "Constructs" — label above nested children
 }
 
 export interface StrengthsHighlightsConfig {

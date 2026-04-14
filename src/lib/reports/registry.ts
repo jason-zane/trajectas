@@ -54,7 +54,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     label: 'Score Detail',
     category: 'score',
     description: 'One or more entity scores with band labels, definitions, indicators, and development suggestions.',
-    defaultConfig: { displayLevel: 'factor', entityIds: [], showScore: true, showBandLabel: true, showDefinition: true, showIndicators: true, showDevelopment: false, showNestedScores: false },
+    defaultConfig: { displayLevel: 'factor', entityIds: [], showScore: true, showBandLabel: true, showDefinition: true, showDescription: false, showIndicators: true, showDevelopment: false, showNestedScores: false, nestedLabel: 'Factors' },
     supportedModes: ['featured', 'open', 'carded', 'split'],
     defaultMode: 'open',
   },

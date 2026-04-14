@@ -434,9 +434,16 @@ function ScoreDetailContent({ block, entityOptions, onUpdateConfig }: BlockConte
         <SwitchField
           id="detail-showDefinition"
           label="Definition"
-          help="The entity definition text"
+          help="Short definition text"
           checked={config.showDefinition as boolean ?? true}
           onChange={(v) => onUpdateConfig('showDefinition', v)}
+        />
+        <SwitchField
+          id="detail-showDescription"
+          label="Description"
+          help="Longer description text"
+          checked={config.showDescription as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showDescription', v)}
         />
         <SwitchField
           id="detail-showIndicators"
@@ -459,6 +466,16 @@ function ScoreDetailContent({ block, entityOptions, onUpdateConfig }: BlockConte
           checked={config.showNestedScores as boolean ?? false}
           onChange={(v) => onUpdateConfig('showNestedScores', v)}
         />
+        {config.showNestedScores === true && (
+          <Field label="Nested section label" help="Header text above child entities">
+            <Input
+              value={String(config.nestedLabel ?? 'Factors')}
+              onChange={(e) => onUpdateConfig('nestedLabel', e.target.value)}
+              className="h-8 text-sm"
+              placeholder="Factors"
+            />
+          </Field>
+        )}
       </div>
 
     </div>
