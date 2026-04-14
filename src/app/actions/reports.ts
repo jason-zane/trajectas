@@ -159,10 +159,20 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#39;')
 }
 
+function autoLinkUrls(html: string): string {
+  return html.replace(
+    /https?:\/\/[^\s<]+/g,
+    (url) => `<a href="${url}" style="color:#2d6a5a;text-decoration:underline;">View your report</a>`,
+  )
+}
+
 function textToHtml(body: string) {
   return body
     .split(/\n{2,}/)
-    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
+    .map((paragraph) => {
+      const escaped = escapeHtml(paragraph).replace(/\n/g, '<br />')
+      return `<p>${autoLinkUrls(escaped)}</p>`
+    })
     .join('\n')
 }
 
@@ -666,6 +676,7 @@ type SnapshotRecipientContext = {
   participantId: string
   participantEmail: string
   participantFirstName?: string
+  participantAccessToken?: string
   campaignId: string
   campaignTitle: string
   clientId?: string
@@ -706,7 +717,7 @@ async function getSnapshotRecipientContext(
 
   const { data: participant, error: participantError } = await db
     .from('campaign_participants')
-    .select('id, email, first_name')
+    .select('id, email, first_name, access_token')
     .eq('id', participantId)
     .maybeSingle()
 
@@ -725,6 +736,8 @@ async function getSnapshotRecipientContext(
     participantEmail: String(participant.email),
     participantFirstName:
       participant.first_name != null ? String(participant.first_name) : undefined,
+    participantAccessToken:
+      typeof participant.access_token === 'string' ? participant.access_token : undefined,
     campaignId: String(snapshot.campaign_id),
     campaignTitle: String(campaign?.title ?? 'Assessment'),
     clientId: typeof campaign?.client_id === 'string' ? campaign.client_id : undefined,
@@ -754,23 +767,39 @@ export async function prepareReportSnapshotSendDraft(
   const context = await getSnapshotRecipientContext(snapshotId)
   const brand = await getEffectiveBrand(context.clientId, context.campaignId)
   const recipientName = context.participantFirstName?.trim() || 'there'
-  const reportToken = createReportAccessToken(snapshotId, context.participantId)
-  const reportUrl =
-    buildSurfaceUrl(
-      'admin',
-      `/reports/${snapshotId}`,
-      `reportToken=${encodeURIComponent(reportToken)}`
-    )?.toString() ??
-    new URL(
-      `/reports/${snapshotId}?reportToken=${encodeURIComponent(reportToken)}`,
-      getReportLinkBaseUrl()
-    ).toString()
+
+  // Build a participant-facing URL using the assess surface and the participant's access token.
+  // Falls back to admin URL with reportToken if no access token is available.
+  let reportUrl: string
+  if (context.participantAccessToken) {
+    reportUrl =
+      buildSurfaceUrl(
+        'assess',
+        `/assess/${context.participantAccessToken}/report/${snapshotId}`,
+      )?.toString() ??
+      new URL(
+        `/assess/${context.participantAccessToken}/report/${snapshotId}`,
+        getReportLinkBaseUrl(),
+      ).toString()
+  } else {
+    const reportToken = createReportAccessToken(snapshotId, context.participantId)
+    reportUrl =
+      buildSurfaceUrl(
+        'admin',
+        `/reports/${snapshotId}`,
+        `reportToken=${encodeURIComponent(reportToken)}`,
+      )?.toString() ??
+      new URL(
+        `/reports/${snapshotId}?reportToken=${encodeURIComponent(reportToken)}`,
+        getReportLinkBaseUrl(),
+      ).toString()
+  }
 
   return {
     recipientEmail: context.participantEmail,
     recipientName,
     subject: `${context.campaignTitle} report ready`,
-    body: `Hi ${recipientName},\n\nYour report for ${context.campaignTitle} is ready to review.\n\nView report:\n${reportUrl}\n\nYou can also download a PDF from the report page.\n\nRegards,\n${brand.name}`,
+    body: `Hi ${recipientName},\n\nYour report for ${context.campaignTitle} is ready to review.\n\nView your report here:\n${reportUrl}\n\nYou can also download a PDF from the report page.\n\nRegards,\n${brand.name}`,
   }
 }
 
