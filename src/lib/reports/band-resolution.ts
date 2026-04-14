@@ -56,5 +56,5 @@ export function resolveBand(
         ? (entity.bandLabelHigh ?? globals.labelHigh)
         : (entity.bandLabelMid ?? globals.labelMid)
 
-  return { band, bandLabel, pompScore, thresholdLow, thresholdHigh }
+  return { band, bandLabel, pompScore: Math.round(pompScore), thresholdLow, thresholdHigh }
 }

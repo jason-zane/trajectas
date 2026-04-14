@@ -81,7 +81,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       db.from('participant_scores').select('*').eq('session_id', snapshot.participantSessionId),
       db
         .from('participant_sessions')
-        .select('id, campaign_id, participant_profile_id, profiles(first_name, last_name)')
+        .select('id, campaign_id, participant_profile_id, assessment_id, profiles(first_name, last_name), assessments(title)')
         .eq('id', snapshot.participantSessionId)
         .single(),
     ])
@@ -113,6 +113,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       participantProfileId: sessionRow.participant_profile_id,
       firstName: sessionRow.profiles?.first_name,
       lastName: sessionRow.profiles?.last_name,
+      assessmentName: sessionRow.assessments?.title ?? undefined,
       reportName: template.name,
     }
 
@@ -122,14 +123,13 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     if (sessionData.campaignId) {
       const { data: campaign } = await db
         .from('campaigns')
-        .select('brand_mode, client_id, title, assessment_id, assessments(title)')
+        .select('brand_mode, client_id, title')
         .eq('id', sessionData.campaignId)
         .maybeSingle()
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const campaignRow = campaign as any
       sessionData.campaignName = campaignRow?.title ?? undefined
-      sessionData.assessmentName = campaignRow?.assessments?.title ?? undefined
 
       const brandMode = (campaign?.brand_mode as string) ?? 'platform'
 
@@ -486,7 +486,8 @@ async function resolveBlockData(
         entityName: entity.name,
         entitySlug: entity.slug,
         definition: config.showDefinition ? entity.definition : undefined,
-        pompScore,
+        description: config.showDescription ? entity.description : undefined,
+        pompScore: Math.round(pompScore),
         bandResult,
         narrative,
         developmentSuggestion,
@@ -510,7 +511,7 @@ async function resolveBlockData(
             pompThresholdHigh: entity.pomp_threshold_high,
           })
         : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
-      return { entityId, entityName: entity?.name ?? entityId, pompScore, bandResult }
+      return { entityId, entityName: entity?.name ?? entityId, pompScore: Math.round(pompScore), bandResult }
     })
     return { scores, config }
   }
@@ -582,7 +583,7 @@ export function resolveStrengthsHighlights(
       return {
         entityId,
         entityName: entity.name ?? entityId,
-        pompScore,
+        pompScore: Math.round(pompScore),
         bandResult,
         strengthCommentary: (entity.strength_commentary as string) ?? '',
       }
@@ -631,7 +632,7 @@ export function resolveDevelopmentPlan(
       return {
         entityId,
         entityName: entity.name ?? entityId,
-        pompScore,
+        pompScore: Math.round(pompScore),
         bandResult,
         developmentSuggestion: (entity.development_suggestion as string) ?? '',
       }
@@ -692,7 +693,7 @@ async function resolveAiText(
 
     const entityContext = Object.entries(scoreMap).map(([entityId, pompScore]) => {
       const entity = taxonomyMap.get(entityId)
-      if (!entity) return { entityId, pompScore }
+      if (!entity) return { entityId, pompScore: Math.round(pompScore) }
       const bandResult = resolveBand(pompScore, {
         bandLabelLow: entity.band_label_low,
         bandLabelMid: entity.band_label_mid,
@@ -704,7 +705,7 @@ async function resolveAiText(
         entityId,
         entityName: entity.name,
         definition: entity.definition,
-        pompScore,
+        pompScore: Math.round(pompScore),
         band: bandResult.band,
         bandLabel: bandResult.bandLabel,
         strengthCommentary: entity.strength_commentary ?? null,
