@@ -102,30 +102,32 @@ export async function GET(
   // Two auth paths: admin scope OR participant access token
   if (participantToken) {
     // Validate participant has access to this specific snapshot
-    const { data: tokenData } = await db
+    const { data: tokenData, error: tokenError } = await db
       .from('campaign_participants')
       .select('id, campaign_id')
       .eq('access_token', participantToken)
       .maybeSingle()
-    if (!tokenData) {
+    if (tokenError || !tokenData) {
       return Response.json({ error: 'Invalid participant token' }, { status: 403 })
     }
     // Verify this snapshot belongs to the participant's session and is released
-    const { data: validSnapshot } = await db
+    const { data: validSnapshot, error: snapshotError } = await db
       .from('report_snapshots')
       .select('id, participant_sessions!inner(campaign_participant_id)')
       .eq('id', snapshotId)
       .eq('status', 'released')
       .eq('audience_type', 'participant')
       .maybeSingle()
-    const session = Array.isArray(validSnapshot?.participant_sessions)
+    if (snapshotError || !validSnapshot) {
+      return Response.json({ error: 'Report not available' }, { status: 403 })
+    }
+    const session = Array.isArray(validSnapshot.participant_sessions)
       ? validSnapshot.participant_sessions[0]
-      : (validSnapshot?.participant_sessions as
+      : (validSnapshot.participant_sessions as
           | { campaign_participant_id: string | null }
           | null
           | undefined)
     if (
-      !validSnapshot ||
       !session ||
       String(session.campaign_participant_id) !== String(tokenData.id)
     ) {
