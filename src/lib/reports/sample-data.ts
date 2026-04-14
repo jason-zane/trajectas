@@ -175,12 +175,18 @@ function generateBlockSampleData(
 
     case 'score_overview': {
       const filtered = filterEntities(entities, config)
+      // Build a parentId→name lookup from all entities (dimensions are parents)
+      const parentNameMap = new Map<string, string>()
+      for (const e of entities) {
+        if (e.type === 'dimension') parentNameMap.set(e.id, e.name)
+      }
       return {
         scores: filtered.slice(0, 8).map((e) => ({
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
           bandResult: makeBandResult(e),
+          parentName: e.parentId ? (parentNameMap.get(e.parentId) ?? '') : '',
         })),
         config: {
           displayLevel: config.displayLevel ?? 'factor',
