@@ -436,29 +436,6 @@ function ScoreDetailContent({ block, entityOptions, onUpdateConfig }: BlockConte
         />
       </div>
 
-      <Field label="Chart type" help="Per-entity visualisation style">
-        <Select
-          value={String(config.chartType ?? 'bar')}
-          onValueChange={(v) => onUpdateConfig('chartType', v)}
-        >
-          <SelectTrigger className="w-full h-8 text-sm">
-            <SelectValue>
-              {(value: string | null) =>
-                getSelectLabel(value, [
-                  { value: 'bar', label: 'Bar' },
-                  { value: 'segment', label: 'Segment' },
-                  { value: 'none', label: 'None' },
-                ])
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="bar">Bar</SelectItem>
-            <SelectItem value="segment">Segment</SelectItem>
-            <SelectItem value="none">None</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
     </div>
   )
 }

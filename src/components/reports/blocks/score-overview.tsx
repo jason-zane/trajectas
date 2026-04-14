@@ -26,13 +26,6 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
 
   return (
     <div>
-      <div
-        className="text-[10px] uppercase tracking-[2px] mb-5"
-        style={{ color: isFeatured ? 'rgba(255,255,255,0.5)' : 'var(--report-label-colour)' }}
-      >
-        Score Overview
-      </div>
-
       {resolvedChart === 'radar' && (
         <RadarChart
           items={d.scores.map((s) => ({ name: s.entityName, value: s.pompScore, bandLabel: s.bandResult.bandLabel }))}

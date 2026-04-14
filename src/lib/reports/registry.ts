@@ -30,7 +30,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     category: 'meta',
     description: 'Admin-authored freeform text or instructions. Supports markdown.',
     defaultConfig: { heading: '', content: '' },
-    supportedModes: ['open', 'inset'],
+    supportedModes: ['open', 'inset', 'featured'],
     defaultMode: 'open',
   },
   section_divider: {
@@ -56,7 +56,6 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     description: 'One or more entity scores with band labels, definitions, indicators, and development suggestions.',
     defaultConfig: { displayLevel: 'factor', entityIds: [], showScore: true, showBandLabel: true, showDefinition: true, showIndicators: true, showDevelopment: false, showNestedScores: false },
     supportedModes: ['featured', 'open', 'carded', 'split'],
-    supportedCharts: ['bar', 'segment', 'scorecard'],
     defaultMode: 'open',
   },
   strengths_highlights: {
