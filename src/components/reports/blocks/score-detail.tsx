@@ -57,7 +57,7 @@ export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<strin
   if (entities.length === 0) return null
 
   const resolvedMode = mode ?? 'open'
-  const resolvedChart = chartType ?? 'bar'
+  const resolvedChart = chartType ?? 'segment'
   const { config } = d
 
   // Scorecard mode — renders all entities in a single table
@@ -75,15 +75,23 @@ export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<strin
     )
   }
 
-  // Render each entity through the appropriate layout
+  // Carded mode: render as fragment so items are direct grid children of CardedMode
+  if (resolvedMode === 'carded') {
+    return (
+      <>
+        {entities.map((entity) => (
+          <CardedLayout key={entity.entityId} entity={entity} config={config} />
+        ))}
+      </>
+    )
+  }
+
+  // Other modes: wrapped in a spacer div
   return (
     <div className="space-y-6">
       {entities.map((entity) => {
         if (resolvedMode === 'featured') {
           return <FeaturedLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} />
-        }
-        if (resolvedMode === 'carded') {
-          return <CardedLayout key={entity.entityId} entity={entity} config={config} />
         }
         return <OpenLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} />
       })}

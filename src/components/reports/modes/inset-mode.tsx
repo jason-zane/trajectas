@@ -1,13 +1,17 @@
 'use client'
 import { cn } from '@/lib/utils'
+import { BlockHeaders } from './block-headers'
 
 interface InsetModeProps {
+  eyebrow?: string
+  heading?: string
+  blockDescription?: string
   children: React.ReactNode
   accentColor?: string
   className?: string
 }
 
-export function InsetMode({ children, accentColor, className }: InsetModeProps) {
+export function InsetMode({ eyebrow, heading, blockDescription, children, accentColor, className }: InsetModeProps) {
   return (
     <div data-mode="inset" className={cn('mx-10 my-9', className)}>
       <div
@@ -17,6 +21,7 @@ export function InsetMode({ children, accentColor, className }: InsetModeProps) 
           borderLeft: `3px solid ${accentColor || 'var(--report-inset-border)'}`,
         }}
       >
+        <BlockHeaders eyebrow={eyebrow} heading={heading} blockDescription={blockDescription} />
         {children}
       </div>
     </div>

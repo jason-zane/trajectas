@@ -1,12 +1,16 @@
 'use client'
 import { cn } from '@/lib/utils'
+import { BlockHeaders } from './block-headers'
 
 interface FeaturedModeProps {
+  eyebrow?: string
+  heading?: string
+  blockDescription?: string
   children: React.ReactNode
   className?: string
 }
 
-export function FeaturedMode({ children, className }: FeaturedModeProps) {
+export function FeaturedMode({ eyebrow, heading, blockDescription, children, className }: FeaturedModeProps) {
   return (
     <div
       data-mode="featured"
@@ -16,6 +20,7 @@ export function FeaturedMode({ children, className }: FeaturedModeProps) {
         color: 'var(--report-featured-text)',
       }}
     >
+      <BlockHeaders eyebrow={eyebrow} heading={heading} blockDescription={blockDescription} variant="featured" />
       {children}
     </div>
   )

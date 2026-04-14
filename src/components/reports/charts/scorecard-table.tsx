@@ -16,6 +16,8 @@ interface ScorecardTableProps {
 }
 
 export function ScorecardTable({ items, className }: ScorecardTableProps) {
+  const showParent = items.some((i) => i.parentName)
+
   return (
     <table className={cn('w-full border-collapse', className)}>
       <thead>
@@ -23,8 +25,8 @@ export function ScorecardTable({ items, className }: ScorecardTableProps) {
           className="text-[10px] uppercase tracking-wider"
           style={{ color: 'var(--report-muted-colour)', borderBottom: '1px solid var(--report-divider)' }}
         >
-          <th className="text-left pb-2 font-medium pr-4">Factor</th>
-          <th className="text-left pb-2 font-medium pr-4">Dimension</th>
+          <th className="text-left pb-2 font-medium pr-4">Name</th>
+          {showParent && <th className="text-left pb-2 font-medium pr-4">Parent</th>}
           <th className="text-left pb-2 font-medium pr-4" style={{ width: '160px' }}>Score</th>
           <th className="text-center pb-2 font-medium">Band</th>
         </tr>
@@ -45,14 +47,16 @@ export function ScorecardTable({ items, className }: ScorecardTableProps) {
                 {item.name}
               </span>
             </td>
-            <td className="py-3 pr-4">
-              <span
-                className="text-[12px]"
-                style={{ color: 'var(--report-muted-colour)' }}
-              >
-                {item.parentName}
-              </span>
-            </td>
+            {showParent && (
+              <td className="py-3 pr-4">
+                <span
+                  className="text-[12px]"
+                  style={{ color: 'var(--report-muted-colour)' }}
+                >
+                  {item.parentName}
+                </span>
+              </td>
+            )}
             <td className="py-3 pr-4" style={{ width: '160px' }}>
               <MiniBar value={item.value} band={item.band} />
             </td>

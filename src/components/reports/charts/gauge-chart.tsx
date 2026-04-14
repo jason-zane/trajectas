@@ -5,13 +5,15 @@ import { BandBadge } from './band-badge'
 
 interface GaugeChartProps {
   items: { name: string; value: number; band: 'high' | 'mid' | 'low'; bandLabel: string }[]
+  showScore?: boolean
+  showBandLabel?: boolean
   className?: string
 }
 
 // Approximate arc length for semicircle of radius 40
 const ARC_LENGTH = 125.66 // π * 40
 
-export function GaugeChart({ items, className }: GaugeChartProps) {
+export function GaugeChart({ items, showScore = true, showBandLabel = true, className }: GaugeChartProps) {
   return (
     <div className={cn('flex flex-wrap gap-2 justify-center', className)}>
       {items.map((item) => {
@@ -39,11 +41,27 @@ export function GaugeChart({ items, className }: GaugeChartProps) {
                 strokeDasharray={dashArray}
                 strokeDashoffset={0}
               />
+              {/* Score text inside arc */}
+              {showScore && (
+                <text
+                  x={50}
+                  y={48}
+                  textAnchor="middle"
+                  fontSize={14}
+                  fontWeight={600}
+                  fill="var(--report-heading-colour)"
+                  style={{ fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}
+                >
+                  {item.value}
+                </text>
+              )}
             </svg>
             <span className="text-[11px] font-semibold mt-0.5" style={{ color: 'var(--report-heading-colour)' }}>
               {item.name}
             </span>
-            <BandBadge band={item.band} label={item.bandLabel} className="mt-1" />
+            {showBandLabel && (
+              <BandBadge band={item.band} label={item.bandLabel} className="mt-1" />
+            )}
           </div>
         )
       })}

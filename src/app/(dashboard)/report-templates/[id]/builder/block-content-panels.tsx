@@ -257,6 +257,31 @@ function CoverPageContent({ block, onUpdateConfig }: BlockContentPanelProps) {
           />
         </Field>
       )}
+
+      <div className="space-y-3 pt-2">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Title fields</p>
+        <SwitchField
+          id="cover-showAssessmentName"
+          label="Show assessment name"
+          help="The name of the assessment instrument"
+          checked={config.showAssessmentName as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showAssessmentName', v)}
+        />
+        <SwitchField
+          id="cover-showCampaignName"
+          label="Show campaign name"
+          help="The campaign this participant was part of"
+          checked={config.showCampaignName as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showCampaignName', v)}
+        />
+        <SwitchField
+          id="cover-showReportName"
+          label="Show report name"
+          help="The name of this report template"
+          checked={config.showReportName as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showReportName', v)}
+        />
+      </div>
     </div>
   )
 }
@@ -436,29 +461,6 @@ function ScoreDetailContent({ block, entityOptions, onUpdateConfig }: BlockConte
         />
       </div>
 
-      <Field label="Chart type" help="Per-entity visualisation style">
-        <Select
-          value={String(config.chartType ?? 'bar')}
-          onValueChange={(v) => onUpdateConfig('chartType', v)}
-        >
-          <SelectTrigger className="w-full h-8 text-sm">
-            <SelectValue>
-              {(value: string | null) =>
-                getSelectLabel(value, [
-                  { value: 'bar', label: 'Bar' },
-                  { value: 'segment', label: 'Segment' },
-                  { value: 'none', label: 'None' },
-                ])
-              }
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="bar">Bar</SelectItem>
-            <SelectItem value="segment">Segment</SelectItem>
-            <SelectItem value="none">None</SelectItem>
-          </SelectContent>
-        </Select>
-      </Field>
     </div>
   )
 }

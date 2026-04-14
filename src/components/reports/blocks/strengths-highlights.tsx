@@ -1,5 +1,4 @@
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
-import { BandBadge } from '../charts/band-badge'
 import type { BandResult } from '@/lib/reports/types'
 
 interface StrengthEntry {
@@ -40,34 +39,26 @@ function getCommentary(h: StrengthEntry): string {
 /* ---------- Open: numbered insight columns ---------- */
 function OpenLayout({ highlights }: { highlights: StrengthEntry[] }) {
   return (
-    <div>
-      <div
-        className="text-[10px] uppercase tracking-[2px] mb-5"
-        style={{ color: 'var(--report-label-colour)' }}
-      >
-        Key Strengths
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        {highlights.map((h, i) => (
-          <div key={h.entityId} className="space-y-2">
-            <span
-              className="text-[40px] font-bold leading-none"
-              style={{ color: 'var(--report-high-band-fill)', opacity: 0.25 }}
-            >
-              {String(i + 1).padStart(2, '0')}
-            </span>
-            <p
-              className="text-[15px] font-semibold"
-              style={{ color: 'var(--report-heading-colour)' }}
-            >
-              {h.entityName}
-            </p>
-            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
-              {getCommentary(h)}
-            </p>
-          </div>
-        ))}
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+      {highlights.map((h, i) => (
+        <div key={h.entityId} className="space-y-2">
+          <span
+            className="text-[40px] font-bold leading-none"
+            style={{ color: 'var(--report-high-band-fill)', opacity: 0.25 }}
+          >
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <p
+            className="text-[15px] font-semibold"
+            style={{ color: 'var(--report-heading-colour)' }}
+          >
+            {h.entityName}
+          </p>
+          <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
+            {getCommentary(h)}
+          </p>
+        </div>
+      ))}
     </div>
   )
 }
@@ -75,71 +66,47 @@ function OpenLayout({ highlights }: { highlights: StrengthEntry[] }) {
 /* ---------- Carded: ranked cards ---------- */
 function CardedLayout({ highlights }: { highlights: StrengthEntry[] }) {
   return (
-    <div>
-      <div className="space-y-3">
-        {highlights.map((h, i) => (
-          <div
-            key={h.entityId}
-            className="border rounded-xl p-5 flex gap-4 items-start"
-            style={{
-              background: 'var(--report-card-bg)',
-              borderColor: 'var(--report-card-border)',
-            }}
+    <>
+      {highlights.map((h, i) => (
+        <div
+          key={h.entityId}
+          className="border rounded-xl p-5 flex gap-4 items-start"
+          style={{
+            background: 'var(--report-card-bg)',
+            borderColor: 'var(--report-card-border)',
+          }}
+        >
+          <span
+            className="text-2xl font-bold tabular-nums shrink-0"
+            style={{ color: 'var(--report-high-band-fill)', opacity: 0.5 }}
           >
-            {/* Rank number */}
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <div className="flex-1 space-y-1">
             <span
-              className="text-2xl font-bold tabular-nums shrink-0"
-              style={{ color: 'var(--report-high-band-fill)', opacity: 0.5 }}
+              className="text-[15px] font-semibold"
+              style={{ color: 'var(--report-heading-colour)' }}
             >
-              {i + 1}
+              {h.entityName}
             </span>
-            <div className="flex-1 space-y-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-[15px] font-semibold"
-                  style={{ color: 'var(--report-heading-colour)' }}
-                >
-                  {h.entityName}
-                </span>
-                {h.bandResult && (
-                  <BandBadge band={h.bandResult.band} label={h.bandResult.bandLabel} />
-                )}
-              </div>
-              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
-                {getCommentary(h)}
-              </p>
-            </div>
+            <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
+              {getCommentary(h)}
+            </p>
           </div>
-        ))}
-      </div>
-    </div>
+        </div>
+      ))}
+    </>
   )
 }
 
-/* ---------- Featured: headline list ---------- */
+/* ---------- Featured: compact list ---------- */
 function FeaturedLayout({ highlights }: { highlights: StrengthEntry[] }) {
-  const names = highlights.map((h) => h.entityName)
-  const summary =
-    names.length > 1
-      ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
-      : names[0]
-
   return (
     <div className="space-y-4">
-      <div
-        className="text-[10px] uppercase tracking-[2px]"
-        style={{ color: 'var(--report-featured-accent)' }}
-      >
-        Key Strengths
-      </div>
-      <p className="text-lg font-semibold text-current">
-        {summary}
-      </p>
-      <ul className="space-y-2">
+      <ul className="space-y-3">
         {highlights.map((h) => (
           <li key={h.entityId} className="text-current">
             <span className="text-[13px] font-medium">{h.entityName}</span>
-            <span className="text-[11px] tabular-nums opacity-60 ml-2">{Math.round(h.pompScore)}</span>
             <p className="text-[12px] leading-relaxed opacity-75 mt-0.5">
               {getCommentary(h)}
             </p>

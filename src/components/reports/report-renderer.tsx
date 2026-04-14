@@ -86,42 +86,15 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
             )
           }
 
-          const hasHeaders = block.eyebrow || block.heading || block.blockDescription
-
           return (
             <div key={block.blockId} className={block.printBreakBefore ? 'print:break-before-page' : undefined}>
-              {hasHeaders && (
-                <div className="px-10 pt-9 space-y-1.5">
-                  {block.eyebrow && (
-                    <p
-                      className="text-[10px] uppercase tracking-[2px]"
-                      style={{ color: 'var(--report-label-colour)' }}
-                    >
-                      {block.eyebrow}
-                    </p>
-                  )}
-                  {block.heading && (
-                    <h2
-                      className="text-xl font-semibold"
-                      style={{ color: 'var(--report-heading-colour)' }}
-                    >
-                      {block.heading}
-                    </h2>
-                  )}
-                  {block.blockDescription && (
-                    <p
-                      className="text-sm"
-                      style={{ color: 'var(--report-muted-colour)' }}
-                    >
-                      {block.blockDescription}
-                    </p>
-                  )}
-                </div>
-              )}
               <ModeWrapper
                 mode={mode}
                 columns={block.columns}
                 insetAccent={block.insetAccent}
+                eyebrow={block.eyebrow}
+                heading={block.heading}
+                blockDescription={block.blockDescription}
               >
                 <Component data={block.data} mode={mode} chartType={block.chartType} />
               </ModeWrapper>

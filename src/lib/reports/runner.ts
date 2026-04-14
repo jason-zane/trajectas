@@ -33,6 +33,9 @@ interface SessionData {
   participantProfileId: string
   firstName?: string
   lastName?: string
+  campaignName?: string
+  assessmentName?: string
+  reportName?: string
 }
 
 interface ScoreMap {
@@ -110,6 +113,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       participantProfileId: sessionRow.participant_profile_id,
       firstName: sessionRow.profiles?.first_name,
       lastName: sessionRow.profiles?.last_name,
+      reportName: template.name,
     }
 
     // Resolve brand theme for the report based on campaigns.brand_mode
@@ -118,9 +122,14 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     if (sessionData.campaignId) {
       const { data: campaign } = await db
         .from('campaigns')
-        .select('brand_mode, client_id')
+        .select('brand_mode, client_id, title, assessment_id, assessments(title)')
         .eq('id', sessionData.campaignId)
         .maybeSingle()
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const campaignRow = campaign as any
+      sessionData.campaignName = campaignRow?.title ?? undefined
+      sessionData.assessmentName = campaignRow?.assessments?.title ?? undefined
 
       const brandMode = (campaign?.brand_mode as string) ?? 'platform'
 
@@ -405,6 +414,9 @@ async function resolveBlockData(
       participantName: session.firstName
         ? `${session.firstName} ${session.lastName ?? ''}`.trim()
         : undefined,
+      assessmentName: session.assessmentName,
+      campaignName: session.campaignName,
+      reportName: session.reportName,
       generatedAt: new Date().toISOString(),
     }
   }

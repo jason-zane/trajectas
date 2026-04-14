@@ -55,15 +55,15 @@ export interface ReportTheme {
 }
 
 export const DEFAULT_REPORT_THEME: ReportTheme = {
-  reportHighBandFill: '#2d6a5a',
-  reportMidBandFill: '#c9a962',
-  reportLowBandFill: '#b85c6a',
-  reportHighBadgeBg: '#e8f0ed',
-  reportHighBadgeText: '#2d6a5a',
-  reportMidBadgeBg: '#f5f0e3',
-  reportMidBadgeText: '#8b6914',
+  reportHighBandFill: '#3d8b72',
+  reportMidBandFill: '#d4a843',
+  reportLowBandFill: '#c75c5c',
+  reportHighBadgeBg: '#e6f2ed',
+  reportHighBadgeText: '#2a6b52',
+  reportMidBadgeBg: '#faf3e0',
+  reportMidBadgeText: '#8a6510',
   reportLowBadgeBg: '#fce8e8',
-  reportLowBadgeText: '#b84c4c',
+  reportLowBadgeText: '#a94442',
 
   reportFeaturedBg: '#1e3a32',
   reportFeaturedText: '#ffffff',

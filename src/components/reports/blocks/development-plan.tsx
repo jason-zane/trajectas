@@ -39,13 +39,6 @@ function getSuggestion(item: DevelopmentItem): string {
 function TimelineLayout({ items }: { items: DevelopmentItem[] }) {
   return (
     <div>
-      <div
-        className="text-[10px] uppercase tracking-[2px] mb-5"
-        style={{ color: 'var(--report-label-colour)' }}
-      >
-        Development Plan
-      </div>
-
       <div className="relative pl-8">
         {/* Vertical connector line */}
         <div
@@ -99,13 +92,6 @@ function TimelineLayout({ items }: { items: DevelopmentItem[] }) {
 function CardedLayout({ items }: { items: DevelopmentItem[] }) {
   return (
     <div>
-      <div
-        className="text-[10px] uppercase tracking-[2px] mb-5"
-        style={{ color: 'var(--report-label-colour)' }}
-      >
-        Development Plan
-      </div>
-
       <div className="space-y-3">
         {items.map((item, i) => (
           <div
@@ -158,12 +144,6 @@ function CardedLayout({ items }: { items: DevelopmentItem[] }) {
 function FeaturedLayout({ items }: { items: DevelopmentItem[] }) {
   return (
     <div className="space-y-4">
-      <div
-        className="text-[10px] uppercase tracking-[2px]"
-        style={{ color: 'var(--report-featured-accent)' }}
-      >
-        Development Plan
-      </div>
       <ul className="space-y-3">
         {items.map((item) => (
           <li key={item.entityId} className="text-current">

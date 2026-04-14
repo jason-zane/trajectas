@@ -12,13 +12,28 @@ export function SectionDividerBlock({ data }: { data: Record<string, unknown>; m
 
   switch (style) {
     case 'thick_rule':
-      return <div className="w-20 border-t-[3px] border-primary rounded-full" />
+      return (
+        <div className="mx-10 my-6">
+          <div
+            className="w-full border-t-[3px] rounded-full"
+            style={{ borderColor: 'var(--report-divider)' }}
+          />
+        </div>
+      )
     case 'whitespace':
       return <div className="h-12" />
     case 'dot_break':
-      return <div className="text-center text-muted-foreground tracking-[0.5em]">&bull;&bull;&bull;</div>
+      return (
+        <div className="mx-10 my-6 text-center tracking-[0.5em]" style={{ color: 'var(--report-muted-colour)' }}>
+          &bull;&bull;&bull;
+        </div>
+      )
     case 'thin_rule':
     default:
-      return <div className="border-t border-border" />
+      return (
+        <div className="mx-10 my-6">
+          <div style={{ borderTop: '1px solid var(--report-divider)' }} />
+        </div>
+      )
   }
 }

@@ -3,17 +3,26 @@
 import { cn } from '@/lib/utils'
 
 interface RadarChartProps {
-  items: { name: string; value: number }[] // value 0-100
-  size?: number // default 240
+  items: { name: string; value: number; bandLabel?: string }[]
+  size?: number
   variant?: 'light' | 'dark'
+  showScore?: boolean
+  showBandLabel?: boolean
   className?: string
 }
 
-export function RadarChart({ items, size = 240, variant = 'light', className }: RadarChartProps) {
+export function RadarChart({
+  items,
+  size = 300,
+  variant = 'light',
+  showScore = false,
+  showBandLabel = false,
+  className,
+}: RadarChartProps) {
   const isDark = variant === 'dark'
   const cx = size / 2
   const cy = size / 2
-  const maxRadius = size / 2 - 30
+  const maxRadius = size / 2 - 50
   const n = items.length
 
   const getPoint = (index: number, radius: number): [number, number] => {
@@ -39,6 +48,7 @@ export function RadarChart({ items, size = 240, variant = 'light', className }: 
         width={size}
         height={size}
         viewBox={`0 0 ${size} ${size}`}
+        overflow="visible"
         style={{ fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}
       >
         {/* Grid rings at 33%, 66%, 100% */}
@@ -89,22 +99,39 @@ export function RadarChart({ items, size = 240, variant = 'light', className }: 
 
         {/* Text labels outside each vertex */}
         {items.map((item, i) => {
-          const [px, py] = getPoint(i, maxRadius + 16)
+          const [px, py] = getPoint(i, maxRadius + 20)
           const angle = (2 * Math.PI / n) * i - Math.PI / 2
           const textAnchor =
             Math.cos(angle) < -0.1 ? 'end' : Math.cos(angle) > 0.1 ? 'start' : 'middle'
+
+          const label = showScore ? `${item.name} (${item.value})` : item.name
+
           return (
-            <text
-              key={i}
-              x={px}
-              y={py}
-              textAnchor={textAnchor}
-              dominantBaseline="middle"
-              fontSize={10}
-              fill={labelColour}
-            >
-              {item.name}
-            </text>
+            <g key={i}>
+              <text
+                x={px}
+                y={py}
+                textAnchor={textAnchor}
+                dominantBaseline="middle"
+                fontSize={10}
+                fill={labelColour}
+              >
+                {label}
+              </text>
+              {showBandLabel && item.bandLabel && (
+                <text
+                  x={px}
+                  y={py + 13}
+                  textAnchor={textAnchor}
+                  dominantBaseline="middle"
+                  fontSize={9}
+                  fill={labelColour}
+                  opacity={0.7}
+                >
+                  {item.bandLabel}
+                </text>
+              )}
+            </g>
           )
         })}
       </svg>
