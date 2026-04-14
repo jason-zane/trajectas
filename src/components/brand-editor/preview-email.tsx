@@ -83,7 +83,7 @@ export function PreviewEmail() {
                 fontFamily: "var(--brand-font-body)",
               }}
             >
-              Begin Assessment
+              Begin assessment
             </span>
           </div>
 

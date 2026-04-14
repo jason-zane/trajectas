@@ -40,7 +40,7 @@ export function AssessmentIntroEditor({
   // Derive initial values, falling back to sensible defaults
   const initialHeading = initialContent?.heading || assessmentTitle
   const initialBody = initialContent?.body ?? ""
-  const initialButtonLabel = initialContent?.buttonLabel || "Begin Assessment"
+  const initialButtonLabel = initialContent?.buttonLabel || "Begin assessment"
   const [draftContent, setDraftContent] = useState({
     heading: initialHeading,
     body: initialBody,
@@ -256,7 +256,7 @@ export function AssessmentIntroEditor({
                 value={buttonLabelAutoSave.value}
                 onChange={handleButtonLabelChange}
                 onBlur={buttonLabelAutoSave.handleBlur}
-                placeholder="Begin Assessment"
+                placeholder="Begin assessment"
               />
               <AutoSaveIndicator
                 status={buttonLabelAutoSave.status}

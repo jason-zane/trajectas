@@ -216,22 +216,20 @@ export function JoinForm({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="join-job-title">Job Title (optional)</Label>
+                <Label htmlFor="join-job-title">Job title <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="join-job-title"
                   value={jobTitle}
                   onChange={(e) => setJobTitle(e.target.value)}
-                  placeholder="Product Manager"
                   autoComplete="organization-title"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="join-company">Company (optional)</Label>
+                <Label htmlFor="join-company">Company <span className="text-muted-foreground font-normal">(optional)</span></Label>
                 <Input
                   id="join-company"
                   value={company}
                   onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Acme Inc."
                   autoComplete="organization"
                 />
               </div>

@@ -46,7 +46,7 @@ test.describe("seeded participant runtime", () => {
 
     await expect(page).toHaveURL(new RegExp(`/assess/${seededTokens.invited}/welcome$`));
     await expect(page.getByRole("heading", { name: "Seeded Leadership Campaign" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Begin Assessment" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Begin assessment" })).toBeVisible();
   });
 
   test("routes an in-progress participant back into the active section", async ({ page }) => {

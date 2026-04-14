@@ -62,7 +62,7 @@ function AssessmentIntroCard({
   const [buttonLabel, setButtonLabel] = useState(() =>
     assessment.introOverride && "buttonLabel" in assessment.introOverride
       ? assessment.introOverride.buttonLabel
-      : assessment.introContent?.buttonLabel ?? "Begin Assessment"
+      : assessment.introContent?.buttonLabel ?? "Begin assessment"
   )
   const [isPending, startTransition] = useTransition()
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
@@ -176,7 +176,7 @@ function AssessmentIntroCard({
                 <Input
                   value={buttonLabel}
                   onChange={(e) => setButtonLabel(e.target.value)}
-                  placeholder="Begin Assessment"
+                  placeholder="Begin assessment"
                 />
               </div>
             </div>

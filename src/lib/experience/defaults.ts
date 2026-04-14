@@ -30,8 +30,8 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
       'You can leave and return to continue where you left off.',
       'There are no right or wrong answers — respond honestly.',
     ],
-    buttonLabel: 'Begin Assessment',
-    resumeButtonLabel: 'Resume Assessment',
+    buttonLabel: 'Begin assessment',
+    resumeButtonLabel: 'Resume assessment',
   },
 
   consent: {
@@ -62,7 +62,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     eyebrow: '{{campaignTitle}}',
     heading: 'Review Your Responses',
     body: '{{answeredCount}} of {{totalItems}} questions answered',
-    buttonLabel: 'Submit Assessment',
+    buttonLabel: 'Submit assessment',
     incompleteWarning:
       'You have unanswered questions. You can still submit, but incomplete sections may affect your results.',
   },

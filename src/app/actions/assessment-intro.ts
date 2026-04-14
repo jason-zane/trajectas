@@ -106,7 +106,7 @@ export async function toggleAssessmentIntro(
       enabled: true,
       heading: String(data.title ?? ''),
       body: '',
-      buttonLabel: 'Begin Assessment',
+      buttonLabel: 'Begin assessment',
     }
   } else if (data.intro_content) {
     // Merge enabled flag into existing content
@@ -120,7 +120,7 @@ export async function toggleAssessmentIntro(
       enabled: false,
       heading: String(data.title ?? ''),
       body: '',
-      buttonLabel: 'Begin Assessment',
+      buttonLabel: 'Begin assessment',
     }
   }
 
