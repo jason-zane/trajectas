@@ -1480,46 +1480,8 @@ export async function registerViaLink(
     return { error: 'This campaign is not currently accepting registrations' }
   }
 
-  // Find the most recent non-completed participant for this email.
-  // If one exists (registered or in_progress), return their token so they can
-  // resume. Completed participants are intentionally excluded so the same
-  // email can start a fresh attempt (the DB unique constraint was dropped in
-  // allow_repeat_campaign_invites to support this).
-  const { data: existing } = await db
-    .from('campaign_participants')
-    .select('id, access_token, status')
-    .eq('campaign_id', link.campaign_id)
-    .eq('email', normalizedEmail)
-    .not('status', 'eq', 'completed')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (existing) {
-    const existingUpdate: Record<string, string> = {
-      first_name: normalizedFirstName,
-      last_name: normalizedLastName,
-    }
-
-    if (normalizedJobTitle) {
-      existingUpdate.job_title = normalizedJobTitle
-    }
-
-    if (normalizedCompany) {
-      existingUpdate.company = normalizedCompany
-    }
-
-    const { error: updateErr } = await db
-      .from('campaign_participants')
-      .update(existingUpdate)
-      .eq('id', existing.id)
-
-    if (updateErr) {
-      logActionError('registerViaLink.updateExisting', updateErr)
-    }
-
-    return { accessToken: existing.access_token }
-  }
+  // Every link-based registration creates a fresh participant record.
+  // Participants who need to resume use their unique access-token URL.
 
   // Quota check: only applies when campaign belongs to a client
   if (campaign.client_id) {
