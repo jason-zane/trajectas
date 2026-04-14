@@ -249,7 +249,7 @@ export function BlockBuilderClient({
   const [promptOptions] = useState<PromptOption[]>(initialPromptOptions)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewBlocks, setPreviewBlocks] = useState(() =>
-    buildTemplatePreviewBlocks(initialBlocks),
+    buildTemplatePreviewBlocks(initialBlocks, [], initialName),
   )
 
   // Template settings state
@@ -272,14 +272,15 @@ export function BlockBuilderClient({
   }, [])
 
   useEffect(() => {
+    const previewEntities = entityOptions.map((e) => ({ id: e.id, name: e.label, type: e.type }))
     const timeoutId = window.setTimeout(() => {
-      setPreviewBlocks(buildTemplatePreviewBlocks(blocks))
+      setPreviewBlocks(buildTemplatePreviewBlocks(blocks, previewEntities, name))
     }, 500)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [blocks])
+  }, [blocks, entityOptions, name])
 
   // ---------------------------------------------------------------------------
   // Save blocks + name
