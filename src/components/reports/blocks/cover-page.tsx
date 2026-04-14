@@ -23,7 +23,7 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
     : null
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[300px] py-16 text-center print:min-h-screen print:py-24">
+    <div className="flex flex-col items-center justify-center min-h-[200px] py-10 text-center print:min-h-screen print:py-24">
       {/* Logo or org name fallback */}
       {d.showLogo !== false && (
         d.primaryLogoUrl ? (
@@ -31,11 +31,11 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
           <img
             src={d.primaryLogoUrl}
             alt="Logo"
-            className="h-12 mb-12 object-contain"
+            className="h-12 mb-8 object-contain"
           />
         ) : d.clientName ? (
           <p
-            className="text-sm font-semibold uppercase tracking-[3px] mb-12"
+            className="text-sm font-semibold uppercase tracking-[3px] mb-8"
             style={{ color: 'var(--report-featured-accent)' }}
           >
             {d.clientName}
@@ -58,7 +58,7 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
 
       {/* Secondary logo / Powered by */}
       {(d.showLogo !== false || d.showPoweredBy) && (
-        <div className="mt-16 flex flex-col items-center gap-2">
+        <div className="mt-10 flex flex-col items-center gap-2">
           {d.showPoweredBy && d.poweredByText && (
             <p className="text-[10px] uppercase tracking-[2px] opacity-40">
               {d.poweredByText}

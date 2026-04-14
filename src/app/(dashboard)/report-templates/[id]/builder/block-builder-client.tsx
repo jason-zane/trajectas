@@ -212,6 +212,8 @@ function getBlockSummary(
 // ---------------------------------------------------------------------------
 
 type BlockTab = 'content' | 'headers' | 'presentation' | 'print'
+const BLOCKS_WITHOUT_HEADERS: BlockType[] = ['cover_page', 'section_divider']
+const BLOCKS_WITHOUT_PRESENTATION: BlockType[] = ['section_divider']
 const BLOCK_TABS: { id: BlockTab; label: string }[] = [
   { id: 'content', label: 'Content' },
   { id: 'headers', label: 'Headers' },
@@ -641,7 +643,11 @@ export function BlockBuilderClient({
                             )}
 
                             <div className="flex gap-0 border-b border-border px-4">
-                              {BLOCK_TABS.map((tab) => (
+                              {BLOCK_TABS.filter((tab) => {
+                                if (tab.id === 'headers' && BLOCKS_WITHOUT_HEADERS.includes(block.type)) return false
+                                if (tab.id === 'presentation' && BLOCKS_WITHOUT_PRESENTATION.includes(block.type)) return false
+                                return true
+                              }).map((tab) => (
                                 <button
                                   key={tab.id}
                                   onClick={() => setActiveTab(tab.id)}

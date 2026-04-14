@@ -163,6 +163,7 @@ function generateBlockSampleData(
       return {
         participantName: 'Alex Morgan',
         campaignTitle: templateName,
+        clientName: 'Preview Organisation',
         generatedAt: new Date().toISOString(),
         showDate: config.showDate !== false,
         showLogo: config.showLogo !== false,
