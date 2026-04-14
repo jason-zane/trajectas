@@ -9,6 +9,7 @@ import { DataTable, DataTableColumnHeader, type BulkAction } from "@/components/
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReportAudienceType, ReportSnapshotStatus } from "@/types/database";
+import { getReportStatusLabel } from "@/lib/reports/status";
 
 type ReportTableRow = ReportSnapshotListItem & {
   participantLabel: string;
@@ -27,7 +28,7 @@ const STATUS_META: Record<
   },
   ready: { label: "Ready", className: "text-blue-600 bg-blue-500/10 border-blue-500/20" },
   released: {
-    label: "Released",
+    label: "Sent",
     className: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20",
   },
   failed: {
@@ -83,7 +84,7 @@ const bulkActions: BulkAction<ReportTableRow>[] = [
     },
   },
   {
-    label: "Release",
+    label: "Mark sent",
     action: async (ids) => {
       await bulkUpdateReportStatus(ids, "released");
     },
@@ -123,7 +124,7 @@ const columns: ColumnDef<ReportTableRow>[] = [
       const status = STATUS_META[row.original.status];
       return (
         <Badge variant="outline" className={status.className}>
-          {status.label}
+          {getReportStatusLabel(row.original.status) ?? status.label}
         </Badge>
       );
     },

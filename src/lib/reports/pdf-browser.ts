@@ -30,6 +30,8 @@ const COMMON_EXECUTABLE_PATHS: Partial<Record<NodeJS.Platform, string[]>> = {
   ],
 }
 
+const CHROMIUM_MIN_VERSION = '143.0.0'
+
 function findLocalExecutablePath() {
   for (const envVar of LOCAL_EXECUTABLE_ENV_VARS) {
     const configuredPath = process.env[envVar]
@@ -52,11 +54,15 @@ async function getLaunchOptions(): Promise<LaunchOptions> {
     }
   }
 
-  const chromium = (await import('@sparticuz/chromium')).default
+  const chromium = (await import('@sparticuz/chromium-min')).default
+  const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+  const packUrl =
+    process.env.CHROMIUM_MIN_PACK_URL ??
+    `https://github.com/Sparticuz/chromium/releases/download/v${CHROMIUM_MIN_VERSION}/chromium-v${CHROMIUM_MIN_VERSION}-pack.${arch}.tar`
 
   return {
-    executablePath: await chromium.executablePath(),
-    headless: true,
+    executablePath: await chromium.executablePath(packUrl),
+    headless: 'shell',
     args: chromium.args,
   }
 }

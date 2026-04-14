@@ -11,6 +11,7 @@ import {
   mapReportPdfStatus,
   queueReportPdfGeneration,
 } from '@/lib/reports/pdf'
+import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -50,6 +51,42 @@ async function respondWithStoredPdf(storagePath: string) {
   })
 }
 
+async function validateReportTokenAccess(
+  snapshotId: string,
+  reportToken: string | null,
+) {
+  const tokenPayload = verifyReportAccessToken(reportToken, snapshotId)
+  if (!tokenPayload) {
+    return Response.json({ error: 'Invalid report token' }, { status: 403 })
+  }
+
+  const db = createAdminClient()
+  const { data: validSnapshot } = await db
+    .from('report_snapshots')
+    .select('id, participant_sessions!inner(campaign_participant_id)')
+    .eq('id', snapshotId)
+    .eq('status', 'released')
+    .eq('audience_type', 'participant')
+    .maybeSingle()
+
+  const session = Array.isArray(validSnapshot?.participant_sessions)
+    ? validSnapshot.participant_sessions[0]
+    : (validSnapshot?.participant_sessions as
+        | { campaign_participant_id: string | null }
+        | null
+        | undefined)
+
+  if (
+    !validSnapshot ||
+    !session?.campaign_participant_id ||
+    String(session.campaign_participant_id) !== tokenPayload.participantId
+  ) {
+    return Response.json({ error: 'Report not available' }, { status: 403 })
+  }
+
+  return null
+}
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ snapshotId: string }> },
@@ -58,6 +95,7 @@ export async function GET(
   const url = new URL(request.url)
   const forceRefresh = url.searchParams.get('refresh') === '1'
   const participantToken = url.searchParams.get('token')
+  const reportToken = url.searchParams.get('reportToken')
   const storagePath = `reports/${snapshotId}.pdf`
   const db = createAdminClient()
 
@@ -92,6 +130,11 @@ export async function GET(
       String(session.campaign_participant_id) !== String(tokenData.id)
     ) {
       return Response.json({ error: 'Report not available' }, { status: 403 })
+    }
+  } else if (reportToken) {
+    const tokenError = await validateReportTokenAccess(snapshotId, reportToken)
+    if (tokenError) {
+      return tokenError
     }
   } else {
     const authError = await requirePdfAccess(snapshotId)
@@ -160,9 +203,19 @@ export async function POST(
   { params }: { params: Promise<{ snapshotId: string }> },
 ) {
   const { snapshotId } = await params
-  const authError = await requirePdfAccess(snapshotId)
-  if (authError) {
-    return authError
+  const url = new URL(request.url)
+  const reportToken = url.searchParams.get('reportToken')
+
+  if (reportToken) {
+    const tokenError = await validateReportTokenAccess(snapshotId, reportToken)
+    if (tokenError) {
+      return tokenError
+    }
+  } else {
+    const authError = await requirePdfAccess(snapshotId)
+    if (authError) {
+      return authError
+    }
   }
 
   try {

@@ -27,9 +27,9 @@ export default async function AdminCampaignResultsPage({
       participants={participants}
       sessions={sessions}
       factorScoreRows={factorScoreRows}
-      participantHref={(p) => `/participants/${p.id}`}
-      sessionHref={(s) => `/participants/${s.participantId}/sessions/${s.id}`}
-      factorSessionHref={(row) => `/participants/${row.participantId}/sessions/${row.sessionId}`}
+      participantHref={(participantId) => `/participants/${participantId}`}
+      viewResultsHref={(session) => `/campaigns/${id}/sessions/${session.id}`}
+      factorSessionHref={(row) => `/campaigns/${id}/sessions/${row.sessionId}`}
       reportHref={(snapshotId) => `/reports/${snapshotId}`}
     />
   );

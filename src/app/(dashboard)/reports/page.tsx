@@ -10,7 +10,7 @@ export default async function ReportsPage() {
       <PageHeader
         eyebrow="Reports"
         title="Reports"
-        description="Generated report snapshots. Click a report to preview or release."
+        description="Generated report snapshots. Click a report to preview it or send it to the participant."
       />
 
       <ReportsTable snapshots={snapshots} />

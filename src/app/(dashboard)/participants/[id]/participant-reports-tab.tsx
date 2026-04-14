@@ -1,34 +1,18 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ReleaseSnapshotButton } from "@/app/(dashboard)/reports/[snapshotId]/release-snapshot-button";
 import { ReportPdfButton } from "@/components/reports/report-pdf-button";
+import {
+  getReportStatusLabel,
+  getReportStatusVariant,
+  isReportViewable,
+} from "@/lib/reports/status";
 import type { ReportSnapshot } from "@/types/database";
 
 const audienceLabel: Record<string, string> = {
   participant: "Participant",
   hr_manager: "HR Manager",
   consultant: "Consultant",
-};
-
-const statusVariant: Record<
-  string,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  pending: "secondary",
-  generating: "secondary",
-  ready: "default",
-  released: "default",
-  failed: "destructive",
-};
-
-const statusLabel: Record<string, string> = {
-  pending: "Pending",
-  generating: "Generating",
-  ready: "Ready",
-  released: "Released",
-  failed: "Failed",
 };
 
 const pdfStatusVariant: Record<
@@ -92,7 +76,7 @@ export function ParticipantReportsTab({
                   {audienceLabel[snapshot.audienceType] ?? snapshot.audienceType}
                 </Badge>
                 <Badge
-                  variant={statusVariant[snapshot.status] ?? "secondary"}
+                  variant={getReportStatusVariant(snapshot.status)}
                   className={`text-xs shrink-0 ${
                     snapshot.status === "released"
                       ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30"
@@ -101,7 +85,7 @@ export function ParticipantReportsTab({
                         : ""
                   }`}
                 >
-                  {statusLabel[snapshot.status] ?? snapshot.status}
+                  {getReportStatusLabel(snapshot.status)}
                 </Badge>
                 {snapshot.pdfStatus && (
                   <Badge
@@ -126,17 +110,15 @@ export function ParticipantReportsTab({
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link href={`/reports/${snapshot.id}`} />}
-                >
-                  Preview
-                </Button>
-                {snapshot.status === "ready" && (
-                  <ReleaseSnapshotButton snapshotId={snapshot.id} />
-                )}
-                {["ready", "released"].includes(snapshot.status) && (
+                {isReportViewable(snapshot.status) ? (
+                  <Link
+                    href={`/reports/${snapshot.id}`}
+                    className="inline-flex h-8 items-center rounded-md border border-input px-3 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    Preview
+                  </Link>
+                ) : null}
+                {isReportViewable(snapshot.status) && (
                   <ReportPdfButton
                     snapshotId={snapshot.id}
                     initialPdfUrl={snapshot.pdfUrl}

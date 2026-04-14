@@ -4,25 +4,60 @@ import {
   requireReportSnapshotAccess,
 } from '@/lib/auth/authorization'
 import { getSnapshotPdfState, mapReportPdfStatus } from '@/lib/reports/pdf'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 
 export const runtime = 'nodejs'
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ snapshotId: string }> },
 ) {
   const { snapshotId } = await params
+  const url = new URL(request.url)
+  const reportToken = url.searchParams.get('reportToken')
 
-  try {
-    await requireReportSnapshotAccess(snapshotId)
-  } catch (error) {
-    if (error instanceof AuthenticationRequiredError) {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
+  if (reportToken) {
+    const tokenPayload = verifyReportAccessToken(reportToken, snapshotId)
+    if (!tokenPayload) {
+      return Response.json({ error: 'Invalid report token' }, { status: 403 })
     }
-    if (error instanceof AuthorizationError) {
-      return Response.json({ error: error.message }, { status: 403 })
+
+    const db = createAdminClient()
+    const { data: validSnapshot } = await db
+      .from('report_snapshots')
+      .select('id, participant_sessions!inner(campaign_participant_id)')
+      .eq('id', snapshotId)
+      .eq('status', 'released')
+      .eq('audience_type', 'participant')
+      .maybeSingle()
+
+    const session = Array.isArray(validSnapshot?.participant_sessions)
+      ? validSnapshot.participant_sessions[0]
+      : (validSnapshot?.participant_sessions as
+          | { campaign_participant_id: string | null }
+          | null
+          | undefined)
+
+    if (
+      !validSnapshot ||
+      !session?.campaign_participant_id ||
+      String(session.campaign_participant_id) !== tokenPayload.participantId
+    ) {
+      return Response.json({ error: 'Report not available' }, { status: 403 })
     }
-    throw error
+  } else {
+    try {
+      await requireReportSnapshotAccess(snapshotId)
+    } catch (error) {
+      if (error instanceof AuthenticationRequiredError) {
+        return Response.json({ error: 'Authentication required' }, { status: 401 })
+      }
+      if (error instanceof AuthorizationError) {
+        return Response.json({ error: error.message }, { status: 403 })
+      }
+      throw error
+    }
   }
 
   try {

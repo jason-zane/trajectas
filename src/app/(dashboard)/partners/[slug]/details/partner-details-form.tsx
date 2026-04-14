@@ -9,16 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { AutoSaveIndicator } from "@/components/auto-save-indicator";
 import { SectionCard } from "@/components/section-card";
 import { SaveButton, type SaveState } from "@/components/save-button";
-import {
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { slugify } from "@/lib/utils";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 import { useAutoSave } from "@/hooks/use-auto-save";
@@ -70,8 +64,6 @@ export function PartnerDetailsForm({ partner }: { partner: Partner }) {
   const [deleting, setDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const pending = saveState === "saving";
   const [initialState, setInitialState] = useState(() => ({
     name: partner.name,
     slug: partner.slug,

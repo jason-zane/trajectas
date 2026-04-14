@@ -1,12 +1,14 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
   DataTable,
   DataTableColumnHeader,
   DataTableRowLink,
 } from "@/components/data-table";
+import { Button } from "@/components/ui/button";
 import { LocalTime } from "@/components/local-time";
 import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing";
 import type { CampaignSessionRow } from "@/app/actions/sessions";
@@ -20,7 +22,8 @@ const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "dest
 
 interface Props {
   sessions: CampaignSessionRow[];
-  sessionHref: (s: CampaignSessionRow) => string;
+  participantHref: (s: CampaignSessionRow) => string;
+  viewResultsHref: (s: CampaignSessionRow) => string;
   assessmentOptions: Array<{ label: string; value: string }>;
 }
 
@@ -33,7 +36,12 @@ function processingVariant(
   return "outline";
 }
 
-export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions }: Props) {
+export function ResultsBySessionTable({
+  sessions,
+  participantHref,
+  viewResultsHref,
+  assessmentOptions,
+}: Props) {
   const columns: ColumnDef<CampaignSessionRow>[] = [
     {
       accessorKey: "participantName",
@@ -43,8 +51,8 @@ export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions
       cell: ({ row }) => (
         <div className="min-w-0">
           <DataTableRowLink
-            href={sessionHref(row.original)}
-            ariaLabel={`Open session for ${row.original.participantName}`}
+            href={participantHref(row.original)}
+            ariaLabel={`Open ${row.original.participantName}`}
             className="font-semibold hover:text-primary"
           >
             {row.original.participantName}
@@ -86,15 +94,6 @@ export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions
       ),
     },
     {
-      accessorKey: "startedAt",
-      header: ({ column }) => <DataTableColumnHeader column={column} title="Started" />,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          <LocalTime iso={row.original.startedAt} format="date-time" />
-        </span>
-      ),
-    },
-    {
       accessorKey: "completedAt",
       header: ({ column }) => <DataTableColumnHeader column={column} title="Completed" />,
       cell: ({ row }) => (
@@ -104,10 +103,17 @@ export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions
       ),
     },
     {
-      accessorKey: "scoreCount",
-      header: "Scores",
+      id: "viewResults",
+      enableSorting: false,
+      header: "Action",
       cell: ({ row }) => (
-        <span className="tabular-nums text-sm">{row.original.scoreCount}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link href={viewResultsHref(row.original)} />}
+        >
+          View results
+        </Button>
       ),
     },
   ];
@@ -135,8 +141,7 @@ export function ResultsBySessionTable({ sessions, sessionHref, assessmentOptions
           ],
         },
       ]}
-      defaultSort={{ id: "startedAt", desc: true }}
-      rowHref={(row) => sessionHref(row)}
+      defaultSort={{ id: "completedAt", desc: true }}
       pageSize={20}
     />
   );

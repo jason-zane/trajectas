@@ -200,6 +200,7 @@ export function DataTable<TData, TValue>({
   const table = useReactTable({
     data: searchedData,
     columns: allColumns,
+    getRowId,
     filterFns: {
       multiValue: multiValueFilter,
     },

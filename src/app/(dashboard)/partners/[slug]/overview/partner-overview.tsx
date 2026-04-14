@@ -4,7 +4,6 @@ import {
   Building2,
   ClipboardList,
   Library,
-  Megaphone,
   UserPlus,
 } from "lucide-react";
 import { EnterPortalButton } from "@/components/enter-portal-button";
@@ -17,7 +16,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollReveal } from "@/components/scroll-reveal";
-import { TiltCard } from "@/components/tilt-card";
 import { PartnerStats } from "./partner-stats";
 import type { Partner } from "@/types/database";
 

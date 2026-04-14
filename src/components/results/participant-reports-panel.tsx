@@ -12,6 +12,11 @@ import { EmptyState } from "@/components/empty-state";
 import { ExternalLink } from "lucide-react";
 import { LocalTime } from "@/components/local-time";
 import { ReportPdfButton } from "@/components/reports/report-pdf-button";
+import {
+  getReportStatusLabel,
+  getReportStatusVariant,
+  isReportViewable,
+} from "@/lib/reports/status";
 import type { ReportSnapshot } from "@/types/database";
 
 type SnapshotWithTemplate = ReportSnapshot & { templateName?: string };
@@ -20,14 +25,6 @@ interface ParticipantReportsPanelProps {
   snapshots: SnapshotWithTemplate[];
   sessionBaseHref: string;
 }
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  pending: "secondary",
-  generating: "secondary",
-  ready: "default",
-  released: "default",
-  failed: "destructive",
-};
 
 const PDF_STATUS_VARIANT: Record<
   string,
@@ -90,8 +87,8 @@ export function ParticipantReportsPanel({
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={STATUS_VARIANT[s.status] ?? "outline"}>
-                    {s.status}
+                  <Badge variant={getReportStatusVariant(s.status)}>
+                    {getReportStatusLabel(s.status)}
                   </Badge>
                   {s.pdfStatus && (
                     <Badge variant={PDF_STATUS_VARIANT[s.pdfStatus] ?? "outline"}>
@@ -104,7 +101,7 @@ export function ParticipantReportsPanel({
                 <LocalTime iso={s.generatedAt ?? undefined} format="relative" />
               </TableCell>
               <TableCell>
-                {(s.status === "ready" || s.status === "released") && (
+                {isReportViewable(s.status) && (
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
                       href={`/reports/${s.id}`}

@@ -34,7 +34,7 @@
     "@maily-to/core": "^0.3.7",
     "@maily-to/render": "^0.2.3",
     "@react-email/components": "^1.0.11",
-    "@sparticuz/chromium": "^143.0.4",
+    "@sparticuz/chromium-min": "^143.0.4",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.100.0",
     "@tanstack/react-table": "^8.21.3",

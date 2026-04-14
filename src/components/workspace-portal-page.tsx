@@ -52,7 +52,7 @@ function AccessStateCard({ access }: { access: WorkspaceAccessResult }) {
             Membership required
           </CardTitle>
           <CardDescription>
-            You don't have access to this workspace.
+            You don&apos;t have access to this workspace.
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">

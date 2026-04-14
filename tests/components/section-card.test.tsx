@@ -24,7 +24,7 @@ describe("SectionCard", () => {
   })
 
   it("does not render description element when not provided", () => {
-    const { container } = render(<SectionCard title="Profile"><p>Body</p></SectionCard>)
+    render(<SectionCard title="Profile"><p>Body</p></SectionCard>)
     // No second text element in the header
     expect(screen.queryByText(/update your/i)).not.toBeInTheDocument()
   })

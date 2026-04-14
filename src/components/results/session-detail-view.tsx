@@ -9,13 +9,10 @@ import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing
 import { SessionScoresPanel } from "./session-scores-panel";
 import { SessionResponsesPanel } from "./session-responses-panel";
 import { SessionReportsPanel } from "./session-reports-panel";
-import { GenerateReportTrigger } from "./generate-report-trigger";
 import type { SessionDetail } from "@/app/actions/sessions";
-import type { GenerateReportDialogTemplate } from "./generate-report-dialog";
 
 interface SessionDetailViewProps {
   session: SessionDetail;
-  templates: GenerateReportDialogTemplate[];
   canSeeResponses: boolean;
   backHref: string;
   backLabel: string;
@@ -41,7 +38,6 @@ function processingBadgeVariant(
 
 export function SessionDetailView({
   session,
-  templates,
   canSeeResponses,
   backHref,
   backLabel,
@@ -73,14 +69,7 @@ export function SessionDetailView({
         description={`${session.participantEmail} · ${session.campaignTitle}${
           session.clientName ? ` · ${session.clientName}` : ""
         }`}
-      >
-        {templates.length > 0 ? (
-          <GenerateReportTrigger
-            sessionId={session.id}
-            templates={templates}
-          />
-        ) : null}
-      </PageHeader>
+      />
 
       {/* Stats strip */}
       {showProcessingBanner && (

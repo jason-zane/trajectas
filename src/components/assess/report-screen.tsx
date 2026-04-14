@@ -85,7 +85,7 @@ export function ReportScreen({
     reportStatus === "failed"
       ? reportError ?? "We hit a problem preparing your report. Please try again later."
       : reportStatus === "ready"
-        ? "Your report is ready and will appear here once it has been released."
+        ? "Your report is ready and will appear here once it has been sent."
         : autoRefresh
           ? "Your report is being prepared. This page updates automatically."
           : "Your report is being prepared. This usually takes a moment.";

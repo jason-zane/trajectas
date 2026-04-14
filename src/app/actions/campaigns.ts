@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
-  assertAdminOnly,
   AuthorizationError,
   canAccessClient,
   getAccessibleCampaignIds,

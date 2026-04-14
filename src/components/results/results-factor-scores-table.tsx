@@ -11,6 +11,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LocalTime } from "@/components/local-time";
+import {
+  getReportStatusLabel,
+  getReportStatusVariant,
+  isReportViewable,
+} from "@/lib/reports/status";
 import type { CampaignFactorScoreRow } from "@/app/actions/campaign-results";
 
 interface ResultsFactorScoresTableProps {
@@ -18,17 +23,6 @@ interface ResultsFactorScoresTableProps {
   sessionHref: (row: CampaignFactorScoreRow) => string;
   reportHref: (snapshotId: string) => string;
 }
-
-const STATUS_VARIANT: Record<
-  string,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  pending: "secondary",
-  generating: "secondary",
-  ready: "default",
-  released: "default",
-  failed: "destructive",
-};
 
 const PDF_STATUS_VARIANT: Record<
   string,
@@ -137,8 +131,8 @@ export function ResultsFactorScoresTable({
                 <div className="flex flex-col items-start gap-2">
                   {row.reportStatus ? (
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={STATUS_VARIANT[row.reportStatus] ?? "outline"}>
-                        {row.reportStatus}
+                      <Badge variant={getReportStatusVariant(row.reportStatus)}>
+                        {getReportStatusLabel(row.reportStatus)}
                       </Badge>
                       {row.reportPdfStatus && (
                         <Badge
@@ -159,7 +153,8 @@ export function ResultsFactorScoresTable({
                     </p>
                   )}
                   {row.reportSnapshotId &&
-                    (row.reportStatus === "ready" || row.reportStatus === "released") && (
+                    row.reportStatus &&
+                    isReportViewable(row.reportStatus) && (
                       <div className="flex flex-wrap items-center gap-3 text-sm">
                         <Link
                           href={reportHref(row.reportSnapshotId)}

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getEffectiveBrand } from '@/app/actions/brand'
 import {
   canManageCampaign,
   canManageReportTemplateLibrary,
@@ -14,6 +15,7 @@ import {
   requireParticipantAccess,
   requireReportTemplateAccess,
   requireReportSnapshotAccess,
+  requireSessionAccess,
   resolveAuthorizedScope,
   AuthorizationError,
 } from '@/lib/auth/authorization'
@@ -25,12 +27,15 @@ import {
   logActionError,
   throwActionError,
 } from '@/lib/security/action-errors'
+import { sendHtmlEmail } from '@/lib/email/provider'
+import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
 import {
   mapReportTemplateRow,
   mapCampaignReportConfigRow,
   mapReportSnapshotRow,
 } from '@/lib/supabase/mappers'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
+import { createReportAccessToken } from '@/lib/reports/report-access-token'
 import type {
   ReportTemplate,
   CampaignReportConfig,
@@ -127,28 +132,49 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-type SessionScopeLookupRow = {
-  campaign_participants:
-    | {
-        campaigns:
-          | { client_id: string | null }
-          | Array<{ client_id: string | null }>
-          | null
-      }
-    | Array<{
-        campaigns:
-          | { client_id: string | null }
-          | Array<{ client_id: string | null }>
-          | null
-      }>
-    | null
+export type AudienceType = 'participant' | 'hr_manager' | 'consultant'
+
+type CampaignSessionReportRow = {
+  audienceType: AudienceType
+  templateId: string
+  templateName: string
+  snapshotId?: string
+  status: string
+  generatedAt?: string
+  errorMessage?: string
 }
 
-type SessionCampaignLookupRow = {
-  campaign_participants:
-    | { campaign_id: string | null }
-    | Array<{ campaign_id: string | null }>
-    | null
+function getAudienceLabel(audienceType: AudienceType) {
+  if (audienceType === 'participant') return 'Participant'
+  if (audienceType === 'hr_manager') return 'HR Manager'
+  return 'Consultant'
+}
+
+function getReportLinkBaseUrl() {
+  const adminUrl =
+    getConfiguredSurfaceUrl('admin') ?? process.env.NEXT_PUBLIC_APP_URL
+
+  if (!adminUrl) {
+    throw new Error('An admin app URL is required to build report links.')
+  }
+
+  return adminUrl
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
+function textToHtml(body: string) {
+  return body
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
+    .join('\n')
 }
 
 export async function getReportTemplate(id: string): Promise<ReportTemplate | null> {
@@ -468,46 +494,364 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
   return snapshot
 }
 
-export async function releaseSnapshot(id: string): Promise<void> {
-  await requireAdminScope()
-  const db = await createAdminClient()
-  const releasedAt = new Date().toISOString()
-  const { data: snapshot, error: snapshotError } = await db
-    .from('report_snapshots')
-    .select('id, campaign_id, participant_session_id, audience_type')
-    .eq('id', id)
-    .single()
+async function requireReportSnapshotManageAccess(snapshotId: string) {
+  const access = await requireReportSnapshotAccess(snapshotId)
 
-  if (snapshotError || !snapshot) throw new Error(snapshotError?.message ?? 'Snapshot not found')
-
-  const { error } = await db
-    .from('report_snapshots')
-    .update({
-      released_at: releasedAt,
-      status: 'released',
-    })
-    .eq('id', id)
-  if (error) throw new Error(error.message)
-
-  try {
-    await enqueueReportSnapshotEvent({
-      snapshotId: String(snapshot.id),
-      campaignId: String(snapshot.campaign_id),
-      participantSessionId: String(snapshot.participant_session_id),
-      audienceType: String(snapshot.audience_type),
-      status: 'released',
-      generatedAt: releasedAt,
-      releasedAt,
-    })
-  } catch (eventError) {
-    console.error(`[integrations] Failed to enqueue report.released event for ${id}:`, eventError)
+  if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
+    throw new AuthorizationError('You do not have permission to manage this report.')
   }
 
+  return access
+}
+
+async function markSnapshotReleased(snapshotId: string) {
+  const db = createAdminClient()
+  const { data: snapshot, error: snapshotError } = await db
+    .from('report_snapshots')
+    .select('id, status, released_at, campaign_id, participant_session_id, audience_type')
+    .eq('id', snapshotId)
+    .single()
+
+  if (snapshotError || !snapshot) {
+    throw new Error(snapshotError?.message ?? 'Snapshot not found')
+  }
+
+  const releasedAt = snapshot.released_at ?? new Date().toISOString()
+
+  if (snapshot.status !== 'released' || !snapshot.released_at) {
+    const { error } = await db
+      .from('report_snapshots')
+      .update({
+        released_at: releasedAt,
+        status: 'released',
+      })
+      .eq('id', snapshotId)
+
+    if (error) {
+      throw new Error(error.message)
+    }
+
+    try {
+      await enqueueReportSnapshotEvent({
+        snapshotId: String(snapshot.id),
+        campaignId: String(snapshot.campaign_id),
+        participantSessionId: String(snapshot.participant_session_id),
+        audienceType: String(snapshot.audience_type),
+        status: 'released',
+        generatedAt: releasedAt,
+        releasedAt,
+      })
+    } catch (eventError) {
+      console.error(
+        `[integrations] Failed to enqueue report.released event for ${snapshotId}:`,
+        eventError
+      )
+    }
+  }
+
+  const campaignId = String(snapshot.campaign_id)
+  const sessionId = String(snapshot.participant_session_id)
+
   revalidatePath('/reports')
+  revalidatePath(`/reports/${snapshotId}`)
+  revalidatePath(`/client/reports/${snapshotId}`)
+  revalidatePath(`/partner/reports/${snapshotId}`)
+  revalidatePath(`/campaigns/${campaignId}/sessions/${sessionId}`)
+  revalidatePath(`/client/campaigns/${campaignId}/sessions/${sessionId}`)
+  revalidatePath(`/partner/campaigns/${campaignId}/sessions/${sessionId}`)
+
+  return {
+    releasedAt,
+    campaignId,
+    participantSessionId: sessionId,
+    audienceType: String(snapshot.audience_type),
+  }
+}
+
+export async function getCampaignSessionReportRows(
+  sessionId: string,
+): Promise<CampaignSessionReportRow[]> {
+  const access = await requireSessionAccess(sessionId)
+  const db = createAdminClient()
+
+  const [{ data: config, error: configError }, { data: snapshots, error: snapshotError }] =
+    await Promise.all([
+      db
+        .from('campaign_report_config')
+        .select(
+          'participant_template_id, hr_manager_template_id, consultant_template_id'
+        )
+        .eq('campaign_id', access.campaignId)
+        .maybeSingle(),
+      db
+        .from('report_snapshots')
+        .select(
+          'id, template_id, audience_type, status, generated_at, error_message, report_templates(name)'
+        )
+        .eq('participant_session_id', sessionId)
+        .order('created_at', { ascending: false }),
+    ])
+
+  if (configError) {
+    throwActionError(
+      'getCampaignSessionReportRows',
+      'Unable to load campaign report configuration.',
+      configError
+    )
+  }
+
+  if (snapshotError) {
+    throwActionError(
+      'getCampaignSessionReportRows',
+      'Unable to load campaign session reports.',
+      snapshotError
+    )
+  }
+
+  const templateIds = [
+    config?.participant_template_id,
+    config?.hr_manager_template_id,
+    config?.consultant_template_id,
+  ].filter((value): value is string => Boolean(value))
+
+  if (templateIds.length === 0) {
+    return []
+  }
+
+  const { data: templates, error: templateError } = await db
+    .from('report_templates')
+    .select('id, name')
+    .in('id', templateIds)
+
+  if (templateError) {
+    throwActionError(
+      'getCampaignSessionReportRows',
+      'Unable to load report template names.',
+      templateError
+    )
+  }
+
+  const templateNameById = new Map(
+    (templates ?? []).map((template) => [String(template.id), String(template.name)])
+  )
+
+  const snapshotRows =
+    ((snapshots ?? []) as Array<{
+      id: string | null
+      template_id: string | null
+      audience_type: AudienceType | null
+      status: string | null
+      generated_at: string | null
+      error_message: string | null
+      report_templates: { name?: string | null } | { name?: string | null }[] | null
+    }>) ?? []
+
+  const latestSnapshotByAudience = new Map<AudienceType, CampaignSessionReportRow>()
+
+  for (const snapshot of snapshotRows) {
+    const audienceType = snapshot.audience_type
+    if (!audienceType || latestSnapshotByAudience.has(audienceType)) {
+      continue
+    }
+
+    const relatedTemplate = getRelatedRecord(snapshot.report_templates)
+    const templateId = String(snapshot.template_id ?? '')
+    latestSnapshotByAudience.set(audienceType, {
+      audienceType,
+      templateId,
+      templateName:
+        (typeof relatedTemplate?.name === 'string' && relatedTemplate.name) ||
+        templateNameById.get(templateId) ||
+        `${getAudienceLabel(audienceType)} report`,
+      snapshotId: snapshot.id ? String(snapshot.id) : undefined,
+      status: String(snapshot.status ?? 'pending'),
+      generatedAt: snapshot.generated_at ?? undefined,
+      errorMessage: snapshot.error_message ?? undefined,
+    })
+  }
+
+  const configRows: Array<{ audienceType: AudienceType; templateId?: string | null }> = [
+    { audienceType: 'participant', templateId: config?.participant_template_id },
+    { audienceType: 'hr_manager', templateId: config?.hr_manager_template_id },
+    { audienceType: 'consultant', templateId: config?.consultant_template_id },
+  ]
+
+  return configRows.flatMap(({ audienceType, templateId }) => {
+    if (!templateId) {
+      return []
+    }
+
+    const snapshot = latestSnapshotByAudience.get(audienceType)
+    if (snapshot) {
+      return [snapshot]
+    }
+
+    return [
+      {
+        audienceType,
+        templateId,
+        templateName:
+          templateNameById.get(templateId) ?? `${getAudienceLabel(audienceType)} report`,
+        status: 'pending',
+      },
+    ]
+  })
+}
+
+type SnapshotRecipientContext = {
+  snapshotId: string
+  status: string
+  releasedAt?: string
+  participantSessionId: string
+  participantId: string
+  participantEmail: string
+  participantFirstName?: string
+  campaignId: string
+  campaignTitle: string
+  clientId?: string
+  partnerId?: string
+}
+
+async function getSnapshotRecipientContext(
+  snapshotId: string,
+): Promise<SnapshotRecipientContext> {
+  const db = createAdminClient()
+  const { data: snapshot, error: snapshotError } = await db
+    .from('report_snapshots')
+    .select(
+      'id, status, audience_type, released_at, campaign_id, participant_session_id, campaigns(title, client_id, partner_id), participant_sessions(campaign_participant_id)'
+    )
+    .eq('id', snapshotId)
+    .maybeSingle()
+
+  if (snapshotError || !snapshot) {
+    throw new Error(snapshotError?.message ?? 'Snapshot not found')
+  }
+
+  if (snapshot.audience_type !== 'participant') {
+    throw new Error('Only participant reports can be sent to participants.')
+  }
+
+  if (!['ready', 'released'].includes(String(snapshot.status))) {
+    throw new Error('Only ready or sent reports can be emailed to participants.')
+  }
+
+  const session = getRelatedRecord(snapshot.participant_sessions)
+  const participantId =
+    typeof session?.campaign_participant_id === 'string'
+      ? session.campaign_participant_id
+      : null
+
+  if (!participantId) {
+    throw new Error('The report participant could not be resolved.')
+  }
+
+  const { data: participant, error: participantError } = await db
+    .from('campaign_participants')
+    .select('id, email, first_name')
+    .eq('id', participantId)
+    .maybeSingle()
+
+  if (participantError || !participant?.email) {
+    throw new Error(participantError?.message ?? 'The participant email could not be resolved.')
+  }
+
+  const campaign = getRelatedRecord(snapshot.campaigns)
+
+  return {
+    snapshotId: String(snapshot.id),
+    status: String(snapshot.status),
+    releasedAt: snapshot.released_at ?? undefined,
+    participantSessionId: String(snapshot.participant_session_id),
+    participantId,
+    participantEmail: String(participant.email),
+    participantFirstName:
+      participant.first_name != null ? String(participant.first_name) : undefined,
+    campaignId: String(snapshot.campaign_id),
+    campaignTitle: String(campaign?.title ?? 'Assessment'),
+    clientId: typeof campaign?.client_id === 'string' ? campaign.client_id : undefined,
+    partnerId: typeof campaign?.partner_id === 'string' ? campaign.partner_id : undefined,
+  }
+}
+
+export interface ReportSnapshotSendDraft {
+  recipientEmail: string
+  recipientName: string
+  subject: string
+  body: string
+}
+
+export async function prepareReportSnapshotSendDraft(
+  snapshotId: string,
+): Promise<ReportSnapshotSendDraft | null> {
+  try {
+    await requireReportSnapshotManageAccess(snapshotId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return null
+    }
+    throw error
+  }
+
+  const context = await getSnapshotRecipientContext(snapshotId)
+  const brand = await getEffectiveBrand(context.clientId, context.campaignId)
+  const recipientName = context.participantFirstName?.trim() || 'there'
+  const reportToken = createReportAccessToken(snapshotId, context.participantId)
+  const reportUrl =
+    buildSurfaceUrl(
+      'admin',
+      `/reports/${snapshotId}`,
+      `reportToken=${encodeURIComponent(reportToken)}`
+    )?.toString() ??
+    new URL(
+      `/reports/${snapshotId}?reportToken=${encodeURIComponent(reportToken)}`,
+      getReportLinkBaseUrl()
+    ).toString()
+
+  return {
+    recipientEmail: context.participantEmail,
+    recipientName,
+    subject: `${context.campaignTitle} report ready`,
+    body: `Hi ${recipientName},\n\nYour report for ${context.campaignTitle} is ready to review.\n\nView report:\n${reportUrl}\n\nYou can also download a PDF from the report page.\n\nRegards,\n${brand.name}`,
+  }
+}
+
+export async function sendReportSnapshotEmail(input: {
+  snapshotId: string
+  body: string
+}): Promise<void> {
+  const { snapshotId, body } = input
+  await requireReportSnapshotManageAccess(snapshotId)
+
+  const trimmedBody = body.trim()
+  if (!trimmedBody) {
+    throw new Error('Email body cannot be empty.')
+  }
+
+  const draft = await prepareReportSnapshotSendDraft(snapshotId)
+  if (!draft) {
+    throw new Error('Unable to prepare the report email.')
+  }
+
+  const context = await getSnapshotRecipientContext(snapshotId)
+  const brand = await getEffectiveBrand(context.clientId, context.campaignId)
+  const rawFrom = process.env.EMAIL_FROM ?? 'noreply@mail.trajectas.com'
+  const emailMatch = rawFrom.match(/<([^>]+)>/)
+  const emailAddress = emailMatch ? emailMatch[1] : rawFrom
+
+  await sendHtmlEmail({
+    to: draft.recipientEmail,
+    subject: draft.subject,
+    html: textToHtml(trimmedBody),
+    text: trimmedBody,
+    from: `${brand.name} <${emailAddress}>`,
+  })
+
+  await markSnapshotReleased(snapshotId)
 }
 
 export async function retrySnapshot(id: string): Promise<void> {
-  await requireAdminScope()
+  await requireReportSnapshotManageAccess(id)
   const db = await createAdminClient()
   const { error } = await db
     .from('report_snapshots')
@@ -529,20 +873,6 @@ export async function retrySnapshot(id: string): Promise<void> {
       'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
     },
     body: JSON.stringify({ snapshotId: id }),
-  })
-}
-
-/** Manually create and queue snapshots for a session (admin/testing use). */
-export async function queueSnapshotsForSession(sessionId: string): Promise<void> {
-  await requireAdminScope()
-  // Trigger the runner — it will call processSnapshot for each pending row
-  await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
-    },
-    body: JSON.stringify({ sessionId }),
   })
 }
 
@@ -651,8 +981,6 @@ export async function getReportSnapshotsForParticipant(
 // ---------------------------------------------------------------------------
 // Template Usage / Campaign Linkage
 // ---------------------------------------------------------------------------
-
-export type AudienceType = 'participant' | 'hr_manager' | 'consultant'
 
 export interface TemplateUsageEntry {
   campaignId: string
@@ -898,133 +1226,6 @@ export async function getEntityOptions(): Promise<EntityOption[]> {
     ...(constructs ?? []).map((c) => ({ id: c.id, label: c.name, type: 'construct' as const })),
   ]
   return options.sort((a, b) => a.label.localeCompare(b.label))
-}
-
-// ---------------------------------------------------------------------------
-// On-Demand Report Generation
-// ---------------------------------------------------------------------------
-
-export type ReportTemplateOption = {
-  id: string
-  name: string
-  description?: string
-}
-
-export async function getActiveReportTemplates(): Promise<ReportTemplateOption[]> {
-  const scope = await resolveAuthorizedScope()
-  const db = createAdminClient()
-  const { data, error } = await db
-    .from('report_templates')
-    .select('id, name, description, partner_id')
-    .is('deleted_at', null)
-    .order('name', { ascending: true })
-
-  if (error) {
-    throwActionError('getActiveReportTemplates', 'Unable to load templates.', error)
-  }
-
-  const filtered = await filterTemplatesForScope(
-    scope,
-    (data ?? []).map((r) => ({
-      id: String(r.id),
-      name: String(r.name),
-      description: r.description ? String(r.description) : undefined,
-      partnerId: r.partner_id ? String(r.partner_id) : undefined,
-    })),
-  )
-
-  return filtered.map((r) => ({
-    id: String(r.id),
-    name: String(r.name),
-    description: r.description ? String(r.description) : undefined,
-  }))
-}
-
-export async function generateReportSnapshot(input: {
-  sessionId: string
-  templateId: string
-  audienceType: 'participant' | 'hr_manager' | 'consultant'
-  narrativeMode?: 'ai_enhanced' | 'derived'
-}): Promise<{ success: true; snapshotId: string } | { error: string }> {
-  const { sessionId, templateId, audienceType, narrativeMode = 'derived' } = input
-
-  try {
-    const scope = await resolveAuthorizedScope()
-    if (!scope.isPlatformAdmin && !scope.isLocalDevelopmentBypass) {
-      const db = await createClient()
-      const { data: sessionRow } = await db
-        .from('participant_sessions')
-        .select('id, campaign_participants(campaigns(client_id))')
-        .eq('id', sessionId)
-        .single()
-
-      const cp = (sessionRow as SessionScopeLookupRow | null)?.campaign_participants
-      const campaign = Array.isArray(cp) ? cp[0]?.campaigns : cp?.campaigns
-      const clientId = (Array.isArray(campaign) ? campaign[0]?.client_id : campaign?.client_id) as string | undefined
-
-      if (!clientId || !scope.clientIds.includes(clientId)) {
-        return { error: 'Not authorized to generate reports for this session.' }
-      }
-    }
-  } catch (err) {
-    logActionError('generateReportSnapshot.auth', err)
-    return { error: 'Authorization check failed.' }
-  }
-
-  const adminDb = createAdminClient()
-
-  const { data: sessionData, error: sessionErr } = await adminDb
-    .from('participant_sessions')
-    .select('id, campaign_participants(campaign_id)')
-    .eq('id', sessionId)
-    .single()
-
-  if (sessionErr || !sessionData) {
-    logActionError('generateReportSnapshot.session', sessionErr)
-    return { error: 'Session not found.' }
-  }
-
-  const cp = (sessionData as SessionCampaignLookupRow).campaign_participants
-  const campaignId = (Array.isArray(cp) ? cp[0]?.campaign_id : cp?.campaign_id) as string | undefined
-
-  if (!campaignId) {
-    return { error: 'Session is not linked to a campaign.' }
-  }
-
-  const { data: snapshotRow, error: insertErr } = await adminDb
-    .from('report_snapshots')
-    .insert({
-      campaign_id: campaignId,
-      participant_session_id: sessionId,
-      template_id: templateId,
-      audience_type: audienceType,
-      narrative_mode: narrativeMode,
-      status: 'pending',
-    })
-    .select('id')
-    .single()
-
-  if (insertErr || !snapshotRow) {
-    logActionError('generateReportSnapshot.insert', insertErr)
-    return { error: 'Failed to create snapshot.' }
-  }
-
-  try {
-    await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
-      },
-      body: JSON.stringify({ snapshotId: snapshotRow.id }),
-    })
-  } catch (fetchErr) {
-    logActionError('generateReportSnapshot.fetch', fetchErr)
-  }
-
-  revalidatePath('/participants')
-
-  return { success: true, snapshotId: String(snapshotRow.id) }
 }
 
 // ---------------------------------------------------------------------------

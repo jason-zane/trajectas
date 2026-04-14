@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { ResultsByParticipantTable } from "./results-by-participant-table";
 import { ResultsBySessionTable } from "./results-by-session-table";
 import { ResultsFactorScoresTable } from "./results-factor-scores-table";
 import type { ParticipantWithMeta } from "@/app/actions/participants";
@@ -15,8 +14,8 @@ interface CampaignResultsHubProps {
   participants: ParticipantWithMeta[];
   sessions: CampaignSessionRow[];
   factorScoreRows?: CampaignFactorScoreRow[];
-  participantHref: (p: ParticipantWithMeta) => string;
-  sessionHref: (s: CampaignSessionRow) => string;
+  participantHref: (participantId: string) => string;
+  viewResultsHref: (s: CampaignSessionRow) => string;
   factorSessionHref: (row: CampaignFactorScoreRow) => string;
   reportHref: (snapshotId: string) => string;
 }
@@ -27,11 +26,11 @@ export function CampaignResultsHub({
   sessions,
   factorScoreRows = [],
   participantHref,
-  sessionHref,
+  viewResultsHref,
   factorSessionHref,
   reportHref,
 }: CampaignResultsHubProps) {
-  const [view, setView] = useState<"participants" | "sessions" | "scores">("participants");
+  const [view, setView] = useState<"sessions" | "scores">("sessions");
 
   const invited = participants.length;
   const started = participants.filter(
@@ -65,17 +64,6 @@ export function CampaignResultsHub({
       <div className="flex items-center gap-1 rounded-lg bg-muted p-1 w-fit">
         <button
           type="button"
-          onClick={() => setView("participants")}
-          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
-            view === "participants"
-              ? "bg-background text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          By participant
-        </button>
-        <button
-          type="button"
           onClick={() => setView("sessions")}
           className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
             view === "sessions"
@@ -83,7 +71,7 @@ export function CampaignResultsHub({
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          By session
+          Sessions
         </button>
         <button
           type="button"
@@ -98,15 +86,11 @@ export function CampaignResultsHub({
         </button>
       </div>
 
-      {view === "participants" ? (
-        <ResultsByParticipantTable
-          participants={participants}
-          participantHref={participantHref}
-        />
-      ) : view === "sessions" ? (
+      {view === "sessions" ? (
         <ResultsBySessionTable
           sessions={sessions}
-          sessionHref={sessionHref}
+          participantHref={(session) => participantHref(session.participantId)}
+          viewResultsHref={viewResultsHref}
           assessmentOptions={assessmentOptions}
         />
       ) : (

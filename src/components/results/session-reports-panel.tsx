@@ -9,13 +9,19 @@ import { EmptyState } from "@/components/empty-state";
 import { RefreshCw, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { getSessionSnapshots, type SessionDetailSnapshot } from "@/app/actions/sessions";
-import { releaseSnapshot, retrySnapshot } from "@/app/actions/reports";
+import { retrySnapshot } from "@/app/actions/reports";
 import { LocalTime } from "@/components/local-time";
 import { ReportPdfButton } from "@/components/reports/report-pdf-button";
 import {
   getSessionProcessingStatusLabel,
   isSessionProcessingActive,
 } from "@/lib/assess/session-processing";
+import {
+  getReportStatusLabel,
+  getReportStatusVariant,
+  isReportGenerating,
+  isReportViewable,
+} from "@/lib/reports/status";
 import type { ParticipantSessionProcessingStatus } from "@/types/database";
 
 interface SessionReportsPanelProps {
@@ -24,23 +30,6 @@ interface SessionReportsPanelProps {
   sessionStatus: string;
   processingStatus: ParticipantSessionProcessingStatus;
   processingError?: string;
-}
-
-const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  pending: "secondary",
-  generating: "secondary",
-  ready: "default",
-  released: "default",
-  failed: "destructive",
-};
-
-function statusLabel(s: string): string {
-  if (s === "pending") return "Pending";
-  if (s === "generating") return "Generating";
-  if (s === "ready") return "Ready";
-  if (s === "released") return "Released";
-  if (s === "failed") return "Failed";
-  return s;
 }
 
 function audienceLabel(a: string): string {
@@ -94,8 +83,7 @@ export function SessionReportsPanel({
   useEffect(() => {
     const hasActive = snapshots.some(
       (s) =>
-        s.status === "pending" ||
-        s.status === "generating" ||
+        isReportGenerating(s.status) ||
         s.pdfStatus === "queued" ||
         s.pdfStatus === "generating"
     );
@@ -104,18 +92,6 @@ export function SessionReportsPanel({
     const interval = setInterval(refresh, 3000);
     return () => clearInterval(interval);
   }, [snapshots, refresh]);
-
-  function handleRelease(id: string) {
-    startTransition(async () => {
-      try {
-        await releaseSnapshot(id);
-        toast.success("Report released");
-        await refresh();
-      } catch {
-        toast.error("Failed to release report");
-      }
-    });
-  }
 
   function handleRetry(id: string) {
     startTransition(async () => {
@@ -140,7 +116,7 @@ export function SessionReportsPanel({
             ? `This session is still ${getSessionProcessingStatusLabel(
                 processingStatus,
               ).toLowerCase()}. Reports will appear here once processing finishes.`
-            : "Use the Generate Report button above to create a report for this session.";
+            : "Reports are generated automatically when this campaign has report templates configured.";
 
     return (
       <EmptyState
@@ -175,8 +151,8 @@ export function SessionReportsPanel({
                 <Badge variant="outline" className="text-xs">
                   {audienceLabel(snapshot.audienceType)}
                 </Badge>
-                <Badge variant={STATUS_VARIANT[snapshot.status] ?? "outline"}>
-                  {statusLabel(snapshot.status)}
+                <Badge variant={getReportStatusVariant(snapshot.status)}>
+                  {getReportStatusLabel(snapshot.status)}
                 </Badge>
                 {snapshot.pdfStatus && (
                   <Badge
@@ -208,7 +184,7 @@ export function SessionReportsPanel({
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {(snapshot.status === "ready" || snapshot.status === "released") && (
+              {isReportViewable(snapshot.status) && (
                 <Link
                   href={`/reports/${snapshot.id}`}
                   className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
@@ -216,15 +192,6 @@ export function SessionReportsPanel({
                   Preview
                   <ExternalLink className="size-3.5" />
                 </Link>
-              )}
-              {snapshot.status === "ready" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleRelease(snapshot.id)}
-                >
-                  Release
-                </Button>
               )}
               {snapshot.status === "failed" && (
                 <Button
@@ -235,7 +202,7 @@ export function SessionReportsPanel({
                   Retry
                 </Button>
               )}
-              {(snapshot.status === "ready" || snapshot.status === "released") && (
+              {isReportViewable(snapshot.status) && (
                 <ReportPdfButton
                   snapshotId={snapshot.id}
                   initialPdfUrl={snapshot.pdfUrl}

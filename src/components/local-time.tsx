@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 type LocalTimeFormat = "date" | "date-time" | "date-time-full" | "relative";
 
 interface LocalTimeProps {
@@ -66,23 +64,15 @@ export function LocalTime({
   fallback = "—",
   className,
 }: LocalTimeProps) {
-  const [text, setText] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (iso) {
-      setText(formatValue(iso, format));
-    } else {
-      setText(null);
-    }
-  }, [iso, format]);
-
   if (!iso) {
     return <span className={className}>{fallback}</span>;
   }
 
+  const text = formatValue(iso, format);
+
   return (
     <span className={className} suppressHydrationWarning>
-      {text ?? iso}
+      {text || iso}
     </span>
   );
 }

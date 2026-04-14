@@ -27,6 +27,7 @@ interface ReportPdfButtonProps {
   snapshotId: string
   initialPdfUrl?: string
   initialPdfStatus?: ReportPdfStatus
+  reportToken?: string
   readyLabel?: string
   idleLabel?: string
   variant?: ButtonVariant
@@ -46,13 +47,24 @@ export function ReportPdfButton({
   snapshotId,
   initialPdfUrl,
   initialPdfStatus,
+  reportToken,
   readyLabel = "Download PDF",
   idleLabel = "Generate PDF",
   variant = "outline",
   size = "default",
   className,
 }: ReportPdfButtonProps) {
-  const downloadUrl = useMemo(() => buildDownloadUrl(snapshotId), [snapshotId])
+  const query = reportToken
+    ? `?reportToken=${encodeURIComponent(reportToken)}`
+    : ""
+  const downloadUrl = useMemo(
+    () => `${buildDownloadUrl(snapshotId)}${query}`,
+    [query, snapshotId],
+  )
+  const statusUrl = useMemo(
+    () => `${buildStatusUrl(snapshotId)}${query}`,
+    [query, snapshotId],
+  )
   const [status, setStatus] = useState<ButtonStatus>(
     initialPdfUrl ? "ready" : (initialPdfStatus ?? "idle"),
   )
@@ -71,7 +83,7 @@ export function ReportPdfButton({
 
     const poll = async () => {
       try {
-        const response = await fetch(buildStatusUrl(snapshotId), {
+        const response = await fetch(statusUrl, {
           cache: "no-store",
         })
         const payload = (await response.json().catch(() => ({}))) as
@@ -141,7 +153,7 @@ export function ReportPdfButton({
         clearTimeout(timeoutId)
       }
     }
-  }, [isPolling, snapshotId])
+  }, [isPolling, statusUrl])
 
   async function handleClick() {
     if (status === "ready") {

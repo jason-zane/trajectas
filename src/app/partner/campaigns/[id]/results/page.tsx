@@ -26,9 +26,9 @@ export default async function PartnerCampaignResultsPage({
       participants={participants}
       sessions={sessions}
       factorScoreRows={factorScoreRows}
-      participantHref={(p) => `/partner/campaigns/${id}/participants/${p.id}`}
-      sessionHref={(s) => `/partner/campaigns/${id}/participants/${s.participantId}/sessions/${s.id}`}
-      factorSessionHref={(row) => `/partner/campaigns/${id}/participants/${row.participantId}/sessions/${row.sessionId}`}
+      participantHref={(participantId) => `/partner/campaigns/${id}/participants/${participantId}`}
+      viewResultsHref={(session) => `/partner/campaigns/${id}/sessions/${session.id}`}
+      factorSessionHref={(row) => `/partner/campaigns/${id}/sessions/${row.sessionId}`}
       reportHref={(snapshotId) => `/partner/reports/${snapshotId}`}
     />
   );

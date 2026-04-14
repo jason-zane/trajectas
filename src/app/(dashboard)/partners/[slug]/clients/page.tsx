@@ -1,6 +1,6 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getPartnerBySlug, getPartnerClients, getUnassignedClients } from "@/app/actions/partners";
-import { canManagePartnerDirectory, resolveAuthorizedScope } from "@/lib/auth/authorization";
+import { resolveAuthorizedScope } from "@/lib/auth/authorization";
 import { PartnerClientsTable } from "./partner-clients-table";
 
 export default async function PartnerClientsPage({
