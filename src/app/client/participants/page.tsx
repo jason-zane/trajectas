@@ -1,11 +1,15 @@
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
-import { getParticipantsForClient, getCampaigns } from "@/app/actions/campaigns";
+import { getParticipantsForClient, getUniqueParticipantsForClient, getCampaigns } from "@/app/actions/campaigns";
 import { GlobalParticipants } from "./global-participants";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users } from "lucide-react";
 
-export default async function ClientParticipantsPage() {
+export default async function ClientParticipantsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { clientId } = await resolveClientOrg("/client/participants");
 
   if (!clientId) {
@@ -24,10 +28,21 @@ export default async function ClientParticipantsPage() {
     );
   }
 
-  const [participants, campaigns] = await Promise.all([
-    getParticipantsForClient(clientId),
+  const params = await searchParams;
+  const view = params.view === "sessions" ? "sessions" : "participants";
+
+  const [sessions, uniqueParticipants, campaigns] = await Promise.all([
+    view === "sessions" ? getParticipantsForClient(clientId) : Promise.resolve([]),
+    view === "participants" ? getUniqueParticipantsForClient(clientId) : Promise.resolve([]),
     getCampaigns({ clientId }),
   ]);
 
-  return <GlobalParticipants participants={participants} campaigns={campaigns} />;
+  return (
+    <GlobalParticipants
+      view={view}
+      sessions={sessions}
+      participants={uniqueParticipants}
+      campaigns={campaigns}
+    />
+  );
 }

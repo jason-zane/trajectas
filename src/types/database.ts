@@ -1618,6 +1618,7 @@ export interface CampaignParticipant {
   consentGivenAt?: string
   created_at: string
   updated_at?: string
+  participantSessions?: { id: string; status: string }[]
 }
 
 /**

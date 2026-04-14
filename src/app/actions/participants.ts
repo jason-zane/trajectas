@@ -34,6 +34,19 @@ export type ParticipantWithMeta = CampaignParticipant & {
   lastActivity?: string
 }
 
+export type UniqueParticipant = {
+  /** ID of the most recent campaign_participants record for this email */
+  id: string
+  email: string
+  firstName?: string
+  lastName?: string
+  /** Total campaign_participants rows for this email */
+  sessionCount: number
+  /** Status from the most recent record */
+  latestStatus: CampaignParticipantStatus
+  lastActivity?: string
+}
+
 export type ParticipantDetail = CampaignParticipant & {
   campaignTitle: string
   campaignSlug: string
@@ -174,6 +187,99 @@ export async function getParticipants(filters?: {
   })
 
   return { data: participants, total: count ?? 0 }
+}
+
+export async function getUniqueParticipants(filters?: {
+  status?: CampaignParticipantStatus
+  search?: string
+  page?: number
+  perPage?: number
+}): Promise<{ data: UniqueParticipant[]; total: number }> {
+  const scope = await resolveAuthorizedScope()
+  const db = await createClient()
+  const page = filters?.page ?? 1
+  const perPage = filters?.perPage ?? 50
+  const offset = (page - 1) * perPage
+  let scopedCampaignIds: string[] | null = null
+
+  if (!scope.isPlatformAdmin) {
+    scopedCampaignIds = await getAccessibleCampaignIds(scope)
+    if (!scopedCampaignIds || scopedCampaignIds.length === 0) {
+      return { data: [], total: 0 }
+    }
+  }
+
+  // Use RPC or raw query to group by email with proper pagination.
+  // Supabase JS client doesn't support GROUP BY, so we use two queries:
+  // 1) Get all matching rows (scoped)
+  // 2) Deduplicate in JS (acceptable because campaign_participants is bounded per-scope)
+
+  let query = db
+    .from('campaign_participants')
+    .select('*', { count: 'exact' })
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (scopedCampaignIds && scopedCampaignIds.length === 1) {
+    query = query.eq('campaign_id', scopedCampaignIds[0])
+  } else if (scopedCampaignIds && scopedCampaignIds.length > 1) {
+    query = query.in('campaign_id', scopedCampaignIds)
+  }
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status)
+  }
+  if (filters?.search) {
+    query = query.or(
+      `email.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%`
+    )
+  }
+
+  const { data: rows, error } = await query
+
+  if (error) {
+    throwActionError('getUniqueParticipants', 'Unable to load participants.', error)
+  }
+
+  // Group by email — keep the most recent record per email
+  const byEmail = new Map<string, { latest: any; count: number }>()
+  for (const row of rows ?? []) {
+    const email = (row.email as string).toLowerCase()
+    const existing = byEmail.get(email)
+    if (!existing) {
+      byEmail.set(email, { latest: row, count: 1 })
+    } else {
+      existing.count++
+      // rows are ordered by created_at desc, so first seen is most recent
+    }
+  }
+
+  const allUnique = Array.from(byEmail.values())
+  const total = allUnique.length
+  const pageSlice = allUnique.slice(offset, offset + perPage)
+
+  const data: UniqueParticipant[] = pageSlice.map(({ latest, count }) => {
+    const mapped = mapCampaignParticipantRow(latest)
+    const timestamps = [
+      latest.invited_at,
+      latest.started_at,
+      latest.completed_at,
+    ].filter(Boolean)
+
+    return {
+      id: mapped.id,
+      email: mapped.email,
+      firstName: mapped.firstName,
+      lastName: mapped.lastName,
+      sessionCount: count,
+      latestStatus: mapped.status,
+      lastActivity: timestamps.length > 0
+        ? timestamps.sort().reverse()[0]
+        : latest.created_at,
+    }
+  })
+
+  return { data, total }
 }
 
 // ---------------------------------------------------------------------------

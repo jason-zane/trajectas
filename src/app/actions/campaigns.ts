@@ -164,7 +164,7 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
       .order('display_order', { ascending: true }),
     db
       .from('campaign_participants')
-      .select('*')
+      .select('*, participant_sessions(id, status)')
       .eq('campaign_id', id)
       .is('deleted_at', null)
       .order('created_at', { ascending: false }),
@@ -189,7 +189,14 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
       assessmentStatus: r.assessments?.status ?? 'draft',
       minCustomFactors: r.assessments?.min_custom_factors ?? null,
     })),
-    participants: (participantRows ?? []).map(mapCampaignParticipantRow),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    participants: (participantRows ?? []).map((r: any) => ({
+      ...mapCampaignParticipantRow(r),
+      participantSessions: (r.participant_sessions ?? []).map((s: any) => ({
+        id: s.id as string,
+        status: s.status as string,
+      })),
+    })),
     accessLinks: (linkRows ?? []).map(mapCampaignAccessLinkRow),
   }
 }
@@ -1549,6 +1556,86 @@ export async function getParticipantsForClient(
     campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
     created_at: row.created_at,
   }))
+}
+
+// ---------------------------------------------------------------------------
+// Unique participants for client portal
+// ---------------------------------------------------------------------------
+
+export type UniqueClientParticipant = {
+  id: string
+  email: string
+  firstName: string | null
+  lastName: string | null
+  latestStatus: string
+  sessionCount: number
+  lastActivity?: string
+}
+
+export async function getUniqueParticipantsForClient(
+  clientId: string,
+): Promise<UniqueClientParticipant[]> {
+  await requireClientAccess(clientId)
+  const db = await createClient()
+
+  const { data: campaigns, error: campaignsError } = await db
+    .from('campaigns')
+    .select('id')
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+
+  if (campaignsError) {
+    throwActionError(
+      'getUniqueParticipantsForClient.campaigns',
+      'Unable to load participants.',
+      campaignsError
+    )
+  }
+  if (!campaigns || campaigns.length === 0) return []
+
+  const campaignIds = campaigns.map((c) => c.id)
+
+  const { data: participants, error: participantsError } = await db
+    .from('campaign_participants')
+    .select('id, email, first_name, last_name, status, started_at, completed_at, created_at')
+    .in('campaign_id', campaignIds)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+
+  if (participantsError) {
+    throwActionError(
+      'getUniqueParticipantsForClient.participants',
+      'Unable to load participants.',
+      participantsError
+    )
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byEmail = new Map<string, { latest: any; count: number }>()
+  for (const row of participants ?? []) {
+    const email = row.email.toLowerCase()
+    const existing = byEmail.get(email)
+    if (!existing) {
+      byEmail.set(email, { latest: row, count: 1 })
+    } else {
+      existing.count++
+    }
+  }
+
+  return Array.from(byEmail.values()).map(({ latest, count }) => {
+    const timestamps = [latest.started_at, latest.completed_at].filter(Boolean) as string[]
+    return {
+      id: latest.id,
+      email: latest.email,
+      firstName: latest.first_name ?? null,
+      lastName: latest.last_name ?? null,
+      latestStatus: latest.status,
+      sessionCount: count,
+      lastActivity: timestamps.length > 0
+        ? timestamps.sort().reverse()[0]
+        : latest.created_at,
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------

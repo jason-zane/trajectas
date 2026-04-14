@@ -1,15 +1,18 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 
-import type { CampaignWithMeta, ClientParticipant } from "@/app/actions/campaigns";
+import type { CampaignWithMeta, ClientParticipant, UniqueClientParticipant } from "@/app/actions/campaigns";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-type ParticipantRow = ClientParticipant & {
-  displayName: string;
-};
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
 const STATUS_VARIANT: Record<
   string,
@@ -32,12 +35,52 @@ const STATUS_LABEL: Record<string, string> = {
   expired: "Expired",
 };
 
-function getDisplayName(participant: ClientParticipant) {
-  const name = `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim();
-  return name || participant.email;
+function getDisplayName(p: { firstName?: string | null; lastName?: string | null; email: string }) {
+  const name = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
+  return name || p.email;
 }
 
-const columns: ColumnDef<ParticipantRow>[] = [
+function formatRelativeDate(value: string) {
+  const date = new Date(value);
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+
+  if (diffMinutes < 1) return "just now";
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleDateString("en-AU", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-AU", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sessions view columns
+// ---------------------------------------------------------------------------
+
+type SessionTableRow = ClientParticipant & {
+  displayName: string;
+  lastActivityValue: string;
+};
+
+const sessionsColumns: ColumnDef<SessionTableRow>[] = [
   {
     accessorKey: "displayName",
     header: ({ column }) => (
@@ -70,20 +113,185 @@ const columns: ColumnDef<ParticipantRow>[] = [
       </Badge>
     ),
   },
+  {
+    id: "lastActivity",
+    accessorFn: (row) => row.lastActivityValue,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Last Activity" />
+    ),
+    cell: ({ row }) =>
+      row.original.lastActivityValue ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={<span className="inline-flex cursor-default text-sm text-muted-foreground" />}
+          >
+            {formatRelativeDate(row.original.lastActivityValue)}
+          </TooltipTrigger>
+          <TooltipContent>{formatDateTime(row.original.lastActivityValue)}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <span className="text-sm text-muted-foreground">—</span>
+      ),
+  },
 ];
 
-interface GlobalParticipantsProps {
-  participants: ClientParticipant[];
-  campaigns: CampaignWithMeta[];
-}
+// ---------------------------------------------------------------------------
+// Participants view columns (deduplicated)
+// ---------------------------------------------------------------------------
+
+type ParticipantTableRow = UniqueClientParticipant & {
+  displayName: string;
+  lastActivityValue: string;
+};
+
+const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
+  {
+    accessorKey: "displayName",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Participant" />
+    ),
+    cell: ({ row }) => (
+      <div className="min-w-0">
+        <p className="truncate font-semibold">{row.original.displayName}</p>
+        <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "sessionCount",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Sessions" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {row.original.sessionCount}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "latestStatus",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Latest Status" />
+    ),
+    cell: ({ row }) => (
+      <Badge variant={STATUS_VARIANT[row.original.latestStatus] ?? "secondary"}>
+        {STATUS_LABEL[row.original.latestStatus] ?? row.original.latestStatus}
+      </Badge>
+    ),
+  },
+  {
+    id: "lastActivity",
+    accessorFn: (row) => row.lastActivityValue,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Last Activity" />
+    ),
+    cell: ({ row }) =>
+      row.original.lastActivityValue ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={<span className="inline-flex cursor-default text-sm text-muted-foreground" />}
+          >
+            {formatRelativeDate(row.original.lastActivityValue)}
+          </TooltipTrigger>
+          <TooltipContent>{formatDateTime(row.original.lastActivityValue)}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <span className="text-sm text-muted-foreground">—</span>
+      ),
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
 
 export function GlobalParticipants({
+  view,
+  sessions,
   participants,
   campaigns,
-}: GlobalParticipantsProps) {
-  const rows = participants.map((participant) => ({
-    ...participant,
-    displayName: getDisplayName(participant),
+}: {
+  view: "participants" | "sessions";
+  sessions: ClientParticipant[];
+  participants: UniqueClientParticipant[];
+  campaigns: CampaignWithMeta[];
+}) {
+  const router = useRouter();
+  const total = view === "sessions" ? sessions.length : participants.length;
+
+  function handleViewChange(newView: string | null) {
+    if (!newView) return;
+    if (newView === "participants") {
+      router.push("/client/participants");
+    } else {
+      router.push("/client/participants?view=sessions");
+    }
+  }
+
+  if (view === "sessions") {
+    const rows: SessionTableRow[] = sessions.map((s) => {
+      const timestamps = [s.startedAt, s.completedAt].filter(Boolean) as string[];
+      return {
+        ...s,
+        displayName: getDisplayName(s),
+        lastActivityValue: timestamps.length > 0
+          ? timestamps.sort().reverse()[0]
+          : s.created_at,
+      };
+    });
+
+    return (
+      <div className="space-y-8 max-w-6xl">
+        <PageHeader
+          eyebrow="Participants"
+          title="All Participants"
+          description={`${total} session${total !== 1 ? "s" : ""} across all campaigns.`}
+        />
+
+        <div className="space-y-4">
+          <Tabs value={view} onValueChange={handleViewChange}>
+            <TabsList>
+              <TabsTrigger value="participants">Participants</TabsTrigger>
+              <TabsTrigger value="sessions">Sessions</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <DataTable
+            columns={sessionsColumns}
+            data={rows}
+            searchableColumns={["displayName", "email"]}
+            searchPlaceholder="Search sessions"
+            filterableColumns={[
+              {
+                id: "campaignTitle",
+                title: "Campaign",
+                options: campaigns.map((c) => ({
+                  label: c.title,
+                  value: c.title,
+                })),
+              },
+              {
+                id: "status",
+                title: "Status",
+                options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+              },
+            ]}
+            defaultSort={{ id: "lastActivity", desc: true }}
+            pageSize={25}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Participants view (deduplicated)
+  const rows: ParticipantTableRow[] = participants.map((p) => ({
+    ...p,
+    displayName: getDisplayName(p),
+    lastActivityValue: p.lastActivity ?? "",
   }));
 
   return (
@@ -91,35 +299,36 @@ export function GlobalParticipants({
       <PageHeader
         eyebrow="Participants"
         title="All Participants"
-        description="Showing participants across all campaigns. The same person may appear multiple times if enrolled in more than one campaign."
+        description={`${total} participant${total !== 1 ? "s" : ""} across all campaigns.`}
       />
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        searchableColumns={["displayName", "email"]}
-        searchPlaceholder="Search participants"
-        filterableColumns={[
-          {
-            id: "campaignTitle",
-            title: "Campaign",
-            options: campaigns.map((campaign) => ({
-              label: campaign.title,
-              value: campaign.title,
-            })),
-          },
-          {
-            id: "status",
-            title: "Status",
-            options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
-              value,
-              label,
-            })),
-          },
-        ]}
-        defaultSort={{ id: "displayName", desc: false }}
-        pageSize={25}
-      />
+      <div className="space-y-4">
+        <Tabs value={view} onValueChange={handleViewChange}>
+          <TabsList>
+            <TabsTrigger value="participants">Participants</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <DataTable
+          columns={participantsColumns}
+          data={rows}
+          searchableColumns={["displayName", "email"]}
+          searchPlaceholder="Search participants"
+          filterableColumns={[
+            {
+              id: "latestStatus",
+              title: "Status",
+              options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
+                value,
+                label,
+              })),
+            },
+          ]}
+          defaultSort={{ id: "lastActivity", desc: true }}
+          pageSize={25}
+        />
+      </div>
     </div>
   );
 }

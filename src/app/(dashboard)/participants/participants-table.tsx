@@ -5,7 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, Trash2 } from "lucide-react";
 
 import { bulkDeleteParticipants, bulkUpdateParticipantStatus } from "@/app/actions/participants";
-import type { ParticipantWithMeta } from "@/app/actions/participants";
+import type { ParticipantWithMeta, UniqueParticipant } from "@/app/actions/participants";
 import {
   DataTable,
   DataTableActionsMenu,
@@ -17,11 +17,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-type ParticipantTableRow = ParticipantWithMeta & {
+type SessionTableRow = ParticipantWithMeta & {
   displayName: string;
   progressValue: number;
+  lastActivityValue: string;
+};
+
+type ParticipantTableRow = UniqueParticipant & {
+  displayName: string;
   lastActivityValue: string;
 };
 
@@ -77,16 +83,16 @@ function formatDateTime(value: string) {
   });
 }
 
-function getDisplayName(participant: ParticipantWithMeta) {
+function getDisplayName(participant: ParticipantWithMeta | UniqueParticipant) {
   const name = `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim();
   return name || participant.email;
 }
 
-function getInitials(participant: ParticipantWithMeta) {
+function getInitials(participant: ParticipantWithMeta | UniqueParticipant) {
   return (participant.firstName?.[0] ?? participant.email[0] ?? "?").toUpperCase();
 }
 
-const columns: ColumnDef<ParticipantTableRow>[] = [
+const sessionsColumns: ColumnDef<SessionTableRow>[] = [
   {
     accessorKey: "displayName",
     header: ({ column }) => (
@@ -173,11 +179,79 @@ const columns: ColumnDef<ParticipantTableRow>[] = [
   {
     id: "actions",
     enableSorting: false,
-    cell: ({ row }) => <ParticipantRowActions participant={row.original} />,
+    cell: ({ row }) => <SessionRowActions participant={row.original} />,
   },
 ];
 
-function ParticipantRowActions({ participant }: { participant: ParticipantTableRow }) {
+const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
+  {
+    accessorKey: "displayName",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Participant" />
+    ),
+    cell: ({ row }) => (
+      <DataTableRowLink
+        href={`/participants/${row.original.id}`}
+        ariaLabel={`Open ${row.original.displayName}`}
+        className="min-w-0"
+      >
+        <div className="flex items-center gap-3">
+          <Avatar className="size-9">
+            <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">
+              {row.original.displayName}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+          </div>
+        </div>
+      </DataTableRowLink>
+    ),
+  },
+  {
+    accessorKey: "sessionCount",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Sessions" />
+    ),
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">{row.original.sessionCount}</span>
+    ),
+  },
+  {
+    accessorKey: "latestStatus",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Latest Status" />
+    ),
+    cell: ({ row }) => (
+      <Badge variant={STATUS_VARIANT[row.original.latestStatus] ?? "secondary"}>
+        {STATUS_LABEL[row.original.latestStatus] ?? row.original.latestStatus}
+      </Badge>
+    ),
+  },
+  {
+    id: "lastActivity",
+    accessorFn: (row) => row.lastActivityValue,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Last Activity" />
+    ),
+    cell: ({ row }) =>
+      row.original.lastActivity ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={<span className="inline-flex cursor-default text-sm text-muted-foreground" />}
+          >
+            {formatRelativeDate(row.original.lastActivity)}
+          </TooltipTrigger>
+          <TooltipContent>{formatDateTime(row.original.lastActivity)}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <span className="text-sm text-muted-foreground">—</span>
+      ),
+  },
+];
+
+function SessionRowActions({ participant }: { participant: SessionTableRow }) {
   const router = useRouter();
 
   return (
@@ -196,7 +270,7 @@ function ParticipantRowActions({ participant }: { participant: ParticipantTableR
   );
 }
 
-const bulkActions: BulkAction<ParticipantTableRow>[] = [
+const sessionsBulkActions: BulkAction<SessionTableRow>[] = [
   {
     label: "Delete",
     variant: "destructive",
@@ -220,50 +294,113 @@ const bulkActions: BulkAction<ParticipantTableRow>[] = [
 ];
 
 export function ParticipantsTable({
+  view,
+  sessions,
   participants,
 }: {
-  participants: ParticipantWithMeta[];
+  view: "participants" | "sessions";
+  sessions: ParticipantWithMeta[];
+  participants: UniqueParticipant[];
 }) {
-  const rows = participants.map((participant) => ({
-    ...participant,
-    displayName: getDisplayName(participant),
-    progressValue:
-      participant.sessionCount === 0
-        ? 0
-        : Math.round((participant.completedSessionCount / participant.sessionCount) * 100),
-    lastActivityValue: participant.lastActivity ?? "",
+  const router = useRouter();
+
+  function handleViewChange(newView: string | null) {
+    if (!newView) return;
+    if (newView === "participants") {
+      router.push("/participants");
+    } else {
+      router.push("/participants?view=sessions");
+    }
+  }
+
+  if (view === "sessions") {
+    const rows: SessionTableRow[] = sessions.map((s) => ({
+      ...s,
+      displayName: getDisplayName(s),
+      progressValue:
+        s.sessionCount === 0
+          ? 0
+          : Math.round((s.completedSessionCount / s.sessionCount) * 100),
+      lastActivityValue: s.lastActivity ?? "",
+    }));
+
+    return (
+      <div className="space-y-4">
+        <Tabs value={view} onValueChange={handleViewChange}>
+          <TabsList>
+            <TabsTrigger value="participants">Participants</TabsTrigger>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <DataTable
+          columns={sessionsColumns}
+          data={rows}
+          searchableColumns={["displayName", "email"]}
+          searchPlaceholder="Search participants"
+          filterableColumns={[
+            {
+              id: "status",
+              title: "Status",
+              options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
+                value,
+                label,
+              })),
+            },
+            {
+              id: "campaignTitle",
+              title: "Campaign",
+              options: Array.from(new Set(rows.map((row) => row.campaignTitle))).map(
+                (campaign) => ({
+                  label: campaign,
+                  value: campaign,
+                })
+              ),
+            },
+          ]}
+          defaultSort={{ id: "lastActivity", desc: true }}
+          rowHref={(row) => `/participants/${row.id}`}
+          pageSize={20}
+          enableRowSelection
+          getRowId={(row) => row.id}
+          bulkActions={sessionsBulkActions}
+        />
+      </div>
+    );
+  }
+
+  const rows: ParticipantTableRow[] = participants.map((p) => ({
+    ...p,
+    displayName: getDisplayName(p),
+    lastActivityValue: p.lastActivity ?? "",
   }));
 
   return (
-    <DataTable
-      columns={columns}
-      data={rows}
-      searchableColumns={["displayName", "email"]}
-      searchPlaceholder="Search participants"
-      filterableColumns={[
-        {
-          id: "status",
-          title: "Status",
-          options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
-            value,
-            label,
-          })),
-        },
-        {
-          id: "campaignTitle",
-          title: "Campaign",
-          options: Array.from(new Set(rows.map((row) => row.campaignTitle))).map((campaign) => ({
-            label: campaign,
-            value: campaign,
-          })),
-        },
-      ]}
-      defaultSort={{ id: "lastActivity", desc: true }}
-      rowHref={(row) => `/participants/${row.id}`}
-      pageSize={20}
-      enableRowSelection
-      getRowId={(row) => row.id}
-      bulkActions={bulkActions}
-    />
+    <div className="space-y-4">
+      <Tabs value={view} onValueChange={handleViewChange}>
+        <TabsList>
+          <TabsTrigger value="participants">Participants</TabsTrigger>
+          <TabsTrigger value="sessions">Sessions</TabsTrigger>
+        </TabsList>
+      </Tabs>
+      <DataTable
+        columns={participantsColumns}
+        data={rows}
+        searchableColumns={["displayName", "email"]}
+        searchPlaceholder="Search participants"
+        filterableColumns={[
+          {
+            id: "latestStatus",
+            title: "Latest Status",
+            options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
+              value,
+              label,
+            })),
+          },
+        ]}
+        defaultSort={{ id: "lastActivity", desc: true }}
+        rowHref={(row) => `/participants/${row.id}`}
+        pageSize={20}
+      />
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Mail, Plus, Trash2, Upload } from "lucide-react";
+import { Copy, FileBarChart, Mail, Plus, Trash2, Upload } from "lucide-react";
 
 import {
   bulkInviteParticipants,
@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label";
 
 type CampaignParticipantRow = CampaignParticipant & {
   displayName: string;
+  latestSessionId?: string;
 };
 
 const STATUS_VARIANT: Record<
@@ -287,9 +288,17 @@ export function CampaignParticipantManager({
   const rows = participants.map((participant) => ({
     ...participant,
     displayName: getDisplayName(participant),
+    /** Pick the most recent participant_session ID (if any) */
+    latestSessionId: participant.participantSessions
+      ?.slice()
+      .reverse()
+      .find((s) => s.status === "completed" || s.status === "in_progress")?.id
+      ?? participant.participantSessions?.[participant.participantSessions.length - 1]?.id,
   }));
 
-  const columns: ColumnDef<CampaignParticipantRow>[] = [
+  type Row = (typeof rows)[number];
+
+  const columns: ColumnDef<Row>[] = [
     {
       accessorKey: "displayName",
       header: ({ column }) => (
@@ -301,12 +310,7 @@ export function CampaignParticipantManager({
             {(row.original.firstName?.[0] ?? row.original.email[0]).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <Link
-              href={`/campaigns/${campaignId}/participants/${row.original.id}`}
-              className="block truncate font-medium hover:text-primary transition-colors"
-            >
-              {row.original.displayName}
-            </Link>
+            <p className="truncate font-medium">{row.original.displayName}</p>
             <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
           </div>
         </div>
@@ -324,19 +328,72 @@ export function CampaignParticipantManager({
       ),
     },
     {
+      id: "startedAt",
+      accessorFn: (row) => row.startedAt ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Started" />
+      ),
+      cell: ({ row }) =>
+        row.original.startedAt ? (
+          <span className="text-sm text-muted-foreground">
+            {new Date(row.original.startedAt).toLocaleDateString("en-AU", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "completedAt",
+      accessorFn: (row) => row.completedAt ?? "",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Completed" />
+      ),
+      cell: ({ row }) =>
+        row.original.completedAt ? (
+          <span className="text-sm text-muted-foreground">
+            {new Date(row.original.completedAt).toLocaleDateString("en-AU", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        ),
+    },
+    {
+      id: "viewResults",
+      enableSorting: false,
+      header: () => <span className="text-xs text-muted-foreground">Results</span>,
+      cell: ({ row }) => {
+        const canView = ["in_progress", "completed"].includes(row.original.status) && row.original.latestSessionId;
+        if (canView) {
+          return (
+            <Link href={`/campaigns/${campaignId}/sessions/${row.original.latestSessionId}`}>
+              <Button size="sm" variant="ghost">
+                <FileBarChart className="size-4" />
+                View Results
+              </Button>
+            </Link>
+          );
+        }
+        return (
+          <Button size="sm" variant="ghost" disabled className="opacity-50">
+            <FileBarChart className="size-4" />
+            View Results
+          </Button>
+        );
+      },
+    },
+    {
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
         <DataTableRowActions>
-          <Link href={`/campaigns/${campaignId}/participants/${row.original.id}`}>
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              title="View participant detail"
-            >
-              <ExternalLink className="size-4" />
-            </Button>
-          </Link>
           <Button
             size="icon-sm"
             variant="ghost"

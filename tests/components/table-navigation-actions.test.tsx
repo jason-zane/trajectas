@@ -150,7 +150,8 @@ describe("table navigation and actions", () => {
           ]}
         />
         <ParticipantsTable
-          participants={[
+          view="sessions"
+          sessions={[
             {
               id: "participant-1",
               campaignId: "campaign-1",
@@ -165,6 +166,7 @@ describe("table navigation and actions", () => {
               lastActivity: "2026-04-08T10:00:00.000Z",
             } as never,
           ]}
+          participants={[]}
         />
         <AssessmentsDataTable
           assessments={[
