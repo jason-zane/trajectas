@@ -524,7 +524,7 @@ export function BlockBuilderClient({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(420px,46vw)]">
+      <div className="flex-1 overflow-hidden lg:grid lg:grid-cols-2">
         <div className="overflow-y-auto bg-background p-6">
           <div className="mx-auto max-w-3xl space-y-6">
             <InlineTemplateSettingsPanel
