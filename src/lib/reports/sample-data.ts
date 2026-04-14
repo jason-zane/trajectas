@@ -131,6 +131,25 @@ function makeBandResult(e: ScoredEntity) {
   return { band: e.band, bandLabel: e.bandLabel, pompScore: e.pompScore, thresholdLow: 40, thresholdHigh: 70 }
 }
 
+function filterEntities(
+  entities: ScoredEntity[],
+  config: Record<string, unknown>,
+): ScoredEntity[] {
+  let filtered = entities
+
+  const displayLevel = config.displayLevel as string | undefined
+  if (displayLevel) {
+    filtered = filtered.filter((e) => e.type === displayLevel)
+  }
+
+  const entityIds = Array.isArray(config.entityIds) ? config.entityIds as string[] : []
+  if (entityIds.length > 0) {
+    filtered = filtered.filter((e) => entityIds.includes(e.id))
+  }
+
+  return filtered
+}
+
 function generateBlockSampleData(
   type: BlockType,
   config: Record<string, unknown>,
@@ -153,9 +172,10 @@ function generateBlockSampleData(
           : 'Powered by Trajectas',
       }
 
-    case 'score_overview':
+    case 'score_overview': {
+      const filtered = filterEntities(entities, config)
       return {
-        scores: entities.slice(0, 8).map((e) => ({
+        scores: filtered.slice(0, 8).map((e) => ({
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
@@ -168,18 +188,23 @@ function generateBlockSampleData(
           groupByDimension: config.groupByDimension === true,
         },
       }
+    }
 
-    case 'score_detail':
-      if (!first) return { _empty: true }
+    case 'score_detail': {
+      const filtered = filterEntities(entities, config)
+      if (filtered.length === 0) return { _empty: true }
+      const detailEntities = filtered.map((e, i) => ({
+        entityId: e.id,
+        entityName: e.name,
+        entitySlug: e.name.toLowerCase().replace(/\s+/g, '-'),
+        definition: `A measure of capability and effectiveness in ${e.name.toLowerCase()}.`,
+        pompScore: e.pompScore,
+        bandResult: makeBandResult(e),
+        narrative: STRENGTH_COMMENTARIES[i % STRENGTH_COMMENTARIES.length],
+        developmentSuggestion: DEVELOPMENT_SUGGESTIONS[i % DEVELOPMENT_SUGGESTIONS.length],
+      }))
       return {
-        entityId: first.id,
-        entityName: first.name,
-        entitySlug: first.name.toLowerCase().replace(/\s+/g, '-'),
-        definition: `A measure of capability and effectiveness in ${first.name.toLowerCase()}.`,
-        pompScore: first.pompScore,
-        bandResult: makeBandResult(first),
-        narrative: STRENGTH_COMMENTARIES[0],
-        developmentSuggestion: DEVELOPMENT_SUGGESTIONS[0],
+        entities: detailEntities,
         config: {
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
@@ -189,10 +214,12 @@ function generateBlockSampleData(
           showNestedScores: config.showNestedScores === true,
         },
       }
+    }
 
     case 'strengths_highlights': {
       const topN = (typeof config.topN === 'number' && config.topN > 0) ? config.topN : 3
-      const sorted = [...entities].sort((a, b) => b.pompScore - a.pompScore)
+      const filtered = filterEntities(entities, config)
+      const sorted = [...filtered].sort((a, b) => b.pompScore - a.pompScore)
       const highlights = sorted.slice(0, topN).map((e, i) => ({
         entityId: e.id,
         entityName: e.name,
@@ -205,7 +232,8 @@ function generateBlockSampleData(
 
     case 'development_plan': {
       const maxItems = (typeof config.maxItems === 'number' && config.maxItems > 0) ? config.maxItems : 3
-      const sorted = [...entities].sort((a, b) => a.pompScore - b.pompScore)
+      const filtered = filterEntities(entities, config)
+      const sorted = [...filtered].sort((a, b) => a.pompScore - b.pompScore)
       const items = sorted.slice(0, maxItems).map((e, i) => ({
         entityId: e.id,
         entityName: e.name,
@@ -225,8 +253,9 @@ function generateBlockSampleData(
 
     case 'custom_text':
       return {
-        heading: 'About This Assessment',
-        content: `This report presents your results from the ${templateName}. The findings are based on your self-assessment responses and are intended as a development tool, not a definitive evaluation.`,
+        heading: (typeof config.heading === 'string' && config.heading) || '',
+        content: (typeof config.content === 'string' && config.content)
+          || `This report presents your results from the ${templateName}. The findings are based on your self-assessment responses and are intended as a development tool, not a definitive evaluation.`,
       }
 
     case 'section_divider': {
