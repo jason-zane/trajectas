@@ -14,6 +14,7 @@ export interface PreviewEntity {
   id: string
   name: string
   type: 'dimension' | 'factor' | 'construct'
+  parentId?: string
 }
 
 // Fixed score distribution assigned deterministically by entity position.

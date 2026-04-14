@@ -1067,6 +1067,7 @@ export interface EntityOption {
   id: string
   label: string
   type: 'dimension' | 'factor' | 'construct'
+  parentId?: string
 }
 
 export async function getEntityOptions(): Promise<EntityOption[]> {
@@ -1076,13 +1077,16 @@ export async function getEntityOptions(): Promise<EntityOption[]> {
   const db = createAdminClient()
   const [{ data: dimensions }, { data: factors }, { data: constructs }] = await Promise.all([
     db.from('dimensions').select('id, name').is('deleted_at', null).eq('is_active', true),
-    db.from('factors').select('id, name').is('deleted_at', null).eq('is_active', true),
-    db.from('constructs').select('id, name').is('deleted_at', null).eq('is_active', true),
+    db.from('factors').select('id, name, dimension_id').is('deleted_at', null).eq('is_active', true),
+    db.from('constructs').select('id, name, factor_constructs(factor_id)').is('deleted_at', null).eq('is_active', true),
   ])
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const options: EntityOption[] = [
     ...(dimensions ?? []).map((d) => ({ id: d.id, label: d.name, type: 'dimension' as const })),
-    ...(factors ?? []).map((f) => ({ id: f.id, label: f.name, type: 'factor' as const })),
-    ...(constructs ?? []).map((c) => ({ id: c.id, label: c.name, type: 'construct' as const })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(factors ?? []).map((f: any) => ({ id: f.id, label: f.name, type: 'factor' as const, parentId: f.dimension_id ?? undefined })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(constructs ?? []).map((c: any) => ({ id: c.id, label: c.name, type: 'construct' as const, parentId: c.factor_constructs?.[0]?.factor_id ?? undefined })),
   ]
   return options.sort((a, b) => a.label.localeCompare(b.label))
 }
