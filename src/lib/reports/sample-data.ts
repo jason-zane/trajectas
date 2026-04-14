@@ -177,7 +177,9 @@ function generateBlockSampleData(
     case 'cover_page':
       return {
         participantName: 'Alex Morgan',
-        campaignTitle: templateName,
+        assessmentName: 'AI Capability Index',
+        campaignName: 'Q2 2026 Cohort',
+        reportName: templateName,
         clientName: 'Preview Organisation',
         generatedAt: new Date().toISOString(),
         showDate: config.showDate !== false,
@@ -186,6 +188,9 @@ function generateBlockSampleData(
         poweredByText: typeof config.poweredByText === 'string' && config.poweredByText
           ? config.poweredByText
           : 'Powered by Trajectas',
+        showAssessmentName: config.showAssessmentName !== false,
+        showCampaignName: config.showCampaignName === true,
+        showReportName: config.showReportName === true,
       }
 
     case 'score_overview': {

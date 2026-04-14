@@ -21,7 +21,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     label: 'Cover Page',
     category: 'meta',
     description: 'Participant name, campaign title, date, and partner logo.',
-    defaultConfig: { showDate: true, subtitle: null, showLogo: true, showPoweredBy: false, poweredByText: 'Powered by Trajectas' },
+    defaultConfig: { showDate: true, subtitle: null, showLogo: true, showPoweredBy: false, poweredByText: 'Powered by Trajectas', showAssessmentName: true, showCampaignName: false, showReportName: false },
     supportedModes: ['featured'],
     defaultMode: 'featured',
   },

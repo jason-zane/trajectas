@@ -2,6 +2,10 @@ import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 
 interface CoverPageData {
   participantName?: string
+  assessmentName?: string
+  campaignName?: string
+  reportName?: string
+  /** @deprecated Use assessmentName instead */
   campaignTitle?: string
   generatedAt?: string
   clientName?: string
@@ -11,6 +15,9 @@ interface CoverPageData {
   showLogo?: boolean
   showPoweredBy?: boolean
   poweredByText?: string
+  showAssessmentName?: boolean
+  showCampaignName?: boolean
+  showReportName?: boolean
 }
 
 export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
@@ -21,6 +28,16 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
         day: 'numeric', month: 'long', year: 'numeric',
       })
     : null
+
+  // Resolve the subtitle line — assessment name, campaign name, or legacy campaignTitle
+  const subtitleParts: string[] = []
+  if (d.showAssessmentName !== false && d.assessmentName) subtitleParts.push(d.assessmentName)
+  if (d.showCampaignName && d.campaignName) subtitleParts.push(d.campaignName)
+  if (d.showReportName && d.reportName) subtitleParts.push(d.reportName)
+  // Fallback to legacy campaignTitle if no new fields are set
+  const subtitle = subtitleParts.length > 0
+    ? subtitleParts.join(' — ')
+    : d.campaignTitle ?? null
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[200px] py-10 text-center print:min-h-screen print:py-24">
@@ -48,8 +65,8 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
         {d.participantName && (
           <h1 className="text-4xl font-semibold tracking-tight">{d.participantName}</h1>
         )}
-        {d.campaignTitle && (
-          <p className="text-lg opacity-60">{d.campaignTitle}</p>
+        {subtitle && (
+          <p className="text-lg opacity-60">{subtitle}</p>
         )}
         {date && (
           <p className="text-sm opacity-50 mt-8">{date}</p>

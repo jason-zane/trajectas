@@ -48,6 +48,9 @@ export interface CoverPageConfig {
   showPoweredBy?: boolean
   poweredByText?: string
   subtitle?: string
+  showAssessmentName?: boolean
+  showCampaignName?: boolean
+  showReportName?: boolean
 }
 
 export interface CustomTextConfig {
