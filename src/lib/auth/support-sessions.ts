@@ -89,7 +89,6 @@ export async function logReportViewed(input: {
   actorProfileId?: string | null;
   snapshotId: string;
   participantId?: string | null;
-  audienceType: string;
   partnerId?: string | null;
   clientId?: string | null;
   supportSessionId?: string | null;
@@ -105,7 +104,6 @@ export async function logReportViewed(input: {
     supportSessionId: input.supportSessionId ?? null,
     metadata: {
       participantId: input.participantId ?? null,
-      audienceType: input.audienceType,
       ...(input.metadata ?? {}),
     },
   });

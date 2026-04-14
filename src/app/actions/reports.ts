@@ -31,18 +31,15 @@ import { sendHtmlEmail } from '@/lib/email/provider'
 import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
 import {
   mapReportTemplateRow,
-  mapCampaignReportConfigRow,
   mapReportSnapshotRow,
 } from '@/lib/supabase/mappers'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { createReportAccessToken } from '@/lib/reports/report-access-token'
 import type {
   ReportTemplate,
-  CampaignReportConfig,
   ReportSnapshot,
   ReportType,
   ReportDisplayLevel,
-  BrandModeType,
   PersonReferenceType,
 } from '@/types/database'
 
@@ -330,76 +327,6 @@ export async function toggleReportTemplateActive(
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
   revalidatePath('/partner/report-templates')
-}
-
-// ---------------------------------------------------------------------------
-// Campaign Report Config
-// ---------------------------------------------------------------------------
-
-export async function getCampaignReportConfig(
-  campaignId: string,
-): Promise<CampaignReportConfig | null> {
-  await requireAdminScope()
-  const db = await createClient()
-  const { data, error } = await db
-    .from('campaign_report_config')
-    .select('*')
-    .eq('campaign_id', campaignId)
-    .maybeSingle()
-  if (error) {
-    throwActionError(
-      'getCampaignReportConfig',
-      'Unable to load report configuration.',
-      error
-    )
-  }
-  return data ? mapCampaignReportConfigRow(data) : null
-}
-
-export interface UpsertCampaignReportConfigInput {
-  participantTemplateId?: string | null
-  hrManagerTemplateId?: string | null
-  consultantTemplateId?: string | null
-  brandMode?: BrandModeType
-}
-
-export async function upsertCampaignReportConfig(
-  campaignId: string,
-  input: UpsertCampaignReportConfigInput,
-): Promise<{ data?: CampaignReportConfig; error?: string }> {
-  try {
-    await requireAdminScope()
-  } catch (error) {
-    if (error instanceof AuthorizationError) {
-      return { error: error.message }
-    }
-    throw error
-  }
-
-  const db = createAdminClient()
-  const { data, error } = await db
-    .from('campaign_report_config')
-    .upsert(
-      {
-        campaign_id: campaignId,
-        participant_template_id: input.participantTemplateId ?? null,
-        hr_manager_template_id: input.hrManagerTemplateId ?? null,
-        consultant_template_id: input.consultantTemplateId ?? null,
-        brand_mode: input.brandMode ?? 'platform',
-      },
-      { onConflict: 'campaign_id' },
-    )
-    .select('*')
-    .single()
-  if (error || !data) {
-    logActionError('upsertCampaignReportConfig', error ?? 'No campaign report config row returned.')
-    return { error: 'Unable to save report config.' }
-  }
-
-  revalidatePath(`/campaigns/${campaignId}`)
-  revalidatePath(`/campaigns/${campaignId}/settings`)
-
-  return { data: mapCampaignReportConfigRow(data) }
 }
 
 // ---------------------------------------------------------------------------

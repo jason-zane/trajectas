@@ -12,7 +12,7 @@ interface Props {
 export default async function ClientReportViewerPage({ params }: Props) {
   const { snapshotId } = await params
   const snapshot = await getReportSnapshot(snapshotId)
-  if (!snapshot || !snapshot.releasedAt || snapshot.audienceType !== 'hr_manager') {
+  if (!snapshot || !snapshot.releasedAt) {
     notFound()
   }
 

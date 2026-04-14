@@ -27,7 +27,6 @@ import type {
   CampaignParticipant,
   CampaignAssessment,
   ParticipantSessionProcessingStatus,
-  ReportAudienceType,
   ReportSnapshotStatus,
   ReportPdfStatus,
 } from '@/types/database'
@@ -127,15 +126,10 @@ type AssessmentSectionRow = {
   assessment_section_items: AssessmentSectionItemRow[] | null
 }
 
-type CampaignReportConfigRow = {
-  participant_template_id: string | null
-  hr_manager_template_id: string | null
-  consultant_template_id: string | null
-}
 
 type SnapshotStatusRow = {
   id: string
-  audience_type: ReportAudienceType
+  template_id: string
   status: ReportSnapshotStatus
 }
 
@@ -757,47 +751,21 @@ async function ensureReportSnapshotsForSession(input: {
   | { error: string }
 > {
   const db = createAdminClient()
-  const { data: config, error: configError } = await db
-    .from('campaign_report_config')
-    .select(
-      'participant_template_id, hr_manager_template_id, consultant_template_id',
-    )
+  const { data: configuredTemplates, error: configError } = await db
+    .from('campaign_report_templates')
+    .select('template_id')
     .eq('campaign_id', input.campaignId)
-    .maybeSingle()
 
   if (configError) {
     logActionError('submitSession.reportConfig', configError)
     return { error: 'Unable to load this campaign report configuration' }
   }
 
-  const typedConfig = config as CampaignReportConfigRow | null
-  if (!typedConfig) {
-    return {
-      hasParticipantReport: false,
-      participantSnapshotStatus: null,
-      hasPendingSnapshotWork: false,
-    }
-  }
+  const desiredTemplateIds = (configuredTemplates ?? [])
+    .map((r) => String(r.template_id))
+    .filter((id) => id.length > 0)
 
-  const desiredSnapshots: Array<{
-    audienceType: ReportAudienceType
-    templateId: string
-  }> = [
-    {
-      audienceType: 'participant' as const,
-      templateId: typedConfig.participant_template_id ?? '',
-    },
-    {
-      audienceType: 'hr_manager' as const,
-      templateId: typedConfig.hr_manager_template_id ?? '',
-    },
-    {
-      audienceType: 'consultant' as const,
-      templateId: typedConfig.consultant_template_id ?? '',
-    },
-  ].filter((row) => row.templateId.length > 0)
-
-  if (desiredSnapshots.length === 0) {
+  if (desiredTemplateIds.length === 0) {
     return {
       hasParticipantReport: false,
       participantSnapshotStatus: null,
@@ -807,7 +775,7 @@ async function ensureReportSnapshotsForSession(input: {
 
   const { data: existingRows, error: existingError } = await db
     .from('report_snapshots')
-    .select('id, audience_type, status')
+    .select('id, template_id, status')
     .eq('participant_session_id', input.sessionId)
 
   if (existingError) {
@@ -815,41 +783,35 @@ async function ensureReportSnapshotsForSession(input: {
     return { error: 'Unable to inspect the current report state' }
   }
 
-  const existingByAudience = new Map<ReportAudienceType, SnapshotStatusRow>()
+  const existingByTemplate = new Map<string, SnapshotStatusRow>()
   for (const row of (existingRows ?? []) as SnapshotStatusRow[]) {
-    existingByAudience.set(row.audience_type, row)
+    existingByTemplate.set(row.template_id, row)
   }
 
   let hasPendingSnapshotWork = false
-  let participantSnapshotStatus: ReportSnapshotStatus | null = null
+  let firstSnapshotStatus: ReportSnapshotStatus | null = null
 
-  for (const desired of desiredSnapshots) {
-    const existing = existingByAudience.get(desired.audienceType)
+  for (const templateId of desiredTemplateIds) {
+    const existing = existingByTemplate.get(templateId)
 
     if (!existing) {
-      const { data: inserted, error: insertError } = await db
+      const { error: insertError } = await db
         .from('report_snapshots')
         .insert({
           campaign_id: input.campaignId,
           participant_session_id: input.sessionId,
-          template_id: desired.templateId,
-          audience_type: desired.audienceType,
+          template_id: templateId,
           narrative_mode: 'derived',
           status: 'pending',
         })
-        .select('id, audience_type, status')
-        .single()
 
-      if (insertError || !inserted) {
+      if (insertError) {
         logActionError('submitSession.reportSnapshots.insert', insertError)
         return { error: 'Unable to prepare this report right now' }
       }
 
-      existingByAudience.set(
-        desired.audienceType,
-        inserted as SnapshotStatusRow,
-      )
       hasPendingSnapshotWork = true
+      if (!firstSnapshotStatus) firstSnapshotStatus = 'pending'
     } else if (existing.status === 'failed') {
       const { error: resetError } = await db
         .from('report_snapshots')
@@ -872,19 +834,18 @@ async function ensureReportSnapshotsForSession(input: {
 
       existing.status = 'pending'
       hasPendingSnapshotWork = true
+      if (!firstSnapshotStatus) firstSnapshotStatus = 'pending'
     } else if (existing.status === 'pending') {
       hasPendingSnapshotWork = true
-    }
-
-    if (desired.audienceType === 'participant') {
-      participantSnapshotStatus =
-        existingByAudience.get('participant')?.status ?? null
+      if (!firstSnapshotStatus) firstSnapshotStatus = 'pending'
+    } else {
+      if (!firstSnapshotStatus) firstSnapshotStatus = existing.status
     }
   }
 
   return {
-    hasParticipantReport: Boolean(typedConfig.participant_template_id),
-    participantSnapshotStatus,
+    hasParticipantReport: desiredTemplateIds.length > 0,
+    participantSnapshotStatus: firstSnapshotStatus,
     hasPendingSnapshotWork,
   }
 }
@@ -925,7 +886,6 @@ async function getExistingCompletedSessionOutcome(
     .from('report_snapshots')
     .select('status')
     .eq('participant_session_id', sessionId)
-    .eq('audience_type', 'participant')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -1359,10 +1319,9 @@ export async function getParticipantReportSnapshot(
   let query = db
     .from('report_snapshots')
     .select(
-      'id, rendered_data, status, pdf_url, pdf_status, error_message, audience_type, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)'
+      'id, rendered_data, status, pdf_url, pdf_status, error_message, participant_sessions(campaign_participant_id), campaigns(client_id, partner_id)'
     )
     .in('participant_session_id', sessionIds)
-    .eq('audience_type', 'participant')
     .order('created_at', { ascending: false })
 
   if (snapshotId) {
@@ -1386,7 +1345,6 @@ export async function getParticipantReportSnapshot(
       await logReportViewed({
         snapshotId: String(data.id),
         participantId: result.data.participant.id,
-        audienceType: String(data.audience_type),
         partnerId:
           campaign && typeof campaign === 'object' && campaign.partner_id
             ? String(campaign.partner_id)

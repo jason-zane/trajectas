@@ -8,12 +8,11 @@ import type { ReportSnapshotListItem } from "@/app/actions/reports";
 import { DataTable, DataTableColumnHeader, type BulkAction } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { ReportAudienceType, ReportSnapshotStatus } from "@/types/database";
+import type { ReportSnapshotStatus } from "@/types/database";
 import { getReportStatusLabel } from "@/lib/reports/status";
 
 type ReportTableRow = ReportSnapshotListItem & {
   participantLabel: string;
-  audienceLabel: string;
   generatedAtValue: string;
 };
 
@@ -37,11 +36,6 @@ const STATUS_META: Record<
   },
 };
 
-const AUDIENCE_LABELS: Record<ReportAudienceType, string> = {
-  participant: "Participant",
-  hr_manager: "HR Manager",
-  consultant: "Consultant",
-};
 
 function formatRelativeDate(value: string) {
   const date = new Date(value);
@@ -107,15 +101,6 @@ const columns: ColumnDef<ReportTableRow>[] = [
     ),
   },
   {
-    accessorKey: "audienceLabel",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Audience" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{row.original.audienceLabel}</Badge>
-    ),
-  },
-  {
     accessorKey: "status",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
@@ -167,7 +152,6 @@ export function ReportsTable({
   const rows = snapshots.map((snapshot) => ({
     ...snapshot,
     participantLabel: snapshot.participantName || `${snapshot.id.slice(0, 8)}…`,
-    audienceLabel: AUDIENCE_LABELS[snapshot.audienceType] ?? snapshot.audienceType,
     generatedAtValue: snapshot.generatedAt ?? snapshot.created_at,
   }));
 
@@ -175,7 +159,7 @@ export function ReportsTable({
     <DataTable
       columns={columns}
       data={rows}
-      searchableColumns={["participantLabel", "participantEmail", "audienceLabel"]}
+      searchableColumns={["participantLabel", "participantEmail"]}
       searchPlaceholder="Search reports"
       filterableColumns={[
         {

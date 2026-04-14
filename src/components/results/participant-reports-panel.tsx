@@ -36,12 +36,6 @@ const PDF_STATUS_VARIANT: Record<
   failed: "destructive",
 };
 
-function audienceLabel(a: string): string {
-  if (a === "participant") return "Participant";
-  if (a === "hr_manager") return "HR Manager";
-  if (a === "consultant") return "Consultant";
-  return a;
-}
 
 function pdfStatusLabel(status: string): string {
   if (status === "queued") return "PDF queued";
@@ -70,7 +64,6 @@ export function ParticipantReportsPanel({
         <TableHeader>
           <TableRow>
             <TableHead>Template</TableHead>
-            <TableHead>Audience</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Generated</TableHead>
             <TableHead className="w-24"></TableHead>
@@ -81,9 +74,6 @@ export function ParticipantReportsPanel({
             <TableRow key={s.id}>
               <TableCell className="font-medium">
                 {s.templateName ?? "Template"}
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline">{audienceLabel(s.audienceType)}</Badge>
               </TableCell>
               <TableCell>
                 <div className="flex flex-wrap items-center gap-2">

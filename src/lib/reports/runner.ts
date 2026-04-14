@@ -112,33 +112,24 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       lastName: sessionRow.profiles?.last_name,
     }
 
-    // Resolve brand theme for the report based on campaign_report_config.brand_mode
+    // Resolve brand theme for the report based on campaigns.brand_mode
     let resolvedBrandTheme: ReportTheme = DEFAULT_REPORT_THEME
 
     if (sessionData.campaignId) {
-      const { data: reportConfig } = await db
-        .from('campaign_report_config')
-        .select('brand_mode')
-        .eq('campaign_id', sessionData.campaignId)
+      const { data: campaign } = await db
+        .from('campaigns')
+        .select('brand_mode, client_id')
+        .eq('id', sessionData.campaignId)
         .maybeSingle()
 
-      const brandMode = reportConfig?.brand_mode ?? 'platform'
+      const brandMode = (campaign?.brand_mode as string) ?? 'platform'
 
-      if (brandMode === 'client') {
-        // Resolve from client brand
-        const { data: campaign } = await db
-          .from('campaigns')
-          .select('client_id')
-          .eq('id', sessionData.campaignId)
-          .single()
-        if (campaign?.client_id) {
-          const brand = await getEffectiveBrand(campaign.client_id)
-          if (brand.reportTheme) {
-            resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
-          }
+      if (brandMode === 'client' && campaign?.client_id) {
+        const brand = await getEffectiveBrand(campaign.client_id)
+        if (brand.reportTheme) {
+          resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
         }
       } else if (brandMode === 'custom') {
-        // Resolve from campaign-specific brand
         const brand = await getEffectiveBrand(null, sessionData.campaignId)
         if (brand.reportTheme) {
           resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
@@ -249,23 +240,21 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       error_message: null,
     }).eq('id', snapshotId)
 
-    if (snapshot.audienceType === 'participant') {
-      await db
-        .from('participant_sessions')
-        .update({
-          processing_status: 'ready',
-          processing_error: null,
-          processed_at: generatedAt,
-        })
-        .eq('id', snapshot.participantSessionId)
-    }
+    // Mark session as ready when a report completes
+    await db
+      .from('participant_sessions')
+      .update({
+        processing_status: 'ready',
+        processing_error: null,
+        processed_at: generatedAt,
+      })
+      .eq('id', snapshot.participantSessionId)
 
     try {
       await enqueueReportSnapshotEvent({
         snapshotId,
         campaignId: snapshot.campaignId,
         participantSessionId: snapshot.participantSessionId,
-        audienceType: snapshot.audienceType,
         status: nextStatus,
         generatedAt,
         releasedAt,
@@ -279,7 +268,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     console.error(`[runner] processSnapshot failed for ${snapshotId}:`, message)
     const { data: failedSnapshot } = await db
       .from('report_snapshots')
-      .select('participant_session_id, audience_type')
+      .select('participant_session_id')
       .eq('id', snapshotId)
       .maybeSingle()
 
@@ -288,7 +277,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       error_message: message,
     }).eq('id', snapshotId)
 
-    if (failedSnapshot?.audience_type === 'participant') {
+    if (failedSnapshot?.participant_session_id) {
       await db
         .from('participant_sessions')
         .update({

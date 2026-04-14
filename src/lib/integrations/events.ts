@@ -69,7 +69,6 @@ export async function enqueueReportSnapshotEvent(input: {
   snapshotId: string
   campaignId: string
   participantSessionId: string
-  audienceType: string
   status: 'ready' | 'released'
   generatedAt: string
   releasedAt?: string | null
@@ -107,7 +106,6 @@ export async function enqueueReportSnapshotEvent(input: {
       participantId: String(session.campaign_participant_id),
       participantSessionId: input.participantSessionId,
       assessmentId: String(session.assessment_id),
-      audienceType: input.audienceType,
       status: input.status,
       generatedAt: input.generatedAt,
       releasedAt: input.releasedAt ?? null,

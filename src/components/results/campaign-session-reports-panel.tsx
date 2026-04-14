@@ -7,7 +7,6 @@ import { toast } from 'sonner'
 import {
   getCampaignSessionReportRows,
   retrySnapshot,
-  type AudienceType,
 } from '@/app/actions/reports'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
@@ -39,11 +38,6 @@ interface CampaignSessionReportsPanelProps {
   settingsHref?: string
 }
 
-function audienceLabel(audienceType: AudienceType) {
-  if (audienceType === 'participant') return 'Participant'
-  if (audienceType === 'hr_manager') return 'HR Manager'
-  return 'Consultant'
-}
 
 export function CampaignSessionReportsPanel({
   sessionId,
@@ -127,14 +121,13 @@ export function CampaignSessionReportsPanel({
           <TableHeader>
             <TableRow>
               <TableHead>Template name</TableHead>
-              <TableHead>Who it&apos;s for</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-48">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={`${row.audienceType}:${row.templateId}`}>
+              <TableRow key={row.templateId}>
                 <TableCell>
                   <div className="space-y-1">
                     <p className="font-medium">{row.templateName}</p>
@@ -148,9 +141,6 @@ export function CampaignSessionReportsPanel({
                       <p className="text-caption text-destructive">{row.errorMessage}</p>
                     ) : null}
                   </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{audienceLabel(row.audienceType)}</Badge>
                 </TableCell>
                 <TableCell>
                   <Badge variant={getReportStatusVariant(row.status)}>

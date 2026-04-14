@@ -176,7 +176,7 @@ describe('internal integrations API routes', () => {
   it('wraps participant reports in a stable response envelope', async () => {
     const participantId = '22222222-2222-4222-8222-222222222222'
     service.getIntegrationParticipantReports.mockResolvedValueOnce([
-      { id: 'snapshot-1', audienceType: 'hr_manager' },
+      { id: 'snapshot-1' },
     ])
 
     const response = await participantReportsGET(

@@ -32,12 +32,6 @@ interface SessionReportsPanelProps {
   processingError?: string;
 }
 
-function audienceLabel(a: string): string {
-  if (a === "participant") return "Participant";
-  if (a === "hr_manager") return "HR Manager";
-  if (a === "consultant") return "Consultant";
-  return a;
-}
 
 const PDF_STATUS_VARIANT: Record<
   string,
@@ -148,9 +142,6 @@ export function SessionReportsPanel({
                 <p className="font-medium truncate">
                   {snapshot.templateName ?? "Template"}
                 </p>
-                <Badge variant="outline" className="text-xs">
-                  {audienceLabel(snapshot.audienceType)}
-                </Badge>
                 <Badge variant={getReportStatusVariant(snapshot.status)}>
                   {getReportStatusLabel(snapshot.status)}
                 </Badge>

@@ -161,8 +161,6 @@ export type ReportSnapshotStatus = 'pending' | 'generating' | 'ready' | 'release
 /** Lifecycle status of an asynchronously generated report PDF. */
 export type ReportPdfStatus = 'queued' | 'generating' | 'ready' | 'failed'
 
-/** The intended audience for a report snapshot. */
-export type ReportAudienceType = 'participant' | 'hr_manager' | 'consultant'
 
 /** How report narrative text was produced. */
 export type NarrativeModeType = 'derived' | 'ai_enhanced'
@@ -1798,35 +1796,32 @@ export interface ReportTemplate {
   pageHeaderLogo: 'primary' | 'secondary' | 'none'
   blocks: Record<string, unknown>[]  // BlockConfig[] — typed in src/lib/reports/types.ts
   isActive: boolean
+  isDefault: boolean
   deletedAt?: string
   created_at: string
   updated_at?: string
 }
 
 /**
- * Maps audience types to report templates for a campaign.
- * One row per campaign.
+ * Links a report template to a campaign.
+ * Each row = one report generated per completed session.
  */
-export interface CampaignReportConfig {
+export interface CampaignReportTemplate {
   id: string
   campaignId: string
-  participantTemplateId?: string
-  hrManagerTemplateId?: string
-  consultantTemplateId?: string
-  brandMode?: BrandModeType
+  templateId: string
+  sortOrder: number
   created_at: string
-  updated_at?: string
 }
 
 /**
- * A point-in-time rendered report for one participant session + audience.
+ * A point-in-time rendered report for one participant session.
  */
 export interface ReportSnapshot {
   id: string
   templateId: string
   participantSessionId: string
   campaignId: string
-  audienceType: ReportAudienceType
   status: ReportSnapshotStatus
   narrativeMode: NarrativeModeType
   renderedData?: Record<string, unknown>  // ResolvedBlockData[] — typed in runner

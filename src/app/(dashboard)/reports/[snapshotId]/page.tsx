@@ -49,7 +49,6 @@ async function getSnapshotForReportTokenAccess(
     .select('*, participant_sessions(campaign_participant_id)')
     .eq('id', snapshotId)
     .eq('status', 'released')
-    .eq('audience_type', 'participant')
     .maybeSingle()
 
   if (error || !data) {
@@ -89,7 +88,7 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
 
   const blocks = (snapshot.renderedData ?? []) as ResolvedBlockData[]
   const sendDraft =
-    !hasTokenAccess && snapshot.audienceType === 'participant'
+    !hasTokenAccess
       ? await prepareReportSnapshotSendDraft(snapshotId)
       : null
 
@@ -108,7 +107,7 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
       <PageHeader
         eyebrow="Reports"
         title="Report Preview"
-        description={`${snapshot.audienceType} audience · ${snapshot.narrativeMode}`}
+        description={snapshot.narrativeMode === 'ai_enhanced' ? 'AI enhanced' : 'Report preview'}
       >
         <div className="flex items-center gap-2">
           {sendDraft ? (

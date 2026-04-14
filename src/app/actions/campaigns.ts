@@ -255,6 +255,26 @@ export async function createCampaign(payload: Record<string, unknown>) {
     return { error: { _form: ['Unable to create campaign.'] } }
   }
 
+  // Auto-populate with default report templates
+  const { data: defaults } = await db
+    .from('report_templates')
+    .select('id')
+    .eq('is_default', true)
+    .eq('is_active', true)
+    .is('deleted_at', null)
+
+  if (defaults && defaults.length > 0) {
+    await db
+      .from('campaign_report_templates')
+      .insert(
+        defaults.map((t, i) => ({
+          campaign_id: campaign.id,
+          template_id: t.id,
+          sort_order: i,
+        }))
+      )
+  }
+
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'campaign.created',

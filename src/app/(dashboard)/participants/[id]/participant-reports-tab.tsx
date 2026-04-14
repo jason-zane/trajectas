@@ -9,11 +9,6 @@ import {
 } from "@/lib/reports/status";
 import type { ReportSnapshot } from "@/types/database";
 
-const audienceLabel: Record<string, string> = {
-  participant: "Participant",
-  hr_manager: "HR Manager",
-  consultant: "Consultant",
-};
 
 const pdfStatusVariant: Record<
   string,
@@ -72,9 +67,6 @@ export function ParticipantReportsTab({
               className="flex flex-wrap items-center gap-3 px-6 py-3"
             >
               <div className="flex flex-1 flex-wrap items-center gap-3 min-w-0">
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {audienceLabel[snapshot.audienceType] ?? snapshot.audienceType}
-                </Badge>
                 <Badge
                   variant={getReportStatusVariant(snapshot.status)}
                   className={`text-xs shrink-0 ${

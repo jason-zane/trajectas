@@ -54,11 +54,10 @@ import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
   getEntityOptions,
-  linkTemplateToCampaign,
-  unlinkTemplateFromCampaign,
+  addCampaignTemplate,
+  removeCampaignTemplate,
   type EntityOption,
   type TemplateUsageEntry,
-  type AudienceType,
 } from '@/app/actions/reports'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AutoSaveIndicator } from '@/components/auto-save-indicator'
@@ -100,12 +99,6 @@ const pageHeaderLogoOptions = [
   { value: 'none', label: 'None' },
 ] as const
 
-const audienceTypeOptions = [
-  { value: 'participant', label: 'Participant' },
-  { value: 'hr_manager', label: 'HR / Manager' },
-  { value: 'consultant', label: 'Consultant' },
-] as const
-
 export type PromptOption = { id: string; name: string; purpose: string }
 
 export interface TemplateSettings {
@@ -114,16 +107,6 @@ export interface TemplateSettings {
   groupByDimension: boolean
   personReference: PersonReferenceType
   pageHeaderLogo: 'primary' | 'secondary' | 'none'
-}
-
-// ---------------------------------------------------------------------------
-// Audience type labels
-// ---------------------------------------------------------------------------
-
-const AUDIENCE_LABELS: Record<AudienceType, string> = {
-  participant: 'Participant',
-  hr_manager: 'HR / Manager',
-  consultant: 'Consultant',
 }
 
 // ---------------------------------------------------------------------------
@@ -445,14 +428,14 @@ export function BlockBuilderClient({
   // ---------------------------------------------------------------------------
   // Campaign link / unlink
   // ---------------------------------------------------------------------------
-  function handleLinkCampaign(campaignId: string, audienceType: AudienceType) {
+  function handleLinkCampaign(campaignId: string) {
     startLinking(async () => {
       try {
-        await linkTemplateToCampaign(templateId, campaignId, audienceType)
+        await addCampaignTemplate(campaignId, templateId)
         const campaign = allCampaigns?.find((c) => c.id === campaignId)
         setUsage((prev) => [
           ...prev,
-          { campaignId, campaignTitle: campaign?.title ?? 'Campaign', audienceType, assessments: [] },
+          { campaignId, campaignTitle: campaign?.title ?? 'Campaign' },
         ])
         toast.success('Template linked to campaign')
       } catch (err) {
@@ -461,12 +444,12 @@ export function BlockBuilderClient({
     })
   }
 
-  function handleUnlinkCampaign(campaignId: string, audienceType: AudienceType) {
+  function handleUnlinkCampaign(campaignId: string) {
     startLinking(async () => {
       try {
-        await unlinkTemplateFromCampaign(templateId, campaignId, audienceType)
+        await removeCampaignTemplate(campaignId, templateId)
         setUsage((prev) =>
-          prev.filter((u) => !(u.campaignId === campaignId && u.audienceType === audienceType)),
+          prev.filter((u) => u.campaignId !== campaignId),
         )
         toast.success('Template unlinked from campaign')
       } catch (err) {
@@ -788,8 +771,8 @@ interface InlineTemplateSettingsPanelProps {
   usage: TemplateUsageEntry[]
   campaigns?: { id: string; title: string }[]
   isLinking: boolean
-  onLink: (campaignId: string, audienceType: AudienceType) => void
-  onUnlink: (campaignId: string, audienceType: AudienceType) => void
+  onLink: (campaignId: string) => void
+  onUnlink: (campaignId: string) => void
 }
 
 function InlineTemplateSettingsPanel({
@@ -1052,15 +1035,14 @@ interface CampaignLinkagePanelProps {
   usage: TemplateUsageEntry[]
   campaigns: { id: string; title: string }[]
   isLinking: boolean
-  onLink: (campaignId: string, audienceType: AudienceType) => void
-  onUnlink: (campaignId: string, audienceType: AudienceType) => void
+  onLink: (campaignId: string) => void
+  onUnlink: (campaignId: string) => void
 }
 
 function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }: CampaignLinkagePanelProps) {
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkSearch, setLinkSearch] = useState('')
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
-  const [selectedAudience, setSelectedAudience] = useState<AudienceType>('participant')
 
   const linkedCampaignIds = new Set(usage.map((u) => u.campaignId))
   const availableCampaigns = campaigns.filter((c) => !linkedCampaignIds.has(c.id))
@@ -1070,7 +1052,7 @@ function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }:
 
   function handleConfirmLink() {
     if (!selectedCampaignId) return
-    onLink(selectedCampaignId, selectedAudience)
+    onLink(selectedCampaignId)
     setSelectedCampaignId(null)
     setLinkOpen(false)
     setLinkSearch('')
@@ -1086,28 +1068,20 @@ function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }:
         <div className="space-y-2">
           {usage.map((entry) => (
             <div
-              key={`${entry.campaignId}-${entry.audienceType}`}
-              className="rounded-lg border border-border bg-muted/30 p-2.5 space-y-1.5"
+              key={entry.campaignId}
+              className="rounded-lg border border-border bg-muted/30 p-2.5"
             >
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-medium leading-tight">{entry.campaignTitle}</p>
                 <button
                   type="button"
                   disabled={isLinking}
-                  onClick={() => onUnlink(entry.campaignId, entry.audienceType)}
+                  onClick={() => onUnlink(entry.campaignId)}
                   className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
                 >
                   <X className="size-3.5" />
                 </button>
               </div>
-              <Badge variant="outline" className="text-[10px]">
-                {AUDIENCE_LABELS[entry.audienceType]}
-              </Badge>
-              {entry.assessments.length > 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {entry.assessments.map((a) => a.name).join(', ')}
-                </p>
-              )}
             </div>
           ))}
         </div>
@@ -1152,25 +1126,9 @@ function CampaignLinkagePanel({ usage, campaigns, isLinking, onLink, onUnlink }:
           </Command>
 
           {selectedCampaignId && (
-            <>
-              <Select value={selectedAudience} onValueChange={(v) => setSelectedAudience(v as AudienceType)}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue>
-                    {(value: string | null) =>
-                      getSelectLabel(value as AudienceType | null, audienceTypeOptions)
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="participant">Participant</SelectItem>
-                  <SelectItem value="hr_manager">HR / Manager</SelectItem>
-                  <SelectItem value="consultant">Consultant</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button size="sm" className="w-full" disabled={isLinking} onClick={handleConfirmLink}>
-                Link
-              </Button>
-            </>
+            <Button size="sm" className="w-full" disabled={isLinking} onClick={handleConfirmLink}>
+              Link
+            </Button>
           )}
         </PopoverContent>
       </Popover>

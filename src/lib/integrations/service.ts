@@ -43,24 +43,9 @@ function assessmentUrlFromToken(token: string) {
 }
 
 function reportViewerUrl(input: {
-  audienceType: string
   snapshotId: string
-  participantAccessToken: string
   releasedAt?: string
 }) {
-  if (input.audienceType === 'participant') {
-    const participantUrl = buildSurfaceUrl(
-      'assess',
-      `/assess/${input.participantAccessToken}/report/${input.snapshotId}`
-    )
-    return participantUrl?.toString() ?? null
-  }
-
-  if (input.audienceType === 'hr_manager' && input.releasedAt) {
-    const clientUrl = buildSurfaceUrl('client', `/reports/${input.snapshotId}`)
-    return clientUrl?.toString() ?? null
-  }
-
   const adminUrl = buildSurfaceUrl('admin', `/reports/${input.snapshotId}`)
   return adminUrl?.toString() ?? null
 }
@@ -349,17 +334,13 @@ export async function createIntegrationCampaign(
       }
     }
 
-    if (input.reportConfig) {
-      const { error: reportConfigError } = await db.from('campaign_report_config').upsert(
-        {
-          campaign_id: campaign.id,
-          participant_template_id: input.reportConfig.participantTemplateId ?? null,
-          hr_manager_template_id: input.reportConfig.hrManagerTemplateId ?? null,
-          consultant_template_id: input.reportConfig.consultantTemplateId ?? null,
-          brand_mode: input.reportConfig.brandMode ?? 'platform',
-        },
-        { onConflict: 'campaign_id' }
-      )
+    if (input.reportConfig?.templateIds?.length) {
+      const rows = input.reportConfig.templateIds.map((templateId: string, i: number) => ({
+        campaign_id: campaign.id,
+        template_id: templateId,
+        sort_order: i,
+      }))
+      const { error: reportConfigError } = await db.from('campaign_report_templates').insert(rows)
       if (reportConfigError) {
         throw new Error(reportConfigError.message)
       }
@@ -400,7 +381,7 @@ export async function getIntegrationCampaign(
   const campaign = await ensureCampaignOwnedByCredential(context, campaignId)
   const db = createAdminClient()
 
-  const [{ data: assessmentRows, error: assessmentsError }, { data: reportConfig, error: reportConfigError }] =
+  const [{ data: assessmentRows, error: assessmentsError }, { data: templateRows, error: templateError }] =
     await Promise.all([
       db
         .from('campaign_assessments')
@@ -408,14 +389,14 @@ export async function getIntegrationCampaign(
         .eq('campaign_id', campaignId)
         .order('display_order', { ascending: true }),
       db
-        .from('campaign_report_config')
-        .select('*')
+        .from('campaign_report_templates')
+        .select('template_id, sort_order, report_templates(name)')
         .eq('campaign_id', campaignId)
-        .maybeSingle(),
+        .order('sort_order', { ascending: true }),
     ])
 
   if (assessmentsError) throw new Error(assessmentsError.message)
-  if (reportConfigError) throw new Error(reportConfigError.message)
+  if (templateError) throw new Error(templateError.message)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const assessments = (assessmentRows ?? []).map((row: any) => ({
@@ -427,14 +408,10 @@ export async function getIntegrationCampaign(
   return {
     campaign,
     assessments,
-    reportConfig: reportConfig
-      ? {
-          participantTemplateId: reportConfig.participant_template_id ?? null,
-          hrManagerTemplateId: reportConfig.hr_manager_template_id ?? null,
-          consultantTemplateId: reportConfig.consultant_template_id ?? null,
-          brandMode: reportConfig.brand_mode ?? 'platform',
-        }
-      : null,
+    reportTemplates: (templateRows ?? []).map((row) => ({
+      templateId: String(row.template_id),
+      sortOrder: Number(row.sort_order ?? 0),
+    })),
   }
 }
 
@@ -785,9 +762,8 @@ export async function getIntegrationParticipantResultSummary(
       ? { data: null }
       : await db
           .from('report_snapshots')
-          .select('id, audience_type, released_at')
+          .select('id, released_at')
           .in('participant_session_id', sessionIds)
-          .eq('audience_type', 'hr_manager')
           .eq('status', 'released')
           .order('released_at', { ascending: false })
           .limit(1)
@@ -855,9 +831,7 @@ export async function getIntegrationParticipantReports(
     return {
       ...snapshot,
       viewerUrl: reportViewerUrl({
-        audienceType: snapshot.audienceType,
         snapshotId: snapshot.id,
-        participantAccessToken: participant.accessToken,
         releasedAt: snapshot.releasedAt,
       }),
     }

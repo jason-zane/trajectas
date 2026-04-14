@@ -29,7 +29,6 @@ export async function GET(
       .select('id, participant_sessions!inner(campaign_participant_id)')
       .eq('id', snapshotId)
       .eq('status', 'released')
-      .eq('audience_type', 'participant')
       .maybeSingle()
 
     const session = Array.isArray(validSnapshot?.participant_sessions)

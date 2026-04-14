@@ -1,5 +1,5 @@
 import { getCampaignById } from "@/app/actions/campaigns";
-import { getCampaignReportConfig, getReportTemplates } from "@/app/actions/reports";
+import { getCampaignTemplates, getReportTemplates } from "@/app/actions/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapClientRow } from "@/lib/supabase/mappers";
 import { notFound } from "next/navigation";
@@ -14,9 +14,9 @@ export default async function CampaignSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [campaign, reportConfig, templates] = await Promise.all([
+  const [campaign, campaignTemplates, templates] = await Promise.all([
     getCampaignById(id),
-    getCampaignReportConfig(id),
+    getCampaignTemplates(id),
     getReportTemplates(),
   ]);
   if (!campaign) notFound();
@@ -80,8 +80,8 @@ export default async function CampaignSettingsPage({
       {/* Report template assignment */}
       <ReportConfigPanel
         campaignId={campaign.id}
-        config={reportConfig}
-        templates={templates}
+        assignedTemplates={campaignTemplates}
+        allTemplates={templates}
       />
     </div>
   );
