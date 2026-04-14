@@ -159,20 +159,10 @@ function escapeHtml(value: string) {
     .replaceAll("'", '&#39;')
 }
 
-function autoLinkUrls(html: string): string {
-  return html.replace(
-    /https?:\/\/[^\s<]+/g,
-    (url) => `<a href="${url}" style="color:#2d6a5a;text-decoration:underline;">View your report</a>`,
-  )
-}
-
 function textToHtml(body: string) {
   return body
     .split(/\n{2,}/)
-    .map((paragraph) => {
-      const escaped = escapeHtml(paragraph).replace(/\n/g, '<br />')
-      return `<p>${autoLinkUrls(escaped)}</p>`
-    })
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br />')}</p>`)
     .join('\n')
 }
 
@@ -750,6 +740,7 @@ export interface ReportSnapshotSendDraft {
   recipientName: string
   subject: string
   body: string
+  reportUrl: string
 }
 
 export async function prepareReportSnapshotSendDraft(
@@ -799,7 +790,8 @@ export async function prepareReportSnapshotSendDraft(
     recipientEmail: context.participantEmail,
     recipientName,
     subject: `${context.campaignTitle} report ready`,
-    body: `Hi ${recipientName},\n\nYour report for ${context.campaignTitle} is ready to review.\n\nView your report here:\n${reportUrl}\n\nYou can also download a PDF from the report page.\n\nRegards,\n${brand.name}`,
+    body: `Hi ${recipientName},\n\nYour report for ${context.campaignTitle} is ready to review.\n\nYou can also download a PDF from the report page.\n\nRegards,\n${brand.name}`,
+    reportUrl,
   }
 }
 
@@ -826,11 +818,18 @@ export async function sendReportSnapshotEmail(input: {
   const emailMatch = rawFrom.match(/<([^>]+)>/)
   const emailAddress = emailMatch ? emailMatch[1] : rawFrom
 
+  const bodyHtml = textToHtml(trimmedBody)
+  const buttonHtml = `<p style="margin:24px 0;"><a href="${escapeHtml(draft.reportUrl)}" style="display:inline-block;padding:12px 28px;background:#2d6a5a;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:6px;">View Report</a></p>`
+  const html = bodyHtml.replace(
+    /(<p>[^<]*Regards)/,
+    `${buttonHtml}$1`,
+  ) || `${bodyHtml}${buttonHtml}`
+
   await sendHtmlEmail({
     to: draft.recipientEmail,
     subject: draft.subject,
-    html: textToHtml(trimmedBody),
-    text: trimmedBody,
+    html,
+    text: `${trimmedBody}\n\nView your report: ${draft.reportUrl}`,
     from: `${brand.name} <${emailAddress}>`,
   })
 

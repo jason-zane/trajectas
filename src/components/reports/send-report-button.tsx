@@ -98,8 +98,11 @@ export function SendReportButton({
                 id="report-email-body"
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
-                rows={12}
+                rows={10}
               />
+              <p className="text-xs text-muted-foreground">
+                A "View Report" button with the secure report link will be added to the email automatically.
+              </p>
             </div>
           </div>
 
