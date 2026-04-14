@@ -7,6 +7,10 @@ import { CheckCircle2, ArrowRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CompleteContent } from "@/lib/experience/types";
 
+function ensureAbsoluteUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 interface CompleteScreenProps {
   content: CompleteContent;
   brandLogoUrl?: string;
@@ -36,7 +40,7 @@ export function CompleteScreen({
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          window.location.href = content.redirectUrl!;
+          window.location.href = ensureAbsoluteUrl(content.redirectUrl!);
           return 0;
         }
         return prev - 1;
@@ -156,7 +160,7 @@ export function CompleteScreen({
                   : `Redirecting in ${countdown} seconds...`}
               </p>
               <a
-                href={content.redirectUrl}
+                href={ensureAbsoluteUrl(content.redirectUrl)}
                 className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-80"
                 style={{
                   color: "var(--brand-primary, hsl(var(--primary)))",

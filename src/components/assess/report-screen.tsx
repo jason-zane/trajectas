@@ -1,6 +1,10 @@
 "use client";
 
 import Image from "next/image";
+
+function ensureAbsoluteUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -56,7 +60,7 @@ export function ReportScreen({
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(interval);
-          window.location.href = content.redirectUrl!;
+          window.location.href = ensureAbsoluteUrl(content.redirectUrl!);
           return 0;
         }
         return prev - 1;
@@ -325,7 +329,7 @@ export function ReportScreen({
                   : `Redirecting in ${countdown} seconds...`}
               </p>
               <a
-                href={content.redirectUrl}
+                href={ensureAbsoluteUrl(content.redirectUrl)}
                 className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-80"
                 style={{
                   color: "var(--brand-primary, hsl(var(--primary)))",
