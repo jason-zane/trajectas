@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Copy, XCircle, Link2 } from "lucide-react";
+import { Plus, Copy, Power, Trash2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,8 @@ import {
 import {
   createAccessLink,
   deactivateAccessLink,
+  reactivateAccessLink,
+  deleteAccessLink,
 } from "@/app/actions/campaigns";
 import type { CampaignAccessLink } from "@/types/database";
 
@@ -49,13 +51,25 @@ export function CampaignAccessLinks({
     setShowCreate(false);
   }
 
-  async function handleDeactivate(linkId: string) {
-    const result = await deactivateAccessLink(campaignId, linkId);
+  async function handleToggleActive(linkId: string, currentlyActive: boolean) {
+    const result = currentlyActive
+      ? await deactivateAccessLink(campaignId, linkId)
+      : await reactivateAccessLink(campaignId, linkId);
     if (result?.error) {
       toast.error(result.error);
       return;
     }
-    toast.success("Link deactivated");
+    toast.success(currentlyActive ? "Link deactivated" : "Link activated");
+  }
+
+  async function handleDelete(linkId: string) {
+    if (!confirm("Delete this access link? This cannot be undone.")) return;
+    const result = await deleteAccessLink(campaignId, linkId);
+    if (result?.error) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success("Link deleted");
   }
 
   function copyUrl(token: string) {
@@ -105,24 +119,34 @@ export function CampaignAccessLinks({
                 <Badge variant={link.isActive ? "default" : "outline"}>
                   {link.isActive ? "Active" : "Inactive"}
                 </Badge>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="size-8"
-                  onClick={() => copyUrl(link.token)}
-                >
-                  <Copy className="size-3.5" />
-                </Button>
                 {link.isActive && (
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="size-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => handleDeactivate(link.id)}
+                    className="size-8"
+                    onClick={() => copyUrl(link.token)}
                   >
-                    <XCircle className="size-3.5" />
+                    <Copy className="size-3.5" />
                   </Button>
                 )}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-muted-foreground hover:text-foreground"
+                  onClick={() => handleToggleActive(link.id, link.isActive)}
+                  title={link.isActive ? "Deactivate link" : "Activate link"}
+                >
+                  <Power className="size-3.5" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDelete(link.id)}
+                  title="Delete link"
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
               </div>
             ))}
           </div>
