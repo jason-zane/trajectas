@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RotateCcw, Check } from "lucide-react";
+import { ArrowRight, RotateCcw, Check, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { WelcomeContent } from "@/lib/experience/types";
 
@@ -12,6 +12,7 @@ interface WelcomeScreenProps {
   campaignDescription?: string;
   assessmentCount: number;
   participantFirstName?: string;
+  estimatedMinutes?: number;
   hasInProgressSession: boolean;
   allowResume: boolean;
   brandLogoUrl?: string;
@@ -25,6 +26,7 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({
+  estimatedMinutes,
   hasInProgressSession,
   brandLogoUrl,
   brandName,
@@ -144,14 +146,28 @@ export function WelcomeScreen({
               borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
             }}
           >
-            <h2
-              className="mb-4 text-sm font-medium"
-              style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
-              }}
-            >
-              {content.infoHeading}
-            </h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2
+                className="text-sm font-medium"
+                style={{
+                  color: "var(--brand-text, hsl(var(--foreground)))",
+                }}
+              >
+                {content.infoHeading}
+              </h2>
+              {estimatedMinutes && (
+                <span
+                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+                  style={{
+                    background: "var(--brand-neutral-100, hsl(var(--muted)))",
+                    color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                  }}
+                >
+                  <Clock className="size-3" />
+                  ~{estimatedMinutes} min
+                </span>
+              )}
+            </div>
             <ul className="space-y-3">
               {content.infoItems.map((item, idx) => (
                 <InfoBullet key={idx}>{item}</InfoBullet>

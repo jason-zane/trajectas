@@ -29,7 +29,7 @@ export default async function AssessmentIntroPage({
     redirect("/assess/expired")
   }
 
-  const { campaign, assessments } = result.data
+  const { campaign, assessments, participant } = result.data
   const idx = parseInt(idxStr, 10)
   const assessment = assessments[idx]
 
@@ -104,6 +104,7 @@ export default async function AssessmentIntroPage({
 
   // Interpolate template variables
   const variables: TemplateVariables = {
+    participantName: participant.firstName,
     assessmentTitle: assessment.title,
     questionCount: assessment.sectionCount,
   }

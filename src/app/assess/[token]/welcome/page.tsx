@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { validateAccessToken } from "@/app/actions/assess";
+import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { generateCSSTokens } from "@/lib/brand/tokens";
@@ -25,10 +25,13 @@ export default async function WelcomePage({
 
   const { campaign, participant, assessments, sessions } = result.data!;
 
-  const [brandConfig, experience] = await Promise.all([
+  const assessmentIds = assessments.map((a) => a.assessmentId)
+  const [brandConfig, experience, totalItems] = await Promise.all([
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
     getCachedEffectiveExperience(campaign.id),
-  ]);
+    getAssessmentItemCount(assessmentIds),
+  ])
+  const estimatedMinutes = Math.max(1, Math.round(totalItems * 15 / 60));
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "welcome");
   const rawRunnerContent = getPageContent(experience, "runner");
@@ -68,6 +71,7 @@ export default async function WelcomePage({
         campaignDescription={campaign.description}
         assessmentCount={assessments.length}
         participantFirstName={participant.firstName}
+        estimatedMinutes={estimatedMinutes}
         hasInProgressSession={sessions.some((s) => s.status === "in_progress")}
         allowResume={campaign.allowResume}
         brandLogoUrl={brandConfig.logoUrl}

@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Trash2 } from "lucide-react"
+import { Trash2, X } from "lucide-react"
 import { DemographicsFieldsEditor } from "./demographics-fields-editor"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import type {
@@ -164,15 +164,27 @@ export function PageContentEditor({
                 {key.replace(/([A-Z])/g, " $1").trim()}
               </Label>
               {(value as string[]).map((item, idx) => (
-                <Input
-                  key={idx}
-                  value={item}
-                  onChange={(e) => {
-                    const arr = [...(value as string[])]
-                    arr[idx] = e.target.value
-                    onUpdatePageField(page, key, arr)
-                  }}
-                />
+                <div key={idx} className="flex gap-2">
+                  <Input
+                    value={item}
+                    onChange={(e) => {
+                      const arr = [...(value as string[])]
+                      arr[idx] = e.target.value
+                      onUpdatePageField(page, key, arr)
+                    }}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      const arr = (value as string[]).filter((_, i) => i !== idx)
+                      onUpdatePageField(page, key, arr)
+                    }}
+                  >
+                    <X className="size-4" />
+                  </Button>
+                </div>
               ))}
               <Button
                 variant="outline"

@@ -243,6 +243,26 @@ async function validateAccessTokenImpl(
 
 export const validateAccessToken = cache(validateAccessTokenImpl)
 
+/**
+ * Returns the total number of items across all sections for the given assessment IDs.
+ * Used to compute estimated completion time on the welcome page.
+ */
+export async function getAssessmentItemCount(assessmentIds: string[]): Promise<number> {
+  if (assessmentIds.length === 0) return 0
+  const db = createAdminClient()
+  const { data: sections } = await db
+    .from('assessment_sections')
+    .select('id')
+    .in('assessment_id', assessmentIds)
+  const sectionIds = (sections ?? []).map((s) => s.id as string)
+  if (sectionIds.length === 0) return 0
+  const { count } = await db
+    .from('items')
+    .select('*', { count: 'exact', head: true })
+    .in('section_id', sectionIds)
+  return count ?? 0
+}
+
 // ---------------------------------------------------------------------------
 // Session management
 // ---------------------------------------------------------------------------

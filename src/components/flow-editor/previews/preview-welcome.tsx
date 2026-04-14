@@ -1,13 +1,15 @@
 "use client"
 
+import { Check, Clock } from "lucide-react"
 import { PreviewShell } from "./preview-shell"
 import type { WelcomeContent } from "@/lib/experience/types"
 
 interface PreviewWelcomeProps {
   content: WelcomeContent
+  estimatedMinutes?: number
 }
 
-export function PreviewWelcome({ content }: PreviewWelcomeProps) {
+export function PreviewWelcome({ content, estimatedMinutes }: PreviewWelcomeProps) {
   return (
     <PreviewShell footerText={content.footerText}>
       <div className="space-y-4">
@@ -41,22 +43,36 @@ export function PreviewWelcome({ content }: PreviewWelcomeProps) {
             borderRadius: "var(--brand-radius-lg)",
           }}
         >
-          <p
-            className="text-xs font-semibold"
-            style={{ color: "var(--brand-text)" }}
-          >
-            {content.infoHeading}
-          </p>
+          <div className="flex items-center justify-between">
+            <p
+              className="text-xs font-semibold"
+              style={{ color: "var(--brand-text)" }}
+            >
+              {content.infoHeading}
+            </p>
+            {estimatedMinutes && (
+              <span
+                className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: "var(--brand-neutral-200)",
+                  color: "var(--brand-text-muted)",
+                }}
+              >
+                <Clock className="size-2.5" />
+                ~{estimatedMinutes} min
+              </span>
+            )}
+          </div>
           <ul className="space-y-1">
-            {content.infoItems.slice(0, 3).map((item, i) => (
+            {content.infoItems.map((item, i) => (
               <li
                 key={i}
                 className="text-[11px] flex items-start gap-1.5"
                 style={{ color: "var(--brand-text-muted)" }}
               >
-                <span
-                  className="mt-1.5 inline-block size-1 rounded-full shrink-0"
-                  style={{ backgroundColor: "var(--brand-primary)" }}
+                <Check
+                  className="mt-0.5 size-2.5 shrink-0"
+                  style={{ color: "var(--brand-primary)" }}
                 />
                 {item}
               </li>
