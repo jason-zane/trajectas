@@ -46,6 +46,21 @@ const STRENGTH_COMMENTARIES = [
   'A clear asset — results demonstrate reliable and effective practice in this area.',
 ]
 
+const SAMPLE_INDICATORS: Record<'high' | 'mid' | 'low', string[]> = {
+  high: [
+    'Consistently demonstrates strong capability in this area, applying skills with confidence and producing reliable results across a range of contexts.',
+    'Operates with a high degree of competence, showing the ability to adapt approach and maintain quality even in challenging situations.',
+  ],
+  mid: [
+    'Shows developing capability in this area with a solid foundation, though application can be inconsistent across different contexts.',
+    'Demonstrates an emerging understanding and is building confidence, with room to deepen both knowledge and practical application.',
+  ],
+  low: [
+    'Capability in this area is at an early stage, with limited evidence of consistent application in professional settings.',
+    'Shows awareness of the fundamentals but has not yet developed the depth needed for confident, independent application.',
+  ],
+}
+
 const DEVELOPMENT_SUGGESTIONS = [
   'Identify specific situations where you can practise and apply skills in this area with low stakes and regular feedback.',
   'Seek structured learning or mentorship to build a stronger foundation of knowledge and technique.',
@@ -200,23 +215,35 @@ function generateBlockSampleData(
     case 'score_detail': {
       const filtered = filterEntities(entities, config)
       if (filtered.length === 0) return { _empty: true }
-      const detailEntities = filtered.map((e, i) => ({
-        entityId: e.id,
-        entityName: e.name,
-        entitySlug: e.name.toLowerCase().replace(/\s+/g, '-'),
-        definition: `A measure of capability and effectiveness in ${e.name.toLowerCase()}.`,
-        pompScore: e.pompScore,
-        bandResult: makeBandResult(e),
-        narrative: STRENGTH_COMMENTARIES[i % STRENGTH_COMMENTARIES.length],
-        developmentSuggestion: DEVELOPMENT_SUGGESTIONS[i % DEVELOPMENT_SUGGESTIONS.length],
-      }))
+      const showIndicators = config.showIndicators !== false
+      const showDefinition = config.showDefinition !== false
+      const detailEntities = filtered.map((e, i) => {
+        const definition = `A measure of capability and effectiveness in ${e.name.toLowerCase()}.`
+        const indicatorText = SAMPLE_INDICATORS[e.band][i % SAMPLE_INDICATORS[e.band].length]
+        // Build narrative from definition + indicators, mirroring runner logic
+        const narrativeParts: string[] = []
+        if (showDefinition) narrativeParts.push(definition)
+        if (showIndicators) narrativeParts.push(indicatorText)
+        const narrative = narrativeParts.length > 0 ? narrativeParts.join(' ') : null
+
+        return {
+          entityId: e.id,
+          entityName: e.name,
+          entitySlug: e.name.toLowerCase().replace(/\s+/g, '-'),
+          definition,
+          pompScore: e.pompScore,
+          bandResult: makeBandResult(e),
+          narrative,
+          developmentSuggestion: DEVELOPMENT_SUGGESTIONS[i % DEVELOPMENT_SUGGESTIONS.length],
+        }
+      })
       return {
         entities: detailEntities,
         config: {
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
-          showDefinition: config.showDefinition !== false,
-          showIndicators: config.showIndicators !== false,
+          showDefinition: showDefinition,
+          showIndicators: showIndicators,
           showDevelopment: config.showDevelopment === true,
           showNestedScores: config.showNestedScores === true,
         },
