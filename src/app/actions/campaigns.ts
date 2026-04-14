@@ -332,6 +332,8 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
 
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
+  revalidatePath(`/campaigns/${id}/settings`)
+  revalidatePath(`/client/campaigns/${id}/settings`)
   revalidatePath('/')
   return { success: true as const, id }
 }
@@ -381,6 +383,9 @@ export async function updateCampaignField(id: string, field: string, value: stri
 
   revalidatePath('/campaigns')
   revalidatePath(`/campaigns/${id}`)
+  revalidatePath(`/campaigns/${id}/settings`)
+  revalidatePath(`/client/campaigns/${id}/settings`)
+  return { success: true as const }
 }
 
 // ---------------------------------------------------------------------------
@@ -644,6 +649,8 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
   })
 
   revalidatePath(`/campaigns/${id}`)
+  revalidatePath(`/campaigns/${id}/settings`)
+  revalidatePath(`/client/campaigns/${id}/settings`)
 }
 
 // ---------------------------------------------------------------------------

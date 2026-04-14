@@ -119,7 +119,11 @@ export function ReportConfigPanel({ campaignId, config, templates }: Props) {
           consultantTemplateId: consultantId === NONE ? null : consultantId,
           brandMode,
         }
-        await upsertCampaignReportConfig(campaignId, input)
+        const result = await upsertCampaignReportConfig(campaignId, input)
+        if (result.error) {
+          toast.error(result.error)
+          return
+        }
         toast.success('Report config saved')
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to save report config')

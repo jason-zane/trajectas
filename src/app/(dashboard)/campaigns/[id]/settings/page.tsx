@@ -32,7 +32,14 @@ export default async function CampaignSettingsPage({
   const clients = (data ?? []).map(mapClientRow);
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-3xl space-y-8">
+      {/* Full campaign form (Zone 2 — explicit save) */}
+      <CampaignForm
+        mode="edit"
+        campaign={campaign}
+        clients={clients}
+      />
+
       {/* Timeline */}
       <Card>
         <CardHeader>
@@ -75,13 +82,6 @@ export default async function CampaignSettingsPage({
         campaignId={campaign.id}
         config={reportConfig}
         templates={templates}
-      />
-
-      {/* Full campaign form (Zone 2 — explicit save) */}
-      <CampaignForm
-        mode="edit"
-        campaign={campaign}
-        clients={clients}
       />
     </div>
   );

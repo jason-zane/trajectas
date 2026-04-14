@@ -117,7 +117,8 @@ export function CampaignForm({
     const payload = {
       title,
       slug,
-      description: mode === "create" ? createDescription : undefined,
+      description:
+        mode === "create" ? createDescription : descriptionAutoSave.value,
       clientId: clientId || undefined,
       opensAt: opensAt ? new Date(opensAt).toISOString() : undefined,
       closesAt: closesAt ? new Date(closesAt).toISOString() : undefined,

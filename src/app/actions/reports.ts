@@ -42,6 +42,7 @@ import type {
   ReportSnapshot,
   ReportType,
   ReportDisplayLevel,
+  BrandModeType,
   PersonReferenceType,
 } from '@/types/database'
 
@@ -368,15 +369,23 @@ export interface UpsertCampaignReportConfigInput {
   participantTemplateId?: string | null
   hrManagerTemplateId?: string | null
   consultantTemplateId?: string | null
-  brandMode?: string
+  brandMode?: BrandModeType
 }
 
 export async function upsertCampaignReportConfig(
   campaignId: string,
   input: UpsertCampaignReportConfigInput,
-): Promise<CampaignReportConfig> {
-  await requireAdminScope()
-  const db = await createAdminClient()
+): Promise<{ data?: CampaignReportConfig; error?: string }> {
+  try {
+    await requireAdminScope()
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
   const { data, error } = await db
     .from('campaign_report_config')
     .upsert(
@@ -391,9 +400,15 @@ export async function upsertCampaignReportConfig(
     )
     .select('*')
     .single()
-  if (error) throw new Error(error.message)
+  if (error || !data) {
+    logActionError('upsertCampaignReportConfig', error ?? 'No campaign report config row returned.')
+    return { error: 'Unable to save report config.' }
+  }
+
   revalidatePath(`/campaigns/${campaignId}`)
-  return mapCampaignReportConfigRow(data)
+  revalidatePath(`/campaigns/${campaignId}/settings`)
+
+  return { data: mapCampaignReportConfigRow(data) }
 }
 
 // ---------------------------------------------------------------------------

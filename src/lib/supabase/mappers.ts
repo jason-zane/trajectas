@@ -789,6 +789,7 @@ export function mapCampaignReportConfigRow(row: any): CampaignReportConfig {
     participantTemplateId: row.participant_template_id ?? undefined,
     hrManagerTemplateId: row.hr_manager_template_id ?? undefined,
     consultantTemplateId: row.consultant_template_id ?? undefined,
+    brandMode: row.brand_mode ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }
