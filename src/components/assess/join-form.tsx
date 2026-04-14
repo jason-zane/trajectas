@@ -30,6 +30,8 @@ export function JoinForm({
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [company, setCompany] = useState("");
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +39,17 @@ export function JoinForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const trimmedEmail = email.trim();
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedJobTitle = jobTitle.trim();
+    const trimmedCompany = company.trim();
+
+    if (!trimmedEmail || !trimmedFirstName || !trimmedLastName) {
+      setError("Please enter your email, first name, and last name.");
+      return;
+    }
 
     if (content.marketingConsentEnabled && content.marketingConsentRequired && !marketingConsent) {
       setError("Please accept the marketing consent to continue.");
@@ -46,9 +59,11 @@ export function JoinForm({
     setSubmitting(true);
 
     const result = await registerViaLink(linkToken, {
-      email,
-      firstName: firstName || undefined,
-      lastName: lastName || undefined,
+      email: trimmedEmail,
+      firstName: trimmedFirstName,
+      lastName: trimmedLastName,
+      jobTitle: trimmedJobTitle || undefined,
+      company: trimmedCompany || undefined,
       marketingConsent: content.marketingConsentEnabled ? marketingConsent : undefined,
     });
 
@@ -157,33 +172,67 @@ export function JoinForm({
             }}
           >
             <div className="space-y-1.5">
-              <Label htmlFor="join-email">Email</Label>
+              <Label htmlFor="join-email">
+                Email <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="join-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                autoComplete="email"
                 required
               />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="join-first">First Name</Label>
+                <Label htmlFor="join-first">
+                  First Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="join-first"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Optional"
+                  placeholder="Jane"
+                  autoComplete="given-name"
+                  required
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="join-last">Last Name</Label>
+                <Label htmlFor="join-last">
+                  Last Name <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="join-last"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Optional"
+                  placeholder="Smith"
+                  autoComplete="family-name"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="join-job-title">Job Title (optional)</Label>
+                <Input
+                  id="join-job-title"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  placeholder="Product Manager"
+                  autoComplete="organization-title"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="join-company">Company (optional)</Label>
+                <Input
+                  id="join-company"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="Acme Inc."
+                  autoComplete="organization"
                 />
               </div>
             </div>

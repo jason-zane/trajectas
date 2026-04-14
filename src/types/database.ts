@@ -1600,6 +1600,10 @@ export interface CampaignParticipant {
   firstName?: string
   /** Family name. */
   lastName?: string
+  /** Optional job title collected during self-registration. */
+  jobTitle?: string
+  /** Optional company collected during self-registration. */
+  company?: string
   /** Unique 64-char hex token used as URL identifier. */
   accessToken: string
   /** Progress status within the campaign. */

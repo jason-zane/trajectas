@@ -41,7 +41,7 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
               className="text-[10px] font-medium"
               style={{ color: "var(--brand-text)" }}
             >
-              Email
+              Email *
             </span>
             <div
               className="h-8 rounded-md px-2 flex items-center"
@@ -67,7 +67,7 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
                 className="text-[10px] font-medium"
                 style={{ color: "var(--brand-text)" }}
               >
-                First Name
+                First Name *
               </span>
               <div
                 className="h-8 rounded-md"
@@ -83,7 +83,42 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
                 className="text-[10px] font-medium"
                 style={{ color: "var(--brand-text)" }}
               >
-                Last Name
+                Last Name *
+              </span>
+              <div
+                className="h-8 rounded-md"
+                style={{
+                  backgroundColor: "var(--brand-neutral-100)",
+                  border: "1px solid var(--brand-neutral-200)",
+                  borderRadius: "var(--brand-radius-md)",
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <span
+                className="text-[10px] font-medium"
+                style={{ color: "var(--brand-text)" }}
+              >
+                Job Title (optional)
+              </span>
+              <div
+                className="h-8 rounded-md"
+                style={{
+                  backgroundColor: "var(--brand-neutral-100)",
+                  border: "1px solid var(--brand-neutral-200)",
+                  borderRadius: "var(--brand-radius-md)",
+                }}
+              />
+            </div>
+            <div className="space-y-1">
+              <span
+                className="text-[10px] font-medium"
+                style={{ color: "var(--brand-text)" }}
+              >
+                Company (optional)
               </span>
               <div
                 className="h-8 rounded-md"

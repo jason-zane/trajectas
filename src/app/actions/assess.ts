@@ -1402,14 +1402,29 @@ export async function getParticipantReportSnapshot(
 
 export async function registerViaLink(
   linkToken: string,
-  { email, firstName, lastName, marketingConsent }: {
+  { email, firstName, lastName, jobTitle, company, marketingConsent }: {
     email: string
-    firstName?: string
-    lastName?: string
+    firstName: string
+    lastName: string
+    jobTitle?: string
+    company?: string
     marketingConsent?: boolean
   },
 ) {
   const db = createAdminClient()
+  const normalizedEmail = email.trim().toLowerCase()
+  const normalizedFirstName = firstName.trim()
+  const normalizedLastName = lastName.trim()
+  const normalizedJobTitle = jobTitle?.trim() || null
+  const normalizedCompany = company?.trim() || null
+
+  if (!normalizedEmail) {
+    return { error: 'Email is required' }
+  }
+
+  if (!normalizedFirstName || !normalizedLastName) {
+    return { error: 'First name and last name are required' }
+  }
 
   // Validate link
   const { data: link, error: linkErr } = await db
@@ -1454,13 +1469,35 @@ export async function registerViaLink(
     .from('campaign_participants')
     .select('id, access_token, status')
     .eq('campaign_id', link.campaign_id)
-    .eq('email', email.toLowerCase())
+    .eq('email', normalizedEmail)
     .not('status', 'eq', 'completed')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
   if (existing) {
+    const existingUpdate: Record<string, string> = {
+      first_name: normalizedFirstName,
+      last_name: normalizedLastName,
+    }
+
+    if (normalizedJobTitle) {
+      existingUpdate.job_title = normalizedJobTitle
+    }
+
+    if (normalizedCompany) {
+      existingUpdate.company = normalizedCompany
+    }
+
+    const { error: updateErr } = await db
+      .from('campaign_participants')
+      .update(existingUpdate)
+      .eq('id', existing.id)
+
+    if (updateErr) {
+      logActionError('registerViaLink.updateExisting', updateErr)
+    }
+
     return { accessToken: existing.access_token }
   }
 
@@ -1503,9 +1540,11 @@ export async function registerViaLink(
     .from('campaign_participants')
     .insert({
       campaign_id: link.campaign_id,
-      email: email.toLowerCase(),
-      first_name: firstName ?? null,
-      last_name: lastName ?? null,
+      email: normalizedEmail,
+      first_name: normalizedFirstName,
+      last_name: normalizedLastName,
+      job_title: normalizedJobTitle,
+      company: normalizedCompany,
       status: 'registered',
       ...(marketingConsent ? { marketing_consent_given_at: new Date().toISOString() } : {}),
     })
