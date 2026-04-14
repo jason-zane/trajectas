@@ -222,14 +222,25 @@ function generateBlockSampleData(
       if (filtered.length === 0) return { _empty: true }
       const showIndicators = config.showIndicators !== false
       const showDefinition = config.showDefinition !== false
+      const showNested = config.showNestedScores === true
       const detailEntities = filtered.map((e, i) => {
         const definition = `A measure of capability and effectiveness in ${e.name.toLowerCase()}.`
         const indicatorText = SAMPLE_INDICATORS[e.band][i % SAMPLE_INDICATORS[e.band].length]
-        // Build narrative from definition + indicators, mirroring runner logic
+        // Build narrative from indicators only (definition rendered separately)
         const narrativeParts: string[] = []
-        if (showDefinition) narrativeParts.push(definition)
         if (showIndicators) narrativeParts.push(indicatorText)
         const narrative = narrativeParts.length > 0 ? narrativeParts.join(' ') : null
+
+        // Find child entities whose parentId matches this entity
+        const children = showNested
+          ? entities.filter((c) => c.parentId === e.id).map((c) => ({
+              entityId: c.id,
+              entityName: c.name,
+              pompScore: c.pompScore,
+              band: c.band,
+              bandLabel: c.bandLabel,
+            }))
+          : undefined
 
         return {
           entityId: e.id,
@@ -240,6 +251,7 @@ function generateBlockSampleData(
           bandResult: makeBandResult(e),
           narrative,
           developmentSuggestion: DEVELOPMENT_SUGGESTIONS[i % DEVELOPMENT_SUGGESTIONS.length],
+          nestedScores: children && children.length > 0 ? children : undefined,
         }
       })
       return {

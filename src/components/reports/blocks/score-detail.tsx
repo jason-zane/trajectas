@@ -6,6 +6,14 @@ import { SegmentBar } from '../charts/segment-bar'
 import { MiniBar } from '../charts/mini-bar'
 import { ScorecardTable } from '../charts/scorecard-table'
 
+interface NestedScore {
+  entityId: string
+  entityName: string
+  pompScore: number
+  band: 'high' | 'mid' | 'low'
+  bandLabel: string
+}
+
 interface ScoreDetailEntity {
   entityId: string
   entityName: string
@@ -15,6 +23,7 @@ interface ScoreDetailEntity {
   bandResult: BandResult
   narrative: string | null
   developmentSuggestion: string | null
+  nestedScores?: NestedScore[]
 }
 
 interface ScoreDetailData {
@@ -111,7 +120,7 @@ function OpenLayout({
 }) {
   return (
     <div className="space-y-4 py-2 break-inside-avoid">
-      {/* Header: entity name + band badge */}
+      {/* Header: entity name + band badge + optional score */}
       <div className="flex items-start justify-between gap-4">
         <h3
           className="text-lg font-semibold"
@@ -119,30 +128,62 @@ function OpenLayout({
         >
           {entity.entityName}
         </h3>
-        {config.showScore && (
-          <div className="flex items-center gap-2 shrink-0">
-            {config.showBandLabel && (
-              <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
-            )}
+        <div className="flex items-center gap-2 shrink-0">
+          {config.showBandLabel && (
+            <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
+          )}
+          {config.showScore && (
             <span
               className="text-2xl font-bold tabular-nums"
               style={{ color: 'var(--report-heading-colour)' }}
             >
               {Math.round(entity.pompScore)}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Score visualisation */}
-      {config.showScore && (
-        resolvedChart === 'segment' ? (
-          <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
-        ) : (
-          <BarChart
-            items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
-          />
-        )
+      {/* Score visualisation — always shown */}
+      {resolvedChart === 'segment' ? (
+        <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
+      ) : (
+        <BarChart
+          items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
+        />
+      )}
+
+      {/* Nested scores (child entities under parent) */}
+      {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
+        <div className="space-y-2 pl-1">
+          {entity.nestedScores.map((ns) => (
+            <div key={ns.entityId} className="flex items-center gap-3">
+              <span
+                className="text-[12px] font-medium w-[120px] shrink-0 text-right"
+                style={{ color: 'var(--report-muted-colour)' }}
+              >
+                {ns.entityName}
+              </span>
+              <div
+                className="relative h-1.5 rounded-full flex-1"
+                style={{ background: 'var(--report-divider)' }}
+              >
+                <div
+                  className="absolute top-0 left-0 h-1.5 rounded-full"
+                  style={{
+                    width: `${ns.pompScore}%`,
+                    background: `var(--report-${ns.band}-band-fill)`,
+                  }}
+                />
+              </div>
+              <span
+                className="text-[11px] tabular-nums w-7 text-right shrink-0"
+                style={{ color: 'var(--report-muted-colour)' }}
+              >
+                {ns.pompScore}
+              </span>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Definition */}
@@ -210,25 +251,25 @@ function CardedLayout({
         {entity.entityName}
       </h3>
 
-      {/* Band badge + score row */}
-      {config.showScore && (
+      {/* Band badge + optional score */}
+      {(config.showBandLabel || config.showScore) && (
         <div className="flex items-center gap-2 mb-3">
           {config.showBandLabel && (
             <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
           )}
-          <span
-            className="text-lg font-bold tabular-nums"
-            style={{ color: 'var(--report-heading-colour)' }}
-          >
-            {Math.round(entity.pompScore)}
-          </span>
+          {config.showScore && (
+            <span
+              className="text-lg font-bold tabular-nums"
+              style={{ color: 'var(--report-heading-colour)' }}
+            >
+              {Math.round(entity.pompScore)}
+            </span>
+          )}
         </div>
       )}
 
-      {/* Mini bar */}
-      {config.showScore && (
-        <MiniBar value={entity.pompScore} band={entity.bandResult.band} className="mb-3" />
-      )}
+      {/* Mini bar — always shown */}
+      <MiniBar value={entity.pompScore} band={entity.bandResult.band} className="mb-3" />
 
       {/* Short narrative */}
       {entity.narrative && (
@@ -265,16 +306,21 @@ function FeaturedLayout({
         </span>
       )}
 
-      {/* Score bar */}
+      {/* Score number */}
       {config.showScore && (
-        resolvedChart === 'segment' ? (
-          <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
-        ) : (
-          <BarChart
-            items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
-            variant="dark"
-          />
-        )
+        <span className="text-2xl font-bold tabular-nums text-current opacity-80">
+          {Math.round(entity.pompScore)}
+        </span>
+      )}
+
+      {/* Score bar — always shown */}
+      {resolvedChart === 'segment' ? (
+        <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
+      ) : (
+        <BarChart
+          items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
+          variant="dark"
+        />
       )}
 
       {/* Narrative */}

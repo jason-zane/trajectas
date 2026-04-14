@@ -26,7 +26,6 @@ export function BarChart({
   className,
 }: BarChartProps) {
   const isDark = variant === 'dark'
-  const hasPerRowLabels = showBandLabels && items.some((i) => i.bandLabel)
 
   return (
     <div className={cn('w-full', className)}>
@@ -34,14 +33,21 @@ export function BarChart({
         <div
           key={item.name}
           className="grid items-center mb-3"
-          style={{ gridTemplateColumns: `140px 1fr${showScore ? ' 36px' : ''}${hasPerRowLabels ? ' auto' : ''}`, gap: '12px' }}
+          style={{ gridTemplateColumns: `140px 1fr${showScore ? ' 36px' : ''}`, gap: '12px' }}
         >
-          {/* Label */}
-          <div
-            className="text-[13px] font-medium text-right"
-            style={{ color: isDark ? 'rgba(255,255,255,0.85)' : 'var(--report-heading-colour)' }}
-          >
-            {item.name}
+          {/* Label + optional band badge below */}
+          <div className="text-right">
+            <div
+              className="text-[13px] font-medium"
+              style={{ color: isDark ? 'rgba(255,255,255,0.85)' : 'var(--report-heading-colour)' }}
+            >
+              {item.name}
+            </div>
+            {showBandLabels && item.bandLabel && (
+              <div className="mt-0.5 flex justify-end">
+                <BandBadge band={item.band} label={item.bandLabel} />
+              </div>
+            )}
           </div>
 
           {/* Track + fill */}
@@ -66,11 +72,6 @@ export function BarChart({
             >
               {item.value}
             </div>
-          )}
-
-          {/* Per-row band label */}
-          {hasPerRowLabels && item.bandLabel && (
-            <BandBadge band={item.band} label={item.bandLabel} />
           )}
         </div>
       ))}
