@@ -39,6 +39,7 @@ export default async function WelcomePage({
   // Interpolate template variables
   const variables: TemplateVariables = {
     participantName: participant.firstName,
+    candidateName: participant.firstName,
     campaignTitle: campaign.title,
     campaignDescription: campaign.description,
     assessmentCount: assessments.length,

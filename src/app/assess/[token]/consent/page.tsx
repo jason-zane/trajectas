@@ -45,6 +45,7 @@ export default async function ConsentPage({
   const rawRunnerContent = getPageContent(experience, "runner");
   const variables: TemplateVariables = {
     participantName: participant.firstName,
+    candidateName: participant.firstName,
     campaignTitle: campaign.title,
   };
   const interpolated = interpolateContent(rawContent, variables);

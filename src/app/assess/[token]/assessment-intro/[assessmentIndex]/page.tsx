@@ -105,6 +105,7 @@ export default async function AssessmentIntroPage({
   // Interpolate template variables
   const variables: TemplateVariables = {
     participantName: participant.firstName,
+    candidateName: participant.firstName,
     assessmentTitle: assessment.title,
     questionCount: assessment.sectionCount,
   }

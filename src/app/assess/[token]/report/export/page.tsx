@@ -43,6 +43,7 @@ export default async function ReportExportPage({
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {
     participantName: participant.firstName,
+    candidateName: participant.firstName,
     campaignTitle: campaign.title,
   };
   const content: ReportContent = interpolateContent(rawContent, variables);

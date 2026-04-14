@@ -246,6 +246,8 @@ export interface ExperienceTemplateRecord {
 
 export interface TemplateVariables {
   participantName?: string
+  /** @deprecated Use participantName — kept for backward compat with saved templates */
+  candidateName?: string
   campaignTitle?: string
   assessmentCount?: number
   clientName?: string
