@@ -11,42 +11,42 @@ import { isDeferredBlockType, parseBlocks } from './registry'
 // ---------------------------------------------------------------------------
 
 const SAMPLE_ENTITIES = [
-  { entityId: 'dim-1', entityName: 'Strategic Thinking', pompScore: 82, band: 'high' as const, bandLabel: 'Highly Effective' },
-  { entityId: 'dim-2', entityName: 'Communication', pompScore: 74, band: 'high' as const, bandLabel: 'Highly Effective' },
-  { entityId: 'dim-3', entityName: 'Adaptability', pompScore: 71, band: 'high' as const, bandLabel: 'Highly Effective' },
-  { entityId: 'dim-4', entityName: 'Collaboration', pompScore: 58, band: 'mid' as const, bandLabel: 'Effective' },
-  { entityId: 'dim-5', entityName: 'Resilience', pompScore: 45, band: 'mid' as const, bandLabel: 'Effective' },
-  { entityId: 'dim-6', entityName: 'Innovation', pompScore: 68, band: 'mid' as const, bandLabel: 'Effective' },
-  { entityId: 'dim-7', entityName: 'Decision Making', pompScore: 77, band: 'high' as const, bandLabel: 'Highly Effective' },
-  { entityId: 'dim-8', entityName: 'Emotional Intelligence', pompScore: 63, band: 'mid' as const, bandLabel: 'Effective' },
-  { entityId: 'dim-9', entityName: 'Accountability', pompScore: 55, band: 'mid' as const, bandLabel: 'Effective' },
-  { entityId: 'dim-10', entityName: 'Influence', pompScore: 39, band: 'low' as const, bandLabel: 'Developing' },
+  { entityId: 'dim-1', entityName: 'AI Literacy', pompScore: 82, band: 'high' as const, bandLabel: 'Highly Proficient' },
+  { entityId: 'dim-2', entityName: 'Prompt Engineering', pompScore: 74, band: 'high' as const, bandLabel: 'Highly Proficient' },
+  { entityId: 'dim-3', entityName: 'Critical Evaluation', pompScore: 71, band: 'high' as const, bandLabel: 'Highly Proficient' },
+  { entityId: 'dim-4', entityName: 'Ethical Reasoning', pompScore: 58, band: 'mid' as const, bandLabel: 'Developing' },
+  { entityId: 'dim-5', entityName: 'Data Interpretation', pompScore: 45, band: 'mid' as const, bandLabel: 'Developing' },
+  { entityId: 'dim-6', entityName: 'Tool Integration', pompScore: 68, band: 'mid' as const, bandLabel: 'Developing' },
+  { entityId: 'dim-7', entityName: 'Automation Thinking', pompScore: 77, band: 'high' as const, bandLabel: 'Highly Proficient' },
+  { entityId: 'dim-8', entityName: 'Creative Application', pompScore: 63, band: 'mid' as const, bandLabel: 'Developing' },
+  { entityId: 'dim-9', entityName: 'Collaboration with AI', pompScore: 55, band: 'mid' as const, bandLabel: 'Developing' },
+  { entityId: 'dim-10', entityName: 'Risk Awareness', pompScore: 39, band: 'low' as const, bandLabel: 'Emerging' },
 ]
 
 const STRENGTH_COMMENTARIES = [
-  'You demonstrate strong analytical skills that enable effective decision-making across complex situations.',
-  'Your clarity and influence in written and verbal expression across different audiences is a distinctive strength.',
-  'You show flexibility in approach when facing changing circumstances or ambiguity.',
-  'Your ability to build trust and maintain productive relationships is consistently effective.',
-  'You maintain composure and focus under pressure, enabling sustained performance.',
-  'You generate creative solutions that push beyond conventional thinking.',
-  'You weigh evidence carefully and make well-informed choices under uncertainty.',
-  'You read interpersonal dynamics effectively and respond with empathy.',
-  'You take ownership of outcomes and follow through on commitments reliably.',
-  'You articulate a compelling vision that motivates others toward shared goals.',
+  'You demonstrate strong foundational understanding of AI systems and how they can be applied effectively in professional contexts.',
+  'Your ability to craft clear, context-rich prompts that produce reliable outputs is a consistent and distinctive strength.',
+  'You approach AI-generated content with healthy scepticism, cross-referencing outputs and identifying limitations effectively.',
+  'You apply thoughtful consideration to the ethical implications of AI use, flagging risks and advocating for responsible practices.',
+  'Your ability to extract meaningful insights from AI-generated data and translate them into actionable decisions stands out.',
+  'You integrate AI tools into your existing workflows efficiently, reducing friction and maximising productivity gains.',
+  'You identify automation opportunities systematically and design solutions that free up human capacity for higher-value work.',
+  'You combine AI capabilities with creative thinking to generate novel solutions that go beyond templated outputs.',
+  'You collaborate effectively with AI systems as a working partner, adjusting your approach based on model behaviour and limitations.',
+  'You demonstrate a clear understanding of AI failure modes, bias risks, and when human oversight is essential.',
 ]
 
 const DEVELOPMENT_SUGGESTIONS = [
-  'Focus on building structured approaches to problem-solving. Practice breaking complex challenges into smaller, manageable components.',
-  'Seek structured feedback from peers on how effectively you integrate diverse viewpoints during collaborative problem-solving.',
-  'Develop a personal stress-management protocol — identify your early warning signals and build in recovery practices before they escalate.',
-  'Practice time-boxed decision-making in lower-stakes situations to build comfort with acting on incomplete information.',
-  'Consider how you might share your strategic perspective more actively in team settings to help others develop this capability.',
-  'Experiment with different communication styles when working with diverse stakeholder groups.',
-  'Build deliberate pauses into your workflow to reflect on lessons learned before moving to the next challenge.',
-  'Seek out cross-functional projects that expose you to unfamiliar perspectives and working styles.',
-  'Create accountability structures — such as regular check-ins — to maintain momentum on long-term initiatives.',
-  'Practice active listening in meetings, summarising others\u2019 positions before sharing your own to build influence.',
+  'Deepen your understanding of emerging AI modalities beyond text — including multimodal and agentic systems — to expand your range of application.',
+  'Experiment with structured prompt frameworks such as chain-of-thought and few-shot prompting to improve output consistency.',
+  'Build a personal evaluation rubric for assessing AI output quality across factual accuracy, relevance, and tone before using outputs in critical contexts.',
+  'Seek out case studies on AI ethics failures to sharpen your ability to anticipate downstream consequences of AI decisions.',
+  'Practice interpreting outputs from AI-assisted data analysis tools to strengthen your data literacy alongside AI fluency.',
+  'Identify one high-friction workflow per month and explore whether an AI tool exists that could meaningfully reduce that friction.',
+  'Map a current manual process end-to-end before automating it — this discipline ensures automation decisions are grounded in real understanding.',
+  'Set aside time for exploratory, low-stakes AI experimentation to build creative fluency without performance pressure.',
+  'Establish shared team norms around how AI outputs should be reviewed and attributed to build collective accountability.',
+  'Stay current on published AI risk frameworks and apply at least one to an upcoming project or decision.',
 ]
 
 // ---------------------------------------------------------------------------
@@ -71,6 +71,9 @@ export function generateSampleData(
         blockId: block.id,
         type: block.type,
         order: block.order,
+        eyebrow: block.eyebrow,
+        heading: block.heading,
+        blockDescription: block.blockDescription,
         presentationMode: block.presentationMode,
         columns: block.columns,
         chartType: block.chartType,
@@ -91,6 +94,9 @@ export function generateSampleData(
       blockId: block.id,
       type: block.type,
       order: block.order,
+      eyebrow: block.eyebrow,
+      heading: block.heading,
+      blockDescription: block.blockDescription,
       presentationMode: block.presentationMode,
       columns: block.columns,
       chartType: block.chartType,
@@ -124,12 +130,14 @@ function generateBlockSampleData(type: BlockType, config: Record<string, unknown
     case 'cover_page':
       return {
         participantName: 'Alex Morgan',
+        campaignTitle: 'AI Capability Index',
         generatedAt: new Date().toISOString(),
-        showDate: true,
-        showPrimaryLogo: true,
-        showSecondaryLogo: false,
-        showPoweredBy: false,
-        subtitle: 'Leadership Assessment',
+        showDate: config.showDate !== false,
+        showLogo: config.showLogo !== false,
+        showPoweredBy: config.showPoweredBy === true,
+        poweredByText: typeof config.poweredByText === 'string' && config.poweredByText
+          ? config.poweredByText
+          : 'Powered by Trajectas',
       }
 
     case 'score_overview':
@@ -140,34 +148,40 @@ function generateBlockSampleData(type: BlockType, config: Record<string, unknown
           pompScore: e.pompScore,
           bandResult: makeBandResult(e),
         })),
-        config: { chartType: 'bar', displayLevel: 'dimension' },
+        config: {
+          displayLevel: config.displayLevel ?? 'factor',
+          showScore: config.showScore !== false,
+          showBandLabel: config.showBandLabel !== false,
+          groupByDimension: config.groupByDimension === true,
+        },
       }
 
     case 'score_detail':
       return {
         entityId: 'dim-1',
-        entityName: 'Strategic Thinking',
-        entitySlug: 'strategic-thinking',
+        entityName: 'AI Literacy',
+        entitySlug: 'ai-literacy',
         definition:
-          'The capacity to think beyond immediate challenges and consider broader implications for the client.',
+          'Understanding of AI concepts, capabilities, and limitations — and the ability to work effectively alongside AI systems in professional contexts.',
         pompScore: 82,
         bandResult: {
           band: 'high',
-          bandLabel: 'Highly Effective',
+          bandLabel: 'Highly Proficient',
           pompScore: 82,
           thresholdLow: 40,
           thresholdHigh: 70,
         },
         narrative:
-          'You demonstrate a strong ability to think beyond immediate challenges and consider broader implications. You consistently identify patterns and connections that others may miss, contributing to well-informed decisions.',
+          'You demonstrate strong foundational understanding of AI systems and how they can be applied effectively in professional contexts. Your ability to distinguish between AI capabilities and limitations is a clear strength that enables confident, well-calibrated use.',
         developmentSuggestion:
-          'Consider how you might share your strategic perspective more actively in team settings to help others develop this capability.',
+          'Deepen your understanding of emerging AI modalities beyond text — including multimodal and agentic systems — to expand your range of application and stay ahead of the capability curve.',
         config: {
-          showScore: false,
-          showBandLabel: true,
-          showDefinition: true,
-          showIndicators: true,
-          showDevelopment: true,
+          showScore: config.showScore !== false,
+          showBandLabel: config.showBandLabel !== false,
+          showDefinition: config.showDefinition !== false,
+          showIndicators: config.showIndicators !== false,
+          showDevelopment: config.showDevelopment === true,
+          showNestedScores: config.showNestedScores === true,
         },
       }
 

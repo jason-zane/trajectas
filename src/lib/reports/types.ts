@@ -45,6 +45,8 @@ export type BlockCondition =
 export interface CoverPageConfig {
   showDate?: boolean
   showLogo?: boolean
+  showPoweredBy?: boolean
+  poweredByText?: string
   subtitle?: string
 }
 
@@ -159,6 +161,9 @@ export interface ResolvedBlockData {
   blockId: string
   type: BlockType
   order: number
+  eyebrow?: string
+  heading?: string
+  blockDescription?: string
   printBreakBefore?: boolean
   printHide?: boolean
   screenHide?: boolean

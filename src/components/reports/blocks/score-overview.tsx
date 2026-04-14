@@ -57,8 +57,8 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
             value: s.pompScore,
             band: s.bandResult.band,
           }))}
-          showBandLabels
-          showScore
+          showBandLabels={d.config?.showBandLabel !== false}
+          showScore={d.config?.showScore !== false}
           variant={isFeatured ? 'dark' : 'light'}
         />
       )}
