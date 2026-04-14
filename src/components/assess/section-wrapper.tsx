@@ -102,7 +102,7 @@ export function SectionWrapper({
   void privacyUrl;
   void termsUrl;
 
-  const { enqueueSave, retryFailedSaves, flushSaves, saveStatus, saveError } = useSaveQueue({
+  const { enqueueSave, enqueueSaveAndWait, retryFailedSaves, flushSaves, saveStatus, saveError } = useSaveQueue({
     token,
     sessionId,
   });
@@ -298,20 +298,36 @@ export function SectionWrapper({
     value: number,
     data?: Record<string, unknown>,
   ) {
-    // 1. Optimistic local update (instant)
+    // 1. Optimistic local update (instant — selection highlights immediately)
     setResponses((prev) => ({
       ...prev,
       [itemId]: { value, data: data ?? {} },
     }));
 
-    // 2. Queue background save (non-blocking)
-    enqueueSave({ itemId, sectionId: section.id, value, data });
-
-    // 3. Auto-advance for single-select formats
+    // 2. For auto-advance formats, await the save confirmation before advancing.
+    // This prevents unsaved responses from piling up across rapid question transitions.
+    // The user sees their selection instantly, then advances once persisted (~200-500ms).
     if (!isFinalItemInAssessment && shouldAutoAdvance(responseFormatType, value, data)) {
-      setTimeout(() => {
-        void goToNextItem();
-      }, ADVANCE_DELAY_MS);
+      // Run save + advance as a non-blocking async flow
+      void (async () => {
+        // Race: wait for save confirmation OR a ceiling timeout (so we don't hang forever)
+        const saved = await Promise.race([
+          enqueueSaveAndWait({ itemId, sectionId: section.id, value, data }),
+          // Ceiling: if the save takes >3s, advance anyway (boundary flush will catch it)
+          new Promise<boolean>((resolve) => setTimeout(() => resolve(true), 3000)),
+        ]);
+        if (saved) {
+          // Small visual delay so the selection animation is visible
+          setTimeout(() => {
+            void goToNextItem();
+          }, ADVANCE_DELAY_MS);
+        }
+        // If save permanently failed, user stays on this question and sees the error banner
+      })();
+    } else {
+      // Non-auto-advance formats (free_text, ranking) or final item: fire-and-forget save.
+      // User will explicitly click Continue, and boundary flush will ensure persistence.
+      enqueueSave({ itemId, sectionId: section.id, value, data });
     }
   }
 

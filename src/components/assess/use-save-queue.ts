@@ -10,17 +10,28 @@ type SaveEntry = {
   data?: Record<string, unknown>;
   responseTimeMs?: number;
   retries?: number;
+  /** Called when this specific entry finishes processing (success or permanent failure). */
+  onSettled?: (ok: boolean) => void;
 };
 
 type SaveStatus = "idle" | "saving" | "saved";
 
 /** Per-item save timeout before treating as a transient failure and retrying. */
-const SAVE_TIMEOUT_MS = 8_000;
+const SAVE_TIMEOUT_MS = 10_000;
 /** Absolute ceiling for flushSaves — prevents pushAcrossBoundary from hanging forever. */
-const FLUSH_TIMEOUT_MS = 35_000;
+const FLUSH_TIMEOUT_MS = 45_000;
+/** Maximum retry attempts per save before moving to failed list. */
+const MAX_RETRIES = 5;
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Exponential backoff with jitter: 1s, 2s, 4s, 8s… capped at 10s. */
+function retryDelay(attempt: number) {
+  const base = Math.min(1000 * Math.pow(2, attempt - 1), 10_000);
+  const jitter = Math.random() * base * 0.3; // ±30% jitter
+  return base + jitter;
 }
 
 export function useSaveQueue(config: { token: string; sessionId: string }) {
@@ -63,14 +74,17 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
 
       if (result.error) {
         entry.retries = (entry.retries ?? 0) + 1;
-        if (entry.retries >= 3) {
-          failedRef.current.push(queueRef.current.shift()!);
+        if (entry.retries >= MAX_RETRIES) {
+          const failed = queueRef.current.shift()!;
+          failedRef.current.push(failed);
+          failed.onSettled?.(false);
           setSaveError(true);
         } else {
-          await delay(500 * entry.retries);
+          await delay(retryDelay(entry.retries));
         }
       } else {
-        queueRef.current.shift();
+        const done = queueRef.current.shift()!;
+        done.onSettled?.(true);
       }
     }
 
@@ -89,11 +103,57 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     }
   }, [config.token, config.sessionId]);
 
+  /**
+   * Enqueue a save (fire-and-forget). Deduplicates by itemId — if a pending
+   * entry for the same item exists and hasn't started processing yet, it is
+   * replaced with the new value.
+   */
   const enqueueSave = useCallback(
-    (entry: Omit<SaveEntry, "retries">) => {
-      queueRef.current.push({ ...entry, retries: 0 });
+    (entry: Omit<SaveEntry, "retries" | "onSettled">) => {
+      // Deduplicate: replace any pending (not-yet-processing) entry for same item.
+      // The first entry in the queue may be mid-flight, so skip index 0 when processing.
+      const startIdx = isProcessingRef.current ? 1 : 0;
+      const existingIdx = queueRef.current.findIndex(
+        (e, i) => i >= startIdx && e.itemId === entry.itemId,
+      );
+      if (existingIdx >= 0) {
+        const old = queueRef.current[existingIdx];
+        old.onSettled?.(true); // resolve the old waiter as superseded
+        queueRef.current[existingIdx] = { ...entry, retries: 0 };
+      } else {
+        queueRef.current.push({ ...entry, retries: 0 });
+      }
+
       setSaveStatus("saving");
       processQueue();
+    },
+    [processQueue],
+  );
+
+  /**
+   * Enqueue a save and return a promise that resolves when this specific
+   * entry is persisted (true) or permanently fails (false).
+   * Deduplicates by itemId like enqueueSave.
+   */
+  const enqueueSaveAndWait = useCallback(
+    (entry: Omit<SaveEntry, "retries" | "onSettled">): Promise<boolean> => {
+      return new Promise<boolean>((resolve) => {
+        // Deduplicate: replace any pending entry for same item.
+        const startIdx = isProcessingRef.current ? 1 : 0;
+        const existingIdx = queueRef.current.findIndex(
+          (e, i) => i >= startIdx && e.itemId === entry.itemId,
+        );
+        if (existingIdx >= 0) {
+          const old = queueRef.current[existingIdx];
+          old.onSettled?.(true); // resolve old waiter as superseded
+          queueRef.current[existingIdx] = { ...entry, retries: 0, onSettled: resolve };
+        } else {
+          queueRef.current.push({ ...entry, retries: 0, onSettled: resolve });
+        }
+
+        setSaveStatus("saving");
+        processQueue();
+      });
     },
     [processQueue],
   );
@@ -122,5 +182,5 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     ]);
   }, [processQueue]);
 
-  return { enqueueSave, retryFailedSaves, flushSaves, saveStatus, saveError };
+  return { enqueueSave, enqueueSaveAndWait, retryFailedSaves, flushSaves, saveStatus, saveError };
 }
