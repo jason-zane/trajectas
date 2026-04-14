@@ -2,11 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
+import { ExternalLink } from "lucide-react";
 
 import type { CampaignWithMeta, ClientParticipant, UniqueClientParticipant } from "@/app/actions/campaigns";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableActionsMenu,
+  DataTableColumnHeader,
+  DataTableRowLink,
+} from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -38,6 +47,10 @@ const STATUS_LABEL: Record<string, string> = {
 function getDisplayName(p: { firstName?: string | null; lastName?: string | null; email: string }) {
   const name = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
   return name || p.email;
+}
+
+function getInitials(p: { firstName?: string | null; email: string }) {
+  return (p.firstName?.[0] ?? p.email[0] ?? "?").toUpperCase();
 }
 
 function formatRelativeDate(value: string) {
@@ -77,8 +90,24 @@ function formatDateTime(value: string) {
 
 type SessionTableRow = ClientParticipant & {
   displayName: string;
+  progressValue: number;
   lastActivityValue: string;
 };
+
+function SessionRowActions({ participant }: { participant: SessionTableRow }) {
+  const router = useRouter();
+
+  return (
+    <DataTableActionsMenu label={`Open actions for ${participant.displayName}`}>
+      <DropdownMenuItem
+        onClick={() => router.push(`/client/campaigns/${participant.campaignId}/overview`)}
+      >
+        <ExternalLink className="size-4" />
+        Open campaign
+      </DropdownMenuItem>
+    </DataTableActionsMenu>
+  );
+}
 
 const sessionsColumns: ColumnDef<SessionTableRow>[] = [
   {
@@ -87,10 +116,23 @@ const sessionsColumns: ColumnDef<SessionTableRow>[] = [
       <DataTableColumnHeader column={column} title="Participant" />
     ),
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <p className="truncate font-semibold">{row.original.displayName}</p>
-        <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
-      </div>
+      <DataTableRowLink
+        href={`/client/campaigns/${row.original.campaignId}/participants/${row.original.id}`}
+        ariaLabel={`Open ${row.original.displayName}`}
+        className="min-w-0"
+      >
+        <div className="flex items-center gap-3">
+          <Avatar className="size-9">
+            <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">
+              {row.original.displayName}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+          </div>
+        </div>
+      </DataTableRowLink>
     ),
   },
   {
@@ -114,6 +156,24 @@ const sessionsColumns: ColumnDef<SessionTableRow>[] = [
     ),
   },
   {
+    id: "progress",
+    accessorFn: (row) => row.progressValue,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Progress" />
+    ),
+    cell: ({ row }) => (
+      <div className="min-w-32 space-y-1.5">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {row.original.completedSessionCount}/{row.original.sessionCount}
+          </span>
+          <span>{row.original.progressValue}%</span>
+        </div>
+        <Progress value={row.original.progressValue} className="gap-0" />
+      </div>
+    ),
+  },
+  {
     id: "lastActivity",
     accessorFn: (row) => row.lastActivityValue,
     header: ({ column }) => (
@@ -133,6 +193,11 @@ const sessionsColumns: ColumnDef<SessionTableRow>[] = [
         <span className="text-sm text-muted-foreground">—</span>
       ),
   },
+  {
+    id: "actions",
+    enableSorting: false,
+    cell: ({ row }) => <SessionRowActions participant={row.original} />,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -151,9 +216,14 @@ const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
       <DataTableColumnHeader column={column} title="Participant" />
     ),
     cell: ({ row }) => (
-      <div className="min-w-0">
-        <p className="truncate font-semibold">{row.original.displayName}</p>
-        <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+      <div className="flex items-center gap-3 min-w-0">
+        <Avatar className="size-9">
+          <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
+        </Avatar>
+        <div className="min-w-0">
+          <p className="truncate font-semibold">{row.original.displayName}</p>
+          <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+        </div>
       </div>
     ),
   },
@@ -234,6 +304,10 @@ export function GlobalParticipants({
       return {
         ...s,
         displayName: getDisplayName(s),
+        progressValue:
+          s.sessionCount === 0
+            ? 0
+            : Math.round((s.completedSessionCount / s.sessionCount) * 100),
         lastActivityValue: timestamps.length > 0
           ? timestamps.sort().reverse()[0]
           : s.created_at,

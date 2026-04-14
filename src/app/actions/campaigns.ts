@@ -1433,6 +1433,8 @@ export type ClientParticipant = {
   completedAt: string | null
   campaignId: string
   campaignTitle: string
+  sessionCount: number
+  completedSessionCount: number
   created_at: string
 }
 
@@ -1531,7 +1533,7 @@ export async function getParticipantsForClient(
   // Then get all participants for those campaigns
   const { data: participants, error: participantsError } = await db
     .from('campaign_participants')
-    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at')
+    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, participant_sessions(id, status)')
     .in('campaign_id', campaignIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -1544,18 +1546,25 @@ export async function getParticipantsForClient(
     )
   }
 
-  return (participants ?? []).map((row) => ({
-    id: row.id,
-    email: row.email,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    status: row.status,
-    startedAt: row.started_at,
-    completedAt: row.completed_at,
-    campaignId: row.campaign_id,
-    campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
-    created_at: row.created_at,
-  }))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (participants ?? []).map((row: any) => {
+    const sessions = row.participant_sessions ?? []
+    const completedSessions = sessions.filter((s: { status: string }) => s.status === 'completed')
+    return {
+      id: row.id,
+      email: row.email,
+      firstName: row.first_name,
+      lastName: row.last_name,
+      status: row.status,
+      startedAt: row.started_at,
+      completedAt: row.completed_at,
+      campaignId: row.campaign_id,
+      campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+      sessionCount: sessions.length,
+      completedSessionCount: completedSessions.length,
+      created_at: row.created_at,
+    }
+  })
 }
 
 // ---------------------------------------------------------------------------
