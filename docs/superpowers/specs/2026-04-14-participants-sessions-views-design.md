@@ -23,6 +23,7 @@ Add a segmented control above the table toolbar with two views: **Participants**
 - Search: name, email
 - Filters: status
 - No campaign column (participants span campaigns)
+- No bulk actions (rows are aggregates spanning multiple campaigns)
 
 **Sessions view** — every `campaign_participants` row (current behavior):
 - Columns: Name/Email, Campaign, Status, Progress, Last activity, "View Results" button
@@ -31,7 +32,7 @@ Add a segmented control above the table toolbar with two views: **Participants**
 - Filters: status, campaign
 - Bulk actions remain (delete, mark completed, withdraw)
 
-**URL:** Query param `?view=sessions` toggles to sessions view; default (no param) is participants view.
+**URL:** Query param `?view=sessions` toggles to sessions view; default (no param) is participants view. Toggling views resets search/filter state (different column schemas).
 
 ### 2. Campaign Participants Tab — Session-Focused
 
@@ -56,7 +57,7 @@ Groups `campaign_participants` by email (server-side for correct pagination). Re
 
 **Modify `getCampaignById`**
 
-Join `participant_sessions` in the campaign participants query so each `CampaignParticipant` includes its `participant_sessions` IDs. This enables the "View Results" button to link directly to the session detail route.
+Join `participant_sessions` in the campaign participants query so each `CampaignParticipant` includes its `participant_sessions` IDs (at minimum: `id` and `status`). The "View Results" button links to the most recent session for that campaign_participant record. Extend the `CampaignParticipant` type with an optional `participantSessions` array.
 
 **No new routes.** Existing routes cover all navigation targets:
 - `/participants/{id}` — participant detail
