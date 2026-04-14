@@ -101,7 +101,7 @@ import {
   cloneReportTemplate,
   createReportTemplate,
   getReportTemplates,
-  linkTemplateToCampaign,
+  addCampaignTemplate,
 } from "@/app/actions/reports";
 
 function resetBuilder() {
@@ -273,7 +273,7 @@ describe("report template actions", () => {
     auth.canManageCampaign.mockReturnValueOnce(false);
 
     await expect(
-      linkTemplateToCampaign("template-1", "campaign-1", "participant"),
+      addCampaignTemplate("campaign-1", "template-1"),
     ).rejects.toThrow("You do not have permission to update this campaign.");
   });
 });

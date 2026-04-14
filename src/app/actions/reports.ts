@@ -330,6 +330,95 @@ export async function toggleReportTemplateActive(
 }
 
 // ---------------------------------------------------------------------------
+// Campaign Report Templates
+// ---------------------------------------------------------------------------
+
+export async function getCampaignTemplates(
+  campaignId: string,
+): Promise<Array<{ id: string; templateId: string; templateName: string; sortOrder: number }>> {
+  await requireAdminScope()
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('campaign_report_templates')
+    .select('id, template_id, sort_order, report_templates(name)')
+    .eq('campaign_id', campaignId)
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    throwActionError('getCampaignTemplates', 'Unable to load campaign templates.', error)
+  }
+
+  return (data ?? []).map((row) => {
+    const tpl = getRelatedRecord(row.report_templates)
+    return {
+      id: String(row.id),
+      templateId: String(row.template_id),
+      templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      sortOrder: Number(row.sort_order ?? 0),
+    }
+  })
+}
+
+export async function addCampaignTemplate(
+  campaignId: string,
+  templateId: string,
+): Promise<void> {
+  await requireReportTemplateAccess(templateId)
+  const campaignAccess = await requireCampaignAccess(campaignId)
+  if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
+    throw new Error('You do not have permission to modify this campaign')
+  }
+
+  const db = createAdminClient()
+  const { data: maxOrder } = await db
+    .from('campaign_report_templates')
+    .select('sort_order')
+    .eq('campaign_id', campaignId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const nextOrder = ((maxOrder?.sort_order as number | null) ?? -1) + 1
+
+  const { error } = await db
+    .from('campaign_report_templates')
+    .upsert(
+      { campaign_id: campaignId, template_id: templateId, sort_order: nextOrder },
+      { onConflict: 'campaign_id,template_id' }
+    )
+
+  if (error) {
+    throwActionError('addCampaignTemplate', 'Unable to link template.', error)
+  }
+
+  revalidatePath(`/campaigns/${campaignId}/settings`)
+}
+
+export async function removeCampaignTemplate(
+  campaignId: string,
+  templateId: string,
+): Promise<void> {
+  await requireReportTemplateAccess(templateId)
+  const campaignAccess = await requireCampaignAccess(campaignId)
+  if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
+    throw new Error('You do not have permission to modify this campaign')
+  }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('campaign_report_templates')
+    .delete()
+    .eq('campaign_id', campaignId)
+    .eq('template_id', templateId)
+
+  if (error) {
+    throwActionError('removeCampaignTemplate', 'Unable to unlink template.', error)
+  }
+
+  revalidatePath(`/campaigns/${campaignId}/settings`)
+}
+
+// ---------------------------------------------------------------------------
 // Report Snapshots
 // ---------------------------------------------------------------------------
 

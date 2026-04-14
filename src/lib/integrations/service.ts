@@ -278,10 +278,7 @@ export async function createIntegrationCampaign(
     randomizeAssessmentOrder: boolean
     assessmentIds?: string[]
     reportConfig?: {
-      participantTemplateId?: string | null
-      hrManagerTemplateId?: string | null
-      consultantTemplateId?: string | null
-      brandMode?: 'platform' | 'client' | 'custom'
+      templateIds?: string[]
     }
     externalRefs?: IntegrationExternalRefInput[]
   }

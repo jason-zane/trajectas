@@ -112,7 +112,7 @@ export function ReportConfigPanel({ campaignId, assignedTemplates: initial, allT
       {available.length > 0 && (
         <div className="flex items-end gap-3">
           <div className="flex-1">
-            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+            <Select value={selectedTemplateId} onValueChange={(v) => { if (v) setSelectedTemplateId(v) }}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Choose a template…" />
               </SelectTrigger>

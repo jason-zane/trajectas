@@ -25,10 +25,7 @@ const remoteRefSchema = z.object({
 })
 
 const reportConfigSchema = z.object({
-  participantTemplateId: z.string().uuid().optional().nullable(),
-  hrManagerTemplateId: z.string().uuid().optional().nullable(),
-  consultantTemplateId: z.string().uuid().optional().nullable(),
-  brandMode: z.enum(['platform', 'client', 'custom']).optional(),
+  templateIds: z.array(z.string().uuid()).max(25).optional(),
 })
 
 export const createIntegrationCampaignSchema = z.object({
