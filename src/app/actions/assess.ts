@@ -257,7 +257,7 @@ export async function getAssessmentItemCount(assessmentIds: string[]): Promise<n
   const sectionIds = (sections ?? []).map((s) => s.id as string)
   if (sectionIds.length === 0) return 0
   const { count } = await db
-    .from('items')
+    .from('assessment_section_items')
     .select('*', { count: 'exact', head: true })
     .in('section_id', sectionIds)
   return count ?? 0
