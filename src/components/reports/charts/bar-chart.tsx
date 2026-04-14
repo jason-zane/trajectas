@@ -1,13 +1,20 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { BandBadge } from './band-badge'
+
+interface BarChartItem {
+  name: string
+  value: number
+  band: 'high' | 'mid' | 'low'
+  bandLabel?: string
+}
 
 interface BarChartProps {
-  items: { name: string; value: number; band: 'high' | 'mid' | 'low' }[]
+  items: BarChartItem[]
   showBandLabels?: boolean
   showScore?: boolean
   variant?: 'light' | 'dark'
-  bandLabels?: { low: string; mid: string; high: string }
   className?: string
 }
 
@@ -16,10 +23,10 @@ export function BarChart({
   showBandLabels = false,
   showScore = false,
   variant = 'light',
-  bandLabels = { low: 'Low', mid: 'Mid', high: 'High' },
   className,
 }: BarChartProps) {
   const isDark = variant === 'dark'
+  const hasPerRowLabels = showBandLabels && items.some((i) => i.bandLabel)
 
   return (
     <div className={cn('w-full', className)}>
@@ -27,7 +34,7 @@ export function BarChart({
         <div
           key={item.name}
           className="grid items-center mb-3"
-          style={{ gridTemplateColumns: '140px 1fr', gap: '12px' }}
+          style={{ gridTemplateColumns: `140px 1fr${showScore ? ' 36px' : ''}${hasPerRowLabels ? ' auto' : ''}`, gap: '12px' }}
         >
           {/* Label */}
           <div
@@ -35,25 +42,13 @@ export function BarChart({
             style={{ color: isDark ? 'rgba(255,255,255,0.85)' : 'var(--report-heading-colour)' }}
           >
             {item.name}
-            {showScore && (
-              <span
-                className="ml-2 text-[11px]"
-                style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'var(--report-muted-colour)' }}
-              >
-                {item.value}
-              </span>
-            )}
           </div>
 
-          {/* Track + fill + dot */}
+          {/* Track + fill */}
           <div
             className="relative h-2 rounded-full"
-            style={{
-              background: isDark ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
-              overflow: 'visible',
-            }}
+            style={{ background: isDark ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)' }}
           >
-            {/* Fill */}
             <div
               className="absolute top-0 left-0 h-2 rounded-full"
               style={{
@@ -61,37 +56,24 @@ export function BarChart({
                 background: `var(--report-${item.band}-band-fill)`,
               }}
             />
-            {/* Dot indicator */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rounded-full"
-              style={{
-                left: `${item.value}%`,
-                transform: 'translate(-50%, -50%)',
-                background: 'var(--report-bar-dot)',
-                border: `3px solid ${isDark ? 'var(--report-featured-bg)' : 'var(--report-page-bg)'}`,
-              }}
-            />
           </div>
+
+          {/* Score value */}
+          {showScore && (
+            <div
+              className="text-[13px] font-semibold tabular-nums text-right"
+              style={{ color: isDark ? 'rgba(255,255,255,0.85)' : 'var(--report-heading-colour)' }}
+            >
+              {item.value}
+            </div>
+          )}
+
+          {/* Per-row band label */}
+          {hasPerRowLabels && item.bandLabel && (
+            <BandBadge band={item.band} label={item.bandLabel} />
+          )}
         </div>
       ))}
-
-      {/* Band labels row */}
-      {showBandLabels && (
-        <div
-          className="grid mt-1"
-          style={{ gridTemplateColumns: '140px 1fr', gap: '12px' }}
-        >
-          <div />
-          <div
-            className="flex justify-between text-[10px]"
-            style={{ color: isDark ? 'rgba(255,255,255,0.35)' : 'var(--report-muted-colour)' }}
-          >
-            <span>{bandLabels.low}</span>
-            <span>{bandLabels.mid}</span>
-            <span>{bandLabels.high}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
