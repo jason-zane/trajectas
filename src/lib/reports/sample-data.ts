@@ -231,15 +231,23 @@ function generateBlockSampleData(
         if (showIndicators) narrativeParts.push(indicatorText)
         const narrative = narrativeParts.length > 0 ? narrativeParts.join(' ') : null
 
-        // Find child entities whose parentId matches this entity
+        // Find child entities whose parentId matches this entity — full detail shape
         const children = showNested
-          ? entities.filter((c) => c.parentId === e.id).map((c) => ({
-              entityId: c.id,
-              entityName: c.name,
-              pompScore: c.pompScore,
-              band: c.band,
-              bandLabel: c.bandLabel,
-            }))
+          ? entities.filter((c) => c.parentId === e.id).map((c, ci) => {
+              const childDef = `A measure of capability and effectiveness in ${c.name.toLowerCase()}.`
+              const childIndicator = SAMPLE_INDICATORS[c.band][ci % SAMPLE_INDICATORS[c.band].length]
+              const childNarrative = showIndicators ? childIndicator : null
+              return {
+                entityId: c.id,
+                entityName: c.name,
+                entitySlug: c.name.toLowerCase().replace(/\s+/g, '-'),
+                definition: childDef,
+                pompScore: c.pompScore,
+                bandResult: makeBandResult(c),
+                narrative: childNarrative,
+                developmentSuggestion: DEVELOPMENT_SUGGESTIONS[ci % DEVELOPMENT_SUGGESTIONS.length],
+              }
+            })
           : undefined
 
         return {

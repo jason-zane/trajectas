@@ -6,14 +6,6 @@ import { SegmentBar } from '../charts/segment-bar'
 import { MiniBar } from '../charts/mini-bar'
 import { ScorecardTable } from '../charts/scorecard-table'
 
-interface NestedScore {
-  entityId: string
-  entityName: string
-  pompScore: number
-  band: 'high' | 'mid' | 'low'
-  bandLabel: string
-}
-
 interface ScoreDetailEntity {
   entityId: string
   entityName: string
@@ -23,7 +15,7 @@ interface ScoreDetailEntity {
   bandResult: BandResult
   narrative: string | null
   developmentSuggestion: string | null
-  nestedScores?: NestedScore[]
+  nestedScores?: ScoreDetailEntity[]
 }
 
 interface ScoreDetailData {
@@ -113,17 +105,19 @@ function OpenLayout({
   entity,
   config,
   resolvedChart,
+  isChild,
 }: {
   entity: ScoreDetailEntity
   config: ScoreDetailConfig
   resolvedChart: string
+  isChild?: boolean
 }) {
   return (
-    <div className="space-y-4 py-2 break-inside-avoid">
+    <div className={isChild ? 'space-y-3 py-2' : 'space-y-4 py-2 break-inside-avoid'}>
       {/* Header: entity name + band badge + optional score */}
       <div className="flex items-start justify-between gap-4">
         <h3
-          className="text-lg font-semibold"
+          className={isChild ? 'text-[15px] font-semibold' : 'text-lg font-semibold'}
           style={{ color: 'var(--report-heading-colour)' }}
         >
           {entity.entityName}
@@ -134,7 +128,7 @@ function OpenLayout({
           )}
           {config.showScore && (
             <span
-              className="text-2xl font-bold tabular-nums"
+              className={isChild ? 'text-xl font-bold tabular-nums' : 'text-2xl font-bold tabular-nums'}
               style={{ color: 'var(--report-heading-colour)' }}
             >
               {Math.round(entity.pompScore)}
@@ -152,40 +146,6 @@ function OpenLayout({
         />
       )}
 
-      {/* Nested scores (child entities under parent) */}
-      {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
-        <div className="space-y-2 pl-1">
-          {entity.nestedScores.map((ns) => (
-            <div key={ns.entityId} className="flex items-center gap-3">
-              <span
-                className="text-[12px] font-medium w-[120px] shrink-0 text-right"
-                style={{ color: 'var(--report-muted-colour)' }}
-              >
-                {ns.entityName}
-              </span>
-              <div
-                className="relative h-1.5 rounded-full flex-1"
-                style={{ background: 'var(--report-divider)' }}
-              >
-                <div
-                  className="absolute top-0 left-0 h-1.5 rounded-full"
-                  style={{
-                    width: `${ns.pompScore}%`,
-                    background: `var(--report-${ns.band}-band-fill)`,
-                  }}
-                />
-              </div>
-              <span
-                className="text-[11px] tabular-nums w-7 text-right shrink-0"
-                style={{ color: 'var(--report-muted-colour)' }}
-              >
-                {ns.pompScore}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Definition */}
       {config.showDefinition && entity.definition && (
         <p className="text-sm italic" style={{ color: 'var(--report-muted-colour)' }}>
@@ -193,7 +153,7 @@ function OpenLayout({
         </p>
       )}
 
-      {/* Narrative */}
+      {/* Narrative (indicators) */}
       {(config.showIndicators || config.showDefinition) && entity.narrative && (
         <p className="text-sm leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
           {entity.narrative}
@@ -221,8 +181,34 @@ function OpenLayout({
         </div>
       )}
 
-      {/* Divider at bottom for open-mode stacking */}
-      <div className="pt-2" style={{ borderBottom: '1px solid var(--report-divider)' }} />
+      {/* Nested child entities — full detail blocks */}
+      {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
+        <div
+          className="mt-4 space-y-4 pl-5"
+          style={{ borderLeft: '2px solid var(--report-divider)' }}
+        >
+          <p
+            className="text-[10px] font-semibold uppercase tracking-wider"
+            style={{ color: 'var(--report-label-colour)' }}
+          >
+            Factors
+          </p>
+          {entity.nestedScores.map((child) => (
+            <OpenLayout
+              key={child.entityId}
+              entity={child}
+              config={config}
+              resolvedChart={resolvedChart}
+              isChild
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Divider at bottom for open-mode stacking (parent level only) */}
+      {!isChild && (
+        <div className="pt-2" style={{ borderBottom: '1px solid var(--report-divider)' }} />
+      )}
     </div>
   )
 }
