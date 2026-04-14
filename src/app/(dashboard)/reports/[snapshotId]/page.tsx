@@ -7,7 +7,6 @@ import {
   getReportSnapshot,
   prepareReportSnapshotSendDraft,
 } from '@/app/actions/reports'
-import { verifyReportPdfToken } from '@/lib/reports/pdf-token'
 import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow } from '@/lib/supabase/mappers'
@@ -16,22 +15,7 @@ import type { ResolvedBlockData } from '@/lib/reports/types'
 
 interface Props {
   params: Promise<{ snapshotId: string }>
-  searchParams: Promise<{ format?: string; pdfToken?: string; reportToken?: string }>
-}
-
-async function getSnapshotForPdfRender(snapshotId: string) {
-  const db = createAdminClient()
-  const { data, error } = await db
-    .from('report_snapshots')
-    .select('*')
-    .eq('id', snapshotId)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return data ? mapReportSnapshotRow(data) : null
+  searchParams: Promise<{ reportToken?: string }>
 }
 
 async function getSnapshotForReportTokenAccess(
@@ -71,18 +55,14 @@ async function getSnapshotForReportTokenAccess(
 
 export default async function ReportViewerPage({ params, searchParams }: Props) {
   const { snapshotId } = await params
-  const { format, pdfToken, reportToken } = await searchParams
-  const isPrint = format === 'print'
-  const canBypassAuthForPdf = isPrint && verifyReportPdfToken(pdfToken, snapshotId)
-  const hasTokenAccess = !canBypassAuthForPdf && Boolean(reportToken)
+  const { reportToken } = await searchParams
+  const hasTokenAccess = Boolean(reportToken)
 
-  const snapshot = canBypassAuthForPdf
-    ? await getSnapshotForPdfRender(snapshotId)
-    : hasTokenAccess
-      ? await getSnapshotForReportTokenAccess(snapshotId, reportToken!)
-      : await getReportSnapshot(snapshotId)
+  const snapshot = hasTokenAccess
+    ? await getSnapshotForReportTokenAccess(snapshotId, reportToken!)
+    : await getReportSnapshot(snapshotId)
   if (!snapshot) notFound()
-  if (!canBypassAuthForPdf && !['ready', 'released'].includes(snapshot.status)) {
+  if (!['ready', 'released'].includes(snapshot.status)) {
     notFound()
   }
 
@@ -91,16 +71,6 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
     !hasTokenAccess
       ? await prepareReportSnapshotSendDraft(snapshotId)
       : null
-
-  if (isPrint) {
-    return (
-      <div className="p-0">
-        <Suspense>
-          <ReportRenderer blocks={blocks} />
-        </Suspense>
-      </div>
-    )
-  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 pb-16">

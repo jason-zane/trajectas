@@ -195,7 +195,7 @@ export async function generateAndStoreReportPdf(
   let browser: Awaited<ReturnType<typeof launchReportPdfBrowser>> | null = null
 
   try {
-    const url = `${getAppUrl()}/reports/${snapshotId}?format=print&pdfToken=${encodeURIComponent(
+    const url = `${getAppUrl()}/print/reports/${snapshotId}?format=print&pdfToken=${encodeURIComponent(
       createReportPdfToken(snapshotId),
     )}`
 
