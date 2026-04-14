@@ -3,6 +3,7 @@ import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
 import { BarChart } from '../charts/bar-chart'
 import { RadarChart } from '../charts/radar-chart'
 import { GaugeChart } from '../charts/gauge-chart'
+import { ScorecardTable } from '../charts/scorecard-table'
 
 interface ScoreEntry {
   entityId: string
@@ -34,8 +35,10 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
 
       {resolvedChart === 'radar' && (
         <RadarChart
-          items={d.scores.map((s) => ({ name: s.entityName, value: s.pompScore }))}
+          items={d.scores.map((s) => ({ name: s.entityName, value: s.pompScore, bandLabel: s.bandResult.bandLabel }))}
           variant={isFeatured ? 'dark' : 'light'}
+          showScore={d.config?.showScore !== false}
+          showBandLabel={d.config?.showBandLabel !== false}
         />
       )}
 
@@ -47,6 +50,8 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
             band: s.bandResult.band,
             bandLabel: s.bandResult.bandLabel,
           }))}
+          showScore={d.config?.showScore !== false}
+          showBandLabel={d.config?.showBandLabel !== false}
         />
       )}
 
@@ -61,6 +66,18 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
           showBandLabels={d.config?.showBandLabel !== false}
           showScore={d.config?.showScore !== false}
           variant={isFeatured ? 'dark' : 'light'}
+        />
+      )}
+
+      {resolvedChart === 'scorecard' && (
+        <ScorecardTable
+          items={d.scores.map((s) => ({
+            name: s.entityName,
+            parentName: '',
+            value: s.pompScore,
+            band: s.bandResult.band,
+            bandLabel: s.bandResult.bandLabel,
+          }))}
         />
       )}
     </div>
