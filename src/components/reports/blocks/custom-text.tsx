@@ -25,17 +25,17 @@ export function CustomTextBlock({ data, mode }: { data: Record<string, unknown>;
           {d.heading}
         </h2>
       )}
+      {/* Content is admin-authored HTML from the rich text editor */}
       <div
-        className="prose prose-sm max-w-none whitespace-pre-wrap"
+        className="prose prose-sm max-w-none"
         style={{
           color: resolvedMode === 'featured'
             ? 'currentColor'
             : 'var(--report-body-colour)',
           opacity: resolvedMode === 'featured' ? 0.85 : 1,
         }}
-      >
-        {d.content}
-      </div>
+        dangerouslySetInnerHTML={{ __html: d.content }}
+      />
     </div>
   )
 }
