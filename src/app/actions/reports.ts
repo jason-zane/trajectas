@@ -133,22 +133,13 @@ function getRelatedRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
-export type AudienceType = 'participant' | 'hr_manager' | 'consultant'
-
 type CampaignSessionReportRow = {
-  audienceType: AudienceType
   templateId: string
   templateName: string
   snapshotId?: string
   status: string
   generatedAt?: string
   errorMessage?: string
-}
-
-function getAudienceLabel(audienceType: AudienceType) {
-  if (audienceType === 'participant') return 'Participant'
-  if (audienceType === 'hr_manager') return 'HR Manager'
-  return 'Consultant'
 }
 
 function getReportLinkBaseUrl() {
@@ -484,7 +475,6 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
       actorProfileId: access.scope.actor?.id ?? null,
       snapshotId: snapshot.id,
       participantId: access.participantId,
-      audienceType: snapshot.audienceType,
       partnerId: access.partnerId,
       clientId: access.clientId,
       supportSessionId: access.scope.supportSession?.id ?? null,
@@ -495,7 +485,7 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
       resourceId: snapshot.id,
       partnerId: access.partnerId,
       clientId: access.clientId,
-      metadata: { action: 'detail', audienceType: snapshot.audienceType },
+      metadata: { action: 'detail' },
     })
   } catch (auditError) {
     logActionError('getReportSnapshot.audit', auditError)
@@ -523,7 +513,7 @@ async function markSnapshotReleased(snapshotId: string) {
   const db = createAdminClient()
   const { data: snapshot, error: snapshotError } = await db
     .from('report_snapshots')
-    .select('id, status, released_at, campaign_id, participant_session_id, audience_type')
+    .select('id, status, released_at, campaign_id, participant_session_id')
     .eq('id', snapshotId)
     .single()
 
@@ -551,7 +541,6 @@ async function markSnapshotReleased(snapshotId: string) {
         snapshotId: String(snapshot.id),
         campaignId: String(snapshot.campaign_id),
         participantSessionId: String(snapshot.participant_session_id),
-        audienceType: String(snapshot.audience_type),
         status: 'released',
         generatedAt: releasedAt,
         releasedAt,
@@ -579,7 +568,6 @@ async function markSnapshotReleased(snapshotId: string) {
     releasedAt,
     campaignId,
     participantSessionId: sessionId,
-    audienceType: String(snapshot.audience_type),
   }
 }
 
@@ -589,19 +577,17 @@ export async function getCampaignSessionReportRows(
   const access = await requireSessionAccess(sessionId)
   const db = createAdminClient()
 
-  const [{ data: config, error: configError }, { data: snapshots, error: snapshotError }] =
+  const [{ data: configuredTemplates, error: configError }, { data: snapshots, error: snapshotError }] =
     await Promise.all([
       db
-        .from('campaign_report_config')
-        .select(
-          'participant_template_id, hr_manager_template_id, consultant_template_id'
-        )
+        .from('campaign_report_templates')
+        .select('template_id, sort_order, report_templates(name)')
         .eq('campaign_id', access.campaignId)
-        .maybeSingle(),
+        .order('sort_order', { ascending: true }),
       db
         .from('report_snapshots')
         .select(
-          'id, template_id, audience_type, status, generated_at, error_message, report_templates(name)'
+          'id, template_id, status, generated_at, error_message, report_templates(name)'
         )
         .eq('participant_session_id', sessionId)
         .order('created_at', { ascending: false }),
@@ -610,7 +596,7 @@ export async function getCampaignSessionReportRows(
   if (configError) {
     throwActionError(
       'getCampaignSessionReportRows',
-      'Unable to load campaign report configuration.',
+      'Unable to load campaign templates.',
       configError
     )
   }
@@ -623,93 +609,36 @@ export async function getCampaignSessionReportRows(
     )
   }
 
-  const templateIds = [
-    config?.participant_template_id,
-    config?.hr_manager_template_id,
-    config?.consultant_template_id,
-  ].filter((value): value is string => Boolean(value))
+  // Index snapshots by template_id (latest first, so first wins)
+  const snapshotByTemplate = new Map<string, {
+    id: string | null
+    template_id: string | null
+    status: string | null
+    generated_at: string | null
+    error_message: string | null
+    report_templates: { name?: string | null } | { name?: string | null }[] | null
+  }>()
 
-  if (templateIds.length === 0) {
-    return []
-  }
-
-  const { data: templates, error: templateError } = await db
-    .from('report_templates')
-    .select('id, name')
-    .in('id', templateIds)
-
-  if (templateError) {
-    throwActionError(
-      'getCampaignSessionReportRows',
-      'Unable to load report template names.',
-      templateError
-    )
-  }
-
-  const templateNameById = new Map(
-    (templates ?? []).map((template) => [String(template.id), String(template.name)])
-  )
-
-  const snapshotRows =
-    ((snapshots ?? []) as Array<{
-      id: string | null
-      template_id: string | null
-      audience_type: AudienceType | null
-      status: string | null
-      generated_at: string | null
-      error_message: string | null
-      report_templates: { name?: string | null } | { name?: string | null }[] | null
-    }>) ?? []
-
-  const latestSnapshotByAudience = new Map<AudienceType, CampaignSessionReportRow>()
-
-  for (const snapshot of snapshotRows) {
-    const audienceType = snapshot.audience_type
-    if (!audienceType || latestSnapshotByAudience.has(audienceType)) {
-      continue
+  for (const snap of (snapshots ?? [])) {
+    const tid = String((snap as Record<string, unknown>).template_id ?? '')
+    if (tid && !snapshotByTemplate.has(tid)) {
+      snapshotByTemplate.set(tid, snap as typeof snapshotByTemplate extends Map<string, infer V> ? V : never)
     }
+  }
 
-    const relatedTemplate = getRelatedRecord(snapshot.report_templates)
-    const templateId = String(snapshot.template_id ?? '')
-    latestSnapshotByAudience.set(audienceType, {
-      audienceType,
+  return (configuredTemplates ?? []).map((ct) => {
+    const templateId = String(ct.template_id)
+    const tpl = getRelatedRecord(ct.report_templates)
+    const snap = snapshotByTemplate.get(templateId)
+
+    return {
       templateId,
-      templateName:
-        (typeof relatedTemplate?.name === 'string' && relatedTemplate.name) ||
-        templateNameById.get(templateId) ||
-        `${getAudienceLabel(audienceType)} report`,
-      snapshotId: snapshot.id ? String(snapshot.id) : undefined,
-      status: String(snapshot.status ?? 'pending'),
-      generatedAt: snapshot.generated_at ?? undefined,
-      errorMessage: snapshot.error_message ?? undefined,
-    })
-  }
-
-  const configRows: Array<{ audienceType: AudienceType; templateId?: string | null }> = [
-    { audienceType: 'participant', templateId: config?.participant_template_id },
-    { audienceType: 'hr_manager', templateId: config?.hr_manager_template_id },
-    { audienceType: 'consultant', templateId: config?.consultant_template_id },
-  ]
-
-  return configRows.flatMap(({ audienceType, templateId }) => {
-    if (!templateId) {
-      return []
+      templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      snapshotId: snap?.id ? String(snap.id) : undefined,
+      status: snap ? String(snap.status ?? 'pending') : 'pending',
+      generatedAt: snap?.generated_at ?? undefined,
+      errorMessage: snap?.error_message ?? undefined,
     }
-
-    const snapshot = latestSnapshotByAudience.get(audienceType)
-    if (snapshot) {
-      return [snapshot]
-    }
-
-    return [
-      {
-        audienceType,
-        templateId,
-        templateName:
-          templateNameById.get(templateId) ?? `${getAudienceLabel(audienceType)} report`,
-        status: 'pending',
-      },
-    ]
   })
 }
 
@@ -734,7 +663,7 @@ async function getSnapshotRecipientContext(
   const { data: snapshot, error: snapshotError } = await db
     .from('report_snapshots')
     .select(
-      'id, status, audience_type, released_at, campaign_id, participant_session_id, campaigns(title, client_id, partner_id), participant_sessions(campaign_participant_id)'
+      'id, status, released_at, campaign_id, participant_session_id, campaigns(title, client_id, partner_id), participant_sessions(campaign_participant_id)'
     )
     .eq('id', snapshotId)
     .maybeSingle()
@@ -743,9 +672,7 @@ async function getSnapshotRecipientContext(
     throw new Error(snapshotError?.message ?? 'Snapshot not found')
   }
 
-  if (snapshot.audience_type !== 'participant') {
-    throw new Error('Only participant reports can be sent to participants.')
-  }
+
 
   if (!['ready', 'released'].includes(String(snapshot.status))) {
     throw new Error('Only ready or sent reports can be emailed to participants.')
@@ -1000,17 +927,9 @@ export async function getReportSnapshotsForParticipant(
 export interface TemplateUsageEntry {
   campaignId: string
   campaignTitle: string
-  audienceType: AudienceType
-  assessments: { id: string; name: string }[]
 }
 
-const AUDIENCE_FK_COLUMNS: Record<AudienceType, string> = {
-  participant: 'participant_template_id',
-  hr_manager: 'hr_manager_template_id',
-  consultant: 'consultant_template_id',
-}
-
-/** Returns campaigns linked to a template, with their assessments. */
+/** Returns campaigns linked to a template. */
 export async function getTemplateUsage(templateId: string): Promise<TemplateUsageEntry[]> {
   const access = await requireReportTemplateAccess(templateId)
   const db = createAdminClient()
@@ -1019,116 +938,28 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
     return []
   }
 
-  // Find all campaign_report_config rows that reference this template
-  let configQuery = db
-    .from('campaign_report_config')
-    .select('campaign_id, participant_template_id, hr_manager_template_id, consultant_template_id')
-    .or(
-      `participant_template_id.eq.${templateId},hr_manager_template_id.eq.${templateId},consultant_template_id.eq.${templateId}`,
-    )
+  let query = db
+    .from('campaign_report_templates')
+    .select('campaign_id, campaigns(title)')
+    .eq('template_id', templateId)
+    .order('created_at', { ascending: false })
 
   if (!access.scope.isPlatformAdmin && accessibleCampaignIds) {
-    configQuery = configQuery.in('campaign_id', accessibleCampaignIds)
+    query = query.in('campaign_id', accessibleCampaignIds)
   }
 
-  const { data: configs, error } = await configQuery
+  const { data, error } = await query
   if (error) {
-    throwActionError(
-      'getTemplateUsage',
-      'Unable to load template usage.',
-      error
-    )
+    throwActionError('getTemplateUsage', 'Unable to load template usage.', error)
   }
-  if (!configs?.length) return []
 
-  const campaignIds = configs.map((c) => c.campaign_id)
-
-  // Fetch campaigns + their assessments in parallel
-  const [{ data: campaigns }, { data: campaignAssessments }] = await Promise.all([
-    db.from('campaigns').select('id, title').in('id', campaignIds),
-    db.from('campaign_assessments').select('campaign_id, assessment_id, assessments(id, title)').in('campaign_id', campaignIds),
-  ])
-
-  const results: TemplateUsageEntry[] = []
-  for (const config of configs) {
-    const campaign = campaigns?.find((c) => c.id === config.campaign_id)
-    if (!campaign) continue
-
-    const assessments = (campaignAssessments ?? [])
-      .filter((ca) => ca.campaign_id === config.campaign_id)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((ca) => ({ id: (ca.assessments as any)?.id ?? ca.assessment_id, name: (ca.assessments as any)?.title ?? 'Unknown' }))
-
-    // Determine which audience types use this template
-    const audiences: AudienceType[] = []
-    if (config.participant_template_id === templateId) audiences.push('participant')
-    if (config.hr_manager_template_id === templateId) audiences.push('hr_manager')
-    if (config.consultant_template_id === templateId) audiences.push('consultant')
-
-    for (const audienceType of audiences) {
-      results.push({
-        campaignId: config.campaign_id,
-        campaignTitle: campaign.title,
-        audienceType,
-        assessments,
-      })
+  return (data ?? []).map((row) => {
+    const campaign = getRelatedRecord(row.campaigns)
+    return {
+      campaignId: String(row.campaign_id),
+      campaignTitle: campaign?.title ? String(campaign.title) : 'Unknown campaign',
     }
-  }
-
-  return results
-}
-
-/** Link a template to a campaign for a specific audience type. */
-export async function linkTemplateToCampaign(
-  templateId: string,
-  campaignId: string,
-  audienceType: AudienceType,
-): Promise<void> {
-  await requireReportTemplateAccess(templateId)
-  const campaignAccess = await requireCampaignAccess(campaignId)
-  if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
-    throw new AuthorizationError('You do not have permission to update this campaign.')
-  }
-
-  const db = createAdminClient()
-  const column = AUDIENCE_FK_COLUMNS[audienceType]
-
-  const { error } = await db
-    .from('campaign_report_config')
-    .upsert(
-      { campaign_id: campaignId, [column]: templateId },
-      { onConflict: 'campaign_id' },
-    )
-  if (error) throw new Error(error.message)
-  revalidatePath('/report-templates')
-  revalidatePath('/partner/report-templates')
-  revalidatePath(`/campaigns/${campaignId}`)
-}
-
-/** Unlink a template from a campaign for a specific audience type. */
-export async function unlinkTemplateFromCampaign(
-  templateId: string,
-  campaignId: string,
-  audienceType: AudienceType,
-): Promise<void> {
-  await requireReportTemplateAccess(templateId)
-  const campaignAccess = await requireCampaignAccess(campaignId)
-  if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
-    throw new AuthorizationError('You do not have permission to update this campaign.')
-  }
-
-  const db = createAdminClient()
-  const column = AUDIENCE_FK_COLUMNS[audienceType]
-
-  const { error } = await db
-    .from('campaign_report_config')
-    .update({ [column]: null })
-    .eq('campaign_id', campaignId)
-    .eq(column, templateId)
-  if (error) throw new Error(error.message)
-  revalidatePath('/report-templates')
-  revalidatePath('/partner/report-templates')
-  revalidatePath(`/campaigns/${campaignId}`)
+  })
 }
 
 /** Returns template usage counts for the template list page. */
@@ -1141,8 +972,8 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
   }
 
   let query = db
-    .from('campaign_report_config')
-    .select('participant_template_id, hr_manager_template_id, consultant_template_id')
+    .from('campaign_report_templates')
+    .select('template_id')
 
   if (!scope.isPlatformAdmin && accessibleCampaignIds) {
     query = query.in('campaign_id', accessibleCampaignIds)
@@ -1159,11 +990,8 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
 
   const counts: Record<string, number> = {}
   for (const row of data ?? []) {
-    for (const col of ['participant_template_id', 'hr_manager_template_id', 'consultant_template_id'] as const) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const id = (row as any)[col]
-      if (id) counts[id] = (counts[id] ?? 0) + 1
-    }
+    const id = String(row.template_id)
+    if (id) counts[id] = (counts[id] ?? 0) + 1
   }
   return counts
 }

@@ -1,5 +1,11 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Next.js — Read Before Writing Code
+This version has breaking changes — APIs, conventions, and file structure
+may differ from your training data. Read the relevant guide in
+`node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+## UI/UX Standards
+Read `docs/ui-standards.md` before building any UI component or page.
+
+## Behavioral Rules
+- If uncertain or if multiple interpretations exist, surface it — don't pick silently
+- If a simpler approach exists, push back

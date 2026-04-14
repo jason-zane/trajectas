@@ -26,7 +26,6 @@ import type {
   GeneratedItem,
   GenerationRunLog,
   ReportTemplate,
-  CampaignReportConfig,
   ReportSnapshot,
   ClientAssessmentAssignment,
   ClientReportTemplateAssignment,
@@ -775,21 +774,8 @@ export function mapReportTemplateRow(row: any): ReportTemplate {
     pageHeaderLogo: row.page_header_logo ?? 'none',
     blocks: Array.isArray(row.blocks) ? row.blocks : [],
     isActive: row.is_active,
+    isDefault: row.is_default ?? false,
     deletedAt: row.deleted_at ?? undefined,
-    created_at: row.created_at,
-    updated_at: row.updated_at ?? undefined,
-  }
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mapCampaignReportConfigRow(row: any): CampaignReportConfig {
-  return {
-    id: row.id,
-    campaignId: row.campaign_id,
-    participantTemplateId: row.participant_template_id ?? undefined,
-    hrManagerTemplateId: row.hr_manager_template_id ?? undefined,
-    consultantTemplateId: row.consultant_template_id ?? undefined,
-    brandMode: row.brand_mode ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }
@@ -802,7 +788,6 @@ export function mapReportSnapshotRow(row: any): ReportSnapshot {
     templateId: row.template_id,
     participantSessionId: row.participant_session_id,
     campaignId: row.campaign_id,
-    audienceType: row.audience_type,
     status: row.status,
     narrativeMode: row.narrative_mode,
     renderedData: row.rendered_data ?? undefined,

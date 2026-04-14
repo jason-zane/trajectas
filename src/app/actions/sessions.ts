@@ -26,7 +26,6 @@ export type SessionDetailSnapshot = {
   id: string
   templateId: string
   templateName?: string
-  audienceType: string
   status: string
   generatedAt?: string
   releasedAt?: string
@@ -101,7 +100,6 @@ type SessionScoreLookupRow = {
 type SnapshotLookupRow = {
   id?: string | null
   template_id?: string | null
-  audience_type?: string | null
   status?: string | null
   generated_at?: string | null
   released_at?: string | null
@@ -237,7 +235,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       .order('started_at', { ascending: true, nullsFirst: false }),
     db
       .from('report_snapshots')
-      .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+      .select('id, template_id, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
       .eq('participant_session_id', sessionId)
       .order('created_at', { ascending: false }),
     db
@@ -348,7 +346,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       id: String(r.id),
       templateId: String(r.template_id),
       templateName: tpl?.name ? String(tpl.name) : undefined,
-      audienceType: String(r.audience_type),
+
       status: String(r.status),
       generatedAt: r.generated_at ?? undefined,
       releasedAt: r.released_at ?? undefined,
@@ -409,7 +407,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
 
   const { data, error } = await db
     .from('report_snapshots')
-    .select('id, template_id, audience_type, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+    .select('id, template_id, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
     .eq('participant_session_id', sessionId)
     .order('created_at', { ascending: false })
 
@@ -425,7 +423,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
       id: String(r.id),
       templateId: String(r.template_id),
       templateName: tpl?.name ? String(tpl.name) : undefined,
-      audienceType: String(r.audience_type),
+
       status: String(r.status),
       generatedAt: r.generated_at ?? undefined,
       releasedAt: r.released_at ?? undefined,
