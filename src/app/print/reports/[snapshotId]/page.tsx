@@ -32,10 +32,8 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
   const blocks = (snapshot.renderedData ?? []) as ResolvedBlockData[]
 
   return (
-    <div className="p-0" style={{ background: 'var(--report-page-bg, #fafaf8)' }}>
-      <Suspense>
-        <ReportRenderer blocks={blocks} />
-      </Suspense>
-    </div>
+    <Suspense>
+      <ReportRenderer blocks={blocks} />
+    </Suspense>
   )
 }

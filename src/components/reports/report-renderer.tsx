@@ -74,7 +74,7 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
 
           const mode = block.presentationMode ?? 'open'
 
-          // Section dividers render directly without mode wrapper
+          // Section dividers and cover pages render directly without mode wrapper
           if (block.type === 'section_divider') {
             return (
               <Component
@@ -86,8 +86,18 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
             )
           }
 
+          if (block.type === 'cover_page') {
+            return (
+              <div key={block.blockId} className="print:break-after-page">
+                <Component data={block.data} mode={mode} chartType={block.chartType} />
+              </div>
+            )
+          }
+
+          const printClasses = block.printBreakBefore ? 'print:break-before-page' : undefined
+
           return (
-            <div key={block.blockId} className={block.printBreakBefore ? 'print:break-before-page' : undefined}>
+            <div key={block.blockId} className={printClasses}>
               <ModeWrapper
                 mode={mode}
                 columns={block.columns}

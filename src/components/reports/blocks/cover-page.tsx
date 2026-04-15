@@ -40,7 +40,13 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
     : d.campaignTitle ?? null
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[160px] py-6 text-center print:min-h-screen print:py-24">
+    <div
+      className="flex flex-col items-center justify-center min-h-[160px] px-10 py-12 text-center print:h-screen"
+      style={{
+        background: 'var(--report-featured-bg)',
+        color: 'var(--report-featured-text)',
+      }}
+    >
       {/* Logo or org name fallback */}
       {d.showLogo !== false && (
         d.primaryLogoUrl ? (

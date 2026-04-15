@@ -98,7 +98,7 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
         </div>
       </PageHeader>
 
-      <div className="rounded-xl border border-border bg-card shadow-sm p-8">
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <Suspense>
           <ReportRenderer blocks={blocks} />
         </Suspense>

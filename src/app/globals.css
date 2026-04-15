@@ -659,21 +659,19 @@
     display: none !important;
   }
 
-  /* Report container fills page with inner padding */
+  /* Report container fills page edge-to-edge — blocks handle their own padding */
   [data-print="true"] {
     max-width: 100%;
-    padding: 10mm;
+    padding: 0;
+    background: var(--report-page-bg, #fafaf8);
+    min-height: 100vh;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   /* Prevent awkward page breaks */
   .break-inside-avoid {
     break-inside: avoid;
-  }
-
-  /* Report presentation mode print styles */
-  [data-mode="featured"] {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
 
   [data-mode="carded"],
