@@ -124,13 +124,13 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       reportName: template.name,
     }
 
-    // Resolve brand theme for the report based on campaigns.brand_mode
+    // Resolve brand theme via the standard cascade: campaign → client → partner → platform
     let resolvedBrandTheme: ReportTheme = DEFAULT_REPORT_THEME
 
     if (sessionData.campaignId) {
       const { data: campaign } = await db
         .from('campaigns')
-        .select('brand_mode, client_id, title')
+        .select('client_id, title')
         .eq('id', sessionData.campaignId)
         .maybeSingle()
 
@@ -138,18 +138,12 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       const campaignRow = campaign as any
       sessionData.campaignName = campaignRow?.title ?? undefined
 
-      const brandMode = (campaign?.brand_mode as string) ?? 'platform'
-
-      if (brandMode === 'client' && campaign?.client_id) {
-        const brand = await getEffectiveBrand(campaign.client_id)
-        if (brand.reportTheme) {
-          resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
-        }
-      } else if (brandMode === 'custom') {
-        const brand = await getEffectiveBrand(null, sessionData.campaignId)
-        if (brand.reportTheme) {
-          resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
-        }
+      const brand = await getEffectiveBrand(
+        campaign?.client_id ? String(campaign.client_id) : null,
+        sessionData.campaignId,
+      )
+      if (brand.reportTheme) {
+        resolvedBrandTheme = { ...DEFAULT_REPORT_THEME, ...brand.reportTheme }
       }
     }
 
