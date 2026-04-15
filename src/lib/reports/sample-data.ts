@@ -47,11 +47,25 @@ function scoreEntities(entities: PreviewEntity[]): ScoredEntity[] {
 // Generic band-aware commentary (no entity-name assumptions)
 // ---------------------------------------------------------------------------
 
-/** Resolve the indicator text for a scored entity based on its band. */
+/** Check if a string has actual content (not just empty HTML tags). */
+function hasContent(text: string | undefined | null): text is string {
+  if (!text) return false
+  // Strip HTML tags and check for non-whitespace content
+  const stripped = text.replace(/<[^>]*>/g, '').trim()
+  return stripped.length > 0
+}
+
+/** Resolve the indicator text for a scored entity based on its band.
+ *  Prefers the matching band, falls back to any available indicator. */
 function resolveIndicator(entity: ScoredEntity, band: 'high' | 'mid' | 'low'): string | null {
-  if (band === 'high' && entity.indicatorsHigh) return entity.indicatorsHigh
-  if (band === 'low' && entity.indicatorsLow) return entity.indicatorsLow
-  if (entity.indicatorsMid) return entity.indicatorsMid
+  // Try the exact band first
+  if (band === 'high' && hasContent(entity.indicatorsHigh)) return entity.indicatorsHigh!
+  if (band === 'mid' && hasContent(entity.indicatorsMid)) return entity.indicatorsMid!
+  if (band === 'low' && hasContent(entity.indicatorsLow)) return entity.indicatorsLow!
+  // Fall back to any available
+  if (hasContent(entity.indicatorsHigh)) return entity.indicatorsHigh!
+  if (hasContent(entity.indicatorsMid)) return entity.indicatorsMid!
+  if (hasContent(entity.indicatorsLow)) return entity.indicatorsLow!
   return null
 }
 

@@ -1133,17 +1133,24 @@ export interface EntityOption {
 
 const ENTITY_LIBRARY_FIELDS = 'id, name, definition, description, indicators_low, indicators_mid, indicators_high, strength_commentary, development_suggestion'
 
+/** Check if a string has actual content (not just empty HTML tags). */
+function hasRealContent(text: unknown): string | undefined {
+  if (!text || typeof text !== 'string') return undefined
+  const stripped = text.replace(/<[^>]*>/g, '').trim()
+  return stripped.length > 0 ? text : undefined
+}
+
 function mapEntityLibrary(row: Record<string, unknown>): Omit<EntityOption, 'type' | 'parentId' | 'label'> & { label: string } {
   return {
     id: String(row.id),
     label: String(row.name ?? ''),
-    definition: row.definition ? String(row.definition) : undefined,
-    description: row.description ? String(row.description) : undefined,
-    indicatorsLow: row.indicators_low ? String(row.indicators_low) : undefined,
-    indicatorsMid: row.indicators_mid ? String(row.indicators_mid) : undefined,
-    indicatorsHigh: row.indicators_high ? String(row.indicators_high) : undefined,
-    strengthCommentary: row.strength_commentary ? String(row.strength_commentary) : undefined,
-    developmentSuggestion: row.development_suggestion ? String(row.development_suggestion) : undefined,
+    definition: hasRealContent(row.definition),
+    description: hasRealContent(row.description),
+    indicatorsLow: hasRealContent(row.indicators_low),
+    indicatorsMid: hasRealContent(row.indicators_mid),
+    indicatorsHigh: hasRealContent(row.indicators_high),
+    strengthCommentary: hasRealContent(row.strength_commentary),
+    developmentSuggestion: hasRealContent(row.development_suggestion),
   }
 }
 
