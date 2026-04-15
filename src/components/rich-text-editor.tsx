@@ -21,6 +21,7 @@ import {
 interface RichTextEditorProps {
   content: string
   onChange: (html: string) => void
+  onBlur?: () => void
   placeholder?: string
 }
 
@@ -63,6 +64,7 @@ function ToolbarButton({
 export function RichTextEditor({
   content,
   onChange,
+  onBlur,
   placeholder = 'Write your content here\u2026',
 }: RichTextEditorProps) {
   const editor = useEditor({
@@ -74,6 +76,7 @@ export function RichTextEditor({
       Placeholder.configure({ placeholder }),
     ],
     content,
+    onBlur: onBlur ? () => onBlur() : undefined,
     onUpdate: ({ editor: e }) => {
       onChange(e.getHTML())
     },

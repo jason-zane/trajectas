@@ -12,7 +12,12 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
   ])
   if (!template) notFound()
 
-  const previewEntities = entityOptions.map((e) => ({ id: e.id, name: e.label, type: e.type, parentId: e.parentId }))
+  const previewEntities = entityOptions.map((e) => ({
+    id: e.id, name: e.label, type: e.type, parentId: e.parentId,
+    definition: e.definition, description: e.description,
+    indicatorsLow: e.indicatorsLow, indicatorsMid: e.indicatorsMid, indicatorsHigh: e.indicatorsHigh,
+    strengthCommentary: e.strengthCommentary, developmentSuggestion: e.developmentSuggestion,
+  }))
   const sampleBlocks = buildTemplatePreviewBlocks(
     template.blocks as Record<string, unknown>[],
     previewEntities,

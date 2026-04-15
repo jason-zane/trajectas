@@ -15,6 +15,13 @@ export interface PreviewEntity {
   name: string
   type: 'dimension' | 'factor' | 'construct'
   parentId?: string
+  definition?: string
+  description?: string
+  indicatorsLow?: string
+  indicatorsMid?: string
+  indicatorsHigh?: string
+  strengthCommentary?: string
+  developmentSuggestion?: string
 }
 
 // Fixed score distribution assigned deterministically by entity position.
@@ -40,31 +47,27 @@ function scoreEntities(entities: PreviewEntity[]): ScoredEntity[] {
 // Generic band-aware commentary (no entity-name assumptions)
 // ---------------------------------------------------------------------------
 
-const STRENGTH_COMMENTARIES = [
-  'This is a standout area of strength, with results placing comfortably above the proficiency threshold.',
-  'Strong, consistent performance here reflects well-developed capability and confident application.',
-  'A clear asset — results demonstrate reliable and effective practice in this area.',
+/** Resolve the indicator text for a scored entity based on its band. */
+function resolveIndicator(entity: ScoredEntity, band: 'high' | 'mid' | 'low'): string | null {
+  if (band === 'high' && entity.indicatorsHigh) return entity.indicatorsHigh
+  if (band === 'low' && entity.indicatorsLow) return entity.indicatorsLow
+  if (entity.indicatorsMid) return entity.indicatorsMid
+  return null
+}
+
+// Sample text for previews — real reports pull from the construct/factor/dimension library.
+const SAMPLE_STRENGTH_COMMENTARIES = [
+  '[Sample] Strength commentary from the library will appear here.',
 ]
 
 const SAMPLE_INDICATORS: Record<'high' | 'mid' | 'low', string[]> = {
-  high: [
-    'Consistently demonstrates strong capability in this area, applying skills with confidence and producing reliable results across a range of contexts.',
-    'Operates with a high degree of competence, showing the ability to adapt approach and maintain quality even in challenging situations.',
-  ],
-  mid: [
-    'Shows developing capability in this area with a solid foundation, though application can be inconsistent across different contexts.',
-    'Demonstrates an emerging understanding and is building confidence, with room to deepen both knowledge and practical application.',
-  ],
-  low: [
-    'Capability in this area is at an early stage, with limited evidence of consistent application in professional settings.',
-    'Shows awareness of the fundamentals but has not yet developed the depth needed for confident, independent application.',
-  ],
+  high: ['[Sample] High-band behavioural indicators from the library will appear here.'],
+  mid: ['[Sample] Mid-band behavioural indicators from the library will appear here.'],
+  low: ['[Sample] Low-band behavioural indicators from the library will appear here.'],
 }
 
-const DEVELOPMENT_SUGGESTIONS = [
-  'Identify specific situations where you can practise and apply skills in this area with low stakes and regular feedback.',
-  'Seek structured learning or mentorship to build a stronger foundation of knowledge and technique.',
-  'Work with your manager to identify one concrete project where you can stretch into this capability over the next quarter.',
+const SAMPLE_DEVELOPMENT_SUGGESTIONS = [
+  '[Sample] Development suggestions from the library will appear here.',
 ]
 
 // ---------------------------------------------------------------------------
@@ -223,29 +226,24 @@ function generateBlockSampleData(
       const showIndicators = config.showIndicators !== false
       const showDefinition = config.showDefinition !== false
       const showNested = config.showNestedScores === true
-      const detailEntities = filtered.map((e, i) => {
-        const definition = `A measure of capability and effectiveness in ${e.name.toLowerCase()}.`
-        const description = `${e.name} encompasses the knowledge, skills, and behaviours required to operate effectively in this area. It reflects both theoretical understanding and practical application across a range of professional contexts.`
-        const indicatorText = SAMPLE_INDICATORS[e.band][i % SAMPLE_INDICATORS[e.band].length]
-        const narrative = showIndicators ? indicatorText : null
+      const detailEntities = filtered.map((e) => {
+        // Use real library data — only scores are sample
+        const indicator = resolveIndicator(e, e.band)
+        const narrative = showIndicators && indicator ? indicator : null
 
-        // Find child entities whose parentId matches this entity — full detail shape
         const children = showNested
-          ? entities.filter((c) => c.parentId === e.id).map((c, ci) => {
-              const childDef = `A measure of capability and effectiveness in ${c.name.toLowerCase()}.`
-              const childDesc = `${c.name} reflects the ability to apply relevant skills consistently and effectively in professional settings.`
-              const childIndicator = SAMPLE_INDICATORS[c.band][ci % SAMPLE_INDICATORS[c.band].length]
-              const childNarrative = showIndicators ? childIndicator : null
+          ? entities.filter((c) => c.parentId === e.id).map((c) => {
+              const childIndicator = resolveIndicator(c, c.band)
               return {
                 entityId: c.id,
                 entityName: c.name,
                 entitySlug: c.name.toLowerCase().replace(/\s+/g, '-'),
-                definition: childDef,
-                description: childDesc,
+                definition: c.definition,
+                description: c.description,
                 pompScore: c.pompScore,
                 bandResult: makeBandResult(c),
-                narrative: childNarrative,
-                developmentSuggestion: DEVELOPMENT_SUGGESTIONS[ci % DEVELOPMENT_SUGGESTIONS.length],
+                narrative: showIndicators && childIndicator ? childIndicator : null,
+                developmentSuggestion: c.developmentSuggestion ?? null,
               }
             })
           : undefined
@@ -254,12 +252,12 @@ function generateBlockSampleData(
           entityId: e.id,
           entityName: e.name,
           entitySlug: e.name.toLowerCase().replace(/\s+/g, '-'),
-          definition,
-          description,
+          definition: e.definition,
+          description: e.description,
           pompScore: e.pompScore,
           bandResult: makeBandResult(e),
           narrative,
-          developmentSuggestion: DEVELOPMENT_SUGGESTIONS[i % DEVELOPMENT_SUGGESTIONS.length],
+          developmentSuggestion: e.developmentSuggestion ?? null,
           nestedScores: children && children.length > 0 ? children : undefined,
         }
       })
@@ -282,12 +280,12 @@ function generateBlockSampleData(
       const topN = (typeof config.topN === 'number' && config.topN > 0) ? config.topN : 3
       const filtered = filterEntities(entities, config)
       const sorted = [...filtered].sort((a, b) => b.pompScore - a.pompScore)
-      const highlights = sorted.slice(0, topN).map((e, i) => ({
+      const highlights = sorted.slice(0, topN).map((e) => ({
         entityId: e.id,
         entityName: e.name,
         pompScore: e.pompScore,
         bandResult: makeBandResult(e),
-        strengthCommentary: STRENGTH_COMMENTARIES[i % STRENGTH_COMMENTARIES.length],
+        strengthCommentary: e.strengthCommentary ?? SAMPLE_STRENGTH_COMMENTARIES[0],
       }))
       return { highlights, config: { topN, style: 'cards' } }
     }
@@ -296,12 +294,12 @@ function generateBlockSampleData(
       const maxItems = (typeof config.maxItems === 'number' && config.maxItems > 0) ? config.maxItems : 3
       const filtered = filterEntities(entities, config)
       const sorted = [...filtered].sort((a, b) => a.pompScore - b.pompScore)
-      const items = sorted.slice(0, maxItems).map((e, i) => ({
+      const items = sorted.slice(0, maxItems).map((e) => ({
         entityId: e.id,
         entityName: e.name,
         pompScore: e.pompScore,
         bandResult: makeBandResult(e),
-        developmentSuggestion: DEVELOPMENT_SUGGESTIONS[i % DEVELOPMENT_SUGGESTIONS.length],
+        developmentSuggestion: e.developmentSuggestion ?? SAMPLE_DEVELOPMENT_SUGGESTIONS[0],
       }))
       return { items, config: { maxItems } }
     }

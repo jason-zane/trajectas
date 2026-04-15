@@ -274,7 +274,12 @@ export function BlockBuilderClient({
   }, [])
 
   useEffect(() => {
-    const previewEntities = entityOptions.map((e) => ({ id: e.id, name: e.label, type: e.type, parentId: e.parentId }))
+    const previewEntities = entityOptions.map((e) => ({
+      id: e.id, name: e.label, type: e.type, parentId: e.parentId,
+      definition: e.definition, description: e.description,
+      indicatorsLow: e.indicatorsLow, indicatorsMid: e.indicatorsMid, indicatorsHigh: e.indicatorsHigh,
+      strengthCommentary: e.strengthCommentary, developmentSuggestion: e.developmentSuggestion,
+    }))
     const ordered = blocks.map((b, i) => ({ ...b, order: i }))
     const timeoutId = window.setTimeout(() => {
       setPreviewBlocks(buildTemplatePreviewBlocks(ordered, previewEntities, name))

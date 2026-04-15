@@ -434,21 +434,21 @@ function ScoreDetailContent({ block, entityOptions, onUpdateConfig }: BlockConte
         <SwitchField
           id="detail-showDefinition"
           label="Definition"
-          help="Short definition text"
+          help="The definition from the factor/construct/dimension library"
           checked={config.showDefinition as boolean ?? true}
           onChange={(v) => onUpdateConfig('showDefinition', v)}
         />
         <SwitchField
           id="detail-showDescription"
           label="Description"
-          help="Longer description text"
+          help="The description from the factor/construct/dimension library"
           checked={config.showDescription as boolean ?? false}
           onChange={(v) => onUpdateConfig('showDescription', v)}
         />
         <SwitchField
           id="detail-showIndicators"
           label="Indicators"
-          help="Behavioural indicators for each score band"
+          help="Behavioural indicators from the library, based on the score band"
           checked={config.showIndicators as boolean ?? false}
           onChange={(v) => onUpdateConfig('showIndicators', v)}
         />

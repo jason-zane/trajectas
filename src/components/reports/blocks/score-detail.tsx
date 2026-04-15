@@ -207,11 +207,13 @@ function OpenLayout({
         </p>
       )}
 
-      {/* Narrative (indicators) */}
+      {/* Narrative (indicators) — content is admin-authored from the library */}
       {config.showIndicators && entity.narrative && (
-        <p className="text-sm leading-relaxed" style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}>
-          {entity.narrative}
-        </p>
+        <div
+          className="prose prose-sm max-w-none text-sm leading-relaxed"
+          style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}
+          dangerouslySetInnerHTML={{ __html: entity.narrative }}
+        />
       )}
 
       {/* Development suggestion */}
