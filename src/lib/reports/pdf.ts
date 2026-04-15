@@ -293,6 +293,8 @@ export async function generateAndStoreReportPdf(
     // Viewport matches content area: A4 minus 25 mm top/bottom + 20 mm left/right
     // Width: 210 mm − 40 mm = 170 mm = 643 px  Height: 297 mm − 50 mm = 247 mm = 934 px
     if (hasCover) {
+      await page.setViewport({ width: 643, height: 934 })
+      await page.emulateMediaType('print')
       await page.evaluate(() => {
         const cover = document.querySelector('[data-cover-page]')
         if (cover instanceof HTMLElement) cover.style.display = 'none'
@@ -308,7 +310,10 @@ export async function generateAndStoreReportPdf(
         `
         document.head.appendChild(s)
       })
-      await page.setViewport({ width: 643, height: 934 })
+      // Wait for layout to settle after viewport resize + CSS injection
+      await page.evaluate(() =>
+        new Promise<void>(r => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+      )
     }
 
     const contentBytes = await page.pdf({
