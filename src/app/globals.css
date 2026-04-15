@@ -647,16 +647,8 @@
    ============================================================ */
 @media print {
   @page {
-    size: A4;
     margin: 0;
-  }
-
-  /* Page-level background so margin area matches content area */
-  html,
-  body {
-    background: #fafaf8 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    size: A4;
   }
 
   /* Hide everything that isn't the report */
@@ -668,7 +660,7 @@
     display: none !important;
   }
 
-  /* Report container — Puppeteer margins handle page inset */
+  /* Report container fills page edge-to-edge — blocks handle their own padding */
   [data-print="true"] {
     max-width: 100%;
     padding: 0;
@@ -678,8 +670,19 @@
     print-color-adjust: exact;
   }
 
+  /* Content inset — backgrounds bleed full width, text is inset */
   .print-report {
     padding: 0;
+  }
+  .print-report [data-mode="open"],
+  .print-report [data-mode="split"],
+  .print-report [data-mode="carded"] {
+    padding-left: 15mm;
+    padding-right: 15mm;
+  }
+  .print-report [data-mode="inset"] {
+    margin-left: 15mm;
+    margin-right: 15mm;
   }
 
   /* Prevent awkward page breaks */
@@ -696,8 +699,8 @@
     break-inside: avoid;
   }
 
-  /* Keep block headers with the content that follows */
-  .report-block-headers {
-    break-after: avoid;
+  /* Keep headers and content together — don't break between ModeWrapper header and body */
+  [data-mode] {
+    break-inside: avoid;
   }
 }

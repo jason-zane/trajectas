@@ -13,7 +13,7 @@ interface InsetModeProps {
 
 export function InsetMode({ eyebrow, heading, blockDescription, children, accentColor, className }: InsetModeProps) {
   return (
-    <div data-mode="inset" className={cn('mx-10 my-4 print:mx-0 print:my-3', className)}>
+    <div data-mode="inset" className={cn('mx-10 my-4 print:mx-14 print:my-6', className)}>
       <div
         className="rounded-xl p-7"
         style={{

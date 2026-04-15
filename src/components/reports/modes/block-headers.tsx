@@ -17,7 +17,7 @@ export function BlockHeaders({
   const isFeatured = variant === 'featured'
 
   return (
-    <div className="report-block-headers space-y-1.5 mb-6 print:mb-4">
+    <div className="space-y-1.5 mb-6">
       {eyebrow && (
         <p
           className="text-[10px] uppercase tracking-[2px]"
