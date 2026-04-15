@@ -7,6 +7,7 @@ import {
 } from '@/lib/auth/authorization'
 import {
   generateAndStoreReportPdf,
+  getReportPdfFilename,
   getSnapshotPdfState,
   mapReportPdfStatus,
   queueReportPdfGeneration,
@@ -34,7 +35,7 @@ async function requirePdfAccess(snapshotId: string) {
   return null
 }
 
-async function respondWithStoredPdf(storagePath: string) {
+async function respondWithStoredPdf(storagePath: string, filename: string) {
   const db = createAdminClient()
   const { data, error } = await db.storage.from(REPORTS_BUCKET).download(storagePath)
 
@@ -45,7 +46,7 @@ async function respondWithStoredPdf(storagePath: string) {
   return new Response(await data.arrayBuffer(), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${storagePath.split('/').pop()}"`,
+      'Content-Disposition': `attachment; filename="${filename}"`,
       'Cache-Control': 'no-store',
     },
   })
@@ -155,10 +156,12 @@ export async function GET(
     )
   }
 
+  const filename = await getReportPdfFilename(snapshotId)
+
   let shouldForceRefresh = forceRefresh
   if (snapshot.pdf_url && !forceRefresh) {
     try {
-      return await respondWithStoredPdf(storagePath)
+      return await respondWithStoredPdf(storagePath, filename)
     } catch {
       // Fall through to regeneration if the stored file has gone missing.
       shouldForceRefresh = true
@@ -182,13 +185,13 @@ export async function GET(
     })
 
     if (!generated) {
-      return await respondWithStoredPdf(storagePath)
+      return await respondWithStoredPdf(storagePath, filename)
     }
 
     return new Response(generated.body, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="report-${snapshotId}.pdf"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Cache-Control': 'no-store',
       },
     })

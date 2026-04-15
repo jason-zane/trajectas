@@ -56,6 +56,54 @@ export function getReportPdfDownloadPath(snapshotId: string) {
   return `/api/reports/${snapshotId}/pdf`
 }
 
+function slugify(text: string) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+export async function getReportPdfFilename(snapshotId: string) {
+  const db = createAdminClient()
+  const { data } = await db
+    .from('report_snapshots')
+    .select(`
+      id,
+      participant_sessions!inner(
+        campaign_participants!inner(first_name, last_name),
+        campaigns!inner(title)
+      ),
+      report_templates!inner(name, report_type)
+    `)
+    .eq('id', snapshotId)
+    .maybeSingle()
+
+  if (!data) return `report-${snapshotId}.pdf`
+
+  const session = Array.isArray(data.participant_sessions)
+    ? data.participant_sessions[0]
+    : data.participant_sessions
+  const participant = session?.campaign_participants as
+    | { first_name: string | null; last_name: string | null }
+    | undefined
+  const campaign = session?.campaigns as { title: string | null } | undefined
+  const template = data.report_templates as
+    | { name: string | null; report_type: string | null }
+    | undefined
+
+  const parts: string[] = []
+  const name = [participant?.first_name, participant?.last_name]
+    .filter(Boolean)
+    .join(' ')
+  if (name) parts.push(name)
+  if (template?.report_type) parts.push(template.report_type)
+  if (campaign?.title) parts.push(campaign.title)
+
+  if (parts.length === 0) return `report-${snapshotId}.pdf`
+
+  return `${slugify(parts.join(' - '))}.pdf`
+}
+
 export function mapReportPdfStatus(
   snapshot: Pick<SnapshotPdfRow, 'pdf_url' | 'pdf_status' | 'pdf_error_message'>,
   snapshotId: string,
@@ -201,6 +249,8 @@ export async function generateAndStoreReportPdf(
 
     browser = await launchReportPdfBrowser()
     const page = await browser.newPage()
+    // Set viewport to A4 proportions at 96dpi so vh/vw units map correctly
+    await page.setViewport({ width: 794, height: 1123 })
     await page.emulateMediaType('print')
 
     const response = await page.goto(url, {
@@ -223,12 +273,7 @@ export async function generateAndStoreReportPdf(
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: {
-        top: '20mm',
-        right: '20mm',
-        bottom: '20mm',
-        left: '20mm',
-      },
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
     })
     const body = pdf.buffer.slice(
       pdf.byteOffset,
