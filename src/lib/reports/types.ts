@@ -93,6 +93,7 @@ export interface StrengthsHighlightsConfig {
 export interface DevelopmentPlanConfig {
   maxItems: number
   prioritiseByScore?: boolean
+  displayLevel?: 'dimension' | 'factor' | 'construct'
   entityIds?: string[]
 }
 

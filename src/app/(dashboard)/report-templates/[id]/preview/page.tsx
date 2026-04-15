@@ -1,16 +1,22 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import { getReportTemplate } from '@/app/actions/reports'
+import { getReportTemplate, getEntityOptions } from '@/app/actions/reports'
 import { ReportRenderer } from '@/components/reports/report-renderer'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 
 export default async function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const template = await getReportTemplate(id)
+  const [template, entityOptions] = await Promise.all([
+    getReportTemplate(id),
+    getEntityOptions(),
+  ])
   if (!template) notFound()
 
+  const previewEntities = entityOptions.map((e) => ({ id: e.id, name: e.label, type: e.type, parentId: e.parentId }))
   const sampleBlocks = buildTemplatePreviewBlocks(
     template.blocks as Record<string, unknown>[],
+    previewEntities,
+    template.name,
   )
 
   return (

@@ -426,6 +426,37 @@ function evaluateCondition(
   }
 }
 
+/**
+ * Filter scored entities by displayLevel and entityIds from block config.
+ * Returns [entityId, pompScore][] matching the filter criteria.
+ */
+function filterScoredEntities(
+  scoreMap: ScoreMap,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  taxonomyMap: Map<string, any>,
+  config: { displayLevel?: string; entityIds?: string[] },
+): [string, number][] {
+  let entries = Object.entries(scoreMap)
+
+  // Filter by display level (taxonomy type)
+  if (config.displayLevel) {
+    const targetLevel = mapDisplayLevel(config.displayLevel)
+    entries = entries.filter(([entityId]) => {
+      const entity = taxonomyMap.get(entityId)
+      const level = entity?._taxonomy_level ?? entity?.taxonomy_level
+      return level === targetLevel
+    })
+  }
+
+  // Filter by explicit entity IDs
+  if (config.entityIds?.length) {
+    const idSet = new Set(config.entityIds)
+    entries = entries.filter(([entityId]) => idSet.has(entityId))
+  }
+
+  return entries
+}
+
 async function resolveBlockData(
   block: BlockConfig,
   scoreMap: ScoreMap,
@@ -457,13 +488,17 @@ async function resolveBlockData(
 
   if (block.type === 'score_detail') {
     const config = block.config as ScoreDetailConfig
-    // Multi-entity support with backward compat for legacy entityId
-    const entityIds = config.entityIds?.length
-      ? config.entityIds
-      : config.entityId
-        ? [config.entityId]
-        : []
-    if (entityIds.length === 0) return { _empty: true, reason: 'no entities configured' }
+    // Resolve entity IDs: explicit list, legacy single ID, or all matching displayLevel
+    let entityIds: string[]
+    if (config.entityIds?.length) {
+      entityIds = config.entityIds
+    } else if (config.entityId) {
+      entityIds = [config.entityId]
+    } else {
+      // Fall back to all scored entities matching displayLevel
+      entityIds = filterScoredEntities(scoreMap, taxonomyMap, config).map(([id]) => id)
+    }
+    if (entityIds.length === 0) return { _empty: true, reason: 'no scored entities found for display level' }
 
     const entities: Record<string, unknown>[] = []
     for (const entityId of entityIds) {
@@ -589,7 +624,8 @@ async function resolveBlockData(
 
   if (block.type === 'score_overview') {
     const config = block.config as ScoreOverviewConfig
-    const scores = Object.entries(scoreMap).map(([entityId, pompScore]) => {
+    const filtered = filterScoredEntities(scoreMap, taxonomyMap, config)
+    const scores = filtered.map(([entityId, pompScore]) => {
       const entity = taxonomyMap.get(entityId)
       const bandResult = entity
         ? resolveBand(pompScore, {
@@ -600,7 +636,10 @@ async function resolveBlockData(
             pompThresholdHigh: entity.pomp_threshold_high,
           })
         : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
-      return { entityId, entityName: entity?.name ?? entityId, pompScore: Math.round(pompScore), bandResult }
+      const parentName = entity?._taxonomy_level === 'factor' && entity?.dimension_id
+        ? (taxonomyMap.get(String(entity.dimension_id))?.name ?? '')
+        : ''
+      return { entityId, entityName: entity?.name ?? entityId, pompScore: Math.round(pompScore), bandResult, parentName }
     })
     return { scores, config }
   }
@@ -702,14 +741,20 @@ export function resolveDevelopmentPlan(
   taxonomyMap: Map<string, any>,
   config: DevelopmentPlanConfig,
 ): { items: DevelopmentItem[]; config: DevelopmentPlanConfig } {
-  // Determine which entity IDs to consider
+  // Filter by displayLevel and entityIds
   const entityFilter = config.entityIds?.length ? new Set(config.entityIds) : null
+  const targetLevel = config.displayLevel ? mapDisplayLevel(config.displayLevel) : null
 
   let items = Object.entries(scoreMap)
     .map(([entityId, pompScore]) => {
       if (entityFilter && !entityFilter.has(entityId)) return null
       const entity = taxonomyMap.get(entityId)
       if (!entity) return null
+      // Filter by taxonomy level
+      if (targetLevel) {
+        const entityLevel = entity._taxonomy_level ?? entity.taxonomy_level
+        if (entityLevel && entityLevel !== targetLevel) return null
+      }
 
       const bandResult = resolveBand(pompScore, {
         bandLabelLow: entity.band_label_low,
