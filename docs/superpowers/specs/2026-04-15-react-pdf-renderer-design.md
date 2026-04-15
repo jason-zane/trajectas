@@ -103,7 +103,9 @@ Instead of a wrapper component hierarchy (ModeWrapper → OpenMode/FeaturedMode/
 
 ### Cover page
 
-Its own `<Page>` with zero padding. Background fills edge to edge. Content centred vertically and horizontally with flexbox. Logos loaded as `<Image>` from URL. This is trivially full-bleed — no workarounds needed.
+Its own `<Page>` with zero padding. Background fills edge to edge. Content centred vertically and horizontally with flexbox. This is trivially full-bleed — no workarounds needed.
+
+Logos are loaded via react-pdf's `<Image src={url}>` which fetches remote URLs at render time. If the fetch fails (CORS, timeout, 404), the component falls back to the client name as a text label — matching the existing CoverPageBlock behaviour.
 
 ### Content pages
 
@@ -120,7 +122,16 @@ Shared page style applied to all non-cover `<Page>` elements:
 }
 ```
 
-react-pdf automatically creates new pages when content overflows, inheriting the same padding. Every page gets consistent 25mm/20mm margins. Forced page breaks are achieved by closing the current `<Page>` and opening a new one.
+react-pdf automatically creates new pages when content overflows, inheriting the same padding. Every page gets consistent 25mm/20mm margins.
+
+### Page break behaviour
+
+react-pdf handles page breaks in two ways:
+
+1. **Auto-break** — when content overflows a `<Page>`, react-pdf creates a new page with the same style (including padding). `<View wrap={false}>` prevents an element from being split across pages (equivalent to `break-inside: avoid`).
+2. **Forced break** — blocks with `printBreakBefore: true` in `ResolvedBlockData` trigger a `<View break>` element, which forces content to the next page. The cover page is always its own `<Page>` element.
+
+The orchestrator renders all non-cover blocks as `<View>` children within a single content `<Page>`. react-pdf's auto-pagination handles overflow. Individual score entities use `wrap={false}` to prevent mid-entity breaks.
 
 ---
 
@@ -130,22 +141,24 @@ react-pdf automatically creates new pages when content overflows, inheriting the
 
 `buildPdfTheme(resolvedBrandTheme?: ReportTheme): PdfTheme`
 
-Merges the brand theme from the first block's `resolvedBrandTheme` with `DEFAULT_REPORT_THEME` defaults. Returns a flat, typed object with camelCase property names:
+Merges the brand theme from the first block's `resolvedBrandTheme` with `DEFAULT_REPORT_THEME` defaults. If no block has a `resolvedBrandTheme` (e.g., all blocks are skipped), falls back entirely to `DEFAULT_REPORT_THEME`.
+
+The `ReportTheme` properties use `report`-prefixed names (`reportHeadingColour`, `reportFeaturedBg`). The `PdfTheme` type strips the `report` prefix for brevity — `buildPdfTheme()` handles the mapping:
 
 ```typescript
 interface PdfTheme {
-  headingColour: string
-  bodyColour: string
-  mutedColour: string
-  featuredBg: string
-  featuredText: string
-  pageBg: string
-  cardBg: string
-  cardBorder: string
-  highBandFill: string
-  midBandFill: string
-  lowBandFill: string
-  // ... all 54 properties
+  headingColour: string    // from reportHeadingColour
+  bodyColour: string       // from reportBodyColour
+  mutedColour: string      // from reportMutedColour
+  featuredBg: string       // from reportFeaturedBg
+  featuredText: string     // from reportFeaturedText
+  pageBg: string           // from reportPageBg
+  cardBg: string           // from reportCardBg
+  cardBorder: string       // from reportCardBorder
+  highBandFill: string     // from reportHighBandFill
+  midBandFill: string      // from reportMidBandFill
+  lowBandFill: string      // from reportLowBandFill
+  // ... all 54 properties, prefix stripped
 }
 ```
 
@@ -153,13 +166,14 @@ Every block component receives this theme as a prop and references colours direc
 
 ### Font registration
 
-Plus Jakarta Sans is registered with react-pdf at module load from Google Fonts URLs (regular, italic, semibold, bold weights). react-pdf supports remote font registration natively:
+Plus Jakarta Sans is registered with react-pdf at module load from Google Fonts URLs. Supported weights: 400 (regular), 400 italic, 600 (semibold), 700 (bold). These cover all weights used in the current report components. react-pdf maps requests to the nearest registered weight.
 
 ```typescript
 Font.register({
   family: 'Plus Jakarta Sans',
   fonts: [
     { src: 'https://fonts.gstatic.com/...', fontWeight: 400 },
+    { src: 'https://fonts.gstatic.com/...', fontWeight: 400, fontStyle: 'italic' },
     { src: 'https://fonts.gstatic.com/...', fontWeight: 600 },
     { src: 'https://fonts.gstatic.com/...', fontWeight: 700 },
   ],
@@ -170,19 +184,26 @@ Font.register({
 
 ## HTML Parsing (custom_text block)
 
-A utility `htmlToReactPdf(html: string, theme: PdfTheme): React.ReactElement` converts the limited HTML tag set from the rich text editor into react-pdf primitives:
+A utility `htmlToReactPdf(html: string, theme: PdfTheme): React.ReactElement` converts rich text editor HTML into react-pdf primitives.
+
+### Supported HTML tags (exhaustive whitelist)
 
 | HTML Tag | react-pdf Output |
 |----------|-----------------|
 | `<p>` | `<Text>` with paragraph spacing |
 | `<strong>`, `<b>` | `<Text style={{ fontWeight: 700 }}>` |
 | `<em>`, `<i>` | `<Text style={{ fontStyle: 'italic' }}>` |
+| `<u>` | `<Text style={{ textDecoration: 'underline' }}>` |
 | `<ul>`, `<ol>` | `<View>` with bullet/number prefixes |
 | `<li>` | `<View flexDirection="row">` with bullet + `<Text>` |
-| `<a>` | `<Link>` |
+| `<a href>` | `<Link>` |
 | `<br>` | `<Text>{'\n'}</Text>` |
+| `<h1>`–`<h4>` | `<Text>` with scaled font size and bold weight |
+| `<blockquote>` | `<View>` with left border and padding |
 
-Uses `node-html-parser` (zero-dependency, server-safe) to parse the HTML string. Nested formatting (e.g., bold italic) is handled via nested `<Text>` elements.
+Any tags not in this whitelist are stripped — their text content is preserved but the tag is ignored. This prevents corrupt output from unexpected editor content.
+
+Uses `node-html-parser` to parse the HTML string. Nested formatting (e.g., `<strong><em>text</em></strong>`) is handled via nested `<Text>` elements — react-pdf propagates parent styles to nested `<Text>` children.
 
 ---
 
@@ -209,9 +230,28 @@ All charts are rebuilt as react-pdf components. The rendering approaches:
 
 ## Caching Strategy
 
-react-pdf outputs use a separate storage path: `reports/v2/{snapshotId}.pdf`. This prevents the two engines from overwriting each other. The route checks the appropriate path based on the engine parameter.
+react-pdf outputs use a separate storage path: `reports/v2/{snapshotId}.pdf`. This prevents the two engines from overwriting each other. The route resolves the path conditionally:
+
+```typescript
+const engine = url.searchParams.get('engine')
+const storagePath = engine === 'react-pdf'
+  ? `reports/v2/${snapshotId}.pdf`
+  : `reports/${snapshotId}.pdf`
+```
+
+The same conditional applies when checking for cached PDFs and when storing newly generated ones. Both engines can cache independently for the same snapshot.
 
 On switchover, the `v2/` prefix is removed and old Puppeteer-generated PDFs are cleaned up.
+
+---
+
+## Error Handling
+
+The orchestrator wraps each block render in a try/catch. If a block throws (malformed data, missing fields, image load failure), it is skipped and a warning is logged. The remaining blocks continue rendering. This prevents a single bad block from failing the entire PDF.
+
+The `renderReportPdf()` function itself is async and rejects on fatal errors (e.g., font registration failure, react-pdf render crash). The route handler catches this and returns a 500 with the error message — matching the existing Puppeteer error flow.
+
+Blocks that are not yet implemented (deferred 360 blocks, stubs) are silently skipped when encountered. No error, no placeholder — they simply don't appear in the PDF.
 
 ---
 
