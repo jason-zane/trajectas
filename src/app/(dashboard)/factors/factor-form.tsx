@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextEditor } from "@/components/rich-text-editor"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
@@ -428,19 +428,16 @@ export function FactorForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="factor-description">Description</Label>
-                  <Textarea
-                    id="factor-description"
-                    name="description"
-                    placeholder="A brief description of what this factor measures..."
-                    value={description}
+                  <Label>Description</Label>
+                  <RichTextEditor
+                    content={description}
                     onChange={
                       mode === "edit"
-                        ? descriptionAutoSave.handleChange
-                        : (e) => setCreateDescription(e.target.value)
+                        ? (html) => descriptionAutoSave.setValue(html)
+                        : (html) => setCreateDescription(html)
                     }
                     onBlur={mode === "edit" ? descriptionAutoSave.handleBlur : undefined}
-                    className="min-h-20"
+                    placeholder="A brief description of what this factor measures..."
                   />
                   {mode === "edit" && (
                     <AutoSaveIndicator
@@ -451,19 +448,16 @@ export function FactorForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="factor-definition">Definition</Label>
-                  <Textarea
-                    id="factor-definition"
-                    name="definition"
-                    placeholder="A formal definition used in reports and documentation..."
-                    value={definition}
+                  <Label>Definition</Label>
+                  <RichTextEditor
+                    content={definition}
                     onChange={
                       mode === "edit"
-                        ? definitionAutoSave.handleChange
-                        : (e) => setCreateDefinition(e.target.value)
+                        ? (html) => definitionAutoSave.setValue(html)
+                        : (html) => setCreateDefinition(html)
                     }
                     onBlur={mode === "edit" ? definitionAutoSave.handleBlur : undefined}
-                    className="min-h-20"
+                    placeholder="A formal definition used in reports and documentation..."
                   />
                   <p className="text-xs text-muted-foreground">
                     A more formal, detailed definition for use in assessment reports.
@@ -549,18 +543,15 @@ export function FactorForm({
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="factor-strength-commentary">Strength Commentary</Label>
-                  <Textarea
-                    id="factor-strength-commentary"
-                    name="strengthCommentary"
-                    placeholder="What to say when this factor is a top-scoring area…"
-                    value={strengthCommentary}
+                  <RichTextEditor
+                    content={strengthCommentary}
                     onChange={
                       mode === "edit"
-                        ? strengthCommentaryAutoSave.handleChange
-                        : (e) => setCreateStrengthCommentary(e.target.value)
+                        ? (html) => strengthCommentaryAutoSave.setValue(html)
+                        : (html) => setCreateStrengthCommentary(html)
                     }
                     onBlur={mode === "edit" ? strengthCommentaryAutoSave.handleBlur : undefined}
-                    className="min-h-20"
+                    placeholder="What to say when this factor is a top-scoring area…"
                   />
                   {mode === "edit" && (
                     <AutoSaveIndicator
@@ -571,19 +562,16 @@ export function FactorForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="factor-development-suggestion">Development Suggestion</Label>
-                  <Textarea
-                    id="factor-development-suggestion"
-                    name="developmentSuggestion"
-                    placeholder="What to say when this factor is an area for development…"
-                    value={developmentSuggestion}
+                  <Label>Development Suggestion</Label>
+                  <RichTextEditor
+                    content={developmentSuggestion}
                     onChange={
                       mode === "edit"
-                        ? developmentSuggestionAutoSave.handleChange
-                        : (e) => setCreateDevelopmentSuggestion(e.target.value)
+                        ? (html) => developmentSuggestionAutoSave.setValue(html)
+                        : (html) => setCreateDevelopmentSuggestion(html)
                     }
                     onBlur={mode === "edit" ? developmentSuggestionAutoSave.handleBlur : undefined}
-                    className="min-h-20"
+                    placeholder="What to say when this factor is an area for development…"
                   />
                   {mode === "edit" && (
                     <AutoSaveIndicator

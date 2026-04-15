@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextEditor } from "@/components/rich-text-editor"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -342,19 +342,16 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="construct-description">Description</Label>
-                  <Textarea
-                    id="construct-description"
-                    name="description"
-                    placeholder="Describe what this construct measures..."
-                    value={descValue}
+                  <Label>Description</Label>
+                  <RichTextEditor
+                    content={descValue}
                     onChange={
                       mode === "edit"
-                        ? descAutoSave.handleChange
-                        : (e) => setDescription(e.target.value)
+                        ? (html) => descAutoSave.setValue(html)
+                        : (html) => setDescription(html)
                     }
                     onBlur={mode === "edit" ? descAutoSave.handleBlur : undefined}
-                    className="min-h-24"
+                    placeholder="Describe what this construct measures..."
                   />
                   {mode === "edit" && (
                     <AutoSaveIndicator
@@ -365,19 +362,16 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="construct-definition">Definition</Label>
-                  <Textarea
-                    id="construct-definition"
-                    name="definition"
-                    placeholder="A formal definition used in reports and documentation..."
-                    value={defValue}
+                  <Label>Definition</Label>
+                  <RichTextEditor
+                    content={defValue}
                     onChange={
                       mode === "edit"
-                        ? defAutoSave.handleChange
-                        : (e) => setDefinition(e.target.value)
+                        ? (html) => defAutoSave.setValue(html)
+                        : (html) => setDefinition(html)
                     }
                     onBlur={mode === "edit" ? defAutoSave.handleBlur : undefined}
-                    className="min-h-24"
+                    placeholder="A formal definition used in reports and documentation..."
                   />
                   <p className="text-xs text-muted-foreground">
                     A more formal, detailed definition for use in assessment reports.
@@ -428,19 +422,16 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="construct-strength-commentary">Strength Commentary</Label>
-                  <Textarea
-                    id="construct-strength-commentary"
-                    name="strengthCommentary"
-                    placeholder="What to say when this construct is a top-scoring area…"
-                    value={strengthValue}
+                  <Label>Strength Commentary</Label>
+                  <RichTextEditor
+                    content={strengthValue}
                     onChange={
                       mode === "edit"
-                        ? strengthAutoSave.handleChange
-                        : (e) => setStrengthCommentary(e.target.value)
+                        ? (html) => strengthAutoSave.setValue(html)
+                        : (html) => setStrengthCommentary(html)
                     }
                     onBlur={mode === "edit" ? strengthAutoSave.handleBlur : undefined}
-                    className="min-h-20"
+                    placeholder="What to say when this construct is a top-scoring area…"
                   />
                   {mode === "edit" && (
                     <AutoSaveIndicator
@@ -451,19 +442,16 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="construct-development-suggestion">Development Suggestion</Label>
-                  <Textarea
-                    id="construct-development-suggestion"
-                    name="developmentSuggestion"
-                    placeholder="What to say when this construct is an area for development…"
-                    value={devSuggestionValue}
+                  <Label>Development Suggestion</Label>
+                  <RichTextEditor
+                    content={devSuggestionValue}
                     onChange={
                       mode === "edit"
-                        ? devSuggestionAutoSave.handleChange
-                        : (e) => setDevelopmentSuggestion(e.target.value)
+                        ? (html) => devSuggestionAutoSave.setValue(html)
+                        : (html) => setDevelopmentSuggestion(html)
                     }
                     onBlur={mode === "edit" ? devSuggestionAutoSave.handleBlur : undefined}
-                    className="min-h-20"
+                    placeholder="What to say when this construct is an area for development…"
                   />
                   {mode === "edit" && (
                     <AutoSaveIndicator

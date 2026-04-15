@@ -6,6 +6,17 @@ import { SegmentBar } from '../charts/segment-bar'
 import { MiniBar } from '../charts/mini-bar'
 import { ScorecardTable } from '../charts/scorecard-table'
 
+function SectionLabel({ label, colour }: { label: string; colour: string }) {
+  return (
+    <p
+      className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
+      style={{ color: colour }}
+    >
+      {label}
+    </p>
+  )
+}
+
 interface ScoreDetailEntity {
   entityId: string
   entityName: string
@@ -159,7 +170,7 @@ function OpenLayout({
   const mutedColour = isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-muted-colour)'
 
   return (
-    <div className={isChild ? 'space-y-3 py-2' : 'space-y-4 py-2 break-inside-avoid'}>
+    <div className="space-y-4 py-2 break-inside-avoid">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <h3
@@ -193,27 +204,40 @@ function OpenLayout({
         />
       )}
 
-      {/* Definition (short) */}
+      {/* Definition */}
       {config.showDefinition && entity.definition && (
-        <p className="text-sm italic" style={{ color: mutedColour, opacity: isFeatured ? 0.7 : 1 }}>
-          {entity.definition}
-        </p>
+        <div>
+          <SectionLabel label="Definition" colour={mutedColour} />
+          <div
+            className="prose prose-sm max-w-none text-sm italic"
+            style={{ color: mutedColour, opacity: isFeatured ? 0.7 : 1 }}
+            dangerouslySetInnerHTML={{ __html: entity.definition }}
+          />
+        </div>
       )}
 
-      {/* Description (long) */}
+      {/* Description */}
       {config.showDescription && entity.description && (
-        <p className="text-sm leading-relaxed" style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}>
-          {entity.description}
-        </p>
+        <div>
+          <SectionLabel label="Description" colour={mutedColour} />
+          <div
+            className="prose prose-sm max-w-none text-sm leading-relaxed"
+            style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}
+            dangerouslySetInnerHTML={{ __html: entity.description }}
+          />
+        </div>
       )}
 
-      {/* Narrative (indicators) — content is admin-authored from the library */}
+      {/* Behavioural Indicators */}
       {config.showIndicators && entity.narrative && (
-        <div
-          className="prose prose-sm max-w-none text-sm leading-relaxed"
-          style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}
-          dangerouslySetInnerHTML={{ __html: entity.narrative }}
-        />
+        <div>
+          <SectionLabel label="Behavioural Indicators" colour={mutedColour} />
+          <div
+            className="prose prose-sm max-w-none text-sm leading-relaxed"
+            style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}
+            dangerouslySetInnerHTML={{ __html: entity.narrative }}
+          />
+        </div>
       )}
 
       {/* Development suggestion */}
@@ -225,15 +249,12 @@ function OpenLayout({
             background: isFeatured ? 'rgba(255,255,255,0.05)' : 'var(--report-card-bg)',
           }}
         >
-          <p
-            className="text-xs font-medium mb-1 uppercase tracking-wide"
-            style={{ color: mutedColour }}
-          >
-            Development
-          </p>
-          <p className="text-sm" style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}>
-            {entity.developmentSuggestion}
-          </p>
+          <SectionLabel label="Development" colour={mutedColour} />
+          <div
+            className="prose prose-sm max-w-none text-sm"
+            style={{ color: bodyColour, opacity: isFeatured ? 0.8 : 1 }}
+            dangerouslySetInnerHTML={{ __html: entity.developmentSuggestion }}
+          />
         </div>
       )}
 
