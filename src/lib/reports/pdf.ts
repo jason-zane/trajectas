@@ -83,11 +83,14 @@ export async function getReportPdfFilename(snapshotId: string) {
   const session = Array.isArray(data.participant_sessions)
     ? data.participant_sessions[0]
     : data.participant_sessions
-  const participant = session?.campaign_participants as
+  const cpRaw = session?.campaign_participants
+  const participant = (Array.isArray(cpRaw) ? cpRaw[0] : cpRaw) as
     | { first_name: string | null; last_name: string | null }
     | undefined
-  const campaign = session?.campaigns as { title: string | null } | undefined
-  const template = data.report_templates as
+  const campRaw = session?.campaigns
+  const campaign = (Array.isArray(campRaw) ? campRaw[0] : campRaw) as { title: string | null } | undefined
+  const tplRaw = data.report_templates
+  const template = (Array.isArray(tplRaw) ? tplRaw[0] : tplRaw) as
     | { name: string | null; report_type: string | null }
     | undefined
 
