@@ -12,7 +12,7 @@ interface OpenModeProps {
 
 export function OpenMode({ eyebrow, heading, blockDescription, children, className }: OpenModeProps) {
   return (
-    <div data-mode="open" className={cn('px-10 py-9', className)}>
+    <div data-mode="open" className={cn('px-10 py-4', className)}>
       <BlockHeaders eyebrow={eyebrow} heading={heading} blockDescription={blockDescription} />
       {children}
     </div>
