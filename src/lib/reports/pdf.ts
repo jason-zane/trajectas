@@ -252,8 +252,9 @@ export async function generateAndStoreReportPdf(
 
     browser = await launchReportPdfBrowser()
     const page = await browser.newPage()
-    // Set viewport to A4 proportions at 96dpi so vh/vw units map correctly
-    await page.setViewport({ width: 794, height: 1123 })
+    // Viewport matches A4 content area (12 mm margins on each side) at 96 dpi
+    // so vh/vw units map to the printable area, not the full page.
+    await page.setViewport({ width: 703, height: 1032 })
     await page.emulateMediaType('print')
 
     const response = await page.goto(url, {
@@ -276,7 +277,7 @@ export async function generateAndStoreReportPdf(
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      margin: { top: '12mm', right: '12mm', bottom: '12mm', left: '12mm' },
     })
     const body = pdf.buffer.slice(
       pdf.byteOffset,
