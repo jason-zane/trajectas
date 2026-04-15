@@ -81,7 +81,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       db.from('participant_scores').select('*').eq('session_id', snapshot.participantSessionId),
       db
         .from('participant_sessions')
-        .select('id, campaign_id, participant_profile_id, assessment_id, profiles(first_name, last_name), assessments(title)')
+        .select('id, campaign_id, participant_profile_id, assessment_id, profiles(first_name, last_name), assessments(title), campaign_participants(first_name, last_name)')
         .eq('id', snapshot.participantSessionId)
         .single(),
     ])
@@ -107,12 +107,19 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     // Session + participant name for person reference
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sessionRow = sessionResult.data as any
+    // Resolve participant name: prefer profiles, fall back to campaign_participants
+    const cp = Array.isArray(sessionRow.campaign_participants)
+      ? sessionRow.campaign_participants[0]
+      : sessionRow.campaign_participants
+    const firstName = sessionRow.profiles?.first_name ?? cp?.first_name ?? undefined
+    const lastName = sessionRow.profiles?.last_name ?? cp?.last_name ?? undefined
+
     const sessionData: SessionData = {
       id: sessionRow.id,
       campaignId: sessionRow.campaign_id,
       participantProfileId: sessionRow.participant_profile_id,
-      firstName: sessionRow.profiles?.first_name,
-      lastName: sessionRow.profiles?.last_name,
+      firstName,
+      lastName,
       assessmentName: sessionRow.assessments?.title ?? undefined,
       reportName: template.name,
     }
@@ -153,6 +160,31 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     const allEntityIds = Array.from(new Set([...entityIds, ...Object.keys(scoreMap)]))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const taxonomyMap = await fetchTaxonomyEntities(db as any, allEntityIds)
+
+    // Build dimension scores by averaging child factor scores.
+    // Also build a map of dimension → child factor IDs for nested scores.
+    const dimensionChildFactors = new Map<string, string[]>()
+    for (const [entityId, entity] of taxonomyMap) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const e = entity as any
+      if (e._taxonomy_level === 'factor' && e.dimension_id) {
+        const dimId = String(e.dimension_id)
+        const list = dimensionChildFactors.get(dimId) ?? []
+        list.push(entityId)
+        dimensionChildFactors.set(dimId, list)
+      }
+    }
+
+    // Compute dimension scores as average of child factor scores
+    for (const [dimId, factorIds] of dimensionChildFactors) {
+      if (scoreMap[dimId] !== undefined) continue // already scored
+      const childScores = factorIds
+        .map((fId) => scoreMap[fId])
+        .filter((s): s is number => s !== undefined)
+      if (childScores.length > 0) {
+        scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
+      }
+    }
 
     // -----------------------------------------------------------------------
     // Steps 2–5: Process each block
@@ -216,6 +248,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         template.displayLevel,
         sessionData,
         snapshot.narrativeMode === 'ai_enhanced',
+        dimensionChildFactors,
       )
 
       resolvedBlocks.push({
@@ -402,6 +435,7 @@ async function resolveBlockData(
   _templateDisplayLevel: ReportDisplayLevel,
   session: SessionData,
   aiEnhance: boolean,
+  dimensionChildFactors: Map<string, string[]>,
 ): Promise<Record<string, unknown>> {
   if (block.type === 'norm_comparison') {
     return { _deferred: true, message: 'Norm comparison not available in this version.' }
@@ -481,6 +515,60 @@ async function resolveBlockData(
           )
         : null
 
+      // Resolve nested child scores when showNestedScores is on and entity is a dimension
+      let nestedScores: Record<string, unknown>[] | undefined
+      if (config.showNestedScores && entity._taxonomy_level === 'dimension') {
+        const childFactorIds = dimensionChildFactors.get(entityId) ?? []
+        nestedScores = []
+        for (const childId of childFactorIds) {
+          const childEntity = taxonomyMap.get(childId)
+          if (!childEntity) continue
+          const childScore = scoreMap[childId]
+          if (childScore === undefined) continue
+          const childBand = resolveBand(childScore, {
+            bandLabelLow: childEntity.band_label_low,
+            bandLabelMid: childEntity.band_label_mid,
+            bandLabelHigh: childEntity.band_label_high,
+            pompThresholdLow: childEntity.pomp_threshold_low,
+            pompThresholdHigh: childEntity.pomp_threshold_high,
+          })
+          let childNarrative: string | null = null
+          if (config.showIndicators) {
+            childNarrative = buildDerivedNarrative(
+              {
+                name: childEntity.name,
+                definition: childEntity.definition,
+                indicatorsLow: childEntity.indicators_low,
+                indicatorsMid: childEntity.indicators_mid,
+                indicatorsHigh: childEntity.indicators_high,
+              },
+              childBand.band,
+              personReference,
+              session.firstName,
+            )
+          }
+          const childDev = config.showDevelopment
+            ? buildDevelopmentSuggestion(
+                { name: childEntity.name, developmentSuggestion: childEntity.development_suggestion },
+                personReference,
+                session.firstName,
+              )
+            : null
+          nestedScores.push({
+            entityId: childId,
+            entityName: childEntity.name,
+            entitySlug: childEntity.slug,
+            definition: config.showDefinition ? childEntity.definition : undefined,
+            description: config.showDescription ? childEntity.description : undefined,
+            pompScore: Math.round(childScore),
+            bandResult: childBand,
+            narrative: childNarrative,
+            developmentSuggestion: childDev,
+          })
+        }
+        if (nestedScores.length === 0) nestedScores = undefined
+      }
+
       entities.push({
         entityId,
         entityName: entity.name,
@@ -491,6 +579,7 @@ async function resolveBlockData(
         bandResult,
         narrative,
         developmentSuggestion,
+        nestedScores,
       })
     }
 

@@ -17,6 +17,7 @@ import {
   type PaginationState,
   type RowSelectionState,
   type SortingState,
+  type VisibilityState,
 } from "@tanstack/react-table";
 
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
@@ -94,6 +95,7 @@ export interface DataTableProps<TData, TValue> {
   enableRowSelection?: boolean;
   getRowId?: (row: TData) => string;
   bulkActions?: BulkAction<TData>[];
+  hiddenColumns?: string[];
 }
 
 export function DataTable<TData, TValue>({
@@ -110,6 +112,7 @@ export function DataTable<TData, TValue>({
   enableRowSelection = false,
   getRowId,
   bulkActions = [],
+  hiddenColumns = [],
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(() =>
@@ -123,6 +126,9 @@ export function DataTable<TData, TValue>({
     pageSize,
   });
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [columnVisibility] = useState<VisibilityState>(() =>
+    Object.fromEntries(hiddenColumns.map((id) => [id, false]))
+  );
 
   useEffect(() => {
     const handle = window.setTimeout(() => {
@@ -209,6 +215,7 @@ export function DataTable<TData, TValue>({
       columnFilters,
       pagination,
       rowSelection,
+      columnVisibility,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,

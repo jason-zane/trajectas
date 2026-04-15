@@ -130,6 +130,11 @@ function makeColumns(isPlatformAdmin: boolean): ColumnDef<ClientRow>[] {
     },
   ];
 
+  cols.push({
+    accessorKey: "updated_at",
+    enableSorting: true,
+  });
+
   if (isPlatformAdmin) {
     cols.push({
       id: "actions",
@@ -343,7 +348,8 @@ export function PartnerClientsTable({
             ],
           },
         ]}
-        defaultSort={{ id: "name", desc: false }}
+        defaultSort={{ id: "updated_at", desc: true }}
+        hiddenColumns={["updated_at"]}
         rowHref={(row) => `/clients/${row.slug}/overview`}
         pageSize={20}
       />

@@ -83,6 +83,10 @@ const columns: ColumnDef<AssessmentWithMeta>[] = [
     ),
   },
   {
+    accessorKey: "updated_at",
+    enableSorting: true,
+  },
+  {
     id: "actions",
     enableSorting: false,
     cell: ({ row }) => <AssessmentRowActions assessment={row.original} />,
@@ -180,7 +184,8 @@ export function AssessmentsDataTable({
           ],
         },
       ]}
-      defaultSort={{ id: "title", desc: false }}
+      defaultSort={{ id: "updated_at", desc: true }}
+      hiddenColumns={["updated_at"]}
       rowHref={(row) => `/assessments/${row.id}/edit`}
       pageSize={20}
       enableRowSelection

@@ -96,6 +96,10 @@ const columns: ColumnDef<DirectoryPartnerRow>[] = [
     ),
   },
   {
+    accessorKey: "updated_at",
+    enableSorting: true,
+  },
+  {
     id: "actions",
     enableSorting: false,
     cell: ({ row }) => <PartnerDirectoryRowActions partner={row.original} />,
@@ -193,7 +197,8 @@ export function PartnerDirectoryTable({
           ],
         },
       ]}
-      defaultSort={{ id: "name", desc: false }}
+      defaultSort={{ id: "updated_at", desc: true }}
+      hiddenColumns={["updated_at"]}
       rowHref={(row) => `/partners/${row.slug}/overview`}
       pageSize={20}
       enableRowSelection

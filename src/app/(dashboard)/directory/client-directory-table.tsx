@@ -129,6 +129,10 @@ const columns: ColumnDef<DirectoryClientRow>[] = [
     ),
   },
   {
+    accessorKey: "updated_at",
+    enableSorting: true,
+  },
+  {
     id: "actions",
     enableSorting: false,
     cell: ({ row }) => <ClientDirectoryRowActions client={row.original} />,
@@ -222,7 +226,8 @@ export function ClientDirectoryTable({ clients }: { clients: ClientWithCounts[] 
           ],
         },
       ]}
-      defaultSort={{ id: "name", desc: false }}
+      defaultSort={{ id: "updated_at", desc: true }}
+      hiddenColumns={["updated_at"]}
       rowHref={(row) => `/clients/${row.slug}/overview`}
       pageSize={20}
       enableRowSelection

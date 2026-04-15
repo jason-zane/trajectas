@@ -109,6 +109,10 @@ function getColumns(basePath: string): ColumnDef<ReportTemplateRow>[] {
       ),
     },
     {
+      accessorKey: "updated_at",
+      enableSorting: true,
+    },
+    {
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
@@ -224,7 +228,8 @@ export function ReportTemplatesTable({
       data={rows}
       searchableColumns={["name"]}
       searchPlaceholder="Search templates"
-      defaultSort={{ id: "name", desc: false }}
+      defaultSort={{ id: "updated_at", desc: true }}
+      hiddenColumns={["updated_at"]}
       rowHref={(row) => `${basePath}/${row.id}/builder`}
       pageSize={20}
       enableRowSelection

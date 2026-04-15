@@ -203,7 +203,7 @@ export function ClientUsersTable({
         data={rows}
         searchableColumns={["displayName", "email"]}
         searchPlaceholder="Search team members"
-        defaultSort={{ id: "displayName", desc: false }}
+        defaultSort={{ id: "addedAt", desc: true }}
         rowHref={(row) => `/users/${row.userId}`}
         pageSize={20}
       />
