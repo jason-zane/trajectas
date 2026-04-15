@@ -1,3 +1,4 @@
+import { PDFDocument } from 'pdf-lib'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
@@ -252,7 +253,7 @@ export async function generateAndStoreReportPdf(
 
     browser = await launchReportPdfBrowser()
     const page = await browser.newPage()
-    // Set viewport to A4 proportions at 96dpi so vh/vw units map correctly
+    // Full A4 viewport at 96 dpi — cover page uses 100vh to fill the page
     await page.setViewport({ width: 794, height: 1123 })
     await page.emulateMediaType('print')
 
@@ -273,11 +274,69 @@ export async function generateAndStoreReportPdf(
       }
     })
 
-    const pdf = await page.pdf({
+    // --- Two-pass generation: full-bleed cover + margined content ---
+
+    const hasCover = await page.$('[data-cover-page]') !== null
+
+    // Pass 1: cover page — full bleed, zero margins
+    let coverBytes: Uint8Array | null = null
+    if (hasCover) {
+      coverBytes = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: 0, right: 0, bottom: 0, left: 0 },
+        pageRanges: '1',
+      })
+    }
+
+    // Pass 2: content pages — hide cover, resize viewport, apply margins
+    // Viewport matches content area: A4 minus 25 mm top/bottom + 20 mm left/right
+    // Width: 210 mm − 40 mm = 170 mm = 643 px  Height: 297 mm − 50 mm = 247 mm = 934 px
+    if (hasCover) {
+      await page.evaluate(() => {
+        const cover = document.querySelector('[data-cover-page]')
+        if (cover instanceof HTMLElement) cover.style.display = 'none'
+
+        const s = document.createElement('style')
+        s.textContent = `
+          [data-mode="open"], [data-mode="split"], [data-mode="carded"] {
+            padding-left: 0 !important; padding-right: 0 !important;
+          }
+          [data-mode="inset"] {
+            margin-left: 0 !important; margin-right: 0 !important;
+          }
+        `
+        document.head.appendChild(s)
+      })
+      await page.setViewport({ width: 643, height: 934 })
+    }
+
+    const contentBytes = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      margin: hasCover
+        ? { top: '25mm', right: '20mm', bottom: '25mm', left: '20mm' }
+        : { top: 0, right: 0, bottom: 0, left: 0 },
     })
+
+    // Merge cover + content into a single PDF
+    let pdf: Uint8Array
+    if (coverBytes) {
+      const merged = await PDFDocument.create()
+      const coverDoc = await PDFDocument.load(coverBytes)
+      const contentDoc = await PDFDocument.load(contentBytes)
+      const [coverPage] = await merged.copyPages(coverDoc, [0])
+      merged.addPage(coverPage)
+      const contentPages = await merged.copyPages(
+        contentDoc,
+        contentDoc.getPageIndices(),
+      )
+      for (const p of contentPages) merged.addPage(p)
+      pdf = await merged.save()
+    } else {
+      pdf = contentBytes
+    }
+
     const body = pdf.buffer.slice(
       pdf.byteOffset,
       pdf.byteOffset + pdf.byteLength,

@@ -88,7 +88,7 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
 
           if (block.type === 'cover_page') {
             return (
-              <div key={block.blockId} className="print:break-after-page">
+              <div key={block.blockId} data-cover-page className="print:break-after-page">
                 <Component data={block.data} mode={mode} chartType={block.chartType} />
               </div>
             )
