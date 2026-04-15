@@ -670,6 +670,21 @@
     print-color-adjust: exact;
   }
 
+  /* Content inset — backgrounds bleed full width, text is inset */
+  .print-report {
+    padding: 0;
+  }
+  .print-report [data-mode="open"],
+  .print-report [data-mode="split"],
+  .print-report [data-mode="carded"] {
+    padding-left: 15mm;
+    padding-right: 15mm;
+  }
+  .print-report [data-mode="inset"] {
+    margin-left: 15mm;
+    margin-right: 15mm;
+  }
+
   /* Prevent awkward page breaks */
   .break-inside-avoid {
     break-inside: avoid;
@@ -681,6 +696,11 @@
   }
 
   [data-mode="carded"] > div {
+    break-inside: avoid;
+  }
+
+  /* Keep headers and content together — don't break between ModeWrapper header and body */
+  [data-mode] {
     break-inside: avoid;
   }
 }

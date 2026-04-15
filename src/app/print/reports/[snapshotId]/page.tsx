@@ -33,7 +33,7 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
 
   return (
     <Suspense>
-      <ReportRenderer blocks={blocks} />
+      <ReportRenderer blocks={blocks} className="print-report" />
     </Suspense>
   )
 }
