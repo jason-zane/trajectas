@@ -648,7 +648,6 @@
 @media print {
   @page {
     size: A4;
-    margin: 0;
   }
 
   /* Page-level background so any gap between blocks matches the report bg */
@@ -711,5 +710,10 @@
   /* Keep block headers attached to the content that follows */
   .report-block-headers {
     break-after: avoid;
+    page-break-after: avoid;
+  }
+  .report-block-headers + * {
+    break-before: avoid;
+    page-break-before: avoid;
   }
 }
