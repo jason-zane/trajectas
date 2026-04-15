@@ -170,7 +170,7 @@ function OpenLayout({
   const mutedColour = isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-muted-colour)'
 
   return (
-    <div className="space-y-4 py-2 break-inside-avoid">
+    <div className="space-y-4 py-2 print:pt-[10mm] print:pb-[2mm] break-inside-avoid">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <h3
