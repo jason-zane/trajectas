@@ -28,8 +28,7 @@ interface ReportPdfButtonProps {
   initialPdfUrl?: string
   initialPdfStatus?: ReportPdfStatus
   reportToken?: string
-  readyLabel?: string
-  idleLabel?: string
+  label?: string
   variant?: ButtonVariant
   size?: ButtonSize
   className?: string
@@ -48,8 +47,7 @@ export function ReportPdfButton({
   initialPdfUrl,
   initialPdfStatus,
   reportToken,
-  readyLabel = "Download PDF",
-  idleLabel = "Generate PDF",
+  label: buttonLabel = "Download PDF",
   variant = "outline",
   size = "default",
   className,
@@ -69,6 +67,7 @@ export function ReportPdfButton({
     initialPdfUrl ? "ready" : (initialPdfStatus ?? "idle"),
   )
   const [error, setError] = useState<string | null>(null)
+  const [autoDownload, setAutoDownload] = useState(false)
   const isPolling = status === "queued" || status === "generating"
 
   useEffect(() => {
@@ -105,7 +104,7 @@ export function ReportPdfButton({
         if (payload.status === "ready") {
           setStatus("ready")
           setError(null)
-          toast.success("PDF is ready to download")
+          setAutoDownload(true)
           return
         }
 
@@ -155,12 +154,21 @@ export function ReportPdfButton({
     }
   }, [isPolling, statusUrl])
 
+  // Auto-download when generation completes
+  useEffect(() => {
+    if (!autoDownload) return
+    setAutoDownload(false)
+    window.location.assign(downloadUrl)
+  }, [autoDownload, downloadUrl])
+
   async function handleClick() {
+    // If the PDF is already generated, download it immediately
     if (status === "ready") {
       window.location.assign(downloadUrl)
       return
     }
 
+    // Otherwise kick off generation — auto-download will trigger when ready
     try {
       setError(null)
       const response = await fetch(downloadUrl, {
@@ -197,14 +205,11 @@ export function ReportPdfButton({
     }
   }
 
-  const label =
-    status === "ready"
-      ? readyLabel
-      : status === "failed"
-        ? "Retry PDF"
-        : isPolling
-          ? "Generating report..."
-          : idleLabel
+  const displayLabel = isPolling
+    ? "Preparing report\u2026"
+    : status === "failed"
+      ? "Retry"
+      : buttonLabel
 
   return (
     <Button
@@ -220,7 +225,7 @@ export function ReportPdfButton({
       ) : (
         <Download className="size-4" />
       )}
-      {label}
+      {displayLabel}
     </Button>
   )
 }
