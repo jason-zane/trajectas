@@ -529,30 +529,43 @@ async function resolveBlockData(
         pompThresholdHigh: entity.pomp_threshold_high,
       })
 
+      // Build narrative from indicators only (definition is rendered separately by the component).
+      // For AI-enhanced mode, we still pass the full derived narrative as context.
       let narrative: string | null = null
-      if (config.showIndicators || config.showDefinition) {
-        const derived = buildDerivedNarrative(
-          {
-            name: entity.name,
-            definition: entity.definition,
-            indicatorsLow: entity.indicators_low,
-            indicatorsMid: entity.indicators_mid,
-            indicatorsHigh: entity.indicators_high,
-          },
-          bandResult.band,
-          personReference,
-          session.firstName,
-        )
-        narrative = aiEnhance
-          ? await enhanceNarrative({
-              entityName: entity.name,
-              derivedNarrative: derived,
-              pompScore,
-              bandLabel: bandResult.bandLabel,
-              personReference,
-              firstName: session.firstName,
-            })
-          : derived
+      if (config.showIndicators) {
+        if (aiEnhance) {
+          const derived = buildDerivedNarrative(
+            {
+              name: entity.name,
+              definition: entity.definition,
+              indicatorsLow: entity.indicators_low,
+              indicatorsMid: entity.indicators_mid,
+              indicatorsHigh: entity.indicators_high,
+            },
+            bandResult.band,
+            personReference,
+            session.firstName,
+          )
+          narrative = await enhanceNarrative({
+            entityName: entity.name,
+            derivedNarrative: derived,
+            pompScore,
+            bandLabel: bandResult.bandLabel,
+            personReference,
+            firstName: session.firstName,
+          })
+        } else {
+          // Pass only the band-specific indicator text, not definition
+          const rawIndicator =
+            bandResult.band === 'low'
+              ? entity.indicators_low
+              : bandResult.band === 'high'
+                ? entity.indicators_high
+                : entity.indicators_mid
+          narrative = rawIndicator
+            ? resolvePersonToken(rawIndicator.trim(), personReference, session.firstName)
+            : null
+        }
       }
 
       const developmentSuggestion = config.showDevelopment
