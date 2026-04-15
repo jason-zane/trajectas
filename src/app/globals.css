@@ -648,9 +648,10 @@
 @media print {
   @page {
     size: A4;
+    margin: 0;
   }
 
-  /* Page-level background so any gap between blocks matches the report bg */
+  /* Page-level background so the bottom of the last page matches */
   html,
   body {
     background: #fafaf8 !important;
@@ -667,7 +668,7 @@
     display: none !important;
   }
 
-  /* Report container fills page edge-to-edge — Puppeteer margins handle inset */
+  /* Report container — zero Puppeteer margins, CSS handles all spacing */
   [data-print="true"] {
     max-width: 100%;
     padding: 0;
@@ -677,11 +678,11 @@
     print-color-adjust: exact;
   }
 
-  /* Content inset — used for full-bleed pass (screen/fallback); the two-pass
-     PDF generator injects overrides to zero these out. */
   .print-report {
     padding: 0;
   }
+
+  /* Horizontal inset — 20 mm from page edge */
   .print-report [data-mode="open"],
   .print-report [data-mode="split"],
   .print-report [data-mode="carded"] {
@@ -707,13 +708,17 @@
     break-inside: avoid;
   }
 
-  /* Keep block headers attached to the content that follows */
+  /* Orphan prevention — invisible spacer after block headers forces Chrome
+     to push the header to the next page if fewer than ~200 px remain.
+     The negative margin means no visible gap is added. */
   .report-block-headers {
     break-after: avoid;
     page-break-after: avoid;
   }
-  .report-block-headers + * {
-    break-before: avoid;
-    page-break-before: avoid;
+  .report-block-headers::after {
+    content: "";
+    display: block;
+    height: 200px;
+    margin-bottom: -200px;
   }
 }

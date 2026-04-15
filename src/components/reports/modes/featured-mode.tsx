@@ -14,7 +14,7 @@ export function FeaturedMode({ eyebrow, heading, blockDescription, children, cla
   return (
     <div
       data-mode="featured"
-      className={cn('px-10 py-6 print:px-14 print:py-5', className)}
+      className={cn('px-10 py-6 print:pt-[15mm] print:pb-[2mm]', className)}
       style={{
         background: 'var(--report-featured-bg)',
         color: 'var(--report-featured-text)',

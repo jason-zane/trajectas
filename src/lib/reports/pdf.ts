@@ -1,4 +1,3 @@
-import { PDFDocument } from 'pdf-lib'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
@@ -274,13 +273,10 @@ export async function generateAndStoreReportPdf(
       }
     })
 
-    // Diagnostic: single-pass with margins on ALL pages to verify
-    // Puppeteer margins work in this environment. Once confirmed, we'll
-    // restore two-pass for full-bleed cover.
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '25mm', right: '20mm', bottom: '25mm', left: '20mm' },
+      margin: { top: 0, right: 0, bottom: 0, left: 0 },
     })
     const body = pdf.buffer.slice(
       pdf.byteOffset,
