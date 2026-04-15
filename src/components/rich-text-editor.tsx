@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -67,6 +68,11 @@ export function RichTextEditor({
   onBlur,
   placeholder = 'Write your content here\u2026',
 }: RichTextEditorProps) {
+  // Prevent onChange from firing during initial TipTap content parse.
+  // Without this, plain text content gets re-parsed as HTML and auto-save
+  // immediately overwrites the DB with the TipTap interpretation.
+  const initialised = useRef(false)
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -77,7 +83,12 @@ export function RichTextEditor({
     ],
     content,
     onBlur: onBlur ? () => onBlur() : undefined,
+    onCreate: () => {
+      // Mark as initialised after the first render cycle
+      setTimeout(() => { initialised.current = true }, 0)
+    },
     onUpdate: ({ editor: e }) => {
+      if (!initialised.current) return
       onChange(e.getHTML())
     },
     editorProps: {
