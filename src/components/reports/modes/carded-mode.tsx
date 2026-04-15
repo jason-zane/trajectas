@@ -15,7 +15,7 @@ export function CardedMode({ eyebrow, heading, blockDescription, children, colum
   const gridClass = columns === 3 ? 'grid-cols-3' : columns === 2 ? 'grid-cols-2' : 'grid-cols-1'
 
   return (
-    <div data-mode="carded" className={cn('px-10 py-4 print:pt-[15mm] print:pb-[2mm]', className)}>
+    <div data-mode="carded" className={cn('px-10 py-4 print:pt-[18mm] print:pb-[2mm]', className)}>
       <BlockHeaders eyebrow={eyebrow} heading={heading} blockDescription={blockDescription} />
       <div className={cn('grid gap-4', gridClass)}>
         {children}

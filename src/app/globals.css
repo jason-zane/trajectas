@@ -708,17 +708,11 @@
     break-inside: avoid;
   }
 
-  /* Orphan prevention — invisible spacer after block headers forces Chrome
-     to push the header to the next page if fewer than ~200 px remain.
-     The negative margin means no visible gap is added. */
+  /* Keep block headers with following content */
   .report-block-headers {
     break-after: avoid;
     page-break-after: avoid;
-  }
-  .report-block-headers::after {
-    content: "";
-    display: block;
-    height: 200px;
-    margin-bottom: -200px;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }

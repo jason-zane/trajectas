@@ -13,7 +13,7 @@ interface SplitModeProps {
 
 export function SplitMode({ eyebrow, heading, blockDescription, left, right, className }: SplitModeProps) {
   return (
-    <div data-mode="split" className={cn('px-10 py-9 print:pt-[15mm] print:pb-[2mm]', className)}>
+    <div data-mode="split" className={cn('px-10 py-9 print:pt-[18mm] print:pb-[2mm]', className)}>
       <BlockHeaders eyebrow={eyebrow} heading={heading} blockDescription={blockDescription} />
       <div className="grid grid-cols-2 gap-10 items-center">
         <div>{left}</div>
