@@ -175,6 +175,19 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       }
     }
 
+    // Fetch any dimensions referenced by factors but not yet in taxonomyMap.
+    // This happens when no blocks explicitly list dimension IDs but factors
+    // reference them via dimension_id — we need them for displayLevel filtering
+    // and for computing dimension-level scores.
+    const missingDimIds = [...dimensionChildFactors.keys()].filter((id) => !taxonomyMap.has(id))
+    if (missingDimIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const extraDims = await fetchTaxonomyEntities(db as any, missingDimIds)
+      for (const [id, entity] of extraDims) {
+        taxonomyMap.set(id, entity)
+      }
+    }
+
     // Compute dimension scores as average of child factor scores
     for (const [dimId, factorIds] of dimensionChildFactors) {
       if (scoreMap[dimId] !== undefined) continue // already scored

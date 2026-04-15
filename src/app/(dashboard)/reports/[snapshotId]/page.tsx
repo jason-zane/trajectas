@@ -81,9 +81,6 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
         description={snapshot.narrativeMode === 'ai_enhanced' ? 'AI enhanced' : 'Report preview'}
       >
         <div className="flex items-center gap-2">
-          {!hasTokenAccess && (
-            <RegenerateReportButton snapshotId={snapshotId} />
-          )}
           {sendDraft ? (
             <SendReportButton
               snapshotId={snapshotId}

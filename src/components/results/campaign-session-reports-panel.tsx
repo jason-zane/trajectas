@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import {
   getCampaignSessionReportRows,
   retrySnapshot,
+  regenerateSnapshot,
 } from '@/app/actions/reports'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
@@ -87,6 +88,20 @@ export function CampaignSessionReportsPanel({
     })
   }
 
+  function handleRegenerate(snapshotId: string) {
+    startTransition(async () => {
+      try {
+        await regenerateSnapshot(snapshotId)
+        toast.success('Regenerating report')
+        await refresh()
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : 'Failed to regenerate report'
+        )
+      }
+    })
+  }
+
   if (rows.length === 0) {
     return (
       <EmptyState
@@ -149,20 +164,30 @@ export function CampaignSessionReportsPanel({
                 </TableCell>
                 <TableCell>
                   {row.snapshotId && isReportViewable(row.status) ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      render={
-                        <Link
-                          href={`${reportBasePath}/${row.snapshotId}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        />
-                      }
-                    >
-                      View
-                      <ExternalLink className="size-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        render={
+                          <Link
+                            href={`${reportBasePath}/${row.snapshotId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          />
+                        }
+                      >
+                        View
+                        <ExternalLink className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRegenerate(row.snapshotId!)}
+                      >
+                        <RefreshCw className="size-3.5" />
+                        Regenerate
+                      </Button>
+                    </div>
                   ) : row.snapshotId && row.status === 'failed' ? (
                     <Button
                       variant="outline"
