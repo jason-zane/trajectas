@@ -11,6 +11,7 @@ import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow } from '@/lib/supabase/mappers'
 import { SendReportButton } from '@/components/reports/send-report-button'
+import { RegenerateReportButton } from '@/components/reports/regenerate-report-button'
 import type { ResolvedBlockData } from '@/lib/reports/types'
 
 interface Props {
@@ -80,6 +81,9 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
         description={snapshot.narrativeMode === 'ai_enhanced' ? 'AI enhanced' : 'Report preview'}
       >
         <div className="flex items-center gap-2">
+          {!hasTokenAccess && (
+            <RegenerateReportButton snapshotId={snapshotId} />
+          )}
           {sendDraft ? (
             <SendReportButton
               snapshotId={snapshotId}

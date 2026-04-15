@@ -25,8 +25,8 @@ export default async function PartnerCampaignSessionPage({
     <CampaignSessionView
       session={session}
       reportRows={reportRows}
-      backHref={`/partner/campaigns/${campaignId}/results`}
-      backLabel="Back to results"
+      backHref={`/partner/campaigns/${campaignId}/participants`}
+      backLabel="Back to participants"
       reportBasePath="/partner/reports"
     />
   )

@@ -862,6 +862,32 @@ export async function retrySnapshot(id: string): Promise<void> {
   })
 }
 
+export async function regenerateSnapshot(id: string): Promise<void> {
+  await requireReportSnapshotManageAccess(id)
+  const db = createAdminClient()
+  const { error } = await db
+    .from('report_snapshots')
+    .update({
+      status: 'pending',
+      error_message: null,
+      pdf_url: null,
+      pdf_status: null,
+      pdf_error_message: null,
+    })
+    .eq('id', id)
+    .in('status', ['ready', 'released', 'failed'])
+  if (error) throw new Error(error.message)
+  // Kick the runner
+  await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-key': process.env.INTERNAL_API_KEY ?? '',
+    },
+    body: JSON.stringify({ snapshotId: id }),
+  })
+}
+
 export type ReportSnapshotListItem = ReportSnapshot & {
   participantName?: string
   participantEmail?: string
