@@ -589,18 +589,15 @@ async function resolveBlockData(
           })
           let childNarrative: string | null = null
           if (config.showIndicators) {
-            childNarrative = buildDerivedNarrative(
-              {
-                name: childEntity.name,
-                definition: childEntity.definition,
-                indicatorsLow: childEntity.indicators_low,
-                indicatorsMid: childEntity.indicators_mid,
-                indicatorsHigh: childEntity.indicators_high,
-              },
-              childBand.band,
-              personReference,
-              session.firstName,
-            )
+            const childRawIndicator =
+              childBand.band === 'low'
+                ? childEntity.indicators_low
+                : childBand.band === 'high'
+                  ? childEntity.indicators_high
+                  : childEntity.indicators_mid
+            childNarrative = childRawIndicator
+              ? resolvePersonToken(childRawIndicator.trim(), personReference, session.firstName)
+              : null
           }
           const childDev = config.showDevelopment
             ? buildDevelopmentSuggestion(

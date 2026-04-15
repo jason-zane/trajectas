@@ -276,7 +276,7 @@ export async function generateAndStoreReportPdf(
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: 0, right: 0, bottom: 0, left: 0 },
+      margin: { top: '20mm', right: '15mm', bottom: '20mm', left: '15mm' },
     })
     const body = pdf.buffer.slice(
       pdf.byteOffset,
