@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { ForceLightTheme } from "@/components/assess/force-light-theme";
+import { ForceLightTheme } from "@/components/force-light-theme";
 import type { BrandConfig } from "@/lib/brand/types";
 
 interface AssessLayoutProps {
