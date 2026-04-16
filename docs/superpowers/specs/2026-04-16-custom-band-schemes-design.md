@@ -70,6 +70,8 @@ function resolveBandScheme(
 }
 ```
 
+**Malformed scheme handling:** `resolveBandScheme` validates the returned scheme (bands present, cover 0–100, non-empty labels). If validation fails, log the error and fall back to `DEFAULT_3_BAND_SCHEME` so reports continue to render. Corrupted schemes should not break report generation.
+
 ### Presets
 
 | Preset Key | Bands | Default Labels | Default Indicator Tier Mapping |
@@ -108,7 +110,7 @@ A reusable `BandSchemeEditor` component used at all three levels. Layout:
 - Bands must cover 0–100 with no gaps or overlaps
 - Must have at least 2 bands, at most 10
 - Each band needs a non-empty label, a valid min (0–100), a valid max (0–100) with max ≥ min, and an indicator tier
-- `key` is auto-generated from the label (slugified)
+- `key` is auto-generated from the label (slugified) and is not user-editable in the UI
 
 ### Platform Admin Page
 
