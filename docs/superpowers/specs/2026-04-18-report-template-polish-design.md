@@ -56,7 +56,9 @@ For preview we mirror the same pattern but scoped by **template id + assessment 
 
 **Why no DB persistence:** A preview PDF isn't shared or stored; regenerating on click is fine. This avoids `report_snapshots` rows that don't represent real participant data.
 
-**Why a new token verifier:** The existing `verifyReportPdfToken` is keyed to `snapshotId`. Preview PDFs are keyed to `(templateId, assessmentId)`, so they need their own HMAC scope. Same signing key, same `jose` library, just different payload shape. Very small file.
+**Why a new token verifier:** The existing `verifyReportPdfToken` is keyed to `snapshotId`. Preview PDFs are keyed to `(templateId, assessmentId)`, so they need their own HMAC scope. Same signing key, same `jose` library, just different payload shape.
+
+**Token payload shape:** `{ templateId: string, assessmentId: string, iat: number, exp: number }`
 
 **PDF generation helper:** Find and reuse the existing Playwright helper (likely `src/lib/reports/pdf-renderer.ts` or similar — implementer should locate it). The helper accepts a URL and returns a PDF buffer; we pass the new print route.
 
@@ -160,11 +162,13 @@ New behavior: when grouping is on and any `showGroup*` flag is set, each group's
 
 Per the Q3 decision (use stored score where possible, recompute otherwise):
 
-1. If the group entity (dimension or factor) has a row in `participant_scores` for this session → use its `scaled_score`
-2. Otherwise compute weighted mean of the children's POMPs using link weights:
+1. If the group entity (dimension or factor) has a row in `participant_scores` for this session → use its `scaled_score` (POMP, 0–100)
+2. Otherwise compute weighted mean of the children's POMP scores using link weights:
    - Dimension grouping in construct-level assessments: `dimension_constructs.weight`
-   - Dimension grouping in factor-level assessments: unweighted mean of child factor scores
+   - Dimension grouping in factor-level assessments: unweighted mean of child factor POMPs
    - Factor grouping: `factor_constructs.weight`
+
+Fallback note: in builder preview there's no session-level stored score for dimensions (schema enum is `factor|construct`), so the weighted-mean path always runs for dimension groupings. The real runner reads from `participant_scores` for factor-level rows directly.
 
 This is already implemented for the builder preview in `loadConstructLevelEntities` / `loadFactorLevelEntities`; the group score is just the parent entity's `pompScore`. So on the server side we pass the parent's POMP through with every group; no new computation is needed in the renderer. The real runner (`runner.ts`) reads from `participant_scores` directly, so the same code path already covers it for real reports.
 
