@@ -1,5 +1,6 @@
 import type { ScoreInterpretationConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode } from '@/lib/reports/presentation'
+import type { PaletteKey } from '@/lib/reports/band-scheme'
 import { BandBadge } from '../charts/band-badge'
 import { SegmentBar } from '../charts/segment-bar'
 
@@ -20,6 +21,7 @@ interface InterpretationGroup {
 interface ScoreInterpretationData {
   groups: InterpretationGroup[]
   config: ScoreInterpretationConfig
+  palette: PaletteKey
 }
 
 export function ScoreInterpretationBlock({
@@ -33,7 +35,7 @@ export function ScoreInterpretationBlock({
   if (!d.groups?.length) return null
 
   const isFeatured = mode === 'featured'
-  const { config } = d
+  const { config, palette } = d
 
   return (
     <div className="space-y-6">
@@ -56,6 +58,7 @@ export function ScoreInterpretationBlock({
                 key={entity.entityId}
                 entity={entity}
                 config={config}
+                palette={palette}
                 isFeatured={isFeatured}
               />
             ))}
@@ -69,10 +72,12 @@ export function ScoreInterpretationBlock({
 function InterpretationRow({
   entity,
   config,
+  palette,
   isFeatured,
 }: {
   entity: InterpretationEntity
   config: ScoreInterpretationConfig
+  palette: PaletteKey
   isFeatured: boolean
 }) {
   const headingColour = isFeatured ? 'currentColor' : 'var(--report-heading-colour)'
@@ -91,7 +96,12 @@ function InterpretationRow({
         </span>
         <div className="flex items-center gap-2 shrink-0">
           {config.showBandLabel && (
-            <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
+            <BandBadge
+              label={entity.bandResult.bandLabel}
+              bandIndex={entity.bandResult.bandIndex}
+              bandCount={entity.bandResult.bandCount}
+              palette={palette}
+            />
           )}
           {config.showScore && (
             <span
@@ -105,7 +115,13 @@ function InterpretationRow({
       </div>
 
       {/* Row 2: Score bar — uses SegmentBar for consistency with score detail */}
-      <SegmentBar value={entity.pompScore} band={entity.bandResult.band} className="mb-1" />
+      <SegmentBar
+        value={entity.pompScore}
+        bandIndex={entity.bandResult.bandIndex}
+        bandCount={entity.bandResult.bandCount}
+        palette={palette}
+        className="mb-1"
+      />
 
       {/* Row 3: Anchors (optional) */}
       {hasAnchors && (
