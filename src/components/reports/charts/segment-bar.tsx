@@ -1,14 +1,18 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { getBandColour, type PaletteKey } from '@/lib/reports/band-scheme'
 
 interface SegmentBarProps {
   value: number
-  band: 'high' | 'mid' | 'low'
+  bandIndex: number
+  bandCount: number
+  palette: PaletteKey
   className?: string
 }
 
-export function SegmentBar({ value, band, className }: SegmentBarProps) {
+export function SegmentBar({ value, bandIndex, bandCount, palette, className }: SegmentBarProps) {
+  const fill = getBandColour(palette, bandIndex, bandCount)
   return (
     <div
       className={cn('h-2 rounded-full w-full', className)}
@@ -16,10 +20,7 @@ export function SegmentBar({ value, band, className }: SegmentBarProps) {
     >
       <div
         className="h-2 rounded-full"
-        style={{
-          width: `${value}%`,
-          background: `var(--report-${band}-band-fill)`,
-        }}
+        style={{ width: `${value}%`, background: fill }}
       />
     </div>
   )

@@ -1,14 +1,18 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { getBandColour, type PaletteKey } from '@/lib/reports/band-scheme'
 
 interface MiniBarProps {
   value: number
-  band: 'high' | 'mid' | 'low'
+  bandIndex: number
+  bandCount: number
+  palette: PaletteKey
   className?: string
 }
 
-export function MiniBar({ value, band, className }: MiniBarProps) {
+export function MiniBar({ value, bandIndex, bandCount, palette, className }: MiniBarProps) {
+  const fill = getBandColour(palette, bandIndex, bandCount)
   return (
     <div
       className={cn('h-[5px] rounded w-full', className)}
@@ -16,10 +20,7 @@ export function MiniBar({ value, band, className }: MiniBarProps) {
     >
       <div
         className="h-[5px] rounded"
-        style={{
-          width: `${value}%`,
-          background: `var(--report-${band}-band-fill)`,
-        }}
+        style={{ width: `${value}%`, background: fill }}
       />
     </div>
   )

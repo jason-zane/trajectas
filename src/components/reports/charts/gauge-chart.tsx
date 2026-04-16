@@ -2,9 +2,11 @@
 
 import { cn } from '@/lib/utils'
 import { BandBadge } from './band-badge'
+import { getBandColour, type PaletteKey } from '@/lib/reports/band-scheme'
 
 interface GaugeChartProps {
-  items: { name: string; value: number; band: 'high' | 'mid' | 'low'; bandLabel: string }[]
+  items: { name: string; value: number; bandIndex: number; bandCount: number; bandLabel: string }[]
+  palette: PaletteKey
   showScore?: boolean
   showBandLabel?: boolean
   variant?: 'light' | 'dark'
@@ -14,13 +16,14 @@ interface GaugeChartProps {
 // Approximate arc length for semicircle of radius 40
 const ARC_LENGTH = 125.66 // π * 40
 
-export function GaugeChart({ items, showScore = true, showBandLabel = true, variant = 'light', className }: GaugeChartProps) {
+export function GaugeChart({ items, palette, showScore = true, showBandLabel = true, variant = 'light', className }: GaugeChartProps) {
   const isDark = variant === 'dark'
   return (
     <div className={cn('flex flex-wrap gap-2 justify-center', className)}>
       {items.map((item) => {
         const fillLength = (item.value / 100) * ARC_LENGTH
         const dashArray = `${fillLength} ${ARC_LENGTH}`
+        const colour = getBandColour(palette, item.bandIndex, item.bandCount)
 
         return (
           <div key={item.name} className="flex flex-col items-center">
@@ -37,7 +40,7 @@ export function GaugeChart({ items, showScore = true, showBandLabel = true, vari
               <path
                 d="M10,55 A40,40 0 0,1 90,55"
                 fill="none"
-                stroke={`var(--report-${item.band}-band-fill)`}
+                stroke={colour}
                 strokeWidth={6}
                 strokeLinecap="round"
                 strokeDasharray={dashArray}
@@ -62,7 +65,13 @@ export function GaugeChart({ items, showScore = true, showBandLabel = true, vari
               {item.name}
             </span>
             {showBandLabel && (
-              <BandBadge band={item.band} label={item.bandLabel} className="mt-1" />
+              <BandBadge
+                label={item.bandLabel}
+                bandIndex={item.bandIndex}
+                bandCount={item.bandCount}
+                palette={palette}
+                className="mt-1"
+              />
             )}
           </div>
         )
