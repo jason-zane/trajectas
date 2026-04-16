@@ -2,8 +2,11 @@
 // src/lib/reports/sample-data.ts — Sample data generator for template preview
 // =============================================================================
 
-import type { ResolvedBlockData, BlockConfig, BlockType } from './types'
+import type { ResolvedBlockData, BlockConfig, BlockType, BandResult } from './types'
 import type { ReportTheme } from './presentation'
+import type { BandScheme } from './band-scheme'
+import { DEFAULT_3_BAND_SCHEME } from './band-scheme'
+import { resolveBand } from './band-resolution'
 import { isDeferredBlockType, parseBlocks } from './registry'
 
 // ---------------------------------------------------------------------------
@@ -27,21 +30,14 @@ export interface PreviewEntity {
 }
 
 // Fixed score distribution assigned deterministically by entity position.
-// Gives a realistic spread: some high, mostly mid, one low.
 const PREVIEW_SCORES = [82, 74, 71, 58, 45, 68, 77, 63, 55, 39]
 
-function bandForScore(score: number): { band: 'high' | 'mid' | 'low'; bandLabel: string } {
-  if (score >= 70) return { band: 'high', bandLabel: 'Highly Proficient' }
-  if (score >= 40) return { band: 'mid', bandLabel: 'Developing' }
-  return { band: 'low', bandLabel: 'Emerging' }
-}
+type ScoredEntity = PreviewEntity & { pompScore: number; bandResult: BandResult }
 
-type ScoredEntity = PreviewEntity & { pompScore: number; band: 'high' | 'mid' | 'low'; bandLabel: string }
-
-function scoreEntities(entities: PreviewEntity[]): ScoredEntity[] {
+function scoreEntities(entities: PreviewEntity[], scheme: BandScheme): ScoredEntity[] {
   return entities.map((e, i) => {
     const pompScore = PREVIEW_SCORES[i % PREVIEW_SCORES.length]
-    return { ...e, pompScore, ...bandForScore(pompScore) }
+    return { ...e, pompScore, bandResult: resolveBand(pompScore, scheme) }
   })
 }
 
@@ -49,21 +45,18 @@ function scoreEntities(entities: PreviewEntity[]): ScoredEntity[] {
 // Generic band-aware commentary (no entity-name assumptions)
 // ---------------------------------------------------------------------------
 
-/** Check if a string has actual content (not just empty HTML tags). */
 function hasContent(text: string | undefined | null): text is string {
   if (!text) return false
-  // Strip HTML tags and check for non-whitespace content
   const stripped = text.replace(/<[^>]*>/g, '').trim()
   return stripped.length > 0
 }
 
-/** Resolve the indicator text for a scored entity based on its band.
- *  Prefers the matching band, falls back to any available indicator. */
-function resolveIndicator(entity: ScoredEntity, band: 'high' | 'mid' | 'low'): string | null {
-  // Try the exact band first
-  if (band === 'high' && hasContent(entity.indicatorsHigh)) return entity.indicatorsHigh!
-  if (band === 'mid' && hasContent(entity.indicatorsMid)) return entity.indicatorsMid!
-  if (band === 'low' && hasContent(entity.indicatorsLow)) return entity.indicatorsLow!
+/** Resolve the indicator text for a scored entity based on its indicator tier.
+ *  Prefers the matching tier, falls back to any available indicator. */
+function resolveIndicator(entity: ScoredEntity, tier: 'high' | 'mid' | 'low'): string | null {
+  if (tier === 'high' && hasContent(entity.indicatorsHigh)) return entity.indicatorsHigh!
+  if (tier === 'mid' && hasContent(entity.indicatorsMid)) return entity.indicatorsMid!
+  if (tier === 'low' && hasContent(entity.indicatorsLow)) return entity.indicatorsLow!
   // Fall back to any available
   if (hasContent(entity.indicatorsHigh)) return entity.indicatorsHigh!
   if (hasContent(entity.indicatorsMid)) return entity.indicatorsMid!
@@ -71,16 +64,9 @@ function resolveIndicator(entity: ScoredEntity, band: 'high' | 'mid' | 'low'): s
   return null
 }
 
-// Sample text for previews — real reports pull from the construct/factor/dimension library.
 const SAMPLE_STRENGTH_COMMENTARIES = [
   '[Sample] Strength commentary from the library will appear here.',
 ]
-
-const SAMPLE_INDICATORS: Record<'high' | 'mid' | 'low', string[]> = {
-  high: ['[Sample] High-band behavioural indicators from the library will appear here.'],
-  mid: ['[Sample] Mid-band behavioural indicators from the library will appear here.'],
-  low: ['[Sample] Low-band behavioural indicators from the library will appear here.'],
-}
 
 const SAMPLE_DEVELOPMENT_SUGGESTIONS = [
   '[Sample] Development suggestions from the library will appear here.',
@@ -101,15 +87,15 @@ const SAMPLE_ANCHORS: Array<{ low: string; high: string }> = [
 /**
  * Generate sample ResolvedBlockData for template preview.
  * Uses real entity names from the DB with deterministic fake scores.
- * If no entities are provided yet (still loading), blocks render with minimal data.
  */
 export function generateSampleData(
   templateBlocks: Record<string, unknown>[] | BlockConfig[],
   reportTheme: ReportTheme,
   entities: PreviewEntity[] = [],
   templateName = 'Assessment Report',
+  scheme: BandScheme = DEFAULT_3_BAND_SCHEME,
 ): ResolvedBlockData[] {
-  const scored = scoreEntities(entities)
+  const scored = scoreEntities(entities, scheme)
   const blocks = parseBlocks(templateBlocks as Record<string, unknown>[])
   const resolved: ResolvedBlockData[] = []
 
@@ -136,7 +122,7 @@ export function generateSampleData(
       continue
     }
 
-    const data = generateBlockSampleData(block.type, block.config as Record<string, unknown>, scored, templateName)
+    const data = generateBlockSampleData(block.type, block.config as Record<string, unknown>, scored, templateName, scheme)
 
     resolved.push({
       blockId: block.id,
@@ -156,7 +142,6 @@ export function generateSampleData(
     })
   }
 
-  // Attach brand theme to the first visible block.
   const firstVisibleBlock = resolved.find((block) => !block.skipped)
   if (firstVisibleBlock) {
     firstVisibleBlock.resolvedBrandTheme = reportTheme
@@ -168,10 +153,6 @@ export function generateSampleData(
 // ---------------------------------------------------------------------------
 // Per-block generators
 // ---------------------------------------------------------------------------
-
-function makeBandResult(e: ScoredEntity) {
-  return { band: e.band, bandLabel: e.bandLabel, pompScore: e.pompScore, thresholdLow: 40, thresholdHigh: 70 }
-}
 
 function filterEntities(
   entities: ScoredEntity[],
@@ -197,8 +178,9 @@ function generateBlockSampleData(
   config: Record<string, unknown>,
   entities: ScoredEntity[],
   templateName: string,
+  scheme: BandScheme,
 ): Record<string, unknown> {
-  const first = entities[0]
+  const palette = scheme.palette
 
   switch (type) {
     case 'cover_page':
@@ -222,17 +204,17 @@ function generateBlockSampleData(
 
     case 'score_overview': {
       const filtered = filterEntities(entities, config)
-      // Build a parentId→name lookup from all entities (dimensions are parents)
       const parentNameMap = new Map<string, string>()
       for (const e of entities) {
         if (e.type === 'dimension') parentNameMap.set(e.id, e.name)
       }
       return {
+        palette,
         scores: filtered.slice(0, 8).map((e, i) => ({
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
-          bandResult: makeBandResult(e),
+          bandResult: e.bandResult,
           parentName: e.parentId ? (parentNameMap.get(e.parentId) ?? '') : '',
           anchorLow: e.anchorLow ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].low,
           anchorHigh: e.anchorHigh ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].high,
@@ -275,7 +257,7 @@ function generateBlockSampleData(
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
-          bandResult: makeBandResult(e),
+          bandResult: e.bandResult,
           anchorLow: e.anchorLow ?? anchors.low,
           anchorHigh: e.anchorHigh ?? anchors.high,
         }
@@ -290,6 +272,7 @@ function generateBlockSampleData(
       }
 
       return {
+        palette,
         groups,
         config: {
           displayLevel: config.displayLevel ?? 'factor',
@@ -303,18 +286,17 @@ function generateBlockSampleData(
 
     case 'score_detail': {
       const filtered = filterEntities(entities, config)
-      if (filtered.length === 0) return { _empty: true }
+      if (filtered.length === 0) return { _empty: true, palette }
       const showIndicators = config.showIndicators !== false
       const showDefinition = config.showDefinition !== false
       const showNested = config.showNestedScores === true
       const detailEntities = filtered.map((e) => {
-        // Use real library data — only scores are sample
-        const indicator = resolveIndicator(e, e.band)
+        const indicator = resolveIndicator(e, e.bandResult.indicatorTier)
         const narrative = showIndicators && indicator ? indicator : null
 
         const children = showNested
           ? entities.filter((c) => c.parentId === e.id).map((c) => {
-              const childIndicator = resolveIndicator(c, c.band)
+              const childIndicator = resolveIndicator(c, c.bandResult.indicatorTier)
               return {
                 entityId: c.id,
                 entityName: c.name,
@@ -322,7 +304,7 @@ function generateBlockSampleData(
                 definition: c.definition,
                 description: c.description,
                 pompScore: c.pompScore,
-                bandResult: makeBandResult(c),
+                bandResult: c.bandResult,
                 narrative: showIndicators && childIndicator ? childIndicator : null,
                 developmentSuggestion: c.developmentSuggestion ?? null,
               }
@@ -336,13 +318,14 @@ function generateBlockSampleData(
           definition: e.definition,
           description: e.description,
           pompScore: e.pompScore,
-          bandResult: makeBandResult(e),
+          bandResult: e.bandResult,
           narrative,
           developmentSuggestion: e.developmentSuggestion ?? null,
           nestedScores: children && children.length > 0 ? children : undefined,
         }
       })
       return {
+        palette,
         entities: detailEntities,
         config: {
           showScore: config.showScore !== false,
@@ -365,10 +348,10 @@ function generateBlockSampleData(
         entityId: e.id,
         entityName: e.name,
         pompScore: e.pompScore,
-        bandResult: makeBandResult(e),
+        bandResult: e.bandResult,
         strengthCommentary: e.strengthCommentary ?? SAMPLE_STRENGTH_COMMENTARIES[0],
       }))
-      return { highlights, config: { topN, style: 'cards' } }
+      return { palette, highlights, config: { topN, style: 'cards' } }
     }
 
     case 'development_plan': {
@@ -379,10 +362,10 @@ function generateBlockSampleData(
         entityId: e.id,
         entityName: e.name,
         pompScore: e.pompScore,
-        bandResult: makeBandResult(e),
+        bandResult: e.bandResult,
         developmentSuggestion: e.developmentSuggestion ?? SAMPLE_DEVELOPMENT_SUGGESTIONS[0],
       }))
-      return { items, config: { maxItems } }
+      return { palette, items, config: { maxItems } }
     }
 
     case 'ai_text':

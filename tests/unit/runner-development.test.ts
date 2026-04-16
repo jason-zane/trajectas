@@ -97,7 +97,7 @@ describe('resolveDevelopmentPlan', () => {
     })
 
     expect(result.items[0].bandResult).toBeDefined()
-    expect(result.items[0].bandResult.band).toBe('low')
+    expect(result.items[0].bandResult.indicatorTier).toBe('low')
   })
 
   it('does not sort by score when prioritiseByScore is false', () => {

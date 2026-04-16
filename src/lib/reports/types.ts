@@ -202,9 +202,10 @@ export interface ResolvedBlockData {
 export type Band = 'low' | 'mid' | 'high'
 
 export interface BandResult {
-  band: Band
-  bandLabel: string
+  bandKey: string              // e.g. 'developing'
+  bandLabel: string            // e.g. 'Developing'
+  bandIndex: number            // 0-based position in scheme.bands
+  bandCount: number            // total bands in scheme (for palette colour derivation)
+  indicatorTier: Band          // which library indicator tier to display (low/mid/high)
   pompScore: number
-  thresholdLow: number
-  thresholdHigh: number
 }

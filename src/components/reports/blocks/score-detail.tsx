@@ -1,5 +1,6 @@
 import type { ScoreDetailConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+import type { PaletteKey } from '@/lib/reports/band-scheme'
 import { BandBadge } from '../charts/band-badge'
 import { BarChart } from '../charts/bar-chart'
 import { SegmentBar } from '../charts/segment-bar'
@@ -33,6 +34,7 @@ interface ScoreDetailEntity {
 interface ScoreDetailData {
   entities?: ScoreDetailEntity[]
   config: ScoreDetailConfig
+  palette: PaletteKey
   // Legacy single-entity shape (backward compat)
   entityId?: string
   entityName?: string
@@ -71,16 +73,18 @@ export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<strin
 
   const resolvedMode = mode ?? 'open'
   const resolvedChart = chartType ?? 'segment'
-  const { config } = d
+  const { config, palette } = d
 
   if (resolvedChart === 'scorecard') {
     return (
       <ScorecardTable
+        palette={palette}
         items={entities.map((entity) => ({
           name: entity.entityName,
           parentName: d.parentName ?? '',
           value: entity.pompScore,
-          band: entity.bandResult.band,
+          bandIndex: entity.bandResult.bandIndex,
+          bandCount: entity.bandResult.bandCount,
           bandLabel: entity.bandResult.bandLabel,
         }))}
       />
@@ -92,7 +96,7 @@ export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<strin
     return (
       <>
         {entities.map((entity) => (
-          <CardedLayout key={entity.entityId} entity={entity} config={config} />
+          <CardedLayout key={entity.entityId} entity={entity} config={config} palette={palette} />
         ))}
       </>
     )
@@ -102,9 +106,9 @@ export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<strin
     <div className="space-y-6">
       {entities.map((entity) => {
         if (resolvedMode === 'featured') {
-          return <FeaturedLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} />
+          return <FeaturedLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} palette={palette} />
         }
-        return <OpenLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} />
+        return <OpenLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} palette={palette} />
       })}
     </div>
   )
@@ -115,11 +119,13 @@ function NestedSection({
   children,
   config,
   resolvedChart,
+  palette,
   variant = 'default',
 }: {
   children: ScoreDetailEntity[]
   config: ScoreDetailConfig
   resolvedChart: string
+  palette: PaletteKey
   variant?: 'default' | 'featured'
 }) {
   const label = config.nestedLabel || 'Factors'
@@ -142,6 +148,7 @@ function NestedSection({
           entity={child}
           config={config}
           resolvedChart={resolvedChart}
+          palette={palette}
           isChild
           variant={variant}
         />
@@ -155,12 +162,14 @@ function OpenLayout({
   entity,
   config,
   resolvedChart,
+  palette,
   isChild,
   variant = 'default',
 }: {
   entity: ScoreDetailEntity
   config: ScoreDetailConfig
   resolvedChart: string
+  palette: PaletteKey
   isChild?: boolean
   variant?: 'default' | 'featured'
 }) {
@@ -181,7 +190,7 @@ function OpenLayout({
         </h3>
         <div className="flex items-center gap-2 shrink-0">
           {config.showBandLabel && (
-            <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
+            <BandBadge label={entity.bandResult.bandLabel} bandIndex={entity.bandResult.bandIndex} bandCount={entity.bandResult.bandCount} palette={palette} />
           )}
           {config.showScore && (
             <span
@@ -196,10 +205,11 @@ function OpenLayout({
 
       {/* Score bar */}
       {resolvedChart === 'segment' ? (
-        <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
+        <SegmentBar value={entity.pompScore} bandIndex={entity.bandResult.bandIndex} bandCount={entity.bandResult.bandCount} palette={palette} />
       ) : (
         <BarChart
-          items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
+          palette={palette}
+          items={[{ name: entity.entityName, value: entity.pompScore, bandIndex: entity.bandResult.bandIndex, bandCount: entity.bandResult.bandCount }]}
           variant={isFeatured ? 'dark' : 'light'}
         />
       )}
@@ -260,7 +270,7 @@ function OpenLayout({
 
       {/* Nested child entities */}
       {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
-        <NestedSection children={entity.nestedScores} config={config} resolvedChart={resolvedChart} variant={variant} />
+        <NestedSection children={entity.nestedScores} config={config} resolvedChart={resolvedChart} palette={palette} variant={variant} />
       )}
 
       {/* Divider (parent level only, non-featured) */}
@@ -275,9 +285,11 @@ function OpenLayout({
 function CardedLayout({
   entity,
   config,
+  palette,
 }: {
   entity: ScoreDetailEntity
   config: ScoreDetailConfig
+  palette: PaletteKey
 }) {
   return (
     <>
@@ -298,7 +310,7 @@ function CardedLayout({
         {(config.showBandLabel || config.showScore) && (
           <div className="flex items-center gap-2 mb-3">
             {config.showBandLabel && (
-              <BandBadge band={entity.bandResult.band} label={entity.bandResult.bandLabel} />
+              <BandBadge label={entity.bandResult.bandLabel} bandIndex={entity.bandResult.bandIndex} bandCount={entity.bandResult.bandCount} palette={palette} />
             )}
             {config.showScore && (
               <span
@@ -311,7 +323,7 @@ function CardedLayout({
           </div>
         )}
 
-        <MiniBar value={entity.pompScore} band={entity.bandResult.band} className="mb-3" />
+        <MiniBar value={entity.pompScore} bandIndex={entity.bandResult.bandIndex} bandCount={entity.bandResult.bandCount} palette={palette} className="mb-3" />
 
         {entity.narrative && (
           <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
@@ -342,7 +354,7 @@ function CardedLayout({
               {(config.showBandLabel || config.showScore) && (
                 <div className="flex items-center gap-2 mb-3">
                   {config.showBandLabel && (
-                    <BandBadge band={child.bandResult.band} label={child.bandResult.bandLabel} />
+                    <BandBadge label={child.bandResult.bandLabel} bandIndex={child.bandResult.bandIndex} bandCount={child.bandResult.bandCount} palette={palette} />
                   )}
                   {config.showScore && (
                     <span
@@ -355,7 +367,7 @@ function CardedLayout({
                 </div>
               )}
 
-              <MiniBar value={child.pompScore} band={child.bandResult.band} className="mb-3" />
+              <MiniBar value={child.pompScore} bandIndex={child.bandResult.bandIndex} bandCount={child.bandResult.bandCount} palette={palette} className="mb-3" />
 
               {child.narrative && (
                 <p className="text-[13px] leading-relaxed" style={{ color: 'var(--report-body-colour)' }}>
@@ -375,10 +387,12 @@ function FeaturedLayout({
   entity,
   config,
   resolvedChart,
+  palette,
 }: {
   entity: ScoreDetailEntity
   config: ScoreDetailConfig
   resolvedChart: string
+  palette: PaletteKey
 }) {
   return (
     <div className="space-y-4 break-inside-avoid">
@@ -400,10 +414,11 @@ function FeaturedLayout({
       )}
 
       {resolvedChart === 'segment' ? (
-        <SegmentBar value={entity.pompScore} band={entity.bandResult.band} />
+        <SegmentBar value={entity.pompScore} bandIndex={entity.bandResult.bandIndex} bandCount={entity.bandResult.bandCount} palette={palette} />
       ) : (
         <BarChart
-          items={[{ name: entity.entityName, value: entity.pompScore, band: entity.bandResult.band }]}
+          palette={palette}
+          items={[{ name: entity.entityName, value: entity.pompScore, bandIndex: entity.bandResult.bandIndex, bandCount: entity.bandResult.bandCount }]}
           variant="dark"
         />
       )}
@@ -428,7 +443,7 @@ function FeaturedLayout({
 
       {/* Nested children in featured — uses OpenLayout with featured variant */}
       {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
-        <NestedSection children={entity.nestedScores} config={config} resolvedChart={resolvedChart} variant="featured" />
+        <NestedSection children={entity.nestedScores} config={config} resolvedChart={resolvedChart} palette={palette} variant="featured" />
       )}
     </div>
   )

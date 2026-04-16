@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { TemplateBandSchemeSection } from './template-band-scheme-section'
 import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
@@ -551,6 +552,7 @@ export function BlockBuilderClient({
               isLinking={isLinking}
               onLink={handleLinkCampaign}
               onUnlink={handleUnlinkCampaign}
+              templateId={templateId}
             />
 
             {blocks.length === 0 ? (
@@ -786,6 +788,7 @@ interface InlineTemplateSettingsPanelProps {
   isLinking: boolean
   onLink: (campaignId: string) => void
   onUnlink: (campaignId: string) => void
+  templateId: string
 }
 
 function InlineTemplateSettingsPanel({
@@ -803,6 +806,7 @@ function InlineTemplateSettingsPanel({
   isLinking,
   onLink,
   onUnlink,
+  templateId,
 }: InlineTemplateSettingsPanelProps) {
   return (
     <div className="rounded-2xl border border-border bg-card">
@@ -947,6 +951,9 @@ function InlineTemplateSettingsPanel({
               Logo shown in the header of each printed page.
             </p>
           </div>
+
+          <Separator />
+          <TemplateBandSchemeSection templateId={templateId} />
 
           {campaigns && (
             <>

@@ -27,6 +27,8 @@ import {
   logActionError,
   throwActionError,
 } from '@/lib/security/action-errors'
+import type { BandScheme } from '@/lib/reports/band-scheme'
+import { isSchemeValid } from '@/lib/reports/band-scheme-validation'
 import { sendHtmlEmail } from '@/lib/email/provider'
 import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
 import {
@@ -300,6 +302,34 @@ export async function updateReportTemplateSettings(
   revalidatePath(`/report-templates/${id}/builder`)
   revalidatePath('/partner/report-templates')
   revalidatePath(`/partner/report-templates/${id}/builder`)
+}
+
+export async function getReportTemplateBandScheme(id: string): Promise<BandScheme | null> {
+  await requireReportTemplateAccess(id, { forWrite: false })
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('report_templates')
+    .select('band_scheme')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return null
+  return ((data as { band_scheme: BandScheme | null }).band_scheme) ?? null
+}
+
+export async function updateReportTemplateBandScheme(
+  id: string,
+  scheme: BandScheme | null,
+): Promise<{ success?: true; error?: string }> {
+  await requireReportTemplateAccess(id, { forWrite: true })
+  if (scheme && !isSchemeValid(scheme)) return { error: 'Invalid band scheme' }
+  const db = createAdminClient()
+  const { error } = await db.from('report_templates').update({ band_scheme: scheme }).eq('id', id)
+  if (error) return { error: error.message }
+  revalidatePath('/report-templates')
+  revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath('/partner/report-templates')
+  revalidatePath(`/partner/report-templates/${id}/builder`)
+  return { success: true }
 }
 
 export async function deleteReportTemplate(id: string): Promise<void> {

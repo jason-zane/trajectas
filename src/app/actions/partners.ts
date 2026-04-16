@@ -20,6 +20,8 @@ import {
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { partnerSchema } from '@/lib/validations/partners'
 import type { Partner } from '@/types/database'
+import type { BandScheme } from '@/lib/reports/band-scheme'
+import { isSchemeValid } from '@/lib/reports/band-scheme-validation'
 
 export type PartnerWithCounts = Partner & {
   clientCount: number
@@ -212,6 +214,34 @@ export async function updatePartner(id: string, formData: FormData) {
 
   revalidateDirectoryPaths()
   return { success: true as const, id, slug: parsed.data.slug }
+}
+
+export async function getPartnerBandScheme(partnerId: string): Promise<BandScheme | null> {
+  await requirePartnerAccess(partnerId)
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('partners')
+    .select('band_scheme')
+    .eq('id', partnerId)
+    .maybeSingle()
+  if (error || !data) return null
+  return ((data as { band_scheme: BandScheme | null }).band_scheme) ?? null
+}
+
+export async function updatePartnerBandScheme(
+  partnerId: string,
+  scheme: BandScheme | null,
+): Promise<{ success?: true; error?: string }> {
+  const access = await requirePartnerAccess(partnerId)
+  if (!canManagePartnerDirectory(access.scope)) {
+    return { error: 'You do not have permission to update this partner' }
+  }
+  if (scheme && !isSchemeValid(scheme)) return { error: 'Invalid band scheme' }
+  const db = createAdminClient()
+  const { error } = await db.from('partners').update({ band_scheme: scheme }).eq('id', partnerId)
+  if (error) return { error: error.message }
+  revalidatePath(`/partners/${partnerId}/settings`)
+  return { success: true }
 }
 
 export async function deletePartner(id: string) {

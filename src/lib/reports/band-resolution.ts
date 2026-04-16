@@ -1,60 +1,32 @@
 // =============================================================================
 // src/lib/reports/band-resolution.ts
-// Resolves a POMP score to a band result using the hierarchy:
-//   1. (Future) norm-derived thresholds
-//   2. Entity override (band_label_* / pomp_threshold_* on dimension/factor/construct)
-//   3. Global default (stored in partner config or hardcoded defaults)
+// Scheme-based band resolution. Caller passes a resolved BandScheme.
+// Entity-level overrides have been removed — all band configuration now lives
+// at platform/partner/template level in the BandScheme cascade.
 // =============================================================================
 
-import type { Band, BandResult } from './types'
+import type { BandResult } from './types'
+import type { BandScheme } from './band-scheme'
+import { DEFAULT_3_BAND_SCHEME } from './band-scheme'
 
-export interface BandEntity {
-  bandLabelLow?: string
-  bandLabelMid?: string
-  bandLabelHigh?: string
-  pompThresholdLow?: number
-  pompThresholdHigh?: number
-}
+export function resolveBand(pompScore: number, scheme: BandScheme = DEFAULT_3_BAND_SCHEME): BandResult {
+  const rounded = Math.max(0, Math.min(100, Math.round(pompScore)))
+  const bandIndex = scheme.bands.findIndex((b) => rounded >= b.min && rounded <= b.max)
 
-export interface GlobalBandDefaults {
-  thresholdLow: number   // POMP upper boundary for low band (default 40)
-  thresholdHigh: number  // POMP lower boundary for high band (default 70)
-  labelLow: string       // default "Developing"
-  labelMid: string       // default "Effective"
-  labelHigh: string      // default "Highly Effective"
-}
+  // Fallback: if score somehow doesn't fit any band (corrupted scheme),
+  // use first or last band based on score position
+  const safeIndex = bandIndex >= 0
+    ? bandIndex
+    : (rounded <= scheme.bands[0].min ? 0 : scheme.bands.length - 1)
 
-export const DEFAULT_BAND_GLOBALS: GlobalBandDefaults = {
-  thresholdLow: 40,
-  thresholdHigh: 70,
-  labelLow: 'Developing',
-  labelMid: 'Effective',
-  labelHigh: 'Highly Effective',
-}
+  const band = scheme.bands[safeIndex]
 
-export function resolveBand(
-  pompScore: number,
-  entity: BandEntity,
-  globals: GlobalBandDefaults = DEFAULT_BAND_GLOBALS,
-): BandResult {
-  const thresholdLow = entity.pompThresholdLow ?? globals.thresholdLow
-  const thresholdHigh = entity.pompThresholdHigh ?? globals.thresholdHigh
-
-  let band: Band
-  if (pompScore <= thresholdLow) {
-    band = 'low'
-  } else if (pompScore >= thresholdHigh) {
-    band = 'high'
-  } else {
-    band = 'mid'
+  return {
+    bandKey: band.key,
+    bandLabel: band.label,
+    bandIndex: safeIndex,
+    bandCount: scheme.bands.length,
+    indicatorTier: band.indicatorTier,
+    pompScore: rounded,
   }
-
-  const bandLabel =
-    band === 'low'
-      ? (entity.bandLabelLow ?? globals.labelLow)
-      : band === 'high'
-        ? (entity.bandLabelHigh ?? globals.labelHigh)
-        : (entity.bandLabelMid ?? globals.labelMid)
-
-  return { band, bandLabel, pompScore: Math.round(pompScore), thresholdLow, thresholdHigh }
 }

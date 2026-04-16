@@ -3,19 +3,22 @@
 import { cn } from '@/lib/utils'
 import { MiniBar } from './mini-bar'
 import { BandBadge } from './band-badge'
+import type { PaletteKey } from '@/lib/reports/band-scheme'
 
 interface ScorecardTableProps {
   items: {
     name: string
     parentName: string
     value: number
-    band: 'high' | 'mid' | 'low'
+    bandIndex: number
+    bandCount: number
     bandLabel: string
   }[]
+  palette: PaletteKey
   className?: string
 }
 
-export function ScorecardTable({ items, className }: ScorecardTableProps) {
+export function ScorecardTable({ items, palette, className }: ScorecardTableProps) {
   const showParent = items.some((i) => i.parentName)
 
   return (
@@ -65,11 +68,22 @@ export function ScorecardTable({ items, className }: ScorecardTableProps) {
                 >
                   {item.value}
                 </span>
-                <MiniBar value={item.value} band={item.band} className="flex-1" />
+                <MiniBar
+                  value={item.value}
+                  bandIndex={item.bandIndex}
+                  bandCount={item.bandCount}
+                  palette={palette}
+                  className="flex-1"
+                />
               </div>
             </td>
             <td className="py-3 text-center">
-              <BandBadge band={item.band} label={item.bandLabel} />
+              <BandBadge
+                label={item.bandLabel}
+                bandIndex={item.bandIndex}
+                bandCount={item.bandCount}
+                palette={palette}
+              />
             </td>
           </tr>
         ))}

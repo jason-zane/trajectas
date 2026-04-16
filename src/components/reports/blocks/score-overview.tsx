@@ -1,5 +1,6 @@
 import type { ScoreOverviewConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
+import type { PaletteKey } from '@/lib/reports/band-scheme'
 import { BarChart } from '../charts/bar-chart'
 import { RadarChart } from '../charts/radar-chart'
 import { GaugeChart } from '../charts/gauge-chart'
@@ -18,6 +19,7 @@ interface ScoreEntry {
 interface ScoreOverviewData {
   scores: ScoreEntry[]
   config: ScoreOverviewConfig
+  palette: PaletteKey
 }
 
 export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
@@ -30,8 +32,8 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
   const showBandLabel = d.config?.showBandLabel !== false
   const showAnchors = d.config?.showAnchors === true
   const grouped = d.config?.groupByDimension === true
+  const palette = d.palette
 
-  // Group scores by parentName when groupByDimension is enabled
   const groups = grouped
     ? groupByParent(d.scores)
     : [{ parentName: null, scores: d.scores }]
@@ -58,9 +60,11 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 items={group.scores.map((s) => ({
                   name: s.entityName,
                   value: s.pompScore,
-                  band: s.bandResult.band,
+                  bandIndex: s.bandResult.bandIndex,
+                  bandCount: s.bandResult.bandCount,
                   bandLabel: s.bandResult.bandLabel,
                 }))}
+                palette={palette}
                 showScore={showScore}
                 showBandLabel={showBandLabel}
                 variant={isFeatured ? 'dark' : 'light'}
@@ -82,9 +86,11 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 items={group.scores.map((s) => ({
                   name: s.entityName,
                   value: s.pompScore,
-                  band: s.bandResult.band,
+                  bandIndex: s.bandResult.bandIndex,
+                  bandCount: s.bandResult.bandCount,
                   bandLabel: s.bandResult.bandLabel,
                 }))}
+                palette={palette}
                 showBandLabels={showBandLabel}
                 showScore={showScore}
                 variant={isFeatured ? 'dark' : 'light'}
@@ -101,9 +107,11 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
             name: s.entityName,
             parentName: s.parentName ?? '',
             value: s.pompScore,
-            band: s.bandResult.band,
+            bandIndex: s.bandResult.bandIndex,
+            bandCount: s.bandResult.bandCount,
             bandLabel: s.bandResult.bandLabel,
           }))}
+          palette={palette}
         />
       )}
     </div>
