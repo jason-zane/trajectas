@@ -79,6 +79,11 @@ export interface ScoreInterpretationConfig {
   showScore?: boolean
   showBandLabel?: boolean
   showAnchors?: boolean
+  // Group-level display toggles — show the dimension/factor's own score,
+  // band, and anchors above each group. All default false.
+  showGroupScore?: boolean
+  showGroupBand?: boolean
+  showGroupAnchors?: boolean
 }
 
 export interface ScoreDetailConfig {
