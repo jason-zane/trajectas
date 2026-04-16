@@ -51,6 +51,7 @@ import { BLOCK_REGISTRY, isDeferredBlockType } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig, ResolvedBlockData } from '@/lib/reports/types'
 import { ReportRenderer } from '@/components/reports/report-renderer'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
+import { DEFAULT_3_BAND_SCHEME, type BandScheme } from '@/lib/reports/band-scheme'
 import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
@@ -251,8 +252,9 @@ export function BlockBuilderClient({
   const [isLinking, startLinking] = useTransition()
   const [promptOptions] = useState<PromptOption[]>(initialPromptOptions)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewScheme, setPreviewScheme] = useState<BandScheme>(DEFAULT_3_BAND_SCHEME)
   const [previewBlocks, setPreviewBlocks] = useState(() =>
-    buildTemplatePreviewBlocks(initialBlocks, [], initialName),
+    buildTemplatePreviewBlocks(initialBlocks, [], initialName, DEFAULT_3_BAND_SCHEME),
   )
 
   // Template settings state
@@ -283,13 +285,13 @@ export function BlockBuilderClient({
     }))
     const ordered = blocks.map((b, i) => ({ ...b, order: i }))
     const timeoutId = window.setTimeout(() => {
-      setPreviewBlocks(buildTemplatePreviewBlocks(ordered, previewEntities, name))
+      setPreviewBlocks(buildTemplatePreviewBlocks(ordered, previewEntities, name, previewScheme))
     }, 500)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [blocks, entityOptions, name])
+  }, [blocks, entityOptions, name, previewScheme])
 
   // ---------------------------------------------------------------------------
   // Save blocks + name
@@ -553,6 +555,7 @@ export function BlockBuilderClient({
               onLink={handleLinkCampaign}
               onUnlink={handleUnlinkCampaign}
               templateId={templateId}
+              onSchemeChange={setPreviewScheme}
             />
 
             {blocks.length === 0 ? (
@@ -789,6 +792,7 @@ interface InlineTemplateSettingsPanelProps {
   onLink: (campaignId: string) => void
   onUnlink: (campaignId: string) => void
   templateId: string
+  onSchemeChange: (scheme: BandScheme) => void
 }
 
 function InlineTemplateSettingsPanel({
@@ -807,6 +811,7 @@ function InlineTemplateSettingsPanel({
   onLink,
   onUnlink,
   templateId,
+  onSchemeChange,
 }: InlineTemplateSettingsPanelProps) {
   return (
     <div className="rounded-2xl border border-border bg-card">
@@ -953,7 +958,7 @@ function InlineTemplateSettingsPanel({
           </div>
 
           <Separator />
-          <TemplateBandSchemeSection templateId={templateId} />
+          <TemplateBandSchemeSection templateId={templateId} onSchemeChange={onSchemeChange} />
 
           {campaigns && (
             <>

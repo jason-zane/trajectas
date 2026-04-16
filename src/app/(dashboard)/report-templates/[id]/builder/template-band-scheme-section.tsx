@@ -15,9 +15,10 @@ import { DEFAULT_3_BAND_SCHEME, type BandScheme } from '@/lib/reports/band-schem
 
 interface Props {
   templateId: string
+  onSchemeChange?: (scheme: BandScheme) => void
 }
 
-export function TemplateBandSchemeSection({ templateId }: Props) {
+export function TemplateBandSchemeSection({ templateId, onSchemeChange }: Props) {
   const [templateScheme, setTemplateScheme] = useState<BandScheme | null>(null)
   const [inheritedScheme, setInheritedScheme] = useState<BandScheme | null>(null)
   const [mode, setMode] = useState<'inherit' | 'override'>('inherit')
@@ -37,6 +38,17 @@ export function TemplateBandSchemeSection({ templateId }: Props) {
       setLoaded(true)
     })
   }, [templateId])
+
+  // Emit the effective scheme so the live preview can re-render as the user edits.
+  useEffect(() => {
+    if (!loaded || !onSchemeChange || !inheritedScheme) return
+    if (mode === 'inherit') {
+      onSchemeChange(inheritedScheme)
+    } else {
+      const effective = (isValid && draft) ? draft : (templateScheme ?? inheritedScheme)
+      onSchemeChange(effective)
+    }
+  }, [loaded, mode, draft, isValid, templateScheme, inheritedScheme, onSchemeChange])
 
   async function handleSave() {
     setSaving(true)
