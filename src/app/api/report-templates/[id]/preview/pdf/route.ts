@@ -43,16 +43,17 @@ export async function GET(
 
   try {
     const pdf = await generatePreviewPdf(templateId, assessmentId)
-    return new Response(
-      new Uint8Array(pdf.buffer, pdf.byteOffset, pdf.byteLength),
-      {
-        headers: {
-          'Content-Type': 'application/pdf',
-          'Content-Disposition': `attachment; filename="template-${templateId}-preview.pdf"`,
-          'Cache-Control': 'no-store',
-        },
+    const body = pdf.buffer.slice(
+      pdf.byteOffset,
+      pdf.byteOffset + pdf.byteLength,
+    ) as ArrayBuffer
+    return new Response(body, {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="template-${templateId}-preview.pdf"`,
+        'Cache-Control': 'no-store',
       },
-    )
+    })
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Preview PDF generation failed'
