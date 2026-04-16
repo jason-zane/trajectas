@@ -52,13 +52,15 @@ Presence of partner/client mirrors confirmed at implementation time — missing 
 
 ### Assessment runner cleanup (no force-light change)
 
-`ForceLightTheme` stays. Remove dead dark-token generation:
+`ForceLightTheme` stays. Remove dead dark-token generation in all files that conditionally emit `darkCss`:
 
-- `src/app/assess/layout.tsx` — remove `darkCss` from `getCachedEffectiveBrand()` path
-- `src/app/assess/[token]/report/page.tsx` — remove `generateDarkCSSTokens` call, remove `safeCSS = lightCss + darkCss` composition (use lightCss only)
-- `src/app/assess/[token]/report/export/page.tsx` — same as above
+- `src/app/assess/[token]/layout.tsx` — remove `generateDarkCSSTokens` import + call; `brandCss` becomes `lightCss` only
+- `src/app/assess/[token]/report/page.tsx` — same
+- `src/app/assess/[token]/report/export/page.tsx` — same
 - `src/app/assess/[token]/demographics/page.tsx` — same
 - `src/app/assess/join/[linkToken]/page.tsx` — same
+
+(Note: the outer `src/app/assess/layout.tsx` already emits light tokens only — no cleanup needed there; we only update the `ForceLightTheme` import path.)
 
 ### Dark-capable surfaces (stay as-is; audited)
 
@@ -189,11 +191,12 @@ Route list:
 
 | File | Change |
 |---|---|
-| `src/app/assess/layout.tsx` | Update import to new path; remove `generateDarkCSSTokens` call (line 36 region) |
-| `src/app/assess/[token]/report/page.tsx` | Remove `generateDarkCSSTokens` import + call; emit `lightCss` only |
-| `src/app/assess/[token]/report/export/page.tsx` | Same as above |
-| `src/app/assess/[token]/demographics/page.tsx` | Same as above |
-| `src/app/assess/join/[linkToken]/page.tsx` | Same as above |
+| `src/app/assess/layout.tsx` | Update `ForceLightTheme` import to new path (no dark-token changes — already light-only) |
+| `src/app/assess/[token]/layout.tsx` | Remove `generateDarkCSSTokens` import + call; emit `lightCss` only |
+| `src/app/assess/[token]/report/page.tsx` | Same |
+| `src/app/assess/[token]/report/export/page.tsx` | Same |
+| `src/app/assess/[token]/demographics/page.tsx` | Same |
+| `src/app/assess/join/[linkToken]/page.tsx` | Same |
 | `/print/*` existing layouts | Add `<ForceLightTheme />` defensively |
 
 ### Deleted files
