@@ -1,6 +1,7 @@
 import type { ScoreInterpretationConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode } from '@/lib/reports/presentation'
 import { BandBadge } from '../charts/band-badge'
+import { SegmentBar } from '../charts/segment-bar'
 
 interface InterpretationEntity {
   entityId: string
@@ -65,12 +66,6 @@ export function ScoreInterpretationBlock({
   )
 }
 
-const BAND_COLOURS: Record<string, { light: string; dark: string }> = {
-  high: { light: '#2e7d32', dark: '#6ee7a0' },
-  mid: { light: '#e67a00', dark: '#f0c060' },
-  low: { light: '#c62828', dark: '#f08080' },
-}
-
 function InterpretationRow({
   entity,
   config,
@@ -82,10 +77,7 @@ function InterpretationRow({
 }) {
   const headingColour = isFeatured ? 'currentColor' : 'var(--report-heading-colour)'
   const mutedColour = isFeatured ? 'rgba(255,255,255,0.5)' : 'var(--report-muted-colour)'
-  const barBg = isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)'
   const hasAnchors = config.showAnchors && (entity.anchorLow || entity.anchorHigh)
-  const colours = BAND_COLOURS[entity.bandResult.band] ?? BAND_COLOURS.mid
-  const barColour = isFeatured ? colours.dark : colours.light
 
   return (
     <div className="break-inside-avoid">
@@ -112,28 +104,8 @@ function InterpretationRow({
         </div>
       </div>
 
-      {/* Row 2: Full-width bar with score marker */}
-      <div
-        className="relative h-[6px] rounded-full mb-1"
-        style={{ background: barBg }}
-      >
-        <div
-          className="absolute left-0 top-0 h-full rounded-full"
-          style={{
-            width: `${Math.round(entity.pompScore)}%`,
-            background: barColour,
-            opacity: isFeatured ? 0.8 : 0.7,
-          }}
-        />
-        <div
-          className="absolute top-1/2 w-[10px] h-[10px] rounded-full shadow-sm"
-          style={{
-            left: `${Math.round(entity.pompScore)}%`,
-            transform: 'translate(-50%, -50%)',
-            background: barColour,
-          }}
-        />
-      </div>
+      {/* Row 2: Score bar — uses SegmentBar for consistency with score detail */}
+      <SegmentBar value={entity.pompScore} band={entity.bandResult.band} className="mb-1" />
 
       {/* Row 3: Anchors (optional) */}
       {hasAnchors && (
