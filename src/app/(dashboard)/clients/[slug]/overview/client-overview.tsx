@@ -2,10 +2,10 @@ import Link from "next/link";
 import {
   ArrowRight,
   ClipboardList,
-  ExternalLink,
   Megaphone,
   UserPlus,
 } from "lucide-react";
+import { EnterPortalButton } from "@/components/enter-portal-button";
 import {
   Card,
   CardContent,
@@ -50,7 +50,6 @@ export function ClientOverview({ client, partnerName, partnerSlug, stats, recent
   const quickActions = [
     { title: "View Campaigns", href: `/clients/${client.slug}/campaigns`, icon: Megaphone, description: "Manage campaign activity" },
     { title: "Manage Assessments", href: `/clients/${client.slug}/assessments`, icon: ClipboardList, description: "Assessment assignments" },
-    { title: "Enter Portal", href: `/client/dashboard`, icon: ExternalLink, description: "View as client" },
     { title: "Invite User", href: `/clients/${client.slug}/users`, icon: UserPlus, description: "Add a team member" },
   ];
 
@@ -127,21 +126,29 @@ export function ClientOverview({ client, partnerName, partnerSlug, stats, recent
             <CardHeader>
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1">
-              {quickActions.map((action) => (
-                <Link
-                  key={action.href}
-                  href={action.href}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted group"
-                >
-                  <action.icon className="size-4 text-muted-foreground" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium">{action.title}</p>
-                    <p className="text-caption text-muted-foreground truncate">{action.description}</p>
-                  </div>
-                  <ArrowRight className="size-3.5 text-muted-foreground opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                </Link>
-              ))}
+            <CardContent className="space-y-3">
+              <EnterPortalButton
+                tenantType="client"
+                tenantId={client.id}
+                tenantName={client.name}
+                variant="default"
+              />
+              <div className="space-y-1">
+                {quickActions.map((action) => (
+                  <Link
+                    key={action.href}
+                    href={action.href}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted group"
+                  >
+                    <action.icon className="size-4 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{action.title}</p>
+                      <p className="text-caption text-muted-foreground truncate">{action.description}</p>
+                    </div>
+                    <ArrowRight className="size-3.5 text-muted-foreground opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                  </Link>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </ScrollReveal>
