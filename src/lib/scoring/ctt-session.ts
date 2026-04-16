@@ -45,7 +45,7 @@ export async function scoreSessionCTT(
 ): Promise<{ success: true; scoreCount: number } | { error: string }> {
   const db = createAdminClient()
 
-  // 1. Get session metadata
+  // 1. Get session metadata + assessment scoring level
   const { data: session, error: sessionErr } = await db
     .from('participant_sessions')
     .select('assessment_id')
@@ -55,6 +55,14 @@ export async function scoreSessionCTT(
   if (sessionErr || !session) {
     return { error: sessionErr?.message ?? 'Session not found' }
   }
+
+  const { data: assessmentRow } = await db
+    .from('assessments')
+    .select('scoring_level')
+    .eq('id', session.assessment_id)
+    .single()
+
+  const scoringLevel = assessmentRow?.scoring_level ?? 'factor'
 
   // 2. Load all responses for this session
   const { data: responseRows, error: respErr } = await db
@@ -110,31 +118,7 @@ export async function scoreSessionCTT(
     })
   }
 
-  // 4. Load factor-construct links for the assessment's factors
-  const { data: assessmentFactors } = await db
-    .from('assessment_factors')
-    .select('factor_id')
-    .eq('assessment_id', session.assessment_id)
-
-  const factorIds = (assessmentFactors ?? []).map((af) => af.factor_id)
-  if (factorIds.length === 0) {
-    return { error: 'No assessment factors are configured for this assessment' }
-  }
-
-  const { data: fcRows, error: fcErr } = await db
-    .from('factor_constructs')
-    .select('factor_id, construct_id, weight')
-    .in('factor_id', factorIds)
-
-  if (fcErr) return { error: fcErr.message }
-
-  const factorConstructLinks: FactorConstructLink[] = (fcRows ?? []).map((r) => ({
-    factorId: r.factor_id,
-    constructId: r.construct_id,
-    weight: Number(r.weight),
-  }))
-
-  // 5. Build construct → items mapping
+  // 4. Build construct → items mapping
   const constructItems = new Map<string, { pompValue: number; weight: number }[]>()
 
   for (const resp of responses) {
@@ -154,7 +138,7 @@ export async function scoreSessionCTT(
     constructItems.set(meta.constructId, existing)
   }
 
-  // 6. Compute construct-level scores (weighted mean POMP)
+  // 5. Compute construct-level scores (weighted mean POMP)
   const constructScores = new Map<string, number>()
   for (const [constructId, items] of constructItems) {
     let weightedSum = 0
@@ -166,8 +150,79 @@ export async function scoreSessionCTT(
     constructScores.set(constructId, totalWeight > 0 ? weightedSum / totalWeight : 0)
   }
 
-  // 7. Compute factor scores (weighted rollup from construct scores)
-  // Group links by factor
+  // 6. Branch based on scoring level
+  if (scoringLevel === 'construct') {
+    // -----------------------------------------------------------------------
+    // Construct-level path: upsert construct scores directly
+    // -----------------------------------------------------------------------
+    const { data: assessmentConstructs } = await db
+      .from('assessment_constructs')
+      .select('construct_id')
+      .eq('assessment_id', session.assessment_id)
+
+    const assessmentConstructIds = new Set(
+      (assessmentConstructs ?? []).map((ac: { construct_id: string }) => ac.construct_id),
+    )
+
+    // Filter to constructs that are in this assessment and have scores
+    const scorableConstructIds = [...constructScores.keys()].filter((id) =>
+      assessmentConstructIds.has(id),
+    )
+
+    if (scorableConstructIds.length === 0) {
+      return { error: 'No construct scores could be calculated for this assessment' }
+    }
+
+    const scoreRows = scorableConstructIds.map((constructId) => ({
+      session_id: sessionId,
+      construct_id: constructId,
+      factor_id: null,
+      raw_score: constructScores.get(constructId)!,
+      scaled_score: constructScores.get(constructId)!,
+      scoring_method: 'ctt',
+      scoring_level: 'construct' as const,
+    }))
+
+    const { error: upsertErr } = await db
+      .from('participant_scores')
+      .upsert(scoreRows, { onConflict: 'session_id,construct_id' })
+
+    if (upsertErr) return { error: upsertErr.message }
+
+    return { success: true, scoreCount: scoreRows.length }
+  }
+
+  // -------------------------------------------------------------------------
+  // Factor-level path (default): roll up construct scores → factor scores
+  // -------------------------------------------------------------------------
+
+  // Load factor-construct links for the assessment's factors
+  const { data: assessmentFactors } = await db
+    .from('assessment_factors')
+    .select('factor_id')
+    .eq('assessment_id', session.assessment_id)
+
+  const factorIds = (assessmentFactors ?? []).map((af: { factor_id: string }) => af.factor_id)
+  if (factorIds.length === 0) {
+    return { error: 'No assessment factors are configured for this assessment' }
+  }
+
+  const { data: fcRows, error: fcErr } = await db
+    .from('factor_constructs')
+    .select('factor_id, construct_id, weight')
+    .in('factor_id', factorIds)
+
+  if (fcErr) return { error: fcErr.message }
+
+  const factorConstructLinks: FactorConstructLink[] = (fcRows ?? []).map(
+    (r: { factor_id: string; construct_id: string; weight: number }) => ({
+      factorId: r.factor_id,
+      constructId: r.construct_id,
+      weight: Number(r.weight),
+    }),
+  )
+
+  // Compute factor scores (weighted rollup from construct scores)
   const linksByFactor = new Map<string, FactorConstructLink[]>()
   for (const link of factorConstructLinks) {
     const existing = linksByFactor.get(link.factorId) ?? []
@@ -212,13 +267,15 @@ export async function scoreSessionCTT(
     return { error: 'No factor scores could be calculated for this assessment' }
   }
 
-  // 8. Upsert into participant_scores
+  // Upsert into participant_scores
   const scoreRows = factorScores.map((fs) => ({
     session_id: sessionId,
     factor_id: fs.factorId,
+    construct_id: null,
     raw_score: fs.rawScore,
     scaled_score: fs.scaledScore,
     scoring_method: 'ctt',
+    scoring_level: 'factor' as const,
   }))
 
   const { error: upsertErr } = await db
