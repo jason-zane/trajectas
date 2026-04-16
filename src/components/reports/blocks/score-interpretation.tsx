@@ -40,32 +40,47 @@ export function ScoreInterpretationBlock({
 
   return (
     <div className="space-y-6">
-      {d.groups.map((group, gi) => (
-        <div
-          key={gi}
-          className="break-inside-avoid print:pt-[8mm] print:pb-[2mm]"
-        >
-          {group.groupName && (
-            <GroupHeader
-              group={group}
-              config={config}
-              palette={palette}
-              isFeatured={isFeatured}
-            />
-          )}
-          <div className="space-y-4">
-            {group.entities.map((entity) => (
-              <InterpretationRow
-                key={entity.entityId}
-                entity={entity}
+      {d.groups.map((group, gi) => {
+        // Subtle accent tying the group to its band palette — a left-border
+        // stripe using the group's own band colour (when a groupEntity is
+        // scored) acts as a section marker. Falls back to the theme divider
+        // tone when no group entity is available.
+        const accentColour = group.groupEntity
+          ? getBandColour(
+              palette,
+              group.groupEntity.bandResult.bandIndex,
+              group.groupEntity.bandResult.bandCount,
+            )
+          : 'var(--report-divider)'
+
+        return (
+          <div
+            key={gi}
+            className="break-inside-avoid print:pt-[8mm] print:pb-[2mm] pl-4 border-l-4"
+            style={{ borderLeftColor: accentColour }}
+          >
+            {group.groupName && (
+              <GroupHeader
+                group={group}
                 config={config}
                 palette={palette}
                 isFeatured={isFeatured}
               />
-            ))}
+            )}
+            <div className="space-y-4">
+              {group.entities.map((entity) => (
+                <InterpretationRow
+                  key={entity.entityId}
+                  entity={entity}
+                  config={config}
+                  palette={palette}
+                  isFeatured={isFeatured}
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -106,17 +121,11 @@ function GroupHeader({
   const hasAnchors = config.showGroupAnchors && (entity.anchorLow || entity.anchorHigh)
   const showBar = config.showGroupScore || config.showGroupBand
 
-  // Subtle accent tying the group to its band palette — a left-border stripe
-  // using the group's own band colour makes the section marker feel purposeful
-  // rather than decorative.
-  const accentColour = getBandColour(palette, entity.bandResult.bandIndex, entity.bandResult.bandCount)
-
   return (
     <div
-      className="mb-4 pb-3 pl-3 border-b-2 border-l-4"
+      className="mb-4 pb-3 border-b-2"
       style={{
-        borderBottomColor: isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
-        borderLeftColor: accentColour,
+        borderColor: isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
       }}
     >
       <div className="flex items-baseline justify-between gap-4 mb-1">
