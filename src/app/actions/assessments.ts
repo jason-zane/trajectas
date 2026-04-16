@@ -42,6 +42,23 @@ export type AssessmentFactorLink = {
   itemCount: number
 }
 
+export type BuilderConstruct = {
+  id: string
+  name: string
+  description?: string
+  dimensionId?: string
+  dimensionName?: string
+  itemCount: number
+  isActive: boolean
+}
+
+export type AssessmentConstructLink = {
+  constructId: string
+  dimensionId: string | null
+  weight: number
+  itemCount: number
+}
+
 /** Format group for section auto-generation in the builder. */
 export type FormatGroup = {
   responseFormatId: string
@@ -509,6 +526,7 @@ export async function getAssessmentById(id: string): Promise<Assessment | null> 
 export async function getAssessmentWithFactors(id: string): Promise<{
   assessment: Assessment
   factors: AssessmentFactorLink[]
+  constructs: AssessmentConstructLink[]
   sections: ExistingSection[]
 } | null> {
   try {
@@ -523,7 +541,9 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select('*, assessment_factors(factor_id, weight, item_count)')
+    .select(
+      '*, assessment_factors(factor_id, weight, item_count), assessment_constructs(construct_id, dimension_id, weight, item_count)',
+    )
     .eq('id', id)
     .is('deleted_at', null)
     .single()
@@ -562,6 +582,15 @@ export async function getAssessmentWithFactors(id: string): Promise<{
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ac: any) => ({
         factorId: ac.factor_id,
+        weight: Number(ac.weight),
+        itemCount: ac.item_count ?? 0,
+      })
+    ),
+    constructs: (r.assessment_constructs ?? []).map(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ac: any) => ({
+        constructId: ac.construct_id,
+        dimensionId: ac.dimension_id ?? null,
         weight: Number(ac.weight),
         itemCount: ac.item_count ?? 0,
       })
@@ -689,6 +718,64 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
   })
 }
 
+export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
+  await requireAssessmentBuilderScope()
+  const db = createAdminClient()
+
+  const { data: constructs, error } = await db
+    .from('constructs')
+    .select('id, name, description, is_active')
+    .eq('is_active', true)
+    .is('deleted_at', null)
+    .order('name', { ascending: true })
+
+  if (error) throw new Error(error.message)
+
+  const constructIds = (constructs ?? []).map((c) => c.id)
+  if (constructIds.length === 0) return []
+
+  // Load dimension links (via dimension_constructs). A construct may link to
+  // multiple dimensions; for display purposes take the first.
+  const { data: dcLinks } = await db
+    .from('dimension_constructs')
+    .select('construct_id, dimension_id, dimensions(id, name)')
+    .in('construct_id', constructIds)
+
+  const dimByConstruct = new Map<string, { id: string; name: string }>()
+  for (const link of dcLinks ?? []) {
+    if (!dimByConstruct.has(link.construct_id)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const dim = (link as any).dimensions as { id: string; name: string } | null
+      if (dim) dimByConstruct.set(link.construct_id, dim)
+    }
+  }
+
+  // Count active items per construct
+  const { data: items } = await db
+    .from('items')
+    .select('construct_id')
+    .in('construct_id', constructIds)
+    .eq('status', 'active')
+
+  const itemCountByConstruct = new Map<string, number>()
+  for (const i of items ?? []) {
+    itemCountByConstruct.set(
+      i.construct_id,
+      (itemCountByConstruct.get(i.construct_id) ?? 0) + 1,
+    )
+  }
+
+  return (constructs ?? []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    description: c.description ?? undefined,
+    dimensionId: dimByConstruct.get(c.id)?.id,
+    dimensionName: dimByConstruct.get(c.id)?.name,
+    itemCount: itemCountByConstruct.get(c.id) ?? 0,
+    isActive: c.is_active,
+  }))
+}
+
 export async function createAssessment(payload: Record<string, unknown>) {
   let scope = null as Awaited<ReturnType<typeof requireAssessmentBuilderScope>> | null
   let partnerId: string | null = null
@@ -733,8 +820,8 @@ export async function createAssessment(payload: Record<string, unknown>) {
 
   if (error) return { error: { _form: [error.message] } }
 
-  // Insert factor junction records
-  if (parsed.data.factors.length > 0) {
+  // Insert factor junction records (factor-level scoring)
+  if (scoringLevel === 'factor' && parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
       assessment_id: assessment.id,
       factor_id: f.factorId,
@@ -742,6 +829,19 @@ export async function createAssessment(payload: Record<string, unknown>) {
       item_count: f.itemCount,
     }))
     const { error: linkError } = await db.from('assessment_factors').insert(links)
+    if (linkError) return { error: { _form: [linkError.message] } }
+  }
+
+  // Insert construct junction records (construct-level scoring)
+  if (scoringLevel === 'construct' && parsed.data.constructs.length > 0) {
+    const links = parsed.data.constructs.map((c) => ({
+      assessment_id: assessment.id,
+      construct_id: c.constructId,
+      dimension_id: c.dimensionId ?? null,
+      weight: c.weight,
+      item_count: c.itemCount,
+    }))
+    const { error: linkError } = await db.from('assessment_constructs').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
@@ -818,10 +918,10 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
   if (updateErr) return { error: { _form: [updateErr.message] } }
 
-  // Replace factor junction records
+  // Replace factor junction records (always delete, insert if factor-level)
   await db.from('assessment_factors').delete().eq('assessment_id', id)
 
-  if (parsed.data.factors.length > 0) {
+  if (updatedScoringLevel === 'factor' && parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
       assessment_id: id,
       factor_id: f.factorId,
@@ -829,6 +929,21 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       item_count: f.itemCount,
     }))
     const { error: linkError } = await db.from('assessment_factors').insert(links)
+    if (linkError) return { error: { _form: [linkError.message] } }
+  }
+
+  // Replace construct junction records (always delete, insert if construct-level)
+  await db.from('assessment_constructs').delete().eq('assessment_id', id)
+
+  if (updatedScoringLevel === 'construct' && parsed.data.constructs.length > 0) {
+    const links = parsed.data.constructs.map((c) => ({
+      assessment_id: id,
+      construct_id: c.constructId,
+      dimension_id: c.dimensionId ?? null,
+      weight: c.weight,
+      item_count: c.itemCount,
+    }))
+    const { error: linkError } = await db.from('assessment_constructs').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
