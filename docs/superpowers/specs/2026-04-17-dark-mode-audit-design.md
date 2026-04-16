@@ -41,14 +41,17 @@ Two issues:
 | Campaign overview (admin) | `/campaigns/[id]/overview` | `src/app/(dashboard)/campaigns/[id]/overview/layout.tsx` |
 | Participant detail (admin) | `/participants/[id]` | `src/app/(dashboard)/participants/[id]/layout.tsx` |
 | Partner template preview | `/partner/report-templates/[id]/preview` | `src/app/partner/report-templates/[id]/preview/layout.tsx` |
-| Partner campaign overview | `/partner/campaigns/[id]/overview` | `src/app/partner/campaigns/[id]/overview/layout.tsx` |
-| Partner participant detail | `/partner/participants/[id]` | `src/app/partner/participants/[id]/layout.tsx` |
-| Partner reports viewer | `/partner/reports/[snapshotId]` (if exists) | `src/app/partner/reports/layout.tsx` |
+| Partner template builder | `/partner/report-templates/[id]/builder` | `src/app/partner/report-templates/[id]/builder/layout.tsx` |
+| Partner campaign detail (see note) | `/partner/campaigns/[id]` | `src/app/partner/campaigns/[id]/layout.tsx` |
+| Partner reports viewer | `/partner/reports/[snapshotId]` | `src/app/partner/reports/layout.tsx` |
 | Client campaign overview | `/client/campaigns/[id]/overview` | `src/app/client/campaigns/[id]/overview/layout.tsx` |
-| Client participant detail | `/client/participants/[id]` (if exists) | `src/app/client/participants/[id]/layout.tsx` |
-| Client reports viewer | `/client/reports/[snapshotId]` (if exists) | `src/app/client/reports/layout.tsx` |
+| Client reports viewer | `/client/reports/[snapshotId]` | `src/app/client/reports/layout.tsx` |
 
-Presence of partner/client mirrors confirmed at implementation time — missing routes are skipped.
+**Partner campaigns structure note.** Partner campaigns do not have a `/overview/` sub-route — `page.tsx` at `[id]/` IS the overview, with `participants/` and `sessions/` as sibling tabs. Placing the layout at `[id]/` therefore force-lights all three tabs, which is consistent with the approved scoping rule ("anywhere reviewing participant data").
+
+**Routes confirmed absent (skipped entirely):**
+- `/partner/participants/[id]` — partner portal has no per-participant detail page
+- `/client/participants/[id]` — client portal has no per-participant detail page
 
 ### Assessment runner cleanup (no force-light change)
 
