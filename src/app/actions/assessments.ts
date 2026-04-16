@@ -714,6 +714,7 @@ export async function createAssessment(payload: Record<string, unknown>) {
   }
 
   const db = createAdminClient()
+  const scoringLevel = (payload.scoringLevel as string) ?? 'factor'
   const { data: assessment, error } = await db.from('assessments').insert({
     partner_id: partnerId,
     title: parsed.data.title,
@@ -724,6 +725,10 @@ export async function createAssessment(payload: Record<string, unknown>) {
     creation_mode: parsed.data.creationMode,
     format_mode: parsed.data.formatMode,
     fc_block_size: parsed.data.fcBlockSize ?? null,
+    scoring_level: scoringLevel,
+    min_custom_constructs: scoringLevel === 'construct'
+      ? ((payload.minCustomConstructs as number) ?? null)
+      : null,
   }).select('id').single()
 
   if (error) return { error: { _form: [error.message] } }
@@ -792,6 +797,7 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
   const db = createAdminClient()
 
+  const updatedScoringLevel = (payload.scoringLevel as string) ?? 'factor'
   const { error: updateErr } = await db
     .from('assessments')
     .update({
@@ -803,6 +809,10 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       creation_mode: parsed.data.creationMode,
       format_mode: parsed.data.formatMode,
       fc_block_size: parsed.data.fcBlockSize ?? null,
+      scoring_level: updatedScoringLevel,
+      min_custom_constructs: updatedScoringLevel === 'construct'
+        ? ((payload.minCustomConstructs as number) ?? null)
+        : null,
     })
     .eq('id', id)
 
