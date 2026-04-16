@@ -170,7 +170,7 @@ export async function seedAssessmentPreview(
         status: 'completed',
         started_at: nowIso,
         completed_at: nowIso,
-        processing_status: 'complete',
+        processing_status: 'ready',
         processed_at: nowIso,
       })
       .select('id')
