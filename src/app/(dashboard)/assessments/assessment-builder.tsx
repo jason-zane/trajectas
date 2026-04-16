@@ -165,6 +165,14 @@ export function AssessmentBuilder({
   )
   const [customisationSaving, setCustomisationSaving] = useState(false)
 
+  // Scoring level — locked after creation
+  const [scoringLevel, setScoringLevel] = useState<'factor' | 'construct'>(
+    assessment?.scoringLevel ?? 'factor'
+  )
+  const [minCustomConstructs, setMinCustomConstructs] = useState<number | null>(
+    assessment?.minCustomConstructs ?? null
+  )
+
   // UI state
   const [isPending, startTransition] = useTransition()
   const [saveState, setSaveState] = useState<SaveButtonState>("idle")
@@ -264,6 +272,9 @@ export function AssessmentBuilder({
       creationMode,
       formatMode,
       fcBlockSize: formatMode === "forced_choice" ? fcBlockSize : undefined,
+      scoringLevel,
+      minCustomConstructs:
+        scoringLevel === "construct" ? minCustomConstructs : null,
       factors: selectedFactors.map((f) => ({
         factorId: f.id,
         weight: 1,
@@ -502,6 +513,36 @@ export function AssessmentBuilder({
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                       {scoringMethodInfo.ctt.description}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Scoring Level */}
+                <div className="space-y-2">
+                  <Label htmlFor="scoring-level">Scoring Level</Label>
+                  <Select
+                    value={scoringLevel}
+                    onValueChange={(v) =>
+                      v !== null && setScoringLevel(v as 'factor' | 'construct')
+                    }
+                    disabled={isEditing}
+                  >
+                    <SelectTrigger id="scoring-level" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="factor">Factor level</SelectItem>
+                      <SelectItem value="construct">Construct level</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
+                    <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {isEditing
+                        ? 'Scoring level is locked after creation.'
+                        : scoringLevel === 'construct'
+                          ? 'Scores are computed at the construct level, skipping factors. Dimensions aggregate directly from constructs.'
+                          : 'Standard hierarchy: items → constructs → factors → dimensions.'}
                     </p>
                   </div>
                 </div>
