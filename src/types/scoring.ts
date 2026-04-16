@@ -379,7 +379,7 @@ export interface ScoringEngineOutput {
 // ---------------------------------------------------------------------------
 
 /**
- * Dimension-level score — simple average of its constituent factor scores.
+ * Dimension-level score — weighted average of its constituent factor or construct scores.
  */
 export interface DimensionScore {
   /** UUID of the dimension. */
@@ -388,8 +388,10 @@ export interface DimensionScore {
   dimensionName?: string
   /** All score representations. */
   scores: ScoreRepresentations
-  /** Factor scores that contributed to this dimension score. */
-  factorScores: FactorScore[]
+  /** Factor scores that contributed (factor-level scoring). */
+  factorScores?: FactorScore[]
+  /** Construct scores that contributed (construct-level scoring). */
+  constructScores?: ConstructScore[]
 }
 
 /**

@@ -65,6 +65,13 @@ export interface FactorDimensionLink {
   dimensionId: string
 }
 
+/** Dimension-construct relationship with weight (for construct-level scoring). */
+export interface DimensionConstructLink {
+  dimensionId: string
+  constructId: string
+  weight: number
+}
+
 /** Full pipeline configuration. */
 export interface PipelineConfig {
   /** Participant session ID. */
@@ -87,6 +94,10 @@ export interface PipelineConfig {
   dimensionNames?: Map<string, string>
   /** Norm parameters per construct (keyed by construct ID). */
   constructNorms?: Map<string, NormParameters>
+  /** Scoring level: 'factor' (traditional) or 'construct' (factors skipped). */
+  scoringLevel?: 'factor' | 'construct'
+  /** Dimension-construct links with weights (for construct-level scoring). */
+  dimensionConstructLinks?: DimensionConstructLink[]
 }
 
 // ---------------------------------------------------------------------------
