@@ -14,7 +14,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
 import { isDeferredBlockType, parseBlocks } from './registry'
-import { resolveBand, DEFAULT_BAND_GLOBALS } from './band-resolution'
+import { resolveBand } from './band-resolution'
+import { resolveBandScheme, DEFAULT_3_BAND_SCHEME, type BandScheme } from './band-scheme'
 import { buildDerivedNarrative, buildDevelopmentSuggestion, resolvePersonToken } from './narrative'
 import { enhanceNarrative } from './ai-narrative'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
@@ -96,6 +97,33 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
 
     const template = mapReportTemplateRow(templateResult.data)
     const blocks = parseBlocks(template.blocks)
+
+    // Resolve band scheme via cascade: template → partner → platform → default
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const templateRow = templateResult.data as any
+    const templateScheme = (templateRow.band_scheme as BandScheme | null) ?? null
+    let partnerScheme: BandScheme | null = null
+    if (template.partnerId) {
+      const { data: partnerRow } = await db
+        .from('partners')
+        .select('band_scheme')
+        .eq('id', template.partnerId)
+        .maybeSingle()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      partnerScheme = ((partnerRow as any)?.band_scheme as BandScheme | null) ?? null
+    }
+    const { data: platformRow } = await db
+      .from('platform_settings')
+      .select('band_scheme')
+      .limit(1)
+      .maybeSingle()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const platformScheme = ((platformRow as any)?.band_scheme as BandScheme | null) ?? null
+    const scheme: BandScheme = resolveBandScheme(
+      { bandScheme: templateScheme },
+      { bandScheme: partnerScheme },
+      { bandScheme: platformScheme },
+    ) ?? DEFAULT_3_BAND_SCHEME
 
     // Build score map: factorId → scaledScore
     const scoreMap: ScoreMap = {}
@@ -256,6 +284,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         sessionData,
         snapshot.narrativeMode === 'ai_enhanced',
         dimensionChildFactors,
+        scheme,
       )
 
       resolvedBlocks.push({
@@ -474,6 +503,7 @@ async function resolveBlockData(
   session: SessionData,
   aiEnhance: boolean,
   dimensionChildFactors: Map<string, string[]>,
+  scheme: BandScheme,
 ): Promise<Record<string, unknown>> {
   if (block.type === 'norm_comparison') {
     return { _deferred: true, message: 'Norm comparison not available in this version.' }
@@ -515,13 +545,7 @@ async function resolveBlockData(
       const pompScore = scoreMap[entityId]
       if (pompScore === undefined) continue
 
-      const bandResult = resolveBand(pompScore, {
-        bandLabelLow: entity.band_label_low,
-        bandLabelMid: entity.band_label_mid,
-        bandLabelHigh: entity.band_label_high,
-        pompThresholdLow: entity.pomp_threshold_low,
-        pompThresholdHigh: entity.pomp_threshold_high,
-      })
+      const bandResult = resolveBand(pompScore, scheme)
 
       // Build narrative from indicators only (definition is rendered separately by the component).
       // For AI-enhanced mode, we still pass the full derived narrative as context.
@@ -536,7 +560,7 @@ async function resolveBlockData(
               indicatorsMid: entity.indicators_mid,
               indicatorsHigh: entity.indicators_high,
             },
-            bandResult.band,
+            bandResult.indicatorTier,
             personReference,
             session.firstName,
           )
@@ -551,9 +575,9 @@ async function resolveBlockData(
         } else {
           // Pass only the band-specific indicator text, not definition
           const rawIndicator =
-            bandResult.band === 'low'
+            bandResult.indicatorTier === 'low'
               ? entity.indicators_low
-              : bandResult.band === 'high'
+              : bandResult.indicatorTier === 'high'
                 ? entity.indicators_high
                 : entity.indicators_mid
           narrative = rawIndicator
@@ -580,19 +604,13 @@ async function resolveBlockData(
           if (!childEntity) continue
           const childScore = scoreMap[childId]
           if (childScore === undefined) continue
-          const childBand = resolveBand(childScore, {
-            bandLabelLow: childEntity.band_label_low,
-            bandLabelMid: childEntity.band_label_mid,
-            bandLabelHigh: childEntity.band_label_high,
-            pompThresholdLow: childEntity.pomp_threshold_low,
-            pompThresholdHigh: childEntity.pomp_threshold_high,
-          })
+          const childBand = resolveBand(childScore, scheme)
           let childNarrative: string | null = null
           if (config.showIndicators) {
             const childRawIndicator =
-              childBand.band === 'low'
+              childBand.indicatorTier === 'low'
                 ? childEntity.indicators_low
-                : childBand.band === 'high'
+                : childBand.indicatorTier === 'high'
                   ? childEntity.indicators_high
                   : childEntity.indicators_mid
             childNarrative = childRawIndicator
@@ -636,7 +654,7 @@ async function resolveBlockData(
     }
 
     if (entities.length === 0) return { _empty: true, reason: 'no scored entities found' }
-    return { entities, config }
+    return { palette: scheme.palette, entities, config }
   }
 
   if (block.type === 'score_overview') {
@@ -644,36 +662,78 @@ async function resolveBlockData(
     const filtered = filterScoredEntities(scoreMap, taxonomyMap, config)
     const scores = filtered.map(([entityId, pompScore]) => {
       const entity = taxonomyMap.get(entityId)
-      const bandResult = entity
-        ? resolveBand(pompScore, {
-            bandLabelLow: entity.band_label_low,
-            bandLabelMid: entity.band_label_mid,
-            bandLabelHigh: entity.band_label_high,
-            pompThresholdLow: entity.pomp_threshold_low,
-            pompThresholdHigh: entity.pomp_threshold_high,
-          })
-        : resolveBand(pompScore, {}, DEFAULT_BAND_GLOBALS)
+      const bandResult = resolveBand(pompScore, scheme)
       const parentName = entity?._taxonomy_level === 'factor' && entity?.dimension_id
         ? (taxonomyMap.get(String(entity.dimension_id))?.name ?? '')
         : ''
-      return { entityId, entityName: entity?.name ?? entityId, pompScore: Math.round(pompScore), bandResult, parentName }
+      return {
+        entityId,
+        entityName: entity?.name ?? entityId,
+        pompScore: Math.round(pompScore),
+        bandResult,
+        parentName,
+        anchorLow: entity?.anchor_low ?? null,
+        anchorHigh: entity?.anchor_high ?? null,
+      }
     })
-    return { scores, config }
+    return { palette: scheme.palette, scores, config }
+  }
+
+  if (block.type === 'score_interpretation') {
+    const filtered = filterScoredEntities(scoreMap, taxonomyMap, block.config as Record<string, unknown>)
+    const parentNameMap = new Map<string, string>()
+    for (const [, entity] of taxonomyMap.entries()) {
+      if (entity._taxonomy_level === 'dimension') parentNameMap.set(entity.id, entity.name)
+    }
+    const groupByDim = (block.config as Record<string, unknown>).groupByDimension !== false
+    const groupMap = new Map<string, Array<{ entityId: string; entity: Record<string, unknown>; pompScore: number }>>()
+    const ungrouped: Array<{ entityId: string; entity: Record<string, unknown>; pompScore: number }> = []
+    for (const [entityId, pompScore] of filtered) {
+      const entity = taxonomyMap.get(entityId)
+      if (!entity) continue
+      const parentId = entity.dimension_id ? String(entity.dimension_id) : null
+      const parentName = parentId ? (parentNameMap.get(parentId) ?? null) : null
+      if (groupByDim && parentName) {
+        const list = groupMap.get(parentName) ?? []
+        list.push({ entityId, entity, pompScore })
+        groupMap.set(parentName, list)
+      } else {
+        ungrouped.push({ entityId, entity, pompScore })
+      }
+    }
+    const mapEntity = (item: { entityId: string; entity: Record<string, unknown>; pompScore: number }) => ({
+      entityId: item.entityId,
+      entityName: item.entity.name,
+      pompScore: Math.round(item.pompScore),
+      bandResult: resolveBand(item.pompScore, scheme),
+      anchorLow: (item.entity.anchor_low as string | null) ?? null,
+      anchorHigh: (item.entity.anchor_high as string | null) ?? null,
+    })
+    const groups: Array<{ groupName: string | null; entities: ReturnType<typeof mapEntity>[] }> = []
+    for (const [groupName, entries] of groupMap) {
+      groups.push({ groupName, entities: entries.map(mapEntity) })
+    }
+    if (ungrouped.length > 0) {
+      groups.push({ groupName: null, entities: ungrouped.map(mapEntity) })
+    }
+    return { palette: scheme.palette, groups, config: block.config }
   }
 
   if (block.type === 'strengths_highlights') {
     const config = block.config as StrengthsHighlightsConfig
-    return resolveStrengthsHighlights(scoreMap, taxonomyMap, config)
+    const result = resolveStrengthsHighlights(scoreMap, taxonomyMap, config, scheme)
+    return { ...result, palette: scheme.palette }
   }
 
   if (block.type === 'development_plan') {
     const config = block.config as DevelopmentPlanConfig
-    return resolveDevelopmentPlan(scoreMap, taxonomyMap, config)
+    const result = resolveDevelopmentPlan(scoreMap, taxonomyMap, config, scheme)
+    return { ...result, palette: scheme.palette }
   }
 
   if (block.type === 'ai_text') {
     const config = block.config as AiTextConfig
-    return resolveAiText(config, scoreMap, taxonomyMap, personReference, session)
+    return resolveAiText(config, scoreMap, taxonomyMap, personReference, session, scheme)
   }
 
   // 360 blocks — return raw config for now; full resolution requires rater data
@@ -707,6 +767,7 @@ export function resolveStrengthsHighlights(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   taxonomyMap: Map<string, any>,
   config: StrengthsHighlightsConfig,
+  scheme: BandScheme = DEFAULT_3_BAND_SCHEME,
 ): { highlights: StrengthHighlight[]; config: StrengthsHighlightsConfig } {
   const targetLevel = mapDisplayLevel(config.displayLevel)
 
@@ -718,13 +779,7 @@ export function resolveStrengthsHighlights(
       const entityLevel = entity._taxonomy_level ?? entity.taxonomy_level
       if (entityLevel && entityLevel !== targetLevel) return null
 
-      const bandResult = resolveBand(pompScore, {
-        bandLabelLow: entity.band_label_low,
-        bandLabelMid: entity.band_label_mid,
-        bandLabelHigh: entity.band_label_high,
-        pompThresholdLow: entity.pomp_threshold_low,
-        pompThresholdHigh: entity.pomp_threshold_high,
-      })
+      const bandResult = resolveBand(pompScore, scheme)
       return {
         entityId,
         entityName: entity.name ?? entityId,
@@ -757,6 +812,7 @@ export function resolveDevelopmentPlan(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   taxonomyMap: Map<string, any>,
   config: DevelopmentPlanConfig,
+  scheme: BandScheme = DEFAULT_3_BAND_SCHEME,
 ): { items: DevelopmentItem[]; config: DevelopmentPlanConfig } {
   // Filter by displayLevel and entityIds
   const entityFilter = config.entityIds?.length ? new Set(config.entityIds) : null
@@ -773,13 +829,7 @@ export function resolveDevelopmentPlan(
         if (entityLevel && entityLevel !== targetLevel) return null
       }
 
-      const bandResult = resolveBand(pompScore, {
-        bandLabelLow: entity.band_label_low,
-        bandLabelMid: entity.band_label_mid,
-        bandLabelHigh: entity.band_label_high,
-        pompThresholdLow: entity.pomp_threshold_low,
-        pompThresholdHigh: entity.pomp_threshold_high,
-      })
+      const bandResult = resolveBand(pompScore, scheme)
       return {
         entityId,
         entityName: entity.name ?? entityId,
@@ -810,6 +860,7 @@ async function resolveAiText(
   taxonomyMap: Map<string, any>,
   personReference: PersonReferenceType,
   session: SessionData,
+  scheme: BandScheme,
 ): Promise<Record<string, unknown>> {
   if (!config.promptId) {
     return { generatedText: '', isPreview: true, promptName: 'None' }
@@ -845,19 +896,13 @@ async function resolveAiText(
     const entityContext = Object.entries(scoreMap).map(([entityId, pompScore]) => {
       const entity = taxonomyMap.get(entityId)
       if (!entity) return { entityId, pompScore: Math.round(pompScore) }
-      const bandResult = resolveBand(pompScore, {
-        bandLabelLow: entity.band_label_low,
-        bandLabelMid: entity.band_label_mid,
-        bandLabelHigh: entity.band_label_high,
-        pompThresholdLow: entity.pomp_threshold_low,
-        pompThresholdHigh: entity.pomp_threshold_high,
-      })
+      const bandResult = resolveBand(pompScore, scheme)
       return {
         entityId,
         entityName: entity.name,
         definition: entity.definition,
         pompScore: Math.round(pompScore),
-        band: bandResult.band,
+        band: bandResult.indicatorTier,
         bandLabel: bandResult.bandLabel,
         strengthCommentary: entity.strength_commentary ?? null,
         developmentSuggestion: entity.development_suggestion ?? null,

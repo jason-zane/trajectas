@@ -83,7 +83,7 @@ describe('resolveStrengthsHighlights', () => {
     const result = resolveStrengthsHighlights(scoreMap, taxonomyMap, { topN: 3, displayLevel: 'factor' })
 
     expect(result.highlights[0].bandResult).toBeDefined()
-    expect(result.highlights[0].bandResult.band).toBe('high')
+    expect(result.highlights[0].bandResult.indicatorTier).toBe('high')
     expect(result.highlights[0].bandResult.bandLabel).toBe('Highly Effective')
   })
 })
