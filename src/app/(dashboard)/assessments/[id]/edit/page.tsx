@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import {
   getAssessmentWithFactors,
   getFactorsForBuilder,
+  getConstructsForBuilder,
   getExistingBlocks,
 } from "@/app/actions/assessments";
 import { AssessmentBuilder } from "../../assessment-builder";
@@ -13,9 +14,10 @@ export default async function EditAssessmentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [result, allFactors] = await Promise.all([
+  const [result, allFactors, allConstructs] = await Promise.all([
     getAssessmentWithFactors(id),
     getFactorsForBuilder(),
+    getConstructsForBuilder(),
   ]);
 
   if (!result) notFound();
@@ -44,9 +46,11 @@ export default async function EditAssessmentPage({
       <AssessmentBuilder
         assessment={result.assessment}
         existingFactors={result.factors}
+        existingConstructs={result.constructs}
         existingSections={result.sections}
         existingBlocks={existingBlocks}
         allFactors={allFactors}
+        allConstructs={allConstructs}
       />
     </>
   );

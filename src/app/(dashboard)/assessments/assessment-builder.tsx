@@ -34,6 +34,7 @@ import { getSelectLabel } from "@/lib/select-display"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { useAutoSave } from "@/hooks/use-auto-save"
 import { FactorSource } from "./factor-source"
+import { ConstructSource } from "./construct-source"
 import { AssessmentCanvas } from "./assessment-canvas"
 import { SectionConfigurator } from "./section-configurator"
 import {
@@ -51,7 +52,9 @@ import {
 import type { Assessment, FormatMode } from "@/types/database"
 import type {
   BuilderFactor,
+  BuilderConstruct,
   AssessmentFactorLink,
+  AssessmentConstructLink,
   SectionDraft,
   ExistingSection,
   ExistingFCBlock,
@@ -98,18 +101,22 @@ type SaveButtonState = "idle" | "saving" | "saved"
 interface AssessmentBuilderProps {
   assessment?: Assessment
   existingFactors?: AssessmentFactorLink[]
+  existingConstructs?: AssessmentConstructLink[]
   existingSections?: ExistingSection[]
   existingBlocks?: ExistingFCBlock[]
   allFactors: BuilderFactor[]
+  allConstructs?: BuilderConstruct[]
   basePath?: string
 }
 
 export function AssessmentBuilder({
   assessment,
   existingFactors,
+  existingConstructs,
   existingSections,
   existingBlocks,
   allFactors,
+  allConstructs = [],
   basePath = "/assessments",
 }: AssessmentBuilderProps) {
   const router = useRouter()
@@ -141,6 +148,14 @@ export function AssessmentBuilder({
     })) ?? []
   )
 
+  // Scoring level — locked after creation
+  const [scoringLevel, setScoringLevel] = useState<'factor' | 'construct'>(
+    assessment?.scoringLevel ?? 'factor'
+  )
+  const [minCustomConstructs, setMinCustomConstructs] = useState<number | null>(
+    assessment?.minCustomConstructs ?? null
+  )
+
   // Factor selection state
   const [selectedFactors, setSelectedFactors] = useState<BuilderFactor[]>(() => {
     if (!existingFactors?.length) return []
@@ -148,9 +163,21 @@ export function AssessmentBuilder({
     return allFactors.filter((f) => ids.has(f.id))
   })
 
+  // Construct selection state (used when scoringLevel = 'construct')
+  const [selectedConstructs, setSelectedConstructs] = useState<BuilderConstruct[]>(() => {
+    if (!existingConstructs?.length) return []
+    const ids = new Set(existingConstructs.map((c) => c.constructId))
+    return allConstructs.filter((c) => ids.has(c.id))
+  })
+
   const selectedIds = useMemo(
-    () => new Set(selectedFactors.map((f) => f.id)),
-    [selectedFactors]
+    () =>
+      new Set(
+        (scoringLevel === "construct" ? selectedConstructs : selectedFactors).map(
+          (e) => e.id,
+        ),
+      ),
+    [selectedFactors, selectedConstructs, scoringLevel],
   )
 
   // Section state
@@ -164,14 +191,6 @@ export function AssessmentBuilder({
     assessment?.minCustomFactors ?? 1
   )
   const [customisationSaving, setCustomisationSaving] = useState(false)
-
-  // Scoring level — locked after creation
-  const [scoringLevel, setScoringLevel] = useState<'factor' | 'construct'>(
-    assessment?.scoringLevel ?? 'factor'
-  )
-  const [minCustomConstructs, setMinCustomConstructs] = useState<number | null>(
-    assessment?.minCustomConstructs ?? null
-  )
 
   // UI state
   const [isPending, startTransition] = useTransition()
@@ -199,6 +218,7 @@ export function AssessmentBuilder({
     formatMode: assessment?.formatMode ?? "traditional",
     fcBlockSize: assessment?.fcBlockSize ?? 3,
     factorIds: existingFactors?.map((c) => c.factorId).sort().join(",") ?? "",
+    constructIds: existingConstructs?.map((c) => c.constructId).sort().join(",") ?? "",
   }))
 
   const isStructuralDirty = isEditing
@@ -208,7 +228,8 @@ export function AssessmentBuilder({
       creationMode !== savedStructural.creationMode ||
       formatMode !== savedStructural.formatMode ||
       fcBlockSize !== savedStructural.fcBlockSize ||
-      selectedFactors.map((f) => f.id).sort().join(",") !== savedStructural.factorIds
+      selectedFactors.map((f) => f.id).sort().join(",") !== savedStructural.factorIds ||
+      selectedConstructs.map((c) => c.id).sort().join(",") !== savedStructural.constructIds
     : title.trim() !== ""
 
   const { showDialog, confirmNavigation, cancelNavigation } =
@@ -234,6 +255,37 @@ export function AssessmentBuilder({
       }
     },
     [selectedIds, addFactor, removeFactor]
+  )
+
+  const addConstruct = useCallback((construct: BuilderConstruct) => {
+    setSelectedConstructs((prev) => {
+      if (prev.some((c) => c.id === construct.id)) return prev
+      return [...prev, construct]
+    })
+  }, [])
+
+  const removeConstruct = useCallback((id: string) => {
+    setSelectedConstructs((prev) => prev.filter((c) => c.id !== id))
+  }, [])
+
+  const toggleConstruct = useCallback(
+    (construct: BuilderConstruct) => {
+      if (selectedIds.has(construct.id)) {
+        removeConstruct(construct.id)
+      } else {
+        addConstruct(construct)
+      }
+    },
+    [selectedIds, addConstruct, removeConstruct],
+  )
+
+  // Unified remove handler passed to the canvas (branches on scoringLevel)
+  const handleCanvasRemove = useCallback(
+    (id: string) => {
+      if (scoringLevel === "construct") removeConstruct(id)
+      else removeFactor(id)
+    },
+    [scoringLevel, removeConstruct, removeFactor],
   )
 
   const factorIds = useMemo(
@@ -280,6 +332,12 @@ export function AssessmentBuilder({
         weight: 1,
         itemCount: 0,
       })),
+      constructs: selectedConstructs.map((c) => ({
+        constructId: c.id,
+        dimensionId: c.dimensionId ?? null,
+        weight: 1,
+        itemCount: 0,
+      })),
       sections,
       forcedChoiceBlocks: formatMode === "forced_choice" ? fcBlocks : undefined,
     }
@@ -311,6 +369,7 @@ export function AssessmentBuilder({
           formatMode,
           fcBlockSize,
           factorIds: selectedFactors.map((f) => f.id).sort().join(","),
+          constructIds: selectedConstructs.map((c) => c.id).sort().join(","),
         })
         if (!isEditing && result.id) {
           router.replace(`${basePath}/${result.id}/edit`, { scroll: false })
@@ -617,7 +676,7 @@ export function AssessmentBuilder({
         </CardContent>
       </Card>
 
-      {/* Drag-and-Drop Factor Selection */}
+      {/* Drag-and-Drop Factor/Construct Selection */}
       <DragDropProvider
         onDragEnd={(event) => {
           const { source, target } = event.operation
@@ -627,33 +686,54 @@ export function AssessmentBuilder({
           // Handle drag from source panel to canvas
           const sourceId = String(source.id)
           if (sourceId.startsWith("source-")) {
-            const factorId = sourceId.replace("source-", "")
-            const factor = allFactors.find((f) => f.id === factorId)
-            if (factor && !selectedIds.has(factorId)) {
-              addFactor(factor)
+            const entityId = sourceId.replace("source-", "")
+            if (scoringLevel === "construct") {
+              const construct = allConstructs.find((c) => c.id === entityId)
+              if (construct && !selectedIds.has(entityId)) {
+                addConstruct(construct)
+              }
+            } else {
+              const factor = allFactors.find((f) => f.id === entityId)
+              if (factor && !selectedIds.has(entityId)) {
+                addFactor(factor)
+              }
             }
             return
           }
 
           // Handle reorder within canvas
-          setSelectedFactors((prev) => move(prev, event))
+          if (scoringLevel === "construct") {
+            setSelectedConstructs((prev) => move(prev, event))
+          } else {
+            setSelectedFactors((prev) => move(prev, event))
+          }
         }}
       >
         <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
-          {/* Left panel — Factor source */}
+          {/* Left panel — Factor or Construct source */}
           <div className="rounded-xl border bg-card p-4">
-            <FactorSource
-              factors={allFactors}
-              selectedIds={selectedIds}
-              onToggle={toggleFactor}
-            />
+            {scoringLevel === "construct" ? (
+              <ConstructSource
+                constructs={allConstructs}
+                selectedIds={selectedIds}
+                onToggle={toggleConstruct}
+              />
+            ) : (
+              <FactorSource
+                factors={allFactors}
+                selectedIds={selectedIds}
+                onToggle={toggleFactor}
+              />
+            )}
           </div>
 
           {/* Right panel — Assessment canvas */}
           <div className="rounded-xl border bg-card p-4">
             <AssessmentCanvas
+              mode={scoringLevel}
               selectedFactors={selectedFactors}
-              onRemove={removeFactor}
+              selectedConstructs={selectedConstructs}
+              onRemove={handleCanvasRemove}
               ruleInfo={ruleInfo}
             />
           </div>
