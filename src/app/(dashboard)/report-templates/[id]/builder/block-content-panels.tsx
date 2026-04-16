@@ -388,6 +388,62 @@ function ScoreOverviewContent({ block, entityOptions, onUpdateConfig }: BlockCon
         checked={config.groupByDimension as boolean ?? false}
         onChange={(v) => onUpdateConfig('groupByDimension', v)}
       />
+      {block.chartType !== 'radar' && (
+        <SwitchField
+          id="overview-showAnchors"
+          label="Show anchors"
+          help="Display low/high anchor sentences beneath each score bar"
+          checked={config.showAnchors as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showAnchors', v)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Score Interpretation
+// ---------------------------------------------------------------------------
+
+function ScoreInterpretationContent({ block, onUpdateConfig }: BlockContentPanelProps) {
+  const config = block.config as Record<string, unknown>
+  return (
+    <div className="space-y-4">
+      <DisplayLevelSelect
+        value={String(config.displayLevel ?? 'factor')}
+        onChange={(v) => onUpdateConfig('displayLevel', v)}
+      />
+      <SwitchField
+        id="interp-groupByDimension"
+        label="Group by dimension"
+        help="Group factors/constructs under their parent dimension heading"
+        checked={config.groupByDimension as boolean ?? true}
+        onChange={(v) => onUpdateConfig('groupByDimension', v)}
+      />
+      <div className="space-y-3 pt-1">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Display toggles</p>
+        <SwitchField
+          id="interp-showScore"
+          label="Score"
+          help="Display the numeric score value"
+          checked={config.showScore as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showScore', v)}
+        />
+        <SwitchField
+          id="interp-showBandLabel"
+          label="Band label"
+          help="Qualitative label like 'Highly Effective' or 'Developing'"
+          checked={config.showBandLabel as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showBandLabel', v)}
+        />
+        <SwitchField
+          id="interp-showAnchors"
+          label="Anchors"
+          help="Low/high anchor sentences beneath each score bar"
+          checked={config.showAnchors as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showAnchors', v)}
+        />
+      </div>
     </div>
   )
 }
@@ -620,6 +676,7 @@ const CONTENT_PANELS: Record<BlockType, React.ComponentType<BlockContentPanelPro
   section_divider: SectionDividerContent,
   score_overview: ScoreOverviewContent,
   score_detail: ScoreDetailContent,
+  score_interpretation: ScoreInterpretationContent,
   strengths_highlights: StrengthsContent,
   development_plan: DevelopmentContent,
   ai_text: AiTextContent,
