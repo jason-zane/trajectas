@@ -36,7 +36,13 @@ export type CampaignWithMeta = Campaign & {
 }
 
 export type CampaignDetail = Campaign & {
-  assessments: (CampaignAssessment & { assessmentTitle: string; assessmentStatus: string; minCustomFactors: number | null })[]
+  assessments: (CampaignAssessment & {
+    assessmentTitle: string
+    assessmentStatus: string
+    minCustomFactors: number | null
+    minCustomConstructs: number | null
+    scoringLevel: 'factor' | 'construct'
+  })[]
   participants: CampaignParticipant[]
   accessLinks: CampaignAccessLink[]
   clientName?: string
@@ -158,7 +164,9 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
   const [assessmentResult, participantResult, linkResult] = await Promise.all([
     db
       .from('campaign_assessments')
-      .select('*, assessments(title, status, min_custom_factors)')
+      .select(
+        '*, assessments(title, status, min_custom_factors, min_custom_constructs, scoring_level)',
+      )
       .eq('campaign_id', id)
       .is('deleted_at', null)
       .order('display_order', { ascending: true }),
@@ -188,6 +196,8 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
       assessmentTitle: r.assessments?.title ?? 'Untitled',
       assessmentStatus: r.assessments?.status ?? 'draft',
       minCustomFactors: r.assessments?.min_custom_factors ?? null,
+      minCustomConstructs: r.assessments?.min_custom_constructs ?? null,
+      scoringLevel: (r.assessments?.scoring_level as 'factor' | 'construct') ?? 'factor',
     })),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     participants: (participantRows ?? []).map((r: any) => ({
