@@ -1,7 +1,7 @@
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getPageContent } from "@/lib/experience/resolve";
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -48,11 +48,7 @@ export default async function JoinPage({
 
   // Brand CSS tokens are generated from admin-controlled brand config values
   // (color hex codes, font names, border radius) — not user-supplied content.
-  const { css: lightCss } = generateCSSTokens(brandConfig);
-  const darkCss = brandConfig.darkModeEnabled
-    ? generateDarkCSSTokens(brandConfig)
-    : "";
-  const safeCSS = `${lightCss}\n${darkCss}`;
+  const { css: safeCSS } = generateCSSTokens(brandConfig);
 
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,

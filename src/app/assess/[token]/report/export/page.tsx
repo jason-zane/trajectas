@@ -4,7 +4,7 @@ import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { generateCSSTokens } from "@/lib/brand/tokens";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import type { ReportContent, TemplateVariables } from "@/lib/experience/types";
@@ -53,11 +53,7 @@ export default async function ReportExportPage({
       ? `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim()
       : participant.email;
 
-  const { css: lightCss } = generateCSSTokens(brandConfig);
-  const darkCss = brandConfig.darkModeEnabled
-    ? generateDarkCSSTokens(brandConfig)
-    : "";
-  const safeCSS = `${lightCss}\n${darkCss}`;
+  const { css: safeCSS } = generateCSSTokens(brandConfig);
   const fontsUrl = buildGoogleFontsUrl([
     brandConfig.headingFont,
     brandConfig.bodyFont,
