@@ -964,7 +964,7 @@ export default async function PrintPreviewPage({ params, searchParams }: Props) 
 }
 ```
 
-Note the data-print selector that the existing PDF renderer waits for: `ReportRenderer` sets `data-print="true"` on its root; this matches the `page.waitForSelector('[data-print="true"]', ...)` call in `src/lib/reports/pdf.ts:269`. (Verify by reading the existing `/print/reports/[snapshotId]/page.tsx` — the pattern must match or the renderer will timeout.)
+Note on the `[data-print="true"]` selector: `ReportRenderer` (see `src/components/reports/report-renderer.tsx:66`) sets `data-print="true"` **only when** the URL carries `?format=print`. Our `generatePreviewPdf` (Task 10) builds the URL with `?format=print&assessment=...&pdfToken=...`, so the selector is set automatically. No explicit wrapper needed — same pattern the existing `/print/reports/[snapshotId]/page.tsx` uses.
 
 - [ ] **Step 2: Typecheck**
 
