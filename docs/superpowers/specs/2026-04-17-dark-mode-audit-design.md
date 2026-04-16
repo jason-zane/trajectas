@@ -143,7 +143,7 @@ Five files currently call `generateDarkCSSTokens(brandConfig)` conditionally on 
 
 ### Unit tests
 
-- `tests/unit/force-light-theme.test.ts` — mount with `<html class="dark">`, assert class removed; unmount, assert class restored.
+- `tests/components/force-light-theme.test.tsx` — mount with `<html class="dark">`, assert class removed; unmount, assert class restored. (Component-level tests live in `tests/components/`; `.tsx` extension per codebase convention.)
 
 ### Static checks
 
@@ -187,7 +187,7 @@ Route list:
 |---|---|
 | `src/components/force-light-theme.tsx` | Relocated from `src/components/assess/force-light-theme.tsx` |
 | Layout files per Scope table above | Per-route force-light application |
-| `tests/unit/force-light-theme.test.ts` | Unit test for the primitive |
+| `tests/components/force-light-theme.test.tsx` | Unit test for the primitive |
 | `docs/superpowers/specs/dark-mode-audit-findings.md` | Audit output (populated during implementation) |
 
 ### Modified files
