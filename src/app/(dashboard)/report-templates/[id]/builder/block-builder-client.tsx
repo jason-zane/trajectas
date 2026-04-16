@@ -56,11 +56,15 @@ import {
   updateReportTemplateBlocks,
   updateReportTemplateSettings,
   getEntityOptions,
+  listAssessmentsForPreview,
+  getPreviewEntitiesForAssessment,
   addCampaignTemplate,
   removeCampaignTemplate,
   type EntityOption,
   type TemplateUsageEntry,
+  type PreviewAssessmentOption,
 } from '@/app/actions/reports'
+import type { PreviewEntity } from '@/lib/reports/sample-data'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AutoSaveIndicator } from '@/components/auto-save-indicator'
 import { AddBlockDropdown } from './add-block-dropdown'
@@ -256,6 +260,9 @@ export function BlockBuilderClient({
   const [previewBlocks, setPreviewBlocks] = useState(() =>
     buildTemplatePreviewBlocks(initialBlocks, [], initialName, DEFAULT_3_BAND_SCHEME),
   )
+  const [previewAssessments, setPreviewAssessments] = useState<PreviewAssessmentOption[]>([])
+  const [selectedPreviewAssessmentId, setSelectedPreviewAssessmentId] = useState<string | null>(null)
+  const [previewEntities, setPreviewEntities] = useState<PreviewEntity[]>([])
 
   // Template settings state
   const [settingsExpanded, setSettingsExpanded] = useState(false)
@@ -272,17 +279,36 @@ export function BlockBuilderClient({
     enabled: true,
   })
 
+  // Entity options list (for picker UI in block configs — unchanged)
   useEffect(() => {
     getEntityOptions().then(setEntityOptions)
   }, [])
 
+  // Load assessment list once; default to last-used or first option.
   useEffect(() => {
-    const previewEntities = entityOptions.map((e) => ({
-      id: e.id, name: e.label, type: e.type, parentId: e.parentId,
-      definition: e.definition, description: e.description,
-      indicatorsLow: e.indicatorsLow, indicatorsMid: e.indicatorsMid, indicatorsHigh: e.indicatorsHigh,
-      strengthCommentary: e.strengthCommentary, developmentSuggestion: e.developmentSuggestion,
-    }))
+    listAssessmentsForPreview().then((items) => {
+      setPreviewAssessments(items)
+      const saved = typeof window !== 'undefined'
+        ? window.localStorage.getItem(`preview-assessment-${templateId}`)
+        : null
+      const initial = items.find((a) => a.id === saved) ?? items[0]
+      if (initial) setSelectedPreviewAssessmentId(initial.id)
+    })
+  }, [templateId])
+
+  // When the selected preview assessment changes, load its scoped entities + seeded scores.
+  useEffect(() => {
+    if (!selectedPreviewAssessmentId) return
+    getPreviewEntitiesForAssessment(selectedPreviewAssessmentId).then((entities) => {
+      setPreviewEntities(entities)
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(`preview-assessment-${templateId}`, selectedPreviewAssessmentId)
+      }
+    })
+  }, [selectedPreviewAssessmentId, templateId])
+
+  // Rebuild preview blocks when blocks, name, or preview entities change.
+  useEffect(() => {
     const ordered = blocks.map((b, i) => ({ ...b, order: i }))
     const timeoutId = window.setTimeout(() => {
       setPreviewBlocks(buildTemplatePreviewBlocks(ordered, previewEntities, name, previewScheme))
@@ -291,7 +317,7 @@ export function BlockBuilderClient({
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [blocks, entityOptions, name, previewScheme])
+  }, [blocks, previewEntities, name, previewScheme])
 
   // ---------------------------------------------------------------------------
   // Save blocks + name
@@ -716,6 +742,9 @@ export function BlockBuilderClient({
             templateId={templateId}
             basePath={basePath}
             blocks={previewBlocks}
+            assessments={previewAssessments}
+            selectedAssessmentId={selectedPreviewAssessmentId}
+            onSelectAssessment={setSelectedPreviewAssessmentId}
           />
         </div>
       </div>
@@ -742,6 +771,9 @@ export function BlockBuilderClient({
             templateId={templateId}
             basePath={basePath}
             blocks={previewBlocks}
+            assessments={previewAssessments}
+            selectedAssessmentId={selectedPreviewAssessmentId}
+            onSelectAssessment={setSelectedPreviewAssessmentId}
           />
         </SheetContent>
       </Sheet>
@@ -996,10 +1028,16 @@ function TemplatePreviewSurface({
   templateId,
   basePath,
   blocks,
+  assessments,
+  selectedAssessmentId,
+  onSelectAssessment,
 }: {
   templateId: string
   basePath: string
   blocks: ResolvedBlockData[]
+  assessments: PreviewAssessmentOption[]
+  selectedAssessmentId: string | null
+  onSelectAssessment: (id: string) => void
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1010,14 +1048,32 @@ function TemplatePreviewSurface({
             Sample data refreshes about 500ms after edits.
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => window.open(`${basePath}/${templateId}/preview`, '_blank')}
-        >
-          <Eye className="size-3.5" />
-          Full preview
-        </Button>
+        <div className="flex items-center gap-2">
+          {assessments.length > 0 && (
+            <select
+              value={selectedAssessmentId ?? ''}
+              onChange={(e) => onSelectAssessment(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+              aria-label="Preview as assessment"
+            >
+              {assessments.map((a) => (
+                <option key={a.id} value={a.id}>{a.title}</option>
+              ))}
+            </select>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const url = new URL(`${basePath}/${templateId}/preview`, window.location.origin)
+              if (selectedAssessmentId) url.searchParams.set('assessment', selectedAssessmentId)
+              window.open(url.toString(), '_blank')
+            }}
+          >
+            <Eye className="size-3.5" />
+            Full preview
+          </Button>
+        </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--report-page-bg,#fafaf8)] p-4">
         <div className="mb-4 rounded-xl border border-amber-300/60 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-900">

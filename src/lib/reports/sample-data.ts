@@ -27,6 +27,8 @@ export interface PreviewEntity {
   developmentSuggestion?: string
   anchorLow?: string
   anchorHigh?: string
+  /** Overrides the default preview score distribution when present. */
+  pompScore?: number
 }
 
 // Fixed score distribution assigned deterministically by entity position.
@@ -36,7 +38,7 @@ type ScoredEntity = PreviewEntity & { pompScore: number; bandResult: BandResult 
 
 function scoreEntities(entities: PreviewEntity[], scheme: BandScheme): ScoredEntity[] {
   return entities.map((e, i) => {
-    const pompScore = PREVIEW_SCORES[i % PREVIEW_SCORES.length]
+    const pompScore = e.pompScore ?? PREVIEW_SCORES[i % PREVIEW_SCORES.length]
     return { ...e, pompScore, bandResult: resolveBand(pompScore, scheme) }
   })
 }

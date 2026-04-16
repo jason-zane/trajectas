@@ -1,23 +1,37 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import { getReportTemplate, getEntityOptions } from '@/app/actions/reports'
+import {
+  getReportTemplate,
+  getPreviewEntitiesForAssessment,
+  listAssessmentsForPreview,
+} from '@/app/actions/reports'
 import { ReportRenderer } from '@/components/reports/report-renderer'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 
-export default async function PreviewPage({ params }: { params: Promise<{ id: string }> }) {
+interface Props {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ assessment?: string }>
+}
+
+export default async function PreviewPage({ params, searchParams }: Props) {
   const { id } = await params
-  const [template, entityOptions] = await Promise.all([
+  const sp = await searchParams
+
+  const [template, assessments] = await Promise.all([
     getReportTemplate(id),
-    getEntityOptions(),
+    listAssessmentsForPreview(),
   ])
   if (!template) notFound()
 
-  const previewEntities = entityOptions.map((e) => ({
-    id: e.id, name: e.label, type: e.type, parentId: e.parentId,
-    definition: e.definition, description: e.description,
-    indicatorsLow: e.indicatorsLow, indicatorsMid: e.indicatorsMid, indicatorsHigh: e.indicatorsHigh,
-    strengthCommentary: e.strengthCommentary, developmentSuggestion: e.developmentSuggestion,
-  }))
+  const selectedId = sp.assessment ?? assessments[0]?.id ?? null
+  const selectedAssessment = selectedId
+    ? assessments.find((a) => a.id === selectedId) ?? null
+    : null
+
+  const previewEntities = selectedId
+    ? await getPreviewEntitiesForAssessment(selectedId)
+    : []
+
   const sampleBlocks = buildTemplatePreviewBlocks(
     template.blocks as Record<string, unknown>[],
     previewEntities,
@@ -28,7 +42,8 @@ export default async function PreviewPage({ params }: { params: Promise<{ id: st
     <div className="min-h-screen" style={{ background: 'var(--report-page-bg, #fafaf8)' }}>
       {/* Sample banner */}
       <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-800 dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-200">
-        Preview — showing sample data.{' '}
+        Preview — showing sample data
+        {selectedAssessment ? ` for ${selectedAssessment.title}` : ''}.{' '}
         <a href={`/report-templates/${id}/builder`} className="underline hover:no-underline">
           Back to builder
         </a>
