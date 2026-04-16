@@ -285,7 +285,9 @@ export async function updateReportTemplateBlocks(
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/preview`)
   revalidatePath(`/partner/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/preview`)
 }
 
 export async function updateReportTemplateSettings(
@@ -306,8 +308,10 @@ export async function updateReportTemplateSettings(
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/preview`)
   revalidatePath('/partner/report-templates')
   revalidatePath(`/partner/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/preview`)
 }
 
 export async function getReportTemplateBandScheme(id: string): Promise<BandScheme | null> {
@@ -355,8 +359,10 @@ export async function updateReportTemplateBandScheme(
   if (error) return { error: error.message }
   revalidatePath('/report-templates')
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/preview`)
   revalidatePath('/partner/report-templates')
   revalidatePath(`/partner/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/preview`)
   return { success: true }
 }
 
