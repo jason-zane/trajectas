@@ -10,8 +10,16 @@ export const assessmentSchema = z.object({
   creationMode: z.enum(['manual', 'ai_generated', 'org_choice']).default('manual'),
   formatMode: z.enum(['traditional', 'forced_choice']).default('traditional'),
   fcBlockSize: z.coerce.number().int().min(3).max(4).optional(),
+  scoringLevel: z.enum(['factor', 'construct']).default('factor'),
+  minCustomConstructs: z.coerce.number().int().nonnegative().nullable().optional(),
   factors: z.array(z.object({
     factorId: postgresUuid(),
+    weight: z.coerce.number().positive().default(1),
+    itemCount: z.coerce.number().int().min(0).default(0),
+  })).default([]),
+  constructs: z.array(z.object({
+    constructId: postgresUuid(),
+    dimensionId: postgresUuid().nullable().optional(),
     weight: z.coerce.number().positive().default(1),
     itemCount: z.coerce.number().int().min(0).default(0),
   })).default([]),

@@ -22,6 +22,18 @@ export async function getFactorsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
+export async function getConstructsForSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
+  const db = createAdminClient()
+  const { data } = await db
+    .from('constructs')
+    .select('id, name')
+    .is('deleted_at', null)
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+  return data ?? []
+}
+
 export type ConstructWithCounts = Construct & {
   factorCount: number
   itemCount: number

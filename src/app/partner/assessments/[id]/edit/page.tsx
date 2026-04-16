@@ -4,6 +4,7 @@ import {
   getAssessmentWithFactors,
   getExistingBlocks,
   getFactorsForBuilder,
+  getConstructsForBuilder,
 } from "@/app/actions/assessments";
 import { AssessmentBuilder } from "@/app/(dashboard)/assessments/assessment-builder";
 
@@ -13,9 +14,10 @@ export default async function PartnerEditAssessmentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [result, allFactors] = await Promise.all([
+  const [result, allFactors, allConstructs] = await Promise.all([
     getAssessmentWithFactors(id),
     getFactorsForBuilder(),
+    getConstructsForBuilder(),
   ]);
 
   if (!result) notFound();
@@ -42,9 +44,11 @@ export default async function PartnerEditAssessmentPage({
       <AssessmentBuilder
         assessment={result.assessment}
         existingFactors={result.factors}
+        existingConstructs={result.constructs}
         existingSections={result.sections}
         existingBlocks={existingBlocks}
         allFactors={allFactors}
+        allConstructs={allConstructs}
         basePath="/partner/assessments"
       />
     </>

@@ -26,6 +26,7 @@ import {
   removeAssessmentFromCampaign,
 } from "@/app/actions/campaigns";
 import { FactorPicker } from "./factor-picker";
+import { ConstructPicker } from "./construct-picker";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -48,6 +49,21 @@ export type FactorPickerData = {
   minCustomFactors: number;
 };
 
+export type ConstructPickerData = {
+  campaignAssessmentId: string;
+  constructsByDimension: Array<{
+    dimensionId: string | null;
+    dimensionName: string | null;
+    constructs: Array<{
+      constructId: string;
+      constructName: string;
+      constructDescription: string | null;
+    }>;
+  }>;
+  currentSelection: { isCustom: boolean; selectedConstructIds: string[] };
+  minCustomConstructs: number;
+};
+
 type LinkedAssessment = {
   id: string;
   campaignId: string;
@@ -57,6 +73,8 @@ type LinkedAssessment = {
   assessmentTitle: string;
   assessmentStatus: string;
   minCustomFactors: number | null;
+  minCustomConstructs: number | null;
+  scoringLevel: 'factor' | 'construct';
   created_at: string;
 };
 
@@ -84,6 +102,7 @@ export function CampaignAssessmentsList({
   linkedAssessments,
   allAssessments,
   factorPickerDataMap = {},
+  constructPickerDataMap = {},
   itemSelectionRules = [],
   hasCompletedParticipants = false,
 }: {
@@ -91,6 +110,7 @@ export function CampaignAssessmentsList({
   linkedAssessments: LinkedAssessment[];
   allAssessments: AvailableAssessment[];
   factorPickerDataMap?: Record<string, FactorPickerData>;
+  constructPickerDataMap?: Record<string, ConstructPickerData>;
   itemSelectionRules?: Array<{
     minConstructs: number;
     maxConstructs: number | null;
@@ -189,19 +209,29 @@ export function CampaignAssessmentsList({
       ) : (
         <div className="space-y-2">
           {linkedAssessments.map((la, index) => {
-            const pickerData = factorPickerDataMap[la.id];
+            const factorPicker = factorPickerDataMap[la.id];
+            const constructPicker = constructPickerDataMap[la.id];
+            const isConstructLevel = la.scoringLevel === "construct";
             const hasFactorCustomisation =
-              la.minCustomFactors != null && pickerData;
+              !isConstructLevel && la.minCustomFactors != null && factorPicker;
+            const hasConstructCustomisation =
+              isConstructLevel && la.minCustomConstructs != null && constructPicker;
+            const hasCustomisation = hasFactorCustomisation || hasConstructCustomisation;
             const isPickerExpanded = expandedFactorPickers.has(la.id);
 
-            // Determine the factor selection status label
-            let factorStatusLabel: string | null = null;
+            // Determine the selection status label
+            let statusLabel: string | null = null;
+            let statusIsCustom = false;
             if (hasFactorCustomisation) {
-              if (pickerData.currentSelection.isCustom) {
-                factorStatusLabel = `Custom (${pickerData.currentSelection.selectedFactorIds.length} factors)`;
-              } else {
-                factorStatusLabel = "Full Assessment";
-              }
+              statusIsCustom = factorPicker.currentSelection.isCustom;
+              statusLabel = statusIsCustom
+                ? `Custom (${factorPicker.currentSelection.selectedFactorIds.length} factors)`
+                : "Full Assessment";
+            } else if (hasConstructCustomisation) {
+              statusIsCustom = constructPicker.currentSelection.isCustom;
+              statusLabel = statusIsCustom
+                ? `Custom (${constructPicker.currentSelection.selectedConstructIds.length} constructs)`
+                : "Full Assessment";
             }
 
             return (
@@ -225,22 +255,18 @@ export function CampaignAssessmentsList({
                             Required
                           </span>
                         )}
-                        {factorStatusLabel && (
+                        {statusLabel && (
                           <Badge
-                            variant={
-                              pickerData.currentSelection.isCustom
-                                ? "default"
-                                : "secondary"
-                            }
+                            variant={statusIsCustom ? "default" : "secondary"}
                             className="text-[10px]"
                           >
-                            {factorStatusLabel}
+                            {statusLabel}
                           </Badge>
                         )}
                       </div>
                     </div>
 
-                    {hasFactorCustomisation && (
+                    {hasCustomisation && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -248,7 +274,9 @@ export function CampaignAssessmentsList({
                         onClick={() => toggleFactorPicker(la.id)}
                       >
                         <SlidersHorizontal className="size-3.5" />
-                        <span className="hidden sm:inline">Factors</span>
+                        <span className="hidden sm:inline">
+                          {isConstructLevel ? "Constructs" : "Factors"}
+                        </span>
                         <ChevronDown
                           className={cn(
                             "size-3 transition-transform duration-200",
@@ -271,14 +299,26 @@ export function CampaignAssessmentsList({
                     </Button>
                   </div>
 
-                  {/* Factor picker expansion */}
+                  {/* Picker expansion — branch based on scoring level */}
                   {hasFactorCustomisation && isPickerExpanded && (
                     <div className="mt-4 border-t pt-4">
                       <FactorPicker
                         campaignAssessmentId={la.id}
-                        minCustomFactors={pickerData.minCustomFactors}
-                        currentSelection={pickerData.currentSelection}
-                        factorsByDimension={pickerData.factorsByDimension}
+                        minCustomFactors={factorPicker.minCustomFactors}
+                        currentSelection={factorPicker.currentSelection}
+                        factorsByDimension={factorPicker.factorsByDimension}
+                        itemSelectionRules={itemSelectionRules}
+                        hasCompletedParticipants={hasCompletedParticipants}
+                      />
+                    </div>
+                  )}
+                  {hasConstructCustomisation && isPickerExpanded && (
+                    <div className="mt-4 border-t pt-4">
+                      <ConstructPicker
+                        campaignAssessmentId={la.id}
+                        minCustomConstructs={constructPicker.minCustomConstructs}
+                        currentSelection={constructPicker.currentSelection}
+                        constructsByDimension={constructPicker.constructsByDimension}
                         itemSelectionRules={itemSelectionRules}
                         hasCompletedParticipants={hasCompletedParticipants}
                       />
