@@ -4,7 +4,7 @@ import {
   ensurePreviewSampleClient,
   seedAssessmentPreview,
 } from '@/lib/sample-data/seed-preview'
-import { synthScore } from '@/lib/sample-data/score-synth'
+import { synthScore, weightedMean } from '@/lib/sample-data/score-synth'
 import { makeMockDb } from './helpers/supabase-mock'
 
 describe('ensurePreviewSampleClient', () => {
@@ -95,5 +95,87 @@ describe('seedAssessmentPreview (construct-level)', () => {
 
     // Session delete was called before the insert (clear-and-reinsert)
     expect(mock.deleteCalls.some((c) => c.table === 'participant_scores')).toBe(true)
+  })
+})
+
+describe('seedAssessmentPreview (factor-level)', () => {
+  it('writes one score row per factor using weighted mean of child constructs', async () => {
+    const factorId = 'fffffff1-fff1-fff1-fff1-ffffffffffff'
+    const constructA = 'aaaaaaa1-aaa1-aaa1-aaa1-aaaaaaaaaaaa'
+    const constructB = 'bbbbbbb1-bbb1-bbb1-bbb1-bbbbbbbbbbbb'
+    const mock = makeMockDb({
+      clients: { maybeSingle: { data: { id: PREVIEW_SAMPLE_CLIENT_ID } } },
+      assessments: {
+        maybeSingle: {
+          data: { id: 'assess-2', title: 'Factor Test', scoring_level: 'factor' },
+        },
+      },
+      campaigns: {
+        maybeSingle: { data: null },
+        single: { data: { id: 'camp-2' } },
+      },
+      campaign_participants: {
+        maybeSingle: { data: null },
+        single: { data: { id: 'part-2' } },
+      },
+      participant_sessions: {
+        maybeSingle: { data: null },
+        single: { data: { id: 'sess-2' } },
+      },
+      assessment_factors: { data: [{ factor_id: factorId }] },
+      factor_constructs: {
+        data: [
+          { factor_id: factorId, construct_id: constructA, weight: 1 },
+          { factor_id: factorId, construct_id: constructB, weight: 3 },
+        ],
+      },
+      participant_scores: { data: null },
+    })
+
+    const result = await seedAssessmentPreview(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mock.db as any,
+      'assess-2',
+    )
+
+    expect(result.scoreCount).toBe(1)
+    const scoreInsert = mock.insertCalls.find((c) => c.table === 'participant_scores')
+    expect(scoreInsert).toBeDefined()
+    const rows = scoreInsert!.rows as Array<Record<string, unknown>>
+    expect(rows).toHaveLength(1)
+    expect(rows[0].factor_id).toBe(factorId)
+    expect(rows[0].scoring_level).toBe('factor')
+
+    const expected = weightedMean([
+      { value: synthScore(constructA), weight: 1 },
+      { value: synthScore(constructB), weight: 3 },
+    ])
+    expect(rows[0].scaled_score).toBe(expected)
+  })
+
+  it('falls back to synthScore(factorId) when a factor has no constructs', async () => {
+    const factorId = 'aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa'
+    const mock = makeMockDb({
+      clients: { maybeSingle: { data: { id: PREVIEW_SAMPLE_CLIENT_ID } } },
+      assessments: {
+        maybeSingle: {
+          data: { id: 'assess-3', title: 'Lone Factor', scoring_level: 'factor' },
+        },
+      },
+      campaigns: { maybeSingle: { data: null }, single: { data: { id: 'c' } } },
+      campaign_participants: { maybeSingle: { data: null }, single: { data: { id: 'p' } } },
+      participant_sessions: { maybeSingle: { data: null }, single: { data: { id: 's' } } },
+      assessment_factors: { data: [{ factor_id: factorId }] },
+      factor_constructs: { data: [] },
+      participant_scores: { data: null },
+    })
+
+    await seedAssessmentPreview(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mock.db as any,
+      'assess-3',
+    )
+    const ins = mock.insertCalls.find((c) => c.table === 'participant_scores')!
+    expect((ins.rows as Array<Record<string, unknown>>)[0].scaled_score).toBe(synthScore(factorId))
   })
 })

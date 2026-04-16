@@ -223,13 +223,61 @@ async function seedConstructScores(
   return rows.length
 }
 
-// Factor-level path is implemented in Task 6.
 async function seedFactorScores(
-  _db: DB,
-  _sessionId: string,
-  _assessmentId: string,
+  db: DB,
+  sessionId: string,
+  assessmentId: string,
 ): Promise<number> {
-  throw new Error('seedFactorScores: not implemented yet')
+  // Load the assessment's factor ids.
+  const af = await db
+    .from('assessment_factors')
+    .select('factor_id')
+    .eq('assessment_id', assessmentId)
+  if (af.error) throw new Error(`seedFactorScores: ${af.error.message}`)
+  const factorIds = (af.data ?? []).map((r: { factor_id: string }) => r.factor_id)
+  if (factorIds.length === 0) return 0
+
+  // Load every factor_constructs link for those factors so we can compute a
+  // weighted mean of synthetic construct scores per factor.
+  const fc = await db
+    .from('factor_constructs')
+    .select('factor_id, construct_id, weight')
+    .in('factor_id', factorIds)
+  if (fc.error) throw new Error(`seedFactorScores: ${fc.error.message}`)
+
+  type Link = { factor_id: string; construct_id: string; weight: number }
+  const linksByFactor = new Map<string, Link[]>()
+  for (const link of (fc.data ?? []) as Link[]) {
+    const list = linksByFactor.get(link.factor_id) ?? []
+    list.push(link)
+    linksByFactor.set(link.factor_id, list)
+  }
+
+  const rows = factorIds.map((factorId) => {
+    const links = linksByFactor.get(factorId) ?? []
+    const score = links.length === 0
+      ? synthScore(factorId)
+      : weightedMean(
+          links.map((l) => ({
+            value: synthScore(l.construct_id),
+            weight: Number(l.weight),
+          })),
+        )
+    return {
+      session_id: sessionId,
+      factor_id: factorId,
+      construct_id: null,
+      scoring_level: 'factor' as const,
+      scoring_method: SAMPLE_SCORING_METHOD,
+      raw_score: score,
+      scaled_score: score,
+    }
+  })
+
+  if (rows.length === 0) return 0
+  const ins = await db.from('participant_scores').insert(rows)
+  if (ins.error) throw new Error(`seedFactorScores/insert: ${ins.error.message}`)
+  return rows.length
 }
 
 // Re-exports used by other modules
