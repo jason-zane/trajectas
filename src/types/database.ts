@@ -395,6 +395,10 @@ export interface Dimension {
   indicatorsMid?: string
   /** Behavioural indicators for high performance. */
   indicatorsHigh?: string
+  /** Short sentence describing what a low score on this entity means. */
+  anchorLow?: string
+  /** Short sentence describing what a high score on this entity means. */
+  anchorHigh?: string
   /** Label for the low performance band. Null = global default ("Developing"). */
   bandLabelLow?: string
   /** Label for the mid performance band. Null = global default ("Effective"). */
@@ -446,6 +450,10 @@ export interface Factor {
   indicatorsMid?: string
   /** Behavioural indicators for high performance. */
   indicatorsHigh?: string
+  /** Short sentence describing what a low score on this entity means. */
+  anchorLow?: string
+  /** Short sentence describing what a high score on this entity means. */
+  anchorHigh?: string
   /** Label for the low performance band. Null = global default ("Developing"). */
   bandLabelLow?: string
   /** Label for the mid performance band. Null = global default ("Effective"). */
@@ -491,6 +499,10 @@ export interface Construct {
   indicatorsMid?: string
   /** Behavioural indicators for high performance. */
   indicatorsHigh?: string
+  /** Short sentence describing what a low score on this entity means. */
+  anchorLow?: string
+  /** Short sentence describing what a high score on this entity means. */
+  anchorHigh?: string
   /** Label for the low performance band. Null = global default ("Developing"). */
   bandLabelLow?: string
   /** Label for the mid performance band. Null = global default ("Effective"). */
@@ -1667,6 +1679,8 @@ export interface ConstructConfigOverride {
   indicatorsLow?: string
   indicatorsMid?: string
   indicatorsHigh?: string
+  anchorLow?: string
+  anchorHigh?: string
 }
 
 export interface GenerationRunConfig {
