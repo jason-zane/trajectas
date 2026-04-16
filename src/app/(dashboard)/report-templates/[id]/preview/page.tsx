@@ -1,12 +1,15 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+import { PageHeader } from '@/components/page-header'
+import { ReportRenderer } from '@/components/reports/report-renderer'
+import { PreviewPdfButton } from '@/components/reports/preview-pdf-button'
 import {
   getReportTemplate,
   getPreviewEntitiesForAssessment,
   listAssessmentsForPreview,
 } from '@/app/actions/reports'
-import { ReportRenderer } from '@/components/reports/report-renderer'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
+import { PreviewAssessmentSelector } from './preview-assessment-selector'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -39,18 +42,31 @@ export default async function PreviewPage({ params, searchParams }: Props) {
   )
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--report-page-bg, #fafaf8)' }}>
-      {/* Sample banner */}
-      <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center text-sm text-amber-800 dark:bg-amber-950/50 dark:border-amber-800 dark:text-amber-200">
-        Preview — showing sample data
-        {selectedAssessment ? ` for ${selectedAssessment.title}` : ''}.{' '}
-        <a href={`/report-templates/${id}/builder`} className="underline hover:no-underline">
-          Back to builder
-        </a>
+    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+      <PageHeader
+        eyebrow="Report templates"
+        title={template.name}
+        description={
+          selectedAssessment
+            ? `Preview — sample data for ${selectedAssessment.title}`
+            : 'Preview'
+        }
+      >
+        <div className="flex items-center gap-2">
+          <PreviewAssessmentSelector
+            templateId={id}
+            assessments={assessments}
+            selectedAssessmentId={selectedId}
+          />
+          <PreviewPdfButton templateId={id} assessmentId={selectedId} />
+        </div>
+      </PageHeader>
+
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+        <Suspense>
+          <ReportRenderer blocks={sampleBlocks} />
+        </Suspense>
       </div>
-      <Suspense>
-        <ReportRenderer blocks={sampleBlocks} />
-      </Suspense>
     </div>
   )
 }

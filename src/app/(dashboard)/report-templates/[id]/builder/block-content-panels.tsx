@@ -444,6 +444,33 @@ function ScoreInterpretationContent({ block, onUpdateConfig }: BlockContentPanel
           onChange={(v) => onUpdateConfig('showAnchors', v)}
         />
       </div>
+      <div className="space-y-3 pt-4 border-t border-border/40">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Group-level display</p>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Show the dimension&apos;s own score, band, and anchors above each group. Applies only when &quot;Group by dimension&quot; is on.
+        </p>
+        <SwitchField
+          id="interp-showGroupScore"
+          label="Group score"
+          help="Show the group entity's numeric score and score bar"
+          checked={config.showGroupScore as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupScore', v)}
+        />
+        <SwitchField
+          id="interp-showGroupBand"
+          label="Group band label"
+          help="Show the qualitative band label for the group entity"
+          checked={config.showGroupBand as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupBand', v)}
+        />
+        <SwitchField
+          id="interp-showGroupAnchors"
+          label="Group anchors"
+          help="Show low/high anchor sentences for the group entity"
+          checked={config.showGroupAnchors as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupAnchors', v)}
+        />
+      </div>
     </div>
   )
 }

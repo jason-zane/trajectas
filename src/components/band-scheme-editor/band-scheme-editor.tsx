@@ -13,6 +13,8 @@ import { SchemePreview } from './scheme-preview'
 
 const PALETTES: { value: PaletteKey; label: string }[] = [
   { value: 'red-amber-green', label: 'Red-Amber-Green' },
+  { value: 'soft-rag', label: 'Soft RAG' },
+  { value: 'sage-ladder', label: 'Sage Ladder' },
   { value: 'warm-neutral', label: 'Warm Neutral' },
   { value: 'monochrome', label: 'Monochrome' },
   { value: 'blue-scale', label: 'Blue Scale' },

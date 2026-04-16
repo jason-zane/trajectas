@@ -233,21 +233,27 @@ function generateBlockSampleData(
 
     case 'score_interpretation': {
       const filtered = filterEntities(entities, config)
+      // Map dimension ids/names to their full (scored) entity so groups can
+      // emit a groupEntity header.
       const parentNameMap = new Map<string, string>()
+      const parentScoredMap = new Map<string, ScoredEntity>()
       for (const e of entities) {
-        if (e.type === 'dimension') parentNameMap.set(e.id, e.name)
+        if (e.type === 'dimension') {
+          parentNameMap.set(e.id, e.name)
+          parentScoredMap.set(e.id, e)
+        }
       }
 
       const groupByDim = config.groupByDimension !== false
-      const groupMap = new Map<string, ScoredEntity[]>()
+      const groupMap = new Map<string, { parentId: string | null; items: ScoredEntity[] }>()
       const ungrouped: ScoredEntity[] = []
 
       for (const e of filtered) {
         const parentName = e.parentId ? (parentNameMap.get(e.parentId) ?? null) : null
         if (groupByDim && parentName) {
-          const list = groupMap.get(parentName) ?? []
-          list.push(e)
-          groupMap.set(parentName, list)
+          const group = groupMap.get(parentName) ?? { parentId: e.parentId ?? null, items: [] }
+          group.items.push(e)
+          groupMap.set(parentName, group)
         } else {
           ungrouped.push(e)
         }
@@ -265,12 +271,31 @@ function generateBlockSampleData(
         }
       }
 
-      const groups: Array<{ groupName: string | null; entities: ReturnType<typeof mapEntity>[] }> = []
-      for (const [groupName, entries] of groupMap) {
-        groups.push({ groupName, entities: entries.map(mapEntity) })
+      const mapGroupEntity = (e: ScoredEntity) => ({
+        entityId: e.id,
+        entityName: e.name,
+        pompScore: e.pompScore,
+        bandResult: e.bandResult,
+        anchorLow: e.anchorLow ?? null,
+        anchorHigh: e.anchorHigh ?? null,
+      })
+
+      type GroupEntity = ReturnType<typeof mapGroupEntity>
+      const groups: Array<{
+        groupName: string | null
+        groupEntity: GroupEntity | null
+        entities: ReturnType<typeof mapEntity>[]
+      }> = []
+      for (const [groupName, group] of groupMap) {
+        const parent = group.parentId ? parentScoredMap.get(group.parentId) : undefined
+        groups.push({
+          groupName,
+          groupEntity: parent ? mapGroupEntity(parent) : null,
+          entities: group.items.map(mapEntity),
+        })
       }
       if (ungrouped.length > 0) {
-        groups.push({ groupName: null, entities: ungrouped.map(mapEntity) })
+        groups.push({ groupName: null, groupEntity: null, entities: ungrouped.map(mapEntity) })
       }
 
       return {
@@ -282,6 +307,9 @@ function generateBlockSampleData(
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
           showAnchors: config.showAnchors !== false,
+          showGroupScore: config.showGroupScore === true,
+          showGroupBand: config.showGroupBand === true,
+          showGroupAnchors: config.showGroupAnchors === true,
         },
       }
     }
