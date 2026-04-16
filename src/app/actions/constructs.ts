@@ -63,7 +63,7 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
       .order('name', { ascending: true }),
     db
       .from('constructs')
-      .select('*, factor_constructs(factors(dimensions(name)))')
+      .select('*, factor_constructs(factors(dimensions(name))), dimension_constructs(dimensions(name))')
       .is('deleted_at', null)
       .order('name', { ascending: true }),
   ])
@@ -89,11 +89,16 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = row as any
     const fcRows = r.factor_constructs ?? []
+    const dcRows = r.dimension_constructs ?? []
 
-    // Collect dimension names through the factor chain
+    // Collect dimension names from both paths: via factor chain and direct dimension links
     const dimNames = new Set<string>()
     for (const fc of fcRows) {
       const dimName = fc.factors?.dimensions?.name
+      if (dimName) dimNames.add(dimName)
+    }
+    for (const dc of dcRows) {
+      const dimName = dc.dimensions?.name
       if (dimName) dimNames.add(dimName)
     }
 
