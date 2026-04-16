@@ -6,6 +6,7 @@ import { CustomTextBlock } from './blocks/custom-text'
 import { SectionDividerBlock } from './blocks/section-divider'
 import { ScoreOverviewBlock } from './blocks/score-overview'
 import { ScoreDetailBlock } from './blocks/score-detail'
+import { ScoreInterpretationBlock } from './blocks/score-interpretation'
 import { StrengthsHighlightsBlock } from './blocks/strengths-highlights'
 import { DevelopmentPlanBlock } from './blocks/development-plan'
 import { NormComparisonBlock } from './blocks/norm-comparison'
@@ -29,6 +30,7 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   section_divider: SectionDividerBlock,
   score_overview: ScoreOverviewBlock,
   score_detail: ScoreDetailBlock,
+  score_interpretation: ScoreInterpretationBlock,
   strengths_highlights: StrengthsHighlightsBlock,
   development_plan: DevelopmentPlanBlock,
   norm_comparison: NormComparisonBlock,
