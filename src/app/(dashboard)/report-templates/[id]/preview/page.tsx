@@ -5,6 +5,7 @@ import { ReportRenderer } from '@/components/reports/report-renderer'
 import { PreviewPdfButton } from '@/components/reports/preview-pdf-button'
 import {
   getReportTemplate,
+  getResolvedReportTemplateBandScheme,
   getPreviewEntitiesForAssessment,
   listAssessmentsForPreview,
 } from '@/app/actions/reports'
@@ -20,9 +21,10 @@ export default async function PreviewPage({ params, searchParams }: Props) {
   const { id } = await params
   const sp = await searchParams
 
-  const [template, assessments] = await Promise.all([
+  const [template, assessments, scheme] = await Promise.all([
     getReportTemplate(id),
     listAssessmentsForPreview(),
+    getResolvedReportTemplateBandScheme(id),
   ])
   if (!template) notFound()
 
@@ -39,6 +41,7 @@ export default async function PreviewPage({ params, searchParams }: Props) {
     template.blocks as Record<string, unknown>[],
     previewEntities,
     template.name,
+    scheme,
   )
 
   return (

@@ -1,6 +1,6 @@
 import type { ScoreInterpretationConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode } from '@/lib/reports/presentation'
-import type { PaletteKey } from '@/lib/reports/band-scheme'
+import { getBandColour, type PaletteKey } from '@/lib/reports/band-scheme'
 import { BandBadge } from '../charts/band-badge'
 import { SegmentBar } from '../charts/segment-bar'
 
@@ -41,7 +41,10 @@ export function ScoreInterpretationBlock({
   return (
     <div className="space-y-6">
       {d.groups.map((group, gi) => (
-        <div key={gi}>
+        <div
+          key={gi}
+          className="break-inside-avoid print:pt-[8mm] print:pb-[2mm]"
+        >
           {group.groupName && (
             <GroupHeader
               group={group}
@@ -103,11 +106,17 @@ function GroupHeader({
   const hasAnchors = config.showGroupAnchors && (entity.anchorLow || entity.anchorHigh)
   const showBar = config.showGroupScore || config.showGroupBand
 
+  // Subtle accent tying the group to its band palette — a left-border stripe
+  // using the group's own band colour makes the section marker feel purposeful
+  // rather than decorative.
+  const accentColour = getBandColour(palette, entity.bandResult.bandIndex, entity.bandResult.bandCount)
+
   return (
     <div
-      className="mb-4 pb-3 border-b-2"
+      className="mb-4 pb-3 pl-3 border-b-2 border-l-4"
       style={{
-        borderColor: isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
+        borderBottomColor: isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
+        borderLeftColor: accentColour,
       }}
     >
       <div className="flex items-baseline justify-between gap-4 mb-1">
@@ -177,7 +186,7 @@ function InterpretationRow({
   const hasAnchors = config.showAnchors && (entity.anchorLow || entity.anchorHigh)
 
   return (
-    <div className="break-inside-avoid">
+    <div>
       {/* Row 1: Name + badge + score */}
       <div className="flex items-baseline justify-between gap-4 mb-1">
         <span

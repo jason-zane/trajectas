@@ -15,7 +15,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
 import { isDeferredBlockType, parseBlocks } from './registry'
 import { resolveBand } from './band-resolution'
-import { resolveBandScheme, DEFAULT_3_BAND_SCHEME, type BandScheme } from './band-scheme'
+import { DEFAULT_3_BAND_SCHEME, type BandScheme } from './band-scheme'
+import { resolveTemplateBandScheme } from './resolve-template-band-scheme'
 import { buildDerivedNarrative, buildDevelopmentSuggestion, resolvePersonToken } from './narrative'
 import { enhanceNarrative } from './ai-narrative'
 import { OpenRouterProvider } from '@/lib/ai/providers/openrouter'
@@ -101,29 +102,10 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     // Resolve band scheme via cascade: template → partner → platform → default
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const templateRow = templateResult.data as any
-    const templateScheme = (templateRow.band_scheme as BandScheme | null) ?? null
-    let partnerScheme: BandScheme | null = null
-    if (template.partnerId) {
-      const { data: partnerRow } = await db
-        .from('partners')
-        .select('band_scheme')
-        .eq('id', template.partnerId)
-        .maybeSingle()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      partnerScheme = ((partnerRow as any)?.band_scheme as BandScheme | null) ?? null
-    }
-    const { data: platformRow } = await db
-      .from('platform_settings')
-      .select('band_scheme')
-      .limit(1)
-      .maybeSingle()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const platformScheme = ((platformRow as any)?.band_scheme as BandScheme | null) ?? null
-    const scheme: BandScheme = resolveBandScheme(
-      { bandScheme: templateScheme },
-      { bandScheme: partnerScheme },
-      { bandScheme: platformScheme },
-    ) ?? DEFAULT_3_BAND_SCHEME
+    const scheme: BandScheme = await resolveTemplateBandScheme(db, {
+      bandScheme: (templateRow.band_scheme as BandScheme | null) ?? null,
+      partnerId: template.partnerId ?? null,
+    })
 
     // Build score map: entityId → scaledScore (factor_id or construct_id)
     const scoreMap: ScoreMap = {}
