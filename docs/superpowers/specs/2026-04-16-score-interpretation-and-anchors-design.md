@@ -26,8 +26,8 @@ Two new nullable text columns on each taxonomy entity table (`dimensions`, `fact
 
 | Column | Type | Constraint | Description |
 |--------|------|------------|-------------|
-| `anchor_low` | `text` | nullable, max ~120 chars | Short sentence: what a low score means |
-| `anchor_high` | `text` | nullable, max ~120 chars | Short sentence: what a high score means |
+| `anchor_low` | `text` | nullable, max 150 chars | Short sentence: what a low score means |
+| `anchor_high` | `text` | nullable, max 150 chars | Short sentence: what a high score means |
 
 **No `anchor_mid`.** Anchors describe the poles of the scale; mid is implied.
 
@@ -56,7 +56,7 @@ The anchor fields are edited on the entity detail/edit form (same place as `defi
 - **Low Anchor** — placeholder: "e.g. Tends to feel overwhelmed under pressure"
 - **High Anchor** — placeholder: "e.g. Remains composed and focused during setbacks"
 
-Character guidance enforced via input maxLength (~120 chars). Optional — null means no anchor to display.
+Character limit enforced via `maxLength={150}` on both inputs and a `CHECK` constraint on the database columns. Optional — null means no anchor to display.
 
 No changes to the library table views (these remain assignment/toggle views).
 
@@ -126,7 +126,11 @@ Each factor renders as (Option B from brainstorming):
 2. **Bar:** Full-width filled bar with score marker dot, coloured by band
 3. **Anchors** (when `showAnchors` enabled): Low anchor text (left) and high anchor text (right) beneath the bar ends
 
+**Anchor text overflow:** Anchor text wraps naturally within its half of the bar width. Font size is 9px (matching existing muted labels in the report system). Each anchor is constrained to its half (flex: 1) with no truncation — the 150-char database limit keeps sentences short enough that wrapping stays within 2 lines at print widths.
+
 Factors are grouped under dimension headings (uppercase, tracking-wider, muted colour) when `groupByDimension` is true.
+
+**Missing anchors:** If both `anchorLow` and `anchorHigh` are null for an entity, the anchor row is omitted entirely (no empty space). If only one is null, the non-null side renders and the null side is blank.
 
 **Density target:** 25 factors across 5 dimensions should fit on 1–2 printed pages.
 
@@ -150,9 +154,12 @@ New case in `generateBlockSampleData`:
 
 ```ts
 case 'score_interpretation': {
-  // Reuse same entity filtering and scoring as score_overview
-  // Group by parent when groupByDimension enabled
-  // Include anchorLow/anchorHigh from entity data
+  // 1. Filter entities to those matching config.displayLevel (dimension/factor/construct)
+  // 2. Score each entity using bandForScore() (same as score_overview)
+  // 3. If groupByDimension: group entities by parentName; else single group with null name
+  // 4. For each entity, include anchorLow/anchorHigh from entity data
+  // 5. If both anchorLow and anchorHigh are null, entity still included (anchors row omitted at render time)
+  // Returns: ScoreInterpretationData { groups, config }
 }
 ```
 
@@ -172,11 +179,15 @@ showAnchors: boolean  // default false
 
 When `showAnchors` is true, each score entry in bar, gauge, and scorecard views gets low/high anchor text displayed beneath the bar (same visual treatment as the interpretation card).
 
-**Not applicable to radar chart** — no sensible position for anchor text on a radar. The `showAnchors` toggle is hidden in the builder when chart type is `radar`.
+**Not applicable to radar chart** — no sensible position for anchor text on a radar. The `showAnchors` toggle is hidden in the builder when chart type is `radar`. The config value is preserved when hidden (not reset to false), so switching back from radar to bar restores the previous setting without data loss.
 
 ### Builder Change
 
-New `SwitchField` in the score overview content panel: "Show Anchors". Conditionally hidden when `chartType === 'radar'`.
+New `SwitchField` in the score overview content panel: "Show Anchors". Conditionally hidden (not removed) when `chartType === 'radar'`.
+
+### Why Phase 1C is included
+
+The score overview block already displays scores with bars — adding anchor support here reuses the same anchor rendering logic built for the interpretation card. Shipping them together means the anchor data is immediately useful in both blocks. The implementation cost is one additional `SwitchField` toggle and passing anchor data through the existing score overview data pipeline.
 
 ---
 
