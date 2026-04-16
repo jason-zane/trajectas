@@ -367,6 +367,78 @@ export function aggregateToDimensions(
 }
 
 // ---------------------------------------------------------------------------
+// Step 4b: Weighted rollup from constructs directly to dimensions
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute dimension scores as weighted average of their construct scores.
+ * Used when assessment.scoring_level = 'construct' (factors skipped).
+ *
+ * @param constructScores        - Construct-level scores.
+ * @param dimensionConstructLinks - Which constructs belong to which dimensions, with weights.
+ * @param dimensionNames         - Optional dimension name lookup.
+ * @returns Array of dimension-level scores.
+ */
+export function aggregateConstructsToDimensions(
+  constructScores: ConstructScore[],
+  dimensionConstructLinks: DimensionConstructLink[],
+  dimensionNames?: Map<string, string>,
+): DimensionScore[] {
+  // Index construct scores by ID
+  const constructScoreMap = new Map<string, ConstructScore>()
+  for (const cs of constructScores) {
+    constructScoreMap.set(cs.constructId, cs)
+  }
+
+  // Group links by dimension
+  const linksByDimension = new Map<string, DimensionConstructLink[]>()
+  for (const link of dimensionConstructLinks) {
+    const existing = linksByDimension.get(link.dimensionId)
+    if (existing) {
+      existing.push(link)
+    } else {
+      linksByDimension.set(link.dimensionId, [link])
+    }
+  }
+
+  const results: DimensionScore[] = []
+
+  for (const [dimensionId, links] of linksByDimension) {
+    let weightedSum = 0
+    let totalWeight = 0
+    const childConstructScores: ConstructScore[] = []
+
+    for (const link of links) {
+      const cs = constructScoreMap.get(link.constructId)
+      if (!cs) continue
+
+      weightedSum += cs.scores.pomp * link.weight
+      totalWeight += link.weight
+      childConstructScores.push(cs)
+    }
+
+    if (totalWeight === 0) continue
+
+    const meanPomp = weightedSum / totalWeight
+
+    const scores: ScoreRepresentations = {
+      raw: 0,
+      rawMax: 0,
+      pomp: meanPomp,
+    }
+
+    results.push({
+      dimensionId,
+      dimensionName: dimensionNames?.get(dimensionId),
+      scores,
+      constructScores: childConstructScores,
+    })
+  }
+
+  return results
+}
+
+// ---------------------------------------------------------------------------
 // Full pipeline
 // ---------------------------------------------------------------------------
 
@@ -392,20 +464,32 @@ export function runScoringPipeline(
     config.constructNorms,
   )
 
-  // Step 3: Weighted rollup to factors
-  const factorScores = aggregateToFactors(
-    constructScores,
-    config.factorConstructLinks,
-    config.factorNames,
-    config.scoringMethod,
-  )
+  // Step 3–4: Branch based on scoring level
+  let factorScores: FactorScore[] = []
+  let dimensionScores: DimensionScore[] = []
 
-  // Step 4: Simple average to dimensions
-  const dimensionScores = aggregateToDimensions(
-    factorScores,
-    config.factorDimensionLinks,
-    config.dimensionNames,
-  )
+  if (config.scoringLevel === 'construct') {
+    // Construct-level: skip factors, roll up constructs → dimensions
+    dimensionScores = aggregateConstructsToDimensions(
+      constructScores,
+      config.dimensionConstructLinks ?? [],
+      config.dimensionNames,
+    )
+  } else {
+    // Factor-level (default): constructs → factors → dimensions
+    factorScores = aggregateToFactors(
+      constructScores,
+      config.factorConstructLinks,
+      config.factorNames,
+      config.scoringMethod,
+    )
+
+    dimensionScores = aggregateToDimensions(
+      factorScores,
+      config.factorDimensionLinks,
+      config.dimensionNames,
+    )
+  }
 
   return {
     sessionId: config.sessionId,
