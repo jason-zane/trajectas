@@ -1,6 +1,6 @@
 import type { ScoreInterpretationConfig, BandResult } from '@/lib/reports/types'
 import type { PresentationMode } from '@/lib/reports/presentation'
-import { getBandColour, type PaletteKey } from '@/lib/reports/band-scheme'
+import type { PaletteKey } from '@/lib/reports/band-scheme'
 import { BandBadge } from '../charts/band-badge'
 import { SegmentBar } from '../charts/segment-bar'
 
@@ -85,16 +85,10 @@ function GroupHeader({
     !!group.groupEntity &&
     (config.showGroupScore || config.showGroupBand || config.showGroupAnchors)
 
-  // Subtle accent — a short left-border stripe on the group heading itself,
-  // using the group's band colour when available. Marks the heading as "group
-  // level" without wrapping or shifting nested rows.
-  const accentColour = group.groupEntity
-    ? getBandColour(
-        palette,
-        group.groupEntity.bandResult.bandIndex,
-        group.groupEntity.bandResult.bandCount,
-      )
-    : 'var(--report-divider)'
+  // Subtle accent — a short left-border stripe on the group heading using the
+  // report brand accent (partner-branded at runtime, default green otherwise).
+  // Marks the heading as "group level" without relying on score colour.
+  const accentColour = isFeatured ? 'var(--report-featured-accent)' : 'var(--report-cover-accent)'
 
   // Plain label — existing behaviour when no group toggles are on.
   if (!showGroupRow) {
