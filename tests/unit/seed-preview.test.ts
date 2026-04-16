@@ -3,6 +3,8 @@ import {
   PREVIEW_SAMPLE_CLIENT_ID,
   ensurePreviewSampleClient,
   seedAssessmentPreview,
+  hasPreviewSeed,
+  getPreviewSessionId,
 } from '@/lib/sample-data/seed-preview'
 import { synthScore, weightedMean } from '@/lib/sample-data/score-synth'
 import { makeMockDb } from './helpers/supabase-mock'
@@ -177,5 +179,77 @@ describe('seedAssessmentPreview (factor-level)', () => {
     )
     const ins = mock.insertCalls.find((c) => c.table === 'participant_scores')!
     expect((ins.rows as Array<Record<string, unknown>>)[0].scaled_score).toBe(synthScore(factorId))
+  })
+})
+
+describe('seedAssessmentPreview idempotency', () => {
+  it('reuses existing campaign/participant/session on second run and re-writes scores', async () => {
+    const constructId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+    const mock = makeMockDb({
+      clients: { maybeSingle: { data: { id: PREVIEW_SAMPLE_CLIENT_ID } } },
+      assessments: {
+        maybeSingle: {
+          data: { id: 'assess-idem', title: 'Idempotent', scoring_level: 'construct' },
+        },
+      },
+      // Pre-existing rows are found on the second run
+      campaigns: { maybeSingle: { data: { id: 'existing-camp' } } },
+      campaign_participants: { maybeSingle: { data: { id: 'existing-part' } } },
+      participant_sessions: { maybeSingle: { data: { id: 'existing-sess' } } },
+      assessment_constructs: { data: [{ construct_id: constructId }] },
+      participant_scores: { data: null },
+    })
+
+    const result = await seedAssessmentPreview(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mock.db as any,
+      'assess-idem',
+    )
+
+    expect(result.campaignId).toBe('existing-camp')
+    expect(result.participantId).toBe('existing-part')
+    expect(result.sessionId).toBe('existing-sess')
+
+    // No insert for the reused tables
+    expect(mock.insertCalls.find((c) => c.table === 'campaigns')).toBeUndefined()
+    expect(mock.insertCalls.find((c) => c.table === 'campaign_participants')).toBeUndefined()
+    expect(mock.insertCalls.find((c) => c.table === 'participant_sessions')).toBeUndefined()
+    // Scores got cleared and re-inserted
+    expect(mock.deleteCalls.some((c) => c.table === 'participant_scores')).toBe(true)
+    expect(mock.insertCalls.find((c) => c.table === 'participant_scores')).toBeDefined()
+  })
+})
+
+describe('hasPreviewSeed / getPreviewSessionId', () => {
+  it('hasPreviewSeed returns true when a session row exists', async () => {
+    const mock = makeMockDb({
+      participant_sessions: { maybeSingle: { data: { id: 'sess-x' } } },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await hasPreviewSeed(mock.db as any, 'a1')).toBe(true)
+  })
+
+  it('hasPreviewSeed returns false when no session row exists', async () => {
+    const mock = makeMockDb({
+      participant_sessions: { maybeSingle: { data: null } },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await hasPreviewSeed(mock.db as any, 'a1')).toBe(false)
+  })
+
+  it('getPreviewSessionId returns the session id when present', async () => {
+    const mock = makeMockDb({
+      participant_sessions: { maybeSingle: { data: { id: 'sess-y' } } },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await getPreviewSessionId(mock.db as any, 'a1')).toBe('sess-y')
+  })
+
+  it('getPreviewSessionId returns null when no session row exists', async () => {
+    const mock = makeMockDb({
+      participant_sessions: { maybeSingle: { data: null } },
+    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect(await getPreviewSessionId(mock.db as any, 'a1')).toBeNull()
   })
 })
