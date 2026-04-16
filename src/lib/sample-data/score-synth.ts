@@ -16,3 +16,20 @@ export function synthScore(entityId: string, salt = 'sample'): number {
   const unsigned = hash >>> 0
   return 20 + (unsigned % 71)
 }
+
+/** Weighted mean, rounded to the nearest integer. Returns 0 for empty input. */
+export function weightedMean(items: Array<{ value: number; weight: number }>): number {
+  if (items.length === 0) return 0
+  let sum = 0
+  let totalWeight = 0
+  for (const { value, weight } of items) {
+    sum += value * weight
+    totalWeight += weight
+  }
+  if (totalWeight === 0) {
+    // Degenerate case — fall back to unweighted mean
+    const avg = items.reduce((a, b) => a + b.value, 0) / items.length
+    return Math.round(avg)
+  }
+  return Math.round(sum / totalWeight)
+}

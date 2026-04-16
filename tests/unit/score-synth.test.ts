@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { synthScore } from '@/lib/sample-data/score-synth'
+import { synthScore, weightedMean } from '@/lib/sample-data/score-synth'
 
 describe('synthScore', () => {
   it('is deterministic — same entity id + salt produces the same score', () => {
@@ -27,5 +27,19 @@ describe('synthScore', () => {
     const a = synthScore('11111111-1111-1111-1111-111111111111', 'sample')
     const b = synthScore('11111111-1111-1111-1111-111111111111', 'other')
     expect(a).not.toBe(b)
+  })
+})
+
+describe('weightedMean', () => {
+  it('returns the weighted mean, rounded to the nearest integer', () => {
+    expect(weightedMean([{ value: 60, weight: 1 }, { value: 80, weight: 3 }])).toBe(75)
+  })
+
+  it('returns 0 for an empty input', () => {
+    expect(weightedMean([])).toBe(0)
+  })
+
+  it('falls back to unweighted mean when total weight is 0', () => {
+    expect(weightedMean([{ value: 40, weight: 0 }, { value: 60, weight: 0 }])).toBe(50)
   })
 })
