@@ -31,3 +31,26 @@ describe('getBandColour — generalised multi-stop interpolation', () => {
     expect(getBandColour('red-amber-green', 0, 1).toLowerCase()).toBe('#c62828')
   })
 })
+
+describe('soft-rag palette', () => {
+  it('exposes 3 stops and uses the midpoint as amber', () => {
+    expect(getBandColour('soft-rag', 0, 3).toLowerCase()).toBe('#c78a8a')
+    expect(getBandColour('soft-rag', 1, 3).toLowerCase()).toBe('#d7b26a')
+    expect(getBandColour('soft-rag', 2, 3).toLowerCase()).toBe('#7aa87a')
+  })
+})
+
+describe('sage-ladder palette', () => {
+  it('returns each of the 5 stops at clean offsets', () => {
+    expect(getBandColour('sage-ladder', 0, 5).toLowerCase()).toBe('#64748b')
+    expect(getBandColour('sage-ladder', 1, 5).toLowerCase()).toBe('#60a5fa')
+    expect(getBandColour('sage-ladder', 2, 5).toLowerCase()).toBe('#14b8a6')
+    expect(getBandColour('sage-ladder', 3, 5).toLowerCase()).toBe('#84cc16')
+    expect(getBandColour('sage-ladder', 4, 5).toLowerCase()).toBe('#22c55e')
+  })
+
+  it('works for 3-band schemes (samples stops 0, 2, 4)', () => {
+    expect(getBandColour('sage-ladder', 0, 3).toLowerCase()).toBe('#64748b')
+    expect(getBandColour('sage-ladder', 2, 3).toLowerCase()).toBe('#22c55e')
+  })
+})

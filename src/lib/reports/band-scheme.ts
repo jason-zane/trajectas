@@ -4,7 +4,13 @@
 // =============================================================================
 
 export type IndicatorTier = 'low' | 'mid' | 'high'
-export type PaletteKey = 'red-amber-green' | 'warm-neutral' | 'monochrome' | 'blue-scale'
+export type PaletteKey =
+  | 'red-amber-green'
+  | 'soft-rag'
+  | 'sage-ladder'
+  | 'warm-neutral'
+  | 'monochrome'
+  | 'blue-scale'
 
 export interface BandDefinition {
   key: string
@@ -64,6 +70,8 @@ export const DEFAULT_3_BAND_SCHEME: BandScheme = PRESETS['3-band']
 
 const PALETTE_STOPS: Record<PaletteKey, string[]> = {
   'red-amber-green': ['#c62828', '#e67a00', '#2e7d32'],
+  'soft-rag':        ['#c78a8a', '#d7b26a', '#7aa87a'],
+  'sage-ladder':     ['#64748b', '#60a5fa', '#14b8a6', '#84cc16', '#22c55e'],
   'warm-neutral':    ['#8a7a5a', '#c9a962'],
   'monochrome':      ['#6b6b6b', '#1a1a1a'],
   'blue-scale':      ['#90caf9', '#0d47a1'],
