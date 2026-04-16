@@ -62,31 +62,34 @@ export const DEFAULT_3_BAND_SCHEME: BandScheme = PRESETS['3-band']
 // Palettes — colour derivation
 // ---------------------------------------------------------------------------
 
-const PALETTE_STOPS: Record<PaletteKey, [string, string]> = {
-  'red-amber-green': ['#c62828', '#2e7d32'],
-  'warm-neutral': ['#8a7a5a', '#c9a962'],
-  'monochrome': ['#6b6b6b', '#1a1a1a'],
-  'blue-scale': ['#90caf9', '#0d47a1'],
+const PALETTE_STOPS: Record<PaletteKey, string[]> = {
+  'red-amber-green': ['#c62828', '#e67a00', '#2e7d32'],
+  'warm-neutral':    ['#8a7a5a', '#c9a962'],
+  'monochrome':      ['#6b6b6b', '#1a1a1a'],
+  'blue-scale':      ['#90caf9', '#0d47a1'],
+}
+
+/** Interpolate across an arbitrary list of colour stops at normalised position t (0..1). */
+function interpolateMultiStop(stops: string[], t: number): string {
+  if (stops.length === 1) return stops[0]
+  const clamped = Math.max(0, Math.min(1, t))
+  const scaled = clamped * (stops.length - 1)
+  const i = Math.floor(scaled)
+  if (i >= stops.length - 1) return stops[stops.length - 1]
+  const localT = scaled - i
+  return interpolateHex(stops[i], stops[i + 1], localT)
 }
 
 /**
- * Derive a colour for a band given the palette and its position.
- * For red-amber-green specifically, we interpolate through amber in the middle.
- * Other palettes linearly interpolate between start and end stops.
+ * Derive a colour for a band given the palette and its position. Palettes with
+ * three+ stops (e.g. red-amber-green) route through their intermediate stops
+ * automatically via the multi-stop interpolator.
  */
 export function getBandColour(palette: PaletteKey, bandIndex: number, bandCount: number): string {
-  if (bandCount <= 1) return PALETTE_STOPS[palette][0]
+  const stops = PALETTE_STOPS[palette]
+  if (bandCount <= 1) return stops[0]
   const t = bandIndex / (bandCount - 1)
-
-  if (palette === 'red-amber-green') {
-    if (t < 0.5) {
-      return interpolateHex('#c62828', '#e67a00', t * 2)
-    }
-    return interpolateHex('#e67a00', '#2e7d32', (t - 0.5) * 2)
-  }
-
-  const [start, end] = PALETTE_STOPS[palette]
-  return interpolateHex(start, end, t)
+  return interpolateMultiStop(stops, t)
 }
 
 function interpolateHex(a: string, b: string, t: number): string {
