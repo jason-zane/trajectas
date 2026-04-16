@@ -372,7 +372,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                   className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                     purposeFilter === value
                       ? "bg-item-bg text-item-fg"
-                      : "bg-transparent text-muted-foreground hover:text-foreground border border-border"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   }`}
                 >
                   {label}
@@ -388,7 +388,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                   className={`inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
                     formatFilter === value
                       ? "bg-item-bg text-item-fg"
-                      : "bg-transparent text-muted-foreground hover:text-foreground border border-border"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                   }`}
                 >
                   {label}

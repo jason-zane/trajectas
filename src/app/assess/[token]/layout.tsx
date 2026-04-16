@@ -1,6 +1,6 @@
 import { validateAccessToken } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens";
+import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 
 /**
@@ -32,11 +32,7 @@ export default async function TokenLayout({
         campaign.clientId,
         campaign.id,
       );
-      const { css: lightCss } = generateCSSTokens(brandConfig);
-      const darkCss = brandConfig.darkModeEnabled
-        ? generateDarkCSSTokens(brandConfig)
-        : "";
-      brandCss = `${lightCss}\n${darkCss}`;
+      brandCss = generateCSSTokens(brandConfig).css;
       fontsUrl = buildGoogleFontsUrl([
         brandConfig.headingFont,
         brandConfig.bodyFont,

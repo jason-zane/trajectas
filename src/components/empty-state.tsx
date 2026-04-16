@@ -33,7 +33,7 @@ const variantConfig = {
   },
   default: {
     icon: Inbox,
-    bgClass: "bg-muted",
+    bgClass: "bg-muted ring-1 ring-border dark:ring-white/10",
     iconClass: "text-muted-foreground",
   },
 }
