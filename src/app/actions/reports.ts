@@ -304,6 +304,18 @@ export async function updateReportTemplateSettings(
   revalidatePath(`/partner/report-templates/${id}/builder`)
 }
 
+export async function getReportTemplateBandScheme(id: string): Promise<BandScheme | null> {
+  await requireReportTemplateAccess(id, { forWrite: false })
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('report_templates')
+    .select('band_scheme')
+    .eq('id', id)
+    .maybeSingle()
+  if (error || !data) return null
+  return ((data as { band_scheme: BandScheme | null }).band_scheme) ?? null
+}
+
 export async function updateReportTemplateBandScheme(
   id: string,
   scheme: BandScheme | null,
