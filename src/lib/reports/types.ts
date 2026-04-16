@@ -16,6 +16,7 @@ export type BlockType =
   // Score (self-report + 360)
   | 'score_overview'
   | 'score_detail'
+  | 'score_interpretation'
   | 'strengths_highlights'
   | 'development_plan'
   | 'norm_comparison'   // registered but deferred — runner skips if included
@@ -68,7 +69,16 @@ export interface ScoreOverviewConfig {
   showDimensionScore?: boolean
   showScore?: boolean
   showBandLabel?: boolean
+  showAnchors?: boolean
   entityIds?: string[]  // null/empty = all scored entities
+}
+
+export interface ScoreInterpretationConfig {
+  displayLevel: 'dimension' | 'factor' | 'construct'
+  groupByDimension?: boolean
+  showScore?: boolean
+  showBandLabel?: boolean
+  showAnchors?: boolean
 }
 
 export interface ScoreDetailConfig {
@@ -132,6 +142,7 @@ export type BlockConfigMap = {
   section_divider: SectionDividerConfig
   score_overview: ScoreOverviewConfig
   score_detail: ScoreDetailConfig
+  score_interpretation: ScoreInterpretationConfig
   strengths_highlights: StrengthsHighlightsConfig
   development_plan: DevelopmentPlanConfig
   ai_text: AiTextConfig

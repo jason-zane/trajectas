@@ -418,7 +418,7 @@ export async function toggleFactorActive(id: string, isActive: boolean) {
   return { success: true }
 }
 
-const ALLOWED_FACTOR_FIELDS = ['description', 'definition', 'indicators_low', 'indicators_mid', 'indicators_high', 'development_suggestion', 'strength_commentary'] as const
+const ALLOWED_FACTOR_FIELDS = ['description', 'definition', 'indicators_low', 'indicators_mid', 'indicators_high', 'development_suggestion', 'strength_commentary', 'anchor_low', 'anchor_high'] as const
 type AllowedFactorField = typeof ALLOWED_FACTOR_FIELDS[number]
 
 const camelToSnakeMap: Record<string, AllowedFactorField> = {
@@ -429,6 +429,8 @@ const camelToSnakeMap: Record<string, AllowedFactorField> = {
   indicatorsHigh: 'indicators_high',
   developmentSuggestion: 'development_suggestion',
   strengthCommentary: 'strength_commentary',
+  anchorLow: 'anchor_low',
+  anchorHigh: 'anchor_high',
 }
 
 export async function updateFactorField(id: string, field: string, value: string) {

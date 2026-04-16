@@ -65,6 +65,8 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
   const [createIndicatorsHigh, setCreateIndicatorsHigh] = useState(dimension?.indicatorsHigh ?? "")
   const [createStrengthCommentary, setCreateStrengthCommentary] = useState(dimension?.strengthCommentary ?? "")
   const [createDevelopmentSuggestion, setCreateDevelopmentSuggestion] = useState(dimension?.developmentSuggestion ?? "")
+  const [createAnchorLow, setCreateAnchorLow] = useState(dimension?.anchorLow ?? "")
+  const [createAnchorHigh, setCreateAnchorHigh] = useState(dimension?.anchorHigh ?? "")
 
   // --- Auto-save hooks for text fields (edit mode only) ---
   const descriptionAutoSave = useAutoSave({
@@ -109,6 +111,18 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
     enabled: mode === "edit" && !!dimension,
   })
 
+  const anchorLowAutoSave = useAutoSave({
+    initialValue: dimension?.anchorLow ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "anchorLow", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
+  const anchorHighAutoSave = useAutoSave({
+    initialValue: dimension?.anchorHigh ?? "",
+    onSave: (val) => updateDimensionField(dimension!.id, "anchorHigh", val),
+    enabled: mode === "edit" && !!dimension,
+  })
+
   // --- Resolve text field values based on mode ---
   const description = mode === "edit" ? descriptionAutoSave.value : createDescription
   const definition = mode === "edit" ? definitionAutoSave.value : createDefinition
@@ -117,6 +131,8 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
   const indicatorsHigh = mode === "edit" ? indicatorsHighAutoSave.value : createIndicatorsHigh
   const strengthCommentary = mode === "edit" ? strengthCommentaryAutoSave.value : createStrengthCommentary
   const developmentSuggestion = mode === "edit" ? developmentSuggestionAutoSave.value : createDevelopmentSuggestion
+  const anchorLow = mode === "edit" ? anchorLowAutoSave.value : createAnchorLow
+  const anchorHigh = mode === "edit" ? anchorHighAutoSave.value : createAnchorHigh
 
   // --- Form state ---
   const [pending, setPending] = useState(false)
@@ -369,6 +385,58 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
                     />
                   )}
                 </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <div>
+                    <Label className="text-sm font-semibold">Scale Anchors</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Short sentences describing what low and high scores mean. Used in interpretation reports.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Low Anchor</Label>
+                    <Input
+                      value={anchorLow}
+                      onChange={(e) =>
+                        mode === "edit"
+                          ? anchorLowAutoSave.setValue(e.target.value)
+                          : setCreateAnchorLow(e.target.value)
+                      }
+                      onBlur={mode === "edit" ? anchorLowAutoSave.handleBlur : undefined}
+                      placeholder="e.g. Tends to feel overwhelmed under pressure"
+                      maxLength={150}
+                      className="text-sm"
+                    />
+                    {mode === "edit" && (
+                      <AutoSaveIndicator
+                        status={anchorLowAutoSave.status}
+                        onRetry={anchorLowAutoSave.retry}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>High Anchor</Label>
+                    <Input
+                      value={anchorHigh}
+                      onChange={(e) =>
+                        mode === "edit"
+                          ? anchorHighAutoSave.setValue(e.target.value)
+                          : setCreateAnchorHigh(e.target.value)
+                      }
+                      onBlur={mode === "edit" ? anchorHighAutoSave.handleBlur : undefined}
+                      placeholder="e.g. Remains composed and focused during setbacks"
+                      maxLength={150}
+                      className="text-sm"
+                    />
+                    {mode === "edit" && (
+                      <AutoSaveIndicator
+                        status={anchorHighAutoSave.status}
+                        onRetry={anchorHighAutoSave.retry}
+                      />
+                    )}
+                  </div>
+                </div>
+
               </CardContent>
             </Card>
           </TabsContent>

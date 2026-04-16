@@ -88,6 +88,8 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
   const [indicatorsHigh, setIndicatorsHigh] = useState(construct?.indicatorsHigh ?? "")
   const [strengthCommentary, setStrengthCommentary] = useState(construct?.strengthCommentary ?? "")
   const [developmentSuggestion, setDevelopmentSuggestion] = useState(construct?.developmentSuggestion ?? "")
+  const [anchorLow, setAnchorLow] = useState(construct?.anchorLow ?? "")
+  const [anchorHigh, setAnchorHigh] = useState(construct?.anchorHigh ?? "")
   const [parentFactorId, setParentFactorId] = useState("")
   const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
@@ -134,6 +136,16 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
     onSave: (val) => updateConstructField(construct!.id, "developmentSuggestion", val),
     enabled: mode === "edit" && !!construct,
   })
+  const anchorLowAutoSave = useAutoSave({
+    initialValue: construct?.anchorLow ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "anchorLow", val),
+    enabled: mode === "edit" && !!construct,
+  })
+  const anchorHighAutoSave = useAutoSave({
+    initialValue: construct?.anchorHigh ?? "",
+    onSave: (val) => updateConstructField(construct!.id, "anchorHigh", val),
+    enabled: mode === "edit" && !!construct,
+  })
 
   // Dirty tracking (structural fields only)
   const [savedStructural, setSavedStructural] = useState(() => ({
@@ -157,6 +169,8 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
   const defValue = mode === "edit" ? defAutoSave.value : definition
   const strengthValue = mode === "edit" ? strengthAutoSave.value : strengthCommentary
   const devSuggestionValue = mode === "edit" ? devSuggestionAutoSave.value : developmentSuggestion
+  const anchorLowValue = mode === "edit" ? anchorLowAutoSave.value : anchorLow
+  const anchorHighValue = mode === "edit" ? anchorHighAutoSave.value : anchorHigh
 
   const handleNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -383,6 +397,58 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
                     />
                   )}
                 </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <div>
+                    <Label className="text-sm font-semibold">Scale Anchors</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Short sentences describing what low and high scores mean. Used in interpretation reports.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Low Anchor</Label>
+                    <Input
+                      value={anchorLowValue}
+                      onChange={(e) =>
+                        mode === "edit"
+                          ? anchorLowAutoSave.setValue(e.target.value)
+                          : setAnchorLow(e.target.value)
+                      }
+                      onBlur={mode === "edit" ? anchorLowAutoSave.handleBlur : undefined}
+                      placeholder="e.g. Tends to feel overwhelmed under pressure"
+                      maxLength={150}
+                      className="text-sm"
+                    />
+                    {mode === "edit" && (
+                      <AutoSaveIndicator
+                        status={anchorLowAutoSave.status}
+                        onRetry={anchorLowAutoSave.retry}
+                      />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>High Anchor</Label>
+                    <Input
+                      value={anchorHighValue}
+                      onChange={(e) =>
+                        mode === "edit"
+                          ? anchorHighAutoSave.setValue(e.target.value)
+                          : setAnchorHigh(e.target.value)
+                      }
+                      onBlur={mode === "edit" ? anchorHighAutoSave.handleBlur : undefined}
+                      placeholder="e.g. Remains composed and focused during setbacks"
+                      maxLength={150}
+                      className="text-sm"
+                    />
+                    {mode === "edit" && (
+                      <AutoSaveIndicator
+                        status={anchorHighAutoSave.status}
+                        onRetry={anchorHighAutoSave.retry}
+                      />
+                    )}
+                  </div>
+                </div>
+
               </CardContent>
             </Card>
           </TabsContent>

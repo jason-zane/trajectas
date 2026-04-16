@@ -11,6 +11,8 @@ interface ScoreEntry {
   pompScore: number
   bandResult: BandResult
   parentName?: string
+  anchorLow?: string
+  anchorHigh?: string
 }
 
 interface ScoreOverviewData {
@@ -26,6 +28,7 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
   const resolvedChart = chartType ?? 'bar'
   const showScore = d.config?.showScore !== false
   const showBandLabel = d.config?.showBandLabel !== false
+  const showAnchors = d.config?.showAnchors === true
   const grouped = d.config?.groupByDimension === true
 
   // Group scores by parentName when groupByDimension is enabled
@@ -62,6 +65,7 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 showBandLabel={showBandLabel}
                 variant={isFeatured ? 'dark' : 'light'}
               />
+              {showAnchors && <AnchorList scores={group.scores} isFeatured={isFeatured} />}
             </div>
           ))}
         </div>
@@ -85,6 +89,7 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 showScore={showScore}
                 variant={isFeatured ? 'dark' : 'light'}
               />
+              {showAnchors && <AnchorList scores={group.scores} isFeatured={isFeatured} />}
             </div>
           ))}
         </div>
@@ -113,6 +118,23 @@ function GroupHeading({ name, isFeatured }: { name: string; isFeatured: boolean 
     >
       {name}
     </p>
+  )
+}
+
+function AnchorList({ scores, isFeatured }: { scores: ScoreEntry[]; isFeatured: boolean }) {
+  const hasAny = scores.some((s) => s.anchorLow || s.anchorHigh)
+  if (!hasAny) return null
+  const colour = isFeatured ? 'rgba(255,255,255,0.5)' : 'var(--report-muted-colour)'
+  return (
+    <div className="mt-3 space-y-1">
+      {scores.map((s) => (s.anchorLow || s.anchorHigh) && (
+        <div key={s.entityId} className="flex gap-2 text-[9px]" style={{ color: colour }}>
+          <span className="font-medium shrink-0 w-28 truncate">{s.entityName}</span>
+          <span className="flex-1">{s.anchorLow ?? ''}</span>
+          <span className="flex-1 text-right">{s.anchorHigh ?? ''}</span>
+        </div>
+      ))}
+    </div>
   )
 }
 

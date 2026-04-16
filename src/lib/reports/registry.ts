@@ -58,6 +58,14 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     supportedModes: ['featured', 'open', 'carded', 'split'],
     defaultMode: 'open',
   },
+  score_interpretation: {
+    label: 'Score Interpretation',
+    category: 'score',
+    description: 'Compact consultant reference: scores with bars, band labels, and low/high anchor sentences.',
+    defaultConfig: { displayLevel: 'factor', groupByDimension: true, showScore: true, showBandLabel: true, showAnchors: true },
+    supportedModes: ['open', 'featured'],
+    defaultMode: 'open',
+  },
   strengths_highlights: {
     label: 'Strengths Highlights',
     category: 'highlight',

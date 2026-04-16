@@ -22,6 +22,8 @@ export interface PreviewEntity {
   indicatorsHigh?: string
   strengthCommentary?: string
   developmentSuggestion?: string
+  anchorLow?: string
+  anchorHigh?: string
 }
 
 // Fixed score distribution assigned deterministically by entity position.
@@ -82,6 +84,14 @@ const SAMPLE_INDICATORS: Record<'high' | 'mid' | 'low', string[]> = {
 
 const SAMPLE_DEVELOPMENT_SUGGESTIONS = [
   '[Sample] Development suggestions from the library will appear here.',
+]
+
+const SAMPLE_ANCHORS: Array<{ low: string; high: string }> = [
+  { low: 'Tends to avoid complex challenges', high: 'Actively seeks out complex challenges' },
+  { low: 'Prefers individual work environments', high: 'Thrives in collaborative settings' },
+  { low: 'Relies on established approaches', high: 'Generates novel solutions readily' },
+  { low: 'Focuses on immediate concerns', high: 'Takes a long-term strategic view' },
+  { low: 'Prefers stable environments', high: 'Adapts quickly to change' },
 ]
 
 // ---------------------------------------------------------------------------
@@ -218,18 +228,75 @@ function generateBlockSampleData(
         if (e.type === 'dimension') parentNameMap.set(e.id, e.name)
       }
       return {
-        scores: filtered.slice(0, 8).map((e) => ({
+        scores: filtered.slice(0, 8).map((e, i) => ({
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
           bandResult: makeBandResult(e),
           parentName: e.parentId ? (parentNameMap.get(e.parentId) ?? '') : '',
+          anchorLow: e.anchorLow ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].low,
+          anchorHigh: e.anchorHigh ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].high,
         })),
         config: {
           displayLevel: config.displayLevel ?? 'factor',
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
+          showAnchors: config.showAnchors === true,
           groupByDimension: config.groupByDimension === true,
+        },
+      }
+    }
+
+    case 'score_interpretation': {
+      const filtered = filterEntities(entities, config)
+      const parentNameMap = new Map<string, string>()
+      for (const e of entities) {
+        if (e.type === 'dimension') parentNameMap.set(e.id, e.name)
+      }
+
+      const groupByDim = config.groupByDimension !== false
+      const groupMap = new Map<string, ScoredEntity[]>()
+      const ungrouped: ScoredEntity[] = []
+
+      for (const e of filtered) {
+        const parentName = e.parentId ? (parentNameMap.get(e.parentId) ?? null) : null
+        if (groupByDim && parentName) {
+          const list = groupMap.get(parentName) ?? []
+          list.push(e)
+          groupMap.set(parentName, list)
+        } else {
+          ungrouped.push(e)
+        }
+      }
+
+      const mapEntity = (e: ScoredEntity, i: number) => {
+        const anchors = SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length]
+        return {
+          entityId: e.id,
+          entityName: e.name,
+          pompScore: e.pompScore,
+          bandResult: makeBandResult(e),
+          anchorLow: e.anchorLow ?? anchors.low,
+          anchorHigh: e.anchorHigh ?? anchors.high,
+        }
+      }
+
+      const groups: Array<{ groupName: string | null; entities: ReturnType<typeof mapEntity>[] }> = []
+      for (const [groupName, entries] of groupMap) {
+        groups.push({ groupName, entities: entries.map(mapEntity) })
+      }
+      if (ungrouped.length > 0) {
+        groups.push({ groupName: null, entities: ungrouped.map(mapEntity) })
+      }
+
+      return {
+        groups,
+        config: {
+          displayLevel: config.displayLevel ?? 'factor',
+          groupByDimension: groupByDim,
+          showScore: config.showScore !== false,
+          showBandLabel: config.showBandLabel !== false,
+          showAnchors: config.showAnchors !== false,
         },
       }
     }

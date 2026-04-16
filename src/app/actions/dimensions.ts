@@ -312,6 +312,8 @@ const ALLOWED_FIELDS: Record<string, string> = {
   indicatorsHigh: 'indicators_high',
   developmentSuggestion: 'development_suggestion',
   strengthCommentary: 'strength_commentary',
+  anchorLow: 'anchor_low',
+  anchorHigh: 'anchor_high',
 }
 
 export async function updateDimensionField(id: string, field: string, value: string) {
