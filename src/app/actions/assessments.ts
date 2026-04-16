@@ -18,8 +18,23 @@ import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
+import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
 import type { Assessment, ItemOrdering } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
+
+/**
+ * Best-effort preview seed. A failure here MUST NOT fail the parent
+ * create/update request — preview data is a convenience, not a correctness
+ * requirement. Logs as warn so admins can diagnose.
+ */
+async function refreshPreviewSeed(assessmentId: string): Promise<void> {
+  try {
+    const db = createAdminClient()
+    await seedAssessmentPreview(db, assessmentId)
+  } catch (err) {
+    console.warn(`[assessments] preview seed failed for ${assessmentId}:`, err)
+  }
+}
 
 export type AssessmentWithMeta = Assessment & {
   factorCount: number
@@ -872,6 +887,7 @@ export async function createAssessment(payload: Record<string, unknown>) {
       factorCount: parsed.data.factors.length,
     },
   })
+  await refreshPreviewSeed(assessment.id)
   return { success: true as const, id: assessment.id }
 }
 
@@ -1049,6 +1065,7 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       factorCount: parsed.data.factors.length,
     },
   })
+  await refreshPreviewSeed(id)
   return { success: true as const, id }
 }
 

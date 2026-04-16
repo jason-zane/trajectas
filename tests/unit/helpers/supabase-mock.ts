@@ -34,7 +34,6 @@ export function makeMockDb(scripts: Record<string, MockTableScript>): MockDb {
   const tableScripts: Record<string, MockTableScript> = { ...scripts }
 
   const buildBuilder = (table: string) => {
-    const script = tableScripts[table] ?? {}
     // The chain returned here has ALL terminal + chaining methods; each
     // chaining method returns the same object, so any call sequence works.
     const builder: Record<string, unknown> = {}
