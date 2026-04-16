@@ -752,8 +752,12 @@ async function resolveBlockData(
   if (block.type === 'score_interpretation') {
     const filtered = filterScoredEntities(scoreMap, taxonomyMap, block.config as Record<string, unknown>)
     const parentNameMap = new Map<string, string>()
+    const parentIdByName = new Map<string, string>()
     for (const [, entity] of taxonomyMap.entries()) {
-      if (entity._taxonomy_level === 'dimension') parentNameMap.set(entity.id, entity.name)
+      if (entity._taxonomy_level === 'dimension') {
+        parentNameMap.set(entity.id, entity.name)
+        parentIdByName.set(entity.name, entity.id)
+      }
     }
     const groupByDim = (block.config as Record<string, unknown>).groupByDimension !== false
     const groupMap = new Map<string, Array<{ entityId: string; entity: Record<string, unknown>; pompScore: number }>>()
@@ -779,12 +783,49 @@ async function resolveBlockData(
       anchorLow: (item.entity.anchor_low as string | null) ?? null,
       anchorHigh: (item.entity.anchor_high as string | null) ?? null,
     })
-    const groups: Array<{ groupName: string | null; entities: ReturnType<typeof mapEntity>[] }> = []
+
+    // Build groupEntity for each grouped cluster. Prefer stored POMP from
+    // scoreMap; fall back to the mean of its children in `filtered`.
+    const buildGroupEntity = (
+      groupName: string,
+      children: Array<{ pompScore: number }>,
+    ) => {
+      const dimensionId = parentIdByName.get(groupName)
+      if (!dimensionId) return null
+      const dimension = taxonomyMap.get(dimensionId)
+      if (!dimension) return null
+
+      const stored = scoreMap[dimensionId]
+      const pompScore = typeof stored === 'number'
+        ? stored
+        : children.length === 0
+          ? 0
+          : children.reduce((sum, c) => sum + c.pompScore, 0) / children.length
+
+      return {
+        entityId: dimensionId,
+        entityName: String(dimension.name),
+        pompScore: Math.round(pompScore),
+        bandResult: resolveBand(pompScore, scheme),
+        anchorLow: (dimension.anchor_low as string | null) ?? null,
+        anchorHigh: (dimension.anchor_high as string | null) ?? null,
+      }
+    }
+
+    const groups: Array<{
+      groupName: string | null
+      groupEntity: ReturnType<typeof buildGroupEntity>
+      entities: ReturnType<typeof mapEntity>[]
+    }> = []
     for (const [groupName, entries] of groupMap) {
-      groups.push({ groupName, entities: entries.map(mapEntity) })
+      groups.push({
+        groupName,
+        groupEntity: buildGroupEntity(groupName, entries),
+        entities: entries.map(mapEntity),
+      })
     }
     if (ungrouped.length > 0) {
-      groups.push({ groupName: null, entities: ungrouped.map(mapEntity) })
+      groups.push({ groupName: null, groupEntity: null, entities: ungrouped.map(mapEntity) })
     }
     return { palette: scheme.palette, groups, config: block.config }
   }
