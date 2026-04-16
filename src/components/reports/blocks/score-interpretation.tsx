@@ -41,7 +41,10 @@ export function ScoreInterpretationBlock({
   return (
     <div className="space-y-6">
       {d.groups.map((group, gi) => (
-        <div key={gi}>
+        <div
+          key={gi}
+          className="break-inside-avoid print:pt-[8mm] print:pb-[2mm]"
+        >
           {group.groupName && (
             <GroupHeader
               group={group}
@@ -82,18 +85,30 @@ function GroupHeader({
     !!group.groupEntity &&
     (config.showGroupScore || config.showGroupBand || config.showGroupAnchors)
 
+  // Subtle accent — a short left-border stripe on the group heading using the
+  // report brand accent (partner-branded at runtime, default green otherwise).
+  // Marks the heading as "group level" without relying on score colour.
+  const accentColour = isFeatured ? 'var(--report-featured-accent)' : 'var(--report-cover-accent)'
+
   // Plain label — existing behaviour when no group toggles are on.
   if (!showGroupRow) {
     return (
-      <p
-        className="text-[12px] font-bold uppercase tracking-[1.5px] pb-2 mb-3"
+      <div
+        className="pl-3 pb-2 mb-3 border-l-4"
         style={{
-          color: isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-label-colour)',
           borderBottom: `2px solid ${isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)'}`,
+          borderLeftColor: accentColour,
         }}
       >
-        {group.groupName}
-      </p>
+        <p
+          className="text-[12px] font-bold uppercase tracking-[1.5px]"
+          style={{
+            color: isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-label-colour)',
+          }}
+        >
+          {group.groupName}
+        </p>
+      </div>
     )
   }
 
@@ -105,9 +120,10 @@ function GroupHeader({
 
   return (
     <div
-      className="mb-4 pb-3 border-b-2"
+      className="mb-4 pb-3 pl-3 border-b-2 border-l-4"
       style={{
-        borderColor: isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
+        borderBottomColor: isFeatured ? 'rgba(255,255,255,0.15)' : 'var(--report-divider)',
+        borderLeftColor: accentColour,
       }}
     >
       <div className="flex items-baseline justify-between gap-4 mb-1">
@@ -177,7 +193,7 @@ function InterpretationRow({
   const hasAnchors = config.showAnchors && (entity.anchorLow || entity.anchorHigh)
 
   return (
-    <div className="break-inside-avoid">
+    <div>
       {/* Row 1: Name + badge + score */}
       <div className="flex items-baseline justify-between gap-4 mb-1">
         <span

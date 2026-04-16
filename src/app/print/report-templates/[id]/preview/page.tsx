@@ -6,6 +6,8 @@ import { ReportRenderer } from '@/components/reports/report-renderer'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 import { verifyPreviewPdfToken } from '@/lib/reports/preview-pdf-token'
 import { loadPreviewEntitiesForAssessment } from '@/lib/reports/preview-entities'
+import { resolveTemplateBandScheme } from '@/lib/reports/resolve-template-band-scheme'
+import type { BandScheme } from '@/lib/reports/band-scheme'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -34,10 +36,16 @@ export default async function PrintPreviewPage({ params, searchParams }: Props) 
 
   const previewEntities = await loadPreviewEntitiesForAssessment(db, sp.assessment)
 
+  const scheme = await resolveTemplateBandScheme(db, {
+    bandScheme: ((templateRow as { band_scheme: BandScheme | null }).band_scheme) ?? null,
+    partnerId: template.partnerId ?? null,
+  })
+
   const sampleBlocks = buildTemplatePreviewBlocks(
     template.blocks as Record<string, unknown>[],
     previewEntities,
     template.name,
+    scheme,
   )
 
   return (

@@ -29,6 +29,7 @@ import {
 } from '@/lib/security/action-errors'
 import type { BandScheme } from '@/lib/reports/band-scheme'
 import { isSchemeValid } from '@/lib/reports/band-scheme-validation'
+import { resolveTemplateBandScheme } from '@/lib/reports/resolve-template-band-scheme'
 import { sendHtmlEmail } from '@/lib/email/provider'
 import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
 import {
@@ -284,7 +285,9 @@ export async function updateReportTemplateBlocks(
     .eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/preview`)
   revalidatePath(`/partner/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/preview`)
 }
 
 export async function updateReportTemplateSettings(
@@ -305,8 +308,10 @@ export async function updateReportTemplateSettings(
   if (error) throw new Error(error.message)
   revalidatePath('/report-templates')
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/preview`)
   revalidatePath('/partner/report-templates')
   revalidatePath(`/partner/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/preview`)
 }
 
 export async function getReportTemplateBandScheme(id: string): Promise<BandScheme | null> {
@@ -321,6 +326,28 @@ export async function getReportTemplateBandScheme(id: string): Promise<BandSchem
   return ((data as { band_scheme: BandScheme | null }).band_scheme) ?? null
 }
 
+/**
+ * Resolve the effective band scheme for a template via the cascade:
+ * template → partner → platform_settings → default. Used by preview
+ * surfaces so the on-screen/PDF preview matches runtime rendering.
+ */
+export async function getResolvedReportTemplateBandScheme(
+  id: string,
+): Promise<BandScheme> {
+  await requireReportTemplateAccess(id, { forWrite: false })
+  const db = createAdminClient()
+  const { data } = await db
+    .from('report_templates')
+    .select('band_scheme, partner_id')
+    .eq('id', id)
+    .maybeSingle()
+  const row = (data ?? {}) as { band_scheme: BandScheme | null; partner_id: string | null }
+  return resolveTemplateBandScheme(db, {
+    bandScheme: row.band_scheme ?? null,
+    partnerId: row.partner_id ?? null,
+  })
+}
+
 export async function updateReportTemplateBandScheme(
   id: string,
   scheme: BandScheme | null,
@@ -332,8 +359,10 @@ export async function updateReportTemplateBandScheme(
   if (error) return { error: error.message }
   revalidatePath('/report-templates')
   revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath(`/report-templates/${id}/preview`)
   revalidatePath('/partner/report-templates')
   revalidatePath(`/partner/report-templates/${id}/builder`)
+  revalidatePath(`/partner/report-templates/${id}/preview`)
   return { success: true }
 }
 
