@@ -108,10 +108,13 @@ Failures in `seedAssessmentPreview` must not fail the parent `createAssessment` 
 
 ### Standalone preview page (`/report-templates/[id]/preview`)
 
-- Reads `?assessment=<id>` URL param
-- If the assessment has a seed: loads the seeded `participant_session_id`, invokes the real report runner, renders output
-- If no seed (safety net): falls back to current behaviour (library entities + deterministic fake scores) with a banner "Sample seed missing for this assessment — showing generic preview"
-- Banner text: "Preview — showing sample data for {Assessment Title}"
+- Reads `?assessment=<id>` URL param (or defaults to first active assessment if omitted)
+- Loads the scoped entities + seeded POMP scores from that assessment's session via `getPreviewEntitiesForAssessment`
+- Renders via the same `buildTemplatePreviewBlocks` path as the builder, so both surfaces stay visually identical
+- If no seed exists (safety net): fall back to all library entities + deterministic `PREVIEW_SCORES[]`; show banner "Sample seed missing for this assessment — showing generic preview"
+- Banner text (normal): "Preview — showing sample data for {Assessment Title}"
+
+> **Note on divergence from earlier draft:** An earlier version of this spec called for invoking the real report runner (`processSnapshot`) from the standalone page. That would require creating and cleaning up `report_snapshots` rows per preview, which is heavy plumbing for a rendering output that's visually identical to the `generateSampleData` path. We keep both surfaces on the lightweight renderer fed with real seeded scores. The seeded DB rows still exist (so `/reports/<participant>` or similar routes can render them if needed later).
 
 ### Builder live preview panel (`block-builder-client.tsx`)
 
@@ -189,6 +192,6 @@ Both require platform admin / template editor auth (match existing `ensureReport
 
 ## Open Questions Resolved
 
-- **Does the builder preview use the real runner?** No — it stays on `sample-data.ts` for speed (updates every 500ms as blocks change). Only the **standalone** preview calls the real runner. The builder preview fetches real scores but runs them through the existing lightweight `generateSampleData` path.
+- **Does the builder preview use the real runner?** No — neither surface does. Both use `generateSampleData` fed with real seeded scores. The runner is a heavy async pipeline used for production report generation; for preview it adds snapshot-row plumbing with no visible benefit.
 - **What happens with deleted assessments?** The seeded campaign/participant/session stays but the assessment is soft-deleted — drop-down filters `deleted_at IS NULL`. Orphan rows are harmless.
 - **What about partner-owned assessments?** The dropdown lists all active assessments regardless of partner, because the template builder is a platform-admin surface. If partner-scoped report template builders need this later, filter by partner_id.
