@@ -48,6 +48,7 @@ import {
   updateConstructField,
 } from "@/app/actions/constructs"
 import type { ConstructWithRelationships, SelectOption } from "@/app/actions/constructs"
+import { DimensionConstructLinker } from "@/components/dimension-construct-linker"
 
 const formatLabels: Record<string, string> = {
   likert: "Likert",
@@ -72,9 +73,23 @@ interface ConstructFormProps {
   mode: "create" | "edit"
   construct?: ConstructWithRelationships
   availableFactors?: SelectOption[]
+  constructDimensions?: Array<{
+    id: string
+    dimension_id: string
+    weight: number
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    dimensions: any
+  }>
+  allDimensions?: Array<{ id: string; name: string }>
 }
 
-export function ConstructForm({ mode, construct, availableFactors = [] }: ConstructFormProps) {
+export function ConstructForm({
+  mode,
+  construct,
+  availableFactors = [],
+  constructDimensions = [],
+  allDimensions = [],
+}: ConstructFormProps) {
   const router = useRouter()
 
   const [name, setName] = useState(construct?.name ?? "")
@@ -726,6 +741,33 @@ export function ConstructForm({ mode, construct, availableFactors = [] }: Constr
                 )}
               </CardContent>
             </Card>
+
+            {mode === "edit" && construct && (
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Linked Dimensions</CardTitle>
+                  <CardDescription>
+                    Dimensions this construct links to directly. Used for
+                    construct-level scoring (factors skipped).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DimensionConstructLinker
+                    direction="from-construct"
+                    entityId={construct.id}
+                    links={constructDimensions.map((cd) => ({
+                      id: cd.id,
+                      otherId: cd.dimension_id,
+                      otherName:
+                        (cd.dimensions as { name?: string } | null)?.name ??
+                        cd.dimension_id,
+                      weight: Number(cd.weight),
+                    }))}
+                    availableOptions={allDimensions}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="settings" keepMounted>

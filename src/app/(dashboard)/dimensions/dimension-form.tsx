@@ -33,6 +33,7 @@ import {
   updateDimensionField,
 } from "@/app/actions/dimensions"
 import type { DimensionWithChildren } from "@/app/actions/dimensions"
+import { DimensionConstructLinker } from "@/components/dimension-construct-linker"
 
 function slugify(text: string): string {
   return text
@@ -46,9 +47,22 @@ function slugify(text: string): string {
 interface DimensionFormProps {
   mode: "create" | "edit"
   dimension?: DimensionWithChildren
+  dimensionConstructs?: Array<{
+    id: string
+    construct_id: string
+    weight: number
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    constructs: any
+  }>
+  allConstructs?: Array<{ id: string; name: string }>
 }
 
-export function DimensionForm({ mode, dimension }: DimensionFormProps) {
+export function DimensionForm({
+  mode,
+  dimension,
+  dimensionConstructs = [],
+  allConstructs = [],
+}: DimensionFormProps) {
   const router = useRouter()
 
   // --- Structural fields (participate in dirty check / form submit) ---
@@ -604,6 +618,31 @@ export function DimensionForm({ mode, dimension }: DimensionFormProps) {
                       ))}
                     </div>
                   )}
+                </CardContent>
+              </Card>
+
+              <Card className="mt-4">
+                <CardHeader>
+                  <CardTitle>Linked Constructs</CardTitle>
+                  <CardDescription>
+                    Constructs linked directly to this dimension. Used when an
+                    assessment scores at construct level (factors skipped).
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <DimensionConstructLinker
+                    direction="from-dimension"
+                    entityId={dimension!.id}
+                    links={dimensionConstructs.map((dc) => ({
+                      id: dc.id,
+                      otherId: dc.construct_id,
+                      otherName:
+                        (dc.constructs as { name?: string } | null)?.name ??
+                        dc.construct_id,
+                      weight: Number(dc.weight),
+                    }))}
+                    availableOptions={allConstructs}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

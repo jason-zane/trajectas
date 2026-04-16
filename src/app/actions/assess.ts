@@ -349,7 +349,7 @@ export async function getSessionState(token: string, sessionId: string) {
 
   // Fan out all queries that depend only on session.assessment_id / session.campaign_id
   // in parallel. Previously these ran sequentially (4+ round-trips).
-  const [sectionResult, campaignAssessmentResult, assessmentFactorsResult] =
+  const [sectionResult, campaignAssessmentResult, assessmentFactorsResult, assessmentMetaResult] =
     await Promise.all([
       db
         .from('assessment_sections')
@@ -375,6 +375,11 @@ export async function getSessionState(token: string, sessionId: string) {
         .from('assessment_factors')
         .select('factor_id')
         .eq('assessment_id', session.assessment_id),
+      db
+        .from('assessments')
+        .select('scoring_level')
+        .eq('id', session.assessment_id)
+        .single(),
     ])
 
   const { data: sectionRows, error: sectionRowsError } = sectionResult
@@ -385,14 +390,47 @@ export async function getSessionState(token: string, sessionId: string) {
 
   const campaignAssessment = campaignAssessmentResult.data
   const assessmentFactorIds = assessmentFactorsResult.data
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scoringLevel = (assessmentMetaResult.data as any)?.scoring_level ?? 'factor'
 
   // -------------------------------------------------------------------------
-  // Resolve custom factor selection for this campaign-assessment
+  // Resolve allowed construct IDs based on scoring level and campaign selection
   // -------------------------------------------------------------------------
   let allowedConstructIds: Set<string> | null = null
   let itemsPerConstruct: number | null = null
 
-  if (campaignAssessment) {
+  if (scoringLevel === 'construct') {
+    // Construct-level: load assessment_constructs directly
+    const { data: acRows } = await db
+      .from('assessment_constructs')
+      .select('construct_id')
+      .eq('assessment_id', session.assessment_id)
+
+    const allConstructIds = new Set((acRows ?? []).map((r: { construct_id: string }) => r.construct_id))
+
+    if (campaignAssessment) {
+      // Check for campaign-level custom construct selection
+      const { data: customConstructs } = await db
+        .from('campaign_assessment_constructs')
+        .select('construct_id')
+        .eq('campaign_assessment_id', campaignAssessment.id)
+
+      if (customConstructs && customConstructs.length > 0) {
+        allowedConstructIds = new Set(
+          customConstructs
+            .map((r: { construct_id: string }) => r.construct_id)
+            .filter((id: string) => allConstructIds.has(id)),
+        )
+      } else {
+        allowedConstructIds = allConstructIds
+      }
+    } else {
+      allowedConstructIds = allConstructIds
+    }
+
+    itemsPerConstruct = await getItemsPerConstructForCount(allowedConstructIds.size)
+  } else if (campaignAssessment) {
+    // Factor-level: existing campaign factor selection logic
     const { data: factorRows } = await db
       .from('campaign_assessment_factors')
       .select('factor_id')
@@ -417,7 +455,6 @@ export async function getSessionState(token: string, sessionId: string) {
             .map(fc => fc.construct_id)
         )
 
-        // Look up items-per-construct limit from the item_selection_rules table
         itemsPerConstruct = await getItemsPerConstructForCount(allowedConstructIds.size)
       }
     }

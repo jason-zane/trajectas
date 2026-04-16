@@ -1,5 +1,7 @@
 import { notFound } from "next/navigation"
 import { getConstructBySlug } from "@/app/actions/constructs"
+import { getConstructDimensions } from "@/app/actions/dimension-constructs"
+import { getDimensionsForSelect } from "@/app/actions/factors"
 import { ConstructForm } from "../../construct-form"
 
 export default async function EditConstructPage({
@@ -11,5 +13,17 @@ export default async function EditConstructPage({
   const construct = await getConstructBySlug(slug)
   if (!construct) notFound()
 
-  return <ConstructForm mode="edit" construct={construct} />
+  const [constructDimensions, allDimensions] = await Promise.all([
+    getConstructDimensions(construct.id),
+    getDimensionsForSelect(),
+  ])
+
+  return (
+    <ConstructForm
+      mode="edit"
+      construct={construct}
+      constructDimensions={constructDimensions}
+      allDimensions={allDimensions}
+    />
+  )
 }

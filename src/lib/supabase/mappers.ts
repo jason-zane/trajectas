@@ -360,6 +360,8 @@ export function mapAssessmentRow(row: any): Assessment {
     matchingRunId: row.matching_run_id ?? undefined,
     introContent: row.intro_content ?? null,
     minCustomFactors: row.min_custom_factors ?? null,
+    scoringLevel: (row.scoring_level as 'factor' | 'construct') ?? 'factor',
+    minCustomConstructs: row.min_custom_constructs ?? null,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -380,6 +382,8 @@ export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 
     fc_block_size: a.fcBlockSize ?? null,
     intro_content: a.introContent ?? null,
     min_custom_factors: a.minCustomFactors ?? null,
+    scoring_level: a.scoringLevel ?? 'factor',
+    min_custom_constructs: a.minCustomConstructs ?? null,
   }
 }
 
