@@ -78,6 +78,8 @@ interface FactorFormProps {
     indicatorsHigh?: string
     strengthCommentary?: string
     developmentSuggestion?: string
+    anchorLow?: string
+    anchorHigh?: string
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
