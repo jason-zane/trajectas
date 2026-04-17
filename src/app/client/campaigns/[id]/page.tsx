@@ -6,5 +6,5 @@ export default async function ClientCampaignDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/client/campaigns/${id}/overview`);
+  redirect(`/client/campaigns/${id}/participants`);
 }

@@ -11,18 +11,21 @@ interface QuickLaunchButtonProps {
   clients: Array<{ id: string; name: string }>;
   forcedClientId?: string;
   successHrefPrefix?: string;
+  label?: string;
+  initialAssessmentId?: string;
 }
 
 export function QuickLaunchButton(props: QuickLaunchButtonProps) {
   const [open, setOpen] = useState(false);
+  const { label = "Quick Launch", ...modalProps } = props;
 
   return (
     <>
       <Button variant="default" onClick={() => setOpen(true)}>
         <Rocket className="size-4" />
-        Quick Launch
+        {label}
       </Button>
-      <QuickLaunchModal open={open} onOpenChange={setOpen} {...props} />
+      <QuickLaunchModal open={open} onOpenChange={setOpen} {...modalProps} />
     </>
   );
 }

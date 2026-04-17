@@ -130,6 +130,7 @@ interface QuickLaunchModalProps {
   clients: Array<{ id: string; name: string }>;
   forcedClientId?: string;
   successHrefPrefix?: string;
+  initialAssessmentId?: string;
 }
 
 type WizardStep = 1 | 2 | 3;
@@ -155,6 +156,7 @@ export function QuickLaunchModal({
   clients,
   forcedClientId,
   successHrefPrefix = "/campaigns",
+  initialAssessmentId,
 }: QuickLaunchModalProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [state, setState] = useState<WizardState>({
@@ -163,7 +165,7 @@ export function QuickLaunchModal({
     opensAt: "",
     closesAt: "",
     description: "",
-    selectedAssessmentId: null,
+    selectedAssessmentId: initialAssessmentId ?? null,
     inviteMode: "single",
     inviteSingleEmail: "",
     inviteSingleFirstName: "",
@@ -203,7 +205,7 @@ export function QuickLaunchModal({
       opensAt: "",
       closesAt: "",
       description: "",
-      selectedAssessmentId: null,
+      selectedAssessmentId: initialAssessmentId ?? null,
       inviteMode: "single",
       inviteSingleEmail: "",
       inviteSingleFirstName: "",
@@ -373,7 +375,7 @@ export function QuickLaunchModal({
       toast.success(`Campaign "${campaignTitle}" launched — ${successDetail}`, {
         description: successDescription,
       });
-      router.push(`${successBaseHref}/${campaignId}/overview`);
+      router.push(`${successBaseHref}/${campaignId}`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to complete quick launch.";
