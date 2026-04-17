@@ -130,7 +130,7 @@ export function LaunchCampaignButton({
       </Button>
 
       <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Launch campaign</DialogTitle>
             <DialogDescription>
@@ -192,7 +192,9 @@ export function LaunchCampaignButton({
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Choose a recent campaign" />
+                          <SelectValue placeholder="Choose a recent campaign">
+                            {selectedCampaign?.title ?? "Choose a recent campaign"}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {recentCampaigns.map((campaign) => (
