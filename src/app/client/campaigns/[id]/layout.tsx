@@ -1,4 +1,4 @@
-import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignById, getFavoriteCampaignIds } from "@/app/actions/campaigns";
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import { requireCampaignAccess } from "@/lib/auth/authorization";
 import { notFound } from "next/navigation";
@@ -35,10 +35,13 @@ export default async function ClientCampaignDetailLayout({
     canCustomizeBranding = data?.can_customize_branding ?? false;
   }
 
+  const favoriteIds = await getFavoriteCampaignIds();
+
   return (
     <CampaignDetailShell
       campaign={campaign}
       canCustomizeBranding={canCustomizeBranding}
+      isFavorite={favoriteIds.includes(id)}
     >
       {children}
     </CampaignDetailShell>
