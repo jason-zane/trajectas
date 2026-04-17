@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
-import {
-  getOperationalCampaignsForClient,
-  type CampaignAssessmentOption,
-} from "@/app/actions/campaigns";
+import { getCampaigns, type CampaignAssessmentOption } from "@/app/actions/campaigns";
 import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
+import { QuickLaunchButton } from "@/components/campaigns/quick-launch-button";
 import { ClientCampaignList } from "./client-campaign-list";
 
 export default async function ClientCampaignsPage() {
@@ -19,7 +16,7 @@ export default async function ClientCampaignsPage() {
   }
 
   const [campaigns, libraryAssessments] = await Promise.all([
-    getOperationalCampaignsForClient(clientId),
+    getCampaigns({ clientId }),
     getClientAssessmentLibrary(clientId),
   ]);
 
@@ -51,11 +48,9 @@ export default async function ClientCampaignsPage() {
         }
       >
         <div className="flex items-center gap-3">
-          <LaunchCampaignButton
-            label="Launch campaign"
+          <QuickLaunchButton
             assessments={assessmentsForPicker}
             clients={[{ id: clientId, name: "My organisation" }]}
-            recentCampaigns={campaigns}
             forcedClientId={clientId}
             successHrefPrefix="/client/campaigns"
           />

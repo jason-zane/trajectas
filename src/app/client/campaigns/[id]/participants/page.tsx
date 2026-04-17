@@ -8,14 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export default async function ClientCampaignParticipantsPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ action?: string | string[] }>;
 }) {
   const { id } = await params;
-  const query = await searchParams;
-  const action = Array.isArray(query.action) ? query.action[0] : query.action;
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
@@ -67,14 +63,12 @@ export default async function ClientCampaignParticipantsPage({
       <CampaignAccessLinks
         campaignId={campaign.id}
         links={campaign.accessLinks}
-        defaultCreateOpen={action === "link"}
       />
 
       {/* Participant manager */}
       <CampaignParticipantManager
         campaignId={campaign.id}
         participants={campaign.participants}
-        initialAction={action === "bulk" ? "bulk" : action === "invite" ? "invite" : undefined}
       />
     </div>
   );

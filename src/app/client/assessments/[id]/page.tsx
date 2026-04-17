@@ -2,12 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, ArrowRight, ClipboardList, Clock3, Layers3, Target } from "lucide-react";
 
-import {
-  getOperationalCampaignsForClient,
-  type CampaignAssessmentOption,
-} from "@/app/actions/campaigns";
 import { getClientAssessmentLibraryDetail } from "@/app/actions/client-entitlements";
-import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -54,26 +49,11 @@ export default async function ClientAssessmentDetailPage({
   }
 
   const { id } = await params;
-  const [assessment, reusableCampaigns] = await Promise.all([
-    getClientAssessmentLibraryDetail(clientId, id),
-    getOperationalCampaignsForClient(clientId, { limit: 8 }),
-  ]);
+  const assessment = await getClientAssessmentLibraryDetail(clientId, id);
 
   if (!assessment) {
     notFound();
   }
-
-  const launchAssessment: CampaignAssessmentOption = {
-    id: assessment.id,
-    title: assessment.title,
-    description: assessment.description,
-    status: assessment.status,
-    factorCount: assessment.factorCount ?? 0,
-    sectionCount: assessment.sectionCount ?? 0,
-    totalItemCount: assessment.totalItemCount ?? 0,
-    formatLabel: assessment.formatMode,
-    estimatedDurationMinutes: assessment.estimatedDurationMinutes ?? 0,
-  };
 
   const statCards = [
     {
@@ -119,18 +99,9 @@ export default async function ClientAssessmentDetailPage({
               Back to assessments
             </Button>
           </Link>
-          <LaunchCampaignButton
-            label="Launch campaign"
-            assessments={[launchAssessment]}
-            clients={[{ id: clientId, name: "My organisation" }]}
-            recentCampaigns={reusableCampaigns}
-            forcedClientId={clientId}
-            successHrefPrefix="/client/campaigns"
-            initialAssessmentId={assessment.id}
-          />
           <Link href={`/client/campaigns/create?assessmentId=${encodeURIComponent(assessment.id)}`}>
-            <Button variant="outline">
-              New Campaign
+            <Button>
+              Use in a new campaign
               <ArrowRight className="size-4" />
             </Button>
           </Link>

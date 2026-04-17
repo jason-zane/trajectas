@@ -17,7 +17,6 @@ export type BlockType =
   | 'score_overview'
   | 'score_detail'
   | 'score_interpretation'
-  | 'score_interpretation_v2'
   | 'strengths_highlights'
   | 'development_plan'
   | 'norm_comparison'   // registered but deferred — runner skips if included
@@ -87,23 +86,6 @@ export interface ScoreInterpretationConfig {
   showGroupAnchors?: boolean
 }
 
-export interface ScoreInterpretationV2Config {
-  displayLevel: 'dimension' | 'factor' | 'construct'
-  groupByDimension?: boolean
-
-  // Factor-level display toggles (default true)
-  showScore?: boolean
-  showBandLabel?: boolean
-  showAnchorLow?: boolean
-  showAnchorHigh?: boolean
-
-  // Parent/group-level display toggles (default false)
-  showGroupScore?: boolean
-  showGroupBand?: boolean
-  showGroupAnchorLow?: boolean
-  showGroupAnchorHigh?: boolean
-}
-
 export interface ScoreDetailConfig {
   displayLevel: 'dimension' | 'factor' | 'construct'
   entityIds: string[]                    // multi-entity support
@@ -166,7 +148,6 @@ export type BlockConfigMap = {
   score_overview: ScoreOverviewConfig
   score_detail: ScoreDetailConfig
   score_interpretation: ScoreInterpretationConfig
-  score_interpretation_v2: ScoreInterpretationV2Config
   strengths_highlights: StrengthsHighlightsConfig
   development_plan: DevelopmentPlanConfig
   ai_text: AiTextConfig

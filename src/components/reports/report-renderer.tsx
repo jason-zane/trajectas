@@ -7,7 +7,6 @@ import { SectionDividerBlock } from './blocks/section-divider'
 import { ScoreOverviewBlock } from './blocks/score-overview'
 import { ScoreDetailBlock } from './blocks/score-detail'
 import { ScoreInterpretationBlock } from './blocks/score-interpretation'
-import { ScoreInterpretationV2Block } from './blocks/score-interpretation-v2'
 import { StrengthsHighlightsBlock } from './blocks/strengths-highlights'
 import { DevelopmentPlanBlock } from './blocks/development-plan'
 import { NormComparisonBlock } from './blocks/norm-comparison'
@@ -32,7 +31,6 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   score_overview: ScoreOverviewBlock,
   score_detail: ScoreDetailBlock,
   score_interpretation: ScoreInterpretationBlock,
-  score_interpretation_v2: ScoreInterpretationV2Block,
   strengths_highlights: StrengthsHighlightsBlock,
   development_plan: DevelopmentPlanBlock,
   norm_comparison: NormComparisonBlock,

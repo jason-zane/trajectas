@@ -1,11 +1,6 @@
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
-import {
-  getCampaigns,
-  getOperationalCampaignsForClient,
-  getRecentClientResults,
-  type CampaignAssessmentOption,
-} from "@/app/actions/campaigns";
-import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
+import { getCampaigns } from "@/app/actions/campaigns";
+import { getAssessmentAssignments } from "@/app/actions/client-entitlements";
 import { ClientDashboard } from "./client-dashboard";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,32 +29,15 @@ export default async function ClientDashboardPage() {
     );
   }
 
-  const [campaigns, operationalCampaigns, recentResults, libraryAssessments] = await Promise.all([
+  const [campaigns, assignments] = await Promise.all([
     getCampaigns({ clientId }),
-    getOperationalCampaignsForClient(clientId, { limit: 3 }),
-    getRecentClientResults(clientId, { limit: 6 }),
-    getClientAssessmentLibrary(clientId),
+    getAssessmentAssignments(clientId),
   ]);
-
-  const launchAssessments: CampaignAssessmentOption[] = libraryAssessments.map((a) => ({
-    id: a.id,
-    title: a.title,
-    description: a.description,
-    status: a.status,
-    factorCount: a.factorCount ?? 0,
-    sectionCount: a.sectionCount ?? 0,
-    totalItemCount: a.totalItemCount ?? 0,
-    formatLabel: a.formatMode ?? undefined,
-    estimatedDurationMinutes: a.estimatedDurationMinutes ?? 0,
-  }));
 
   return (
     <ClientDashboard
       campaigns={campaigns}
-      operationalCampaigns={operationalCampaigns}
-      recentResults={recentResults}
-      launchAssessments={launchAssessments}
-      clientId={clientId}
+      assessmentAssignments={assignments}
     />
   );
 }

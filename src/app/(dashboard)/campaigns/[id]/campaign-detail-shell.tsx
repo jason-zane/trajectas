@@ -25,30 +25,6 @@ const allTabs = (showAssessmentsAlert: boolean) => [
   { label: "Settings", segment: "settings" },
 ];
 
-function getTabsForPortal(
-  portal: "admin" | "partner" | "client",
-  showAssessmentsAlert: boolean,
-) {
-  const tabs = allTabs(showAssessmentsAlert);
-
-  if (portal !== "client") {
-    return tabs;
-  }
-
-  const preferredOrder = [
-    "participants",
-    "assessments",
-    "experience",
-    "overview",
-    "branding",
-    "settings",
-  ];
-
-  return preferredOrder
-    .map((segment) => tabs.find((tab) => tab.segment === segment))
-    .filter((tab): tab is NonNullable<typeof tab> => Boolean(tab));
-}
-
 const statusVariant: Record<
   string,
   "secondary" | "default" | "outline" | "destructive"
@@ -73,7 +49,7 @@ export function CampaignDetailShell({
   const { portal, href } = usePortal();
 
   const showAssessmentsAlert = campaign.assessments.length === 0;
-  const tabs = getTabsForPortal(portal, showAssessmentsAlert).filter((tab) => {
+  const tabs = allTabs(showAssessmentsAlert).filter((tab) => {
     if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
       return false;
     }

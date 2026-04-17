@@ -1,20 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 
 import type { CampaignWithMeta, ClientParticipant, UniqueClientParticipant } from "@/app/actions/campaigns";
 import {
   DataTable,
+  DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
 } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -95,27 +95,17 @@ type SessionTableRow = ClientParticipant & {
 };
 
 function SessionRowActions({ participant }: { participant: SessionTableRow }) {
-  const resultHref = participant.latestSessionId
-    ? `/client/campaigns/${participant.campaignId}/sessions/${participant.latestSessionId}`
-    : `/client/campaigns/${participant.campaignId}/participants/${participant.id}`;
+  const router = useRouter();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Link
-        href={resultHref}
-        className={buttonVariants({ variant: "outline", size: "sm" })}
-      >
-        <CheckCircle2 className="size-4" />
-        Open results
-      </Link>
-      <Link
-        href={`/client/campaigns/${participant.campaignId}`}
-        className={buttonVariants({ variant: "ghost", size: "sm" })}
+    <DataTableActionsMenu label={`Open actions for ${participant.displayName}`}>
+      <DropdownMenuItem
+        onClick={() => router.push(`/client/campaigns/${participant.campaignId}/overview`)}
       >
         <ExternalLink className="size-4" />
-        Campaign
-      </Link>
-    </div>
+        Open campaign
+      </DropdownMenuItem>
+    </DataTableActionsMenu>
   );
 }
 

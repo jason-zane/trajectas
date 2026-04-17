@@ -1,16 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Users } from "lucide-react";
+import { Plus } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-
-import type { OperationalClientCampaign } from "@/app/actions/campaigns";
-import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
-import { usePortal } from "@/components/portal-context";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { PageHeader } from "@/components/page-header";
 import { Progress } from "@/components/ui/progress";
+import { usePortal } from "@/components/portal-context";
+import type { CampaignWithMeta } from "@/app/actions/campaigns";
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 const statusVariant: Record<
   string,
@@ -36,7 +39,7 @@ function formatDateRange(opensAt?: string, closesAt?: string) {
   return `Closes ${fmt(closesAt!)}`;
 }
 
-function getCompletionPercent(campaign: OperationalClientCampaign) {
+function getCompletionPercent(campaign: CampaignWithMeta) {
   if (campaign.participantCount === 0) {
     return 0;
   }
@@ -44,28 +47,24 @@ function getCompletionPercent(campaign: OperationalClientCampaign) {
   return Math.round((campaign.completedCount / campaign.participantCount) * 100);
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 interface ClientCampaignListProps {
-  campaigns: OperationalClientCampaign[];
+  campaigns: CampaignWithMeta[];
 }
 
 export function ClientCampaignList({ campaigns }: ClientCampaignListProps) {
   const { href } = usePortal();
 
-  const columns: ColumnDef<OperationalClientCampaign>[] = [
+  const columns: ColumnDef<CampaignWithMeta>[] = [
     {
       accessorKey: "title",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Campaign" />
+        <DataTableColumnHeader column={column} title="Title" />
       ),
-      cell: ({ row }) => (
-        <Link
-          href={href(`/campaigns/${row.original.id}`)}
-          className="inline-flex items-center gap-1 font-semibold hover:text-primary"
-        >
-          {row.original.title}
-          <ArrowRight className="size-4" />
-        </Link>
-      ),
+      cell: ({ row }) => <span className="font-semibold">{row.original.title}</span>,
     },
     {
       accessorKey: "status",
@@ -134,39 +133,23 @@ export function ClientCampaignList({ campaigns }: ClientCampaignListProps) {
         </span>
       ),
     },
-    {
-      id: "actions",
-      enableSorting: false,
-      cell: ({ row }) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <CopyCampaignLinkButton
-            token={row.original.primaryAccessLink?.token}
-            createHref={href(
-              `/campaigns/${row.original.id}/participants?action=link`,
-            )}
-            className="justify-start"
-          />
-          <Link
-            href={href(`/campaigns/${row.original.id}/participants?action=invite`)}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <Users className="size-4" />
-            Invite
-          </Link>
-          <Link
-            href={href(`/campaigns/${row.original.id}/participants`)}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <CheckCircle2 className="size-4" />
-            Results
-          </Link>
-        </div>
-      ),
-    },
   ];
 
   return (
-    <div className="max-w-6xl">
+    <div className="space-y-8 max-w-5xl">
+      <PageHeader
+        eyebrow="Campaigns"
+        title="Campaigns"
+        description="View your assessment campaigns and track completion progress."
+      >
+        <Link href={href("/campaigns/create")}>
+          <Button>
+            <Plus className="size-4" />
+            New Campaign
+          </Button>
+        </Link>
+      </PageHeader>
+
       <DataTable
         columns={columns}
         data={campaigns}
@@ -186,6 +169,7 @@ export function ClientCampaignList({ campaigns }: ClientCampaignListProps) {
           },
         ]}
         defaultSort={{ id: "dateRange", desc: true }}
+        rowHref={(row) => href(`/campaigns/${row.id}/overview`)}
         pageSize={20}
       />
     </div>
