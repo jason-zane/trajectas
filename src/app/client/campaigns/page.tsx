@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import {
+  getFavoriteCampaignIds,
   getOperationalCampaignsForClient,
   type CampaignAssessmentOption,
 } from "@/app/actions/campaigns";
@@ -18,9 +19,10 @@ export default async function ClientCampaignsPage() {
     return <ClientCampaignList campaigns={[]} />;
   }
 
-  const [campaigns, libraryAssessments] = await Promise.all([
+  const [campaigns, libraryAssessments, favoriteCampaignIds] = await Promise.all([
     getOperationalCampaignsForClient(clientId),
     getClientAssessmentLibrary(clientId),
+    getFavoriteCampaignIds(),
   ]);
 
   // Map client assessment library entries to the CampaignAssessmentOption shape
@@ -68,7 +70,7 @@ export default async function ClientCampaignsPage() {
           </Link>
         </div>
       </PageHeader>
-      <ClientCampaignList campaigns={campaigns} />
+      <ClientCampaignList campaigns={campaigns} favoriteCampaignIds={favoriteCampaignIds} />
     </div>
   );
 }

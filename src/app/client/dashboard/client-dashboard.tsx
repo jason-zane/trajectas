@@ -9,6 +9,7 @@ import {
   Users,
 } from "lucide-react";
 
+import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import type {
   CampaignAssessmentOption,
   CampaignWithMeta,
@@ -60,6 +61,7 @@ interface ClientDashboardProps {
   recentResults: ClientRecentResult[];
   launchAssessments: CampaignAssessmentOption[];
   clientId: string;
+  favoriteCampaignIds?: string[];
 }
 
 export function ClientDashboard({
@@ -68,8 +70,17 @@ export function ClientDashboard({
   recentResults,
   launchAssessments,
   clientId,
+  favoriteCampaignIds = [],
 }: ClientDashboardProps) {
   const { href } = usePortal();
+  const favoriteSet = new Set(favoriteCampaignIds);
+
+  // Sort operational campaigns: favorites first
+  const sortedOperationalCampaigns = [...operationalCampaigns].sort((a, b) => {
+    const aFav = favoriteSet.has(a.id) ? 0 : 1;
+    const bFav = favoriteSet.has(b.id) ? 0 : 1;
+    return aFav - bFav;
+  });
 
   const totalParticipants = campaigns.reduce(
     (sum, campaign) => sum + campaign.participantCount,
@@ -187,7 +198,7 @@ export function ClientDashboard({
           </Card>
         ) : (
           <div className="grid gap-4 xl:grid-cols-3">
-            {operationalCampaigns.map((campaign, index) => {
+            {sortedOperationalCampaigns.map((campaign, index) => {
               const completion = getCompletionPercent(campaign);
 
               return (
@@ -207,9 +218,15 @@ export function ClientDashboard({
                             {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                           </Badge>
                         </div>
-                        <div className="text-right text-xs text-muted-foreground">
-                          {campaign.assessmentCount} assessment
-                          {campaign.assessmentCount === 1 ? "" : "s"}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {campaign.assessmentCount} assessment
+                            {campaign.assessmentCount === 1 ? "" : "s"}
+                          </span>
+                          <FavoriteCampaignButton
+                            campaignId={campaign.id}
+                            isFavorite={favoriteSet.has(campaign.id)}
+                          />
                         </div>
                       </div>
                     </CardHeader>

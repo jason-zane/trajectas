@@ -6,6 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import type { OperationalClientCampaign } from "@/app/actions/campaigns";
 import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
+import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import { usePortal } from "@/components/portal-context";
 import { Badge } from "@/components/ui/badge";
@@ -46,12 +47,25 @@ function getCompletionPercent(campaign: OperationalClientCampaign) {
 
 interface ClientCampaignListProps {
   campaigns: OperationalClientCampaign[];
+  favoriteCampaignIds?: string[];
 }
 
-export function ClientCampaignList({ campaigns }: ClientCampaignListProps) {
+export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: ClientCampaignListProps) {
   const { href } = usePortal();
+  const favoriteSet = new Set(favoriteCampaignIds);
 
   const columns: ColumnDef<OperationalClientCampaign>[] = [
+    {
+      id: "favorite",
+      header: () => null,
+      cell: ({ row }) => (
+        <FavoriteCampaignButton
+          campaignId={row.original.id}
+          isFavorite={favoriteSet.has(row.original.id)}
+        />
+      ),
+      size: 40,
+    },
     {
       accessorKey: "title",
       header: ({ column }) => (

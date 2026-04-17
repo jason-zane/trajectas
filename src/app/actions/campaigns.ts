@@ -2232,3 +2232,66 @@ export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
   revalidatePath('/campaigns')
   revalidatePath('/')
 }
+
+// ---------------------------------------------------------------------------
+// Campaign Assessment ID lookup
+// ---------------------------------------------------------------------------
+
+export async function getCampaignAssessmentId(
+  campaignId: string,
+  assessmentId: string,
+): Promise<string | null> {
+  const db = createAdminClient()
+  const { data } = await db
+    .from('campaign_assessments')
+    .select('id')
+    .eq('campaign_id', campaignId)
+    .eq('assessment_id', assessmentId)
+    .maybeSingle()
+  return data?.id ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Campaign Favorites
+// ---------------------------------------------------------------------------
+
+export async function getFavoriteCampaignIds(): Promise<string[]> {
+  const db = await createClient()
+  const { data } = await db
+    .from('campaign_favorites')
+    .select('campaign_id')
+  return (data ?? []).map((row) => row.campaign_id)
+}
+
+export async function favoriteCampaign(campaignId: string) {
+  const db = await createClient()
+  const { data: { user } } = await db.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await db
+    .from('campaign_favorites')
+    .upsert(
+      { profile_id: user.id, campaign_id: campaignId },
+      { onConflict: 'profile_id,campaign_id' },
+    )
+
+  if (error) return { error: error.message }
+  revalidatePath('/client/dashboard')
+  revalidatePath('/client/campaigns')
+}
+
+export async function unfavoriteCampaign(campaignId: string) {
+  const db = await createClient()
+  const { data: { user } } = await db.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await db
+    .from('campaign_favorites')
+    .delete()
+    .eq('profile_id', user.id)
+    .eq('campaign_id', campaignId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/client/dashboard')
+  revalidatePath('/client/campaigns')
+}
