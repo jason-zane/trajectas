@@ -51,9 +51,9 @@ export function ScoreInterpretationV2Block({
   const { config, palette, bands } = d
 
   return (
-    <div className="space-y-[8mm]">
+    <div className="space-y-[8mm] print:space-y-0">
       {d.groups.map((group, gi) => (
-        <div key={gi} className="break-inside-avoid">
+        <div key={gi} className={`break-inside-avoid ${gi > 0 ? 'print:pt-[18mm]' : ''}`}>
           {group.groupName && config.groupByDimension !== false && (
             <GroupHeader
               group={group}
