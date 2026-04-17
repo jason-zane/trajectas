@@ -73,6 +73,7 @@ export function LaunchCampaignButton({
   initialAssessmentId,
 }: LaunchCampaignButtonProps) {
   const [chooserOpen, setChooserOpen] = useState(false);
+  const [showReuse, setShowReuse] = useState(false);
   const [quickLaunchOpen, setQuickLaunchOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState(
     recentCampaigns[0]?.id ?? "",
@@ -90,6 +91,7 @@ export function LaunchCampaignButton({
 
   function handleStartNew() {
     setChooserOpen(false);
+    setShowReuse(false);
     setQuickLaunchOpen(true);
   }
 
@@ -129,121 +131,105 @@ export function LaunchCampaignButton({
         {label}
       </Button>
 
-      <Dialog open={chooserOpen} onOpenChange={setChooserOpen}>
-        <DialogContent className="max-w-3xl">
+      <Dialog open={chooserOpen} onOpenChange={(open) => { setChooserOpen(open); if (!open) setShowReuse(false); }}>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Launch campaign</DialogTitle>
             <DialogDescription>
-              Start a new campaign from scratch or reuse an earlier setup.
-              Reusing copies assessments, capabilities, and settings, but leaves
-              participants and access links behind.
+              Start fresh or duplicate a previous setup. Reusing copies
+              assessments and settings but not participants.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>New campaign</CardTitle>
-                <CardDescription>
-                  Use the guided flow to set up a campaign, attach an assessment,
-                  and choose how you want to invite participants.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {initialAssessmentId ? (
-                  <p className="text-sm text-muted-foreground">
-                    The selected assessment will already be chosen when the
-                    launch flow opens.
-                  </p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Best when you need a fresh campaign with a new assessment or
-                    send method.
-                  </p>
-                )}
-                <Button type="button" className="w-full" onClick={handleStartNew}>
-                  <Rocket className="size-4" />
-                  Start new campaign
-                </Button>
-              </CardContent>
-            </Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={handleStartNew}
+              className="group flex flex-col items-start gap-2 rounded-xl border border-border p-5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+            >
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Rocket className="size-4" />
+              </div>
+              <p className="font-semibold">New campaign</p>
+              <p className="text-xs text-muted-foreground">
+                Guided setup with assessment and invite options.
+              </p>
+            </button>
 
-            <Card className="h-full">
-              <CardHeader>
-                <CardTitle>Reuse previous campaign</CardTitle>
-                <CardDescription>
-                  Duplicate a recent campaign and review the assessment and
-                  capabilities before you send it again.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {recentCampaigns.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    No previous campaigns yet. Launch a new campaign first, then
-                    you can reuse it next time.
-                  </p>
-                ) : (
-                  <>
-                    <div className="space-y-2">
-                      <Select
-                        value={selectedCampaign?.id ?? ""}
-                        onValueChange={(value) =>
-                          setSelectedCampaignId(value ?? "")
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose a recent campaign">
-                            {selectedCampaign?.title ?? "Choose a recent campaign"}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {recentCampaigns.map((campaign) => (
-                            <SelectItem key={campaign.id} value={campaign.id}>
-                              {campaign.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {selectedCampaign ? (
-                      <div className="rounded-lg border border-border/70 bg-muted/30 px-3 py-3 text-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium">{selectedCampaign.title}</p>
-                            <p className="mt-1 text-muted-foreground">
-                              {selectedCampaign.assessmentCount} assessment
-                              {selectedCampaign.assessmentCount === 1 ? "" : "s"}{" "}
-                              will be copied into a fresh draft.
-                            </p>
-                          </div>
-                          <Badge
-                            variant={
-                              STATUS_VARIANTS[selectedCampaign.status] ?? "secondary"
-                            }
-                          >
-                            {selectedCampaign.status.charAt(0).toUpperCase() +
-                              selectedCampaign.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={handleReuseCampaign}
-                      disabled={!selectedCampaign || isReusing}
-                    >
-                      <RotateCcw className="size-4" />
-                      {isReusing ? "Copying campaign..." : "Reuse this campaign"}
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+            {recentCampaigns.length === 0 ? (
+              <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border p-5">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <RotateCcw className="size-4" />
+                </div>
+                <p className="font-semibold text-muted-foreground">Reuse previous</p>
+                <p className="text-xs text-muted-foreground">
+                  No previous campaigns yet.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowReuse(true)}
+                className="group flex flex-col items-start gap-2 rounded-xl border border-border p-5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+              >
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <RotateCcw className="size-4" />
+                </div>
+                <p className="font-semibold">Reuse previous</p>
+                <p className="text-xs text-muted-foreground">
+                  Duplicate setup, review before sending.
+                </p>
+              </button>
+            )}
           </div>
+
+          {showReuse && recentCampaigns.length > 0 && (
+            <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+              <Select
+                value={selectedCampaign?.id ?? ""}
+                onValueChange={(value) => setSelectedCampaignId(value ?? "")}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a campaign to reuse">
+                    {selectedCampaign?.title ?? "Choose a campaign to reuse"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {recentCampaigns.map((campaign) => (
+                    <SelectItem key={campaign.id} value={campaign.id}>
+                      {campaign.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedCampaign && (
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">
+                    {selectedCampaign.assessmentCount} assessment
+                    {selectedCampaign.assessmentCount === 1 ? "" : "s"} will be
+                    copied
+                  </span>
+                  <Badge
+                    variant={STATUS_VARIANTS[selectedCampaign.status] ?? "secondary"}
+                  >
+                    {selectedCampaign.status.charAt(0).toUpperCase() +
+                      selectedCampaign.status.slice(1)}
+                  </Badge>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleReuseCampaign}
+                disabled={!selectedCampaign || isReusing}
+              >
+                <RotateCcw className="size-4" />
+                {isReusing ? "Copying campaign..." : "Reuse this campaign"}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
