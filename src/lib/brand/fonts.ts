@@ -8,7 +8,7 @@ export interface FontOption {
   /** CSS font-family value (with fallbacks). */
   family: string
   /** Category for grouping in the editor. */
-  category: 'sans' | 'mono'
+  category: 'sans' | 'serif' | 'mono'
   /** Available weights. */
   weights: number[]
   /** Google Fonts identifier (null if loaded via next/font). */
@@ -64,6 +64,126 @@ export const HEADING_BODY_FONTS: FontOption[] = [
     category: 'sans',
     weights: [400, 500, 600, 700],
     googleId: 'Source+Sans+3',
+  },
+  {
+    name: 'Geist',
+    family: '"Geist", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Geist',
+  },
+  {
+    name: 'Figtree',
+    family: '"Figtree", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Figtree',
+  },
+  {
+    name: 'Albert Sans',
+    family: '"Albert Sans", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Albert+Sans',
+  },
+  {
+    name: 'Onest',
+    family: '"Onest", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Onest',
+  },
+  {
+    name: 'Public Sans',
+    family: '"Public Sans", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Public+Sans',
+  },
+  {
+    name: 'Hanken Grotesk',
+    family: '"Hanken Grotesk", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Hanken+Grotesk',
+  },
+  {
+    name: 'Be Vietnam Pro',
+    family: '"Be Vietnam Pro", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Be+Vietnam+Pro',
+  },
+  {
+    name: 'Lexend',
+    family: '"Lexend", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Lexend',
+  },
+  {
+    name: 'Work Sans',
+    family: '"Work Sans", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Work+Sans',
+  },
+  {
+    name: 'Nunito Sans',
+    family: '"Nunito Sans", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Nunito+Sans',
+  },
+  // -- Serifs ---------------------------------------------------------------
+  {
+    name: 'Fraunces',
+    family: '"Fraunces", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Fraunces',
+  },
+  {
+    name: 'Source Serif 4',
+    family: '"Source Serif 4", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Source+Serif+4',
+  },
+  {
+    name: 'Newsreader',
+    family: '"Newsreader", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Newsreader',
+  },
+  {
+    name: 'Crimson Pro',
+    family: '"Crimson Pro", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Crimson+Pro',
+  },
+  {
+    name: 'Lora',
+    family: '"Lora", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Lora',
+  },
+  {
+    name: 'Merriweather',
+    family: '"Merriweather", Georgia, serif',
+    category: 'serif',
+    weights: [400, 700],
+    googleId: 'Merriweather',
+  },
+  {
+    name: 'EB Garamond',
+    family: '"EB Garamond", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'EB+Garamond',
   },
 ]
 

@@ -5,11 +5,21 @@ import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
 import type { FontOption } from "@/lib/brand/fonts"
+
+const CATEGORY_LABELS: Record<FontOption["category"], string> = {
+  sans: "Sans-serif",
+  serif: "Serif",
+  mono: "Monospace",
+}
+
+const CATEGORY_ORDER: FontOption["category"][] = ["sans", "serif", "mono"]
 
 interface FontSelectorProps {
   label: string
@@ -32,6 +42,14 @@ export function FontSelector({
   const displayFamily =
     previewFamily || selectedFont?.family || "system-ui, sans-serif"
 
+  const groupedFonts = CATEGORY_ORDER.map((category) => ({
+    category,
+    label: CATEGORY_LABELS[category],
+    items: fonts.filter((f) => f.category === category),
+  })).filter((group) => group.items.length > 0)
+
+  const showGroupLabels = groupedFonts.length > 1
+
   return (
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
@@ -40,10 +58,15 @@ export function FontSelector({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {fonts.map((font) => (
-            <SelectItem key={font.name} value={font.name}>
-              <span style={{ fontFamily: font.family }}>{font.name}</span>
-            </SelectItem>
+          {groupedFonts.map((group) => (
+            <SelectGroup key={group.category}>
+              {showGroupLabels ? <SelectLabel>{group.label}</SelectLabel> : null}
+              {group.items.map((font) => (
+                <SelectItem key={font.name} value={font.name}>
+                  <span style={{ fontFamily: font.family }}>{font.name}</span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
           ))}
         </SelectContent>
       </Select>
