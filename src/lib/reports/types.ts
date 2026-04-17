@@ -94,14 +94,12 @@ export interface ScoreInterpretationV2Config {
   // Factor-level display toggles (default true)
   showScore?: boolean
   showBandLabel?: boolean
-  showAnchorLow?: boolean
-  showAnchorHigh?: boolean
+  showAnchors?: boolean
 
   // Parent/group-level display toggles (default false)
   showGroupScore?: boolean
   showGroupBand?: boolean
-  showGroupAnchorLow?: boolean
-  showGroupAnchorHigh?: boolean
+  showGroupAnchors?: boolean
 }
 
 export interface ScoreDetailConfig {

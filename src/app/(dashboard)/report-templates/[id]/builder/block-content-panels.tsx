@@ -511,18 +511,11 @@ function ScoreInterpretationV2Content({ block, onUpdateConfig }: BlockContentPan
           onChange={(v) => onUpdateConfig('showBandLabel', v)}
         />
         <SwitchField
-          id="interp2-showAnchorLow"
-          label="Low anchor"
-          help="Low-end behavioural indicator text"
-          checked={config.showAnchorLow as boolean ?? true}
-          onChange={(v) => onUpdateConfig('showAnchorLow', v)}
-        />
-        <SwitchField
-          id="interp2-showAnchorHigh"
-          label="High anchor"
-          help="High-end behavioural indicator text"
-          checked={config.showAnchorHigh as boolean ?? true}
-          onChange={(v) => onUpdateConfig('showAnchorHigh', v)}
+          id="interp2-showAnchors"
+          label="Behaviour anchors"
+          help="Low/high behavioural indicator text flanking the bar"
+          checked={config.showAnchors as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showAnchors', v)}
         />
       </div>
       <div className="space-y-3 pt-4 border-t border-border/40">
@@ -545,18 +538,11 @@ function ScoreInterpretationV2Content({ block, onUpdateConfig }: BlockContentPan
           onChange={(v) => onUpdateConfig('showGroupBand', v)}
         />
         <SwitchField
-          id="interp2-showGroupAnchorLow"
-          label="Dimension low anchor"
-          help="Low-end behavioural indicator for the dimension"
-          checked={config.showGroupAnchorLow as boolean ?? false}
-          onChange={(v) => onUpdateConfig('showGroupAnchorLow', v)}
-        />
-        <SwitchField
-          id="interp2-showGroupAnchorHigh"
-          label="Dimension high anchor"
-          help="High-end behavioural indicator for the dimension"
-          checked={config.showGroupAnchorHigh as boolean ?? false}
-          onChange={(v) => onUpdateConfig('showGroupAnchorHigh', v)}
+          id="interp2-showGroupAnchors"
+          label="Dimension anchors"
+          help="Low/high behavioural indicators for the dimension"
+          checked={config.showGroupAnchors as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupAnchors', v)}
         />
       </div>
     </div>
