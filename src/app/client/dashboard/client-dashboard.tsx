@@ -42,7 +42,7 @@ const statusVariant: Record<
   archived: "outline",
 };
 
-const statusTopAccent: Record<string, string> = {
+const statusAccent: Record<string, string> = {
   active: "bg-primary",
   draft: "bg-muted-foreground/25",
   paused: "bg-amber-500",
@@ -118,33 +118,35 @@ export function ClientDashboard({
       {/* Stat cards — 4 across */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {[
-          { key: "active", label: "Active campaigns", value: activeCount, icon: Megaphone },
-          { key: "assessments", label: "Assessments", value: totalAssessments, icon: ClipboardList },
-          { key: "participants", label: "Participants", value: totalParticipants, icon: Users },
-          { key: "completed", label: "Completed", value: totalCompleted, icon: CheckCircle2 },
+          { key: "active", label: "Active campaigns", value: activeCount, icon: Megaphone, link: "/campaigns" },
+          { key: "assessments", label: "Assessments", value: totalAssessments, icon: ClipboardList, link: "/assessments" },
+          { key: "participants", label: "Participants", value: totalParticipants, icon: Users, link: "/participants" },
+          { key: "completed", label: "Completed", value: totalCompleted, icon: CheckCircle2, link: "/participants?view=sessions" },
         ].map((stat, index) => (
           <ScrollReveal key={stat.key} delay={index * 60}>
-            <TiltCard className="h-full">
-              <Card variant="interactive" className="h-full">
-                <CardContent className="flex items-start justify-between pt-5">
-                  <div>
-                    <AnimatedNumber
-                      value={stat.value}
-                      className="text-3xl font-bold tabular-nums"
-                    />
-                    <p className="text-caption text-muted-foreground mt-1">
-                      {stat.label}
-                    </p>
-                  </div>
-                  <div
-                    className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover/card:shadow-[0_0_20px_var(--glow-color)] transition-shadow duration-300"
-                    style={{ "--glow-color": "var(--primary)" } as React.CSSProperties}
-                  >
-                    <stat.icon className="size-5" />
-                  </div>
-                </CardContent>
-              </Card>
-            </TiltCard>
+            <Link href={href(stat.link)} className="block h-full">
+              <TiltCard className="h-full">
+                <Card variant="interactive" className="h-full">
+                  <CardContent className="flex items-start justify-between pt-5">
+                    <div>
+                      <AnimatedNumber
+                        value={stat.value}
+                        className="text-3xl font-bold tabular-nums"
+                      />
+                      <p className="text-caption text-muted-foreground mt-1">
+                        {stat.label}
+                      </p>
+                    </div>
+                    <div
+                      className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover/card:shadow-[0_0_20px_var(--glow-color)] transition-shadow duration-300"
+                      style={{ "--glow-color": "var(--primary)" } as React.CSSProperties}
+                    >
+                      <stat.icon className="size-5" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </TiltCard>
+            </Link>
           </ScrollReveal>
         ))}
       </div>
@@ -152,8 +154,8 @@ export function ClientDashboard({
       {/* Action card — full width */}
       <ScrollReveal delay={0}>
         <Card>
-          <CardContent className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-2 md:max-w-sm">
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
               <p className="text-overline text-primary">What do you need to do?</p>
               <h2 className="text-title font-semibold tracking-tight">
                 Start or continue a campaign in a few clicks.
@@ -162,7 +164,8 @@ export function ClientDashboard({
                 Launch a campaign, copy the link, or jump straight into participant results.
               </p>
             </div>
-            <div className="flex shrink-0 flex-wrap gap-2 md:flex-col">
+
+            <div className="flex flex-wrap gap-3">
               <LaunchCampaignButton
                 label="Launch campaign"
                 assessments={launchAssessments}
@@ -224,7 +227,7 @@ export function ClientDashboard({
                 <ScrollReveal key={campaign.id} delay={index * 60}>
                   <TiltCard className="h-full">
                     <Card variant="interactive" className="h-full">
-                      <div className={cn("absolute left-0 right-0 top-0 z-10 h-[3px] rounded-t-xl", statusTopAccent[campaign.status] ?? "bg-muted-foreground/25")} />
+                      <div className={cn("absolute bottom-0 left-0 top-0 z-10 w-[3px] rounded-l-xl", statusAccent[campaign.status] ?? "bg-muted-foreground/25")} />
                       <CardHeader className="space-y-2">
                         <Link
                           href={href(`/campaigns/${campaign.id}`)}
