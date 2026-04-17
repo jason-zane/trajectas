@@ -20,16 +20,19 @@ import {
   reactivateAccessLink,
   deleteAccessLink,
 } from "@/app/actions/campaigns";
+import { buildCampaignAccessLinkUrl } from "@/lib/campaign-access-links";
 import type { CampaignAccessLink } from "@/types/database";
 
 export function CampaignAccessLinks({
   campaignId,
   links,
+  defaultCreateOpen = false,
 }: {
   campaignId: string;
   links: CampaignAccessLink[];
+  defaultCreateOpen?: boolean;
 }) {
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState(defaultCreateOpen);
   const [label, setLabel] = useState("");
   const [maxUses, setMaxUses] = useState("");
 
@@ -73,7 +76,7 @@ export function CampaignAccessLinks({
   }
 
   function copyUrl(token: string) {
-    const url = `${window.location.origin}/assess/join/${token}`;
+    const url = buildCampaignAccessLinkUrl(token, window.location.origin);
     navigator.clipboard.writeText(url);
     toast.success("Enrollment link copied");
   }

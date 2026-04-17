@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
@@ -60,9 +60,11 @@ function getDisplayName(participant: CampaignParticipant) {
 export function CampaignParticipantManager({
   campaignId,
   participants,
+  initialAction,
 }: {
   campaignId: string;
   participants: CampaignParticipant[];
+  initialAction?: "invite" | "bulk";
 }) {
   const router = useRouter();
   const [showInvite, setShowInvite] = useState(false);
@@ -82,6 +84,15 @@ export function CampaignParticipantManager({
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [errors, setErrors] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (initialAction === "invite") {
+      setShowInvite(true);
+    }
+    if (initialAction === "bulk") {
+      setShowBulk(true);
+    }
+  }, [initialAction]);
 
   async function handleInvite(event: React.FormEvent) {
     event.preventDefault();
