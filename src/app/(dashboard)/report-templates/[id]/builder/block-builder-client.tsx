@@ -991,7 +991,6 @@ function InlineTemplateSettingsPanel({
 
           <Separator />
           <TemplateBandSchemeSection templateId={templateId} onSchemeChange={onSchemeChange} />
-
           {campaigns && (
             <>
               <Separator />
@@ -1014,6 +1013,12 @@ function InlineTemplateSettingsPanel({
               {settingsSaveLabel}
             </Button>
           </div>
+        </div>
+      )}
+      {/* Always mount so the band scheme loads eagerly for the live preview */}
+      {!expanded && (
+        <div className="hidden">
+          <TemplateBandSchemeSection templateId={templateId} onSchemeChange={onSchemeChange} />
         </div>
       )}
     </div>
