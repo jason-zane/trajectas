@@ -125,7 +125,7 @@ export function LaunchCampaignButton({
       </Button>
 
       <Dialog open={chooserOpen} onOpenChange={(open) => { setChooserOpen(open); if (!open) setShowReuse(false); }}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Launch campaign</DialogTitle>
             <DialogDescription>
@@ -138,10 +138,10 @@ export function LaunchCampaignButton({
             <button
               type="button"
               onClick={handleStartNew}
-              className="group flex flex-col items-start gap-2 rounded-xl border border-border p-5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+              className="group flex flex-col items-start gap-3 rounded-xl border border-border p-6 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
             >
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Rocket className="size-4" />
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Rocket className="size-5" />
               </div>
               <p className="font-semibold">New campaign</p>
               <p className="text-xs text-muted-foreground">
@@ -150,9 +150,9 @@ export function LaunchCampaignButton({
             </button>
 
             {recentCampaigns.length === 0 ? (
-              <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border p-5">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                  <RotateCcw className="size-4" />
+              <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border p-6">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <RotateCcw className="size-5" />
                 </div>
                 <p className="font-semibold text-muted-foreground">Reuse previous</p>
                 <p className="text-xs text-muted-foreground">
@@ -163,10 +163,10 @@ export function LaunchCampaignButton({
               <button
                 type="button"
                 onClick={() => setShowReuse(true)}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-border p-5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
+                className="group flex flex-col items-start gap-3 rounded-xl border border-border p-6 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
               >
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <RotateCcw className="size-4" />
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <RotateCcw className="size-5" />
                 </div>
                 <p className="font-semibold">Reuse previous</p>
                 <p className="text-xs text-muted-foreground">

@@ -557,7 +557,7 @@ export function QuickLaunchModal({
         {/* Step content — animated slide on step change */}
         <div
           key={step}
-          className="py-4"
+          className="py-6"
           style={{
             animation: `${slideDirection === "left" ? "ql-slide-left" : "ql-slide-right"} 200ms ease-out`,
           }}
@@ -1020,7 +1020,7 @@ export function QuickLaunchModal({
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-border pt-4">
+        <div className="flex items-center justify-between border-t border-border pt-5">
           <Button
             variant="ghost"
             onClick={() => handleOpenChange(false)}

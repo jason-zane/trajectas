@@ -24,10 +24,12 @@ import { LocalTime } from "@/components/local-time";
 import { PageHeader } from "@/components/page-header";
 import { usePortal } from "@/components/portal-context";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { TiltCard } from "@/components/tilt-card";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 const statusVariant: Record<
   string,
@@ -38,6 +40,14 @@ const statusVariant: Record<
   paused: "outline",
   closed: "destructive",
   archived: "outline",
+};
+
+const statusTopAccent: Record<string, string> = {
+  active: "bg-primary",
+  draft: "bg-muted-foreground/25",
+  paused: "bg-amber-500",
+  closed: "bg-destructive",
+  archived: "bg-muted-foreground/25",
 };
 
 function getCompletionPercent(campaign: CampaignWithMeta) {
@@ -114,22 +124,27 @@ export function ClientDashboard({
           { key: "completed", label: "Completed", value: totalCompleted, icon: CheckCircle2 },
         ].map((stat, index) => (
           <ScrollReveal key={stat.key} delay={index * 60}>
-            <Card>
-              <CardContent className="flex items-start justify-between pt-5">
-                <div>
-                  <AnimatedNumber
-                    value={stat.value}
-                    className="text-3xl font-bold tabular-nums"
-                  />
-                  <p className="text-caption text-muted-foreground mt-1">
-                    {stat.label}
-                  </p>
-                </div>
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <stat.icon className="size-5" />
-                </div>
-              </CardContent>
-            </Card>
+            <TiltCard className="h-full">
+              <Card variant="interactive" className="h-full">
+                <CardContent className="flex items-start justify-between pt-5">
+                  <div>
+                    <AnimatedNumber
+                      value={stat.value}
+                      className="text-3xl font-bold tabular-nums"
+                    />
+                    <p className="text-caption text-muted-foreground mt-1">
+                      {stat.label}
+                    </p>
+                  </div>
+                  <div
+                    className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover/card:shadow-[0_0_20px_var(--glow-color)] transition-shadow duration-300"
+                    style={{ "--glow-color": "var(--primary)" } as React.CSSProperties}
+                  >
+                    <stat.icon className="size-5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </TiltCard>
           </ScrollReveal>
         ))}
       </div>
@@ -137,19 +152,17 @@ export function ClientDashboard({
       {/* Action card — full width */}
       <ScrollReveal delay={0}>
         <Card>
-          <CardContent className="space-y-5 pt-6">
-            <div className="space-y-2">
+          <CardContent className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2 md:max-w-sm">
               <p className="text-overline text-primary">What do you need to do?</p>
               <h2 className="text-title font-semibold tracking-tight">
                 Start or continue a campaign in a few clicks.
               </h2>
               <p className="text-sm text-muted-foreground">
-                The fastest path is to launch a campaign, copy the link, or jump
-                straight into participant results.
+                Launch a campaign, copy the link, or jump straight into participant results.
               </p>
             </div>
-
-            <div className="flex flex-wrap gap-3">
+            <div className="flex shrink-0 flex-wrap gap-2 md:flex-col">
               <LaunchCampaignButton
                 label="Launch campaign"
                 assessments={launchAssessments}
@@ -209,70 +222,64 @@ export function ClientDashboard({
 
               return (
                 <ScrollReveal key={campaign.id} delay={index * 60}>
-                  <Card className="h-full">
-                    <CardHeader className="space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-2">
-                          <Link
-                            href={href(`/campaigns/${campaign.id}`)}
-                            className="inline-flex items-center gap-1 font-semibold hover:text-primary"
-                          >
-                            {campaign.title}
-                            <ArrowRight className="size-4" />
-                          </Link>
+                  <TiltCard className="h-full">
+                    <Card variant="interactive" className="h-full">
+                      <div className={cn("absolute left-0 right-0 top-0 z-10 h-[3px] rounded-t-xl", statusTopAccent[campaign.status] ?? "bg-muted-foreground/25")} />
+                      <CardHeader className="space-y-2">
+                        <Link
+                          href={href(`/campaigns/${campaign.id}`)}
+                          className="inline-flex items-center gap-1 font-semibold leading-snug hover:text-primary"
+                        >
+                          {campaign.title}
+                          <ArrowRight className="size-4 shrink-0" />
+                        </Link>
+                        <div className="flex items-center gap-2">
                           <Badge variant={statusVariant[campaign.status] ?? "secondary"}>
                             {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
                           </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
-                            {campaign.assessmentCount} assessment
-                            {campaign.assessmentCount === 1 ? "" : "s"}
-                          </span>
                           <FavoriteCampaignButton
                             campaignId={campaign.id}
                             isFavorite={favoriteSet.has(campaign.id)}
                           />
                         </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>
-                            {campaign.completedCount}/{campaign.participantCount || 0} completed
-                          </span>
-                          <span>{completion}%</span>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>
+                              {campaign.completedCount}/{campaign.participantCount || 0} completed
+                            </span>
+                            <span>{completion}%</span>
+                          </div>
+                          <Progress value={completion} className="gap-0" />
                         </div>
-                        <Progress value={completion} className="gap-0" />
-                      </div>
 
-                      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
-                        <CopyCampaignLinkButton
-                          token={campaign.primaryAccessLink?.token}
-                          createHref={href(
-                            `/campaigns/${campaign.id}/participants?action=link`,
-                          )}
-                          variant={campaign.primaryAccessLink ? "default" : "outline"}
-                          className="justify-start"
-                        />
-                        <Link
-                          href={href(`/campaigns/${campaign.id}/participants?action=invite`)}
-                          className={buttonVariants({ variant: "outline", size: "sm" })}
-                        >
-                          <Users className="size-4" />
-                          Invite participants
-                        </Link>
-                        <Link
-                          href={href(`/campaigns/${campaign.id}/participants?view=sessions`)}
-                          className={buttonVariants({ variant: "outline", size: "sm" })}
-                        >
-                          <CheckCircle2 className="size-4" />
-                          View results
-                        </Link>
-                      </div>
-                    </CardContent>
-                  </Card>
+                        <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+                          <CopyCampaignLinkButton
+                            token={campaign.primaryAccessLink?.token}
+                            createHref={href(
+                              `/campaigns/${campaign.id}/participants?action=link`,
+                            )}
+                            variant={campaign.primaryAccessLink ? "default" : "outline"}
+                          />
+                          <Link
+                            href={href(`/campaigns/${campaign.id}/participants?action=invite`)}
+                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                          >
+                            <Users className="size-4" />
+                            Invite participants
+                          </Link>
+                          <Link
+                            href={href(`/campaigns/${campaign.id}/participants?view=sessions`)}
+                            className={buttonVariants({ variant: "outline", size: "sm" })}
+                          >
+                            <CheckCircle2 className="size-4" />
+                            View results
+                          </Link>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TiltCard>
                 </ScrollReveal>
               );
             })}
