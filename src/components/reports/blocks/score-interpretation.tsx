@@ -39,11 +39,11 @@ export function ScoreInterpretationBlock({
   const { config, palette } = d
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print:space-y-0">
       {d.groups.map((group, gi) => (
         <div
           key={gi}
-          className="break-inside-avoid print:pt-[8mm] print:pb-[2mm]"
+          className={`break-inside-avoid print:pb-[2mm] ${gi > 0 ? 'print:pt-[18mm] print:-mt-[10mm]' : 'print:pt-[8mm]'}`}
         >
           {group.groupName && (
             <GroupHeader

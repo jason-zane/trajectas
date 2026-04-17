@@ -103,12 +103,12 @@ export function ScoreDetailBlock({ data, mode, chartType }: { data: Record<strin
   }
 
   return (
-    <div className="space-y-6">
-      {entities.map((entity) => {
+    <div className="space-y-6 print:space-y-0">
+      {entities.map((entity, i) => {
         if (resolvedMode === 'featured') {
-          return <FeaturedLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} palette={palette} />
+          return <FeaturedLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} palette={palette} isFirstEntity={i === 0} />
         }
-        return <OpenLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} palette={palette} />
+        return <OpenLayout key={entity.entityId} entity={entity} config={config} resolvedChart={resolvedChart} palette={palette} isFirstEntity={i === 0} />
       })}
     </div>
   )
@@ -164,6 +164,7 @@ function OpenLayout({
   resolvedChart,
   palette,
   isChild,
+  isFirstEntity,
   variant = 'default',
 }: {
   entity: ScoreDetailEntity
@@ -171,6 +172,7 @@ function OpenLayout({
   resolvedChart: string
   palette: PaletteKey
   isChild?: boolean
+  isFirstEntity?: boolean
   variant?: 'default' | 'featured'
 }) {
   const isFeatured = variant === 'featured'
@@ -178,8 +180,14 @@ function OpenLayout({
   const bodyColour = isFeatured ? 'currentColor' : 'var(--report-body-colour)'
   const mutedColour = isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-muted-colour)'
 
+  const printSpacing = isChild
+    ? ''
+    : isFirstEntity
+      ? 'print:pt-[10mm] print:pb-[2mm]'
+      : 'print:pt-[18mm] print:-mt-[10mm] print:pb-[2mm]'
+
   return (
-    <div className={`space-y-4 py-2 break-inside-avoid ${isChild ? '' : 'print:pt-[10mm] print:pb-[2mm]'}`}>
+    <div className={`space-y-4 py-2 break-inside-avoid ${printSpacing}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <h3
@@ -388,14 +396,16 @@ function FeaturedLayout({
   config,
   resolvedChart,
   palette,
+  isFirstEntity,
 }: {
   entity: ScoreDetailEntity
   config: ScoreDetailConfig
   resolvedChart: string
   palette: PaletteKey
+  isFirstEntity?: boolean
 }) {
   return (
-    <div className="space-y-4 break-inside-avoid">
+    <div className={`space-y-4 break-inside-avoid ${isFirstEntity === false ? 'print:pt-[18mm] print:-mt-[10mm]' : ''}`}>
       <h3 className="text-2xl font-semibold text-current">{entity.entityName}</h3>
 
       {config.showBandLabel && (
