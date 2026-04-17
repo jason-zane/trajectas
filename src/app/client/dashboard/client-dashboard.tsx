@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   CheckCircle2,
-  ClipboardList,
   Megaphone,
   Search,
   Users,
@@ -92,10 +91,6 @@ export function ClientDashboard({
     0,
   );
   const activeCount = campaigns.filter((campaign) => campaign.status === "active").length;
-  const totalAssessments = campaigns.reduce(
-    (sum, campaign) => sum + campaign.assessmentCount,
-    0,
-  );
 
   return (
     <div className="space-y-10 max-w-6xl">
@@ -105,77 +100,76 @@ export function ClientDashboard({
         description="Launch quickly, send the right link, and jump straight into participant results."
       />
 
-      {/* Stat cards — 4 across */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        {[
-          { key: "active", label: "Active campaigns", value: activeCount, icon: Megaphone },
-          { key: "assessments", label: "Assessments", value: totalAssessments, icon: ClipboardList },
-          { key: "participants", label: "Participants", value: totalParticipants, icon: Users },
-          { key: "completed", label: "Completed", value: totalCompleted, icon: CheckCircle2 },
-        ].map((stat, index) => (
-          <ScrollReveal key={stat.key} delay={index * 60}>
-            <Card>
-              <CardContent className="flex items-start justify-between pt-5">
-                <div>
-                  <AnimatedNumber
-                    value={stat.value}
-                    className="text-3xl font-bold tabular-nums"
-                  />
-                  <p className="text-caption text-muted-foreground mt-1">
-                    {stat.label}
-                  </p>
-                </div>
-                <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <stat.icon className="size-5" />
-                </div>
-              </CardContent>
-            </Card>
-          </ScrollReveal>
-        ))}
-      </div>
+      <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <ScrollReveal delay={0}>
+          <Card>
+            <CardContent className="space-y-5 pt-6">
+              <div className="space-y-2">
+                <p className="text-overline text-primary">What do you need to do?</p>
+                <h2 className="text-title font-semibold tracking-tight">
+                  Start or continue a campaign in a few clicks.
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  The fastest path is to launch a campaign, copy the link, or jump
+                  straight into participant results.
+                </p>
+              </div>
 
-      {/* Action card — full width */}
-      <ScrollReveal delay={0}>
-        <Card>
-          <CardContent className="space-y-5 pt-6">
-            <div className="space-y-2">
-              <p className="text-overline text-primary">What do you need to do?</p>
-              <h2 className="text-title font-semibold tracking-tight">
-                Start or continue a campaign in a few clicks.
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                The fastest path is to launch a campaign, copy the link, or jump
-                straight into participant results.
-              </p>
-            </div>
+              <div className="flex flex-wrap gap-3">
+                <LaunchCampaignButton
+                  label="Launch campaign"
+                  assessments={launchAssessments}
+                  clients={[{ id: clientId, name: "My organisation" }]}
+                  recentCampaigns={campaigns}
+                  forcedClientId={clientId}
+                  successHrefPrefix="/client/campaigns"
+                />
+                <Link
+                  href={href("/participants?view=sessions")}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <CheckCircle2 className="size-4" />
+                  View results
+                </Link>
+                <Link
+                  href={href("/participants")}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <Search className="size-4" />
+                  Find participant
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </ScrollReveal>
 
-            <div className="flex flex-wrap gap-3">
-              <LaunchCampaignButton
-                label="Launch campaign"
-                assessments={launchAssessments}
-                clients={[{ id: clientId, name: "My organisation" }]}
-                recentCampaigns={campaigns}
-                forcedClientId={clientId}
-                successHrefPrefix="/client/campaigns"
-              />
-              <Link
-                href={href("/participants?view=sessions")}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                <CheckCircle2 className="size-4" />
-                View results
-              </Link>
-              <Link
-                href={href("/participants")}
-                className={buttonVariants({ variant: "outline" })}
-              >
-                <Search className="size-4" />
-                Find participant
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </ScrollReveal>
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+          {[
+            { key: "active", label: "Active campaigns", value: activeCount, icon: Megaphone },
+            { key: "participants", label: "Participants", value: totalParticipants, icon: Users },
+            { key: "completed", label: "Completed", value: totalCompleted, icon: CheckCircle2 },
+          ].map((stat, index) => (
+            <ScrollReveal key={stat.key} delay={(index + 1) * 60}>
+              <Card>
+                <CardContent className="flex items-start justify-between pt-5">
+                  <div>
+                    <AnimatedNumber
+                      value={stat.value}
+                      className="text-3xl font-bold tabular-nums"
+                    />
+                    <p className="text-caption text-muted-foreground mt-1">
+                      {stat.label}
+                    </p>
+                  </div>
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <stat.icon className="size-5" />
+                  </div>
+                </CardContent>
+              </Card>
+            </ScrollReveal>
+          ))}
+        </div>
+      </section>
 
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-3">
@@ -264,7 +258,7 @@ export function ClientDashboard({
                           Invite participants
                         </Link>
                         <Link
-                          href={href(`/campaigns/${campaign.id}/participants?view=sessions`)}
+                          href={href(`/campaigns/${campaign.id}/participants`)}
                           className={buttonVariants({ variant: "outline", size: "sm" })}
                         >
                           <CheckCircle2 className="size-4" />
