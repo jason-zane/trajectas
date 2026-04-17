@@ -53,7 +53,7 @@ export function ScoreInterpretationV2Block({
   return (
     <div className="space-y-[8mm] print:space-y-0">
       {d.groups.map((group, gi) => (
-        <div key={gi} className={`break-inside-avoid ${gi > 0 ? 'print:pt-[8mm]' : ''}`}>
+        <div key={gi} className={`break-inside-avoid ${gi > 0 ? 'print:pt-[18mm] print:-mt-[10mm]' : ''}`}>
           {group.groupName && config.groupByDimension !== false && (
             <GroupHeader
               group={group}
