@@ -3,12 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+  ActionDialog,
+  ActionWizard,
+  type ActionWizardStep,
+} from "@/components/action-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,7 +33,7 @@ import {
 import { getFactorsForAssessment } from "@/app/actions/factor-selection";
 import { saveFactorSelection } from "@/app/actions/factor-selection";
 import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
-import { ArrowLeft, ArrowRight, FileText, Link2, Mail, Plus, Rocket, X } from "lucide-react";
+import { FileText, Link2, Mail, Plus, Rocket } from "lucide-react";
 import { CapabilitySelectionStep } from "./capability-selection-step";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -471,97 +469,41 @@ export function QuickLaunchModal({
     }
   }
 
+  const wizardSteps: ActionWizardStep[] = hasFactors
+    ? [
+        { id: "campaign", label: "Campaign" },
+        { id: "assessment", label: "Assessment" },
+        { id: "capabilities", label: "Capabilities" },
+        { id: "invite", label: "Invite" },
+      ]
+    : [
+        { id: "campaign", label: "Campaign" },
+        { id: "assessment", label: "Assessment" },
+        { id: "invite", label: "Invite" },
+      ];
+
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      {/* Keyframe animations for step transitions */}
-      <style>{`
-        @keyframes ql-slide-left {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes ql-slide-right {
-          from { opacity: 0; transform: translateX(-20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
-      <DialogContent className="max-w-2xl">
-        {/* Progress header */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <DialogHeader className="p-0">
-              <DialogTitle className="text-lg">Quick Launch</DialogTitle>
-            </DialogHeader>
-            <span className="text-xs font-medium text-muted-foreground tabular-nums">
-              {step} / {totalSteps}
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div className="relative h-1.5 rounded-full bg-muted overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-out"
-              style={{
-                width: `${(step / totalSteps) * 100}%`,
-                background: "var(--brand-primary, hsl(var(--primary)))",
-              }}
-            />
-          </div>
-
-          {/* Step labels */}
-          <div className="flex items-center gap-4">
-            {(hasFactors
-              ? [
-                  { id: 1 as const, label: "Campaign" },
-                  { id: 2 as const, label: "Assessment" },
-                  { id: 3 as const, label: "Capabilities" },
-                  { id: 4 as const, label: "Invite" },
-                ]
-              : [
-                  { id: 1 as const, label: "Campaign" },
-                  { id: 2 as const, label: "Assessment" },
-                  { id: 3 as const, label: "Invite" },
-                ]
-            ).map((item) => {
-              const isActive = step === item.id;
-              const isComplete = step > item.id;
-              return (
-                <div key={item.id} className="flex items-center gap-1.5">
-                  <div
-                    className={cn(
-                      "flex size-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : isComplete
-                          ? "bg-primary/20 text-primary"
-                          : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {isComplete ? "\u2713" : item.id}
-                  </div>
-                  <span
-                    className={cn(
-                      "text-xs font-medium transition-colors",
-                      isActive
-                        ? "text-foreground"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {item.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Step content — animated slide on step change */}
-        <div
-          key={step}
-          className="py-6"
-          style={{
-            animation: `${slideDirection === "left" ? "ql-slide-left" : "ql-slide-right"} 200ms ease-out`,
-          }}
-        >
+    <ActionDialog
+      open={open}
+      onOpenChange={handleOpenChange}
+      eyebrow="Quick launch"
+      title="New campaign"
+      description="Guided setup — takes about a minute."
+    >
+      <ActionWizard
+        steps={wizardSteps}
+        currentStepIndex={step - 1}
+        onBack={handleBack}
+        onNext={handleNext}
+        onComplete={handleLaunch}
+        onCancel={() => handleOpenChange(false)}
+        canAdvance={canAdvance()}
+        isSubmitting={isLaunching}
+        completeLabel="Launch"
+        completeIcon={<Rocket className="size-4" />}
+        submittingLabel="Launching..."
+        slideDirection={slideDirection}
+      >
           {step === 1 && (
             <div className="space-y-4">
               {forcedClientId && selectedClient && (
@@ -1018,39 +960,7 @@ export function QuickLaunchModal({
               )}
             </div>
           )}
-        </div>
-
-        <div className="flex items-center justify-between border-t border-border pt-5">
-          <Button
-            variant="ghost"
-            onClick={() => handleOpenChange(false)}
-            disabled={isLaunching}
-          >
-            <X className="size-4" />
-            Cancel
-          </Button>
-
-          <div className="flex items-center gap-2">
-            {step > 1 && (
-              <Button variant="outline" onClick={handleBack} disabled={isLaunching}>
-                <ArrowLeft className="size-4" />
-                Back
-              </Button>
-            )}
-            {step < totalSteps ? (
-              <Button onClick={handleNext} disabled={!canAdvance() || isLaunching}>
-                Next
-                <ArrowRight className="size-4" />
-              </Button>
-            ) : (
-              <Button onClick={handleLaunch} disabled={!canAdvance() || isLaunching}>
-                <Rocket className="size-4" />
-                {isLaunching ? "Launching..." : "Launch"}
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </ActionWizard>
+    </ActionDialog>
   );
 }
