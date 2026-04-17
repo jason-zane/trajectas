@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs } from "@/components/route-tabs";
 import { usePortal } from "@/components/portal-context";
@@ -39,10 +40,12 @@ const statusVariant: Record<
 export function CampaignDetailShell({
   campaign,
   canCustomizeBranding,
+  isFavorite = false,
   children,
 }: {
   campaign: CampaignDetail;
   canCustomizeBranding?: boolean;
+  isFavorite?: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -68,9 +71,15 @@ export function CampaignDetailShell({
         title={campaign.title}
         description={campaign.clientName}
       >
-        <Badge variant={statusVariant[campaign.status] ?? "secondary"}>
-          {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <FavoriteCampaignButton
+            campaignId={campaign.id}
+            isFavorite={isFavorite}
+          />
+          <Badge variant={statusVariant[campaign.status] ?? "secondary"}>
+            {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+          </Badge>
+        </div>
       </PageHeader>
 
       <RouteTabs
