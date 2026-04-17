@@ -8,6 +8,13 @@ import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
+type ActionDialogSize = "default" | "xl";
+
+const SIZE_CLASSES: Record<ActionDialogSize, string> = {
+  default: "sm:max-w-2xl",
+  xl: "sm:max-w-[1100px]",
+};
+
 interface ActionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -17,6 +24,7 @@ interface ActionDialogProps {
   children: ReactNode;
   className?: string;
   showCloseButton?: boolean;
+  size?: ActionDialogSize;
 }
 
 export function ActionDialog({
@@ -28,6 +36,7 @@ export function ActionDialog({
   children,
   className,
   showCloseButton = true,
+  size = "default",
 }: ActionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -36,7 +45,8 @@ export function ActionDialog({
         <DialogPrimitive.Popup
           data-slot="action-dialog"
           className={cn(
-            "fixed top-1/2 left-1/2 z-50 flex max-h-[90vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-2xl ring-1 ring-foreground/[0.08] outline-none sm:max-w-2xl",
+            "fixed top-1/2 left-1/2 z-50 flex max-h-[90vh] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-card text-card-foreground shadow-2xl ring-1 ring-foreground/[0.08] outline-none",
+            SIZE_CLASSES[size],
             "duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:z-20 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/25 before:to-transparent dark:before:via-white/10",
             className,

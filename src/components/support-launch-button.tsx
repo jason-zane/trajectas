@@ -6,14 +6,10 @@ import { toast } from "sonner";
 import { startAuditedSupportLaunch } from "@/app/actions/workspace-context";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -94,44 +90,46 @@ export function SupportLaunchButton({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="outline" disabled={isDisabled} />
-        }
-      >
+    <>
+      <Button variant="outline" disabled={isDisabled} onClick={() => setOpen(true)}>
         <LifeBuoy className="size-4" />
         Open {targetSurface === "client" ? "Client" : "Partner"} Portal
         <ExternalLink className="size-3.5 opacity-60" />
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Start Support Session</DialogTitle>
-          <DialogDescription>{helperText}</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-2">
-          <Label htmlFor="support-reason">Reason</Label>
-          <Textarea
-            id="support-reason"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Explain why you need to launch into this workspace."
-            rows={4}
-          />
-        </div>
-        <DialogFooter>
+      </Button>
+      <ActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        eyebrow="Support"
+        title="Start support session"
+        description={helperText}
+      >
+        <ActionDialogBody>
+          <div className="space-y-2">
+            <Label htmlFor="support-reason">Reason</Label>
+            <Textarea
+              id="support-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Explain why you need to launch into this workspace."
+              rows={4}
+              autoFocus
+            />
+          </div>
+        </ActionDialogBody>
+        <ActionDialogFooter>
           <Button
-            variant="outline"
+            variant="ghost"
             onClick={() => setOpen(false)}
             disabled={isPending}
           >
             Cancel
           </Button>
           <Button onClick={handleLaunch} disabled={isPending || !reason.trim()}>
-            {isPending ? "Launching..." : "Start Support Session"}
+            <LifeBuoy className="size-4" />
+            {isPending ? "Launching..." : "Start support session"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </ActionDialogFooter>
+      </ActionDialog>
+    </>
   );
 }

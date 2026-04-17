@@ -2,13 +2,10 @@
 
 import type { ReactNode } from "react"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog"
 import { Button } from "@/components/ui/button"
 
 interface ConfirmDialogProps {
@@ -23,6 +20,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void
   loading?: boolean
   loadingLabel?: string
+  eyebrow?: string
 }
 
 export function ConfirmDialog({
@@ -37,32 +35,40 @@ export function ConfirmDialog({
   onConfirm,
   loading,
   loadingLabel = "Please wait…",
+  eyebrow,
 }: ConfirmDialogProps) {
+  const resolvedEyebrow = eyebrow ?? (variant === "destructive" ? "Confirm" : "Confirm")
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
-        {details ? <div>{details}</div> : null}
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={loading}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            variant={variant === "destructive" ? "destructive" : "default"}
-            onClick={onConfirm}
-            disabled={loading}
-          >
-            {loading ? loadingLabel : confirmLabel}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ActionDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      showCloseButton={false}
+      eyebrow={resolvedEyebrow}
+      title={title}
+      description={description}
+    >
+      {details ? (
+        <ActionDialogBody>{details}</ActionDialogBody>
+      ) : (
+        <div className="h-2 shrink-0" aria-hidden />
+      )}
+      <ActionDialogFooter>
+        <Button
+          variant="ghost"
+          onClick={() => onOpenChange(false)}
+          disabled={loading}
+        >
+          {cancelLabel}
+        </Button>
+        <Button
+          variant={variant === "destructive" ? "destructive" : "default"}
+          onClick={onConfirm}
+          disabled={loading}
+        >
+          {loading ? loadingLabel : confirmLabel}
+        </Button>
+      </ActionDialogFooter>
+    </ActionDialog>
   )
 }

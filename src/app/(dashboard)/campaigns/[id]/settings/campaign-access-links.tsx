@@ -9,11 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
 import {
   createAccessLink,
   deactivateAccessLink,
@@ -153,23 +152,30 @@ export function CampaignAccessLinks({
         )}
       </CardContent>
 
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create Access Link</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
+      <ActionDialog
+        open={showCreate}
+        onOpenChange={setShowCreate}
+        eyebrow="Access"
+        title="Create access link"
+        description="Generate a shareable URL. Anyone with the link can take the assessment."
+      >
+        <form
+          onSubmit={handleCreate}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <ActionDialogBody className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="link-label">Label (optional)</Label>
               <Input
                 id="link-label"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                placeholder="e.g., LinkedIn post"
+                placeholder="e.g. LinkedIn post"
+                autoFocus
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="link-max">Max Uses (optional)</Label>
+              <Label htmlFor="link-max">Max uses (optional)</Label>
               <Input
                 id="link-max"
                 type="number"
@@ -179,12 +185,22 @@ export function CampaignAccessLinks({
                 placeholder="Unlimited"
               />
             </div>
-            <Button type="submit" className="w-full">
-              Create Link
+          </ActionDialogBody>
+          <ActionDialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowCreate(false)}
+            >
+              Cancel
             </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+            <Button type="submit">
+              <Link2 className="size-4" />
+              Create link
+            </Button>
+          </ActionDialogFooter>
+        </form>
+      </ActionDialog>
     </Card>
   );
 }

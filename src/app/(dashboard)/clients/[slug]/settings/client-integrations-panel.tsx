@@ -27,13 +27,10 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -148,79 +145,75 @@ function CredentialDialog(props: {
   pending: boolean;
 }) {
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create API credential</DialogTitle>
-          <DialogDescription>
-            Create a machine credential for the private internal integrations API.
-            The full key is shown once after creation.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="credential-label">Label</Label>
-            <Input
-              id="credential-label"
-              value={props.value.label}
-              onChange={(event) =>
-                props.onChange({
-                  ...props.value,
-                  label: event.target.value,
-                })
-              }
-              placeholder="Greenhouse sandbox"
-              disabled={props.pending}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Scopes</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {INTEGRATION_API_SCOPES.map((scope) => {
-                const checked = props.value.scopes.includes(scope);
-                return (
-                  <label
-                    key={scope}
-                    className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(nextChecked) => {
-                        props.onChange({
-                          ...props.value,
-                          scopes: nextChecked
-                            ? [...props.value.scopes, scope]
-                            : props.value.scopes.filter((value) => value !== scope),
-                        });
-                      }}
-                      disabled={props.pending}
-                    />
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium capitalize">{humanizeScope(scope)}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{scope}</p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+    <ActionDialog
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      eyebrow="Integrations"
+      title="Create API credential"
+      description="Create a machine credential for the private internal integrations API. The full key is shown once after creation."
+    >
+      <ActionDialogBody className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="credential-label">Label</Label>
+          <Input
+            id="credential-label"
+            value={props.value.label}
+            onChange={(event) =>
+              props.onChange({
+                ...props.value,
+                label: event.target.value,
+              })
+            }
+            placeholder="Greenhouse sandbox"
+            disabled={props.pending}
+            autoFocus
+          />
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => props.onOpenChange(false)} disabled={props.pending}>
-            Cancel
-          </Button>
-          <Button
-            onClick={props.onSubmit}
-            disabled={props.pending || !props.value.label.trim() || props.value.scopes.length === 0}
-          >
-            {props.pending ? "Creating…" : "Create Credential"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <div className="space-y-2">
+          <Label>Scopes</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {INTEGRATION_API_SCOPES.map((scope) => {
+              const checked = props.value.scopes.includes(scope);
+              return (
+                <label
+                  key={scope}
+                  className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(nextChecked) => {
+                      props.onChange({
+                        ...props.value,
+                        scopes: nextChecked
+                          ? [...props.value.scopes, scope]
+                          : props.value.scopes.filter((value) => value !== scope),
+                      });
+                    }}
+                    disabled={props.pending}
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium capitalize">{humanizeScope(scope)}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{scope}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </ActionDialogBody>
+      <ActionDialogFooter>
+        <Button variant="ghost" onClick={() => props.onOpenChange(false)} disabled={props.pending}>
+          Cancel
+        </Button>
+        <Button
+          onClick={props.onSubmit}
+          disabled={props.pending || !props.value.label.trim() || props.value.scopes.length === 0}
+        >
+          {props.pending ? "Creating…" : "Create credential"}
+        </Button>
+      </ActionDialogFooter>
+    </ActionDialog>
   );
 }
 
@@ -234,128 +227,125 @@ function WebhookEndpointDialog(props: {
   pending: boolean;
 }) {
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{props.mode === "create" ? "Add webhook endpoint" : "Edit webhook endpoint"}</DialogTitle>
-          <DialogDescription>
-            Trajectas will send signed JSON event payloads to this URL. Use HTTPS unless you are testing locally.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="webhook-label">Label</Label>
-              <Input
-                id="webhook-label"
-                value={props.value.label}
-                onChange={(event) =>
-                  props.onChange({
-                    ...props.value,
-                    label: event.target.value,
-                  })
-                }
-                placeholder="Greenhouse webhook"
-                disabled={props.pending}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="webhook-url">Destination URL</Label>
-              <Input
-                id="webhook-url"
-                type="url"
-                value={props.value.url}
-                onChange={(event) =>
-                  props.onChange({
-                    ...props.value,
-                    url: event.target.value,
-                  })
-                }
-                placeholder="https://example.com/hooks/trajectas"
-                disabled={props.pending}
-              />
-            </div>
-          </div>
-
-          {props.mode === "edit" && (
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-              <div className="space-y-0.5">
-                <p className="text-sm font-medium">Endpoint active</p>
-                <p className="text-xs text-muted-foreground">
-                  Inactive endpoints stay saved but will not receive deliveries.
-                </p>
-              </div>
-              <Switch
-                checked={props.value.status === "active"}
-                onCheckedChange={(checked) =>
-                  props.onChange({
-                    ...props.value,
-                    status: checked ? "active" : "inactive",
-                  })
-                }
-                disabled={props.pending}
-              />
-            </div>
-          )}
-
+    <ActionDialog
+      open={props.open}
+      onOpenChange={props.onOpenChange}
+      eyebrow="Integrations"
+      title={props.mode === "create" ? "Add webhook endpoint" : "Edit webhook endpoint"}
+      description="Trajectas will send signed JSON event payloads to this URL. Use HTTPS unless you are testing locally."
+    >
+      <ActionDialogBody className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label>Subscribed events</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {INTEGRATION_EVENT_TYPES.map((eventType) => {
-                const checked = props.value.subscribedEvents.includes(eventType);
-                return (
-                  <label
-                    key={eventType}
-                    className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(nextChecked) =>
-                        props.onChange({
-                          ...props.value,
-                          subscribedEvents: nextChecked
-                            ? [...props.value.subscribedEvents, eventType]
-                            : props.value.subscribedEvents.filter((value) => value !== eventType),
-                        })
-                      }
-                      disabled={props.pending}
-                    />
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium">{EVENT_LABELS[eventType]}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{eventType}</p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
+            <Label htmlFor="webhook-label">Label</Label>
+            <Input
+              id="webhook-label"
+              value={props.value.label}
+              onChange={(event) =>
+                props.onChange({
+                  ...props.value,
+                  label: event.target.value,
+                })
+              }
+              placeholder="Greenhouse webhook"
+              disabled={props.pending}
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="webhook-url">Destination URL</Label>
+            <Input
+              id="webhook-url"
+              type="url"
+              value={props.value.url}
+              onChange={(event) =>
+                props.onChange({
+                  ...props.value,
+                  url: event.target.value,
+                })
+              }
+              placeholder="https://example.com/hooks/trajectas"
+              disabled={props.pending}
+            />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => props.onOpenChange(false)} disabled={props.pending}>
-            Cancel
-          </Button>
-          <Button
-            onClick={props.onSubmit}
-            disabled={
-              props.pending ||
-              !props.value.label.trim() ||
-              !props.value.url.trim() ||
-              props.value.subscribedEvents.length === 0
-            }
-          >
-            {props.pending
-              ? props.mode === "create"
-                ? "Creating…"
-                : "Saving…"
-              : props.mode === "create"
-                ? "Create Endpoint"
-                : "Save Endpoint"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {props.mode === "edit" && (
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-background/60 px-3 py-2">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Endpoint active</p>
+              <p className="text-xs text-muted-foreground">
+                Inactive endpoints stay saved but will not receive deliveries.
+              </p>
+            </div>
+            <Switch
+              checked={props.value.status === "active"}
+              onCheckedChange={(checked) =>
+                props.onChange({
+                  ...props.value,
+                  status: checked ? "active" : "inactive",
+                })
+              }
+              disabled={props.pending}
+            />
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Subscribed events</Label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {INTEGRATION_EVENT_TYPES.map((eventType) => {
+              const checked = props.value.subscribedEvents.includes(eventType);
+              return (
+                <label
+                  key={eventType}
+                  className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/60 px-3 py-2"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(nextChecked) =>
+                      props.onChange({
+                        ...props.value,
+                        subscribedEvents: nextChecked
+                          ? [...props.value.subscribedEvents, eventType]
+                          : props.value.subscribedEvents.filter((value) => value !== eventType),
+                      })
+                    }
+                    disabled={props.pending}
+                  />
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-medium">{EVENT_LABELS[eventType]}</p>
+                    <p className="text-xs text-muted-foreground font-mono">{eventType}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      </ActionDialogBody>
+      <ActionDialogFooter>
+        <Button variant="ghost" onClick={() => props.onOpenChange(false)} disabled={props.pending}>
+          Cancel
+        </Button>
+        <Button
+          onClick={props.onSubmit}
+          disabled={
+            props.pending ||
+            !props.value.label.trim() ||
+            !props.value.url.trim() ||
+            props.value.subscribedEvents.length === 0
+          }
+        >
+          {props.pending
+            ? props.mode === "create"
+              ? "Creating…"
+              : "Saving…"
+            : props.mode === "create"
+              ? "Create endpoint"
+              : "Save endpoint"}
+        </Button>
+      </ActionDialogFooter>
+    </ActionDialog>
   );
 }
 

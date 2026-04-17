@@ -15,11 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+} from "@/components/action-dialog";
 import { Switch } from "@/components/ui/switch";
 import {
   addAssessmentToCampaign,
@@ -331,12 +329,14 @@ export function CampaignAssessmentsList({
         </div>
       )}
 
-      {/* Picker dialog */}
-      <Dialog open={showPicker} onOpenChange={setShowPicker}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Assessment</DialogTitle>
-          </DialogHeader>
+      <ActionDialog
+        open={showPicker}
+        onOpenChange={setShowPicker}
+        eyebrow="Add to campaign"
+        title="Add assessment"
+        description="Link an existing assessment to this campaign. Participants will take every linked assessment."
+      >
+        <ActionDialogBody className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/30 px-3 py-2">
             <div>
               <p className="text-sm font-medium">Show draft assessments</p>
@@ -347,18 +347,18 @@ export function CampaignAssessmentsList({
             <Switch checked={showDrafts} onCheckedChange={setShowDrafts} />
           </div>
           {visibleAvailable.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
+            <p className="py-4 text-center text-sm text-muted-foreground">
               {available.length === 0
                 ? "All available assessments are already linked."
                 : "No assessments match the current filter."}
             </p>
           ) : (
-            <div className="space-y-2 max-h-80 overflow-y-auto">
+            <div className="space-y-2">
               {visibleAvailable.map((a) => (
                 <button
                   key={a.id}
                   onClick={() => handleAdd(a.id)}
-                  className="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent"
+                  className="flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
                 >
                   <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
                     <ClipboardList className="size-4 text-primary" />
@@ -388,8 +388,8 @@ export function CampaignAssessmentsList({
               ))}
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </ActionDialogBody>
+      </ActionDialog>
     </div>
   );
 }

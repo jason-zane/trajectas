@@ -21,13 +21,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+} from "@/components/action-dialog";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -246,19 +242,19 @@ function AssignClientDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
         <Plus className="size-4" />
-        Assign Client
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Assign Client</DialogTitle>
-          <DialogDescription>
-            Select an unassigned platform client to add to this partner.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
+        Assign client
+      </Button>
+      <ActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        eyebrow="Partner"
+        title="Assign client"
+        description="Select an unassigned platform client to add to this partner."
+      >
+        <ActionDialogBody className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -266,9 +262,10 @@ function AssignClientDialog({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
+              autoFocus
             />
           </div>
-          <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y divide-border">
+          <div className="divide-y divide-border overflow-hidden rounded-md border border-border">
             {filtered.length === 0 ? (
               <p className="px-4 py-6 text-center text-sm text-muted-foreground">
                 {unassignedClients.length === 0
@@ -282,26 +279,26 @@ function AssignClientDialog({
                   type="button"
                   disabled={isPending}
                   onClick={() => handleAssign(client.id, client.name)}
-                  className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50 disabled:opacity-50"
+                  className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-primary/5 disabled:opacity-50"
                 >
                   <div>
                     <span className="text-sm font-medium text-foreground">
                       {client.name}
                     </span>
-                    {client.industry && (
+                    {client.industry ? (
                       <span className="ml-2 text-xs text-muted-foreground">
                         {client.industry}
                       </span>
-                    )}
+                    ) : null}
                   </div>
                   <Plus className="size-4 text-muted-foreground" />
                 </button>
               ))
             )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </ActionDialogBody>
+      </ActionDialog>
+    </>
   );
 }
 

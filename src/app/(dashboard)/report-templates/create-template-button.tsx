@@ -6,12 +6,10 @@ import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from '@/components/action-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -59,52 +57,55 @@ export function CreateTemplateButton({
         <Plus className="size-4" />
         New Template
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>New Report Template</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="template-name">Name</Label>
-              <Input
-                id="template-name"
-                placeholder="e.g. Standard Individual"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleCreate()}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="report-type">Report type</Label>
-              <Select value={reportType} onValueChange={v => setReportType(v as typeof reportType)}>
-                <SelectTrigger id="report-type">
-                  <SelectValue>
-                    {(value: string | null) =>
-                      getSelectLabel(value, [
-                        { value: 'self_report', label: 'Self-report' },
-                        { value: '360', label: '360' },
-                      ])
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="self_report">Self-report</SelectItem>
-                  <SelectItem value="360">360</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <ActionDialog
+        open={open}
+        onOpenChange={setOpen}
+        eyebrow="Reports"
+        title="New report template"
+        description="Set the basics. You'll drop in blocks and style in the builder next."
+      >
+        <ActionDialogBody className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="template-name">Name</Label>
+            <Input
+              id="template-name"
+              placeholder="e.g. Standard individual"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
+              autoFocus
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={isPending}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={isPending || !name.trim()}>
-              {isPending ? 'Creating…' : 'Create'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label htmlFor="report-type">Report type</Label>
+            <Select value={reportType} onValueChange={v => setReportType(v as typeof reportType)}>
+              <SelectTrigger id="report-type">
+                <SelectValue>
+                  {(value: string | null) =>
+                    getSelectLabel(value, [
+                      { value: 'self_report', label: 'Self-report' },
+                      { value: '360', label: '360' },
+                    ])
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="self_report">Self-report</SelectItem>
+                <SelectItem value="360">360</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} disabled={isPending || !name.trim()}>
+            <Plus className="size-4" />
+            {isPending ? 'Creating…' : 'Create template'}
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
     </>
   )
 }

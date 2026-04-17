@@ -7,13 +7,10 @@ import { toast } from 'sonner'
 import { sendReportSnapshotEmail, type ReportSnapshotSendDraft } from '@/app/actions/reports'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from '@/components/action-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -72,60 +69,57 @@ export function SendReportButton({
         {alreadySent ? 'Send again' : 'Send to participant'}
       </Button>
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Send report to participant</DialogTitle>
-            <DialogDescription>
-              Review the email below before sending the secure report link.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="report-email-to">To</Label>
-              <Input id="report-email-to" value={draft.recipientEmail} readOnly />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="report-email-subject">Subject</Label>
-              <Input id="report-email-subject" value={draft.subject} readOnly />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="report-email-body">Body</Label>
-              <Textarea
-                id="report-email-body"
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                rows={10}
-              />
-              <p className="text-xs text-muted-foreground">
-                A &quot;View Report&quot; button with the secure report link will be added to
-                the email automatically.
-              </p>
-            </div>
+      <ActionDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        eyebrow="Share report"
+        title="Send report to participant"
+        description="Review the email below before sending the secure report link."
+      >
+        <ActionDialogBody className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="report-email-to">To</Label>
+            <Input id="report-email-to" value={draft.recipientEmail} readOnly />
           </div>
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSend}
-              disabled={isPending || body.trim().length === 0}
-            >
-              {isPending ? 'Sending...' : 'Send email'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-2">
+            <Label htmlFor="report-email-subject">Subject</Label>
+            <Input id="report-email-subject" value={draft.subject} readOnly />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="report-email-body">Body</Label>
+            <Textarea
+              id="report-email-body"
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+              rows={10}
+            />
+            <p className="text-xs text-muted-foreground">
+              A &quot;View Report&quot; button with the secure report link will be added to
+              the email automatically.
+            </p>
+          </div>
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setOpen(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSend}
+            disabled={isPending || body.trim().length === 0}
+          >
+            <Send className="size-4" />
+            {isPending ? 'Sending...' : 'Send email'}
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
     </>
   )
 }

@@ -12,13 +12,10 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from '@/components/action-dialog'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -227,44 +224,43 @@ export function LibraryBulkImportButton({
         <Upload className="size-4" />
         Bulk Import
       </Button>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-[1100px] sm:max-w-[1100px] p-0 sm:max-h-[88vh]">
-          <div className="flex max-h-[88vh] flex-col overflow-hidden rounded-xl bg-background">
-            <DialogHeader className="border-b px-6 py-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <DialogTitle>{config.title}</DialogTitle>
-                  <DialogDescription>{config.description}</DialogDescription>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full border bg-muted/30 p-1">
-                  <button
-                    type="button"
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                      step === 'prepare'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground'
-                    }`}
-                    onClick={() => setStep('prepare')}
-                  >
-                    1. Prepare
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                      step === 'review'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground'
-                    }`}
-                    onClick={() => rawText.trim() && setStep('review')}
-                    disabled={!rawText.trim()}
-                  >
-                    2. Review & Import
-                  </button>
-                </div>
-              </div>
-            </DialogHeader>
+      <ActionDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        size="xl"
+        eyebrow="Library import"
+        title={config.title}
+        description={config.description}
+      >
+        <div className="flex items-center justify-center px-8 pb-2">
+          <div className="inline-flex items-center gap-2 rounded-full border bg-muted/30 p-1">
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                step === 'prepare'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground'
+              }`}
+              onClick={() => setStep('prepare')}
+            >
+              1. Prepare
+            </button>
+            <button
+              type="button"
+              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                step === 'review'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground'
+              }`}
+              onClick={() => rawText.trim() && setStep('review')}
+              disabled={!rawText.trim()}
+            >
+              2. Review & Import
+            </button>
+          </div>
+        </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5">
+        <ActionDialogBody>
               {step === 'prepare' ? (
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_320px]">
                   <section className="space-y-4">
@@ -454,44 +450,44 @@ export function LibraryBulkImportButton({
                   </aside>
                 </div>
               )}
-            </div>
+        </ActionDialogBody>
 
-            <DialogFooter className="border-t px-6 py-5">
-              <Button
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isImportPending || isAIStructuring}
-              >
-                Close
-              </Button>
-              {step === 'review' ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep('prepare')}
-                    disabled={isImportPending || isAIStructuring}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    onClick={handleImport}
-                    disabled={isImportPending || isAIStructuring || !rawText.trim()}
-                  >
-                    {isImportPending ? 'Importing…' : 'Run import'}
-                  </Button>
-                </>
-              ) : (
+        <ActionDialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => setOpen(false)}
+            disabled={isImportPending || isAIStructuring}
+          >
+            Close
+          </Button>
+          <div className="flex items-center gap-2">
+            {step === 'review' ? (
+              <>
                 <Button
-                  onClick={() => setStep('review')}
-                  disabled={!rawText.trim() || isAIStructuring}
+                  variant="outline"
+                  onClick={() => setStep('prepare')}
+                  disabled={isImportPending || isAIStructuring}
                 >
-                  Continue to review
+                  Back
                 </Button>
-              )}
-            </DialogFooter>
+                <Button
+                  onClick={handleImport}
+                  disabled={isImportPending || isAIStructuring || !rawText.trim()}
+                >
+                  {isImportPending ? 'Importing…' : 'Run import'}
+                </Button>
+              </>
+            ) : (
+              <Button
+                onClick={() => setStep('review')}
+                disabled={!rawText.trim() || isAIStructuring}
+              >
+                Continue to review
+              </Button>
+            )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </ActionDialogFooter>
+      </ActionDialog>
     </>
   )
 }
