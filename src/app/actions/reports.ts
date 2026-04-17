@@ -1262,6 +1262,16 @@ function mapEntityLibrary(row: Record<string, unknown>): Omit<EntityOption, 'typ
   }
 }
 
+type EntityLibraryRow = Record<string, unknown>
+
+type FactorEntityLibraryRow = EntityLibraryRow & {
+  dimension_id?: string | null
+}
+
+type ConstructEntityLibraryRow = EntityLibraryRow & {
+  factor_constructs?: Array<{ factor_id?: string | null }> | null
+}
+
 export async function getEntityOptions(): Promise<EntityOption[]> {
   const scope = await resolveAuthorizedScope()
   ensureReportTemplateLibraryAccess(scope)
@@ -1272,11 +1282,20 @@ export async function getEntityOptions(): Promise<EntityOption[]> {
     db.from('factors').select(`${ENTITY_LIBRARY_FIELDS}, dimension_id`).is('deleted_at', null).eq('is_active', true),
     db.from('constructs').select(`${ENTITY_LIBRARY_FIELDS}, factor_constructs(factor_id)`).is('deleted_at', null).eq('is_active', true),
   ])
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const options: EntityOption[] = [
-    ...(dimensions ?? []).map((d: any) => ({ ...mapEntityLibrary(d), type: 'dimension' as const })),
-    ...(factors ?? []).map((f: any) => ({ ...mapEntityLibrary(f), type: 'factor' as const, parentId: f.dimension_id ?? undefined })),
-    ...(constructs ?? []).map((c: any) => ({ ...mapEntityLibrary(c), type: 'construct' as const, parentId: c.factor_constructs?.[0]?.factor_id ?? undefined })),
+    ...(dimensions ?? []).map((d) => ({ ...mapEntityLibrary(d as EntityLibraryRow), type: 'dimension' as const })),
+    ...(factors ?? []).map((f) => {
+      const factor = f as FactorEntityLibraryRow
+      return { ...mapEntityLibrary(factor), type: 'factor' as const, parentId: factor.dimension_id ?? undefined }
+    }),
+    ...(constructs ?? []).map((c) => {
+      const construct = c as ConstructEntityLibraryRow
+      return {
+        ...mapEntityLibrary(construct),
+        type: 'construct' as const,
+        parentId: construct.factor_constructs?.[0]?.factor_id ?? undefined,
+      }
+    }),
   ]
   return options.sort((a, b) => a.label.localeCompare(b.label))
 }

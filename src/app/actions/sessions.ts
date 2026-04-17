@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope, AuthorizationError, requireCampaignAccess } from '@/lib/auth/authorization'
+import { resolveAuthorizedScope, AuthorizationError } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import type {
   ParticipantSessionProcessingStatus,
@@ -117,19 +117,6 @@ type SessionAccessLookupRow = {
   } | {
     campaigns?: { client_id?: string | null } | { client_id?: string | null }[] | null
   }[] | null
-}
-
-type CampaignSessionLookupRow = {
-  id?: string | null
-  assessment_id?: string | null
-  status?: string | null
-  processing_status?: ParticipantSessionProcessingStatus | null
-  processing_error?: string | null
-  started_at?: string | null
-  completed_at?: string | null
-  campaign_participants?: EmbeddedParticipantRecord | EmbeddedParticipantRecord[] | null
-  assessments?: { title?: string | null } | { title?: string | null }[] | null
-  participant_scores?: Array<{ id?: string | null }> | null
 }
 
 function getEmbeddedRecord<T extends Record<string, unknown>>(

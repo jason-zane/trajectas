@@ -24,7 +24,7 @@ import { LocalTime } from "@/components/local-time";
 import { PageHeader } from "@/components/page-header";
 import { usePortal } from "@/components/portal-context";
 import { ScrollReveal } from "@/components/scroll-reveal";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";

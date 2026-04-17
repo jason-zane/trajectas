@@ -101,7 +101,8 @@ export function SendReportButton({
                 rows={10}
               />
               <p className="text-xs text-muted-foreground">
-                A "View Report" button with the secure report link will be added to the email automatically.
+                A &quot;View Report&quot; button with the secure report link will be added to
+                the email automatically.
               </p>
             </div>
           </div>

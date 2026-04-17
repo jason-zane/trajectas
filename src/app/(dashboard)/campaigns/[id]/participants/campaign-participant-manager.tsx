@@ -35,11 +35,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type CampaignParticipantRow = CampaignParticipant & {
-  displayName: string;
-  latestSessionId?: string;
-};
-
 const STATUS_VARIANT: Record<
   string,
   "secondary" | "default" | "outline" | "destructive"

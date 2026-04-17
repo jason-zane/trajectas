@@ -8,6 +8,7 @@ on:
 env:
   CI: true
   NEXT_TELEMETRY_DISABLED: 1
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   seeded-e2e:
@@ -44,7 +45,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: playwright-report-seeded
           path: |
