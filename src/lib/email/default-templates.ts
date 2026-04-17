@@ -69,7 +69,7 @@ const MAGIC_LINK = doc(
     text('Enter this code to sign in. It expires in 10 minutes.'),
   ]),
   spacer(8),
-  paragraph([variable('otpCode', '------')]),
+  heading(1, [variable('otpCode', '------')]),
   spacer(8),
   paragraph([
     text('If you did not request this email, you can safely ignore it.'),
