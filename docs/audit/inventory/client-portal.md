@@ -34,8 +34,8 @@ Source: `src/app/client/`
 | 15 | `/client/assessments` | `src/app/client/assessments/page.tsx` | `listing` | New Campaign button, AssessmentLibraryTable with row actions | loaded, empty, loading |
 | 16 | `/client/assessments/[id]` | `src/app/client/assessments/[id]/page.tsx` | `detail` | 4 stat cards (duration, factors, sections, quota), section grid (ScrollReveal), factor grid grouped by dimension, navigation buttons | loaded, error |
 | 17 | `/client/reports/[snapshotId]` | `src/app/client/reports/[snapshotId]/page.tsx` | `detail` | ReportPdfButton, ReportRenderer (Suspense-wrapped streaming content) | loaded, loading (streaming), error (notFound if not released) |
-| 18 | `/client/diagnostics/[id]` | `src/app/client/diagnostics/[id]/page.tsx` | `error-page` | — (stub, immediately notFound) | error only |
-| 19 | `/client/diagnostic-results/[id]` | `src/app/client/diagnostic-results/[id]/page.tsx` | `error-page` | — (stub, immediately notFound) | error only |
+| 18 | `/client/diagnostics/[id]` | `src/app/client/diagnostics/[id]/page.tsx` | `error-page (stub)` | — (always notFound — feature not implemented) | skipped |
+| 19 | `/client/diagnostic-results/[id]` | `src/app/client/diagnostic-results/[id]/page.tsx` | `error-page (stub)` | — (always notFound — feature not implemented) | skipped |
 | 20 | `/client/settings/brand/client` | `src/app/client/settings/brand/client/page.tsx` | `editor` *(feature-gated)* | ClientBrandEditor (when enabled) OR empty-state card with Building2 icon + "Branding disabled" copy | loaded-enabled, loaded-disabled, error |
 | 21 | `/client/[[...slug]]` | `src/app/client/[[...slug]]/page.tsx` | `dynamic-router` *(new type)* | Delegates to WorkspacePortalPage / WorkspacePortalLivePage based on workspace access state | redirected, signed-out, ok, access-pending, access-denied |
 

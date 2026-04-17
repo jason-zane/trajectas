@@ -17,12 +17,23 @@ Every interactive thing in the app maps to one of these types. If you find somet
 | `onboarding` | First-run setup flows | — |
 | `dashboard` | Stat-card / widget summary of a domain | `/client/dashboard` |
 | `listing` | Paginated list of entities (table or card grid) | `/client/campaigns`, `/library/dimensions` |
-| `detail` | One entity in focus with metadata + actions | `/client/campaigns/[id]` |
+| `detail` | One entity in focus with metadata + actions | `/client/campaigns/[id]/overview` |
 | `editor` | In-place or full-page editor for one entity | `/report-templates/[id]/builder` |
 | `wizard` | Multi-step flow with distinct stages | (also see Overlay: `modal-wizard`) |
 | `empty-state` | Page shown when a listing has zero entities | — |
 | `error-page` | 404, 500, permission-denied pages | `/not-found` |
 | `print-export` | Report PDF render routes, print layouts | `/client/reports/[id]/print` |
+| `redirect` | Route that immediately redirects — not user-visible | `/client/campaigns/[id]` → `/overview` |
+| `dynamic-router` | Catch-all route that delegates to workspace-config-driven children | `/client/[[...slug]]` |
+
+**Evaluation notes for edge cases:**
+
+- **`redirect`** surfaces are **skipped** in Phase 2 scoring — they're not user-visible.
+- **`dynamic-router`** surfaces cascade evaluation to whichever child component renders. Score the child, not the router.
+- **`error-page` stubs** (routes that always trigger `notFound()` because a feature isn't implemented) are tagged `error-page (stub)` and skipped in Phase 2.
+- **Feature-gated routes** (one URL, two renditions based on capability) are captured twice in screenshots — once enabled, once disabled — and evaluated as two separate surfaces sharing a parent route.
+- **Theme-override routes** (e.g. wrapped in `ForceLightTheme`) have A3 "Colour system" scored against *only* the rendered theme — the other theme is marked N/A.
+- **View-mode toggles** (same route, different data shape based on URL param) are captured as separate states (`view-<mode>`) in the inventory's "States" column, and evaluated once per meaningfully-distinct view.
 
 ### Overlay surfaces
 
