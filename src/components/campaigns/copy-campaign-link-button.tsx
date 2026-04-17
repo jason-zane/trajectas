@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Copy } from "lucide-react";
+import { Link2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -49,7 +49,7 @@ export function CopyCampaignLinkButton({
         className={cn(buttonVariants({ variant, size }), className)}
         title={disabledLabel}
       >
-        <Copy className="size-4" />
+        <Link2 className="size-4" />
         {disabledLabel}
       </Link>
     );
@@ -65,7 +65,7 @@ export function CopyCampaignLinkButton({
       onClick={handleCopy}
       title={token ? label : disabledLabel}
     >
-      <Copy className="size-4" />
+      <Link2 className="size-4" />
       {token ? label : disabledLabel}
     </Button>
   );
