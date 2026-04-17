@@ -17,6 +17,7 @@ import {
   revokeInvite,
   type InviteRole,
 } from '@/lib/auth/staff-auth'
+import { sendStaffInviteEmail } from '@/lib/auth/staff-invite-email'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { partnerSchema } from '@/lib/validations/partners'
 import type { Partner } from '@/types/database'
@@ -538,6 +539,13 @@ export async function inviteUserToPartner(
     const formErrors = result.error._form
     return { error: formErrors?.[0] ?? 'Failed to create invite' }
   }
+
+  await sendStaffInviteEmail({
+    email: result.data.email,
+    inviteToken: result.inviteToken,
+    tenantType: result.data.tenantType,
+    tenantId: result.data.tenantId,
+  })
 
   revalidatePath(`/partners`)
   return { success: true as const }
