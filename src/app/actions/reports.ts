@@ -38,6 +38,18 @@ import {
 } from '@/lib/supabase/mappers'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { createReportAccessToken } from '@/lib/reports/report-access-token'
+import { postgresUuid } from '@/lib/validations/uuid'
+import {
+  createReportTemplateSchema,
+  updateReportTemplateSettingsSchema,
+  updateReportTemplateBlocksSchema,
+  campaignTemplateSchema,
+  sendReportSnapshotEmailSchema,
+  getAllReadySnapshotsSchema,
+  bulkReportIdsSchema,
+  bulkSetReportTemplateActiveSchema,
+  bulkUpdateReportStatusSchema,
+} from '@/lib/validations/reports'
 import {
   seedAssessmentPreview,
 } from '@/lib/sample-data/seed-preview'
@@ -175,6 +187,7 @@ function textToHtml(body: string) {
 }
 
 export async function getReportTemplate(id: string): Promise<ReportTemplate | null> {
+  if (!postgresUuid().safeParse(id).success) return null
   try {
     await requireReportTemplateAccess(id)
   } catch (error) {
@@ -215,6 +228,8 @@ export interface CreateReportTemplateInput {
 export async function createReportTemplate(
   input: CreateReportTemplateInput,
 ): Promise<ReportTemplate> {
+  const parsed = createReportTemplateSchema.safeParse(input)
+  if (!parsed.success) throw new Error('Invalid input')
   const scope = await resolveAuthorizedScope()
   ensureReportTemplateLibraryAccess(scope)
 
@@ -244,6 +259,7 @@ export async function createReportTemplate(
 }
 
 export async function cloneReportTemplate(id: string): Promise<ReportTemplate> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
   const access = await requireReportTemplateAccess(id)
   const db = createAdminClient()
   const source = await getReportTemplate(id)
@@ -277,6 +293,8 @@ export async function updateReportTemplateBlocks(
   id: string,
   blocks: Record<string, unknown>[],
 ): Promise<void> {
+  const parsed = updateReportTemplateBlocksSchema.safeParse({ id, blocks })
+  if (!parsed.success) throw new Error('Invalid input')
   await requireReportTemplateAccess(id, { forWrite: true })
   const db = createAdminClient()
   const { error } = await db
@@ -294,6 +312,9 @@ export async function updateReportTemplateSettings(
   id: string,
   updates: Partial<CreateReportTemplateInput>,
 ): Promise<void> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
+  const parsedUpdates = updateReportTemplateSettingsSchema.safeParse(updates)
+  if (!parsedUpdates.success) throw new Error('Invalid settings')
   await requireReportTemplateAccess(id, { forWrite: true })
   const db = createAdminClient()
   const row: Record<string, unknown> = {}
@@ -315,6 +336,7 @@ export async function updateReportTemplateSettings(
 }
 
 export async function getReportTemplateBandScheme(id: string): Promise<BandScheme | null> {
+  if (!postgresUuid().safeParse(id).success) return null
   await requireReportTemplateAccess(id, { forWrite: false })
   const db = createAdminClient()
   const { data, error } = await db
@@ -334,6 +356,7 @@ export async function getReportTemplateBandScheme(id: string): Promise<BandSchem
 export async function getResolvedReportTemplateBandScheme(
   id: string,
 ): Promise<BandScheme> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
   await requireReportTemplateAccess(id, { forWrite: false })
   const db = createAdminClient()
   const { data } = await db
@@ -352,6 +375,7 @@ export async function updateReportTemplateBandScheme(
   id: string,
   scheme: BandScheme | null,
 ): Promise<{ success?: true; error?: string }> {
+  if (!postgresUuid().safeParse(id).success) return { error: 'Invalid template ID' }
   await requireReportTemplateAccess(id, { forWrite: true })
   if (scheme && !isSchemeValid(scheme)) return { error: 'Invalid band scheme' }
   const db = createAdminClient()
@@ -367,6 +391,7 @@ export async function updateReportTemplateBandScheme(
 }
 
 export async function deleteReportTemplate(id: string): Promise<void> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
   await requireReportTemplateAccess(id, { forWrite: true })
   const db = createAdminClient()
   const { error } = await db
@@ -382,6 +407,8 @@ export async function toggleReportTemplateActive(
   id: string,
   isActive: boolean,
 ): Promise<void> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
+  if (typeof isActive !== 'boolean') throw new Error('isActive must be a boolean')
   await requireReportTemplateAccess(id, { forWrite: true })
   const db = createAdminClient()
   const { error } = await db
@@ -400,6 +427,7 @@ export async function toggleReportTemplateActive(
 export async function getCampaignTemplates(
   campaignId: string,
 ): Promise<Array<{ id: string; templateId: string; templateName: string; sortOrder: number }>> {
+  if (!postgresUuid().safeParse(campaignId).success) return []
   await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
@@ -427,6 +455,8 @@ export async function addCampaignTemplate(
   campaignId: string,
   templateId: string,
 ): Promise<void> {
+  const parsed = campaignTemplateSchema.safeParse({ campaignId, templateId })
+  if (!parsed.success) throw new Error('Invalid campaign or template ID')
   await requireReportTemplateAccess(templateId)
   const campaignAccess = await requireCampaignAccess(campaignId)
   if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
@@ -462,6 +492,8 @@ export async function removeCampaignTemplate(
   campaignId: string,
   templateId: string,
 ): Promise<void> {
+  const parsed = campaignTemplateSchema.safeParse({ campaignId, templateId })
+  if (!parsed.success) throw new Error('Invalid campaign or template ID')
   await requireReportTemplateAccess(templateId)
   const campaignAccess = await requireCampaignAccess(campaignId)
   if (!canManageCampaign(campaignAccess.scope, campaignAccess.partnerId, campaignAccess.clientId)) {
@@ -489,6 +521,7 @@ export async function removeCampaignTemplate(
 export async function getReportSnapshotsForCampaign(
   campaignId: string,
 ): Promise<ReportSnapshot[]> {
+  if (!postgresUuid().safeParse(campaignId).success) return []
   const access = await requireCampaignAccess(campaignId)
   const db = await createClient()
   const { data, error } = await db
@@ -527,6 +560,7 @@ export async function getReportSnapshotsForCampaign(
 }
 
 export async function getReportSnapshot(id: string): Promise<ReportSnapshot | null> {
+  if (!postgresUuid().safeParse(id).success) return null
   let access: Awaited<ReturnType<typeof requireReportSnapshotAccess>>
   try {
     access = await requireReportSnapshotAccess(id)
@@ -654,6 +688,7 @@ async function markSnapshotReleased(snapshotId: string) {
 export async function getCampaignSessionReportRows(
   sessionId: string,
 ): Promise<CampaignSessionReportRow[]> {
+  if (!postgresUuid().safeParse(sessionId).success) return []
   const access = await requireSessionAccess(sessionId)
   const db = createAdminClient()
 
@@ -810,6 +845,7 @@ export interface ReportSnapshotSendDraft {
 export async function prepareReportSnapshotSendDraft(
   snapshotId: string,
 ): Promise<ReportSnapshotSendDraft | null> {
+  if (!postgresUuid().safeParse(snapshotId).success) return null
   try {
     await requireReportSnapshotManageAccess(snapshotId)
   } catch (error) {
@@ -863,6 +899,8 @@ export async function sendReportSnapshotEmail(input: {
   snapshotId: string
   body: string
 }): Promise<void> {
+  const parsed = sendReportSnapshotEmailSchema.safeParse(input)
+  if (!parsed.success) throw new Error('Invalid input')
   const { snapshotId, body } = input
   await requireReportSnapshotManageAccess(snapshotId)
 
@@ -901,6 +939,7 @@ export async function sendReportSnapshotEmail(input: {
 }
 
 export async function retrySnapshot(id: string): Promise<void> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid snapshot ID')
   await requireReportSnapshotManageAccess(id)
   const db = await createAdminClient()
   const { error } = await db
@@ -927,6 +966,7 @@ export async function retrySnapshot(id: string): Promise<void> {
 }
 
 export async function regenerateSnapshot(id: string): Promise<void> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid snapshot ID')
   await requireReportSnapshotManageAccess(id)
   const db = createAdminClient()
   const { error } = await db
@@ -969,6 +1009,8 @@ export interface GetAllReadySnapshotsOptions {
 export async function getAllReadySnapshots(
   options: GetAllReadySnapshotsOptions = {},
 ): Promise<ReportSnapshotListItem[]> {
+  const parsed = getAllReadySnapshotsSchema.safeParse(options)
+  if (!parsed.success) return []
   await requireAdminScope()
   const db = await createClient()
 
@@ -1012,6 +1054,7 @@ export async function getAllReadySnapshots(
 export async function getReportSnapshotsForParticipant(
   participantId: string,
 ): Promise<ReportSnapshot[]> {
+  if (!postgresUuid().safeParse(participantId).success) return []
   const access = await requireParticipantAccess(participantId)
   const db = await createClient()
   const { data: sessions } = await db
@@ -1065,6 +1108,7 @@ export interface TemplateUsageEntry {
 
 /** Returns campaigns linked to a template. */
 export async function getTemplateUsage(templateId: string): Promise<TemplateUsageEntry[]> {
+  if (!postgresUuid().safeParse(templateId).success) return []
   const access = await requireReportTemplateAccess(templateId)
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(access.scope)
@@ -1279,6 +1323,7 @@ export async function listAssessmentsForPreview(): Promise<PreviewAssessmentOpti
 export async function getPreviewEntitiesForAssessment(
   assessmentId: string,
 ): Promise<PreviewEntity[]> {
+  if (!postgresUuid().safeParse(assessmentId).success) return []
   const scope = await resolveAuthorizedScope()
   ensureReportTemplateLibraryAccess(scope)
   const db = createAdminClient()
@@ -1318,6 +1363,8 @@ export async function backfillAllPreviewSeeds(): Promise<{ seededAssessmentIds: 
 
 export async function bulkDeleteReportTemplates(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkReportIdsSchema.safeParse({ ids })
+  if (!parsed.success) throw new Error('Invalid IDs')
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
   const db = createAdminClient()
@@ -1332,6 +1379,8 @@ export async function bulkDeleteReportTemplates(ids: string[]): Promise<void> {
 
 export async function bulkSetReportTemplateActive(ids: string[], active: boolean): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkSetReportTemplateActiveSchema.safeParse({ ids, active })
+  if (!parsed.success) throw new Error('Invalid input')
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
   const db = createAdminClient()
@@ -1350,6 +1399,8 @@ export async function bulkSetReportTemplateActive(ids: string[], active: boolean
 
 export async function bulkDeleteReports(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkReportIdsSchema.safeParse({ ids })
+  if (!parsed.success) throw new Error('Invalid IDs')
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
   const db = createAdminClient()
@@ -1364,6 +1415,8 @@ export async function bulkDeleteReports(ids: string[]): Promise<void> {
 
 export async function bulkUpdateReportStatus(ids: string[], status: string): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkUpdateReportStatusSchema.safeParse({ ids, status })
+  if (!parsed.success) throw new Error('Invalid input')
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
   const db = createAdminClient()
