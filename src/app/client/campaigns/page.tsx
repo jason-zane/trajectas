@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
-import { getCampaigns, type CampaignAssessmentOption } from "@/app/actions/campaigns";
+import {
+  getFavoriteCampaignIds,
+  getOperationalCampaignsForClient,
+  type CampaignAssessmentOption,
+} from "@/app/actions/campaigns";
 import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button";
-import { QuickLaunchButton } from "@/components/campaigns/quick-launch-button";
+import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
 import { ClientCampaignList } from "./client-campaign-list";
 
 export default async function ClientCampaignsPage() {
@@ -15,9 +19,10 @@ export default async function ClientCampaignsPage() {
     return <ClientCampaignList campaigns={[]} />;
   }
 
-  const [campaigns, libraryAssessments] = await Promise.all([
-    getCampaigns({ clientId }),
+  const [campaigns, libraryAssessments, favoriteCampaignIds] = await Promise.all([
+    getOperationalCampaignsForClient(clientId),
     getClientAssessmentLibrary(clientId),
+    getFavoriteCampaignIds(),
   ]);
 
   // Map client assessment library entries to the CampaignAssessmentOption shape
@@ -48,9 +53,11 @@ export default async function ClientCampaignsPage() {
         }
       >
         <div className="flex items-center gap-3">
-          <QuickLaunchButton
+          <LaunchCampaignButton
+            label="Launch campaign"
             assessments={assessmentsForPicker}
             clients={[{ id: clientId, name: "My organisation" }]}
+            recentCampaigns={campaigns}
             forcedClientId={clientId}
             successHrefPrefix="/client/campaigns"
           />
@@ -63,7 +70,7 @@ export default async function ClientCampaignsPage() {
           </Link>
         </div>
       </PageHeader>
-      <ClientCampaignList campaigns={campaigns} />
+      <ClientCampaignList campaigns={campaigns} favoriteCampaignIds={favoriteCampaignIds} />
     </div>
   );
 }

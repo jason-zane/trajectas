@@ -2,25 +2,31 @@
 
 import Link from "next/link";
 import {
-  Megaphone,
-  Users,
-  CheckCircle2,
-  ClipboardList,
   ArrowRight,
+  CheckCircle2,
+  Megaphone,
+  Search,
+  Users,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/page-header";
-import { ScrollReveal } from "@/components/scroll-reveal";
-import { TiltCard } from "@/components/tilt-card";
-import { AnimatedNumber } from "@/components/animated-number";
-import { usePortal } from "@/components/portal-context";
-import type { CampaignWithMeta } from "@/app/actions/campaigns";
-import type { AssessmentAssignmentWithUsage } from "@/types/database";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
+import type {
+  CampaignAssessmentOption,
+  CampaignWithMeta,
+  ClientRecentResult,
+  OperationalClientCampaign,
+} from "@/app/actions/campaigns";
+import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
+import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
+import { AnimatedNumber } from "@/components/animated-number";
+import { LocalTime } from "@/components/local-time";
+import { PageHeader } from "@/components/page-header";
+import { usePortal } from "@/components/portal-context";
+import { ScrollReveal } from "@/components/scroll-reveal";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 const statusVariant: Record<
   string,
@@ -33,219 +39,234 @@ const statusVariant: Record<
   archived: "outline",
 };
 
-// ---------------------------------------------------------------------------
-// Stat card config
-// ---------------------------------------------------------------------------
+function getCompletionPercent(campaign: CampaignWithMeta) {
+  if (campaign.participantCount === 0) {
+    return 0;
+  }
 
-interface StatConfig {
-  key: string;
-  label: string;
-  icon: typeof Megaphone;
-  getValue: (
-    campaigns: CampaignWithMeta[],
-    assignments: AssessmentAssignmentWithUsage[]
-  ) => number;
-  bgClass: string;
-  iconClass: string;
-  glowColor: string;
+  return Math.round((campaign.completedCount / campaign.participantCount) * 100);
 }
 
-const stats: StatConfig[] = [
-  {
-    key: "active-campaigns",
-    label: "Active Campaigns",
-    icon: Megaphone,
-    getValue: (campaigns) =>
-      campaigns.filter((c) => c.status === "active").length,
-    bgClass: "bg-primary/10",
-    iconClass: "text-primary",
-    glowColor: "var(--primary)",
-  },
-  {
-    key: "total-participants",
-    label: "Total Participants",
-    icon: Users,
-    getValue: (campaigns) =>
-      campaigns.reduce((sum, c) => sum + c.participantCount, 0),
-    bgClass: "bg-primary/10",
-    iconClass: "text-primary",
-    glowColor: "var(--primary)",
-  },
-  {
-    key: "completed",
-    label: "Completed",
-    icon: CheckCircle2,
-    getValue: (campaigns) =>
-      campaigns.reduce((sum, c) => sum + c.completedCount, 0),
-    bgClass: "bg-primary/10",
-    iconClass: "text-primary",
-    glowColor: "var(--primary)",
-  },
-];
+function getResultHref(result: ClientRecentResult) {
+  if (result.latestSessionId) {
+    return `/client/campaigns/${result.campaignId}/sessions/${result.latestSessionId}`;
+  }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+  return `/client/campaigns/${result.campaignId}/participants/${result.participantId}`;
+}
 
 interface ClientDashboardProps {
   campaigns: CampaignWithMeta[];
-  assessmentAssignments: AssessmentAssignmentWithUsage[];
+  operationalCampaigns: OperationalClientCampaign[];
+  recentResults: ClientRecentResult[];
+  launchAssessments: CampaignAssessmentOption[];
+  clientId: string;
+  favoriteCampaignIds?: string[];
 }
 
 export function ClientDashboard({
   campaigns,
-  assessmentAssignments,
+  operationalCampaigns,
+  recentResults,
+  launchAssessments,
+  clientId,
+  favoriteCampaignIds = [],
 }: ClientDashboardProps) {
   const { href } = usePortal();
+  const favoriteSet = new Set(favoriteCampaignIds);
 
-  const activeCampaigns = campaigns.filter(
-    (c) => c.status === "active" || c.status === "paused"
+  // Sort operational campaigns: favorites first
+  const sortedOperationalCampaigns = [...operationalCampaigns].sort((a, b) => {
+    const aFav = favoriteSet.has(a.id) ? 0 : 1;
+    const bFav = favoriteSet.has(b.id) ? 0 : 1;
+    return aFav - bFav;
+  });
+
+  const totalParticipants = campaigns.reduce(
+    (sum, campaign) => sum + campaign.participantCount,
+    0,
   );
+  const totalCompleted = campaigns.reduce(
+    (sum, campaign) => sum + campaign.completedCount,
+    0,
+  );
+  const activeCount = campaigns.filter((campaign) => campaign.status === "active").length;
 
   return (
     <div className="space-y-10 max-w-6xl">
-      {/* Header */}
       <PageHeader
         eyebrow="Dashboard"
-        title="Welcome back"
-        description="Here's an overview of your campaigns and assessment usage."
+        title="Campaign operations"
+        description="Launch quickly, send the right link, and jump straight into participant results."
       />
 
-      {/* Summary stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map((stat, index) => {
-          const value = stat.getValue(campaigns, assessmentAssignments);
-          return (
-            <ScrollReveal key={stat.key} delay={index * 60}>
+      <section className="grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+        <ScrollReveal delay={0}>
+          <Card>
+            <CardContent className="space-y-5 pt-6">
+              <div className="space-y-2">
+                <p className="text-overline text-primary">What do you need to do?</p>
+                <h2 className="text-title font-semibold tracking-tight">
+                  Start or continue a campaign in a few clicks.
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  The fastest path is to launch a campaign, copy the link, or jump
+                  straight into participant results.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <LaunchCampaignButton
+                  label="Launch campaign"
+                  assessments={launchAssessments}
+                  clients={[{ id: clientId, name: "My organisation" }]}
+                  recentCampaigns={campaigns}
+                  forcedClientId={clientId}
+                  successHrefPrefix="/client/campaigns"
+                />
+                <Link
+                  href={href("/participants?view=sessions")}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <CheckCircle2 className="size-4" />
+                  View results
+                </Link>
+                <Link
+                  href={href("/participants")}
+                  className={buttonVariants({ variant: "outline" })}
+                >
+                  <Search className="size-4" />
+                  Find participant
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </ScrollReveal>
+
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+          {[
+            { key: "active", label: "Active campaigns", value: activeCount, icon: Megaphone },
+            { key: "participants", label: "Participants", value: totalParticipants, icon: Users },
+            { key: "completed", label: "Completed", value: totalCompleted, icon: CheckCircle2 },
+          ].map((stat, index) => (
+            <ScrollReveal key={stat.key} delay={(index + 1) * 60}>
               <Card>
-                <CardContent className="pt-5 pb-4 px-5">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <AnimatedNumber
-                        value={value}
-                        className="text-3xl font-bold tabular-nums"
-                      />
-                      <p className="text-caption text-muted-foreground mt-1">
-                        {stat.label}
-                      </p>
-                    </div>
-                    <div
-                      className={`flex size-10 items-center justify-center rounded-xl ${stat.bgClass} transition-shadow duration-300`}
-                    >
-                      <stat.icon className={`size-5 ${stat.iconClass}`} />
-                    </div>
+                <CardContent className="flex items-start justify-between pt-5">
+                  <div>
+                    <AnimatedNumber
+                      value={stat.value}
+                      className="text-3xl font-bold tabular-nums"
+                    />
+                    <p className="text-caption text-muted-foreground mt-1">
+                      {stat.label}
+                    </p>
+                  </div>
+                  <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <stat.icon className="size-5" />
                   </div>
                 </CardContent>
               </Card>
             </ScrollReveal>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Active campaigns */}
-      <section>
-        <h2 className="text-title font-semibold tracking-tight mb-5">
-          Active Campaigns
-        </h2>
+      <section className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-title font-semibold tracking-tight">Active campaigns</h2>
+            <p className="text-sm text-muted-foreground">
+              Keep your top campaigns close, copy the link quickly, and jump back into participant activity.
+            </p>
+          </div>
+          <Link
+            href={href("/campaigns")}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            View all campaigns
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
 
-        {activeCampaigns.length === 0 ? (
+        {operationalCampaigns.length === 0 ? (
           <Card>
-            <CardContent className="py-12 text-center">
-              <Megaphone className="size-8 text-muted-foreground/40 mx-auto mb-3" />
+            <CardContent className="py-10 text-center">
               <p className="text-sm text-muted-foreground">
-                No active campaigns at the moment.
+                No campaigns yet. Launch your first campaign to start sending assessments.
               </p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            {activeCampaigns.map((campaign, index) => {
-              const completionPct =
-                campaign.participantCount > 0
-                  ? Math.round(
-                      (campaign.completedCount / campaign.participantCount) * 100
-                    )
-                  : 0;
+          <div className="grid gap-4 xl:grid-cols-3">
+            {sortedOperationalCampaigns.map((campaign, index) => {
+              const completion = getCompletionPercent(campaign);
 
               return (
                 <ScrollReveal key={campaign.id} delay={index * 60}>
-                  <TiltCard>
-                    <Link href={href(`/campaigns/${campaign.id}`)}>
-                      <Card
-                        variant="interactive"
-                        className="border-l-[3px] border-l-primary"
-                      >
-                        <CardHeader>
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]"
-                                style={
-                                  {
-                                    "--glow-color": "var(--primary)",
-                                  } as React.CSSProperties
-                                }
-                              >
-                                <Megaphone className="size-5 text-primary" />
-                              </div>
-                              <div>
-                                <CardTitle>{campaign.title}</CardTitle>
-                                <div className="mt-1 flex items-center gap-2 flex-wrap">
-                                  <Badge
-                                    variant={
-                                      statusVariant[campaign.status] ??
-                                      "secondary"
-                                    }
-                                  >
-                                    {campaign.status.charAt(0).toUpperCase() +
-                                      campaign.status.slice(1)}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <ArrowRight className="size-4 text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity mt-1" />
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          {/* Completion progress */}
-                          {campaign.participantCount > 0 && (
-                            <div className="mb-3">
-                              <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                                <span>
-                                  {campaign.completedCount} /{" "}
-                                  {campaign.participantCount} completed
-                                </span>
-                                <span>{completionPct}%</span>
-                              </div>
-                              <div className="h-1.5 w-full rounded-full bg-muted">
-                                <div
-                                  className="h-full rounded-full bg-primary transition-all"
-                                  style={{ width: `${completionPct}%` }}
-                                />
-                              </div>
-                            </div>
-                          )}
+                  <Card className="h-full">
+                    <CardHeader className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-2">
+                          <Link
+                            href={href(`/campaigns/${campaign.id}`)}
+                            className="inline-flex items-center gap-1 font-semibold hover:text-primary"
+                          >
+                            {campaign.title}
+                            <ArrowRight className="size-4" />
+                          </Link>
+                          <Badge variant={statusVariant[campaign.status] ?? "secondary"}>
+                            {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {campaign.assessmentCount} assessment
+                            {campaign.assessmentCount === 1 ? "" : "s"}
+                          </span>
+                          <FavoriteCampaignButton
+                            campaignId={campaign.id}
+                            isFavorite={favoriteSet.has(campaign.id)}
+                          />
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>
+                            {campaign.completedCount}/{campaign.participantCount || 0} completed
+                          </span>
+                          <span>{completion}%</span>
+                        </div>
+                        <Progress value={completion} className="gap-0" />
+                      </div>
 
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span className="inline-flex items-center gap-1.5">
-                              <ClipboardList className="size-3.5" />
-                              {campaign.assessmentCount}{" "}
-                              {campaign.assessmentCount === 1
-                                ? "assessment"
-                                : "assessments"}
-                            </span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <Users className="size-3.5" />
-                              {campaign.participantCount}{" "}
-                              {campaign.participantCount === 1
-                                ? "participant"
-                                : "participants"}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  </TiltCard>
+                      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
+                        <CopyCampaignLinkButton
+                          token={campaign.primaryAccessLink?.token}
+                          createHref={href(
+                            `/campaigns/${campaign.id}/participants?action=link`,
+                          )}
+                          variant={campaign.primaryAccessLink ? "default" : "outline"}
+                          className="justify-start"
+                        />
+                        <Link
+                          href={href(`/campaigns/${campaign.id}/participants?action=invite`)}
+                          className={buttonVariants({ variant: "outline", size: "sm" })}
+                        >
+                          <Users className="size-4" />
+                          Invite participants
+                        </Link>
+                        <Link
+                          href={href(`/campaigns/${campaign.id}/participants`)}
+                          className={buttonVariants({ variant: "outline", size: "sm" })}
+                        >
+                          <CheckCircle2 className="size-4" />
+                          View results
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
                 </ScrollReveal>
               );
             })}
@@ -253,96 +274,59 @@ export function ClientDashboard({
         )}
       </section>
 
-      {/* Assessment usage table */}
-      {assessmentAssignments.length > 0 && (
-        <section>
-          <h2 className="text-title font-semibold tracking-tight mb-5">
-            Assessment Usage
-          </h2>
-          <Card>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="px-5 py-3 font-medium">Assessment</th>
-                    <th className="px-5 py-3 font-medium text-right">Used</th>
-                    <th className="px-5 py-3 font-medium text-right">
-                      Remaining
-                    </th>
-                    <th className="px-5 py-3 font-medium w-32">Quota</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {assessmentAssignments.map((assignment) => {
-                    const remaining =
-                      assignment.quotaLimit !== null
-                        ? Math.max(0, assignment.quotaLimit - assignment.quotaUsed)
-                        : null;
-                    const usagePct =
-                      assignment.quotaLimit !== null && assignment.quotaLimit > 0
-                        ? Math.round(
-                            (assignment.quotaUsed / assignment.quotaLimit) * 100
-                          )
-                        : null;
-                    const isLow =
-                      remaining !== null &&
-                      assignment.quotaLimit !== null &&
-                      assignment.quotaLimit > 0 &&
-                      remaining / assignment.quotaLimit <= 0.1;
+      <section className="space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-title font-semibold tracking-tight">Recent results</h2>
+            <p className="text-sm text-muted-foreground">
+              Jump straight into the latest participant activity across your campaigns.
+            </p>
+          </div>
+          <Link
+            href={href("/participants?view=sessions")}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            Open participants
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
 
-                    return (
-                      <tr key={assignment.id}>
-                        <td className="px-5 py-3 font-medium">
-                          {assignment.assessmentName}
-                        </td>
-                        <td className="px-5 py-3 text-right tabular-nums">
-                          {assignment.quotaUsed}
-                        </td>
-                        <td
-                          className={`px-5 py-3 text-right tabular-nums ${
-                            isLow
-                              ? "text-amber-600 dark:text-amber-400 font-medium"
-                              : ""
-                          }`}
-                        >
-                          {remaining !== null ? remaining : (
-                            <span className="text-muted-foreground">
-                              Unlimited
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          {usagePct !== null ? (
-                            <div className="flex items-center gap-2">
-                              <div className="h-2 w-full rounded-full bg-muted">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    isLow
-                                      ? "bg-amber-500 dark:bg-amber-400"
-                                      : "bg-primary"
-                                  }`}
-                                  style={{ width: `${Math.min(usagePct, 100)}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-muted-foreground tabular-nums w-9 text-right shrink-0">
-                                {usagePct}%
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              --
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </Card>
-        </section>
-      )}
+        <Card>
+          <CardContent className="pt-4">
+            {recentResults.length === 0 ? (
+              <div className="py-8 text-center text-sm text-muted-foreground">
+                No results yet. Results will appear here once participants begin or complete an assessment.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentResults.map((result) => (
+                  <div
+                    key={`${result.participantId}-${result.latestSessionId ?? "none"}`}
+                    className="flex flex-col gap-3 rounded-xl border border-border px-4 py-3 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <p className="truncate font-medium">{result.participantName}</p>
+                      <p className="truncate text-sm text-muted-foreground">
+                        {result.campaignTitle} · {result.participantEmail}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        <LocalTime iso={result.lastActivity} format="relative" />
+                      </p>
+                    </div>
+                    <Link
+                      href={getResultHref(result)}
+                      className={buttonVariants({ variant: "outline", size: "sm" })}
+                    >
+                      <CheckCircle2 className="size-4" />
+                      Open results
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

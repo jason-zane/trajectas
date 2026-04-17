@@ -32,7 +32,11 @@ import {
   inviteParticipant,
   type CampaignAssessmentOption,
 } from "@/app/actions/campaigns";
+import { getFactorsForAssessment } from "@/app/actions/factor-selection";
+import { saveFactorSelection } from "@/app/actions/factor-selection";
+import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
 import { ArrowLeft, ArrowRight, FileText, Link2, Mail, Plus, Rocket, X } from "lucide-react";
+import { CapabilitySelectionStep } from "./capability-selection-step";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -130,9 +134,27 @@ interface QuickLaunchModalProps {
   clients: Array<{ id: string; name: string }>;
   forcedClientId?: string;
   successHrefPrefix?: string;
+  initialAssessmentId?: string;
 }
 
-type WizardStep = 1 | 2 | 3;
+type WizardStep = 1 | 2 | 3 | 4;
+
+type AssessmentFactors = Array<{
+  dimensionId: string | null;
+  dimensionName: string | null;
+  factors: Array<{
+    factorId: string;
+    factorName: string;
+    factorDescription: string | null;
+    constructCount: number;
+  }>;
+}>;
+
+type ItemSelectionRule = {
+  minConstructs: number;
+  maxConstructs: number | null;
+  itemsPerConstruct: number;
+};
 
 interface WizardState {
   title: string;
@@ -141,6 +163,9 @@ interface WizardState {
   closesAt: string;
   description: string;
   selectedAssessmentId: string | null;
+  selectedFactorIds: string[] | null;
+  assessmentFactors: AssessmentFactors;
+  itemSelectionRules: ItemSelectionRule[];
   inviteMode: "single" | "csv" | "link";
   inviteSingleEmail: string;
   inviteSingleFirstName: string;
@@ -155,6 +180,7 @@ export function QuickLaunchModal({
   clients,
   forcedClientId,
   successHrefPrefix = "/campaigns",
+  initialAssessmentId,
 }: QuickLaunchModalProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [state, setState] = useState<WizardState>({
@@ -163,14 +189,18 @@ export function QuickLaunchModal({
     opensAt: "",
     closesAt: "",
     description: "",
-    selectedAssessmentId: null,
-    inviteMode: "single",
+    selectedAssessmentId: initialAssessmentId ?? null,
+    selectedFactorIds: null,
+    assessmentFactors: [],
+    itemSelectionRules: [],
+    inviteMode: "link",
     inviteSingleEmail: "",
     inviteSingleFirstName: "",
     inviteSingleLastName: "",
     inviteCsv: "",
   });
   const [isLaunching, setIsLaunching] = useState(false);
+  const [loadingFactors, setLoadingFactors] = useState(false);
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
   const router = useRouter();
 
@@ -195,6 +225,11 @@ export function QuickLaunchModal({
     ? successHrefPrefix.slice(0, -1)
     : successHrefPrefix;
 
+  const hasFactors = state.assessmentFactors.length > 0;
+  const totalSteps = hasFactors ? 4 : 3;
+  const inviteStep = totalSteps;
+  const capabilitiesStep = hasFactors ? 3 : null;
+
   function reset() {
     setStep(1);
     setState({
@@ -203,8 +238,11 @@ export function QuickLaunchModal({
       opensAt: "",
       closesAt: "",
       description: "",
-      selectedAssessmentId: null,
-      inviteMode: "single",
+      selectedAssessmentId: initialAssessmentId ?? null,
+      selectedFactorIds: null,
+      assessmentFactors: [],
+      itemSelectionRules: [],
+      inviteMode: "link",
       inviteSingleEmail: "",
       inviteSingleFirstName: "",
       inviteSingleLastName: "",
@@ -224,8 +262,12 @@ export function QuickLaunchModal({
       return campaignTitle.length > 0 && !scheduleError;
     }
     if (step === 2) {
-      return !!state.selectedAssessmentId;
+      return !!state.selectedAssessmentId && !loadingFactors;
     }
+    if (step === capabilitiesStep) {
+      return state.selectedFactorIds === null || state.selectedFactorIds.length > 0;
+    }
+    // Invite step
     if (state.inviteMode === "link") {
       return true;
     }
@@ -235,8 +277,29 @@ export function QuickLaunchModal({
     return csvValidInviteCount > 0;
   }
 
+  async function fetchFactorsForAssessment(assessmentId: string) {
+    setLoadingFactors(true);
+    try {
+      const [factors, rules] = await Promise.all([
+        getFactorsForAssessment(assessmentId),
+        getItemSelectionRulesForEstimate(),
+      ]);
+      setState((s) => ({
+        ...s,
+        assessmentFactors: factors,
+        itemSelectionRules: rules,
+        selectedFactorIds: null,
+      }));
+    } finally {
+      setLoadingFactors(false);
+    }
+  }
+
   function handleNext() {
-    if (step < 3 && canAdvance()) {
+    if (step < totalSteps && canAdvance()) {
+      if (step === 2 && state.selectedAssessmentId && state.assessmentFactors.length === 0) {
+        void fetchFactorsForAssessment(state.selectedAssessmentId);
+      }
       setSlideDirection("left");
       setStep((currentStep) => (currentStep + 1) as WizardStep);
     }
@@ -284,6 +347,15 @@ export function QuickLaunchModal({
       );
       if (addAssessmentResult?.error) {
         throw new Error(addAssessmentResult.error);
+      }
+
+      // Apply custom factor selection if the user limited capabilities
+      if (state.selectedFactorIds !== null && state.selectedFactorIds.length > 0) {
+        const { getCampaignAssessmentId } = await import("@/app/actions/campaigns");
+        const caId = await getCampaignAssessmentId(campaignId, state.selectedAssessmentId);
+        if (caId) {
+          await saveFactorSelection(caId, state.selectedFactorIds);
+        }
       }
 
       let successDetail = "";
@@ -373,7 +445,7 @@ export function QuickLaunchModal({
       toast.success(`Campaign "${campaignTitle}" launched — ${successDetail}`, {
         description: successDescription,
       });
-      router.push(`${successBaseHref}/${campaignId}/overview`);
+      router.push(`${successBaseHref}/${campaignId}`);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to complete quick launch.";
@@ -420,7 +492,7 @@ export function QuickLaunchModal({
               <DialogTitle className="text-lg">Quick Launch</DialogTitle>
             </DialogHeader>
             <span className="text-xs font-medium text-muted-foreground tabular-nums">
-              {step} / 3
+              {step} / {totalSteps}
             </span>
           </div>
 
@@ -429,7 +501,7 @@ export function QuickLaunchModal({
             <div
               className="absolute inset-y-0 left-0 rounded-full transition-all duration-300 ease-out"
               style={{
-                width: `${(step / 3) * 100}%`,
+                width: `${(step / totalSteps) * 100}%`,
                 background: "var(--brand-primary, hsl(var(--primary)))",
               }}
             />
@@ -437,11 +509,19 @@ export function QuickLaunchModal({
 
           {/* Step labels */}
           <div className="flex items-center gap-4">
-            {([
-              { id: 1 as const, label: "Campaign" },
-              { id: 2 as const, label: "Assessment" },
-              { id: 3 as const, label: "Invite" },
-            ]).map((item) => {
+            {(hasFactors
+              ? [
+                  { id: 1 as const, label: "Campaign" },
+                  { id: 2 as const, label: "Assessment" },
+                  { id: 3 as const, label: "Capabilities" },
+                  { id: 4 as const, label: "Invite" },
+                ]
+              : [
+                  { id: 1 as const, label: "Campaign" },
+                  { id: 2 as const, label: "Assessment" },
+                  { id: 3 as const, label: "Invite" },
+                ]
+            ).map((item) => {
               const isActive = step === item.id;
               const isComplete = step > item.id;
               return (
@@ -642,6 +722,9 @@ export function QuickLaunchModal({
                             setState((currentState) => ({
                               ...currentState,
                               selectedAssessmentId: assessment.id,
+                              selectedFactorIds: null,
+                              assessmentFactors: [],
+                              itemSelectionRules: [],
                             }))
                           }
                           className={cn(
@@ -715,7 +798,39 @@ export function QuickLaunchModal({
             </div>
           )}
 
-          {step === 3 && (
+          {step === capabilitiesStep && capabilitiesStep !== null && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+                <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  {selectedClient && <span>{selectedClient.name}</span>}
+                  {selectedAssessment && <span>{selectedAssessment.title}</span>}
+                </div>
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                By default, participants complete the full assessment. Toggle custom
+                selection to limit which capabilities are measured.
+              </p>
+
+              {loadingFactors ? (
+                <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                  Loading capabilities...
+                </div>
+              ) : (
+                <CapabilitySelectionStep
+                  assessmentFactors={state.assessmentFactors}
+                  selectedFactorIds={state.selectedFactorIds}
+                  onSelectionChange={(factorIds) =>
+                    setState((s) => ({ ...s, selectedFactorIds: factorIds }))
+                  }
+                  itemSelectionRules={state.itemSelectionRules}
+                />
+              )}
+            </div>
+          )}
+
+          {step === inviteStep && (
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
                 <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
@@ -732,22 +847,25 @@ export function QuickLaunchModal({
               <div className="grid grid-cols-3 gap-2">
                 {([
                   {
+                    value: "link" as const,
+                    label: "Access link",
+                    description: "Share a URL",
+                    icon: Link2,
+                    recommended: true,
+                  },
+                  {
                     value: "single" as const,
                     label: "Single email",
                     description: "Invite one person",
                     icon: Mail,
+                    recommended: false,
                   },
                   {
                     value: "csv" as const,
                     label: "Paste CSV",
                     description: "Bulk invite",
                     icon: FileText,
-                  },
-                  {
-                    value: "link" as const,
-                    label: "Access link",
-                    description: "Share a URL",
-                    icon: Link2,
+                    recommended: false,
                   },
                 ]).map((mode) => {
                   const Icon = mode.icon;
@@ -764,12 +882,19 @@ export function QuickLaunchModal({
                         }))
                       }
                       className={cn(
-                        "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors",
+                        "relative flex flex-col items-center gap-1.5 rounded-lg border p-3 text-center transition-colors",
                         selected
                           ? "border-primary bg-primary/5"
-                          : "border-border hover:border-border/80 hover:bg-muted/40",
+                          : mode.recommended
+                            ? "border-primary/40 hover:border-primary/60 hover:bg-primary/5"
+                            : "border-border hover:border-border/80 hover:bg-muted/40",
                       )}
                     >
+                      {mode.recommended && !selected && (
+                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[9px] font-semibold text-primary-foreground">
+                          Recommended
+                        </span>
+                      )}
                       <Icon
                         className={cn(
                           "size-5",
@@ -912,7 +1037,7 @@ export function QuickLaunchModal({
                 Back
               </Button>
             )}
-            {step < 3 ? (
+            {step < totalSteps ? (
               <Button onClick={handleNext} disabled={!canAdvance() || isLaunching}>
                 Next
                 <ArrowRight className="size-4" />

@@ -108,7 +108,11 @@ async function sendOtp(input: {
   email: string
   redirectPath: string
 }) {
+  const headerStore = await headers()
+  const requestOrigin = buildRequestUrlFromHeaders(headerStore)
+
   const redirectUrl = buildAuthRedirectUrl({
+    origin: requestOrigin,
     redirectPath: input.redirectPath,
     publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
     adminAppUrl: process.env.ADMIN_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,

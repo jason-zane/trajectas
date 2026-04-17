@@ -20,6 +20,7 @@ import {
   mapCampaignParticipantRow,
   mapCampaignAccessLinkRow,
 } from '@/lib/supabase/mappers'
+import { getPrimaryActiveAccessLink } from '@/lib/campaign-access-links'
 import { campaignSchema, inviteParticipantSchema, accessLinkSchema } from '@/lib/validations/campaigns'
 import { checkQuotaAvailability } from '@/app/actions/client-entitlements'
 import type { Campaign, CampaignAssessment, CampaignParticipant, CampaignAccessLink } from '@/types/database'
@@ -46,6 +47,22 @@ export type CampaignDetail = Campaign & {
   participants: CampaignParticipant[]
   accessLinks: CampaignAccessLink[]
   clientName?: string
+}
+
+export type OperationalClientCampaign = CampaignWithMeta & {
+  accessLinks: CampaignAccessLink[]
+  primaryAccessLink?: CampaignAccessLink
+}
+
+export type ClientRecentResult = {
+  participantId: string
+  participantName: string
+  participantEmail: string
+  campaignId: string
+  campaignTitle: string
+  latestSessionId?: string
+  status: string
+  lastActivity: string
 }
 
 export type BulkInviteRowError = {
@@ -301,6 +318,267 @@ export async function createCampaign(payload: Record<string, unknown>) {
   revalidatePath('/campaigns')
   revalidatePath('/')
   return { success: true as const, id: campaign.id }
+}
+
+function buildCampaignSlug(title: string): string {
+  const base = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 180)
+
+  const suffix = Math.random().toString(36).slice(2, 8)
+  return base ? `${base}-${suffix}` : `campaign-${suffix}`
+}
+
+function buildReusedCampaignTitle(title: string): string {
+  const trimmed = title.trim()
+  return trimmed.endsWith('(copy)') ? trimmed : `${trimmed} (copy)`
+}
+
+export async function duplicateCampaignForReuse(sourceCampaignId: string) {
+  let access
+  try {
+    access = await requireCampaignAccess(sourceCampaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+
+  const [{ data: sourceCampaign, error: sourceCampaignError }, { data: sourceAssessments, error: sourceAssessmentsError }, { data: sourceReportTemplates, error: sourceReportTemplatesError }] =
+    await Promise.all([
+      db
+        .from('campaigns')
+        .select(
+          'id, title, description, client_id, partner_id, opens_at, closes_at, branding, allow_resume, show_progress, randomize_assessment_order',
+        )
+        .eq('id', sourceCampaignId)
+        .is('deleted_at', null)
+        .single(),
+      db
+        .from('campaign_assessments')
+        .select('id, assessment_id, display_order, is_required, intro_override')
+        .eq('campaign_id', sourceCampaignId)
+        .is('deleted_at', null)
+        .order('display_order', { ascending: true }),
+      db
+        .from('campaign_report_templates')
+        .select('template_id, sort_order')
+        .eq('campaign_id', sourceCampaignId)
+        .order('sort_order', { ascending: true }),
+    ])
+
+  if (sourceCampaignError || !sourceCampaign) {
+    logActionError('duplicateCampaignForReuse', sourceCampaignError)
+    return { error: 'Unable to load the source campaign.' }
+  }
+
+  if (sourceAssessmentsError) {
+    logActionError('duplicateCampaignForReuse', sourceAssessmentsError)
+    return { error: 'Unable to load campaign assessments.' }
+  }
+
+  if (sourceReportTemplatesError) {
+    logActionError('duplicateCampaignForReuse', sourceReportTemplatesError)
+    return { error: 'Unable to load campaign report templates.' }
+  }
+
+  const nextTitle = buildReusedCampaignTitle(String(sourceCampaign.title ?? 'Campaign'))
+
+  const { data: duplicatedCampaign, error: duplicatedCampaignError } = await db
+    .from('campaigns')
+    .insert({
+      title: nextTitle,
+      slug: buildCampaignSlug(nextTitle),
+      description: sourceCampaign.description ?? null,
+      status: 'draft',
+      client_id: sourceCampaign.client_id ?? null,
+      partner_id: sourceCampaign.partner_id ?? null,
+      opens_at: sourceCampaign.opens_at ?? null,
+      closes_at: sourceCampaign.closes_at ?? null,
+      branding: sourceCampaign.branding ?? {},
+      allow_resume: sourceCampaign.allow_resume ?? true,
+      show_progress: sourceCampaign.show_progress ?? true,
+      randomize_assessment_order: sourceCampaign.randomize_assessment_order ?? false,
+    })
+    .select('id')
+    .single()
+
+  if (duplicatedCampaignError || !duplicatedCampaign) {
+    logActionError('duplicateCampaignForReuse', duplicatedCampaignError)
+    return { error: 'Unable to create the reused campaign.' }
+  }
+
+  try {
+    const sourceAssessmentRows = sourceAssessments ?? []
+
+    if (sourceAssessmentRows.length > 0) {
+      const { data: duplicatedAssessments, error: duplicatedAssessmentsError } = await db
+        .from('campaign_assessments')
+        .insert(
+          sourceAssessmentRows.map((assessment) => ({
+            campaign_id: duplicatedCampaign.id,
+            assessment_id: assessment.assessment_id,
+            display_order: assessment.display_order,
+            is_required: assessment.is_required ?? true,
+            intro_override: assessment.intro_override ?? null,
+          })),
+        )
+        .select('id, assessment_id, display_order')
+
+      if (duplicatedAssessmentsError || !duplicatedAssessments) {
+        throw duplicatedAssessmentsError ?? new Error('Failed to copy assessments.')
+      }
+
+      const duplicatedAssessmentIdBySourceId = new Map<string, string>()
+      const duplicatedAssessmentIdByKey = new Map<string, string>()
+
+      for (const assessment of duplicatedAssessments) {
+        duplicatedAssessmentIdByKey.set(
+          `${assessment.assessment_id}:${assessment.display_order}`,
+          assessment.id,
+        )
+      }
+
+      for (const assessment of sourceAssessmentRows) {
+        const duplicatedAssessmentId = duplicatedAssessmentIdByKey.get(
+          `${assessment.assessment_id}:${assessment.display_order}`,
+        )
+        if (duplicatedAssessmentId) {
+          duplicatedAssessmentIdBySourceId.set(assessment.id, duplicatedAssessmentId)
+        }
+      }
+
+      const sourceAssessmentIds = sourceAssessmentRows.map((assessment) => assessment.id)
+      const [{ data: factorSelections, error: factorSelectionsError }, { data: constructSelections, error: constructSelectionsError }] =
+        await Promise.all([
+          db
+            .from('campaign_assessment_factors')
+            .select('campaign_assessment_id, factor_id')
+            .in('campaign_assessment_id', sourceAssessmentIds),
+          db
+            .from('campaign_assessment_constructs')
+            .select('campaign_assessment_id, construct_id')
+            .in('campaign_assessment_id', sourceAssessmentIds),
+        ])
+
+      if (factorSelectionsError) {
+        throw factorSelectionsError
+      }
+
+      if (constructSelectionsError) {
+        throw constructSelectionsError
+      }
+
+      const factorInserts =
+        factorSelections
+          ?.map((selection) => {
+            const duplicatedAssessmentId = duplicatedAssessmentIdBySourceId.get(
+              selection.campaign_assessment_id,
+            )
+            if (!duplicatedAssessmentId) {
+              return null
+            }
+
+            return {
+              campaign_assessment_id: duplicatedAssessmentId,
+              factor_id: selection.factor_id,
+            }
+          })
+          .filter((selection): selection is { campaign_assessment_id: string; factor_id: string } => selection != null) ?? []
+
+      if (factorInserts.length > 0) {
+        const { error: factorInsertError } = await db
+          .from('campaign_assessment_factors')
+          .insert(factorInserts)
+
+        if (factorInsertError) {
+          throw factorInsertError
+        }
+      }
+
+      const constructInserts =
+        constructSelections
+          ?.map((selection) => {
+            const duplicatedAssessmentId = duplicatedAssessmentIdBySourceId.get(
+              selection.campaign_assessment_id,
+            )
+            if (!duplicatedAssessmentId) {
+              return null
+            }
+
+            return {
+              campaign_assessment_id: duplicatedAssessmentId,
+              construct_id: selection.construct_id,
+            }
+          })
+          .filter(
+            (
+              selection,
+            ): selection is { campaign_assessment_id: string; construct_id: string } =>
+              selection != null,
+          ) ?? []
+
+      if (constructInserts.length > 0) {
+        const { error: constructInsertError } = await db
+          .from('campaign_assessment_constructs')
+          .insert(constructInserts)
+
+        if (constructInsertError) {
+          throw constructInsertError
+        }
+      }
+    }
+
+    const sourceReportTemplateRows = sourceReportTemplates ?? []
+    if (sourceReportTemplateRows.length > 0) {
+      const { error: reportTemplateInsertError } = await db
+        .from('campaign_report_templates')
+        .insert(
+          sourceReportTemplateRows.map((template) => ({
+            campaign_id: duplicatedCampaign.id,
+            template_id: template.template_id,
+            sort_order: template.sort_order,
+          })),
+        )
+
+      if (reportTemplateInsertError) {
+        throw reportTemplateInsertError
+      }
+    }
+  } catch (error) {
+    await db
+      .from('campaigns')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', duplicatedCampaign.id)
+
+    logActionError('duplicateCampaignForReuse', error)
+    return {
+      error:
+        'Unable to copy the full campaign setup. No participants or links were duplicated, and the new draft was rolled back.',
+    }
+  }
+
+  await logAuditEvent({
+    actorProfileId: access.scope.actor?.id ?? null,
+    eventType: 'campaign.duplicated',
+    targetTable: 'campaigns',
+    targetId: duplicatedCampaign.id,
+    partnerId: access.partnerId,
+    clientId: access.clientId,
+    metadata: { sourceCampaignId },
+  })
+
+  revalidatePath('/campaigns')
+  revalidatePath('/client/campaigns')
+  revalidatePath('/partner/campaigns')
+  revalidatePath('/')
+
+  return { success: true as const, id: duplicatedCampaign.id }
 }
 
 export async function updateCampaign(id: string, payload: Record<string, unknown>) {
@@ -1463,6 +1741,7 @@ export type ClientParticipant = {
   completedAt: string | null
   campaignId: string
   campaignTitle: string
+  latestSessionId?: string
   sessionCount: number
   completedSessionCount: number
   created_at: string
@@ -1590,11 +1869,171 @@ export async function getParticipantsForClient(
       completedAt: row.completed_at,
       campaignId: row.campaign_id,
       campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+      latestSessionId:
+        sessions
+          .slice()
+          .reverse()
+          .find((s: { status: string }) => s.status === 'completed' || s.status === 'in_progress')?.id
+        ?? sessions[sessions.length - 1]?.id
+        ?? undefined,
       sessionCount: sessions.length,
       completedSessionCount: completedSessions.length,
       created_at: row.created_at,
     }
   })
+}
+
+function getParticipantDisplayName(row: {
+  first_name?: string | null
+  last_name?: string | null
+  email: string
+}) {
+  const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim()
+  return name || row.email
+}
+
+export async function getOperationalCampaignsForClient(
+  clientId: string,
+  options?: { limit?: number }
+): Promise<OperationalClientCampaign[]> {
+  await requireClientAccess(clientId)
+
+  const campaigns = await getCampaigns({ clientId })
+  if (campaigns.length === 0) {
+    return []
+  }
+
+  const db = createAdminClient()
+  const campaignIds = campaigns.map((campaign) => campaign.id)
+  const { data: linkRows, error } = await db
+    .from('campaign_access_links')
+    .select('*')
+    .in('campaign_id', campaignIds)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    throwActionError(
+      'getOperationalCampaignsForClient.links',
+      'Unable to load campaign links.',
+      error
+    )
+  }
+
+  const linksByCampaign = new Map<string, CampaignAccessLink[]>()
+  for (const row of linkRows ?? []) {
+    const mapped = mapCampaignAccessLinkRow(row)
+    const existing = linksByCampaign.get(mapped.campaignId) ?? []
+    existing.push(mapped)
+    linksByCampaign.set(mapped.campaignId, existing)
+  }
+
+  const sorted = [...campaigns].sort((a, b) => {
+    const statusWeight = (status: string) => {
+      if (status === 'active') return 0
+      if (status === 'paused') return 1
+      if (status === 'draft') return 2
+      return 3
+    }
+
+    const statusDelta = statusWeight(a.status) - statusWeight(b.status)
+    if (statusDelta !== 0) return statusDelta
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
+
+  const limited = typeof options?.limit === 'number'
+    ? sorted.slice(0, options.limit)
+    : sorted
+
+  return limited.map((campaign) => {
+    const accessLinks = linksByCampaign.get(campaign.id) ?? []
+    return {
+      ...campaign,
+      accessLinks,
+      primaryAccessLink: getPrimaryActiveAccessLink(accessLinks),
+    }
+  })
+}
+
+export async function getRecentClientResults(
+  clientId: string,
+  options?: { limit?: number }
+): Promise<ClientRecentResult[]> {
+  await requireClientAccess(clientId)
+  const db = await createClient()
+
+  const { data: campaigns, error: campaignsError } = await db
+    .from('campaigns')
+    .select('id, title')
+    .eq('client_id', clientId)
+    .is('deleted_at', null)
+
+  if (campaignsError) {
+    throwActionError(
+      'getRecentClientResults.campaigns',
+      'Unable to load recent results.',
+      campaignsError
+    )
+  }
+
+  if (!campaigns || campaigns.length === 0) {
+    return []
+  }
+
+  const campaignIds = campaigns.map((campaign) => campaign.id)
+  const campaignMap = new Map(campaigns.map((campaign) => [campaign.id, campaign.title]))
+
+  const { data: participants, error: participantsError } = await db
+    .from('campaign_participants')
+    .select(
+      'id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, participant_sessions(id, status, started_at, completed_at)'
+    )
+    .in('campaign_id', campaignIds)
+    .in('status', ['in_progress', 'completed'])
+    .is('deleted_at', null)
+
+  if (participantsError) {
+    throwActionError(
+      'getRecentClientResults.participants',
+      'Unable to load recent results.',
+      participantsError
+    )
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const results = (participants ?? []).map((row: any) => {
+    const sessions = Array.isArray(row.participant_sessions)
+      ? [...row.participant_sessions]
+      : []
+
+    sessions.sort((a: { started_at?: string | null; completed_at?: string | null }, b: { started_at?: string | null; completed_at?: string | null }) => {
+      const aTime = new Date(a.completed_at ?? a.started_at ?? 0).getTime()
+      const bTime = new Date(b.completed_at ?? b.started_at ?? 0).getTime()
+      return bTime - aTime
+    })
+
+    const latestSession = sessions[0]
+    const lastActivity =
+      latestSession?.completed_at ??
+      latestSession?.started_at ??
+      row.completed_at ??
+      row.started_at ??
+      row.created_at
+
+    return {
+      participantId: row.id,
+      participantName: getParticipantDisplayName(row),
+      participantEmail: row.email,
+      campaignId: row.campaign_id,
+      campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+      latestSessionId: latestSession?.id ?? undefined,
+      status: row.status,
+      lastActivity,
+    } satisfies ClientRecentResult
+  })
+
+  results.sort((a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime())
+
+  return results.slice(0, options?.limit ?? 6)
 }
 
 // ---------------------------------------------------------------------------
@@ -1792,4 +2231,67 @@ export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
   if (error) return { error: error.message }
   revalidatePath('/campaigns')
   revalidatePath('/')
+}
+
+// ---------------------------------------------------------------------------
+// Campaign Assessment ID lookup
+// ---------------------------------------------------------------------------
+
+export async function getCampaignAssessmentId(
+  campaignId: string,
+  assessmentId: string,
+): Promise<string | null> {
+  const db = createAdminClient()
+  const { data } = await db
+    .from('campaign_assessments')
+    .select('id')
+    .eq('campaign_id', campaignId)
+    .eq('assessment_id', assessmentId)
+    .maybeSingle()
+  return data?.id ?? null
+}
+
+// ---------------------------------------------------------------------------
+// Campaign Favorites
+// ---------------------------------------------------------------------------
+
+export async function getFavoriteCampaignIds(): Promise<string[]> {
+  const db = await createClient()
+  const { data } = await db
+    .from('campaign_favorites')
+    .select('campaign_id')
+  return (data ?? []).map((row) => row.campaign_id)
+}
+
+export async function favoriteCampaign(campaignId: string) {
+  const db = await createClient()
+  const { data: { user } } = await db.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await db
+    .from('campaign_favorites')
+    .upsert(
+      { profile_id: user.id, campaign_id: campaignId },
+      { onConflict: 'profile_id,campaign_id' },
+    )
+
+  if (error) return { error: error.message }
+  revalidatePath('/client/dashboard')
+  revalidatePath('/client/campaigns')
+}
+
+export async function unfavoriteCampaign(campaignId: string) {
+  const db = await createClient()
+  const { data: { user } } = await db.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const { error } = await db
+    .from('campaign_favorites')
+    .delete()
+    .eq('profile_id', user.id)
+    .eq('campaign_id', campaignId)
+
+  if (error) return { error: error.message }
+  revalidatePath('/client/dashboard')
+  revalidatePath('/client/campaigns')
 }
