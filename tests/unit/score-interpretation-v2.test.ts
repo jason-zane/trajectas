@@ -12,8 +12,7 @@ describe('generateSampleData — score_interpretation_v2', () => {
       groupByDimension: true,
       showScore: true,
       showBandLabel: true,
-      showAnchorLow: true,
-      showAnchorHigh: true,
+      showAnchors: true,
     },
   }]
   const entities = [
@@ -32,9 +31,8 @@ describe('generateSampleData — score_interpretation_v2', () => {
     expect(data.groups).toHaveLength(1)
     expect(data.groups[0].groupName).toBe('Cognitive Agility')
     expect(data.groups[0].entities).toHaveLength(2)
-    // v2 config has split anchor toggles
-    expect(data.config.showAnchorLow).toBe(true)
-    expect(data.config.showAnchorHigh).toBe(true)
+    // v2 config has unified anchor toggle
+    expect(data.config.showAnchors).toBe(true)
     // v2 includes bands array for tick rendering
     expect(data.bands).toBeDefined()
     expect(Array.isArray(data.bands)).toBe(true)

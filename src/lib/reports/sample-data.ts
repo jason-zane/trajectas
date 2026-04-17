@@ -388,12 +388,10 @@ function generateBlockSampleData(
           groupByDimension: groupByDim2,
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
-          showAnchorLow: config.showAnchorLow !== false,
-          showAnchorHigh: config.showAnchorHigh !== false,
+          showAnchors: config.showAnchors !== false,
           showGroupScore: config.showGroupScore === true,
           showGroupBand: config.showGroupBand === true,
-          showGroupAnchorLow: config.showGroupAnchorLow === true,
-          showGroupAnchorHigh: config.showGroupAnchorHigh === true,
+          showGroupAnchors: config.showGroupAnchors === true,
         },
       }
     }
