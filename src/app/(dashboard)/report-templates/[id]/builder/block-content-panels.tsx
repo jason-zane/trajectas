@@ -476,6 +476,94 @@ function ScoreInterpretationContent({ block, onUpdateConfig }: BlockContentPanel
 }
 
 // ---------------------------------------------------------------------------
+// Score Interpretation v2
+// ---------------------------------------------------------------------------
+
+function ScoreInterpretationV2Content({ block, onUpdateConfig }: BlockContentPanelProps) {
+  const config = block.config as Record<string, unknown>
+  return (
+    <div className="space-y-4">
+      <DisplayLevelSelect
+        value={String(config.displayLevel ?? 'factor')}
+        onChange={(v) => onUpdateConfig('displayLevel', v)}
+      />
+      <SwitchField
+        id="interp2-groupByDimension"
+        label="Group by dimension"
+        help="Group factors/constructs under their parent dimension heading"
+        checked={config.groupByDimension as boolean ?? true}
+        onChange={(v) => onUpdateConfig('groupByDimension', v)}
+      />
+      <div className="space-y-3 pt-1">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Factor display</p>
+        <SwitchField
+          id="interp2-showScore"
+          label="Score"
+          help="Display the numeric score value"
+          checked={config.showScore as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showScore', v)}
+        />
+        <SwitchField
+          id="interp2-showBandLabel"
+          label="Band label"
+          help="Qualitative label like 'Highly Effective' or 'Developing'"
+          checked={config.showBandLabel as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showBandLabel', v)}
+        />
+        <SwitchField
+          id="interp2-showAnchorLow"
+          label="Low anchor"
+          help="Low-end behavioural indicator text"
+          checked={config.showAnchorLow as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showAnchorLow', v)}
+        />
+        <SwitchField
+          id="interp2-showAnchorHigh"
+          label="High anchor"
+          help="High-end behavioural indicator text"
+          checked={config.showAnchorHigh as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showAnchorHigh', v)}
+        />
+      </div>
+      <div className="space-y-3 pt-4 border-t border-border/40">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dimension display</p>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Show the dimension&apos;s own score, band, and anchors above each group. Applies only when &quot;Group by dimension&quot; is on.
+        </p>
+        <SwitchField
+          id="interp2-showGroupScore"
+          label="Dimension score"
+          help="Show the dimension's numeric score and bar"
+          checked={config.showGroupScore as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupScore', v)}
+        />
+        <SwitchField
+          id="interp2-showGroupBand"
+          label="Dimension band label"
+          help="Show the qualitative band label for the dimension"
+          checked={config.showGroupBand as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupBand', v)}
+        />
+        <SwitchField
+          id="interp2-showGroupAnchorLow"
+          label="Dimension low anchor"
+          help="Low-end behavioural indicator for the dimension"
+          checked={config.showGroupAnchorLow as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupAnchorLow', v)}
+        />
+        <SwitchField
+          id="interp2-showGroupAnchorHigh"
+          label="Dimension high anchor"
+          help="High-end behavioural indicator for the dimension"
+          checked={config.showGroupAnchorHigh as boolean ?? false}
+          onChange={(v) => onUpdateConfig('showGroupAnchorHigh', v)}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Score Detail
 // ---------------------------------------------------------------------------
 
@@ -704,6 +792,7 @@ const CONTENT_PANELS: Record<BlockType, React.ComponentType<BlockContentPanelPro
   score_overview: ScoreOverviewContent,
   score_detail: ScoreDetailContent,
   score_interpretation: ScoreInterpretationContent,
+  score_interpretation_v2: ScoreInterpretationV2Content,
   strengths_highlights: StrengthsContent,
   development_plan: DevelopmentContent,
   ai_text: AiTextContent,
