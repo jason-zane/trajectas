@@ -26,7 +26,7 @@ export type UpdateReportTemplateSettingsInput = z.infer<typeof updateReportTempl
 
 export const updateReportTemplateBlocksSchema = z.object({
   id: postgresUuid(),
-  blocks: z.array(z.record(z.unknown())),
+  blocks: z.array(z.record(z.string(), z.unknown())),
 })
 export type UpdateReportTemplateBlocksInput = z.infer<typeof updateReportTemplateBlocksSchema>
 
