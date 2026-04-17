@@ -569,11 +569,13 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   const r = data as any
 
   // Load existing sections with item counts and format info
-  const { data: sectionRows } = await db
+  const { data: sectionRows, error: sectionsErr } = await db
     .from('assessment_sections')
     .select('*, response_formats(name, type), assessment_section_items(count)')
     .eq('assessment_id', id)
     .order('display_order', { ascending: true })
+
+  if (sectionsErr) return null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sections: ExistingSection[] = (sectionRows ?? []).map((s: any) => ({
@@ -626,10 +628,12 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
   const db = createAdminClient()
 
   // Get construct IDs for these factors
-  const { data: links } = await db
+  const { data: links, error: linksErr } = await db
     .from('factor_constructs')
     .select('construct_id')
     .in('factor_id', factorIds)
+
+  if (linksErr) throwActionError('getFormatBreakdown', 'Unable to load format breakdown.', linksErr)
 
   const constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
   if (constructIds.length === 0) return []
@@ -638,12 +642,14 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
   const limit = await getItemsPerConstructForCount(constructIds.length)
 
   // Get active, non-deleted items for these constructs with their format info
-  const { data: items } = await db
+  const { data: items, error: itemsErr } = await db
     .from('items')
     .select('id, construct_id, response_format_id, selection_priority, display_order, response_formats(id, name, type)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
+
+  if (itemsErr) throwActionError('getFormatBreakdown', 'Unable to load format breakdown.', itemsErr)
 
   if (!items || items.length === 0) return []
 
@@ -706,11 +712,13 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
   // Count active items per construct in one query
   const itemCountByConstruct: Record<string, number> = {}
   if (allConstructIds.size > 0) {
-    const { data: items } = await db
+    const { data: items, error: itemsErr } = await db
       .from('items')
       .select('construct_id')
       .in('construct_id', [...allConstructIds])
       .eq('status', 'active')
+
+    if (itemsErr) throw new Error(itemsErr.message)
 
     for (const item of items ?? []) {
       itemCountByConstruct[item.construct_id] = (itemCountByConstruct[item.construct_id] ?? 0) + 1
@@ -751,10 +759,12 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
 
   // Load dimension links (via dimension_constructs). A construct may link to
   // multiple dimensions; for display purposes take the first.
-  const { data: dcLinks } = await db
+  const { data: dcLinks, error: dcLinksErr } = await db
     .from('dimension_constructs')
     .select('construct_id, dimension_id, dimensions(id, name)')
     .in('construct_id', constructIds)
+
+  if (dcLinksErr) throw new Error(dcLinksErr.message)
 
   const dimByConstruct = new Map<string, { id: string; name: string }>()
   for (const link of dcLinks ?? []) {
@@ -766,11 +776,13 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
   }
 
   // Count active items per construct
-  const { data: items } = await db
+  const { data: items, error: itemsErr } = await db
     .from('items')
     .select('construct_id')
     .in('construct_id', constructIds)
     .eq('status', 'active')
+
+  if (itemsErr) throw new Error(itemsErr.message)
 
   const itemCountByConstruct = new Map<string, number>()
   for (const i of items ?? []) {
@@ -935,7 +947,11 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   if (updateErr) return { error: { _form: [updateErr.message] } }
 
   // Replace factor junction records (always delete, insert if factor-level)
-  await db.from('assessment_factors').delete().eq('assessment_id', id)
+  const { error: deleteFactorsErr } = await db.from('assessment_factors').delete().eq('assessment_id', id)
+  if (deleteFactorsErr) {
+    logActionError('updateAssessment.deleteFactors', deleteFactorsErr)
+    return { error: { _form: ['Unable to update assessment factors.'] } }
+  }
 
   if (updatedScoringLevel === 'factor' && parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
@@ -949,7 +965,11 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   }
 
   // Replace construct junction records (always delete, insert if construct-level)
-  await db.from('assessment_constructs').delete().eq('assessment_id', id)
+  const { error: deleteConstructsErr } = await db.from('assessment_constructs').delete().eq('assessment_id', id)
+  if (deleteConstructsErr) {
+    logActionError('updateAssessment.deleteConstructs', deleteConstructsErr)
+    return { error: { _form: ['Unable to update assessment constructs.'] } }
+  }
 
   if (updatedScoringLevel === 'construct' && parsed.data.constructs.length > 0) {
     const links = parsed.data.constructs.map((c) => ({
@@ -1021,9 +1041,33 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     }
 
     // Clean up any stale FC blocks
-    await db.from('forced_choice_block_items').delete()
-      .in('block_id', (await db.from('forced_choice_blocks').select('id').eq('assessment_id', id)).data?.map((b: { id: string }) => b.id) ?? [])
-    await db.from('forced_choice_blocks').delete().eq('assessment_id', id)
+    const { data: staleBlockRows, error: staleBlocksErr } = await db
+      .from('forced_choice_blocks')
+      .select('id')
+      .eq('assessment_id', id)
+    if (staleBlocksErr) {
+      logActionError('updateAssessment.loadStaleBlocks', staleBlocksErr)
+      return { error: { _form: ['Unable to clear forced-choice data.'] } }
+    }
+    const staleBlockIds = (staleBlockRows ?? []).map((b: { id: string }) => b.id)
+    if (staleBlockIds.length > 0) {
+      const { error: deleteStaleItemsErr } = await db
+        .from('forced_choice_block_items')
+        .delete()
+        .in('block_id', staleBlockIds)
+      if (deleteStaleItemsErr) {
+        logActionError('updateAssessment.deleteStaleBlockItems', deleteStaleItemsErr)
+        return { error: { _form: ['Unable to clear forced-choice data.'] } }
+      }
+    }
+    const { error: deleteStaleBlocksErr } = await db
+      .from('forced_choice_blocks')
+      .delete()
+      .eq('assessment_id', id)
+    if (deleteStaleBlocksErr) {
+      logActionError('updateAssessment.deleteStaleBlocks', deleteStaleBlocksErr)
+      return { error: { _form: ['Unable to clear forced-choice data.'] } }
+    }
   } else {
     // Forced-choice mode: persist blocks, clean up sections
     const { error: deleteSectionsErr } = await db
@@ -1039,14 +1083,32 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     const fcBlocks = (payload.forcedChoiceBlocks ?? []) as ForcedChoiceBlockDraft[]
     if (fcBlocks.length > 0) {
       // Delete existing blocks first
-      const { data: existingBlockIds } = await db
+      const { data: existingBlockIds, error: existingBlocksErr } = await db
         .from('forced_choice_blocks')
         .select('id')
         .eq('assessment_id', id)
+      if (existingBlocksErr) {
+        logActionError('updateAssessment.loadExistingBlocks', existingBlocksErr)
+        return { error: { _form: ['Unable to load existing forced-choice data.'] } }
+      }
       const oldBlockIds = (existingBlockIds ?? []).map((b: { id: string }) => b.id)
       if (oldBlockIds.length > 0) {
-        await db.from('forced_choice_block_items').delete().in('block_id', oldBlockIds)
-        await db.from('forced_choice_blocks').delete().eq('assessment_id', id)
+        const { error: deleteOldBlockItemsErr } = await db
+          .from('forced_choice_block_items')
+          .delete()
+          .in('block_id', oldBlockIds)
+        if (deleteOldBlockItemsErr) {
+          logActionError('updateAssessment.deleteOldBlockItems', deleteOldBlockItemsErr)
+          return { error: { _form: ['Unable to clear existing forced-choice blocks.'] } }
+        }
+        const { error: deleteOldBlocksErr } = await db
+          .from('forced_choice_blocks')
+          .delete()
+          .eq('assessment_id', id)
+        if (deleteOldBlocksErr) {
+          logActionError('updateAssessment.deleteOldBlocks', deleteOldBlocksErr)
+          return { error: { _form: ['Unable to clear existing forced-choice blocks.'] } }
+        }
       }
 
       const blockErr = await persistForcedChoiceBlocks(db, id, fcBlocks)
@@ -1196,10 +1258,15 @@ export async function updateAssessmentCustomisation(
 
   if (minCustomFactors !== null) {
     // Validate: get factor count for this assessment
-    const { count } = await db
+    const { count, error: countErr } = await db
       .from('assessment_factors')
       .select('*', { count: 'exact', head: true })
       .eq('assessment_id', assessmentId)
+
+    if (countErr) {
+      logActionError('updateAssessmentCustomisation.countFactors', countErr)
+      return { error: 'Unable to validate customisation settings.' }
+    }
 
     if (minCustomFactors < 1) {
       return { error: 'Minimum must be at least 1' }
@@ -1266,10 +1333,12 @@ async function persistSections(
   if (secErr) return secErr.message
 
   // Get construct IDs for these factors
-  const { data: links } = await db
+  const { data: links, error: linksErr } = await db
     .from('factor_constructs')
     .select('construct_id')
     .in('factor_id', factorIds)
+
+  if (linksErr) return linksErr.message
 
   const constructIds = [...new Set((links ?? []).map((l: { construct_id: string }) => l.construct_id))]
   if (constructIds.length === 0) return null
@@ -1278,12 +1347,14 @@ async function persistSections(
   const limit = await getItemsPerConstructForCount(constructIds.length)
 
   // Get all active, non-deleted items for these constructs with priority ordering
-  const { data: items } = await db
+  const { data: items, error: itemsErr } = await db
     .from('items')
     .select('id, construct_id, response_format_id, selection_priority, display_order')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
+
+  if (itemsErr) return itemsErr.message
 
   if (!items || items.length === 0) return null
 
@@ -1378,10 +1449,12 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   const db = createAdminClient()
 
   // Get construct IDs for these factors
-  const { data: links } = await db
+  const { data: links, error: linksErr } = await db
     .from('factor_constructs')
     .select('construct_id')
     .in('factor_id', factorIds)
+
+  if (linksErr) throwActionError('getFCItemsForFactors', 'Unable to load items for selected factors.', linksErr)
 
   const constructIds = [...new Set((links ?? []).map((l: { construct_id: string }) => l.construct_id))]
   if (constructIds.length === 0) return []
@@ -1390,13 +1463,15 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   const limit = await getItemsPerConstructForCount(constructIds.length)
 
   // Get active, non-deleted construct items with their construct names
-  const { data: items } = await db
+  const { data: items, error: itemsErr } = await db
     .from('items')
     .select('id, construct_id, stem, selection_priority, display_order, constructs(name)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .eq('purpose', 'construct')
     .is('deleted_at', null)
+
+  if (itemsErr) throwActionError('getFCItemsForFactors', 'Unable to load items for selected factors.', itemsErr)
 
   if (!items || items.length === 0) return []
 
@@ -1457,11 +1532,13 @@ export async function getExistingBlocks(assessmentId: string): Promise<ExistingF
   await requireAssessmentAccess(assessmentId, { forWrite: true })
   const db = createAdminClient()
 
-  const { data: blocks } = await db
+  const { data: blocks, error: blocksErr } = await db
     .from('forced_choice_blocks')
     .select('id, forced_choice_block_items(item_id, position, items(stem, construct_id, constructs(name)))')
     .eq('assessment_id', assessmentId)
     .order('display_order', { ascending: true })
+
+  if (blocksErr) throwActionError('getExistingBlocks', 'Unable to load existing blocks.', blocksErr)
 
   if (!blocks || blocks.length === 0) return []
 
