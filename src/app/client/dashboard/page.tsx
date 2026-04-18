@@ -7,10 +7,10 @@ import {
   type CampaignAssessmentOption,
 } from "@/app/actions/campaigns";
 import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
-import { ClientDashboard } from "./client-dashboard";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2 } from "lucide-react";
+import { ClientDashboard } from "./client-dashboard";
 
 export default async function ClientDashboardPage() {
   const { clientId } = await resolveClientOrg("/client/dashboard");
@@ -35,25 +35,33 @@ export default async function ClientDashboardPage() {
     );
   }
 
-  const [campaigns, operationalCampaigns, recentResults, libraryAssessments, favoriteCampaignIds] = await Promise.all([
+  const [
+    campaigns,
+    operationalCampaigns,
+    recentResults,
+    libraryAssessments,
+    favoriteCampaignIds,
+  ] = await Promise.all([
     getCampaigns({ clientId }),
-    getOperationalCampaignsForClient(clientId, { limit: 3 }),
-    getRecentClientResults(clientId, { limit: 6 }),
+    getOperationalCampaignsForClient(clientId, { limit: 6 }),
+    getRecentClientResults(clientId, { limit: 5 }),
     getClientAssessmentLibrary(clientId),
     getFavoriteCampaignIds(),
   ]);
 
-  const launchAssessments: CampaignAssessmentOption[] = libraryAssessments.map((a) => ({
-    id: a.id,
-    title: a.title,
-    description: a.description,
-    status: a.status,
-    factorCount: a.factorCount ?? 0,
-    sectionCount: a.sectionCount ?? 0,
-    totalItemCount: a.totalItemCount ?? 0,
-    formatLabel: a.formatMode ?? undefined,
-    estimatedDurationMinutes: a.estimatedDurationMinutes ?? 0,
-  }));
+  const launchAssessments: CampaignAssessmentOption[] = libraryAssessments.map(
+    (a) => ({
+      id: a.id,
+      title: a.title,
+      description: a.description,
+      status: a.status,
+      factorCount: a.factorCount ?? 0,
+      sectionCount: a.sectionCount ?? 0,
+      totalItemCount: a.totalItemCount ?? 0,
+      formatLabel: a.formatMode ?? undefined,
+      estimatedDurationMinutes: a.estimatedDurationMinutes ?? 0,
+    }),
+  );
 
   return (
     <ClientDashboard
