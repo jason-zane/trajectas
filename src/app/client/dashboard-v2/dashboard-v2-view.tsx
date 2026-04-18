@@ -151,6 +151,7 @@ export function DashboardV2View({
     const d = daysUntil(c.closesAt);
     return d != null && d >= 0 && d <= 7;
   });
+  const stillPending = Math.max(0, totalParticipants - totalCompleted);
 
   // Sort for the "What's moving" list:
   // 1. favorites first
@@ -172,6 +173,27 @@ export function DashboardV2View({
     return list.slice(0, 3);
   }, [operationalCampaigns, favoriteSet]);
 
+  // Top campaign for the narrative lede — the one you'd want to act on first.
+  const leadCampaign = rankedCampaigns[0];
+  const leadDays = leadCampaign ? daysUntil(leadCampaign.closesAt) : null;
+  const leadPct =
+    leadCampaign && leadCampaign.participantCount > 0
+      ? Math.round(
+          (leadCampaign.completedCount / leadCampaign.participantCount) * 100,
+        )
+      : 0;
+  const leadPending = leadCampaign
+    ? Math.max(0, leadCampaign.participantCount - leadCampaign.completedCount)
+    : 0;
+
+  function describeDeadline(days: number): string {
+    if (days < 0) return "closed";
+    if (days === 0) return "closes today";
+    if (days === 1) return "closes tomorrow";
+    if (days <= 7) return `closes in ${days} days`;
+    return `closes in ${days} days`;
+  }
+
   return (
     <div className="max-w-5xl space-y-16">
       {/* ===== HERO — editorial header ===== */}
@@ -184,15 +206,28 @@ export function DashboardV2View({
           <span className="text-[var(--emerald)]">this week.</span>
         </h1>
         <p className="max-w-xl text-[1.0625rem] leading-relaxed text-muted-foreground">
-          {activeCount === 0
-            ? "No active campaigns yet — launch your first to start seeing activity here."
-            : closingSoon.length > 0
-              ? `${closingSoon.length} campaign${closingSoon.length === 1 ? "" : "s"} closing this week. ${totalCompleted} completion${totalCompleted === 1 ? "" : "s"} so far across ${totalParticipants} participant${totalParticipants === 1 ? "" : "s"}.`
-              : `${activeCount} active campaign${activeCount === 1 ? "" : "s"}. ${totalCompleted} of ${totalParticipants} participants have completed.`}
+          {activeCount === 0 ? (
+            "No active campaigns yet — launch your first to start seeing activity here."
+          ) : leadCampaign && leadDays != null && leadDays >= 0 ? (
+            <>
+              <Link
+                href={href(`/campaigns/${leadCampaign.id}`)}
+                className="font-medium text-foreground underline decoration-[var(--gold)] decoration-2 underline-offset-4 transition-colors hover:text-[var(--emerald)]"
+              >
+                {leadCampaign.title}
+              </Link>{" "}
+              {describeDeadline(leadDays)} at {leadPct}% done
+              {leadPending > 0
+                ? `, with ${leadPending} still to finish.`
+                : "."}
+            </>
+          ) : (
+            `${activeCount} active campaign${activeCount === 1 ? "" : "s"} in flight.`
+          )}
         </p>
       </header>
 
-      {/* ===== METRIC STRIP — headline left, framing stats right ===== */}
+      {/* ===== METRIC STRIP — one headline, two framing stats ===== */}
       <section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
         {/* Headline metric */}
         <div className="lg:col-span-2">
@@ -208,27 +243,27 @@ export function DashboardV2View({
             </span>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            {completionRate}% of invited participants across all campaigns.
+            {stillPending === 0
+              ? "All invited participants have completed."
+              : `${stillPending} still to finish.`}
           </p>
         </div>
 
         {/* Framing stats */}
-        <div className="grid grid-cols-3 gap-6 lg:col-span-3 lg:border-l lg:border-border/70 lg:pl-8">
+        <div className="grid grid-cols-2 gap-8 lg:col-span-3 lg:border-l lg:border-border/70 lg:pl-10">
           {[
             {
               label: "Active",
               value: activeCount,
-              suffix: activeCount === 1 ? "campaign" : "campaigns",
+              suffix: activeCount === 1 ? "campaign running" : "campaigns running",
             },
             {
-              label: "Closing ≤7d",
+              label: "Closing this week",
               value: closingSoon.length,
-              suffix: "to watch",
-            },
-            {
-              label: "Completion rate",
-              value: `${completionRate}%`,
-              suffix: "participants done",
+              suffix:
+                closingSoon.length === 1
+                  ? "to watch closely"
+                  : "to watch closely",
             },
           ].map((stat) => (
             <div key={stat.label}>
@@ -443,10 +478,15 @@ export function DashboardV2View({
                 <li key={`${result.participantId}-${result.latestSessionId ?? "none"}`}>
                   <Link
                     href={resultHref}
-                    className="group flex items-center gap-4 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--cream)]/60"
+                    className="group relative flex cursor-pointer items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200 ease-[var(--ease-spring)] hover:bg-[var(--cream)] hover:pl-5 hover:pr-2 hover:shadow-sm"
                   >
+                    {/* Gold accent bar that slides in on hover */}
+                    <span
+                      aria-hidden
+                      className="absolute left-0 top-2 bottom-2 w-[2px] origin-center scale-y-0 rounded-full bg-[var(--gold)] transition-transform duration-200 ease-[var(--ease-spring)] group-hover:scale-y-100"
+                    />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-sans text-sm font-medium text-foreground">
+                      <p className="truncate font-sans text-sm font-medium text-foreground transition-colors group-hover:text-[var(--emerald-dark)]">
                         {result.participantName}
                       </p>
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -461,7 +501,7 @@ export function DashboardV2View({
                         <LocalTime iso={result.lastActivity} format="relative" />
                       </p>
                     </div>
-                    <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-all group-hover:translate-x-0.5 group-hover:text-[var(--emerald)]" />
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-all duration-200 group-hover:translate-x-1 group-hover:text-[var(--emerald)]" />
                   </Link>
                 </li>
               );
