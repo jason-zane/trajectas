@@ -14,6 +14,7 @@ import type {
   CampaignAssessmentOption,
   CampaignWithMeta,
   ClientRecentResult,
+  CompletionTimelinePoint,
   OperationalClientCampaign,
 } from "@/app/actions/campaigns";
 import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
@@ -23,6 +24,7 @@ import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-but
 import { LocalTime } from "@/components/local-time";
 import { usePortal } from "@/components/portal-context";
 import { RefreshOnFocus } from "@/components/refresh-on-focus";
+import { Sparkline } from "@/components/sparkline";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +35,7 @@ interface ClientDashboardProps {
   launchAssessments: CampaignAssessmentOption[];
   clientId: string;
   favoriteCampaignIds?: string[];
+  completionTimeline?: CompletionTimelinePoint[];
 }
 
 function formatWeekRange(now: Date): string {
@@ -125,6 +128,7 @@ export function ClientDashboard({
   launchAssessments,
   clientId,
   favoriteCampaignIds = [],
+  completionTimeline = [],
 }: ClientDashboardProps) {
   const { href } = usePortal();
   const favoriteSet = useMemo(
@@ -237,9 +241,19 @@ export function ClientDashboard({
       <section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
         {/* Headline metric */}
         <div className="lg:col-span-2">
-          <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Completions
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Completions
+            </p>
+            {completionTimeline.length > 0 && (
+              <span
+                className="font-mono text-[0.625rem] uppercase tracking-[0.12em] text-muted-foreground/70"
+                title="Completions per day over the last 14 days"
+              >
+                14d trend
+              </span>
+            )}
+          </div>
           <div className="mt-3 flex items-baseline gap-3">
             <span className="font-sans text-[4rem] font-extrabold leading-none tracking-[-0.035em] tabular-nums text-foreground">
               {totalCompleted}
@@ -248,6 +262,15 @@ export function ClientDashboard({
               / {totalParticipants}
             </span>
           </div>
+          {completionTimeline.length > 0 && (
+            <div className="mt-3">
+              <Sparkline
+                values={completionTimeline.map((p) => p.count)}
+                width={220}
+                height={36}
+              />
+            </div>
+          )}
           <p className="mt-3 text-sm text-muted-foreground">
             {stillPending === 0
               ? "All invited participants have completed."

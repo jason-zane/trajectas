@@ -2077,6 +2077,88 @@ export async function getRecentClientResults(
 }
 
 // ---------------------------------------------------------------------------
+// Completion timeline (dashboard sparkline)
+// ---------------------------------------------------------------------------
+
+export type CompletionTimelinePoint = {
+  /** ISO date (UTC day, YYYY-MM-DD). */
+  day: string
+  count: number
+}
+
+export async function getCompletionTimeline(
+  clientId: string,
+  options?: { days?: number },
+): Promise<CompletionTimelinePoint[]> {
+  await requireClientAccess(clientId)
+  const days = options?.days ?? 14
+  const db = await createClient()
+
+  const { data: campaigns, error: campaignsError } = await db
+    .from('campaigns')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  if (campaignsError) {
+    throwActionError(
+      'getCompletionTimeline.campaigns',
+      'Unable to load completion timeline.',
+      campaignsError,
+    )
+  }
+  if (!campaigns || campaigns.length === 0) {
+    return zeroFilledTimeline(days)
+  }
+
+  const campaignIds = campaigns.map((c) => c.id)
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: sessions, error: sessionsError } = await db
+    .from('participant_sessions')
+    .select('completed_at')
+    .in('campaign_id', campaignIds)
+    .eq('status', 'completed')
+    .gte('completed_at', since)
+    .not('completed_at', 'is', null)
+
+  if (sessionsError) {
+    throwActionError(
+      'getCompletionTimeline.sessions',
+      'Unable to load completion timeline.',
+      sessionsError,
+    )
+  }
+
+  const counts = new Map<string, number>()
+  for (const row of sessions ?? []) {
+    const ts = (row as { completed_at: string }).completed_at
+    if (!ts) continue
+    const day = ts.slice(0, 10) // UTC YYYY-MM-DD
+    counts.set(day, (counts.get(day) ?? 0) + 1)
+  }
+
+  return zeroFilledTimeline(days, counts)
+}
+
+function zeroFilledTimeline(
+  days: number,
+  counts?: Map<string, number>,
+): CompletionTimelinePoint[] {
+  const out: CompletionTimelinePoint[] = []
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setUTCDate(today.getUTCDate() - i)
+    const key = d.toISOString().slice(0, 10)
+    out.push({ day: key, count: counts?.get(key) ?? 0 })
+  }
+  return out
+}
+
+// ---------------------------------------------------------------------------
 // Unique participants for client portal
 // ---------------------------------------------------------------------------
 
