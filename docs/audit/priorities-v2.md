@@ -74,14 +74,25 @@ Lower priority but valuable consistency work.
 
 ## Lane 5 — Deep-dive follow-ups (Phase 3b)
 
-Things we flagged but didn't fully resolve in this audit. Each needs its own focused session.
+Closed out in `findings-deep-dives.md`. Remaining genuinely-untested items:
 
-- FlowEditor (Experience tab) keyboard navigation — drag-reorder a11y unverified
-- CampaignForm create/edit state transitions — autosave behaviour unclear
-- ClientBrandEditor when enabled — never captured in working state (feature-gated off in Sample Data)
-- Participant flow with all stages enabled — consent, demographics, intro, report never captured because EPP Test Campaign disables them
+- Screen-reader announcer output for FlowEditor drag-reorder (once DD-FE-01 fix lands)
+- CampaignForm validation / submit-error rendering
+- BrandEditor in truly enabled state (blocked by DD-BE-01 cache staleness)
+- Participant report pages (needs released snapshot)
+- Participant consent page in fully-configured state (needs consent copy, not just flag)
 
-Estimated ~3 days to close these out.
+Estimated ~1 day of additional targeted testing once the Lane 0–2 fixes land.
+
+## Items added from deep-dive findings
+
+| # | Item | Effort | Source |
+|---|------|:------:|--------|
+| 22 | Differentiated error copy for participant-flow misconfiguration (vs generic "Unable to start") | S (0.5d) | DD-P-01, V-001 |
+| 23 | Invalidate brand-capability cache when `can_customize_branding` toggled | S (0.5d) | DD-BE-01 |
+| 24 | FlowEditor: make page-card keyboard-selectable + add visible focus ring | S (0.5d) | DD-FE-01 |
+
+Items 22–24 land in Lane 2 (this sprint). Total now: ~18 days across all lanes.
 
 ## Effort legend
 
