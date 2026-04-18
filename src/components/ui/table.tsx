@@ -23,7 +23,10 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("[&_tr]:border-b", className)}
+      className={cn(
+        "bg-[var(--cream)]/40 [&_tr]:border-b [&_tr]:border-border",
+        className
+      )}
       {...props}
     />
   )
@@ -33,7 +36,11 @@ function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
+      className={cn(
+        // Subtle zebra — even rows get a cream wash on top of the card surface.
+        "[&_tr:nth-child(even)]:bg-[var(--cream)]/25 [&_tr:last-child]:border-0",
+        className
+      )}
       {...props}
     />
   )
@@ -57,7 +64,11 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-primary/[0.03] data-[state=selected]:bg-muted",
+        "relative border-b border-border/60 transition-colors",
+        "hover:bg-[var(--cream)]/70",
+        // Selected rows get a cream wash and a gold accent stripe on the left edge.
+        "data-[state=selected]:bg-[var(--cream)]",
+        "data-[state=selected]:shadow-[inset_2px_0_0_0_var(--gold)]",
         className
       )}
       {...props}
@@ -70,7 +81,9 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-3 text-left align-middle text-overline text-muted-foreground [&:has([role=checkbox])]:pr-0 first:max-sm:sticky first:max-sm:left-0 first:max-sm:z-10 first:max-sm:bg-card",
+        "h-11 px-4 text-left align-middle font-mono text-[0.65625rem] font-semibold uppercase tracking-[0.12em] text-muted-foreground",
+        "[&:has([role=checkbox])]:pr-0 [&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pl-4",
+        "first:max-sm:sticky first:max-sm:left-0 first:max-sm:z-10 first:max-sm:bg-card",
         className
       )}
       {...props}
@@ -83,7 +96,11 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-3 align-middle [&:has([role=checkbox])]:pr-0 first:max-sm:sticky first:max-sm:left-0 first:max-sm:z-10 first:max-sm:bg-card first:max-sm:shadow-[2px_0_4px_-2px_rgb(0_0_0/0.1)]",
+        "px-4 py-3.5 align-middle text-sm",
+        // Primary identity column (first non-checkbox cell) gets a touch more weight.
+        // Consumers can override via className on their cell renderer.
+        "[&:has([role=checkbox])]:pr-0 [&:has([role=checkbox])]:w-10 [&:has([role=checkbox])]:pl-4",
+        "first:max-sm:sticky first:max-sm:left-0 first:max-sm:z-10 first:max-sm:bg-card first:max-sm:shadow-[2px_0_4px_-2px_rgb(0_0_0/0.1)]",
         className
       )}
       {...props}

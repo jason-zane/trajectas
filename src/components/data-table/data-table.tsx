@@ -350,7 +350,7 @@ export function DataTable<TData, TValue>({
                   }
                   className={cn(
                     isInteractive
-                      ? "cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                      ? "cursor-pointer hover:bg-[var(--cream)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                       : undefined
                   )}
                 >
