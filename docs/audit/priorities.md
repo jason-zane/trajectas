@@ -57,11 +57,22 @@ Source: `docs/audit/patterns.md` (12 patterns) + Phase 1 inventory findings.
 - Lane 3 (next sprint): ~8 days, biggest-scope items
 - Lane 4 (later): ~3 days, nice-to-have
 
-## Open questions for the product owner
+## Product-owner answers (2026-04-18)
 
-1. **Is mobile a first-class target for admin + client portals, or is desktop-primary acceptable?** (Affects how deep P-002 + P-003 breadcrumb rollout goes on admin surfaces.)
-2. **Should the participant flow support i18n this year?** (`inventory/participant.md` flagged English-only; if planned, Lane 1 would add an i18n-scaffolding row.)
-3. **Do we want a Phase 2B screenshot verification pass** before starting Lane 1 remediation? (Recommended for P-004 / P-009 / P-008 to confirm the fixes actually land. Roughly half a day with Playwright.)
+1. **Mobile scope**: desktop-primary is acceptable for admin / client / partner portals. **Participant assessment flow must be first-class mobile.** → this elevates mobile responsiveness on `src/app/assess/**` to Lane 1 and keeps the other portals' mobile work in Lane 3 / Lane 4.
+2. **i18n (multi-language)**: not needed this year. Drop from scope.
+3. **Phase 2B screenshot verification**: yes — proceed before Lane 1 remediation.
+
+## Added to Lane 1 based on answers + Phase 2B screenshots
+
+| # | Pattern | Effort | Impact | Rationale |
+|---|---------|:------:|:------:|-----------|
+| 1b | Participant-flow mobile-first pass (375px audit of all 13 assess routes) | M | **critical** | Per product-owner answer: assessment flow is the one surface where mobile is first-class. Needs dedicated viewport audit alongside P-008 / P-009. |
+| V-001 | Replace "Unable to start this assessment right now" with branded error surface | S | **critical** | Screenshot-confirmed: current state is a bare red string with zero recovery path. See `phase-2b.md` §V-001. |
+| V-002 | Add contact CTA to `/assess/expired` | XS | major | Currently copy says "contact administrator" with no link. See `phase-2b.md` §V-002. |
+| V-004 | Add question-level progress indicator on section pages | S | major | Confirms P-008 visually: no "Q N of M" during answering. |
+
+Phase-2B polish items (Lane 2): V-003 (validate token at join-form load), V-005 (answer-click feedback), V-006 (plural/singular grammar on complete page), V-007 (portal-aware unauthorized button), V-008 (iOS safe-area footer padding).
 
 ## What Phase 3 explicitly does NOT include
 
