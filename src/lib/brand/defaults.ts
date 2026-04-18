@@ -1,11 +1,11 @@
 import type { BrandConfig, PortalAccents, SemanticColors, TaxonomyColors, EmailStyleColors } from './types'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 
-/** Default portal accent colors. */
+/** Default portal accent colors — unified emerald across all portals. */
 export const DEFAULT_PORTAL_ACCENTS: Readonly<PortalAccents> = {
-  admin: '#6d28d9',
-  partner: '#d4a032',
-  client: '#b85c3a',
+  admin: '#2d6a5a',
+  partner: '#2d6a5a',
+  client: '#2d6a5a',
 }
 
 /** Default semantic status colors. */
@@ -41,9 +41,10 @@ export const TRAJECTAS_DEFAULTS: Readonly<BrandConfig> = {
   name: 'Trajectas',
   primaryColor: '#2d6a5a',
   accentColor: '#c9a962',
+  backgroundColor: '#f8f6f1',
   neutralTemperature: 'neutral',
   portalAccents: { ...DEFAULT_PORTAL_ACCENTS },
-  sidebarColor: '#2d6a5a',
+  sidebarColor: '#1e4a3e',
   semanticColors: { ...DEFAULT_SEMANTIC_COLORS },
   taxonomyColors: { ...DEFAULT_TAXONOMY_COLORS },
   emailStyles: { ...DEFAULT_EMAIL_STYLES },
