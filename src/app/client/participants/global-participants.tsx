@@ -2,15 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import type { CampaignWithMeta, ClientParticipant, UniqueClientParticipant } from "@/app/actions/campaigns";
+import { bulkDeleteParticipants } from "@/app/actions/participants";
 import {
   DataTable,
   DataTableActionsMenu,
   DataTableColumnHeader,
   DataTableRowLink,
 } from "@/components/data-table";
+import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { PageHeader } from "@/components/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -298,6 +301,27 @@ export function GlobalParticipants({
     }
   }
 
+  const sessionsBulkActions: BulkAction<SessionTableRow>[] = [
+    {
+      label: "Remove",
+      variant: "destructive",
+      icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+      action: async (ids) => {
+        try {
+          await bulkDeleteParticipants(ids);
+          toast.success(
+            `Removed ${ids.length} participant${ids.length === 1 ? "" : "s"}`,
+          );
+          router.refresh();
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Failed to remove participants.",
+          );
+        }
+      },
+    },
+  ];
+
   if (view === "sessions") {
     const rows: SessionTableRow[] = sessions.map((s) => {
       const timestamps = [s.startedAt, s.completedAt].filter(Boolean) as string[];
@@ -355,6 +379,8 @@ export function GlobalParticipants({
             ]}
             defaultSort={{ id: "lastActivity", desc: true }}
             pageSize={25}
+            enableRowSelection
+            bulkActions={sessionsBulkActions}
           />
         </div>
       </div>
