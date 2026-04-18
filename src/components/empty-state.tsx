@@ -33,13 +33,15 @@ const variantConfig = {
   },
   default: {
     icon: Inbox,
-    bgClass: "bg-muted ring-1 ring-border dark:ring-white/10",
+    bgClass: "bg-muted ring-1 ring-border",
     iconClass: "text-muted-foreground",
   },
 }
 
 interface EmptyStateProps {
   variant?: keyof typeof variantConfig
+  size?: "sm" | "default"
+  eyebrow?: string
   title: string
   description: string
   actionLabel?: string
@@ -49,6 +51,8 @@ interface EmptyStateProps {
 
 export function EmptyState({
   variant = "default",
+  size = "default",
+  eyebrow,
   title,
   description,
   actionLabel,
@@ -57,24 +61,45 @@ export function EmptyState({
 }: EmptyStateProps) {
   const config = variantConfig[variant]
   const Icon = config.icon
+  const isSm = size === "sm"
 
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-2xl border border-dashed py-20 px-6 animate-fade-in-up",
+        "flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-[var(--cream)]/20 px-6 animate-fade-in-up",
+        isSm ? "py-10" : "py-16",
         className
       )}
     >
       <div
         className={cn(
-          "flex size-16 items-center justify-center rounded-2xl animate-pulse-glow",
+          "flex items-center justify-center rounded-2xl",
+          isSm ? "size-11" : "size-14",
           config.bgClass
         )}
       >
-        <Icon className={cn("size-8", config.iconClass)} />
+        <Icon className={cn(isSm ? "size-5" : "size-7", config.iconClass)} />
       </div>
-      <h3 className="mt-6 text-title font-medium">{title}</h3>
-      <p className="mt-2 text-body text-muted-foreground text-center max-w-sm">
+      {eyebrow && (
+        <p className="mt-5 font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[var(--gold)]">
+          {eyebrow}
+        </p>
+      )}
+      <h3
+        className={cn(
+          "font-sans font-semibold tracking-[-0.01em] text-foreground",
+          isSm ? "text-base" : "text-lg",
+          eyebrow ? "mt-2" : isSm ? "mt-4" : "mt-5",
+        )}
+      >
+        {title}
+      </h3>
+      <p
+        className={cn(
+          "mt-2 text-center text-muted-foreground",
+          isSm ? "max-w-xs text-sm" : "max-w-sm text-[0.9375rem] leading-relaxed",
+        )}
+      >
         {description}
       </p>
       {actionLabel && actionHref && (
