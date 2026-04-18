@@ -98,23 +98,22 @@ export function WelcomeScreen({
       </header>
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-8">
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
+        <div className="w-full max-w-[560px] space-y-10">
           {/* Greeting */}
-          <div className="space-y-3 text-center">
+          <div className="space-y-4 text-center">
             {content.eyebrow && (
               <p
-                className="text-sm"
+                className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
                 style={{
-                  color:
-                    "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                  color: "var(--brand-accent, var(--gold))",
                 }}
               >
                 {content.eyebrow}
               </p>
             )}
             <h1
-              className="text-3xl font-semibold tracking-tight sm:text-4xl"
+              className="font-sans text-[clamp(2rem,4vw,3rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -124,7 +123,7 @@ export function WelcomeScreen({
             </h1>
             {content.body && (
               <p
-                className="leading-relaxed"
+                className="text-[1.0625rem] leading-relaxed"
                 style={{
                   color:
                     "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
@@ -137,7 +136,7 @@ export function WelcomeScreen({
 
           {/* Info card */}
           <div
-            className="rounded-2xl border border-l-[3px] p-6 shadow-sm dark:shadow-none"
+            className="rounded-2xl border border-l-[3px] p-7 shadow-sm dark:shadow-none"
             style={{
               background:
                 "var(--brand-neutral-50, hsl(var(--card)))",
@@ -146,9 +145,9 @@ export function WelcomeScreen({
               borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
             }}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-5 flex items-center justify-between gap-3">
               <h2
-                className="text-sm font-medium"
+                className="font-sans text-[0.9375rem] font-semibold tracking-[-0.01em]"
                 style={{
                   color: "var(--brand-text, hsl(var(--foreground)))",
                 }}
@@ -157,18 +156,18 @@ export function WelcomeScreen({
               </h2>
               {estimatedMinutes && (
                 <span
-                  className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full"
+                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.6875rem] font-medium tabular-nums"
                   style={{
                     background: "var(--brand-neutral-100, hsl(var(--muted)))",
-                    color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                    color:
+                      "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
                   }}
                 >
-                  <Clock className="size-3" />
-                  ~{estimatedMinutes} min
+                  <Clock className="size-3" />~{estimatedMinutes} min
                 </span>
               )}
             </div>
-            <ul className="space-y-3">
+            <ul className="space-y-3.5">
               {content.infoItems.map((item, idx) => (
                 <InfoBullet key={idx}>{item}</InfoBullet>
               ))}
