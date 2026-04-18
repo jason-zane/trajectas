@@ -8,80 +8,92 @@ function Skeleton({ className }: { className?: string }) {
 
 export default function ClientDashboardLoading() {
   return (
-    <div className="space-y-10 max-w-6xl">
-      {/* Header */}
-      <div className="space-y-2">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-8 w-56" />
-        <Skeleton className="h-4 w-80" />
-      </div>
+    <div className="max-w-5xl space-y-16">
+      {/* Hero */}
+      <header className="space-y-6 pt-4">
+        <Skeleton className="h-3 w-44" />
+        <div className="space-y-3">
+          <Skeleton className="h-14 w-4/5" />
+          <Skeleton className="h-14 w-3/5" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-full max-w-xl" />
+          <Skeleton className="h-4 w-2/3 max-w-xl" />
+        </div>
+      </header>
 
-      {/* Stats row */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div
-            key={i}
-            className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/[0.06]"
-            style={{ animationDelay: `${i * 100}ms` }}
-          >
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <Skeleton className="h-8 w-16" />
-                <Skeleton className="h-3 w-24" />
-              </div>
-              <Skeleton className="size-10 rounded-xl" />
+      {/* Metric strip */}
+      <section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
+        <div className="space-y-3 lg:col-span-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-16 w-32" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="grid grid-cols-2 gap-8 lg:col-span-3 lg:border-l lg:border-border/70 lg:pl-10">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="space-y-3">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-3 w-32" />
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
 
-      {/* Active campaigns section */}
-      <div className="space-y-4">
-        <Skeleton className="h-5 w-40" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          {Array.from({ length: 4 }).map((_, i) => (
+      {/* Quick actions */}
+      <section className="space-y-4">
+        <Skeleton className="h-3 w-28" />
+        <div className="flex gap-3">
+          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-9 w-44" />
+          <Skeleton className="h-9 w-44" />
+        </div>
+      </section>
+
+      {/* Top three to watch */}
+      <section className="space-y-5">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-36" />
+          <Skeleton className="h-7 w-72" />
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          {Array.from({ length: 3 }).map((_, i) => (
             <div
               key={i}
-              className="rounded-xl bg-card p-5 shadow-sm ring-1 ring-foreground/[0.06]"
-              style={{ animationDelay: `${i * 100}ms` }}
+              className="flex items-center gap-5 border-b border-border/70 px-6 py-5 last:border-b-0"
             >
-              <div className="flex items-center gap-3 mb-3">
-                <Skeleton className="size-10 rounded-xl" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-5 w-16 rounded-full" />
-                </div>
+              <Skeleton className="size-11 shrink-0 rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/5" />
+                <Skeleton className="h-3 w-3/5" />
               </div>
-              <Skeleton className="h-1.5 w-full rounded-full" />
-              <div className="flex gap-3 mt-3">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-8 w-20 shrink-0 rounded-md" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Recent activity */}
+      <section className="space-y-4 pb-16">
+        <div className="space-y-2">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-7 w-64" />
+        </div>
+        <div className="space-y-1">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-3 py-3">
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/5" />
+                <Skeleton className="h-3 w-3/5" />
+              </div>
+              <div className="shrink-0 space-y-2 text-right">
+                <Skeleton className="ml-auto h-3 w-16" />
+                <Skeleton className="ml-auto h-3 w-12" />
               </div>
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Assessment usage table */}
-      <div className="space-y-4">
-        <Skeleton className="h-5 w-40" />
-        <div className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/[0.06] overflow-hidden">
-          <div className="p-4 space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <Skeleton className="h-4 w-40 flex-1" />
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-4 w-16" />
-                <Skeleton className="h-2 w-24 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   );
 }

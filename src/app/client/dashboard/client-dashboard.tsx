@@ -16,6 +16,7 @@ import type {
   ClientRecentResult,
   OperationalClientCampaign,
 } from "@/app/actions/campaigns";
+import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
 import { EmptyState } from "@/components/empty-state";
 import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
@@ -425,6 +426,14 @@ export function ClientDashboard({
                     <FavoriteCampaignButton
                       campaignId={campaign.id}
                       isFavorite={isFav}
+                    />
+                    <CopyCampaignLinkButton
+                      token={campaign.primaryAccessLink?.token}
+                      createHref={href(
+                        `/campaigns/${campaign.id}/participants?action=link`,
+                      )}
+                      size="sm"
+                      variant="outline"
                     />
                     <Link
                       href={href(`/campaigns/${campaign.id}/participants`)}
