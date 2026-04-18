@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   AuthorizationError,
   canAccessClient,
+  canManageCampaign,
   getAccessibleCampaignIds,
   requireCampaignAccess,
   requireClientAccess,
@@ -2240,10 +2241,34 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
   })
 }
 
+async function assertCanManageCampaigns(
+  ids: string[],
+): Promise<{ error: string } | null> {
+  if (ids.length === 0) return null
+  const scope = await resolveAuthorizedScope()
+  const db = createAdminClient()
+  const { data: rows, error } = await db
+    .from('campaigns')
+    .select('id, client_id, partner_id')
+    .in('id', ids)
+
+  if (error) return { error: error.message }
+  if (!rows || rows.length !== ids.length) {
+    return { error: 'One or more campaigns not found.' }
+  }
+
+  for (const row of rows) {
+    if (!canManageCampaign(scope, row.partner_id, row.client_id)) {
+      return { error: 'Not authorized to manage one or more campaigns.' }
+    }
+  }
+  return null
+}
+
 export async function bulkDeleteCampaigns(ids: string[]) {
   if (ids.length === 0) return
-  const scope = await resolveAuthorizedScope()
-  if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
+  const authErr = await assertCanManageCampaigns(ids)
+  if (authErr) return authErr
 
   const db = createAdminClient()
   const { error } = await db
@@ -2253,13 +2278,15 @@ export async function bulkDeleteCampaigns(ids: string[]) {
 
   if (error) return { error: error.message }
   revalidatePath('/campaigns')
+  revalidatePath('/client/campaigns')
+  revalidatePath('/partner/campaigns')
   revalidatePath('/')
 }
 
 export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
   if (ids.length === 0) return
-  const scope = await resolveAuthorizedScope()
-  if (!scope.isPlatformAdmin) return { error: 'Unauthorized' }
+  const authErr = await assertCanManageCampaigns(ids)
+  if (authErr) return authErr
 
   const db = createAdminClient()
   const { error } = await db
@@ -2269,6 +2296,8 @@ export async function bulkUpdateCampaignStatus(ids: string[], status: string) {
 
   if (error) return { error: error.message }
   revalidatePath('/campaigns')
+  revalidatePath('/client/campaigns')
+  revalidatePath('/partner/campaigns')
   revalidatePath('/')
 }
 

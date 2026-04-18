@@ -17,12 +17,14 @@ import {
   type BulkInvitePendingExisting,
   type BulkInviteRowError,
 } from "@/app/actions/campaigns";
+import { bulkDeleteParticipants } from "@/app/actions/participants";
 import type { CampaignParticipant } from "@/types/database";
 import {
   DataTable,
   DataTableColumnHeader,
   DataTableRowActions,
 } from "@/components/data-table";
+import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -292,6 +294,27 @@ export function CampaignParticipantManager({
 
   type Row = (typeof rows)[number];
 
+  const bulkActions: BulkAction<Row>[] = [
+    {
+      label: "Remove",
+      variant: "destructive",
+      icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+      action: async (ids) => {
+        try {
+          await bulkDeleteParticipants(ids);
+          toast.success(
+            `Removed ${ids.length} participant${ids.length === 1 ? "" : "s"}`,
+          );
+          router.refresh();
+        } catch (error) {
+          toast.error(
+            error instanceof Error ? error.message : "Failed to remove participants.",
+          );
+        }
+      },
+    },
+  ];
+
   const columns: ColumnDef<Row>[] = [
     {
       accessorKey: "displayName",
@@ -444,6 +467,8 @@ export function CampaignParticipantManager({
         searchPlaceholder="Search participants"
         defaultSort={{ id: "displayName", desc: false }}
         pageSize={20}
+        enableRowSelection
+        bulkActions={bulkActions}
       />
 
       <ActionDialog

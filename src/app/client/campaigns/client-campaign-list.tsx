@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Users } from "lucide-react";
+import { Archive, ArrowRight, CheckCircle2, Trash2, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
-import type { OperationalClientCampaign } from "@/app/actions/campaigns";
+import {
+  bulkDeleteCampaigns,
+  bulkUpdateCampaignStatus,
+  type OperationalClientCampaign,
+} from "@/app/actions/campaigns";
 import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
 import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { usePortal } from "@/components/portal-context";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -179,6 +184,24 @@ export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: Clie
     },
   ];
 
+  const bulkActions: BulkAction<OperationalClientCampaign>[] = [
+    {
+      label: "Archive",
+      icon: <Archive className="mr-1.5 h-3.5 w-3.5" />,
+      action: async (ids) => {
+        await bulkUpdateCampaignStatus(ids, "archived");
+      },
+    },
+    {
+      label: "Delete",
+      variant: "destructive",
+      icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+      action: async (ids) => {
+        await bulkDeleteCampaigns(ids);
+      },
+    },
+  ];
+
   return (
     <div className="max-w-6xl">
       <DataTable
@@ -201,6 +224,8 @@ export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: Clie
         ]}
         defaultSort={{ id: "dateRange", desc: true }}
         pageSize={20}
+        enableRowSelection
+        bulkActions={bulkActions}
       />
     </div>
   );

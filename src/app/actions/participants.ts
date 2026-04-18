@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthorizationError,
+  canManageCampaign,
   getAccessibleCampaignIds,
   requireCampaignAccess,
   requireParticipantAccess,
@@ -627,10 +628,36 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
 // Bulk actions
 // ---------------------------------------------------------------------------
 
-export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
+async function assertCanManageParticipants(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const scope = await resolveAuthorizedScope()
-  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  const db = createAdminClient()
+  const { data: rows, error } = await db
+    .from('campaign_participants')
+    .select('id, campaigns(id, client_id, partner_id)')
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  if (!rows || rows.length !== ids.length) {
+    throw new Error('One or more participants not found.')
+  }
+
+  for (const row of rows) {
+    const campaign = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns
+    if (
+      !canManageCampaign(
+        scope,
+        campaign?.partner_id ?? null,
+        campaign?.client_id ?? null,
+      )
+    ) {
+      throw new Error('Not authorized to manage one or more participants.')
+    }
+  }
+}
+
+export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
+  if (ids.length === 0) return
+  await assertCanManageParticipants(ids)
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
@@ -638,6 +665,8 @@ export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
     .in('id', ids)
   if (error) throw new Error(error.message)
   revalidatePath('/participants')
+  revalidatePath('/client/participants')
+  revalidatePath('/partner/participants')
 }
 
 export async function bulkUpdateParticipantStatus(
@@ -645,8 +674,7 @@ export async function bulkUpdateParticipantStatus(
   status: CampaignParticipantStatus
 ): Promise<void> {
   if (ids.length === 0) return
-  const scope = await resolveAuthorizedScope()
-  if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
+  await assertCanManageParticipants(ids)
   const db = createAdminClient()
   const { error } = await db
     .from('campaign_participants')
@@ -654,4 +682,6 @@ export async function bulkUpdateParticipantStatus(
     .in('id', ids)
   if (error) throw new Error(error.message)
   revalidatePath('/participants')
+  revalidatePath('/client/participants')
+  revalidatePath('/partner/participants')
 }
