@@ -22,9 +22,36 @@ Every page in this platform must feel premium and intentional. Follow these patt
 
 ## Colour Usage
 - Never use raw hex/oklch values in components — always reference CSS variables or Tailwind utilities
-- Use taxonomy colours (dimension/competency/trait/item) for entity-specific accents
-- Use `--primary` for portal-aware accent (buttons, focus rings, eyebrows)
-- Use `--brand` for brand-constant elements (sidebar, ambient glow)
+- Brand tokens are unified across admin/partner/client portals — no per-portal primary hue
+- Use `--primary` (emerald `#2d6a5a`) for the main action colour (buttons, focus rings)
+- Use `--gold` (`#c9a962`) for editorial accents (eyebrows, favourite stars, warning variants)
+- Use `--emerald-dark` (`#1e4a3e`) for sidebars and deep-emerald treatments
+- Use `--cream` (`#f8f6f1`) for hover surfaces, zebra stripes, and soft empty-state washes
+- Use taxonomy colours (dimension/competency/trait/item) only for entity-specific accents inside the assessment editor
+
+## Typography System
+- One family for sans: **Plus Jakarta Sans** (weights 400/500/600/700/800)
+- One family for mono: **JetBrains Mono** (weights 300/400/500/600)
+- Eyebrows (`font-mono`, tracking `0.18em`, gold) mark section starts
+- Display headings use weight 800 with `letter-spacing -0.03em`
+- Numeric output always uses `tabular-nums` for alignment in tables and dashboards
+
+## Semantic Feedback Primitives
+- **Alert variants**: `default`, `destructive`, `warning`, `info`, `success` — cover any banner. Don't hand-roll `bg-amber-500/5` blocks.
+- **EmptyState**: every "no data" surface uses `<EmptyState>` with an optional `eyebrow`, `title`, `description`, and action. Size variants `default` / `sm`.
+- **Error boundaries**: every route tree with user-visible errors has an `error.tsx` rendering `<BrandedError>`. Don't ship routes where a thrown exception hits the Next.js default red card.
+
+## Data Tables
+- Always use the shared `<DataTable>` from `@/components/data-table` — inherit zebra, hover, typography, and row selection automatically
+- If a table has destructive or status-changing actions (delete, archive, etc.) it MUST support multi-select + `bulkActions`. The vocabulary across the app is: Archive, Delete, Remove, Export — use these words, consistently.
+- Row-level actions go in a `<DataTableRowActions>` menu; page-level bulk actions go through the `DataTableBulkBar`.
+
+## Motion Language
+- Single easing: `var(--ease-spring)` / `cubic-bezier(0.22, 1, 0.36, 1)` for UI micro-interactions
+- Durations: 150ms (micro) / 200–300ms (standard hovers) / 500ms (page reveals) / 700ms (hero)
+- Lists stagger at 60–80ms per item via `<ScrollReveal>`
+- Hover affordances on clickable rows: shift background to cream, slide a gold accent bar from the left edge, and move arrow icons `+1–2px`
+- Every motion respects `prefers-reduced-motion: reduce` via the root CSS override in `globals.css`
 
 ## Toast Feedback
 - All CRUD operations should show toast notifications via `sonner`
