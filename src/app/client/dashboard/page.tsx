@@ -1,6 +1,7 @@
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import {
   getCampaigns,
+  getCompletionTimeline,
   getFavoriteCampaignIds,
   getOperationalCampaignsForClient,
   getRecentClientResults,
@@ -41,12 +42,14 @@ export default async function ClientDashboardPage() {
     recentResults,
     libraryAssessments,
     favoriteCampaignIds,
+    completionTimeline,
   ] = await Promise.all([
     getCampaigns({ clientId }),
     getOperationalCampaignsForClient(clientId, { limit: 6 }),
     getRecentClientResults(clientId, { limit: 5 }),
     getClientAssessmentLibrary(clientId),
     getFavoriteCampaignIds(),
+    getCompletionTimeline(clientId, { days: 14 }),
   ]);
 
   const launchAssessments: CampaignAssessmentOption[] = libraryAssessments.map(
@@ -71,6 +74,7 @@ export default async function ClientDashboardPage() {
       launchAssessments={launchAssessments}
       clientId={clientId}
       favoriteCampaignIds={favoriteCampaignIds}
+      completionTimeline={completionTimeline}
     />
   );
 }
