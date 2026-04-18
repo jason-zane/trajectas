@@ -16,6 +16,7 @@ import type {
   ClientRecentResult,
   OperationalClientCampaign,
 } from "@/app/actions/campaigns";
+import { EmptyState } from "@/components/empty-state";
 import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
 import { LocalTime } from "@/components/local-time";
@@ -337,11 +338,12 @@ export function ClientDashboard({
         </div>
 
         {rankedCampaigns.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-14 text-center">
-            <p className="text-sm text-muted-foreground">
-              No campaigns yet. Launch one above to get started.
-            </p>
-          </div>
+          <EmptyState
+            size="sm"
+            eyebrow="No campaigns yet"
+            title="Nothing to watch this week."
+            description="Launch your first campaign above — it'll show up here as soon as invites go out."
+          />
         ) : (
           <ul className="divide-y divide-border/70 overflow-hidden rounded-2xl border border-border bg-card">
             {rankedCampaigns.map((campaign) => {
@@ -463,11 +465,12 @@ export function ClientDashboard({
         </div>
 
         {recentResults.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-10 text-center">
-            <p className="text-sm text-muted-foreground">
-              No activity yet — results will appear here as participants begin.
-            </p>
-          </div>
+          <EmptyState
+            size="sm"
+            eyebrow="Quiet for now"
+            title="No recent activity."
+            description="Results stream in here as participants start and complete their assessments."
+          />
         ) : (
           <ul className="space-y-1">
             {recentResults.map((result) => {
