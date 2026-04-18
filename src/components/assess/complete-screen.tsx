@@ -125,9 +125,9 @@ export function CompleteScreen({
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             <h1
-              className="text-2xl font-semibold tracking-tight sm:text-3xl"
+              className="font-sans text-[clamp(1.75rem,3.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -136,7 +136,7 @@ export function CompleteScreen({
               {content.heading}
             </h1>
             <p
-              className="mx-auto max-w-md leading-relaxed"
+              className="mx-auto max-w-md text-[1.0625rem] leading-relaxed"
               style={{
                 color:
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
@@ -150,14 +150,14 @@ export function CompleteScreen({
           {content.redirectUrl && (
             <div className="space-y-2">
               <p
-                className="text-sm"
+                className="font-mono text-sm tabular-nums"
                 style={{
                   color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
                 }}
               >
                 {content.redirectLabel
                   ? `${content.redirectLabel} (${countdown}s)`
-                  : `Redirecting in ${countdown} seconds...`}
+                  : `Redirecting in ${countdown} second${countdown === 1 ? "" : "s"}…`}
               </p>
               <a
                 href={ensureAbsoluteUrl(content.redirectUrl)}

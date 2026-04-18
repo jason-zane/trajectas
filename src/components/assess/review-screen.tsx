@@ -186,23 +186,22 @@ export function ReviewScreen({
       />
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col items-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px] space-y-8">
-          {/* Assessment label */}
+      <main className="flex flex-1 flex-col items-center px-4 py-12 sm:px-6 sm:py-16">
+        <div className="w-full max-w-[560px] space-y-10 lg:max-w-[720px] xl:max-w-[820px]">
           {/* Review eyebrow */}
           <p
-            className="text-xs font-medium uppercase tracking-widest"
+            className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
             style={{
-              color: "var(--brand-primary, hsl(var(--primary)))",
+              color: "var(--brand-accent, var(--gold))",
             }}
           >
             {content.heading}
           </p>
 
           {/* Assessment name as main heading */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h1
-              className="text-3xl font-semibold tracking-tight sm:text-4xl"
+              className="font-sans text-[clamp(2rem,4vw,3rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -211,7 +210,7 @@ export function ReviewScreen({
               {assessmentName ?? content.heading}
             </h1>
             <p
-              className="text-sm"
+              className="font-mono text-sm tabular-nums"
               style={{
                 color:
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
