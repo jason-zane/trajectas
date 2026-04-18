@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { getActiveAssessments, getCampaigns } from "@/app/actions/campaigns";
 import { getClients } from "@/app/actions/clients";
 import { CampaignsTable } from "./campaigns-table";

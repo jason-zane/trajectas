@@ -25,20 +25,14 @@ import {
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-type CampaignParticipantRow = CampaignParticipant & {
-  displayName: string;
-  latestSessionId?: string;
-};
 
 const STATUS_VARIANT: Record<
   string,
@@ -452,12 +446,18 @@ export function CampaignParticipantManager({
         pageSize={20}
       />
 
-      <Dialog open={showInvite} onOpenChange={setShowInvite}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Invite Participant</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleInvite} className="space-y-4">
+      <ActionDialog
+        open={showInvite}
+        onOpenChange={setShowInvite}
+        eyebrow="Invite"
+        title="Invite participant"
+        description="Send an assessment invitation directly to one person."
+      >
+        <form
+          onSubmit={handleInvite}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          <ActionDialogBody className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="invite-email">Email</Label>
               <Input
@@ -467,6 +467,7 @@ export function CampaignParticipantManager({
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="participant@example.com"
                 required
+                autoFocus
               />
               {errors.email ? (
                 <p className="text-xs text-destructive">{errors.email[0]}</p>
@@ -474,7 +475,7 @@ export function CampaignParticipantManager({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="invite-first">First Name</Label>
+                <Label htmlFor="invite-first">First name</Label>
                 <Input
                   id="invite-first"
                   value={firstName}
@@ -482,7 +483,7 @@ export function CampaignParticipantManager({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="invite-last">Last Name</Label>
+                <Label htmlFor="invite-last">Last name</Label>
                 <Input
                   id="invite-last"
                   value={lastName}
@@ -490,87 +491,111 @@ export function CampaignParticipantManager({
                 />
               </div>
             </div>
-            <Button type="submit" className="w-full">
+          </ActionDialogBody>
+          <ActionDialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowInvite(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit">
               <Mail className="size-4" />
-              Send Invite
+              Send invite
             </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </ActionDialogFooter>
+        </form>
+      </ActionDialog>
 
-      <Dialog open={showBulk} onOpenChange={setShowBulk}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Bulk Import Participants</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Paste CSV rows: <code>email, first_name, last_name</code> (one per line). First
-              name and last name are optional.
-            </p>
-            <textarea
-              value={csvText}
-              onChange={(event) => setCsvText(event.target.value)}
-              rows={8}
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              placeholder={"jane@example.com, Jane, Doe\njohn@example.com, John, Smith"}
-            />
-            <Button onClick={handleBulkUpload} className="w-full">
-              <Upload className="size-4" />
-              Import Participants
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <ActionDialog
+        open={showBulk}
+        onOpenChange={setShowBulk}
+        eyebrow="Bulk invite"
+        title="Bulk import participants"
+        description={
+          <>
+            Paste CSV rows — one per line. Format:{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+              email, first_name, last_name
+            </code>
+            . First and last name are optional.
+          </>
+        }
+      >
+        <ActionDialogBody>
+          <textarea
+            value={csvText}
+            onChange={(event) => setCsvText(event.target.value)}
+            rows={10}
+            className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm font-mono shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            placeholder={"jane@example.com, Jane, Doe\njohn@example.com, John, Smith"}
+          />
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setShowBulk(false)}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleBulkUpload}>
+            <Upload className="size-4" />
+            Import participants
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
 
-      <Dialog open={showBulkErrors} onOpenChange={setShowBulkErrors}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Import issues</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Review the rows that were rejected and any invite emails that need
-              to be retried from the participant table.
-            </p>
-            {bulkErrors.length > 0 && (
+      <ActionDialog
+        open={showBulkErrors}
+        onOpenChange={setShowBulkErrors}
+        eyebrow="Bulk invite"
+        title="Import issues"
+        description="Review the rows that were rejected and any invite emails that need to be retried from the participant table."
+      >
+        <ActionDialogBody className="space-y-4">
+          {bulkErrors.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Rows not imported</p>
               <div className="space-y-2">
-                <p className="text-sm font-medium">Rows not imported</p>
-                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-                  {bulkErrors.map((error) => (
-                    <div
-                      key={`${error.row}-${error.email ?? error.message}`}
-                      className="rounded-lg border border-border bg-muted/30 px-3 py-2"
-                    >
-                      <p className="text-sm font-medium">
-                        Row {error.row}
-                        {error.email ? ` · ${error.email}` : ""}
-                      </p>
-                      <p className="text-sm text-muted-foreground">{error.message}</p>
-                    </div>
-                  ))}
-                </div>
+                {bulkErrors.map((error) => (
+                  <div
+                    key={`${error.row}-${error.email ?? error.message}`}
+                    className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                  >
+                    <p className="text-sm font-medium">
+                      Row {error.row}
+                      {error.email ? ` · ${error.email}` : ""}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{error.message}</p>
+                  </div>
+                ))}
               </div>
-            )}
-            {bulkEmailFailures.length > 0 && (
+            </div>
+          ) : null}
+          {bulkEmailFailures.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Invite emails that failed</p>
               <div className="space-y-2">
-                <p className="text-sm font-medium">Invite emails that failed</p>
-                <div className="max-h-48 space-y-2 overflow-y-auto pr-1">
-                  {bulkEmailFailures.map((failure) => (
-                    <div
-                      key={`${failure.participantId}-${failure.email}`}
-                      className="rounded-lg border border-border bg-muted/30 px-3 py-2"
-                    >
-                      <p className="text-sm font-medium">{failure.email}</p>
-                      <p className="text-sm text-muted-foreground">{failure.error}</p>
-                    </div>
-                  ))}
-                </div>
+                {bulkEmailFailures.map((failure) => (
+                  <div
+                    key={`${failure.participantId}-${failure.email}`}
+                    className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                  >
+                    <p className="text-sm font-medium">{failure.email}</p>
+                    <p className="text-sm text-muted-foreground">{failure.error}</p>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
+            </div>
+          ) : null}
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <div />
+          <Button onClick={() => setShowBulkErrors(false)}>Close</Button>
+        </ActionDialogFooter>
+      </ActionDialog>
 
       <ConfirmDialog
         open={showDuplicateConfirm}

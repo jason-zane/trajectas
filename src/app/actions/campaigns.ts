@@ -84,6 +84,41 @@ export type BulkInviteEmailFailure = {
   error: string
 }
 
+type EmbeddedClientNameRow = {
+  name?: string | null
+}
+
+type CampaignLookupRow = Record<string, unknown> & {
+  clients?: EmbeddedClientNameRow | EmbeddedClientNameRow[] | null
+}
+
+type EmbeddedAssessmentLookupRow = {
+  title?: string | null
+  status?: string | null
+  min_custom_factors?: number | null
+  min_custom_constructs?: number | null
+  scoring_level?: 'factor' | 'construct' | null
+}
+
+type CampaignAssessmentLookupRow = Record<string, unknown> & {
+  assessments?: EmbeddedAssessmentLookupRow | EmbeddedAssessmentLookupRow[] | null
+}
+
+type ParticipantSessionStatusLookupRow = {
+  id?: string | null
+  status?: string | null
+}
+
+type CampaignParticipantLookupRow = Record<string, unknown> & {
+  participant_sessions?: ParticipantSessionStatusLookupRow[] | null
+}
+
+function getEmbeddedLookupRow<T extends Record<string, unknown>>(
+  value: T | T[] | null | undefined
+) {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -173,8 +208,7 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
 
   if (error) return null
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const row = data as any
+  const row = data as CampaignLookupRow
 
   // Load assessments, participants, and access links in parallel —
   // they are independent and previously ran sequentially.
@@ -206,24 +240,29 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
 
   return {
     ...mapCampaignRow(row),
-    clientName: row.clients?.name ?? undefined,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    assessments: (assessmentRows ?? []).map((r: any) => ({
+    clientName: getEmbeddedLookupRow(row.clients)?.name ?? undefined,
+    assessments: (assessmentRows ?? []).map((r) => {
+      const assessmentRow = r as CampaignAssessmentLookupRow
+      const assessment = getEmbeddedLookupRow(assessmentRow.assessments)
+
+      return {
       ...mapCampaignAssessmentRow(r),
-      assessmentTitle: r.assessments?.title ?? 'Untitled',
-      assessmentStatus: r.assessments?.status ?? 'draft',
-      minCustomFactors: r.assessments?.min_custom_factors ?? null,
-      minCustomConstructs: r.assessments?.min_custom_constructs ?? null,
-      scoringLevel: (r.assessments?.scoring_level as 'factor' | 'construct') ?? 'factor',
-    })),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    participants: (participantRows ?? []).map((r: any) => ({
+      assessmentTitle: assessment?.title ?? 'Untitled',
+      assessmentStatus: assessment?.status ?? 'draft',
+      minCustomFactors: assessment?.min_custom_factors ?? null,
+      minCustomConstructs: assessment?.min_custom_constructs ?? null,
+      scoringLevel: assessment?.scoring_level ?? 'factor',
+    }}),
+    participants: (participantRows ?? []).map((r) => {
+      const participantRow = r as CampaignParticipantLookupRow
+
+      return {
       ...mapCampaignParticipantRow(r),
-      participantSessions: (r.participant_sessions ?? []).map((s: any) => ({
+      participantSessions: (participantRow.participant_sessions ?? []).map((s) => ({
         id: s.id as string,
         status: s.status as string,
       })),
-    })),
+    }}),
     accessLinks: (linkRows ?? []).map(mapCampaignAccessLinkRow),
   }
 }

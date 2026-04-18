@@ -26,6 +26,8 @@ const auth = vi.hoisted(() => {
 
 const cache = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: <T extends (...args: unknown[]) => unknown>(fn: T): T => fn,
 }));
 
 const queryBuilder = vi.hoisted(() => {
@@ -95,6 +97,8 @@ vi.mock("@/lib/integrations/events", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: cache.revalidatePath,
+  revalidateTag: cache.revalidateTag,
+  unstable_cache: cache.unstable_cache,
 }));
 
 import {
@@ -243,7 +247,9 @@ describe("report template actions", () => {
       error: null,
     });
 
-    const cloned = await cloneReportTemplate("platform-template");
+    const cloned = await cloneReportTemplate(
+      "11111111-1111-4111-8111-111111111111",
+    );
 
     expect(queryBuilder.insert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -273,7 +279,10 @@ describe("report template actions", () => {
     auth.canManageCampaign.mockReturnValueOnce(false);
 
     await expect(
-      addCampaignTemplate("campaign-1", "template-1"),
-    ).rejects.toThrow("You do not have permission to update this campaign.");
+      addCampaignTemplate(
+        "22222222-2222-4222-8222-222222222222",
+        "11111111-1111-4111-8111-111111111111",
+      ),
+    ).rejects.toThrow("You do not have permission to modify this campaign");
   });
 });

@@ -65,7 +65,7 @@
   --color-brand-foreground: var(--brand-foreground);
   --font-sans: var(--font-sans);
   --font-heading: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -146,64 +146,69 @@
 :root {
   --radius: 0.625rem;
 
-  /* Brand */
-  --brand: oklch(0.50 0.08 175);
-  --brand-foreground: oklch(1 0 0);
+  /* Brand — marketing palette (emerald + gold on cream) */
+  --brand: #2d6a5a;
+  --brand-foreground: #ffffff;
+  --emerald: #2d6a5a;
+  --emerald-dark: #1e4a3e;
+  --gold: #c9a962;
+  --gold-foreground: #1a1a1a;
+  --cream: #f8f6f1;
 
   /* Surfaces */
-  --background: oklch(0.97 0.005 80);
-  --foreground: oklch(0.14 0.01 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.14 0.01 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.14 0.01 260);
+  --background: #f8f6f1;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
 
-  /* Primary — admin violet (default portal) */
-  --primary: oklch(0.52 0.14 290);
-  --primary-foreground: oklch(0.99 0 0);
+  /* Primary — emerald (unified across portals) */
+  --primary: #2d6a5a;
+  --primary-foreground: #ffffff;
 
-  /* Secondary */
-  --secondary: oklch(0.95 0.005 80);
-  --secondary-foreground: oklch(0.20 0.01 260);
+  /* Secondary — warm cream step */
+  --secondary: #f0ede5;
+  --secondary-foreground: #1a1a1a;
 
   /* Muted */
-  --muted: oklch(0.95 0.005 80);
-  --muted-foreground: oklch(0.45 0.01 260);
+  --muted: #f0ede5;
+  --muted-foreground: #6b6b6b;
 
-  /* Accent */
-  --accent: oklch(0.95 0.02 290);
-  --accent-foreground: oklch(0.42 0.14 290);
+  /* Accent — subtle cream tint for hover; gold reserved for intentional use */
+  --accent: #efece2;
+  --accent-foreground: #2d6a5a;
 
-  /* Destructive */
+  /* Semantic */
   --destructive: oklch(0.55 0.22 25);
-
-  /* Success */
-  --success: oklch(0.65 0.20 145);
-
-  /* Warning */
-  --warning: oklch(0.70 0.14 70);
+  --success: #2d6a5a;
+  --success-foreground: #ffffff;
+  --warning: #c9a962;
+  --warning-foreground: #1a1a1a;
+  --info: #3b7ea8;
+  --info-foreground: #ffffff;
 
   /* Borders & inputs */
-  --border: oklch(0.90 0.005 80);
-  --input: oklch(0.90 0.005 80);
-  --ring: oklch(0.52 0.14 290);
+  --border: #e5e0d1;
+  --input: #e5e0d1;
+  --ring: #2d6a5a;
 
-  /* Charts */
-  --chart-1: oklch(0.52 0.14 290);
-  --chart-2: oklch(0.50 0.08 175);
-  --chart-3: oklch(0.65 0.18 145);
-  --chart-4: oklch(0.70 0.15 75);
-  --chart-5: oklch(0.55 0.2 310);
+  /* Charts — emerald/gold palette */
+  --chart-1: #2d6a5a;
+  --chart-2: #c9a962;
+  --chart-3: #1e4a3e;
+  --chart-4: #7c9a83;
+  --chart-5: #b56b45;
 
-  /* Sidebar — brand-coloured */
-  --sidebar: oklch(0.50 0.08 175);
-  --sidebar-foreground: oklch(1 0 0 / 80%);
-  --sidebar-primary: oklch(0.52 0.14 290);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(1 0 0 / 12%);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.52 0.14 290);
+  /* Sidebar — deep emerald with gold accent */
+  --sidebar: #1e4a3e;
+  --sidebar-foreground: oklch(1 0 0 / 85%);
+  --sidebar-primary: #c9a962;
+  --sidebar-primary-foreground: #1a1a1a;
+  --sidebar-accent: oklch(1 0 0 / 10%);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: #c9a962;
 
   /* Taxonomy: Dimension — indigo-purple (hue 265) */
   --dimension-bg: oklch(0.955 0.025 265);
@@ -321,65 +326,8 @@
   --shadow-glow: 0 0 25px oklch(0.40 0.07 175 / 0.2);
 }
 
-/* ==========================================================================
-   Portal accent overrides — shift primary hue per portal context
-   ========================================================================== */
-
-/* Partner portal: gold accent */
-[data-portal="partner"] {
-  --primary: oklch(0.73 0.14 80);
-  --primary-foreground: oklch(0.15 0.01 80);
-  --ring: oklch(0.73 0.14 80);
-  --accent: oklch(0.96 0.02 80);
-  --accent-foreground: oklch(0.50 0.14 80);
-  --sidebar-primary: oklch(0.73 0.14 80);
-  --sidebar-accent: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.73 0.14 80);
-  --chart-1: oklch(0.73 0.14 80);
-  --shadow-glow: 0 0 20px oklch(0.73 0.14 80 / 0.15);
-}
-
-[data-portal="partner"].dark,
-.dark [data-portal="partner"] {
-  --primary: oklch(0.78 0.12 80);
-  --primary-foreground: oklch(0.15 0.01 80);
-  --ring: oklch(0.78 0.12 80);
-  --accent: oklch(0.25 0.03 80);
-  --accent-foreground: oklch(0.80 0.10 80);
-  --sidebar-primary: oklch(0.78 0.12 80);
-  --sidebar-accent: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.78 0.12 80);
-  --chart-1: oklch(0.78 0.12 80);
-  --shadow-glow: 0 0 25px oklch(0.78 0.12 80 / 0.2);
-}
-
-/* Client portal: terracotta accent */
-[data-portal="client"] {
-  --primary: oklch(0.55 0.14 45);
-  --primary-foreground: oklch(0.99 0 0);
-  --ring: oklch(0.55 0.14 45);
-  --accent: oklch(0.96 0.02 45);
-  --accent-foreground: oklch(0.45 0.14 45);
-  --sidebar-primary: oklch(0.55 0.14 45);
-  --sidebar-accent: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.55 0.14 45);
-  --chart-1: oklch(0.55 0.14 45);
-  --shadow-glow: 0 0 20px oklch(0.55 0.14 45 / 0.15);
-}
-
-[data-portal="client"].dark,
-.dark [data-portal="client"] {
-  --primary: oklch(0.62 0.14 45);
-  --primary-foreground: oklch(0.15 0.01 45);
-  --ring: oklch(0.62 0.14 45);
-  --accent: oklch(0.25 0.03 45);
-  --accent-foreground: oklch(0.80 0.10 45);
-  --sidebar-primary: oklch(0.62 0.14 45);
-  --sidebar-accent: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.62 0.14 45);
-  --chart-1: oklch(0.62 0.14 45);
-  --shadow-glow: 0 0 25px oklch(0.62 0.14 45 / 0.2);
-}
+/* Portal accent overrides removed — brand is unified across admin/partner/client.
+   Use [data-portal] attribute only for routing/layout concerns, not color. */
 
 /* ==========================================================================
    Keyframes

@@ -96,6 +96,14 @@ export type ParticipantResponseGroup = {
   }[]
 }
 
+type UniqueParticipantLookupRow = Record<string, unknown> & {
+  email: string
+  invited_at?: string | null
+  started_at?: string | null
+  completed_at?: string | null
+  created_at?: string | null
+}
+
 // ---------------------------------------------------------------------------
 // List
 // ---------------------------------------------------------------------------
@@ -242,12 +250,13 @@ export async function getUniqueParticipants(filters?: {
   }
 
   // Group by email — keep the most recent record per email
-  const byEmail = new Map<string, { latest: any; count: number }>()
+  const byEmail = new Map<string, { latest: UniqueParticipantLookupRow; count: number }>()
   for (const row of rows ?? []) {
-    const email = (row.email as string).toLowerCase()
+    const participantRow = row as UniqueParticipantLookupRow
+    const email = participantRow.email.toLowerCase()
     const existing = byEmail.get(email)
     if (!existing) {
-      byEmail.set(email, { latest: row, count: 1 })
+      byEmail.set(email, { latest: participantRow, count: 1 })
     } else {
       existing.count++
       // rows are ordered by created_at desc, so first seen is most recent
@@ -274,8 +283,8 @@ export async function getUniqueParticipants(filters?: {
       sessionCount: count,
       latestStatus: mapped.status,
       lastActivity: timestamps.length > 0
-        ? timestamps.sort().reverse()[0]
-        : latest.created_at,
+        ? (timestamps.sort().reverse()[0] ?? undefined)
+        : (latest.created_at ?? undefined),
     }
   })
 

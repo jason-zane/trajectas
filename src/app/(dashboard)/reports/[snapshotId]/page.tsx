@@ -11,7 +11,6 @@ import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow } from '@/lib/supabase/mappers'
 import { SendReportButton } from '@/components/reports/send-report-button'
-import { RegenerateReportButton } from '@/components/reports/regenerate-report-button'
 import type { ResolvedBlockData } from '@/lib/reports/types'
 
 interface Props {

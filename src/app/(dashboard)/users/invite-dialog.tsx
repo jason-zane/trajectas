@@ -17,13 +17,10 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -259,136 +256,133 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
         Invite User
       </Button>
 
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Invite User</DialogTitle>
-            <DialogDescription>
-              Send a staff invite email. Invites expire in 7 days.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="invite-email">Email</Label>
-              <Input
-                id="invite-email"
-                type="email"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  setResult(undefined);
-                }}
-                placeholder="name@example.com"
-                disabled={isPending}
-              />
-              {result?.fields?.email?.[0] ? (
-                <p className="text-sm text-destructive">{result.fields.email[0]}</p>
-              ) : null}
-            </div>
-
-            <div className="space-y-3">
-              <Label>Scope</Label>
-              <RadioGroup
-                value={tenantType}
-                onValueChange={(value) => handleScopeChange(value as InviteTenantType)}
-                className="grid gap-2 md:grid-cols-3"
-              >
-                {SCOPE_OPTIONS.map((option) => (
-                  <label
-                    key={option.value}
-                    className={cn(
-                      "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
-                      tenantType === option.value
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                    )}
-                  >
-                    <RadioGroupItem value={option.value} />
-                    <div className="space-y-1">
-                      <div className="font-medium text-foreground">{option.label}</div>
-                      <p className="text-xs text-muted-foreground">{option.description}</p>
-                    </div>
-                  </label>
-                ))}
-              </RadioGroup>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="invite-role">Role</Label>
-                <Select
-                  value={role}
-                  onValueChange={(value) => {
-                    setRole(value as InviteRole);
-                    setResult(undefined);
-                  }}
-                  disabled={isPending}
-                >
-                  <SelectTrigger id="invite-role" className="w-full">
-                    <SelectValue>
-                      {(value: string | null) =>
-                        getSelectLabel(value as InviteRole | null, roleOptions)
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {roleOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">{getRoleHelperText(role)}</p>
-              </div>
-
-              {tenantType !== "platform" ? (
-                <div className="space-y-2">
-                  <Label>{tenantType === "partner" ? "Partner" : "Client"}</Label>
-                  <TenantCombobox
-                    label={tenantType === "partner" ? "Partner" : "Client"}
-                    options={tenantOptions}
-                    value={tenantId}
-                    onChange={(nextTenantId) => {
-                      setTenantId(nextTenantId);
-                      setResult(undefined);
-                    }}
-                    disabled={isPending}
-                  />
-                  {selectedTenantName ? (
-                    <Badge variant="outline">{selectedTenantName}</Badge>
-                  ) : null}
-                  {result?.fields?.tenantId?.[0] ? (
-                    <p className="text-sm text-destructive">{result.fields.tenantId[0]}</p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-
-            {result?.fields?.role?.[0] ? (
-              <p className="text-sm text-destructive">{result.fields.role[0]}</p>
-            ) : null}
-            {result?.fields?.tenantType?.[0] ? (
-              <p className="text-sm text-destructive">{result.fields.tenantType[0]}</p>
-            ) : null}
-            {result?.error ? (
-              <p className="text-sm text-destructive">{result.error}</p>
+      <ActionDialog
+        open={open}
+        onOpenChange={handleOpenChange}
+        eyebrow="Team"
+        title="Invite user"
+        description="Send a staff invite email. Invites expire in 7 days."
+      >
+        <ActionDialogBody className="space-y-5">
+          <div className="space-y-2">
+            <Label htmlFor="invite-email">Email</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setResult(undefined);
+              }}
+              placeholder="name@example.com"
+              disabled={isPending}
+              autoFocus
+            />
+            {result?.fields?.email?.[0] ? (
+              <p className="text-sm text-destructive">{result.fields.email[0]}</p>
             ) : null}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isPending}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit}>
-              {isPending ? "Sending..." : "Send Invite"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-3">
+            <Label>Scope</Label>
+            <RadioGroup
+              value={tenantType}
+              onValueChange={(value) => handleScopeChange(value as InviteTenantType)}
+              className="grid gap-2 md:grid-cols-3"
+            >
+              {SCOPE_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors",
+                    tenantType === option.value
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted/50"
+                  )}
+                >
+                  <RadioGroupItem value={option.value} />
+                  <div className="space-y-1">
+                    <div className="font-medium text-foreground">{option.label}</div>
+                    <p className="text-xs text-muted-foreground">{option.description}</p>
+                  </div>
+                </label>
+              ))}
+            </RadioGroup>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select
+                value={role}
+                onValueChange={(value) => {
+                  setRole(value as InviteRole);
+                  setResult(undefined);
+                }}
+                disabled={isPending}
+              >
+                <SelectTrigger id="invite-role" className="w-full">
+                  <SelectValue>
+                    {(value: string | null) =>
+                      getSelectLabel(value as InviteRole | null, roleOptions)
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {roleOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{getRoleHelperText(role)}</p>
+            </div>
+
+            {tenantType !== "platform" ? (
+              <div className="space-y-2">
+                <Label>{tenantType === "partner" ? "Partner" : "Client"}</Label>
+                <TenantCombobox
+                  label={tenantType === "partner" ? "Partner" : "Client"}
+                  options={tenantOptions}
+                  value={tenantId}
+                  onChange={(nextTenantId) => {
+                    setTenantId(nextTenantId);
+                    setResult(undefined);
+                  }}
+                  disabled={isPending}
+                />
+                {selectedTenantName ? (
+                  <Badge variant="outline">{selectedTenantName}</Badge>
+                ) : null}
+                {result?.fields?.tenantId?.[0] ? (
+                  <p className="text-sm text-destructive">{result.fields.tenantId[0]}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {result?.fields?.role?.[0] ? (
+            <p className="text-sm text-destructive">{result.fields.role[0]}</p>
+          ) : null}
+          {result?.fields?.tenantType?.[0] ? (
+            <p className="text-sm text-destructive">{result.fields.tenantType[0]}</p>
+          ) : null}
+          {result?.error ? (
+            <p className="text-sm text-destructive">{result.error}</p>
+          ) : null}
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={!canSubmit}>
+            {isPending ? "Sending..." : "Send invite"}
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
     </>
   );
 }

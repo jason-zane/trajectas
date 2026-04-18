@@ -10,12 +10,10 @@ import {
   type CampaignAssessmentOption,
 } from "@/app/actions/campaigns";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionChoice,
+  ActionDialog,
+  ActionDialogBody,
+} from "@/components/action-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -25,13 +23,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 import { QuickLaunchModal } from "./quick-launch-modal";
 
@@ -131,60 +122,45 @@ export function LaunchCampaignButton({
         {label}
       </Button>
 
-      <Dialog open={chooserOpen} onOpenChange={(open) => { setChooserOpen(open); if (!open) setShowReuse(false); }}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Launch campaign</DialogTitle>
-            <DialogDescription>
-              Start fresh or duplicate a previous setup. Reusing copies
-              assessments and settings but not participants.
-            </DialogDescription>
-          </DialogHeader>
-
+      <ActionDialog
+        open={chooserOpen}
+        onOpenChange={(open) => {
+          setChooserOpen(open);
+          if (!open) setShowReuse(false);
+        }}
+        eyebrow="Quick launch"
+        title="Launch campaign"
+        description="Start fresh or duplicate a previous setup. Reusing copies assessments and settings but not participants."
+      >
+        <ActionDialogBody>
           <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
+            <ActionChoice
+              icon={Rocket}
+              title="New campaign"
+              description="Guided setup with assessment and invite options."
               onClick={handleStartNew}
-              className="group flex flex-col items-start gap-2 rounded-xl border border-border p-5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
-            >
-              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Rocket className="size-4" />
-              </div>
-              <p className="font-semibold">New campaign</p>
-              <p className="text-xs text-muted-foreground">
-                Guided setup with assessment and invite options.
-              </p>
-            </button>
-
+              recommended
+            />
             {recentCampaigns.length === 0 ? (
-              <div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border p-5">
-                <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                  <RotateCcw className="size-4" />
-                </div>
-                <p className="font-semibold text-muted-foreground">Reuse previous</p>
-                <p className="text-xs text-muted-foreground">
-                  No previous campaigns yet.
-                </p>
-              </div>
+              <ActionChoice
+                icon={RotateCcw}
+                title="Reuse previous"
+                description="Duplicate setup, review before sending."
+                disabled
+                disabledHint="No previous campaigns yet."
+              />
             ) : (
-              <button
-                type="button"
+              <ActionChoice
+                icon={RotateCcw}
+                title="Reuse previous"
+                description="Duplicate setup, review before sending."
                 onClick={() => setShowReuse(true)}
-                className="group flex flex-col items-start gap-2 rounded-xl border border-border p-5 text-left transition-colors hover:border-primary/50 hover:bg-primary/5"
-              >
-                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <RotateCcw className="size-4" />
-                </div>
-                <p className="font-semibold">Reuse previous</p>
-                <p className="text-xs text-muted-foreground">
-                  Duplicate setup, review before sending.
-                </p>
-              </button>
+              />
             )}
           </div>
 
-          {showReuse && recentCampaigns.length > 0 && (
-            <div className="space-y-3 rounded-xl border border-border bg-muted/30 p-4">
+          {showReuse && recentCampaigns.length > 0 ? (
+            <div className="mt-5 space-y-3 rounded-xl border border-border bg-muted/30 p-4">
               <Select
                 value={selectedCampaign?.id ?? ""}
                 onValueChange={(value) => setSelectedCampaignId(value ?? "")}
@@ -203,7 +179,7 @@ export function LaunchCampaignButton({
                 </SelectContent>
               </Select>
 
-              {selectedCampaign && (
+              {selectedCampaign ? (
                 <div className="flex items-center justify-between gap-3 text-sm">
                   <span className="text-muted-foreground">
                     {selectedCampaign.assessmentCount} assessment
@@ -217,7 +193,7 @@ export function LaunchCampaignButton({
                       selectedCampaign.status.slice(1)}
                   </Badge>
                 </div>
-              )}
+              ) : null}
 
               <Button
                 type="button"
@@ -229,9 +205,9 @@ export function LaunchCampaignButton({
                 {isReusing ? "Copying campaign..." : "Reuse this campaign"}
               </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          ) : null}
+        </ActionDialogBody>
+      </ActionDialog>
 
       <QuickLaunchModal
         open={quickLaunchOpen}

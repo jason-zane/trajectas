@@ -278,7 +278,14 @@ function OpenLayout({
 
       {/* Nested child entities */}
       {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
-        <NestedSection children={entity.nestedScores} config={config} resolvedChart={resolvedChart} palette={palette} variant={variant} />
+        <NestedSection
+          config={config}
+          resolvedChart={resolvedChart}
+          palette={palette}
+          variant={variant}
+        >
+          {entity.nestedScores}
+        </NestedSection>
       )}
 
       {/* Divider (parent level only, non-featured) */}
@@ -453,7 +460,14 @@ function FeaturedLayout({
 
       {/* Nested children in featured — uses OpenLayout with featured variant */}
       {config.showNestedScores && entity.nestedScores && entity.nestedScores.length > 0 && (
-        <NestedSection children={entity.nestedScores} config={config} resolvedChart={resolvedChart} palette={palette} variant="featured" />
+        <NestedSection
+          config={config}
+          resolvedChart={resolvedChart}
+          palette={palette}
+          variant="featured"
+        >
+          {entity.nestedScores}
+        </NestedSection>
       )}
     </div>
   )

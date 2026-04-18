@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateSampleData } from '@/lib/reports/sample-data'
+import { generateSampleData, type PreviewEntity } from '@/lib/reports/sample-data'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 import type { BlockConfig, ResolvedBlockData } from '@/lib/reports/types'
 
@@ -10,6 +10,14 @@ function makeBlock(overrides: Partial<BlockConfig> & { type: BlockConfig['type']
     config: {},
     ...overrides,
   } as BlockConfig
+}
+
+function makeEntities(count: number): PreviewEntity[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `entity-${i}`,
+    name: `Entity ${i}`,
+    type: 'factor' as const,
+  }))
 }
 
 type StrengthsHighlightsSample = {
@@ -37,7 +45,7 @@ function getBlockData<T>(
 describe('generateSampleData', () => {
   it('respects topN on strengths block', () => {
     const blocks = [makeBlock({ type: 'strengths_highlights', config: { topN: 5, displayLevel: 'factor' } })]
-    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME)
+    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME, makeEntities(8))
     const highlights = getBlockData<StrengthsHighlightsSample>(
       result,
       'strengths_highlights'
@@ -47,7 +55,7 @@ describe('generateSampleData', () => {
 
   it('respects maxItems on development block', () => {
     const blocks = [makeBlock({ type: 'development_plan', config: { maxItems: 4, prioritiseByScore: true } })]
-    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME)
+    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME, makeEntities(8))
     const items = getBlockData<DevelopmentPlanSample>(
       result,
       'development_plan'
@@ -65,7 +73,7 @@ describe('generateSampleData', () => {
 
   it('includes strengthCommentary in sample highlights', () => {
     const blocks = [makeBlock({ type: 'strengths_highlights', config: { topN: 3, displayLevel: 'factor' } })]
-    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME)
+    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME, makeEntities(5))
     const highlights = getBlockData<StrengthsHighlightsSample>(
       result,
       'strengths_highlights'
@@ -76,7 +84,7 @@ describe('generateSampleData', () => {
 
   it('includes developmentSuggestion in sample items', () => {
     const blocks = [makeBlock({ type: 'development_plan', config: { maxItems: 2, prioritiseByScore: true } })]
-    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME)
+    const result = generateSampleData(blocks, DEFAULT_REPORT_THEME, makeEntities(4))
     const items = getBlockData<DevelopmentPlanSample>(
       result,
       'development_plan'

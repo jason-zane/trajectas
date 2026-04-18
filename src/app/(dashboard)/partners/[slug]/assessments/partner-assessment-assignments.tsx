@@ -28,13 +28,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -412,97 +409,89 @@ export function PartnerAssessmentAssignments({
         pageSize={20}
       />
 
-      {/* Assign Assessment Dialog */}
-      <Dialog open={assignOpen} onOpenChange={setAssignOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Assign Assessment</DialogTitle>
-            <DialogDescription>
-              Choose an assessment to make available for this partner&apos;s
-              clients.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {/* Assessment picker */}
-            <div className="space-y-2">
-              <Label>Assessment</Label>
-              {availableAssessments.length > 0 ? (
-                <Select
-                  value={selectedAssessmentId}
-                  onValueChange={(val) =>
-                    setSelectedAssessmentId(val as string)
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select an assessment...">
-                      {(value: string | null) =>
-                        getSelectLabel(
-                          value,
-                          availableAssessments.map((assessment) => ({
-                            value: assessment.id,
-                            label: assessment.title,
-                          })),
-                          "Select an assessment..."
-                        )
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {availableAssessments.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.title}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              ) : (
-                <p className="text-sm text-muted-foreground rounded-lg border border-dashed p-3 text-center">
-                  All active assessments have already been assigned.
-                </p>
-              )}
-            </div>
-
-            {/* Quota input */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="quota-limit">Quota Limit</Label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Switch
-                    checked={unlimited}
-                    onCheckedChange={(val) => setUnlimited(val as boolean)}
-                  />
-                  Unlimited
-                </label>
-              </div>
-              {!unlimited && (
-                <Input
-                  id="quota-limit"
-                  type="number"
-                  min={1}
-                  placeholder="e.g. 100"
-                  value={quotaInput}
-                  onChange={(e) => setQuotaInput(e.target.value)}
-                />
-              )}
-            </div>
+      <ActionDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        eyebrow="Partner"
+        title="Assign assessment"
+        description="Choose an assessment to make available for this partner's clients."
+      >
+        <ActionDialogBody className="space-y-4">
+          <div className="space-y-2">
+            <Label>Assessment</Label>
+            {availableAssessments.length > 0 ? (
+              <Select
+                value={selectedAssessmentId}
+                onValueChange={(val) =>
+                  setSelectedAssessmentId(val as string)
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select an assessment...">
+                    {(value: string | null) =>
+                      getSelectLabel(
+                        value,
+                        availableAssessments.map((assessment) => ({
+                          value: assessment.id,
+                          label: assessment.title,
+                        })),
+                        "Select an assessment..."
+                      )
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {availableAssessments.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
+                All active assessments have already been assigned.
+              </p>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAssignOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleAssign}
-              disabled={!selectedAssessmentId || isAssigning}
-            >
-              {isAssigning ? "Assigning..." : "Assign"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="quota-limit">Quota limit</Label>
+              <label className="flex items-center gap-2 text-sm">
+                <Switch
+                  checked={unlimited}
+                  onCheckedChange={(val) => setUnlimited(val as boolean)}
+                />
+                Unlimited
+              </label>
+            </div>
+            {!unlimited && (
+              <Input
+                id="quota-limit"
+                type="number"
+                min={1}
+                placeholder="e.g. 100"
+                value={quotaInput}
+                onChange={(e) => setQuotaInput(e.target.value)}
+              />
+            )}
+          </div>
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button variant="ghost" onClick={() => setAssignOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAssign}
+            disabled={!selectedAssessmentId || isAssigning}
+          >
+            {isAssigning ? "Assigning..." : "Assign assessment"}
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
 
       {/* Remove Confirmation */}
       <ConfirmDialog

@@ -152,7 +152,7 @@ export function AssessmentBuilder({
   const [scoringLevel, setScoringLevel] = useState<'factor' | 'construct'>(
     assessment?.scoringLevel ?? 'factor'
   )
-  const [minCustomConstructs, setMinCustomConstructs] = useState<number | null>(
+  const [minCustomConstructs] = useState<number | null>(
     assessment?.minCustomConstructs ?? null
   )
 

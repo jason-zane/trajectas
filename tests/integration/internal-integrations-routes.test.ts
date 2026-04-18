@@ -188,7 +188,7 @@ describe('internal integrations API routes', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({
-      reports: [{ id: 'snapshot-1', audienceType: 'hr_manager' }],
+      reports: [{ id: 'snapshot-1' }],
     })
     expect(service.getIntegrationParticipantReports).toHaveBeenCalledWith(
       integrationContext,

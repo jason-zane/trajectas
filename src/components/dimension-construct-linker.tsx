@@ -6,12 +6,10 @@ import { Plus, X, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -137,24 +135,24 @@ export function DimensionConstructLinker({
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              Link {otherLabelPlural} to this{" "}
-              {direction === "from-dimension" ? "dimension" : "construct"}
-            </DialogTitle>
-          </DialogHeader>
-
+      <ActionDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        eyebrow="Library"
+        title={`Link ${otherLabelPlural}`}
+        description={`Select ${otherLabelPlural} to link to this ${direction === "from-dimension" ? "dimension" : "construct"}.`}
+      >
+        <ActionDialogBody className="space-y-3">
           <Input
             placeholder={`Search ${otherLabelPlural}...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            autoFocus
           />
 
-          <div className="max-h-80 overflow-y-auto space-y-1">
+          <div className="space-y-1">
             {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
+              <p className="py-4 text-center text-sm text-muted-foreground">
                 {unlinkedOptions.length === 0
                   ? `All ${otherLabelPlural} are already linked.`
                   : "No matches."}
@@ -163,7 +161,7 @@ export function DimensionConstructLinker({
               filtered.map((opt) => (
                 <label
                   key={opt.id}
-                  className="flex items-center gap-3 rounded-lg border p-2.5 hover:bg-muted/40 cursor-pointer"
+                  className="flex cursor-pointer items-center gap-3 rounded-lg border p-2.5 hover:bg-primary/5"
                 >
                   <Checkbox
                     checked={selectedNew.has(opt.id)}
@@ -181,24 +179,23 @@ export function DimensionConstructLinker({
               ))
             )}
           </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              disabled={saving}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleLinkMany}
-              disabled={saving || selectedNew.size === 0}
-            >
-              {saving ? "Linking..." : `Link ${selectedNew.size}`}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => setDialogOpen(false)}
+            disabled={saving}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleLinkMany}
+            disabled={saving || selectedNew.size === 0}
+          >
+            {saving ? "Linking..." : `Link ${selectedNew.size}`}
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
     </div>
   )
 }

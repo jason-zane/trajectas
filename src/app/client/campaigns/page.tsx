@@ -8,7 +8,7 @@ import {
 } from "@/app/actions/campaigns";
 import { getClientAssessmentLibrary } from "@/app/actions/client-entitlements";
 import { PageHeader } from "@/components/page-header";
-import { buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { LaunchCampaignButton } from "@/components/campaigns/launch-campaign-button";
 import { ClientCampaignList } from "./client-campaign-list";
 
