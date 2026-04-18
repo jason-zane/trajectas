@@ -46,11 +46,13 @@ export function CampaignSessionView({
   settingsHref,
 }: CampaignSessionViewProps) {
   const durationLabel =
-    session.durationMinutes != null
-      ? session.durationMinutes < 60
-        ? `${session.durationMinutes}m`
-        : `${Math.floor(session.durationMinutes / 60)}h ${session.durationMinutes % 60}m`
-      : '—'
+    session.durationMinutes == null
+      ? '—'
+      : session.durationMinutes < 1
+        ? '<1 min'
+        : session.durationMinutes < 60
+          ? `${session.durationMinutes}m`
+          : `${Math.floor(session.durationMinutes / 60)}h ${session.durationMinutes % 60}m`
   const showProcessingBanner =
     session.processingStatus === 'scoring' ||
     session.processingStatus === 'reporting' ||

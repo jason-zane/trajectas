@@ -37,6 +37,13 @@ const statusVariant: Record<
   archived: "outline",
 };
 
+const statusClassName: Record<string, string> = {
+  // Active campaigns get a gold accent — they're the "live" signal that
+  // should catch the eye when scanning a list of campaign detail pages.
+  active:
+    "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--emerald-dark)] hover:bg-[var(--gold)]/25",
+};
+
 export function CampaignDetailShell({
   campaign,
   canCustomizeBranding,
@@ -59,10 +66,16 @@ export function CampaignDetailShell({
     return true;
   });
 
-  const activeSegment =
-    tabs.find((t) => pathname.endsWith(`/${t.segment}`))?.segment ?? "overview";
-
   const basePath = href(`/campaigns/${campaign.id}`);
+
+  // Derive the active segment from the segment immediately after the campaign ID,
+  // not by endsWith() — nested routes like /participants/[pid]/sessions/[sid] have
+  // more path segments but should still light up the "Participants" tab.
+  const afterBase = pathname.startsWith(basePath)
+    ? pathname.slice(basePath.length).replace(/^\/+/, "").split("/")[0]
+    : "";
+  const activeSegment =
+    tabs.find((t) => t.segment === afterBase)?.segment ?? "overview";
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -76,7 +89,10 @@ export function CampaignDetailShell({
             campaignId={campaign.id}
             isFavorite={isFavorite}
           />
-          <Badge variant={statusVariant[campaign.status] ?? "secondary"}>
+          <Badge
+            variant={statusVariant[campaign.status] ?? "secondary"}
+            className={statusClassName[campaign.status]}
+          >
             {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
           </Badge>
         </div>
