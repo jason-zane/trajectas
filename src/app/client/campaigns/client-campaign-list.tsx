@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Archive, ArrowRight, CheckCircle2, Trash2, Users } from "lucide-react";
+import { Archive, ArrowRight, Trash2 } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 
 import {
@@ -9,13 +9,12 @@ import {
   bulkUpdateCampaignStatus,
   type OperationalClientCampaign,
 } from "@/app/actions/campaigns";
-import { CopyCampaignLinkButton } from "@/components/campaigns/copy-campaign-link-button";
+import { CampaignActionsDialog } from "@/components/campaigns/campaign-actions-dialog";
 import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
 import { DataTable, DataTableColumnHeader } from "@/components/data-table";
 import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { usePortal } from "@/components/portal-context";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
 const statusVariant: Record<
@@ -79,12 +78,14 @@ export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: Clie
       cell: ({ row }) => (
         <Link
           href={href(`/campaigns/${row.original.id}`)}
-          className="inline-flex items-center gap-1 font-semibold hover:text-primary"
+          className="group inline-flex max-w-xs items-center gap-1 font-semibold text-foreground hover:text-primary"
+          title={row.original.title}
         >
-          {row.original.title}
-          <ArrowRight className="size-4" />
+          <span className="truncate">{row.original.title}</span>
+          <ArrowRight className="size-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
         </Link>
       ),
+      size: 260,
     },
     {
       accessorKey: "status",
@@ -157,29 +158,16 @@ export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: Clie
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <CopyCampaignLinkButton
-            token={row.original.primaryAccessLink?.token}
-            createHref={href(
-              `/campaigns/${row.original.id}/participants?action=link`,
-            )}
-            className="justify-start"
-          />
-          <Link
-            href={href(`/campaigns/${row.original.id}/participants?action=invite`)}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <Users className="size-4" />
-            Invite
-          </Link>
-          <Link
-            href={href(`/campaigns/${row.original.id}/participants`)}
-            className={buttonVariants({ variant: "outline", size: "sm" })}
-          >
-            <CheckCircle2 className="size-4" />
-            Results
-          </Link>
-        </div>
+        <CampaignActionsDialog
+          campaignTitle={row.original.title}
+          accessToken={row.original.primaryAccessLink?.token}
+          inviteHref={href(
+            `/campaigns/${row.original.id}/participants?action=invite`,
+          )}
+          createLinkHref={href(
+            `/campaigns/${row.original.id}/participants?action=link`,
+          )}
+        />
       ),
     },
   ];
