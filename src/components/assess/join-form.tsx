@@ -137,11 +137,11 @@ export function JoinForm({
       </header>
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-8">
-          <div className="space-y-2 text-center">
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
+        <div className="w-full max-w-[540px] space-y-10">
+          <div className="space-y-4 text-center">
             <h1
-              className="text-3xl sm:text-4xl font-semibold tracking-tight"
+              className="font-sans text-[clamp(2rem,4vw,3rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
@@ -150,7 +150,7 @@ export function JoinForm({
               {content.heading}
             </h1>
             <p
-              className="text-sm"
+              className="text-[1.0625rem] leading-relaxed"
               style={{
                 color:
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
