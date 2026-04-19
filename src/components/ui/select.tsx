@@ -6,33 +6,12 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-function Select<Value, Multiple extends boolean | undefined = false>({ onOpenChange, ...props }: SelectPrimitive.Root.Props<Value, Multiple>) {
-  const savedScrollRef = React.useRef<number | null>(null)
-
-  const handleOpenChange = React.useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (open: boolean, event: any) => {
-      const main = document.getElementById('main-content')
-      if (main) {
-        if (open) {
-          // Lock BEFORE popup mounts — prevents focus-driven scroll
-          savedScrollRef.current = main.scrollTop
-          main.style.overflow = 'hidden'
-        } else {
-          // Unlock when popup closes — restore exact scroll position
-          main.style.overflow = ''
-          if (savedScrollRef.current !== null) {
-            main.scrollTop = savedScrollRef.current
-            savedScrollRef.current = null
-          }
-        }
-      }
-      onOpenChange?.(open, event)
-    },
-    [onOpenChange]
-  )
-
-  return <SelectPrimitive.Root onOpenChange={handleOpenChange} {...props} />
+// modal={false}: Base UI's modal scroll-lock mutates <body>, but our scroll
+// container is <main id="main-content"> — the mutation reflows sticky descendants.
+function Select<Value, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>
+) {
+  return <SelectPrimitive.Root modal={false} {...props} />
 }
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
