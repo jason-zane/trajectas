@@ -71,9 +71,9 @@ export function ParticipantReportsTab({
                   variant={getReportStatusVariant(snapshot.status)}
                   className={`text-xs shrink-0 ${
                     snapshot.status === "released"
-                      ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30"
+                      ? "bg-green-500/15 text-green-700 border-green-500/30"
                       : snapshot.status === "ready"
-                        ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30"
+                        ? "bg-blue-500/15 text-blue-700 border-blue-500/30"
                         : ""
                   }`}
                 >

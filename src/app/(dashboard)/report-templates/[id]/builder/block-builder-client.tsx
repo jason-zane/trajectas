@@ -637,7 +637,7 @@ export function BlockBuilderClient({
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-semibold">{meta.label}</p>
                               {isDeferredBlock && (
-                                <Badge className="border-amber-500/30 bg-amber-500/[0.08] text-amber-800 dark:text-amber-200">
+                                <Badge className="border-amber-500/30 bg-amber-500/[0.08] text-amber-800">
                                   Coming soon
                                 </Badge>
                               )}
@@ -673,7 +673,7 @@ export function BlockBuilderClient({
                         {isExpanded && (
                           <div className="border-t border-border">
                             {isDeferredBlock && (
-                              <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-800 dark:text-amber-200">
+                              <div className="mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-sm text-amber-800">
                                 Coming soon — this block stays hidden from participants until its data pipeline is implemented.
                               </div>
                             )}
@@ -787,7 +787,7 @@ export function BlockBuilderClient({
 
 const MODE_COLORS: Record<string, string> = {
   featured: 'bg-emerald-800 text-white',
-  open: 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+  open: 'bg-gray-200 text-gray-600',
   carded: 'bg-amber-600 text-white',
   split: 'bg-violet-600 text-white',
   inset: 'bg-rose-500 text-white',

@@ -46,10 +46,6 @@ export const brandConfigSchema = z.object({
   bodyFont: z.string().min(1).max(100),
   monoFont: z.string().min(1).max(100),
   borderRadius: z.enum(['sharp', 'soft', 'round']),
-  darkModeEnabled: z
-    .union([z.boolean(), z.string()])
-    .transform((v) => v === true || v === 'true')
-    .default(true),
 })
 
 export type BrandConfigInput = z.infer<typeof brandConfigSchema>

@@ -287,7 +287,7 @@ export function PartnerAssessmentAssignments({
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     percentUsed >= 90
-                      ? "bg-amber-500 dark:bg-amber-400"
+                      ? "bg-amber-500"
                       : "bg-primary"
                   }`}
                   style={{
@@ -327,11 +327,11 @@ export function PartnerAssessmentAssignments({
             remaining / a.quotaLimit! <= 0.1;
 
           return isLow ? (
-            <Badge variant="outline" className="text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700">
+            <Badge variant="outline" className="text-amber-600 border-amber-300">
               Low quota
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-700">
+            <Badge variant="outline" className="text-emerald-600 border-emerald-300">
               Healthy
             </Badge>
           );

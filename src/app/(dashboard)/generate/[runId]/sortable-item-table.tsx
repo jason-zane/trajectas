@@ -388,7 +388,7 @@ export function SortableItemTable({
                       <span
                         className={`text-xs tabular-nums ${
                           item.bootStability < 0.75
-                            ? "text-amber-600 dark:text-amber-400 font-medium"
+                            ? "text-amber-600 font-medium"
                             : "text-muted-foreground"
                         }`}
                       >

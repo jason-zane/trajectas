@@ -182,7 +182,7 @@ export function LibraryFactorsTable({
           <span
             className={
               row.original.assigned
-                ? "text-sm text-emerald-600 dark:text-emerald-400"
+                ? "text-sm text-emerald-600"
                 : "text-sm text-muted-foreground"
             }
           >

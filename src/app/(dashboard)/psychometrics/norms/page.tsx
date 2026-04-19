@@ -26,20 +26,20 @@ function normStatus(sampleSize: number) {
       label: "Robust",
       dotClass: "bg-emerald-500",
       badgeBg:
-        "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-semibold",
+        "bg-emerald-500/10 text-emerald-700 font-semibold",
     }
   }
   if (sampleSize >= 100) {
     return {
       label: "Active",
       dotClass: "bg-emerald-500",
-      badgeBg: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      badgeBg: "bg-emerald-500/10 text-emerald-700",
     }
   }
   return {
     label: "Building",
     dotClass: "bg-amber-500",
-    badgeBg: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+    badgeBg: "bg-amber-500/10 text-amber-700",
   }
 }
 

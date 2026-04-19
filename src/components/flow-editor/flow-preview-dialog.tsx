@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
+import { generateCSSTokens } from "@/lib/brand/tokens"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import { buildPageList } from "./flow-sidebar"
 import {
@@ -26,7 +26,7 @@ import type {
   CustomPageContent,
 } from "@/lib/experience/types"
 
-type PreviewMode = "light" | "dark" | "mobile"
+type PreviewMode = "light" | "mobile"
 
 interface FlowPreviewDialogProps {
   open: boolean
@@ -85,34 +85,21 @@ export function FlowPreviewDialog({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [handleKeyDown])
 
-  const { lightStyles, darkStyles } = useMemo(() => {
-    if (!brandConfig) return { lightStyles: {}, darkStyles: {} }
+  const lightStyles = useMemo(() => {
+    if (!brandConfig) return {}
     const { tokens } = generateCSSTokens(brandConfig)
-    const darkCss = generateDarkCSSTokens(brandConfig)
-
     const light: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
       light[key] = val
     }
-
-    const dark: Record<string, string> = {}
-    const matches = darkCss.matchAll(/\s*(--[\w-]+):\s*(.+);/g)
-    for (const match of matches) {
-      dark[match[1]] = match[2]
-    }
-
-    return { lightStyles: light, darkStyles: dark }
+    return light
   }, [brandConfig])
 
-  const isDark = mode === "dark"
   const isMobile = mode === "mobile"
-  const combinedStyles = isDark
-    ? { ...lightStyles, ...darkStyles }
-    : lightStyles
+  const combinedStyles = lightStyles
 
   const modes: { value: PreviewMode; label: string }[] = [
     { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
     { value: "mobile", label: "Mobile" },
   ]
 
@@ -229,10 +216,7 @@ export function FlowPreviewDialog({
         <div className="flex-1 overflow-auto p-8 flex items-start justify-center">
           <div
             className={cn(
-              "w-full max-w-lg rounded-2xl border p-6 shadow-xl transition-all duration-300",
-              isDark
-                ? "border-white/10 bg-[#0d0d0d]"
-                : "border-border/50 bg-white",
+              "w-full max-w-lg rounded-2xl border p-6 shadow-xl transition-all duration-300 border-border/50 bg-white",
               isMobile && "max-w-[375px]"
             )}
             style={{

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import { Play } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
+import { generateCSSTokens } from "@/lib/brand/tokens"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,7 +26,7 @@ import type {
   CustomPageContent,
 } from "@/lib/experience/types"
 
-type PreviewMode = "light" | "dark" | "mobile"
+type PreviewMode = "light" | "mobile"
 
 interface PagePreviewFrameProps {
   pageId: string
@@ -52,34 +52,21 @@ export function PagePreviewFrame({
 }: PagePreviewFrameProps) {
   const [mode, setMode] = useState<PreviewMode>("light")
 
-  const { lightStyles, darkStyles } = useMemo(() => {
-    if (!brandConfig) return { lightStyles: {}, darkStyles: {} }
+  const lightStyles = useMemo(() => {
+    if (!brandConfig) return {}
     const { tokens } = generateCSSTokens(brandConfig)
-    const darkCss = generateDarkCSSTokens(brandConfig)
-
     const light: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
       light[key] = val
     }
-
-    const dark: Record<string, string> = {}
-    const matches = darkCss.matchAll(/\s*(--[\w-]+):\s*(.+);/g)
-    for (const match of matches) {
-      dark[match[1]] = match[2]
-    }
-
-    return { lightStyles: light, darkStyles: dark }
+    return light
   }, [brandConfig])
 
-  const isDark = mode === "dark"
   const isMobile = mode === "mobile"
-  const combinedStyles = isDark
-    ? { ...lightStyles, ...darkStyles }
-    : lightStyles
+  const combinedStyles = lightStyles
 
   const modes: { value: PreviewMode; label: string }[] = [
     { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
     { value: "mobile", label: "Mobile" },
   ]
 
@@ -165,10 +152,7 @@ export function PagePreviewFrame({
       {/* Phone frame */}
       <div
         className={cn(
-          "flex-1 overflow-y-auto rounded-2xl border transition-all duration-300",
-          isDark
-            ? "border-white/10 bg-[#0d0d0d]"
-            : "border-border/50 bg-muted/20",
+          "flex-1 overflow-y-auto rounded-2xl border transition-all duration-300 border-border/50 bg-muted/20",
           isMobile && "mx-auto max-w-[375px]",
         )}
         style={{

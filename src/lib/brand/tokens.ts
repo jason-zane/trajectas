@@ -214,46 +214,18 @@ function generatePortalAccentTokens(hex: string): Record<string, string> {
   return tokens
 }
 
-/** Generate CSS vars for a portal accent color (dark mode). */
-function generatePortalAccentDarkTokens(hex: string): Record<string, string> {
-  const oklch = hexToOklch(hex)
-  const tokens: Record<string, string> = {}
-
-  const primaryL = Math.max(0.60, Math.min(0.80, oklch.l + 0.15))
-  const primary: OKLCH = { l: primaryL, c: Math.min(oklch.c, 0.16), h: oklch.h }
-
-  tokens['--primary'] = oklchCss(primary)
-  tokens['--primary-foreground'] = `oklch(0.15 0.01 ${oklch.h.toFixed(1)})`
-  tokens['--ring'] = oklchCss(primary)
-  tokens['--accent'] = oklchCss({ l: 0.25, c: 0.03, h: oklch.h })
-  tokens['--accent-foreground'] = oklchCss({ l: 0.80, c: 0.10, h: oklch.h })
-  tokens['--sidebar-primary'] = oklchCss(primary)
-  tokens['--sidebar-accent'] = 'oklch(1 0 0 / 10%)'
-  tokens['--sidebar-ring'] = oklchCss(primary)
-  tokens['--chart-1'] = oklchCss(primary)
-  tokens['--shadow-glow'] = `0 0 25px ${oklchCssAlpha(primary, '20%')}`
-
-  return tokens
-}
-
 // ---------------------------------------------------------------------------
 // Taxonomy token generation
 // ---------------------------------------------------------------------------
 
 /** Generate bg/fg/accent CSS vars for a taxonomy level from a hex color. */
-function generateTaxonomyTokens(prefix: string, hex: string, isDark: boolean): Record<string, string> {
+function generateTaxonomyTokens(prefix: string, hex: string): Record<string, string> {
   const oklch = hexToOklch(hex)
   const tokens: Record<string, string> = {}
 
-  if (isDark) {
-    tokens[`--${prefix}-bg`] = oklchCss({ l: 0.22, c: oklch.c * 0.25, h: oklch.h })
-    tokens[`--${prefix}-fg`] = oklchCss({ l: 0.80, c: oklch.c * 0.8, h: oklch.h })
-    tokens[`--${prefix}-accent`] = oklchCss({ l: 0.65, c: oklch.c * 0.9, h: oklch.h })
-  } else {
-    tokens[`--${prefix}-bg`] = oklchCss({ l: 0.955, c: oklch.c * 0.25, h: oklch.h })
-    tokens[`--${prefix}-fg`] = oklchCss({ l: 0.38, c: oklch.c * 0.9, h: oklch.h })
-    tokens[`--${prefix}-accent`] = oklchCss({ l: 0.55, c: oklch.c, h: oklch.h })
-  }
+  tokens[`--${prefix}-bg`] = oklchCss({ l: 0.955, c: oklch.c * 0.25, h: oklch.h })
+  tokens[`--${prefix}-fg`] = oklchCss({ l: 0.38, c: oklch.c * 0.9, h: oklch.h })
+  tokens[`--${prefix}-accent`] = oklchCss({ l: 0.55, c: oklch.c, h: oklch.h })
 
   return tokens
 }
@@ -345,49 +317,6 @@ export function generateCSSTokens(config: BrandConfig): CSSTokens {
 }
 
 /**
- * Generate dark-mode CSS token overrides.
- * In dark mode, the scale is inverted: 50 becomes the darkest surface,
- * 900 becomes the lightest text color.
- */
-export function generateDarkCSSTokens(config: BrandConfig): string {
-  const primary = hexToOklch(config.primaryColor)
-  const primaryScale = generateScale(primary)
-
-  const neutralHue = NEUTRAL_HUE[config.neutralTemperature]
-  const neutralChroma = NEUTRAL_CHROMA[config.neutralTemperature]
-
-  const tokens: Record<string, string> = {}
-
-  // Semantic tokens (dark mode — inverted)
-  tokens['--brand-surface'] = oklchCss({ l: 0.13, c: neutralChroma * 2, h: primary.h })
-  tokens['--brand-surface-raised'] = oklchCss({ l: 0.17, c: neutralChroma * 2, h: primary.h })
-  tokens['--brand-text'] = oklchCss(primaryScale['100'])
-  tokens['--brand-text-muted'] = oklchCss(primaryScale['400'])
-  tokens['--brand-border'] = oklchCss({ l: 0.22, c: neutralChroma * 3, h: primary.h })
-  tokens['--brand-ring'] = oklchCss(primaryScale['400'])
-  tokens['--brand-primary'] = oklchCss(primaryScale['400'])
-  tokens['--brand-primary-foreground'] = oklchCss(primaryScale['900'])
-
-  // Dark neutral overrides
-  tokens['--brand-neutral-50'] = oklchCss({ l: 0.13, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-100'] = oklchCss({ l: 0.17, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-200'] = oklchCss({ l: 0.22, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-300'] = oklchCss({ l: 0.30, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-400'] = oklchCss({ l: 0.45, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-500'] = oklchCss({ l: 0.55, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-600'] = oklchCss({ l: 0.65, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-700'] = oklchCss({ l: 0.75, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-800'] = oklchCss({ l: 0.85, c: neutralChroma, h: neutralHue })
-  tokens['--brand-neutral-900'] = oklchCss({ l: 0.93, c: neutralChroma, h: neutralHue })
-
-  const css = Object.entries(tokens)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join('\n')
-
-  return `.dark {\n${css}\n}`
-}
-
-/**
  * Generate FULL dashboard CSS overrides from a BrandConfig.
  *
  * This produces CSS that overrides the globals.css defaults for:
@@ -463,104 +392,38 @@ export function generateDashboardCSS(config: BrandConfig): string {
   rootTokens['--success'] = oklchCss(success)
   rootTokens['--warning'] = oklchCss(warning)
 
-  // Taxonomy colors (light)
+  // Taxonomy colors
   const tax = config.taxonomyColors ?? DEFAULT_TAXONOMY_COLORS
-  Object.assign(rootTokens, generateTaxonomyTokens('dimension', tax.dimension, false))
-  Object.assign(rootTokens, generateTaxonomyTokens('competency', tax.competency, false))
-  Object.assign(rootTokens, generateTaxonomyTokens('trait', tax.trait, false))
-  Object.assign(rootTokens, generateTaxonomyTokens('item', tax.item, false))
+  Object.assign(rootTokens, generateTaxonomyTokens('dimension', tax.dimension))
+  Object.assign(rootTokens, generateTaxonomyTokens('competency', tax.competency))
+  Object.assign(rootTokens, generateTaxonomyTokens('trait', tax.trait))
+  Object.assign(rootTokens, generateTaxonomyTokens('item', tax.item))
 
   const rootCss = Object.entries(rootTokens)
     .map(([k, v]) => `  ${k}: ${v};`)
     .join('\n')
   sections.push(`:root {\n${rootCss}\n}`)
 
-  // --- .dark overrides ---
-  const darkTokens: Record<string, string> = {}
-
-  darkTokens['--brand'] = oklchCss({ ...primary, l: Math.max(primary.l - 0.10, 0.30) })
-
-  // Dark surface colors
-  darkTokens['--background'] = oklchCss({ l: 0.13, c: neutralChroma * 2, h: neutralHue })
-  darkTokens['--foreground'] = oklchCss({ l: 0.93, c: neutralChroma, h: neutralHue })
-  darkTokens['--card'] = oklchCss({ l: 0.17, c: neutralChroma * 2, h: neutralHue })
-  darkTokens['--card-foreground'] = darkTokens['--foreground']
-  darkTokens['--popover'] = darkTokens['--card']
-  darkTokens['--popover-foreground'] = darkTokens['--foreground']
-  darkTokens['--muted'] = oklchCss({ l: 0.22, c: neutralChroma * 2, h: neutralHue })
-  darkTokens['--muted-foreground'] = oklchCss({ l: 0.60, c: neutralChroma * 2, h: neutralHue })
-  darkTokens['--secondary'] = oklchCss({ l: 0.22, c: neutralChroma * 2, h: neutralHue })
-  darkTokens['--secondary-foreground'] = oklchCss({ l: 0.92, c: 0, h: 0 })
-  darkTokens['--border'] = 'oklch(1 0 0 / 8%)'
-  darkTokens['--input'] = 'oklch(1 0 0 / 12%)'
-
-  // Sidebar dark
-  const sidebarDark: OKLCH = { ...sidebar, l: Math.max(sidebar.l - 0.10, 0.30) }
-  darkTokens['--sidebar'] = oklchCss(sidebarDark)
-  darkTokens['--sidebar-foreground'] = 'oklch(1 0 0 / 80%)'
-  darkTokens['--sidebar-border'] = 'oklch(1 0 0 / 8%)'
-  darkTokens['--sidebar-accent'] = 'oklch(1 0 0 / 10%)'
-  darkTokens['--sidebar-accent-foreground'] = 'oklch(1 0 0)'
-
-  darkTokens['--shadow-glow'] = `0 0 25px ${oklchCssAlpha({ ...primary, l: primary.l - 0.10 }, '20%')}`
-
-  // Semantic (dark mode — slightly brighter)
-  darkTokens['--destructive'] = oklchCss({ ...destructive, l: Math.min(destructive.l + 0.10, 0.75) })
-  darkTokens['--success'] = oklchCss(success)
-  darkTokens['--warning'] = oklchCss({ ...warning, l: Math.min(warning.l + 0.05, 0.80) })
-
-  // Taxonomy (dark)
-  Object.assign(darkTokens, generateTaxonomyTokens('dimension', tax.dimension, true))
-  Object.assign(darkTokens, generateTaxonomyTokens('competency', tax.competency, true))
-  Object.assign(darkTokens, generateTaxonomyTokens('trait', tax.trait, true))
-  Object.assign(darkTokens, generateTaxonomyTokens('item', tax.item, true))
-
-  const darkCss = Object.entries(darkTokens)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join('\n')
-  sections.push(`.dark {\n${darkCss}\n}`)
-
   // --- Portal accent overrides ---
   const portals = config.portalAccents ?? DEFAULT_PORTAL_ACCENTS
 
-  // Admin (default) — set in :root
   const adminLight = generatePortalAccentTokens(portals.admin)
   const adminRootCss = Object.entries(adminLight)
     .map(([k, v]) => `  ${k}: ${v};`)
     .join('\n')
   sections.push(`:root {\n${adminRootCss}\n}`)
 
-  const adminDark = generatePortalAccentDarkTokens(portals.admin)
-  const adminDarkCss = Object.entries(adminDark)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join('\n')
-  sections.push(`.dark {\n${adminDarkCss}\n}`)
-
-  // Partner
   const partnerLight = generatePortalAccentTokens(portals.partner)
   const partnerLightCss = Object.entries(partnerLight)
     .map(([k, v]) => `  ${k}: ${v};`)
     .join('\n')
   sections.push(`[data-portal="partner"] {\n${partnerLightCss}\n}`)
 
-  const partnerDark = generatePortalAccentDarkTokens(portals.partner)
-  const partnerDarkCss = Object.entries(partnerDark)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join('\n')
-  sections.push(`[data-portal="partner"].dark,\n.dark [data-portal="partner"] {\n${partnerDarkCss}\n}`)
-
-  // Client
   const clientLight = generatePortalAccentTokens(portals.client)
   const clientLightCss = Object.entries(clientLight)
     .map(([k, v]) => `  ${k}: ${v};`)
     .join('\n')
   sections.push(`[data-portal="client"] {\n${clientLightCss}\n}`)
-
-  const clientDark = generatePortalAccentDarkTokens(portals.client)
-  const clientDarkCss = Object.entries(clientDark)
-    .map(([k, v]) => `  ${k}: ${v};`)
-    .join('\n')
-  sections.push(`[data-portal="client"].dark,\n.dark [data-portal="client"] {\n${clientDarkCss}\n}`)
 
   // --- Report theme ---
   const reportTheme = config.reportTheme ?? DEFAULT_REPORT_THEME

@@ -202,7 +202,7 @@ export default async function AssessmentIntroPage({
               </h1>
               {body && (
                 <div
-                  className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none"
+                  className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm"
                   style={{
                     background: "var(--brand-neutral-50, hsl(var(--card)))",
                     borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
@@ -210,7 +210,7 @@ export default async function AssessmentIntroPage({
                   }}
                 >
                   <div
-                    className="prose prose-sm max-w-none leading-relaxed dark:prose-invert"
+                    className="prose prose-sm max-w-none leading-relaxed"
                     style={{
                       color:
                         "var(--brand-neutral-500, hsl(var(--muted-foreground)))",

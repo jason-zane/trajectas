@@ -293,7 +293,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <ScrollReveal>
-      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-1 ring-foreground/[0.06] dark:shadow-none">
+      <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-1 ring-foreground/[0.06]">
         {hasToolbar ? (
           <DataTableToolbar
             table={table}

@@ -70,7 +70,6 @@ describe("getWorkspaceBootstrap", () => {
       bodyFont: "Inter",
       monoFont: "JetBrains Mono",
       borderRadius: "soft",
-      darkModeEnabled: true,
     });
 
     workspace.getWorkspaceContextOptions.mockResolvedValue([

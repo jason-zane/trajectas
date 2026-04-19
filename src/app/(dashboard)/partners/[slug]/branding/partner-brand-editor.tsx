@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { cn } from "@/lib/utils"
@@ -298,18 +297,6 @@ export function PartnerBrandEditor({
                 }
                 previewColor={config.primaryColor}
               />
-              <div className="flex items-center justify-between gap-4 rounded-lg border border-border/60 bg-muted/20 px-4 py-3">
-                <div className="space-y-1">
-                  <Label className="text-sm">Dark Mode</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Allow the partner portal to adapt to system dark mode.
-                  </p>
-                </div>
-                <Switch
-                  checked={config.darkModeEnabled}
-                  onCheckedChange={(checked) => update({ darkModeEnabled: checked })}
-                />
-              </div>
             </CardContent>
           </Card>
 

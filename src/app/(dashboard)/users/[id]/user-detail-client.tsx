@@ -178,7 +178,7 @@ function statusMeta(isActive: boolean) {
     ? {
         label: "Active",
         className:
-          "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-700",
       }
     : {
         label: "Inactive",
@@ -433,7 +433,7 @@ export function UserDetailClient({
             </div>
 
             {roleHint ? (
-              <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+              <p className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-700">
                 {roleHint}
               </p>
             ) : (

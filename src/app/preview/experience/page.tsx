@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
+import { generateCSSTokens } from "@/lib/brand/tokens"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import { buildPageList } from "@/components/flow-editor/flow-sidebar"
 import {
@@ -28,7 +28,7 @@ import type {
 
 const STORAGE_KEY = "tf-experience-preview"
 
-type PreviewMode = "light" | "dark" | "mobile"
+type PreviewMode = "light" | "mobile"
 
 const BUILT_IN_PAGES = new Set([
   "join", "welcome", "consent", "demographics",
@@ -92,30 +92,18 @@ export default function PreviewExperiencePage() {
   }, [handleKeyDown])
 
   const brandConfig = data?.brandConfig ?? null
-  const { lightStyles, darkStyles } = useMemo(() => {
-    if (!brandConfig) return { lightStyles: {}, darkStyles: {} }
+  const lightStyles = useMemo(() => {
+    if (!brandConfig) return {}
     const { tokens } = generateCSSTokens(brandConfig)
-    const darkCss = generateDarkCSSTokens(brandConfig)
-
     const light: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
       light[key] = val
     }
-
-    const dark: Record<string, string> = {}
-    const matches = darkCss.matchAll(/\s*(--[\w-]+):\s*(.+);/g)
-    for (const match of matches) {
-      dark[match[1]] = match[2]
-    }
-
-    return { lightStyles: light, darkStyles: dark }
+    return light
   }, [brandConfig])
 
-  const isDark = mode === "dark"
   const isMobile = mode === "mobile"
-  const combinedStyles = isDark
-    ? { ...lightStyles, ...darkStyles }
-    : lightStyles
+  const combinedStyles = lightStyles
 
   if (!data) {
     return (
@@ -130,7 +118,6 @@ export default function PreviewExperiencePage() {
 
   const modes: { value: PreviewMode; label: string }[] = [
     { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
     { value: "mobile", label: "Mobile" },
   ]
 

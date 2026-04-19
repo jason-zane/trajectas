@@ -30,7 +30,7 @@ export function SupportSessionBanner({
   return (
     <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2">
       <div className="flex items-center justify-between gap-4 text-sm">
-        <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+        <div className="flex items-center gap-2 text-amber-900">
           <AlertCircle className="size-4 shrink-0" />
           <span data-support-session-id={sessionId}>
             Support session active — viewing <strong>{tenantName}</strong> as{" "}
@@ -41,7 +41,7 @@ export function SupportSessionBanner({
         <button
           onClick={handleReturn}
           disabled={isEnding}
-          className="text-amber-900 dark:text-amber-200 underline hover:no-underline font-medium disabled:opacity-50"
+          className="text-amber-900 underline hover:no-underline font-medium disabled:opacity-50"
         >
           {isEnding ? "Ending session..." : "Return to admin"}
         </button>

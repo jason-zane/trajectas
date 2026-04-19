@@ -45,10 +45,10 @@ export interface MetricInterpretation {
 }
 
 export function wtoInterpretation(value: number): MetricInterpretation {
-  if (value < 0.10) return { label: "Excellent", className: "text-emerald-600 dark:text-emerald-400" }
+  if (value < 0.10) return { label: "Excellent", className: "text-emerald-600" }
   if (value <= 0.20) return { label: "Good", className: "text-muted-foreground" }
-  if (value <= 0.30) return { label: "Marginal", className: "text-amber-600 dark:text-amber-400" }
-  return { label: "Redundant", className: "text-red-600 dark:text-red-400" }
+  if (value <= 0.30) return { label: "Marginal", className: "text-amber-600" }
+  return { label: "Redundant", className: "text-red-600" }
 }
 
 // ---------------------------------------------------------------------------
@@ -59,13 +59,13 @@ export function difficultyColor(tier: string): { label: string; className: strin
   switch (tier) {
     case 'easy':
     case 'foundation':
-      return { label: tier === 'easy' ? 'Easy' : 'Foundation', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' }
+      return { label: tier === 'easy' ? 'Easy' : 'Foundation', className: 'bg-emerald-100 text-emerald-700' }
     case 'moderate':
     case 'applied':
-      return { label: tier === 'moderate' ? 'Moderate' : 'Applied', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' }
+      return { label: tier === 'moderate' ? 'Moderate' : 'Applied', className: 'bg-amber-100 text-amber-700' }
     case 'hard':
     case 'demanding':
-      return { label: tier === 'hard' ? 'Hard' : 'Demanding', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' }
+      return { label: tier === 'hard' ? 'Hard' : 'Demanding', className: 'bg-red-100 text-red-700' }
     default:
       return { label: tier, className: 'bg-muted text-muted-foreground' }
   }
@@ -78,11 +78,11 @@ export function difficultyColor(tier: string): { label: string; className: strin
 export function sdRiskColor(risk: string): { label: string; className: string } {
   switch (risk) {
     case 'low':
-      return { label: 'Low', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' }
+      return { label: 'Low', className: 'bg-emerald-100 text-emerald-700' }
     case 'moderate':
-      return { label: 'Mod', className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400' }
+      return { label: 'Mod', className: 'bg-amber-100 text-amber-700' }
     case 'high':
-      return { label: 'High', className: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400' }
+      return { label: 'High', className: 'bg-red-100 text-red-700' }
     default:
       return { label: risk, className: 'bg-muted text-muted-foreground' }
   }
@@ -122,7 +122,7 @@ export interface NmiInterpretation {
 export function nmiInterpretation(value: number): NmiInterpretation {
   if (value >= 0.90) return {
     label: "Excellent",
-    className: "text-emerald-600 dark:text-emerald-400",
+    className: "text-emerald-600",
     barClass: "bg-emerald-500",
     summary: "Your items cleanly separate into distinct constructs.",
   }
@@ -134,13 +134,13 @@ export function nmiInterpretation(value: number): NmiInterpretation {
   }
   if (value >= 0.50) return {
     label: "Moderate",
-    className: "text-amber-600 dark:text-amber-400",
+    className: "text-amber-600",
     barClass: "bg-amber-500",
     summary: "Some items overlap between constructs — consider revising definitions.",
   }
   return {
     label: "Poor",
-    className: "text-red-600 dark:text-red-400",
+    className: "text-red-600",
     barClass: "bg-red-500",
     summary: "Items aren't cleanly separating — consider revising construct definitions.",
   }

@@ -42,7 +42,7 @@ export function IndicatorsTab({
       {/* Low */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-red-500/70 dark:bg-red-400/70" />
+          <span className="size-2 rounded-full bg-red-500/70" />
           Low Performance
         </Label>
         <RichTextEditor
@@ -57,7 +57,7 @@ export function IndicatorsTab({
       {/* Mid */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-amber-500/70 dark:bg-amber-400/70" />
+          <span className="size-2 rounded-full bg-amber-500/70" />
           Mid Performance
         </Label>
         <RichTextEditor
@@ -72,7 +72,7 @@ export function IndicatorsTab({
       {/* High */}
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
-          <span className="size-2 rounded-full bg-emerald-500/70 dark:bg-emerald-400/70" />
+          <span className="size-2 rounded-full bg-emerald-500/70" />
           High Performance
         </Label>
         <RichTextEditor
