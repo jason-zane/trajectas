@@ -27,7 +27,7 @@ export const saveResponseSchema = z.object({
   itemId: postgresUuid('Invalid item ID'),
   sectionId: postgresUuid('Invalid section ID').optional(),
   responseValue: z.number(),
-  responseData: z.record(z.unknown()).optional(),
+  responseData: z.record(z.string(), z.unknown()).optional(),
   responseTimeMs: z.number().int().min(0).optional(),
 })
 
@@ -36,7 +36,7 @@ export const updateSessionProgressSchema = z.object({
   sessionId: postgresUuid('Invalid session ID'),
   currentSectionId: postgresUuid('Invalid section ID').optional(),
   currentItemIndex: z.number().int().min(0).optional(),
-  timeRemaining: z.record(z.number()).optional(),
+  timeRemaining: z.record(z.string(), z.number()).optional(),
 })
 
 export const saveResponseLiteSchema = z.object({
@@ -45,7 +45,7 @@ export const saveResponseLiteSchema = z.object({
   itemId: postgresUuid('Invalid item ID'),
   sectionId: postgresUuid('Invalid section ID'),
   responseValue: z.number(),
-  responseData: z.record(z.unknown()).optional(),
+  responseData: z.record(z.string(), z.unknown()).optional(),
   responseTimeMs: z.number().int().min(0).optional(),
 })
 
