@@ -129,7 +129,7 @@ export function ConsentScreen({
 
           {/* Body content card */}
           <div
-            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none"
+            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm"
             style={{
               background: "var(--brand-neutral-50, hsl(var(--card)))",
               borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
@@ -137,7 +137,7 @@ export function ConsentScreen({
             }}
           >
             <div
-              className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed"
+              className="prose prose-sm max-w-none text-sm leading-relaxed"
               style={{
                 color:
                   "var(--brand-neutral-500, hsl(var(--muted-foreground)))",

@@ -103,7 +103,7 @@ function MetricGuide({ isMultiConstruct }: { isMultiConstruct: boolean }) {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
                 <span className="text-muted-foreground w-14 shrink-0">≥ 0.90</span>
-                <span className="text-emerald-600 dark:text-emerald-400">Excellent</span>
+                <span className="text-emerald-600">Excellent</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary shrink-0" />
@@ -113,7 +113,7 @@ function MetricGuide({ isMultiConstruct }: { isMultiConstruct: boolean }) {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                 <span className="text-muted-foreground w-14 shrink-0">{"< 0.75"}</span>
-                <span className="text-amber-600 dark:text-amber-400">Unstable</span>
+                <span className="text-amber-600">Unstable</span>
               </div>
             </div>
           </div>
@@ -249,7 +249,7 @@ export function QualityPanel({
                 The final NMI should normally hold steady or improve after redundant and unstable items are removed.
               </p>
             ) : (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+              <p className="text-xs text-amber-600 mt-2">
                 Later-stage NMI was not recomputed because too few items survived filtering for a meaningful final network.
               </p>
             )}

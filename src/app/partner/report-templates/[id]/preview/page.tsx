@@ -22,7 +22,7 @@ export default async function PartnerReportTemplatePreviewPage({
 
   return (
     <div className="min-h-screen" style={{ background: "var(--report-page-bg, #fafaf8)" }}>
-      <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+      <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm text-amber-800">
         Preview — showing sample data.{" "}
         <a
           href={`/partner/report-templates/${id}/builder`}

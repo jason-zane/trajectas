@@ -53,5 +53,4 @@ export const TRAJECTAS_DEFAULTS: Readonly<BrandConfig> = {
   bodyFont: 'Plus Jakarta Sans',
   monoFont: 'Geist Mono',
   borderRadius: 'soft',
-  darkModeEnabled: true,
 }

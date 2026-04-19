@@ -936,7 +936,7 @@ export function QuickLaunchModal({
                     className={cn(
                       "text-xs",
                       csvInvalidInviteCount > 0
-                        ? "text-amber-700 dark:text-amber-300"
+                        ? "text-amber-700"
                         : "text-muted-foreground",
                     )}
                   >

@@ -5,7 +5,6 @@ import { toast } from "sonner"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -471,27 +470,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
                   onChange={(v: BorderRadiusPreset) => update({ borderRadius: v })}
                   previewColor={config.primaryColor}
                 />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Dark Mode</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">Enable Dark Mode</p>
-                    <p className="text-caption text-muted-foreground">
-                      Allow participants to use dark mode based on system preference.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={config.darkModeEnabled}
-                    onCheckedChange={(checked: boolean) =>
-                      update({ darkModeEnabled: checked })
-                    }
-                  />
-                </div>
               </CardContent>
             </Card>
           </div>

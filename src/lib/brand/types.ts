@@ -125,10 +125,6 @@ export interface BrandConfig {
    */
   borderRadius: BorderRadiusPreset
 
-  // -- Surfaces -------------------------------------------------------------
-
-  /** Whether dark mode is available (respects system preference). */
-  darkModeEnabled: boolean
 }
 
 /** Database row for `brand_configs`. */

@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react"
 import { Expand, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { generateCSSTokens, generateDarkCSSTokens } from "@/lib/brand/tokens"
+import { generateCSSTokens } from "@/lib/brand/tokens"
 import type { BrandConfig } from "@/lib/brand/types"
 import { PreviewQuestions } from "./preview-questions"
 import { PreviewComplete } from "./preview-complete"
@@ -12,7 +12,7 @@ import { PreviewReport } from "./preview-report"
 import { PreviewEmail } from "./preview-email"
 import { PreviewDashboard } from "./preview-dashboard"
 
-type PreviewMode = "light" | "dark" | "mobile"
+type PreviewMode = "light" | "mobile"
 
 interface PreviewGalleryProps {
   config: BrandConfig
@@ -50,41 +50,20 @@ export function PreviewGallery({ config, compact = false, surfaces, brandName, l
   const [mode, setMode] = useState<PreviewMode>("light")
   const [fullScreenSurface, setFullScreenSurface] = useState<PreviewSurface | null>(null)
 
-  // Generate CSS tokens as inline style object
-  const { lightStyles, darkCss } = useMemo(() => {
+  const lightStyles = useMemo(() => {
     const { tokens } = generateCSSTokens(config)
-    const darkCssStr = generateDarkCSSTokens(config)
-
-    // Convert token map to React style object
     const styleObj: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
       styleObj[key] = val
     }
-
-    return { lightStyles: styleObj, darkCss: darkCssStr }
+    return styleObj
   }, [config])
 
-  // For dark mode, parse the dark tokens into a style object
-  const darkStyles = useMemo(() => {
-    const styleObj: Record<string, string> = {}
-    // Parse the dark CSS string to extract variable declarations
-    const matches = darkCss.matchAll(/\s*(--[\w-]+):\s*(.+);/g)
-    for (const match of matches) {
-      styleObj[match[1]] = match[2]
-    }
-    return styleObj
-  }, [darkCss])
-
-  const isDark = mode === "dark"
   const isMobile = mode === "mobile"
-
-  const combinedStyles = isDark
-    ? { ...lightStyles, ...darkStyles }
-    : lightStyles
+  const combinedStyles = lightStyles
 
   const modes: { value: PreviewMode; label: string }[] = [
     { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
     { value: "mobile", label: "Mobile" },
   ]
 
@@ -117,10 +96,7 @@ export function PreviewGallery({ config, compact = false, surfaces, brandName, l
         {/* Preview container */}
         <div
           className={cn(
-            "overflow-y-auto rounded-xl border p-6 transition-all duration-300",
-            isDark
-              ? "border-white/10 bg-[#0d0d0d]"
-              : "border-border/50 bg-muted/20",
+            "overflow-y-auto rounded-xl border p-6 transition-all duration-300 border-border/50 bg-muted/20",
             isMobile && "mx-auto max-w-[375px]"
           )}
           style={{
@@ -183,10 +159,7 @@ export function PreviewGallery({ config, compact = false, surfaces, brandName, l
             <div className="flex-1 overflow-auto p-8 flex items-start justify-center">
               <div
                 className={cn(
-                  "w-full max-w-2xl rounded-2xl border p-8 shadow-xl transition-all duration-300",
-                  isDark
-                    ? "border-white/10 bg-[#0d0d0d]"
-                    : "border-border/50 bg-white",
+                  "w-full max-w-2xl rounded-2xl border p-8 shadow-xl transition-all duration-300 border-border/50 bg-white",
                   isMobile && "max-w-[375px]"
                 )}
                 style={{

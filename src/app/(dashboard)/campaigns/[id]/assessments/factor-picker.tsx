@@ -368,7 +368,7 @@ export function FactorPicker({
               selectedIds.size === 0 && "border-destructive/50",
               belowMinimum &&
                 selectedIds.size > 0 &&
-                "border-amber-500/50 dark:border-amber-400/50",
+                "border-amber-500/50",
             )}
           >
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
@@ -393,7 +393,7 @@ export function FactorPicker({
                     "flex items-center gap-1 text-xs font-medium",
                     selectedIds.size === 0
                       ? "text-destructive"
-                      : "text-amber-600 dark:text-amber-400",
+                      : "text-amber-600",
                   )}
                 >
                   <AlertTriangle className="size-3" />

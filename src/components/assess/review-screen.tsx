@@ -166,7 +166,7 @@ export function ReviewScreen({
 
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5"
           style={{
             color:
               "var(--brand-text-muted, hsl(var(--muted-foreground)))",

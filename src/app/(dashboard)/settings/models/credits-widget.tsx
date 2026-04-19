@@ -33,7 +33,7 @@ export function CreditsWidget({ credits }: CreditsWidgetProps) {
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">OpenRouter Credits</span>
           {isLow && (
-            <Badge variant="outline" className="text-[10px] py-0 text-amber-600 border-amber-300 dark:border-amber-700">
+            <Badge variant="outline" className="text-[10px] py-0 text-amber-600 border-amber-300">
               Low
             </Badge>
           )}

@@ -70,7 +70,7 @@ export default async function ReliabilityPage() {
 
               <Card variant="glass">
                 <CardContent className="flex flex-col items-center py-4">
-                  <span className="text-3xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                  <span className="text-3xl font-semibold tabular-nums text-emerald-600">
                     {meetingThreshold}
                   </span>
                   <span className="text-xs text-muted-foreground mt-1">

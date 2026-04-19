@@ -136,7 +136,7 @@ export function WelcomeScreen({
 
           {/* Info card */}
           <div
-            className="rounded-2xl border border-l-[3px] p-7 shadow-sm dark:shadow-none"
+            className="rounded-2xl border border-l-[3px] p-7 shadow-sm"
             style={{
               background:
                 "var(--brand-neutral-50, hsl(var(--card)))",

@@ -176,7 +176,7 @@ export function DemographicsForm({
           {/* Form */}
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm dark:shadow-none space-y-4"
+            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm space-y-4"
             style={{
               borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
               borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",

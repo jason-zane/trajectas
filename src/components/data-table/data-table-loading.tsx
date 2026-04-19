@@ -27,7 +27,7 @@ export function DataTableLoading({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-1 ring-foreground/[0.06] dark:shadow-none",
+        "overflow-hidden rounded-xl border border-border bg-card shadow-sm ring-1 ring-foreground/[0.06]",
         className
       )}
     >

@@ -18,7 +18,7 @@ function Card({
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card relative flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-5 text-sm text-card-foreground shadow-sm ring-1 ring-foreground/[0.06] transition-all duration-200 ease-spring has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl before:absolute before:top-0 before:inset-x-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/15 before:to-transparent dark:before:via-white/[0.06] before:pointer-events-none",
+        "group/card relative flex flex-col gap-4 overflow-hidden rounded-xl bg-card py-5 text-sm text-card-foreground shadow-sm ring-1 ring-foreground/[0.06] transition-all duration-200 ease-spring has-data-[slot=card-footer]:pb-0 has-[>img:first-child]:pt-0 data-[size=sm]:gap-3 data-[size=sm]:py-3 data-[size=sm]:has-data-[slot=card-footer]:pb-0 *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl before:absolute before:top-0 before:inset-x-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-white/15 before:to-transparent before:pointer-events-none",
         variant === "interactive" &&
           "hover:shadow-md hover:scale-[1.01] active:scale-[0.99] cursor-pointer",
         variant === "glass" && "surface-glass bg-card/70 shadow-none",

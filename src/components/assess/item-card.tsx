@@ -44,7 +44,7 @@ export function ItemCard({
 
   return (
     <div
-      className="rounded-2xl border p-6 sm:p-8 lg:p-10 shadow-[0_0_40px_-8px_color-mix(in_srgb,var(--brand-primary,hsl(var(--primary)))_15%,transparent)] dark:shadow-none"
+      className="rounded-2xl border p-6 sm:p-8 lg:p-10 shadow-[0_0_40px_-8px_color-mix(in_srgb,var(--brand-primary,hsl(var(--primary)))_15%,transparent)]"
       style={{
         background: "var(--brand-neutral-50, hsl(var(--card)))",
         borderColor: "var(--brand-neutral-200, hsl(var(--border)))",

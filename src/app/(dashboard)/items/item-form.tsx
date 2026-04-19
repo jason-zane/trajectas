@@ -337,7 +337,7 @@ export function ItemForm({
                   {purpose === "infrequency" && <AlertTriangle className="size-4 text-amber-600 shrink-0" />}
                   {purpose === "attention_check" && <Eye className="size-4 text-amber-600 shrink-0" />}
                   <div>
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                    <p className="text-sm font-medium text-amber-800">
                       {purposeOptions.find((p) => p.value === purpose)?.label} Item
                     </p>
                     <p className="text-xs text-muted-foreground">

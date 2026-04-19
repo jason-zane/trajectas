@@ -712,13 +712,13 @@ function Step2ReadinessCheck({
         </div>
       ) : preflightError ? (
         <>
-          <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-3 flex items-start gap-2">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex items-start gap-2">
             <AlertCircle className="size-4 shrink-0 text-red-600 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-xs font-medium text-red-700 dark:text-red-400">
+              <p className="text-xs font-medium text-red-700">
                 Readiness check failed
               </p>
-              <p className="text-xs text-red-700 dark:text-red-400">
+              <p className="text-xs text-red-700">
                 {preflightError}
               </p>
             </div>
@@ -757,10 +757,10 @@ function Step2ReadinessCheck({
                     variant="outline"
                     className={
                       isRed
-                        ? "text-red-600 border-red-200 dark:border-red-800"
+                        ? "text-red-600 border-red-200"
                         : isAmber
-                          ? "text-amber-600 border-amber-200 dark:border-amber-800"
-                          : "text-green-600 border-green-200 dark:border-green-800"
+                          ? "text-amber-600 border-amber-200"
+                          : "text-green-600 border-green-200"
                     }
                   >
                     {isRed ? "At risk" : isAmber ? "Review" : "Ready"}
@@ -776,9 +776,9 @@ function Step2ReadinessCheck({
                 className={[
                   "rounded-lg p-3 flex items-center gap-2 border",
                   overallStatus === "red"
-                    ? "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800"
+                    ? "bg-red-50 border-red-200"
                     : overallStatus === "amber"
-                      ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                      ? "bg-amber-50 border-amber-200"
                       : "bg-primary/5 border-primary/20",
                 ].join(" ")}
               >
@@ -796,9 +796,9 @@ function Step2ReadinessCheck({
                   className={[
                     "text-sm font-medium",
                     overallStatus === "red"
-                      ? "text-red-700 dark:text-red-400"
+                      ? "text-red-700"
                       : overallStatus === "amber"
-                        ? "text-amber-700 dark:text-amber-400"
+                        ? "text-amber-700"
                         : "text-primary",
                   ].join(" ")}
                 >
@@ -889,10 +889,10 @@ function Step2ReadinessCheck({
                               variant="outline"
                               className={
                                 pair.status === "red"
-                                  ? "border-red-200 text-red-700 dark:border-red-800 dark:text-red-400"
+                                  ? "border-red-200 text-red-700"
                                   : pair.status === "amber"
-                                    ? "border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400"
-                                    : "border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
+                                    ? "border-amber-200 text-amber-700"
+                                    : "border-green-200 text-green-700"
                               }
                             >
                               {pair.status === "red" ? "At risk" : pair.status === "amber" ? "Refine" : "Distinct"}
@@ -918,12 +918,12 @@ function Step2ReadinessCheck({
                                       </Badge>
                                     </div>
                                     {mapping.knownFacetMatch && (
-                                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                                      <p className="text-xs text-amber-600">
                                         Covered by NEO-PI-R: {mapping.knownFacetMatch}
                                       </p>
                                     )}
                                     {mapping.intersectionDomains && mapping.intersectionDomains.length >= 2 && (
-                                      <p className="text-xs text-green-600 dark:text-green-400">
+                                      <p className="text-xs text-green-600">
                                         Novel intersection: {mapping.intersectionDomains.join(" + ")}
                                       </p>
                                     )}
@@ -1028,10 +1028,10 @@ function Step2ReadinessCheck({
                               variant="outline"
                               className={
                                 status === "red"
-                                  ? "border-red-200 text-red-700 dark:border-red-800 dark:text-red-400"
+                                  ? "border-red-200 text-red-700"
                                   : status === "amber"
-                                    ? "border-amber-200 text-amber-700 dark:border-amber-800 dark:text-amber-400"
-                                    : "border-green-200 text-green-700 dark:border-green-800 dark:text-green-400"
+                                    ? "border-amber-200 text-amber-700"
+                                    : "border-green-200 text-green-700"
                               }
                             >
                               {status === "red" ? "At risk" : status === "amber" ? "Review" : "Ready"}
@@ -1087,8 +1087,8 @@ function Step2ReadinessCheck({
                         <AccordionPanel className="space-y-3 px-4 pb-4">
                           {refinementState[construct.id]?.analysis && (
                             <div className="space-y-3 mb-4">
-                              <div className="rounded-lg border border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30 p-3">
-                                <p className="text-overline text-indigo-600 dark:text-indigo-400 mb-1">AI Analysis</p>
+                              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3">
+                                <p className="text-overline text-indigo-600 mb-1">AI Analysis</p>
                                 <p className="text-sm text-foreground/80 leading-relaxed">{refinementState[construct.id]!.analysis}</p>
                               </div>
 
@@ -1100,7 +1100,7 @@ function Step2ReadinessCheck({
                                       <Button
                                         variant="outline"
                                         size="sm"
-                                        className="text-xs h-6 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                                        className="text-xs h-6 border-green-200 text-green-700 hover:bg-green-50"
                                         onClick={() => handleAcceptSuggestion(construct.id, suggestion.field, suggestion.suggested)}
                                       >
                                         Accept
@@ -1115,12 +1115,12 @@ function Step2ReadinessCheck({
                                       </Button>
                                     </div>
                                   </div>
-                                  <div className="rounded-t-md border border-b-0 border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20 p-2.5">
-                                    <span className="text-[10px] font-semibold text-red-600 dark:text-red-400">BEFORE</span>
+                                  <div className="rounded-t-md border border-b-0 border-red-200 bg-red-50/50 p-2.5">
+                                    <span className="text-[10px] font-semibold text-red-600">BEFORE</span>
                                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{suggestion.original}</p>
                                   </div>
-                                  <div className="rounded-b-md border border-green-200 bg-green-50/50 dark:border-green-800 dark:bg-green-950/20 p-2.5">
-                                    <span className="text-[10px] font-semibold text-green-600 dark:text-green-400">AFTER</span>
+                                  <div className="rounded-b-md border border-green-200 bg-green-50/50 p-2.5">
+                                    <span className="text-[10px] font-semibold text-green-600">AFTER</span>
                                     <p className="text-xs text-foreground/80 mt-1 leading-relaxed">{suggestion.suggested}</p>
                                   </div>
                                   <p className="text-xs text-muted-foreground italic">{suggestion.reason}</p>
@@ -1152,7 +1152,7 @@ function Step2ReadinessCheck({
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="text-xs h-7 border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/30"
+                                    className="text-xs h-7 border-green-200 text-green-700 hover:bg-green-50"
                                     onClick={() => handleAcceptAll(construct.id)}
                                   >
                                     Accept all suggestions
@@ -1163,9 +1163,9 @@ function Step2ReadinessCheck({
                           )}
 
                           {refinementState[construct.id]?.error && (
-                            <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-3 mb-4 flex items-start gap-2">
+                            <div className="rounded-lg border border-red-200 bg-red-50 p-3 mb-4 flex items-start gap-2">
                               <AlertCircle className="size-4 shrink-0 text-red-600 mt-0.5" />
-                              <p className="text-xs text-red-700 dark:text-red-400">{refinementState[construct.id]!.error}</p>
+                              <p className="text-xs text-red-700">{refinementState[construct.id]!.error}</p>
                             </div>
                           )}
 
@@ -1384,7 +1384,7 @@ function Step3Configure({
               filters redundant items automatically.
             </p>
           ) : (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
+            <p className="text-xs text-amber-600">
               This model does not support temperature adjustment.
             </p>
           )}
@@ -1448,9 +1448,9 @@ function Step3Configure({
             Items will be linked to this response format when accepted into the library.
           </p>
           {!config.responseFormatId && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 dark:border-amber-800 dark:bg-amber-950/30">
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
               <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
-              <p className="text-xs text-amber-700 dark:text-amber-400">
+              <p className="text-xs text-amber-700">
                 Without a response format, generated items cannot be accepted into the library.
                 You can still review them but won&apos;t be able to save them.
               </p>

@@ -126,7 +126,7 @@ export function AssessmentCanvas({
           {ruleInfo && ruleInfo.shortfalls.length > 0 && (
             <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
               <AlertTriangle className="size-3.5 mt-0.5 shrink-0 text-amber-600" />
-              <div className="text-xs text-amber-800 dark:text-amber-400">
+              <div className="text-xs text-amber-800">
                 <p className="font-medium">
                   {ruleInfo.shortfalls.length}{" "}
                   {ruleInfo.shortfalls.length === 1

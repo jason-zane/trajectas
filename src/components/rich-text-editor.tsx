@@ -94,7 +94,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          'min-h-[120px] px-3 py-2 text-sm text-foreground outline-none prose prose-sm dark:prose-invert max-w-none',
+          'min-h-[120px] px-3 py-2 text-sm text-foreground outline-none prose prose-sm max-w-none',
       },
     },
   })

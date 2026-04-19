@@ -13,7 +13,6 @@ export {
   hexToOklch,
   oklchToHex,
   generateCSSTokens,
-  generateDarkCSSTokens,
   generatePDFStyles,
   generateEmailStyles,
 } from './tokens'
