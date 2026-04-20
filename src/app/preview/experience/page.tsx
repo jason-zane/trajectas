@@ -407,7 +407,6 @@ function RunnerPreview({
 }: {
   content: {
     backButtonLabel?: string
-    continueButtonLabel?: string
     saveStatusIdle?: string
     footerText?: string
   }
@@ -415,10 +414,23 @@ function RunnerPreview({
   brandName?: string
   isCustomBrand?: boolean
 }) {
+  // Mirrors the real runner (SectionWrapper + ItemCard + LikertResponse):
+  // header with brand logo + Back, progress bar, assessment name label,
+  // question card with horizontal Likert options, footer with save status.
+  const likertOptions = [
+    "Strongly disagree",
+    "Disagree",
+    "Neutral",
+    "Agree",
+    "Strongly agree",
+  ]
+  const selectedIdx = 2
+
   return (
     <div className="flex min-h-dvh flex-col">
+      {/* Header */}
       <header
-        className="flex h-14 items-center justify-between px-4 sm:px-6"
+        className="sticky top-0 z-10 flex h-14 items-center justify-between px-4 sm:px-6"
         style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
       >
         <div className="flex items-center gap-2.5">
@@ -438,105 +450,106 @@ function RunnerPreview({
             </span>
           )}
         </div>
-        <span
-          className="font-mono text-xs"
-          style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5"
+          style={{ color: "var(--brand-text-muted, hsl(var(--muted-foreground)))" }}
         >
-          {content.saveStatusIdle ?? "Responses saved automatically"}
-        </span>
+          ← {content.backButtonLabel ?? "Back"}
+        </button>
       </header>
 
+      {/* Progress bar */}
       <div
         className="h-1 w-full"
         style={{ background: "var(--brand-neutral-200, hsl(var(--border)))" }}
       >
         <div
-          className="h-full"
-          style={{ width: "45%", background: "var(--brand-primary, hsl(var(--primary)))" }}
+          className="h-full transition-all"
+          style={{
+            width: "35%",
+            background: "var(--brand-primary, hsl(var(--primary)))",
+          }}
         />
       </div>
 
-      <main className="flex flex-1 flex-col items-center px-4 py-12 sm:px-6">
-        <div className="w-full max-w-[640px] space-y-8">
-          <div className="space-y-2">
+      {/* Main content — centred item card */}
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
+        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px]">
+          <p
+            className="mb-8 text-xs font-medium uppercase tracking-widest"
+            style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
+          >
+            Leadership &amp; Influence
+          </p>
+
+          <div
+            className="rounded-2xl border p-6 sm:p-8 lg:p-10 shadow-[0_0_40px_-8px_color-mix(in_srgb,var(--brand-primary,hsl(var(--primary)))_15%,transparent)]"
+            style={{
+              background: "var(--brand-neutral-50, hsl(var(--card)))",
+              borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
+            }}
+          >
             <p
-              className="font-mono text-xs uppercase tracking-[0.18em]"
-              style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
-            >
-              Section 1 of 3 · Item 4 of 10
-            </p>
-            <h2
-              className="font-sans text-[clamp(1.25rem,2.5vw,1.6rem)] font-semibold leading-snug"
+              className="mb-6 min-h-[4rem] text-lg leading-relaxed sm:text-xl sm:leading-relaxed"
               style={{
                 color: "var(--brand-text, hsl(var(--foreground)))",
                 fontFamily: "var(--brand-font-heading, inherit)",
               }}
             >
               I enjoy taking the lead when a group needs direction.
-            </h2>
-          </div>
-          <div className="space-y-3">
-            {["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"].map(
-              (label, idx) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-colors hover:bg-[var(--brand-neutral-100,hsl(var(--muted)))]"
-                  style={{
-                    borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-                    color: "var(--brand-text, hsl(var(--foreground)))",
-                    borderRadius: "var(--brand-radius-md)",
-                    background:
-                      idx === 2
-                        ? "var(--brand-primary-subtle, transparent)"
-                        : "transparent",
-                  }}
-                >
-                  <span
-                    className="flex size-5 items-center justify-center rounded-full border"
-                    style={{ borderColor: "var(--brand-neutral-300, hsl(var(--border)))" }}
-                  >
-                    {idx === 2 && (
-                      <span
-                        className="size-2.5 rounded-full"
-                        style={{ background: "var(--brand-primary, hsl(var(--primary)))" }}
-                      />
-                    )}
-                  </span>
-                  {label}
-                </button>
-              ),
-            )}
-          </div>
+            </p>
 
-          <div className="flex items-center justify-between pt-4">
-            <button
-              type="button"
-              className="text-sm font-medium text-muted-foreground hover:underline"
-            >
-              ← {content.backButtonLabel ?? "Back"}
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-10 items-center justify-center rounded-md px-5 text-sm font-medium"
-              style={{
-                background: "var(--brand-primary, hsl(var(--primary)))",
-                color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-              }}
-            >
-              {content.continueButtonLabel ?? "Continue"}
-            </button>
+            {/* Likert grid — vertical on mobile, 5 columns on desktop */}
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-5">
+              {likertOptions.map((label, idx) => {
+                const isSelected = idx === selectedIdx
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    className={cn(
+                      "grid min-h-[56px] place-items-center rounded-xl border-2 px-3 py-3 text-sm font-medium transition-all",
+                      isSelected ? "scale-[1.02]" : "hover:scale-[1.01]",
+                    )}
+                    style={{
+                      borderColor: isSelected
+                        ? "var(--brand-primary, hsl(var(--primary)))"
+                        : "var(--brand-neutral-200, hsl(var(--border)))",
+                      background: isSelected
+                        ? "var(--brand-surface, hsl(var(--primary) / 0.08))"
+                        : "transparent",
+                      color: isSelected
+                        ? "var(--brand-primary, hsl(var(--primary)))"
+                        : "var(--brand-text, hsl(var(--foreground)))",
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         </div>
       </main>
 
-      <footer className="flex items-center justify-center gap-3 px-4 py-4">
+      {/* Footer — status dot + save message */}
+      <footer className="flex items-center justify-center gap-2 px-4 py-4">
+        <span className="inline-block size-1.5 rounded-full bg-emerald-400/60" />
         <span
           className="text-xs"
-          style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          style={{ color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))" }}
         >
-          {content.footerText ?? (isCustomBrand ? "Powered by Trajectas" : "Trajectas")}
+          {content.saveStatusIdle ?? "Responses saved automatically"}
         </span>
+        {isCustomBrand && (
+          <span
+            className="ml-4 text-xs"
+            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          >
+            {content.footerText ?? "Powered by Trajectas"}
+          </span>
+        )}
       </footer>
     </div>
   )
