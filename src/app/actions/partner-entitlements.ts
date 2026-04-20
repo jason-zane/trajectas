@@ -286,6 +286,11 @@ export async function togglePartnerBranding(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/partners')
+  // Layout-scoped revalidation. Partner branding cascades to the partner's
+  // clients (see isClientBrandingEnabled), so flipping it must invalidate the
+  // client portal too — not just the admin /partners tree and the partner portal.
+  revalidatePath('/partners', 'layout')
+  revalidatePath('/partner', 'layout')
+  revalidatePath('/client', 'layout')
   return { success: true, id: partnerId }
 }
