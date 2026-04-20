@@ -1,9 +1,7 @@
-import { getCampaignById, getFavoriteCampaignIds } from "@/app/actions/campaigns";
+import { getCampaignHeader, getFavoriteCampaignIds } from "@/app/actions/campaigns";
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
-import { requireCampaignAccess } from "@/lib/auth/authorization";
 import { notFound } from "next/navigation";
 import { CampaignDetailShell } from "@/app/(dashboard)/campaigns/[id]/campaign-detail-shell";
-import { createAdminClient } from "@/lib/supabase/admin";
 
 export default async function ClientCampaignDetailLayout({
   children,
@@ -13,10 +11,13 @@ export default async function ClientCampaignDetailLayout({
   params: Promise<{ id: string }>;
 }) {
   const { clientId } = await resolveClientOrg("/client/campaigns");
-
   const { id } = await params;
-  await requireCampaignAccess(id);
-  const campaign = await getCampaignById(id);
+
+  const [campaign, favoriteIds] = await Promise.all([
+    getCampaignHeader(id),
+    getFavoriteCampaignIds(),
+  ]);
+
   if (!campaign) notFound();
 
   // Security: verify campaign belongs to the active client
@@ -24,18 +25,8 @@ export default async function ClientCampaignDetailLayout({
     notFound();
   }
 
-  let canCustomizeBranding = false;
-  if (campaign.clientId) {
-    const db = createAdminClient();
-    const { data } = await db
-      .from("clients")
-      .select("can_customize_branding")
-      .eq("id", campaign.clientId)
-      .single();
-    canCustomizeBranding = data?.can_customize_branding ?? false;
-  }
-
-  const favoriteIds = await getFavoriteCampaignIds();
+  // No client → no branding customisation on the client portal.
+  const canCustomizeBranding = campaign.clientCanCustomizeBranding ?? false;
 
   return (
     <CampaignDetailShell

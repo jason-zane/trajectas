@@ -1,4 +1,4 @@
-import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignHeader } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignSettingsToggles } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-settings-toggles";
@@ -10,7 +10,7 @@ export default async function ClientCampaignSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaignById(id);
+  const campaign = await getCampaignHeader(id);
   if (!campaign) notFound();
 
   return (

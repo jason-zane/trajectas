@@ -348,8 +348,15 @@ export async function getSessionState(token: string, sessionId: string) {
   if (error || !session) return { error: 'Session not found' }
 
   // Fan out all queries that depend only on session.assessment_id / session.campaign_id
-  // in parallel. Previously these ran sequentially (4+ round-trips).
-  const [sectionResult, campaignAssessmentResult, assessmentFactorsResult, assessmentMetaResult] =
+  // / sessionId in parallel. Previously participant_responses ran serially after
+  // the construct-filter work despite being fully independent.
+  const [
+    sectionResult,
+    campaignAssessmentResult,
+    assessmentFactorsResult,
+    assessmentMetaResult,
+    responsesResult,
+  ] =
     await Promise.all([
       db
         .from('assessment_sections')
@@ -380,6 +387,10 @@ export async function getSessionState(token: string, sessionId: string) {
         .select('scoring_level')
         .eq('id', session.assessment_id)
         .single(),
+      db
+        .from('participant_responses')
+        .select('item_id, response_value, response_data')
+        .eq('session_id', sessionId),
     ])
 
   const { data: sectionRows, error: sectionRowsError } = sectionResult
@@ -571,12 +582,7 @@ export async function getSessionState(token: string, sessionId: string) {
   // Filter out sections that have no items after factor filtering
   .filter(s => s.items.length > 0)
 
-  // Load existing responses
-  const { data: responseRows, error: responseRowsError } = await db
-    .from('participant_responses')
-    .select('item_id, response_value, response_data')
-    .eq('session_id', sessionId)
-
+  const { data: responseRows, error: responseRowsError } = responsesResult
   if (responseRowsError) {
     logActionError('getSessionState.responses', responseRowsError)
     return { error: 'Unable to load this assessment right now' }

@@ -50,6 +50,19 @@ export type CampaignDetail = Campaign & {
   clientName?: string
 }
 
+// Lightweight header used by campaign shells and tabs that don't need the
+// nested participants/assessments/accessLinks arrays. Sourced from the
+// campaigns_with_counts view so counts are inlined in a single query.
+export type CampaignHeader = Campaign & {
+  clientName?: string
+  // null when the campaign has no client (platform-owned); otherwise the raw
+  // flag from clients.can_customize_branding. Callers apply their own default.
+  clientCanCustomizeBranding: boolean | null
+  participantCount: number
+  completedCount: number
+  assessmentCount: number
+}
+
 export type OperationalClientCampaign = CampaignWithMeta & {
   accessLinks: CampaignAccessLink[]
   primaryAccessLink?: CampaignAccessLink
@@ -83,14 +96,6 @@ export type BulkInviteEmailFailure = {
   participantId: string
   email: string
   error: string
-}
-
-type EmbeddedClientNameRow = {
-  name?: string | null
-}
-
-type CampaignLookupRow = Record<string, unknown> & {
-  clients?: EmbeddedClientNameRow | EmbeddedClientNameRow[] | null
 }
 
 type EmbeddedAssessmentLookupRow = {
@@ -189,7 +194,17 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
   }))
 }
 
-async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
+type CampaignHeaderLookupRow = Record<string, unknown> & {
+  participant_count?: number | null
+  completed_count?: number | null
+  assessment_count?: number | null
+  clients?:
+    | { name?: string | null; can_customize_branding?: boolean | null }
+    | { name?: string | null; can_customize_branding?: boolean | null }[]
+    | null
+}
+
+async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null> {
   try {
     await requireCampaignAccess(id)
   } catch (error) {
@@ -201,15 +216,40 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
 
   const db = await createClient()
   const { data, error } = await db
-    .from('campaigns')
-    .select('*, clients(name)')
+    .from('campaigns_with_counts')
+    .select('*, clients(name, can_customize_branding)')
     .eq('id', id)
     .is('deleted_at', null)
     .single()
 
-  if (error) return null
+  if (error || !data) return null
 
-  const row = data as CampaignLookupRow
+  const row = data as CampaignHeaderLookupRow
+  const client = getEmbeddedLookupRow(row.clients)
+
+  return {
+    ...mapCampaignRow(row),
+    clientName: client?.name ?? undefined,
+    clientCanCustomizeBranding:
+      client && 'can_customize_branding' in client
+        ? client.can_customize_branding ?? null
+        : null,
+    participantCount: row.participant_count ?? 0,
+    completedCount: row.completed_count ?? 0,
+    assessmentCount: row.assessment_count ?? 0,
+  }
+}
+
+export const getCampaignHeader = cache(getCampaignHeaderImpl)
+
+async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
+  // Reuse the header fetch for the scalar campaign row + clientName. Since
+  // getCampaignHeader is cache()-wrapped, a preceding call from the layout
+  // shares the same result within this render — no extra round-trip.
+  const header = await getCampaignHeader(id)
+  if (!header) return null
+
+  const db = await createClient()
 
   // Load assessments, participants, and access links in parallel —
   // they are independent and previously ran sequentially.
@@ -239,9 +279,20 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
   const participantRows = participantResult.data
   const linkRows = linkResult.data
 
+  // Extract the Campaign scalars from the header; drop the counts/flags that
+  // aren't part of the CampaignDetail shape.
+  const {
+    clientCanCustomizeBranding: _ccb,
+    participantCount: _pc,
+    completedCount: _cc,
+    assessmentCount: _ac,
+    clientName,
+    ...campaign
+  } = header
+
   return {
-    ...mapCampaignRow(row),
-    clientName: getEmbeddedLookupRow(row.clients)?.name ?? undefined,
+    ...campaign,
+    clientName,
     assessments: (assessmentRows ?? []).map((r) => {
       const assessmentRow = r as CampaignAssessmentLookupRow
       const assessment = getEmbeddedLookupRow(assessmentRow.assessments)
