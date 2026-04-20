@@ -380,6 +380,7 @@ export function GlobalParticipants({
             defaultSort={{ id: "lastActivity", desc: true }}
             pageSize={25}
             enableRowSelection
+            getRowId={(row) => row.id}
             bulkActions={sessionsBulkActions}
           />
         </div>
