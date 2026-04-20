@@ -33,7 +33,21 @@ export async function WorkspaceShell({
     workspaceContextOptions,
     brandConfig,
     supportSessionInfo,
+    scope,
   } = bootstrap;
+
+  // Only client admins (and platform admins) see the Settings area in the
+  // client portal. Determined from the active client context; regular members
+  // don't get the footer entry.
+  const activeClientId =
+    scope.activeContext?.tenantType === "client"
+      ? scope.activeContext.tenantId ?? null
+      : null;
+  const canManageClientSettings =
+    portal === "client" &&
+    (scope.isPlatformAdmin ||
+      (activeClientId != null && scope.clientAdminIds.includes(activeClientId)) ||
+      (activeClientId == null && scope.clientAdminIds.length > 0));
   const dashboardCSS = generateDashboardCSS(brandConfig);
 
   if (supportSessionInfo && actor) {
@@ -60,7 +74,7 @@ export async function WorkspaceShell({
       {/* Brand CSS is generated server-side from sanitized config values */}
       <style dangerouslySetInnerHTML={{ __html: dashboardCSS }} />
       <SidebarProvider defaultOpen={sidebarDefaultOpen}>
-        <AppSidebar />
+        <AppSidebar canManageClientSettings={canManageClientSettings} />
         <SidebarInset>
           {supportSessionInfo && (
             <SupportSessionBanner

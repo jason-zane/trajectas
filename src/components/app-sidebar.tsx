@@ -178,7 +178,10 @@ const settingsNav: NavSection[] = [
 const clientSettingsNav: NavSection[] = [
   {
     label: "Settings",
-    items: [{ title: "Brand", href: "/settings/brand/client", icon: Palette }],
+    items: [
+      { title: "Brand", href: "/settings/brand", icon: Palette },
+      { title: "Team", href: "/settings/team", icon: Users },
+    ],
   },
 ];
 
@@ -195,7 +198,11 @@ const navByPortal: Record<PortalType, NavSection[]> = {
   client: clientNav,
 };
 
-export function AppSidebar() {
+export function AppSidebar({
+  canManageClientSettings = false,
+}: {
+  canManageClientSettings?: boolean;
+}) {
   const pathname = usePathname();
   const { portal, href } = usePortal();
   const config = portalConfig[portal];
@@ -335,17 +342,17 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarFooter>
       )}
-      {portal === "client" && !isSettingsArea && (
+      {portal === "client" && !isSettingsArea && canManageClientSettings && (
         <SidebarFooter className="px-3 pb-3">
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={isSettingsArea}
-                tooltip="Brand Settings"
-                render={<Link href={href("/settings/brand/client")} />}
+                tooltip="Settings"
+                render={<Link href={href("/settings/brand")} />}
               >
-                <Palette className="size-4" />
-                <span>Brand Settings</span>
+                <Settings className="size-4" />
+                <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

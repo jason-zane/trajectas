@@ -237,7 +237,7 @@ export async function upsertBrandConfig(
 
   revalidatePath('/settings/brand')
   if (ownerType === 'client') {
-    revalidatePath('/client/settings/brand/client')
+    revalidatePath('/client/settings/brand')
   }
   if (ownerType === 'partner') {
     revalidatePath('/partners')
@@ -302,7 +302,7 @@ export async function resetBrandToDefault(
 
   revalidatePath('/settings/brand')
   if (ownerType === 'client') {
-    revalidatePath('/client/settings/brand/client')
+    revalidatePath('/client/settings/brand')
   }
   if (ownerType === 'partner') {
     revalidatePath('/partners')

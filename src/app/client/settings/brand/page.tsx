@@ -11,7 +11,7 @@ import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/cli
 
 export default async function ClientPortalBrandPage() {
   const [{ clientId }, scope] = await Promise.all([
-    resolveClientOrg("/client/settings/brand/client"),
+    resolveClientOrg("/client/settings/brand"),
     resolveAuthorizedScope(),
   ])
 
