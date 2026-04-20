@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, FileBarChart, Mail, Plus, Trash2, Upload } from "lucide-react";
+import { FileBarChart, Link2, Mail, Plus, Trash2, Upload } from "lucide-react";
 
 import {
   bulkInviteParticipants,
@@ -417,7 +417,7 @@ export function CampaignParticipantManager({
             title="Copy assessment link"
             onClick={() => copyLink(row.original.accessToken)}
           >
-            <Copy className="size-4" />
+            <Link2 className="size-4" />
           </Button>
           <Button
             size="icon-sm"
