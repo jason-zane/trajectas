@@ -420,6 +420,49 @@ export async function toggleReportTemplateActive(
   revalidatePath('/partner/report-templates')
 }
 
+/**
+ * Flip a template's default flag. Default templates auto-attach to every
+ * campaign across the platform — when turning ON, we also backfill into all
+ * existing non-deleted campaigns so the flag applies retroactively.
+ */
+export async function toggleReportTemplateDefault(
+  id: string,
+  isDefault: boolean,
+): Promise<void> {
+  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
+  if (typeof isDefault !== 'boolean') throw new Error('isDefault must be a boolean')
+  await requireReportTemplateAccess(id, { forWrite: true })
+  const db = createAdminClient()
+
+  const { error } = await db
+    .from('report_templates')
+    .update({ is_default: isDefault })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+
+  if (isDefault) {
+    const { data: campaigns } = await db
+      .from('campaigns')
+      .select('id')
+      .is('deleted_at', null)
+    const rows = (campaigns ?? []).map((c) => ({
+      campaign_id: (c as { id: string }).id,
+      template_id: id,
+      sort_order: 0,
+    }))
+    if (rows.length > 0) {
+      await db
+        .from('campaign_report_templates')
+        .upsert(rows, { onConflict: 'campaign_id,template_id' })
+    }
+  }
+
+  revalidatePath('/report-templates')
+  revalidatePath(`/report-templates/${id}/builder`)
+  revalidatePath('/partner/report-templates')
+  revalidatePath(`/partner/report-templates/${id}/builder`)
+}
+
 // ---------------------------------------------------------------------------
 // Campaign Report Templates
 // ---------------------------------------------------------------------------

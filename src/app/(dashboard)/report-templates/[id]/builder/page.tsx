@@ -37,6 +37,7 @@ export default async function BlockBuilderPage({ params }: Props) {
       initialUsage={usage}
       campaigns={campaigns}
       templateSettings={templateSettings}
+      initialIsDefault={template.isDefault}
       promptOptions={promptOptions}
     />
   )
