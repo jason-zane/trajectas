@@ -218,7 +218,7 @@ DROP POLICY IF EXISTS org_diag_profiles_select_client ON org_diagnostic_profiles
 CREATE POLICY org_diag_profiles_select_client ON org_diagnostic_profiles
     FOR SELECT TO authenticated USING (
         is_platform_admin()
-        OR client_id = auth_user_organization_id()
+        OR client_id = auth_user_client_id()
         OR client_id IN (
             SELECT c.id FROM clients c
             WHERE c.partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid())
@@ -314,7 +314,7 @@ DROP POLICY IF EXISTS client_roles_select_client ON client_roles;
 CREATE POLICY client_roles_select_client ON client_roles
     FOR SELECT TO authenticated USING (
         is_platform_admin()
-        OR client_id = auth_user_organization_id()
+        OR client_id = auth_user_client_id()
         OR client_id IN (
             SELECT c.id FROM clients c
             WHERE c.partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid())
@@ -465,7 +465,7 @@ DROP POLICY IF EXISTS org_diag_campaigns_select_client ON org_diagnostic_campaig
 CREATE POLICY org_diag_campaigns_select_client ON org_diagnostic_campaigns
     FOR SELECT TO authenticated USING (
         is_platform_admin()
-        OR client_id = auth_user_organization_id()
+        OR client_id = auth_user_client_id()
         OR client_id IN (
             SELECT c.id FROM clients c
             WHERE c.partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid())
@@ -490,7 +490,7 @@ CREATE POLICY org_diag_tracks_select_via_campaign ON org_diagnostic_campaign_tra
             WHERE c.id = campaign_id
               AND (
                   is_platform_admin()
-                  OR c.client_id = auth_user_organization_id()
+                  OR c.client_id = auth_user_client_id()
                   OR c.client_id IN (
                       SELECT cl.id FROM clients cl
                       WHERE cl.partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid())

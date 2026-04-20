@@ -343,7 +343,7 @@ All five new tables have RLS enabled. Policies mirror the existing `campaigns` /
 
 ### 4.1 Helpers
 
-The existing helper functions are sufficient: `is_platform_admin()`, `auth_user_organization_id()` (which is in fact "auth user's client id" post the rename in migration 00068), and the partner_id lookup pattern via `profiles`.
+The existing helper functions are sufficient: `is_platform_admin()`, `auth_user_client_id()`, and the partner_id lookup pattern via `profiles`. (Note: `auth_user_client_id` was renamed from `auth_user_organization_id` in migration 00068; the new name is canonical.)
 
 ### 4.2 Policies
 
@@ -356,7 +356,7 @@ CREATE POLICY <table>_all_platform_admin ON <table>
 ```
 
 **Client members: scoped read of their own client's rows.**
-- For tables with a direct `client_id`: `client_id = auth_user_organization_id()`
+- For tables with a direct `client_id`: `client_id = auth_user_client_id()`
 - For tables that reference a client transitively (e.g., `org_diagnostic_respondents` → `org_diagnostic_campaigns.client_id`): policy uses an EXISTS subquery against the parent.
 
 **Important exception for anonymity (§1.6):** client members must NOT be able to read `org_diagnostic_respondents` rows. They can read aggregate counts via `org_diagnostic_profiles.respondent_count_by_type`, but the per-respondent table is platform-admin-only.
