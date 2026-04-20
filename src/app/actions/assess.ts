@@ -21,6 +21,20 @@ import {
   mapCampaignAssessmentRow,
 } from '@/lib/supabase/mappers'
 import { enqueueAssessmentCompletedEvent } from '@/lib/integrations/events'
+import {
+  validateAccessTokenInputSchema,
+  getAssessmentItemCountInputSchema,
+  startSessionInputSchema,
+  getSessionStateInputSchema,
+  saveResponseInputSchema,
+  updateSessionProgressInputSchema,
+  saveResponseLiteInputSchema,
+  updateSessionProgressLiteInputSchema,
+  submitSessionInputSchema,
+  triggerReportGenerationInputSchema,
+  getParticipantReportSnapshotInputSchema,
+  registerViaLinkInputSchema,
+} from '@/lib/validations/assess'
 import type { SubmitSessionResult } from '@/lib/assess/session-processing'
 import type {
   Campaign,
@@ -140,6 +154,11 @@ type SnapshotStatusRow = {
 async function validateAccessTokenImpl(
   token: string,
 ): Promise<{ data?: TokenValidationResult; error?: string }> {
+  const parsed = validateAccessTokenInputSchema.safeParse({ token })
+  if (!parsed.success) {
+    return { error: 'Invalid or expired access link' }
+  }
+
   const db = createAdminClient()
 
   // Find participant by token
@@ -242,6 +261,9 @@ export const validateAccessToken = cache(validateAccessTokenImpl)
  * Used to compute estimated completion time on the welcome page.
  */
 export async function getAssessmentItemCount(assessmentIds: string[]): Promise<number> {
+  const parsed = getAssessmentItemCountInputSchema.safeParse({ assessmentIds })
+  if (!parsed.success) return 0
+
   if (assessmentIds.length === 0) return 0
   const db = createAdminClient()
   const { data: sections } = await db
@@ -267,6 +289,11 @@ export async function startSession(
   assessmentId: string,
   campaignId: string,
 ) {
+  const parsed = startSessionInputSchema.safeParse({ token, campaignParticipantId, assessmentId, campaignId })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   try {
     await requireParticipantRuntimeCampaignAssessmentAccess({
       token,
@@ -328,6 +355,11 @@ export async function startSession(
 }
 
 export async function getSessionState(token: string, sessionId: string) {
+  const parsed = getSessionStateInputSchema.safeParse({ token, sessionId })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   try {
     await requireParticipantRuntimeSessionAccess(token, sessionId)
   } catch (error) {
@@ -625,6 +657,11 @@ export async function saveResponse({
   responseData?: Record<string, unknown>
   responseTimeMs?: number
 }) {
+  const parsed = saveResponseInputSchema.safeParse({ token, sessionId, itemId, sectionId, responseValue, responseData, responseTimeMs })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   try {
     await requireParticipantRuntimeSessionAccess(token, sessionId)
   } catch (error) {
@@ -670,6 +707,11 @@ export async function updateSessionProgress(
     timeRemaining?: Record<string, number>
   },
 ) {
+  const parsed = updateSessionProgressInputSchema.safeParse({ token, sessionId, update })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
   try {
     access = await requireParticipantRuntimeSessionAccess(token, sessionId)
@@ -720,6 +762,11 @@ export async function saveResponseLite(input: {
   responseData?: Record<string, unknown>
   responseTimeMs?: number
 }) {
+  const parsed = saveResponseLiteInputSchema.safeParse(input)
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   const db = createAdminClient()
 
   const { data, error } = await db.rpc('save_response_for_session', {
@@ -751,6 +798,11 @@ export async function updateSessionProgressLite(
     itemIndex: number
   },
 ) {
+  const parsed = updateSessionProgressLiteInputSchema.safeParse({ token, sessionId, update })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   const db = createAdminClient()
 
   const { data, error } = await db.rpc('update_session_progress_for_session', {
@@ -1189,6 +1241,11 @@ export async function submitSession(
   token: string,
   sessionId: string,
 ): Promise<SubmitSessionResult> {
+  const parsed = submitSessionInputSchema.safeParse({ token, sessionId })
+  if (!parsed.success) {
+    return { ok: false, error: 'invalid_access', message: 'Invalid input' }
+  }
+
   let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
   try {
     access = await requireParticipantRuntimeSessionAccess(token, sessionId)
@@ -1288,6 +1345,11 @@ export async function submitSession(
 export async function triggerReportGeneration(
   sessionId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = triggerReportGenerationInputSchema.safeParse({ sessionId })
+  if (!parsed.success) {
+    return { ok: false, error: 'Invalid session ID' }
+  }
+
   const apiKey = process.env.INTERNAL_API_KEY
   if (!apiKey) {
     console.warn('[reports] INTERNAL_API_KEY not set — skipping auto-generation')
@@ -1342,6 +1404,9 @@ export async function getParticipantReportSnapshot(
   pdfStatus?: ReportPdfStatus
   errorMessage?: string
 } | null> {
+  const parsed = getParticipantReportSnapshotInputSchema.safeParse({ token, snapshotId })
+  if (!parsed.success) return null
+
   const result = await validateAccessToken(token)
   if (result.error || !result.data) return null
 
@@ -1426,6 +1491,11 @@ export async function registerViaLink(
     marketingConsent?: boolean
   },
 ) {
+  const parsed = registerViaLinkInputSchema.safeParse({ linkToken, email, firstName, lastName, jobTitle, company, marketingConsent })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
   const db = createAdminClient()
   const normalizedEmail = email.trim().toLowerCase()
   const normalizedFirstName = firstName.trim()
