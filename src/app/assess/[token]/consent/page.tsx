@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { validateAccessToken } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
-import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
@@ -24,21 +22,22 @@ export default async function ConsentPage({
   }
 
   const { campaign, participant } = result.data!;
-  const experience = await getCachedEffectiveExperience(campaign.id);
+
+  const [experience, brandConfig] = await Promise.all([
+    getCachedEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+  ]);
 
   const nextUrl = getNextFlowUrl(experience, "consent", token) ?? `/assess/${token}/section/0`;
 
-  // If consent is not enabled, skip to next page
   if (!isPageEnabled(experience, "consent")) {
     redirect(nextUrl);
   }
 
-  // If participant already consented, skip
   if (participant.consentGivenAt) {
     redirect(nextUrl);
   }
 
-  const brandConfig = await getCachedEffectiveBrand(campaign.clientId, campaign.id);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const rawContent = getPageContent(experience, "consent");
@@ -54,30 +53,20 @@ export default async function ConsentPage({
     footerText: interpolated.footerText ?? rawRunnerContent.footerText,
   };
 
-  const { css: brandCssText } = generateCSSTokens(brandConfig);
-
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // Brand CSS + Google Fonts <link> are injected by the token layout
+  // (src/app/assess/[token]/layout.tsx) and inherited here.
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: brandCssText }} />
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
-
-      <ConsentScreen
-        token={token}
-        participantId={participant.id}
-        brandLogoUrl={brandConfig.logoUrl}
-        brandName={brandConfig.name}
-        isCustomBrand={isCustomBrand}
-        content={content}
-        nextUrl={nextUrl}
-        privacyUrl={experience.privacyUrl}
-        termsUrl={experience.termsUrl}
-      />
-    </>
+    <ConsentScreen
+      token={token}
+      participantId={participant.id}
+      brandLogoUrl={brandConfig.logoUrl}
+      brandName={brandConfig.name}
+      isCustomBrand={isCustomBrand}
+      content={content}
+      nextUrl={nextUrl}
+      privacyUrl={experience.privacyUrl}
+      termsUrl={experience.termsUrl}
+    />
   );
 }
