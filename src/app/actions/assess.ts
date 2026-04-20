@@ -314,7 +314,9 @@ export async function startSession(
     return { error: 'Unable to start this assessment right now' }
   }
 
-  // Update participant status to in_progress
+  // Stamp started_at only on the first session — match on null so we catch
+  // both 'invited' and link-self-enrolled 'registered' participants without
+  // overwriting on subsequent session opens.
   await db
     .from('campaign_participants')
     .update({
@@ -322,7 +324,7 @@ export async function startSession(
       started_at: new Date().toISOString(),
     })
     .eq('id', campaignParticipantId)
-    .eq('status', 'invited')
+    .is('started_at', null)
 
   return { id: session.id }
 }
