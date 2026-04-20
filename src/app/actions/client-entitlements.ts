@@ -869,6 +869,11 @@ export async function toggleClientBranding(
 
   if (error) return { error: error.message }
 
-  revalidatePath('/clients')
+  // Layout-scoped revalidation so every cached page under the admin /clients
+  // tree AND the entire client portal re-renders with the new flag value.
+  // Without this, a client user sitting on /client/settings/brand continues to
+  // see "Brand customisation is not enabled" after the admin enables it.
+  revalidatePath('/clients', 'layout')
+  revalidatePath('/client', 'layout')
   return { success: true, id: clientId }
 }
