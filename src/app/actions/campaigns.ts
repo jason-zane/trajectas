@@ -51,15 +51,12 @@ export type CampaignDetail = Campaign & {
 }
 
 // Lightweight header used by campaign shells and tabs that don't need the
-// nested participants/assessments/accessLinks arrays. Sourced from the
-// campaigns_with_counts view so counts are inlined in a single query.
+// nested participants/assessments/accessLinks arrays.
 export type CampaignHeader = Campaign & {
   clientName?: string
   // null when the campaign has no client (platform-owned); otherwise the raw
   // flag from clients.can_customize_branding. Callers apply their own default.
   clientCanCustomizeBranding: boolean | null
-  participantCount: number
-  completedCount: number
   assessmentCount: number
 }
 
@@ -195,9 +192,6 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
 }
 
 type CampaignHeaderLookupRow = Record<string, unknown> & {
-  participant_count?: number | null
-  completed_count?: number | null
-  assessment_count?: number | null
   clients?:
     | { name?: string | null; can_customize_branding?: boolean | null }
     | { name?: string | null; can_customize_branding?: boolean | null }[]
@@ -215,16 +209,28 @@ async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null>
   }
 
   const db = await createClient()
-  const { data, error } = await db
-    .from('campaigns_with_counts')
-    .select('*, clients(name, can_customize_branding)')
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
 
-  if (error || !data) return null
+  // Two indexed parallel queries: primary-key campaign lookup + head-only
+  // count on campaign_assessments. Deliberately not using campaigns_with_counts
+  // view here — correlated subqueries + RLS rewrites can dominate the plan
+  // for single-row reads, which made tab navigation slower than before.
+  const [campaignResult, assessmentCountResult] = await Promise.all([
+    db
+      .from('campaigns')
+      .select('*, clients(name, can_customize_branding)')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single(),
+    db
+      .from('campaign_assessments')
+      .select('id', { count: 'exact', head: true })
+      .eq('campaign_id', id)
+      .is('deleted_at', null),
+  ])
 
-  const row = data as CampaignHeaderLookupRow
+  if (campaignResult.error || !campaignResult.data) return null
+
+  const row = campaignResult.data as CampaignHeaderLookupRow
   const client = getEmbeddedLookupRow(row.clients)
 
   return {
@@ -234,57 +240,53 @@ async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null>
       client && 'can_customize_branding' in client
         ? client.can_customize_branding ?? null
         : null,
-    participantCount: row.participant_count ?? 0,
-    completedCount: row.completed_count ?? 0,
-    assessmentCount: row.assessment_count ?? 0,
+    assessmentCount: assessmentCountResult.count ?? 0,
   }
 }
 
 export const getCampaignHeader = cache(getCampaignHeaderImpl)
 
 async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
-  // Reuse the header fetch for the scalar campaign row + clientName. Since
-  // getCampaignHeader is cache()-wrapped, a preceding call from the layout
-  // shares the same result within this render — no extra round-trip.
-  const header = await getCampaignHeader(id)
-  if (!header) return null
-
   const db = await createClient()
 
-  // Load assessments, participants, and access links in parallel —
-  // they are independent and previously ran sequentially.
-  const [assessmentResult, participantResult, linkResult] = await Promise.all([
-    db
-      .from('campaign_assessments')
-      .select(
-        '*, assessments(title, status, min_custom_factors, min_custom_constructs, scoring_level)',
-      )
-      .eq('campaign_id', id)
-      .is('deleted_at', null)
-      .order('display_order', { ascending: true }),
-    db
-      .from('campaign_participants')
-      .select('*, participant_sessions(id, status)')
-      .eq('campaign_id', id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false }),
-    db
-      .from('campaign_access_links')
-      .select('*')
-      .eq('campaign_id', id)
-      .order('created_at', { ascending: false }),
-  ])
+  // Kick off the header + three detail queries in a single parallel batch.
+  // getCampaignHeader is cache()-wrapped, so a preceding call from the layout
+  // is a free cache hit here. Detail queries only need the id, so they don't
+  // have to wait for the header to resolve.
+  const [header, assessmentResult, participantResult, linkResult] =
+    await Promise.all([
+      getCampaignHeader(id),
+      db
+        .from('campaign_assessments')
+        .select(
+          '*, assessments(title, status, min_custom_factors, min_custom_constructs, scoring_level)',
+        )
+        .eq('campaign_id', id)
+        .is('deleted_at', null)
+        .order('display_order', { ascending: true }),
+      db
+        .from('campaign_participants')
+        .select('*, participant_sessions(id, status)')
+        .eq('campaign_id', id)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false }),
+      db
+        .from('campaign_access_links')
+        .select('*')
+        .eq('campaign_id', id)
+        .order('created_at', { ascending: false }),
+    ])
+
+  if (!header) return null
 
   const assessmentRows = assessmentResult.data
   const participantRows = participantResult.data
   const linkRows = linkResult.data
 
-  // Extract the Campaign scalars from the header; drop the counts/flags that
-  // aren't part of the CampaignDetail shape.
+  // Extract the Campaign scalars from the header; drop the header-only extras
+  // that aren't part of the CampaignDetail shape.
   const {
     clientCanCustomizeBranding: _ccb,
-    participantCount: _pc,
-    completedCount: _cc,
     assessmentCount: _ac,
     clientName,
     ...campaign
