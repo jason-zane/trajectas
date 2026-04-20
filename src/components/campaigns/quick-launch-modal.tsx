@@ -223,10 +223,12 @@ export function QuickLaunchModal({
     ? successHrefPrefix.slice(0, -1)
     : successHrefPrefix;
 
+  // Quick launch is always 4 steps so the shape doesn't reshuffle partway
+  // through. Step 3 (Capabilities) renders an empty-state hint when the
+  // selected assessment has no factors to customise.
+  const capabilitiesStep = 3;
+  const inviteStep = 4;
   const hasFactors = state.assessmentFactors.length > 0;
-  const totalSteps = hasFactors ? 4 : 3;
-  const inviteStep = totalSteps;
-  const capabilitiesStep = hasFactors ? 3 : null;
 
   function reset() {
     setStep(1);
@@ -489,18 +491,12 @@ export function QuickLaunchModal({
     }
   }
 
-  const wizardSteps: ActionWizardStep[] = hasFactors
-    ? [
-        { id: "campaign", label: "Campaign" },
-        { id: "assessment", label: "Assessment" },
-        { id: "capabilities", label: "Capabilities" },
-        { id: "invite", label: "Invite" },
-      ]
-    : [
-        { id: "campaign", label: "Campaign" },
-        { id: "assessment", label: "Assessment" },
-        { id: "invite", label: "Invite" },
-      ];
+  const wizardSteps: ActionWizardStep[] = [
+    { id: "campaign", label: "Campaign" },
+    { id: "assessment", label: "Assessment" },
+    { id: "capabilities", label: "Capabilities" },
+    { id: "invite", label: "Invite" },
+  ];
 
   return (
     <ActionDialog
@@ -752,7 +748,7 @@ export function QuickLaunchModal({
             </div>
           )}
 
-          {step === capabilitiesStep && capabilitiesStep !== null && (
+          {step === capabilitiesStep && (
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
                 <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
@@ -762,24 +758,31 @@ export function QuickLaunchModal({
                 </div>
               </div>
 
-              <p className="text-sm text-muted-foreground">
-                By default, participants complete the full assessment. Toggle custom
-                selection to limit which capabilities are measured.
-              </p>
-
               {loadingFactors ? (
                 <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                   Loading capabilities...
                 </div>
+              ) : hasFactors ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    By default, participants complete the full assessment. Toggle
+                    custom selection to limit which capabilities are measured.
+                  </p>
+                  <CapabilitySelectionStep
+                    assessmentFactors={state.assessmentFactors}
+                    selectedFactorIds={state.selectedFactorIds}
+                    onSelectionChange={(factorIds) =>
+                      setState((s) => ({ ...s, selectedFactorIds: factorIds }))
+                    }
+                    itemSelectionRules={state.itemSelectionRules}
+                  />
+                </>
               ) : (
-                <CapabilitySelectionStep
-                  assessmentFactors={state.assessmentFactors}
-                  selectedFactorIds={state.selectedFactorIds}
-                  onSelectionChange={(factorIds) =>
-                    setState((s) => ({ ...s, selectedFactorIds: factorIds }))
-                  }
-                  itemSelectionRules={state.itemSelectionRules}
-                />
+                <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                  This assessment doesn&apos;t have factors to customise.
+                  Participants will complete it as authored — click Next to
+                  continue.
+                </div>
               )}
             </div>
           )}
