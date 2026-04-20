@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens } from "@/lib/brand/tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
-import { Button } from "@/components/ui/button"
 import {
   PreviewJoin,
   PreviewWelcome,
@@ -35,7 +33,6 @@ interface PagePreviewFrameProps {
   flowConfig: Partial<FlowConfig>
   customPageContent: Record<string, CustomPageContent>
   brandConfig?: BrandConfig | null
-  onPreviewFlow: () => void
 }
 
 const BUILT_IN_PAGES = new Set([
@@ -49,7 +46,6 @@ export function PagePreviewFrame({
   flowConfig,
   customPageContent,
   brandConfig,
-  onPreviewFlow,
 }: PagePreviewFrameProps) {
   const [mode, setMode] = useState<PreviewMode>("light")
 
@@ -134,30 +130,23 @@ export function PagePreviewFrame({
   return (
     <div className="flex flex-col gap-3 h-full">
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} /> }
-      {/* Mode toggle + Preview Flow button */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
-          {modes.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => setMode(m.value)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                mode === m.value
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-
-        <Button variant="outline" size="sm" onClick={onPreviewFlow} className="gap-1.5">
-          <Play className="size-3" />
-          Preview Flow
-        </Button>
+      {/* Mode toggle */}
+      <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 self-start">
+        {modes.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            onClick={() => setMode(m.value)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
+              mode === m.value
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {m.label}
+          </button>
+        ))}
       </div>
 
       {/* Phone frame */}

@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useCallback, useEffect } from "react"
 import { toast } from "sonner"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -291,11 +291,12 @@ export function FlowEditor({
       pageContent,
       flowConfig,
       customPageContent,
+      demographicsConfig,
       brandConfig: effectiveBrandConfig,
     }
     localStorage.setItem("tf-experience-preview", JSON.stringify(previewData))
     window.open("/preview/experience", "_blank")
-  }, [pageContent, flowConfig, customPageContent, effectiveBrandConfig])
+  }, [pageContent, flowConfig, customPageContent, demographicsConfig, effectiveBrandConfig])
 
   // --- Save ---
   async function handleSave() {
@@ -371,6 +372,15 @@ export function FlowEditor({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openFlowPreview}
+            className="gap-1.5"
+          >
+            <Play className="size-3.5" />
+            Preview Flow
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -467,7 +477,6 @@ export function FlowEditor({
                 flowConfig={flowConfig}
                 customPageContent={customPageContent}
                 brandConfig={effectiveBrandConfig}
-                onPreviewFlow={openFlowPreview}
               />
             </div>
           </div>
