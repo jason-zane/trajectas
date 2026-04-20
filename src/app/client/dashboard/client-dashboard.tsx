@@ -7,7 +7,6 @@ import {
   ArrowUpRight,
   CalendarDays,
   Star,
-  Users,
 } from "lucide-react";
 
 import type {
@@ -325,14 +324,7 @@ export function ClientDashboard({
             successHrefPrefix="/client/campaigns"
           />
           <Link
-            href={href("/participants?action=invite")}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            <Users className="size-4" />
-            Invite participants
-          </Link>
-          <Link
-            href={href("/participants?view=sessions")}
+            href={href("/participants")}
             className={buttonVariants({ variant: "outline" })}
           >
             <ArrowUpRight className="size-4" />
@@ -488,7 +480,7 @@ export function ClientDashboard({
             </h2>
           </div>
           <Link
-            href={href("/participants?view=sessions")}
+            href={href("/participants")}
             className={buttonVariants({ variant: "ghost", size: "sm" })}
           >
             All participants

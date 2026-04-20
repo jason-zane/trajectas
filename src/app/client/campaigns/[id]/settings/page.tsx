@@ -2,6 +2,7 @@ import { getCampaignById } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignSettingsToggles } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-settings-toggles";
+import { CampaignForm } from "@/app/(dashboard)/campaigns/campaign-form";
 
 export default async function ClientCampaignSettingsPage({
   params,
@@ -13,7 +14,15 @@ export default async function ClientCampaignSettingsPage({
   if (!campaign) notFound();
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-3xl space-y-8">
+      {/* Campaign details — name, slug, description, dates, delete */}
+      <CampaignForm
+        mode="edit"
+        campaign={campaign}
+        defaultClientId={campaign.clientId ?? undefined}
+        routePrefix="/client"
+      />
+
       {/* Timeline */}
       <Card>
         <CardHeader>
@@ -32,7 +41,7 @@ export default async function ClientCampaignSettingsPage({
         </CardContent>
       </Card>
 
-      {/* Toggle switches (Zone 1 -- immediate) */}
+      {/* Toggle switches (Zone 1 — immediate) */}
       <CampaignSettingsToggles
         campaignId={campaign.id}
         allowResume={campaign.allowResume}
