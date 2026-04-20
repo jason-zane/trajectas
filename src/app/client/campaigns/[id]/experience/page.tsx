@@ -2,8 +2,9 @@ import {
   getExperienceTemplate,
   getPlatformExperienceTemplate,
 } from "@/app/actions/experience";
-import { getPlatformBrand } from "@/app/actions/brand";
+import { getEffectiveBrand } from "@/app/actions/brand";
 import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignAssessmentIntros } from "@/app/actions/assessment-intro";
 import { requireCampaignAccess } from "@/lib/auth/authorization";
 import { notFound } from "next/navigation";
 import { FlowEditor } from "@/components/flow-editor";
@@ -24,14 +25,18 @@ export default async function ClientCampaignExperiencePage({
     notFound();
   }
 
-  const [campaignTemplate, platformTemplate, brandRecord, campaign] =
+  const [campaignTemplate, platformTemplate, campaign, campaignAssessments] =
     await Promise.all([
       getExperienceTemplate("campaign", id),
       getPlatformExperienceTemplate(),
-      getPlatformBrand(),
       getCampaignById(id),
+      getCampaignAssessmentIntros(id),
     ]);
 
+  // Resolve the effective brand for this campaign — client > partner > platform
+  // — so the preview renders with the client's actual colours and typography,
+  // not the platform defaults.
+  const brandConfig = await getEffectiveBrand(campaign?.clientId ?? null, id);
   const assessmentCount = campaign?.assessments.length ?? 0;
 
   return (
@@ -41,7 +46,8 @@ export default async function ClientCampaignExperiencePage({
         ownerType="campaign"
         ownerId={id}
         platformTemplate={platformTemplate}
-        brandConfig={brandRecord?.config ?? null}
+        brandConfig={brandConfig}
+        campaignAssessments={campaignAssessments}
         campaignAssessmentCount={assessmentCount}
       />
     </div>

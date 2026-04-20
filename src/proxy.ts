@@ -61,6 +61,14 @@ function isSharedAuthPath(pathname: string) {
   );
 }
 
+// Preview routes (/preview/*) are reached via window.open from the editor and
+// must load on the same origin that set the preview data in localStorage. They
+// render the same bundle everywhere — don't rewrite them into /client or
+// /partner prefixes.
+function isSharedPreviewPath(pathname: string) {
+  return pathname === "/preview" || pathname.startsWith("/preview/");
+}
+
 function redirectToSurface(
   request: NextRequest,
   surface: Surface,
@@ -322,7 +330,7 @@ export async function proxy(request: NextRequest) {
     (configuredSurface === "partner" || configuredSurface === "client") &&
     !isLocalDev
   ) {
-    if (isSharedAuthPath(pathname)) {
+    if (isSharedAuthPath(pathname) || isSharedPreviewPath(pathname)) {
       const response = NextResponse.next({
         request: {
           headers: forwardedHeaders,
