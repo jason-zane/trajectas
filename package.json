@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
+    "test:integration:local": "node scripts/run-integration-tests-local.mjs",
     "test:component": "vitest run tests/components",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",

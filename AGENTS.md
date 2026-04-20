@@ -49,3 +49,15 @@ Don't trust grep-archaeology of historical migrations. The current truth is in t
 ```sh
 docker exec supabase_db_trajectas-local psql -U postgres -d postgres -c "\d <table>"
 ```
+
+## Integration tests vs production
+
+`.env.local` points at the **production** Supabase project. The integration tests in `tests/integration/` read those env vars directly, so running `npm run test:integration` will create rows in production unless you override the env vars.
+
+**For any DB-touching integration work, use:**
+```sh
+npm run test:integration:local                              # all
+npm run test:integration:local -- tests/integration/foo.ts  # one file
+```
+
+This wraps vitest with the local Supabase env from `supabase status`. The script lives at `scripts/run-integration-tests-local.mjs`.
