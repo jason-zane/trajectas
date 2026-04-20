@@ -293,14 +293,34 @@ export function QuickLaunchModal({
     }
   }
 
-  function handleNext() {
-    if (step < totalSteps && canAdvance()) {
-      if (step === 2 && state.selectedAssessmentId && state.assessmentFactors.length === 0) {
-        void fetchFactorsForAssessment(state.selectedAssessmentId);
-      }
-      setSlideDirection("left");
-      setStep((currentStep) => (currentStep + 1) as WizardStep);
+  function selectAssessment(assessmentId: string) {
+    setState((currentState) => ({
+      ...currentState,
+      selectedAssessmentId: assessmentId,
+      selectedFactorIds: null,
+      assessmentFactors: [],
+      itemSelectionRules: [],
+    }));
+    // Prefetch factors so step 3 is ready by the time the user clicks Next.
+    void fetchFactorsForAssessment(assessmentId);
+  }
+
+  async function handleNext() {
+    if (!canAdvance()) return;
+
+    // Block the transition out of step 2 until factors have loaded, so step 3
+    // renders the Capabilities panel directly instead of flashing the Invite
+    // panel while the fetch resolves.
+    if (
+      step === 2 &&
+      state.selectedAssessmentId &&
+      state.assessmentFactors.length === 0
+    ) {
+      await fetchFactorsForAssessment(state.selectedAssessmentId);
     }
+
+    setSlideDirection("left");
+    setStep((currentStep) => Math.min(currentStep + 1, 4) as WizardStep);
   }
 
   function handleBack() {
@@ -660,15 +680,7 @@ export function QuickLaunchModal({
                         <button
                           key={assessment.id}
                           type="button"
-                          onClick={() =>
-                            setState((currentState) => ({
-                              ...currentState,
-                              selectedAssessmentId: assessment.id,
-                              selectedFactorIds: null,
-                              assessmentFactors: [],
-                              itemSelectionRules: [],
-                            }))
-                          }
+                          onClick={() => selectAssessment(assessment.id)}
                           className={cn(
                             "w-full rounded-lg border p-4 text-left transition-colors",
                             selected
