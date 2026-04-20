@@ -70,6 +70,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   complete: {
     heading: 'Thank You',
     body: 'Your assessment has been submitted successfully. You can safely close this page.',
+    redirectUrl: 'https://trajectas.com',
   },
 
   report: {

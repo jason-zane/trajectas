@@ -70,12 +70,30 @@ export const getCachedPlatformExperienceTemplate = unstable_cache(
 )
 
 /**
+ * Count active assessments attached to a campaign.
+ */
+async function getCampaignAssessmentCount(campaignId: string): Promise<number> {
+  const db = createAdminClient()
+  const { count } = await db
+    .from('campaign_assessments')
+    .select('*', { count: 'exact', head: true })
+    .eq('campaign_id', campaignId)
+    .is('deleted_at', null)
+  return count ?? 0
+}
+
+/**
  * Resolve the effective experience template for a campaign.
  *
  * Resolution order:
  * 1. Campaign-specific template (if exists)
  * 2. Platform default template
  * 3. Hardcoded defaults (fallback)
+ *
+ * Single-assessment default: the review step only adds value when participants
+ * can compare answers across multiple assessments. When a campaign has ≤ 1
+ * assessment and the campaign template has not explicitly customised
+ * review.enabled, default it to off.
  */
 export async function getEffectiveExperience(
   campaignId?: string | null
@@ -87,7 +105,21 @@ export async function getEffectiveExperience(
     campaign = await getExperienceTemplate('campaign', campaignId)
   }
 
-  return resolveTemplate(platform, campaign)
+  const resolved = resolveTemplate(platform, campaign)
+
+  if (campaignId) {
+    const explicitReviewOverride = campaign?.flowConfig?.review !== undefined
+    if (!explicitReviewOverride) {
+      const assessmentCount = await getCampaignAssessmentCount(campaignId)
+      const reviewBase = resolved.flowConfig.review ?? { enabled: true, order: 110 }
+      resolved.flowConfig = {
+        ...resolved.flowConfig,
+        review: { ...reviewBase, enabled: assessmentCount >= 2 },
+      }
+    }
+  }
+
+  return resolved
 }
 
 export const getCachedEffectiveExperience = unstable_cache(

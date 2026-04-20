@@ -1,7 +1,7 @@
 'use server'
 
 import { cache } from 'react'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -1074,6 +1074,9 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
   })
 
   revalidatePath(`/campaigns/${campaignId}`)
+  // Assessment count feeds into the effective experience (review step default),
+  // so invalidate the experience cache alongside the campaign pages.
+  revalidateTag('experience', 'max')
 }
 
 export async function removeAssessmentFromCampaign(campaignId: string, assessmentId: string) {
@@ -1111,6 +1114,7 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
   })
 
   revalidatePath(`/campaigns/${campaignId}`)
+  revalidateTag('experience', 'max')
 }
 
 export async function reorderCampaignAssessments(campaignId: string, orderedIds: string[]) {

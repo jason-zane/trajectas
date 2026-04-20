@@ -262,7 +262,7 @@ export function QuickLaunchModal({
       return campaignTitle.length > 0 && !scheduleError;
     }
     if (step === 2) {
-      return !!state.selectedAssessmentId && !loadingFactors;
+      return !!state.selectedAssessmentId;
     }
     if (step === capabilitiesStep) {
       return state.selectedFactorIds === null || state.selectedFactorIds.length > 0;

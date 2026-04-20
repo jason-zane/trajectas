@@ -3,6 +3,7 @@ import {
   getPlatformExperienceTemplate,
 } from "@/app/actions/experience";
 import { getPlatformBrand } from "@/app/actions/brand";
+import { getCampaignById } from "@/app/actions/campaigns";
 import { requireCampaignAccess } from "@/lib/auth/authorization";
 import { notFound } from "next/navigation";
 import { FlowEditor } from "@/components/flow-editor";
@@ -23,11 +24,15 @@ export default async function ClientCampaignExperiencePage({
     notFound();
   }
 
-  const [campaignTemplate, platformTemplate, brandRecord] = await Promise.all([
-    getExperienceTemplate("campaign", id),
-    getPlatformExperienceTemplate(),
-    getPlatformBrand(),
-  ]);
+  const [campaignTemplate, platformTemplate, brandRecord, campaign] =
+    await Promise.all([
+      getExperienceTemplate("campaign", id),
+      getPlatformExperienceTemplate(),
+      getPlatformBrand(),
+      getCampaignById(id),
+    ]);
+
+  const assessmentCount = campaign?.assessments.length ?? 0;
 
   return (
     <div className="flex-1 min-h-0">
@@ -37,6 +42,7 @@ export default async function ClientCampaignExperiencePage({
         ownerId={id}
         platformTemplate={platformTemplate}
         brandConfig={brandRecord?.config ?? null}
+        campaignAssessmentCount={assessmentCount}
       />
     </div>
   );

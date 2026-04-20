@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Copy, Power, Trash2, Link2 } from "lucide-react";
+import { Plus, Power, Trash2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,8 +124,9 @@ export function CampaignAccessLinks({
                     variant="ghost"
                     className="size-8"
                     onClick={() => copyUrl(link.token)}
+                    title="Copy link"
                   >
-                    <Copy className="size-3.5" />
+                    <Link2 className="size-3.5" />
                   </Button>
                 )}
                 <Button

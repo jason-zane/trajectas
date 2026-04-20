@@ -40,6 +40,12 @@ interface FlowEditorProps {
   brandConfig?: BrandConfig | null
   clients?: Array<{ id: string; name: string }>
   campaignAssessments?: CampaignAssessmentIntro[]
+  /**
+   * Count of active assessments attached to the campaign. Used to compute the
+   * default state of the review step (off when < 2) for campaigns that have
+   * not explicitly customised it.
+   */
+  campaignAssessmentCount?: number
 }
 
 type SaveState = "idle" | "saving" | "saved"
@@ -56,6 +62,7 @@ export function FlowEditor({
   brandConfig = null,
   clients,
   campaignAssessments,
+  campaignAssessmentCount,
 }: FlowEditorProps) {
   const isCampaign = ownerType === "campaign"
 
@@ -75,6 +82,19 @@ export function FlowEditor({
     : initialRecord?.flowConfig
       ? cloneDeep(initialRecord.flowConfig)
       : cloneDeep(DEFAULT_FLOW_CONFIG as Partial<FlowConfig>)
+
+  // Mirror the server-side single-assessment review default (see
+  // getEffectiveExperience): when a campaign has < 2 assessments and has not
+  // explicitly customised review, default the toggle to off. Once the user
+  // flips the toggle, the saved record carries review.enabled explicitly.
+  if (
+    isCampaign &&
+    typeof campaignAssessmentCount === "number" &&
+    initialRecord?.flowConfig?.review === undefined &&
+    initFlow.review
+  ) {
+    initFlow.review = { ...initFlow.review, enabled: campaignAssessmentCount >= 2 }
+  }
 
   const initDemo = resolved
     ? cloneDeep(resolved.demographicsConfig)

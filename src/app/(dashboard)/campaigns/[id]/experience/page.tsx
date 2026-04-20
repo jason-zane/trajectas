@@ -22,6 +22,8 @@ export default async function CampaignExperiencePage({
       getCampaignAssessmentIntros(id),
     ]);
 
+  const assessmentCount = campaign?.assessments.length ?? 0;
+
   const brandConfig = await getEffectiveBrand(
     campaign?.clientId ?? null,
     id
@@ -36,6 +38,7 @@ export default async function CampaignExperiencePage({
         platformTemplate={platformTemplate}
         brandConfig={brandConfig}
         campaignAssessments={campaignAssessments}
+        campaignAssessmentCount={assessmentCount}
       />
     </div>
   );

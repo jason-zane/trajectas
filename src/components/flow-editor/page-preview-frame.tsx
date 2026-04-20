@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens } from "@/lib/brand/tokens"
+import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import { Button } from "@/components/ui/button"
 import {
@@ -60,6 +61,15 @@ export function PagePreviewFrame({
       light[key] = val
     }
     return light
+  }, [brandConfig])
+
+  const fontsUrl = useMemo(() => {
+    if (!brandConfig) return null
+    return buildGoogleFontsUrl([
+      brandConfig.headingFont,
+      brandConfig.bodyFont,
+      brandConfig.monoFont,
+    ])
   }, [brandConfig])
 
   const isMobile = mode === "mobile"
@@ -123,6 +133,7 @@ export function PagePreviewFrame({
 
   return (
     <div className="flex flex-col gap-3 h-full">
+      {fontsUrl && <link rel="stylesheet" href={fontsUrl} /> }
       {/* Mode toggle + Preview Flow button */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
