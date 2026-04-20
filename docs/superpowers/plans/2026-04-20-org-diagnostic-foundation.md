@@ -12,6 +12,54 @@
 
 ---
 
+## Status: Foundation Complete (paused 2026-04-20)
+
+This plan was executed end-to-end on 2026-04-20. All six phases (A–F) are done. The foundation is live in production. Work is paused; the next workstream (item bank + scoring pipeline) is unstarted.
+
+### What landed
+
+**In production** (applied via the Supabase MCP — direct `db:push` was blocked by Network Restrictions on the dev IP):
+- 5 new tables: `org_diagnostic_campaigns`, `org_diagnostic_campaign_tracks`, `org_diagnostic_respondents`, `org_diagnostic_profiles`, `client_roles`
+- 8 new enum types (`org_diagnostic_*`, `client_role_status`)
+- RLS enabled on all five tables; the anonymity contract on `org_diagnostic_respondents` is enforced by deny-by-default (no client-member SELECT policy)
+- FK from `org_diagnostic_profiles.campaign_id` → `org_diagnostic_campaigns(id)` ON DELETE RESTRICT
+- Verified by direct schema query against production after deploy
+
+**On the `feat/org-diagnostics-foundation` branch** (14 commits, see `git log main..HEAD`):
+- All migration files
+- TypeScript types in `src/types/database.ts` (8 enum unions + 5 entity interfaces, all hand-maintained per project convention)
+- Validation library at `src/lib/org-diagnostic/validation.ts` + 19 unit tests
+- RLS verification tests at `tests/integration/org-diagnostic-rls.test.ts` (17 tests including 5 anonymity-contract assertions)
+- Constraint/lifecycle tests at `tests/integration/org-diagnostic-lifecycle.test.ts` (7 tests)
+- Baseline repair: renamed `00048` → `00079` (out-of-order enum value usage was breaking fresh `db:test:reset`); updated stale `seed.sql` references (`organizations` → `clients`, `name` → `title` on assessments)
+- New convenience: `npm run test:integration:local` (avoids accidentally hitting prod via `.env.local`)
+- New `AGENTS.md` "Naming Conventions" section documenting the rename history (`organizations` → `clients`, `auth_user_organization_id` → `auth_user_client_id`, `campaign_candidates` → `campaign_participants`) and the `org_*` adjective vs `client_*` scope distinction
+
+### Verification at pause
+
+- `npm run test:unit` — 293/293 pass
+- `npm run test:integration:local` — 79/79 pass
+- `npm run typecheck` — clean
+- `npm run lint` — 3 issues, all in pre-existing files unrelated to this work (`src/components/refresh-on-focus.tsx`, `src/app/client/dashboard/client-dashboard.tsx`, `scripts/audit-capture.mjs`); same issues exist on `main`
+- `npm run db:test:reset` — applies all 109 migrations + seed cleanly from a fresh DB
+
+### Known cosmetic divergences (non-blocking)
+
+- **Migration timestamp drift.** Local files have one set of timestamps (e.g. `20260420042012_org_diagnostic_enums.sql`); the production `schema_migrations` tracker has different timestamps (e.g. `20260420053024`) because the MCP applied them with apply-time stamps rather than file-name stamps. Functional impact: zero (all migrations are idempotent). If anyone runs `db:push` later, supabase will see local files as "new" and reapply them — they'll succeed as no-ops, leaving duplicate-name rows in `schema_migrations`. Aesthetic only.
+- **Local `00079` rename, production keeps `00048`.** The renamed seed migration is local-only convenience to make `db:test:reset` work. Production still tracks `00048`. Same idempotency guarantee.
+
+### Where to resume
+
+The architecture doc (`docs/architecture/2026-04-20-org-assessment-architecture.md`) frames this work as the foundation of the MVP. Six remaining MVP workstreams; the recommended next one is **Item bank schema + scoring pipeline** (see "Recommended next step" in the resumption note below).
+
+**Resumption note for the next session:**
+1. Read this plan's "Status" section and `docs/architecture/2026-04-20-org-assessment-architecture.md` for context.
+2. Check `AGENTS.md` "Naming Conventions" section before writing any new SQL — the codebase has rename traps.
+3. The next plan should cover: `org_dimensions` + `org_diagnostic_items` + `org_diagnostic_responses` tables, the actual 16-dimension content, ~64 OPS items, reverse-keyed flagging, and the scoring pipeline (defining the `org_diagnostic_profiles.data` JSONB shape that this foundation left as opaque). Brainstorm before planning.
+4. The Supabase MCP is the deploy path that worked from this dev IP; `npm run db:push` failed with Network Restrictions. Either get the IP allowlisted or continue using MCP.
+
+---
+
 ## Pre-flight
 
 Before starting any task, verify your local environment can run migrations and tests against a fresh DB:
