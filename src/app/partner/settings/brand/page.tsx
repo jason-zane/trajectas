@@ -1,6 +1,6 @@
 import { Building2 } from "lucide-react"
 import { notFound, redirect } from "next/navigation"
-import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
+import { getBrandConfig, getCachedPlatformBrand } from "@/app/actions/brand"
 import { canManagePartner, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
@@ -53,7 +53,7 @@ export default async function PartnerPortalBrandPage() {
 
   const [partnerRecord, platformRecord] = await Promise.all([
     getBrandConfig("partner", partnerId),
-    getPlatformBrand(),
+    getCachedPlatformBrand(),
   ])
 
   const inheritedBrand: BrandConfig =
