@@ -145,9 +145,11 @@ export type ClientAssessmentLibrarySummary = {
   quotaUsed: number
   quotaRemaining: number | null
   factorCount: number
+  constructCount: number
   sectionCount: number
   totalItemCount: number
   estimatedDurationMinutes: number
+  campaignCount: number
   updatedAt?: string
 }
 
@@ -184,20 +186,30 @@ export async function getClientAssessmentLibrary(
   )
 
   const db = createAdminClient()
-  const [assessmentResult, sectionResult] = await Promise.all([
-    db
-      .from('assessments')
-      .select(
-        'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
-      )
-      .in('id', assessmentIds)
-      .is('deleted_at', null)
-      .order('title', { ascending: true }),
-    db
-      .from('assessment_sections')
-      .select('assessment_id, assessment_section_items(count)')
-      .in('assessment_id', assessmentIds),
-  ])
+  const [assessmentResult, sectionResult, factorLinkResult, campaignLinkResult] =
+    await Promise.all([
+      db
+        .from('assessments')
+        .select(
+          'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
+        )
+        .in('id', assessmentIds)
+        .is('deleted_at', null)
+        .order('title', { ascending: true }),
+      db
+        .from('assessment_sections')
+        .select('assessment_id, assessment_section_items(count)')
+        .in('assessment_id', assessmentIds),
+      db
+        .from('assessment_factors')
+        .select('assessment_id, factor_id')
+        .in('assessment_id', assessmentIds),
+      db
+        .from('campaign_assessments')
+        .select('assessment_id, campaigns!inner(deleted_at)')
+        .in('assessment_id', assessmentIds)
+        .is('campaigns.deleted_at', null),
+    ])
 
   if (assessmentResult.error) {
     throwActionError(
@@ -212,6 +224,22 @@ export async function getClientAssessmentLibrary(
       'getClientAssessmentLibrary.sections',
       'Unable to load assessment sections.',
       sectionResult.error
+    )
+  }
+
+  if (factorLinkResult.error) {
+    throwActionError(
+      'getClientAssessmentLibrary.factors',
+      'Unable to load assessment factors.',
+      factorLinkResult.error
+    )
+  }
+
+  if (campaignLinkResult.error) {
+    throwActionError(
+      'getClientAssessmentLibrary.campaigns',
+      'Unable to count assessment campaigns.',
+      campaignLinkResult.error
     )
   }
 
@@ -230,6 +258,62 @@ export async function getClientAssessmentLibrary(
     existing.sectionCount += 1
     existing.totalItemCount += getNestedCount(row.assessment_section_items)
     sectionStats.set(assessmentId, existing)
+  }
+
+  // Map each assessment to its factor IDs, then count distinct constructs
+  // across those factors via factor_constructs.
+  const factorIdsByAssessment = new Map<string, string[]>()
+  const allFactorIds = new Set<string>()
+  for (const row of factorLinkResult.data ?? []) {
+    const assessmentId = String(row.assessment_id)
+    const factorId = String(row.factor_id)
+    const list = factorIdsByAssessment.get(assessmentId) ?? []
+    list.push(factorId)
+    factorIdsByAssessment.set(assessmentId, list)
+    allFactorIds.add(factorId)
+  }
+
+  const constructIdsByFactor = new Map<string, string[]>()
+  if (allFactorIds.size > 0) {
+    const { data: fcRows, error: fcError } = await db
+      .from('factor_constructs')
+      .select('factor_id, construct_id')
+      .in('factor_id', Array.from(allFactorIds))
+
+    if (fcError) {
+      throwActionError(
+        'getClientAssessmentLibrary.factorConstructs',
+        'Unable to load factor constructs.',
+        fcError
+      )
+    }
+
+    for (const fc of fcRows ?? []) {
+      const factorId = String(fc.factor_id)
+      const list = constructIdsByFactor.get(factorId) ?? []
+      list.push(String(fc.construct_id))
+      constructIdsByFactor.set(factorId, list)
+    }
+  }
+
+  const constructCountByAssessment = new Map<string, number>()
+  for (const [assessmentId, factorIds] of factorIdsByAssessment) {
+    const constructs = new Set<string>()
+    for (const factorId of factorIds) {
+      for (const constructId of constructIdsByFactor.get(factorId) ?? []) {
+        constructs.add(constructId)
+      }
+    }
+    constructCountByAssessment.set(assessmentId, constructs.size)
+  }
+
+  const campaignCountByAssessment = new Map<string, number>()
+  for (const row of campaignLinkResult.data ?? []) {
+    const assessmentId = String(row.assessment_id)
+    campaignCountByAssessment.set(
+      assessmentId,
+      (campaignCountByAssessment.get(assessmentId) ?? 0) + 1
+    )
   }
 
   return (assessmentResult.data ?? []).flatMap((row) => {
@@ -257,12 +341,14 @@ export async function getClientAssessmentLibrary(
             ? null
             : Math.max(0, assignment.quotaLimit - assignment.quotaUsed),
         factorCount: getNestedCount(row.assessment_factors),
+        constructCount: constructCountByAssessment.get(String(row.id)) ?? 0,
         sectionCount: stats.sectionCount,
         totalItemCount: stats.totalItemCount,
         estimatedDurationMinutes: estimateAssessmentDurationMinutes(
           row.format_mode as Assessment['formatMode'],
           [{ itemCount: stats.totalItemCount, timeLimitSeconds: null }]
         ),
+        campaignCount: campaignCountByAssessment.get(String(row.id)) ?? 0,
         updatedAt: row.updated_at ? String(row.updated_at) : undefined,
       },
     ]
@@ -285,24 +371,30 @@ export async function getClientAssessmentLibraryDetail(
   }
 
   const db = createAdminClient()
-  const [assessmentResult, sectionResult, factorsByDimension] = await Promise.all([
-    db
-      .from('assessments')
-      .select(
-        'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
-      )
-      .eq('id', assessmentId)
-      .is('deleted_at', null)
-      .maybeSingle(),
-    db
-      .from('assessment_sections')
-      .select(
-        'id, title, instructions, display_order, items_per_page, time_limit_seconds, allow_back_nav, response_formats(name, type), assessment_section_items(count)'
-      )
-      .eq('assessment_id', assessmentId)
-      .order('display_order', { ascending: true }),
-    getFactorsForAssessment(assessmentId),
-  ])
+  const [assessmentResult, sectionResult, factorsByDimension, campaignLinkResult] =
+    await Promise.all([
+      db
+        .from('assessments')
+        .select(
+          'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
+        )
+        .eq('id', assessmentId)
+        .is('deleted_at', null)
+        .maybeSingle(),
+      db
+        .from('assessment_sections')
+        .select(
+          'id, title, instructions, display_order, items_per_page, time_limit_seconds, allow_back_nav, response_formats(name, type), assessment_section_items(count)'
+        )
+        .eq('assessment_id', assessmentId)
+        .order('display_order', { ascending: true }),
+      getFactorsForAssessment(assessmentId),
+      db
+        .from('campaign_assessments')
+        .select('campaign_id, campaigns!inner(deleted_at)', { count: 'exact', head: true })
+        .eq('assessment_id', assessmentId)
+        .is('campaigns.deleted_at', null),
+    ])
 
   if (assessmentResult.error) {
     throwActionError(
@@ -360,8 +452,14 @@ export async function getClientAssessmentLibraryDetail(
         ? null
         : Math.max(0, assignment.quotaLimit - assignment.quotaUsed),
     factorCount: getNestedCount(assessmentResult.data.assessment_factors),
+    constructCount: factorsByDimension.reduce(
+      (sum, dim) =>
+        sum + dim.factors.reduce((f, factor) => f + factor.constructCount, 0),
+      0
+    ),
     sectionCount: sections.length,
     totalItemCount: sections.reduce((sum, section) => sum + section.itemCount, 0),
+    campaignCount: campaignLinkResult.count ?? 0,
     updatedAt: assessmentResult.data.updated_at
       ? String(assessmentResult.data.updated_at)
       : undefined,
