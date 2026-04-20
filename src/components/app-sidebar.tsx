@@ -29,6 +29,7 @@ import {
   Mail,
   type LucideIcon,
 } from "lucide-react";
+import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import {
   Sidebar,
@@ -178,14 +179,20 @@ const settingsNav: NavSection[] = [
 const clientSettingsNav: NavSection[] = [
   {
     label: "Settings",
-    items: [{ title: "Brand", href: "/settings/brand/client", icon: Palette }],
+    items: [
+      { title: "Brand", href: "/settings/brand/client", icon: Palette },
+      { title: "Team", href: "/settings/users", icon: Users },
+    ],
   },
 ];
 
 const partnerSettingsNav: NavSection[] = [
   {
     label: "Settings",
-    items: [{ title: "Brand", href: "/settings/brand", icon: Palette }],
+    items: [
+      { title: "Brand", href: "/settings/brand", icon: Palette },
+      { title: "Team", href: "/settings/users", icon: Users },
+    ],
   },
 ];
 
@@ -195,7 +202,18 @@ const navByPortal: Record<PortalType, NavSection[]> = {
   client: clientNav,
 };
 
-export function AppSidebar() {
+interface SidebarIdentity {
+  tenantName: string | null;
+  tenantLogomarkUrl: string | null;
+  platformName: string;
+  platformLogomarkUrl: string | null;
+}
+
+interface AppSidebarProps {
+  identity?: SidebarIdentity;
+}
+
+export function AppSidebar({ identity }: AppSidebarProps = {}) {
   const pathname = usePathname();
   const { portal, href } = usePortal();
   const config = portalConfig[portal];
@@ -218,12 +236,21 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="px-3 py-3">
         <div className="flex items-center gap-2.5 px-1">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/15 text-white shadow-sm">
-            <Brain className="size-5" />
-          </div>
+          {identity?.platformLogomarkUrl ? (
+            <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/15 text-white shadow-sm">
+              <Image
+                src={identity.platformLogomarkUrl}
+                alt=""
+                width={32}
+                height={32}
+                className="size-full object-contain p-1"
+                unoptimized
+              />
+            </div>
+          ) : null}
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight tracking-tight text-sidebar-accent-foreground">
-              Trajectas
+              {identity?.platformName ?? "Trajectas"}
             </span>
             <span className="text-[11px] text-sidebar-foreground leading-tight">
               Assessment Platform
@@ -234,13 +261,30 @@ export function AppSidebar() {
 
       <div className="mx-3 mb-2 rounded-lg bg-white/5 px-1 py-1">
         <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm">
-          <PortalIcon className="size-3.5 text-sidebar-primary" />
+          {portal !== "admin" && identity?.tenantLogomarkUrl ? (
+            <div className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white/10">
+              <Image
+                src={identity.tenantLogomarkUrl}
+                alt=""
+                width={24}
+                height={24}
+                className="size-full object-contain p-0.5"
+                unoptimized
+              />
+            </div>
+          ) : (
+            <PortalIcon className="size-3.5 text-sidebar-primary" />
+          )}
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-xs font-medium text-sidebar-foreground">
-              {config.label}
+              {portal !== "admin" && identity?.tenantName
+                ? identity.tenantName
+                : config.label}
             </span>
             <span className="truncate text-[11px] text-sidebar-foreground/60">
-              {config.description}
+              {portal !== "admin" && identity?.tenantName
+                ? config.label
+                : config.description}
             </span>
           </div>
         </div>
@@ -341,11 +385,11 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={isSettingsArea}
-                tooltip="Brand Settings"
+                tooltip="Settings"
                 render={<Link href={href("/settings/brand/client")} />}
               >
-                <Palette className="size-4" />
-                <span>Brand Settings</span>
+                <Settings className="size-4" />
+                <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -357,11 +401,11 @@ export function AppSidebar() {
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={isSettingsArea}
-                tooltip="Brand Settings"
+                tooltip="Settings"
                 render={<Link href={href("/settings/brand")} />}
               >
-                <Palette className="size-4" />
-                <span>Brand Settings</span>
+                <Settings className="size-4" />
+                <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
