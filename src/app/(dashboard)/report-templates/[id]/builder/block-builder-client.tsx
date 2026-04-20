@@ -630,8 +630,17 @@ export function BlockBuilderClient({
                         )}
                       >
                         <div
-                          className="flex cursor-pointer items-center gap-3 px-4 py-3"
+                          role="button"
+                          tabIndex={0}
+                          aria-expanded={isExpanded}
+                          className="flex cursor-pointer items-center gap-3 rounded-t-xl px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                           onClick={() => toggleExpand(block.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              toggleExpand(block.id);
+                            }
+                          }}
                         >
                           <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground/40 group-hover:text-muted-foreground" />
                           <span className="w-5 shrink-0 text-right font-mono text-xs text-muted-foreground/50">
@@ -662,8 +671,11 @@ export function BlockBuilderClient({
                             </Badge>
                           )}
                           <button
+                            type="button"
+                            aria-label="Delete block"
                             onClick={(e) => { e.stopPropagation(); removeBlock(block.id) }}
-                            className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                            onKeyDown={(e) => e.stopPropagation()}
+                            className="shrink-0 rounded opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <Trash2 className="size-4 text-muted-foreground transition-colors hover:text-destructive" />
                           </button>
