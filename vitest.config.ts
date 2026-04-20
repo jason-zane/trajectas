@@ -23,6 +23,7 @@ export default defineConfig({
         "src/lib/experience/resolve.ts",
         "src/lib/experience/flow-router.ts",
         "src/lib/scoring/pipeline.ts",
+        "src/lib/scoring/transforms.ts",
         "src/lib/assess/access.ts",
         "src/lib/next-config/security.ts",
         "src/hooks/use-auto-save.ts",
