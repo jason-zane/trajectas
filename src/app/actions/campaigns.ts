@@ -235,6 +235,10 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
       .order('created_at', { ascending: false }),
   ])
 
+  if (assessmentResult.error) { logActionError('getCampaignByIdImpl', assessmentResult.error); return null }
+  if (participantResult.error) { logActionError('getCampaignByIdImpl', participantResult.error); return null }
+  if (linkResult.error) { logActionError('getCampaignByIdImpl', linkResult.error); return null }
+
   const assessmentRows = assessmentResult.data
   const participantRows = participantResult.data
   const linkRows = linkResult.data
@@ -323,15 +327,17 @@ export async function createCampaign(payload: Record<string, unknown>) {
   }
 
   // Auto-populate with default report templates
-  const { data: defaults } = await db
+  const { data: defaults, error: defaultsError } = await db
     .from('report_templates')
     .select('id')
     .eq('is_default', true)
     .eq('is_active', true)
     .is('deleted_at', null)
 
+  if (defaultsError) { logActionError('createCampaign', defaultsError) }
+
   if (defaults && defaults.length > 0) {
-    await db
+    const { error: insertError } = await db
       .from('campaign_report_templates')
       .insert(
         defaults.map((t, i) => ({
@@ -340,6 +346,7 @@ export async function createCampaign(payload: Record<string, unknown>) {
           sort_order: i,
         }))
       )
+    if (insertError) { logActionError('createCampaign', insertError) }
   }
 
   await logAuditEvent({
@@ -842,28 +849,43 @@ export async function activateCampaign(id: string) {
 
   // Pre-launch readiness gate: verify campaign has linked assessments and
   // either participants or access links
-  const { data: linkedAssessments } = await db
+  const { data: linkedAssessments, error: linkedAssessmentsError } = await db
     .from('campaign_assessments')
     .select('id')
     .eq('campaign_id', id)
     .is('deleted_at', null)
     .limit(1)
 
+  if (linkedAssessmentsError) {
+    logActionError('activateCampaign', linkedAssessmentsError)
+    return { error: 'Unable to activate campaign.' }
+  }
+
   if (!linkedAssessments || linkedAssessments.length === 0) {
     return { error: 'Campaign must have at least one assessment before activation.' }
   }
 
-  const { count: participantCount } = await db
+  const { count: participantCount, error: participantCountError } = await db
     .from('campaign_participants')
     .select('id', { count: 'exact', head: true })
     .eq('campaign_id', id)
     .is('deleted_at', null)
 
-  const { count: linkCount } = await db
+  if (participantCountError) {
+    logActionError('activateCampaign', participantCountError)
+    return { error: 'Unable to activate campaign.' }
+  }
+
+  const { count: linkCount, error: linkCountError } = await db
     .from('campaign_access_links')
     .select('id', { count: 'exact', head: true })
     .eq('campaign_id', id)
     .eq('is_active', true)
+
+  if (linkCountError) {
+    logActionError('activateCampaign', linkCountError)
+    return { error: 'Unable to activate campaign.' }
+  }
 
   if ((!participantCount || participantCount === 0) && (!linkCount || linkCount === 0)) {
     return { error: 'Campaign must have at least one participant or active access link before activation.' }
@@ -1025,13 +1047,18 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
 
   if (!access.scope.isPlatformAdmin && access.clientId) {
     const supabase = createAdminClient()
-    const { data: assignment } = await supabase
+    const { data: assignment, error: assignmentError } = await supabase
       .from('client_assessment_assignments')
       .select('id')
       .eq('client_id', access.clientId)
       .eq('assessment_id', assessmentId)
       .eq('is_active', true)
       .maybeSingle()
+
+    if (assignmentError) {
+      logActionError('addAssessmentToCampaign', assignmentError)
+      return { error: 'Unable to add assessment.' }
+    }
 
     if (!assignment) {
       return { error: 'This assessment is not available for your client' }
@@ -1041,12 +1068,17 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
   const db = createAdminClient()
 
   // Get max display order
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await db
     .from('campaign_assessments')
     .select('display_order')
     .eq('campaign_id', campaignId)
     .order('display_order', { ascending: false })
     .limit(1)
+
+  if (existingError) {
+    logActionError('addAssessmentToCampaign', existingError)
+    return { error: 'Unable to add assessment.' }
+  }
 
   const nextOrder = (existing?.[0]?.display_order ?? -1) + 1
 
@@ -1179,10 +1211,15 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
   // Quota check: only applies when campaign belongs to a client
   if (access.clientId) {
     const db = createAdminClient()
-    const { data: campaignAssessments } = await db
+    const { data: campaignAssessments, error: campaignAssessmentsError } = await db
       .from('campaign_assessments')
       .select('assessment_id')
       .eq('campaign_id', campaignId)
+
+    if (campaignAssessmentsError) {
+      logActionError('inviteParticipant', campaignAssessmentsError)
+      return { error: { _form: ['Unable to invite participant.'] } }
+    }
 
     const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
 
@@ -1315,10 +1352,11 @@ export async function sendParticipantInviteEmail(
     })
 
     // Update invited_at to track last send time
-    await db
+    const { error: updateError } = await db
       .from('campaign_participants')
       .update({ invited_at: new Date().toISOString() })
       .eq('id', participantId)
+    if (updateError) { logActionError('sendParticipantInviteEmail', updateError) }
 
     revalidatePath(`/campaigns/${campaignId}`)
     return { success: true }
