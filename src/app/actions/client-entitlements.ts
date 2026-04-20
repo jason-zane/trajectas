@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireClientAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import { estimateAssessmentDurationMinutes } from '@/lib/assessments/duration'
 import { getFactorsForAssessment } from '@/app/actions/factor-selection'
 import {
   mapClientAssessmentAssignmentRow,
@@ -111,28 +112,6 @@ function getNestedCount(value: unknown) {
 
   const count = (record as { count?: number }).count
   return Number.isFinite(count) ? Number(count) : 0
-}
-
-function estimateAssessmentDurationMinutes(
-  formatMode: Assessment['formatMode'],
-  sections: Array<{ itemCount: number; timeLimitSeconds: number | null }>
-) {
-  const explicitSeconds = sections.reduce(
-    (sum, section) => sum + (section.timeLimitSeconds ?? 0),
-    0
-  )
-
-  if (explicitSeconds > 0) {
-    return Math.max(1, Math.ceil(explicitSeconds / 60))
-  }
-
-  const totalItems = sections.reduce((sum, section) => sum + section.itemCount, 0)
-  if (totalItems === 0) {
-    return 0
-  }
-
-  const secondsPerItem = formatMode === 'forced_choice' ? 45 : 30
-  return Math.max(5, Math.ceil((totalItems * secondsPerItem) / 60))
 }
 
 export type ClientAssessmentLibrarySummary = {
@@ -376,8 +355,7 @@ export async function getClientAssessmentLibrary(
         sectionCount: stats.sectionCount,
         totalItemCount: stats.totalItemCount,
         estimatedDurationMinutes: estimateAssessmentDurationMinutes(
-          row.format_mode as Assessment['formatMode'],
-          [{ itemCount: stats.totalItemCount, timeLimitSeconds: null }]
+          stats.totalItemCount,
         ),
         campaignCount: campaignCountByAssessment.get(String(row.id)) ?? 0,
         updatedAt: row.updated_at ? String(row.updated_at) : undefined,
@@ -517,8 +495,8 @@ export async function getClientAssessmentLibraryDetail(
     sections,
     factorsByDimension,
     estimatedDurationMinutes: estimateAssessmentDurationMinutes(
-      assessmentResult.data.format_mode as Assessment['formatMode'],
-      sections
+      sections.reduce((sum, s) => sum + s.itemCount, 0),
+      sections.map((s) => s.timeLimitSeconds),
     ),
   }
 }

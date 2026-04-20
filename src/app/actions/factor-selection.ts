@@ -61,23 +61,28 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
   const factorIds = (afRows ?? []).map((r) => r.factor_id)
   if (factorIds.length === 0) return []
 
-  // Step 2: Load those factors with dimension info
-  const { data: factorRows, error: factorError } = await db
-    .from('factors')
-    .select('id, name, description, dimension_id, dimensions(id, name)')
-    .in('id', factorIds)
-    .is('deleted_at', null)
-    .order('name')
+  // Steps 2 & 3 are independent of each other, so issue them in parallel —
+  // the whole action runs as part of the quick-launch prefetch and every
+  // round-trip saved is a round-trip off the Next button's wait.
+  const [
+    { data: factorRows, error: factorError },
+    { data: fcRows, error: fcError },
+  ] = await Promise.all([
+    db
+      .from('factors')
+      .select('id, name, description, dimension_id, dimensions(id, name)')
+      .in('id', factorIds)
+      .is('deleted_at', null)
+      .order('name'),
+    db
+      .from('factor_constructs')
+      .select('factor_id, construct_id')
+      .in('factor_id', factorIds),
+  ])
 
   if (factorError) {
     throwActionError('getFactorsForAssessment', 'Failed to load factors.', factorError)
   }
-
-  // Step 3: Load factor_constructs to get construct counts
-  const { data: fcRows, error: fcError } = await db
-    .from('factor_constructs')
-    .select('factor_id, construct_id')
-    .in('factor_id', factorIds)
 
   if (fcError) {
     throwActionError('getFactorsForAssessment', 'Failed to load factor constructs.', fcError)

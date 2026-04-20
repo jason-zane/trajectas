@@ -9,6 +9,7 @@ import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { WelcomeScreen } from "@/components/assess/welcome-screen";
+import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration";
 import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function WelcomePage({
@@ -31,7 +32,7 @@ export default async function WelcomePage({
     getCachedEffectiveExperience(campaign.id),
     getAssessmentItemCount(assessmentIds),
   ])
-  const estimatedMinutes = Math.max(1, Math.round(totalItems * 15 / 60));
+  const estimatedMinutes = estimateAssessmentDurationMinutes(totalItems);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "welcome");
   const rawRunnerContent = getPageContent(experience, "runner");
