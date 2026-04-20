@@ -3,13 +3,13 @@
  *
  * Used across the platform — assessment library cards, quick-launch picker,
  * capability-selection summary, welcome screen — so a participant and an
- * admin see the same number for the same item count. Based on ~15 seconds
- * per item, which empirically matches observed completion times.
+ * admin see the same number for the same item count. Based on 12 seconds
+ * per item.
  *
  * If sections have explicit `timeLimitSeconds`, prefer those since they
  * reflect the author's chosen duration.
  */
-const SECONDS_PER_ITEM = 15;
+const SECONDS_PER_ITEM = 12;
 
 export function estimateAssessmentDurationMinutes(
   totalItems: number,
