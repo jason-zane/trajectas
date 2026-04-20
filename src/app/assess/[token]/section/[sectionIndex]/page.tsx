@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import {
   validateAccessToken,
   startSession,
@@ -12,6 +14,9 @@ import { generateCSSTokens } from "@/lib/brand/tokens";
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
+import { BrandedMessage } from "@/components/errors/branded-message";
+import { Button } from "@/components/ui/button";
+import { classifyAssessRuntimeError } from "@/lib/assess/classify-runtime-error";
 
 export default async function SectionPage({
   params,
@@ -67,11 +72,7 @@ export default async function SectionPage({
     );
 
     if ("error" in sessionResult && sessionResult.error) {
-      return (
-        <div className="flex min-h-dvh items-center justify-center px-4">
-          <p className="text-destructive">{sessionResult.error}</p>
-        </div>
-      );
+      return renderBrandedAssessError(sessionResult.error, token);
     }
 
     sessionId = sessionResult.id!;
@@ -84,12 +85,9 @@ export default async function SectionPage({
   const stateResult = await getSessionState(token, sessionId);
 
   if (stateResult.error || !stateResult.data) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center px-4">
-        <p className="text-destructive">
-          {stateResult.error ?? "Failed to load session"}
-        </p>
-      </div>
+    return renderBrandedAssessError(
+      stateResult.error ?? "Failed to load session",
+      token,
     );
   }
 
@@ -162,5 +160,26 @@ export default async function SectionPage({
         showProgress={campaign.showProgress}
       />
     </>
+  );
+}
+
+function renderBrandedAssessError(message: string, token: string) {
+  const classified = classifyAssessRuntimeError(message);
+  return (
+    <div className="flex min-h-dvh items-center justify-center">
+      <BrandedMessage
+        eyebrow={classified.eyebrow}
+        title={classified.title}
+        description={classified.description}
+        actions={
+          <Link href={`/assess/${token}/welcome`}>
+            <Button variant="outline">
+              <ArrowLeft className="size-4" />
+              Back to start
+            </Button>
+          </Link>
+        }
+      />
+    </div>
   );
 }
