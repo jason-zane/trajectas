@@ -20,15 +20,7 @@ import type { BrandConfig, BrandConfigRecord, BrandOwnerType } from '@/lib/brand
 // Read
 // ---------------------------------------------------------------------------
 
-/**
- * Get a brand config by owner type and ID.
- * Returns null if no config exists for this owner.
- *
- * Uses admin client because this is called from contexts without a user
- * session: report runner (background), integrations service, email
- * sending, and participant-facing assessment pages.
- */
-export async function getBrandConfig(
+async function getBrandConfigImpl(
   ownerType: BrandOwnerType,
   ownerId: string | null
 ): Promise<BrandConfigRecord | null> {
@@ -50,6 +42,26 @@ export async function getBrandConfig(
   if (error) return null
   return mapBrandConfigRow(data)
 }
+
+/**
+ * Get a brand config by owner type and ID.
+ * Returns null if no config exists for this owner.
+ *
+ * Uses admin client because this is called from contexts without a user
+ * session: report runner (background), integrations service, email
+ * sending, and participant-facing assessment pages.
+ *
+ * Wrapped in unstable_cache with tag 'brand' — save/update flows in this
+ * file invalidate that tag, so cached reads stay correct.
+ */
+export const getBrandConfig = unstable_cache(
+  getBrandConfigImpl,
+  ['brand-config'],
+  {
+    revalidate: 300,
+    tags: ['brand'],
+  }
+)
 
 /**
  * Get the platform default brand config.
