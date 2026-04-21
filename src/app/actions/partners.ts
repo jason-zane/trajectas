@@ -356,6 +356,13 @@ export async function getPartnerStats(partnerId: string): Promise<{
       .is('revoked_at', null),
   ])
 
+  if (clientsResult.error) {
+    throwActionError('getPartnerStats', 'Unable to load partner stats.', clientsResult.error)
+  }
+  if (partnerMembersResult.error) {
+    throwActionError('getPartnerStats', 'Unable to load partner stats.', partnerMembersResult.error)
+  }
+
   const clientIds = (clientsResult.data ?? []).map((c) => c.id)
   const clientCount = clientsResult.count ?? 0
   const partnerMemberCount = partnerMembersResult.count ?? 0
@@ -379,6 +386,13 @@ export async function getPartnerStats(partnerId: string): Promise<{
         .in('client_id', clientIds)
         .eq('is_active', true),
     ])
+
+    if (campaignsResult.error) {
+      throwActionError('getPartnerStats', 'Unable to load partner stats.', campaignsResult.error)
+    }
+    if (assessmentsResult.error) {
+      throwActionError('getPartnerStats', 'Unable to load partner stats.', assessmentsResult.error)
+    }
 
     activeCampaignCount = campaignsResult.count ?? 0
     totalAssessmentsAssigned = assessmentsResult.count ?? 0
@@ -509,7 +523,7 @@ export async function inviteUserToPartner(
 
   // Check for existing pending invite
   const db = createAdminClient()
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await db
     .from('user_invites')
     .select('id')
     .eq('tenant_type', 'partner')
@@ -519,6 +533,11 @@ export async function inviteUserToPartner(
     .is('revoked_at', null)
     .gt('expires_at', new Date().toISOString())
     .maybeSingle()
+
+  if (existingError) {
+    logActionError('inviteUserToPartner', existingError)
+    return { error: 'Unable to check for existing invites.' }
+  }
 
   if (existing) {
     return { error: 'An invite is already pending for this email address' }
@@ -693,11 +712,13 @@ export async function getRecentPartnerCampaigns(partnerId: string): Promise<
   const db = await createClient()
 
   // Get client IDs for this partner
-  const { data: clientRows } = await db
+  const { data: clientRows, error: clientRowsError } = await db
     .from('clients')
     .select('id')
     .eq('partner_id', partnerId)
     .is('deleted_at', null)
+
+  if (clientRowsError) return []
 
   const clientIds = (clientRows ?? []).map((c) => c.id)
   if (clientIds.length === 0) return []
