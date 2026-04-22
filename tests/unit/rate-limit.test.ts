@@ -15,7 +15,7 @@ describe("request rate limiting", () => {
     globalStore.__trajectasRateLimitStore?.clear();
   });
 
-  it("blocks repeated login attempts from the same IP", () => {
+  it("blocks repeated login attempts from the same IP", async () => {
     const request = createRequest("https://trajectas.test/login", {
       method: "POST",
       headers: {
@@ -25,7 +25,7 @@ describe("request rate limiting", () => {
 
     let result = null;
     for (let attempt = 0; attempt < 11; attempt += 1) {
-      result = checkRequestRateLimit(request);
+      result = await checkRequestRateLimit(request);
     }
 
     expect(result).toMatchObject({
@@ -36,7 +36,7 @@ describe("request rate limiting", () => {
     expect(result?.retryAfterSeconds).toBeGreaterThan(0);
   });
 
-  it("keys server actions by the authenticated session cookies", () => {
+  it("keys server actions by the authenticated session cookies", async () => {
     const request = createRequest("https://trajectas.test/client", {
       method: "POST",
       headers: {
@@ -48,7 +48,7 @@ describe("request rate limiting", () => {
 
     let lastResult = null;
     for (let attempt = 0; attempt < 60; attempt += 1) {
-      lastResult = checkRequestRateLimit(request);
+      lastResult = await checkRequestRateLimit(request);
     }
 
     expect(lastResult).toMatchObject({
@@ -57,7 +57,7 @@ describe("request rate limiting", () => {
       remaining: 0,
     });
 
-    const blocked = checkRequestRateLimit(request);
+    const blocked = await checkRequestRateLimit(request);
     expect(blocked).toMatchObject({
       allowed: false,
       limit: 60,

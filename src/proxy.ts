@@ -242,7 +242,7 @@ export async function proxy(request: NextRequest) {
   );
   const applyHeaders = (response: NextResponse, surface: Surface, p: string) =>
     applySecurityHeaders(response, surface, p, nonce);
-  const rateLimit = checkRequestRateLimit(request);
+  const rateLimit = await checkRequestRateLimit(request);
 
   if (rateLimit && !rateLimit.allowed) {
     const response = NextResponse.json(
