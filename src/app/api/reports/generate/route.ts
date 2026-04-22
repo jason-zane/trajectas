@@ -1,4 +1,5 @@
 import { after } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
 import { processSnapshot } from '@/lib/reports/runner'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -9,6 +10,14 @@ import {
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
+
+function isValidInternalKey(provided: string | null): boolean {
+  const expected = process.env.INTERNAL_API_KEY
+  if (!expected || !provided) return false
+  const a = Buffer.from(expected)
+  const b = Buffer.from(provided)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
 
 /**
  * POST /api/reports/generate
@@ -23,8 +32,7 @@ export const maxDuration = 300
  */
 export async function POST(request: Request) {
   // Allow internal server-to-server calls (e.g. from submitSession in participant context)
-  const internalKey = request.headers.get('x-internal-key')
-  const isInternal = internalKey && internalKey === process.env.INTERNAL_API_KEY
+  const isInternal = isValidInternalKey(request.headers.get('x-internal-key'))
 
   if (!isInternal) {
     try {

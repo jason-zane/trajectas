@@ -902,32 +902,20 @@ export async function prepareReportSnapshotSendDraft(
   const brand = await getEffectiveBrand(context.clientId, context.campaignId)
   const recipientName = context.participantFirstName?.trim() || 'there'
 
-  // Build a participant-facing URL using the assess surface and the participant's access token.
-  // Falls back to admin URL with reportToken if no access token is available.
-  let reportUrl: string
-  if (context.participantAccessToken) {
-    reportUrl =
-      buildSurfaceUrl(
-        'assess',
-        `/assess/${context.participantAccessToken}/report/${snapshotId}`,
-      )?.toString() ??
-      new URL(
-        `/assess/${context.participantAccessToken}/report/${snapshotId}`,
-        getReportLinkBaseUrl(),
-      ).toString()
-  } else {
-    const reportToken = createReportAccessToken(snapshotId, context.participantId)
-    reportUrl =
-      buildSurfaceUrl(
-        'admin',
-        `/reports/${snapshotId}`,
-        `reportToken=${encodeURIComponent(reportToken)}`,
-      )?.toString() ??
-      new URL(
-        `/reports/${snapshotId}?reportToken=${encodeURIComponent(reportToken)}`,
-        getReportLinkBaseUrl(),
-      ).toString()
-  }
+  // Always emit a short-lived HMAC-signed link — not the persistent access
+  // token — so a leaked report email expires on its own after 48 hours. If
+  // the participant hits an expired link they can self-serve a fresh one.
+  const reportToken = createReportAccessToken(snapshotId, context.participantId)
+  const reportUrl =
+    buildSurfaceUrl(
+      'assess',
+      `/assess/r/${snapshotId}`,
+      `t=${encodeURIComponent(reportToken)}`,
+    )?.toString() ??
+    new URL(
+      `/assess/r/${snapshotId}?t=${encodeURIComponent(reportToken)}`,
+      getReportLinkBaseUrl(),
+    ).toString()
 
   return {
     recipientEmail: context.participantEmail,

@@ -6,6 +6,7 @@ import {
 } from '@/lib/auth/authorization'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
+import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/providers/openrouter-retry'
 
 export const runtime = 'nodejs'
@@ -40,12 +41,24 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Resolve the configured model for chat purpose
-    const [taskConfig, systemPrompt] = await Promise.all([
+    // Resolve the configured model for chat purpose.
+    // A caller-supplied model is only accepted if it's in the OpenRouter
+    // allowlist — prevents arbitrary model injection (cost amplification,
+    // safety-filter bypass).
+    const [taskConfig, systemPrompt, allowedModels] = await Promise.all([
       getModelForTask('chat'),
       getActiveSystemPrompt('chat'),
+      openRouterProvider.listModels('text'),
     ])
-    const modelId = modelOverride || taskConfig.modelId
+
+    let modelId = taskConfig.modelId
+    if (modelOverride) {
+      const isAllowed = allowedModels.some((m) => m.id === modelOverride)
+      if (!isAllowed) {
+        return new Response('Requested model is not available', { status: 400 })
+      }
+      modelId = modelOverride
+    }
 
     const client = new OpenAI({
       apiKey,

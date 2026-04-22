@@ -64,9 +64,14 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
   const ip = getClientIp(request);
 
   if (pathname === "/api/reports/generate") {
-    const internalKey = request.headers.get("x-internal-key") ?? "anonymous";
+    const internalKey = request.headers.get("x-internal-key");
+    // Key internal (server-to-server) calls by the signing key; key admin-user
+    // calls by session fingerprint so one admin can't starve the others.
+    const bucket = internalKey
+      ? `internal:${hashValue(internalKey)}`
+      : `user:${getSupabaseSessionFingerprint(request) ?? ip}`;
     return {
-      key: `reports:${hashValue(internalKey)}`,
+      key: `reports:${bucket}`,
       limit: 30,
       windowMs: 60_000,
     };

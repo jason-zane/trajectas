@@ -29,10 +29,15 @@ function signPayload(payload: string) {
     .digest('base64url')
 }
 
+// 48 hours. Short window keeps a leaked URL (forwarded email, browser
+// history, referrer) from granting indefinite access. Participants who hit
+// an expired link can self-serve a fresh one via /assess/report-expired.
+export const REPORT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 48
+
 export function createReportAccessToken(
   snapshotId: string,
   participantId: string,
-  ttlSeconds = 60 * 60 * 24 * 30
+  ttlSeconds: number = REPORT_ACCESS_TOKEN_TTL_SECONDS,
 ) {
   const payload = Buffer.from(
     JSON.stringify({

@@ -16,6 +16,7 @@ import { GapAnalysisBlock } from './blocks/gap-analysis'
 import { OpenCommentsBlock } from './blocks/open-comments'
 import { AiTextBlock } from './blocks/ai-text'
 import { ModeWrapper } from './modes/mode-wrapper'
+import { sanitizeBlockData } from '@/lib/reports/sanitize-block-data'
 import type { ResolvedBlockData, BlockType } from '@/lib/reports/types'
 import type { PresentationMode, ChartType, ReportTheme } from '@/lib/reports/presentation'
 
@@ -77,13 +78,16 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
           if (!Component) return null
 
           const mode = block.presentationMode ?? 'open'
+          // Strip script/event handlers from any admin-authored HTML fields
+          // before the block component renders them as inline HTML.
+          const safeData = sanitizeBlockData(block.type, block.data)
 
           // Section dividers and cover pages render directly without mode wrapper
           if (block.type === 'section_divider') {
             return (
               <Component
                 key={block.blockId}
-                data={block.data}
+                data={safeData}
                 mode={mode}
                 chartType={block.chartType}
               />
@@ -93,7 +97,7 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
           if (block.type === 'cover_page') {
             return (
               <div key={block.blockId} data-cover-page className="print:break-after-page">
-                <Component data={block.data} mode={mode} chartType={block.chartType} />
+                <Component data={safeData} mode={mode} chartType={block.chartType} />
               </div>
             )
           }
@@ -110,7 +114,7 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
                 heading={block.heading}
                 blockDescription={block.blockDescription}
               >
-                <Component data={block.data} mode={mode} chartType={block.chartType} />
+                <Component data={safeData} mode={mode} chartType={block.chartType} />
               </ModeWrapper>
             </div>
           )

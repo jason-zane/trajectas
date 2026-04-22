@@ -55,8 +55,8 @@ export async function sendEmail(params: {
     footerTextColor: brand.emailStyles?.footerTextColor ?? DEFAULT_EMAIL_STYLES.footerTextColor,
   }
 
-  // ── 3. Substitute variables in subject ────────────────────────────────────
-  const subject = substituteVariables(template.subject, variables)
+  // ── 3. Substitute variables in subject (plain-text context) ──────────────
+  const subject = substituteVariables(template.subject, variables, 'text')
 
   // ── 4. Render with two-tier fallback ─────────────────────────────────────
   let html: string
@@ -123,7 +123,9 @@ export async function sendEmail(params: {
   // Extract the email address portion if EMAIL_FROM contains a display name
   const emailMatch = rawFrom.match(/<([^>]+)>/)
   const emailAddress = emailMatch ? emailMatch[1] : rawFrom
-  const from = `${brand.name} <${emailAddress}>`
+  // CR/LF in the display name would inject extra RFC 5322 headers (Bcc, etc.)
+  const safeBrandName = (brand.name ?? 'Trajectas').replace(/[\r\n]+/g, ' ').slice(0, 64)
+  const from = `${safeBrandName} <${emailAddress}>`
 
   // ── 6. Send ───────────────────────────────────────────────────────────────
   await sendHtmlEmail({

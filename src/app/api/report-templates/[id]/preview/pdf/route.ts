@@ -2,6 +2,8 @@ import {
   AuthenticationRequiredError,
   AuthorizationError,
   canManageReportTemplateLibrary,
+  requireAssessmentAccess,
+  requireReportTemplateAccess,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { generatePreviewPdf } from '@/lib/reports/preview-pdf'
@@ -31,6 +33,8 @@ export async function GET(
         'Only platform or partner administrators can download report previews.',
       )
     }
+    await requireReportTemplateAccess(templateId)
+    await requireAssessmentAccess(assessmentId)
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
       return Response.json({ error: 'Authentication required' }, { status: 401 })
