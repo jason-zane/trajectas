@@ -244,16 +244,24 @@ export const validateAccessToken = cache(validateAccessTokenImpl)
 export async function getAssessmentItemCount(assessmentIds: string[]): Promise<number> {
   if (assessmentIds.length === 0) return 0
   const db = createAdminClient()
-  const { data: sections } = await db
+  const { data: sections, error: sectionsErr } = await db
     .from('assessment_sections')
     .select('id')
     .in('assessment_id', assessmentIds)
+  if (sectionsErr) {
+    logActionError('getAssessmentItemCount.sections', sectionsErr)
+    return 0
+  }
   const sectionIds = (sections ?? []).map((s) => s.id as string)
   if (sectionIds.length === 0) return 0
-  const { count } = await db
+  const { count, error: countErr } = await db
     .from('assessment_section_items')
     .select('*', { count: 'exact', head: true })
     .in('section_id', sectionIds)
+  if (countErr) {
+    logActionError('getAssessmentItemCount.count', countErr)
+    return 0
+  }
   return count ?? 0
 }
 
@@ -284,12 +292,17 @@ export async function startSession(
   const db = createAdminClient()
 
   // Check for existing session
-  const { data: existing } = await db
+  const { data: existing, error: existingErr } = await db
     .from('participant_sessions')
     .select('id')
     .eq('campaign_participant_id', campaignParticipantId)
     .eq('assessment_id', assessmentId)
-    .single()
+    .maybeSingle()
+
+  if (existingErr) {
+    logActionError('startSession.existing', existingErr)
+    return { error: 'Unable to start this assessment right now' }
+  }
 
   if (existing) {
     return { id: existing.id }
@@ -315,7 +328,7 @@ export async function startSession(
   }
 
   // Update participant status to in_progress
-  await db
+  const { error: participantUpdateErr } = await db
     .from('campaign_participants')
     .update({
       status: 'in_progress',
@@ -323,6 +336,10 @@ export async function startSession(
     })
     .eq('id', campaignParticipantId)
     .eq('status', 'invited')
+
+  if (participantUpdateErr) {
+    logActionError('startSession.participantUpdate', participantUpdateErr)
+  }
 
   return { id: session.id }
 }
@@ -399,6 +416,18 @@ export async function getSessionState(token: string, sessionId: string) {
     return { error: 'Unable to load this assessment right now' }
   }
 
+  if (campaignAssessmentResult.error) {
+    logActionError('getSessionState.campaignAssessment', campaignAssessmentResult.error)
+    return { error: 'Unable to load this assessment right now' }
+  }
+  if (assessmentFactorsResult.error) {
+    logActionError('getSessionState.assessmentFactors', assessmentFactorsResult.error)
+    return { error: 'Unable to load this assessment right now' }
+  }
+  if (assessmentMetaResult.error) {
+    logActionError('getSessionState.assessmentMeta', assessmentMetaResult.error)
+    return { error: 'Unable to load this assessment right now' }
+  }
   const campaignAssessment = campaignAssessmentResult.data
   const assessmentFactorIds = assessmentFactorsResult.data
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -412,19 +441,29 @@ export async function getSessionState(token: string, sessionId: string) {
 
   if (scoringLevel === 'construct') {
     // Construct-level: load assessment_constructs directly
-    const { data: acRows } = await db
+    const { data: acRows, error: acErr } = await db
       .from('assessment_constructs')
       .select('construct_id')
       .eq('assessment_id', session.assessment_id)
+
+    if (acErr) {
+      logActionError('getSessionState.assessmentConstructs', acErr)
+      return { error: 'Unable to load this assessment right now' }
+    }
 
     const allConstructIds = new Set((acRows ?? []).map((r: { construct_id: string }) => r.construct_id))
 
     if (campaignAssessment) {
       // Check for campaign-level custom construct selection
-      const { data: customConstructs } = await db
+      const { data: customConstructs, error: customConstructsErr } = await db
         .from('campaign_assessment_constructs')
         .select('construct_id')
         .eq('campaign_assessment_id', campaignAssessment.id)
+
+      if (customConstructsErr) {
+        logActionError('getSessionState.campaignAssessmentConstructs', customConstructsErr)
+        return { error: 'Unable to load this assessment right now' }
+      }
 
       if (customConstructs && customConstructs.length > 0) {
         allowedConstructIds = new Set(
@@ -442,10 +481,15 @@ export async function getSessionState(token: string, sessionId: string) {
     itemsPerConstruct = await getItemsPerConstructForCount(allowedConstructIds.size)
   } else if (campaignAssessment) {
     // Factor-level: existing campaign factor selection logic
-    const { data: factorRows } = await db
+    const { data: factorRows, error: factorRowsErr } = await db
       .from('campaign_assessment_factors')
       .select('factor_id')
       .eq('campaign_assessment_id', campaignAssessment.id)
+
+    if (factorRowsErr) {
+      logActionError('getSessionState.campaignAssessmentFactors', factorRowsErr)
+      return { error: 'Unable to load this assessment right now' }
+    }
 
     if (factorRows && factorRows.length > 0) {
       const selectedFactorIds = new Set(factorRows.map(r => r.factor_id))
@@ -454,10 +498,15 @@ export async function getSessionState(token: string, sessionId: string) {
         (assessmentFactorIds ?? []).map(af => af.factor_id)
       )
 
-      const { data: fcLinks } = await db
+      const { data: fcLinks, error: fcLinksErr } = await db
         .from('factor_constructs')
         .select('construct_id, factor_id')
         .in('factor_id', Array.from(assessmentFactorSet))
+
+      if (fcLinksErr) {
+        logActionError('getSessionState.factorConstructs', fcLinksErr)
+        return { error: 'Unable to load this assessment right now' }
+      }
 
       if (fcLinks) {
         allowedConstructIds = new Set(
@@ -1031,7 +1080,7 @@ async function finalizeCompletedSessionProcessing(input: {
   let allDone = false
 
   if (input.campaignParticipantId && input.campaignId) {
-    const [{ data: required }, { data: completed }] = await Promise.all([
+    const [{ data: required, error: requiredErr }, { data: completed, error: completedErr }] = await Promise.all([
       db
         .from('campaign_assessments')
         .select('assessment_id')
@@ -1044,18 +1093,40 @@ async function finalizeCompletedSessionProcessing(input: {
         .eq('status', 'completed'),
     ])
 
+    if (requiredErr) {
+      logActionError('finalizeCompletedSessionProcessing.requiredAssessments', requiredErr)
+      return {
+        ok: false,
+        error: 'submit_failed',
+        message: 'Unable to complete this assessment right now',
+      }
+    }
+
+    if (completedErr) {
+      logActionError('finalizeCompletedSessionProcessing.completedSessions', completedErr)
+      return {
+        ok: false,
+        error: 'submit_failed',
+        message: 'Unable to complete this assessment right now',
+      }
+    }
+
     const requiredIds = new Set((required ?? []).map((row) => row.assessment_id))
     const completedIds = new Set((completed ?? []).map((row) => row.assessment_id))
     allDone = [...requiredIds].every((id) => completedIds.has(id))
 
     if (allDone) {
-      await db
+      const { error: participantCompleteErr } = await db
         .from('campaign_participants')
         .update({
           status: 'completed',
           completed_at: input.completedAt,
         })
         .eq('id', input.campaignParticipantId)
+
+      if (participantCompleteErr) {
+        logActionError('finalizeCompletedSessionProcessing.participantComplete', participantCompleteErr)
+      }
     }
 
     if (input.emitAssessmentCompletedEvent && input.assessmentId) {
@@ -1470,12 +1541,17 @@ export async function registerViaLink(
   }
 
   // Check campaign status
-  const { data: campaign } = await db
+  const { data: campaign, error: campaignErr } = await db
     .from('campaigns')
     .select('status, opens_at, closes_at, client_id')
     .eq('id', link.campaign_id)
     .is('deleted_at', null)
-    .single()
+    .maybeSingle()
+
+  if (campaignErr) {
+    logActionError('registerViaLink.campaign', campaignErr)
+    return { error: 'Unable to register right now' }
+  }
 
   if (!campaign || !['active'].includes(campaign.status)) {
     return { error: 'This campaign is not currently accepting registrations' }
@@ -1486,29 +1562,44 @@ export async function registerViaLink(
 
   // Quota check: only applies when campaign belongs to a client
   if (campaign.client_id) {
-    const { data: campaignAssessments } = await db
+    const { data: campaignAssessments, error: campaignAssessmentsErr } = await db
       .from('campaign_assessments')
       .select('assessment_id')
       .eq('campaign_id', link.campaign_id)
+
+    if (campaignAssessmentsErr) {
+      logActionError('registerViaLink.campaignAssessments', campaignAssessmentsErr)
+      return { error: 'Unable to register right now' }
+    }
 
     const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
 
     if (assessmentIds.length > 0) {
       // Get assignments with quota limits for these assessments
-      const { data: assignments } = await db
+      const { data: assignments, error: assignmentsErr } = await db
         .from('client_assessment_assignments')
         .select('*')
         .eq('client_id', campaign.client_id)
         .eq('is_active', true)
         .in('assessment_id', assessmentIds)
 
+      if (assignmentsErr) {
+        logActionError('registerViaLink.assignments', assignmentsErr)
+        return { error: 'Unable to register right now' }
+      }
+
       for (const assignment of assignments ?? []) {
         if (assignment.quota_limit === null) continue
 
-        const { data: usageData } = await db.rpc('get_assessment_quota_usage', {
+        const { data: usageData, error: usageErr } = await db.rpc('get_assessment_quota_usage', {
           p_client_id: campaign.client_id,
           p_assessment_id: assignment.assessment_id,
         })
+
+        if (usageErr) {
+          logActionError('registerViaLink.quotaUsage', usageErr)
+          return { error: 'Unable to register right now' }
+        }
 
         const quotaUsed = typeof usageData === 'number' ? usageData : 0
         if (quotaUsed >= assignment.quota_limit) {
@@ -1549,7 +1640,10 @@ export async function registerViaLink(
 
   if (rpcErr || !incremented) {
     // Link is now full or was deactivated between our checks — roll back.
-    await db.from('campaign_participants').delete().eq('id', newParticipant.id)
+    const { error: deleteErr } = await db.from('campaign_participants').delete().eq('id', newParticipant.id)
+    if (deleteErr) {
+      logActionError('registerViaLink.rollback', deleteErr)
+    }
     return { error: 'This enrollment link has reached its maximum uses' }
   }
 
