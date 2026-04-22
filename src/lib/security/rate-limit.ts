@@ -59,6 +59,10 @@ function getSupabaseSessionFingerprint(request: NextRequest) {
   return hashValue(authCookies.map((cookie) => cookie.value).join("."));
 }
 
+function userBucket(request: NextRequest, ip: string): string {
+  return getSupabaseSessionFingerprint(request) ?? ip;
+}
+
 function resolveRule(request: NextRequest): RateLimitRule | null {
   const pathname = request.nextUrl.pathname;
   const ip = getClientIp(request);
@@ -69,10 +73,23 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     // calls by session fingerprint so one admin can't starve the others.
     const bucket = internalKey
       ? `internal:${hashValue(internalKey)}`
-      : `user:${getSupabaseSessionFingerprint(request) ?? ip}`;
+      : `user:${userBucket(request, ip)}`;
     return {
       key: `reports:${bucket}`,
       limit: 30,
+      windowMs: 60_000,
+    };
+  }
+
+  // PDF generation / download endpoint — expensive (spawns puppeteer).
+  // Applies to both GET and POST since the GET path can trigger generation.
+  if (
+    pathname.startsWith("/api/reports/") &&
+    pathname.endsWith("/pdf")
+  ) {
+    return {
+      key: `pdf:${userBucket(request, ip)}`,
+      limit: 20,
       windowMs: 60_000,
     };
   }
@@ -101,9 +118,28 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     };
   }
 
+  // AI chat — streams from OpenRouter, maxDuration 300s. Each request spends
+  // real money, so cap per-user aggressively.
+  if (pathname === "/api/chat") {
+    return {
+      key: `chat:${userBucket(request, ip)}`,
+      limit: 30,
+      windowMs: 60_000,
+    };
+  }
+
+  // Item generation — expensive AI job.
+  if (pathname === "/api/generation/start") {
+    return {
+      key: `gen-start:${userBucket(request, ip)}`,
+      limit: 10,
+      windowMs: 60_000,
+    };
+  }
+
   if (request.headers.has("next-action")) {
     return {
-      key: `action:${getSupabaseSessionFingerprint(request) ?? ip}`,
+      key: `action:${userBucket(request, ip)}`,
       limit: 60,
       windowMs: 60_000,
     };

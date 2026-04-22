@@ -11,6 +11,8 @@ import {
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
+const MAX_REPORT_GENERATE_BODY_BYTES = 32 * 1024
+
 function isValidInternalKey(provided: string | null): boolean {
   const expected = process.env.INTERNAL_API_KEY
   if (!expected || !provided) return false
@@ -31,6 +33,11 @@ function isValidInternalKey(provided: string | null): boolean {
  * background generation. Admin/retry calls await the response.
  */
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (contentLength > MAX_REPORT_GENERATE_BODY_BYTES) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 })
+  }
+
   // Allow internal server-to-server calls (e.g. from submitSession in participant context)
   const isInternal = isValidInternalKey(request.headers.get('x-internal-key'))
 

@@ -18,6 +18,7 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const REPORTS_BUCKET = 'reports'
+const MAX_PDF_POST_BODY_BYTES = 8 * 1024
 
 async function requirePdfAccess(snapshotId: string) {
   try {
@@ -205,6 +206,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ snapshotId: string }> },
 ) {
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (contentLength > MAX_PDF_POST_BODY_BYTES) {
+    return Response.json({ error: 'Request body too large' }, { status: 413 })
+  }
+
   const { snapshotId } = await params
   const url = new URL(request.url)
   const reportToken = url.searchParams.get('reportToken')

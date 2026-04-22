@@ -11,7 +11,14 @@ import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/provide
 
 export const runtime = 'nodejs'
 
+const MAX_CHAT_BODY_BYTES = 256 * 1024
+
 export async function POST(request: Request) {
+  const contentLength = Number(request.headers.get('content-length') ?? 0)
+  if (contentLength > MAX_CHAT_BODY_BYTES) {
+    return new Response('Request body too large', { status: 413 })
+  }
+
   try {
     await requireAdminScope()
   } catch (error) {
