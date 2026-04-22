@@ -1,5 +1,6 @@
 'use server'
 
+import crypto from 'crypto'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logReportViewed } from '@/lib/auth/support-sessions'
@@ -1054,8 +1055,10 @@ async function finalizeCompletedSessionProcessing(input: {
         .update({
           status: 'completed',
           completed_at: input.completedAt,
+          access_token: crypto.randomBytes(32).toString('hex'),
         })
         .eq('id', input.campaignParticipantId)
+        .eq('status', 'in_progress') // Idempotency: only rotate if not already completed
     }
 
     if (input.emitAssessmentCompletedEvent && input.assessmentId) {
