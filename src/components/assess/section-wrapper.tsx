@@ -143,6 +143,14 @@ export function SectionWrapper({
   const progressTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const pendingProgressRef = useRef<{ sectionId: string; itemIndex: number } | null>(null);
 
+  // Prefetch the next section (or post-assessment page) for instant transitions.
+  useEffect(() => {
+    if (sectionIndex < totalSections - 1) {
+      router.prefetch(`/assess/${token}/section/${sectionIndex + 1}`);
+    }
+    router.prefetch(postAssessmentUrl);
+  }, [router, token, sectionIndex, totalSections, postAssessmentUrl]);
+
   function scheduleProgressUpdate(sectionId: string, itemIndex: number) {
     pendingProgressRef.current = { sectionId, itemIndex };
     if (!progressTimerRef.current) {

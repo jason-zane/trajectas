@@ -30,7 +30,12 @@ export default async function ReviewPage({
     redirect(`/assess/${token}/complete`);
   }
 
-  const stateResult = await getSessionState(token, currentSession.id);
+  // Session state, brand, and experience are all independent — fetch in parallel.
+  const [stateResult, brandConfig, experience] = await Promise.all([
+    getSessionState(token, currentSession.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveExperience(campaign.id),
+  ]);
   if (stateResult.error || !stateResult.data) {
     redirect(`/assess/${token}/welcome`);
   }
@@ -41,12 +46,6 @@ export default async function ReviewPage({
   const currentAssessment = assessments.find(
     (a) => a.assessmentId === currentSession.assessmentId
   );
-
-  // Load brand + experience in parallel — independent.
-  const [brandConfig, experience] = await Promise.all([
-    getCachedEffectiveBrand(campaign.clientId, campaign.id),
-    getCachedEffectiveExperience(campaign.id),
-  ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "review");
   const rawRunnerContent = getPageContent(experience, "runner");

@@ -79,7 +79,12 @@ export default async function SectionPage({
     redirect(`/assess/${token}/welcome`);
   }
 
-  const stateResult = await getSessionState(token, sessionId);
+  // Session state, brand, and experience are all independent — fetch in parallel.
+  const [stateResult, brandConfig, experience] = await Promise.all([
+    getSessionState(token, sessionId),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+    getCachedEffectiveExperience(campaign.id),
+  ]);
 
   if (stateResult.error || !stateResult.data) {
     return (
@@ -103,12 +108,6 @@ export default async function SectionPage({
   if (!section) {
     redirect(`/assess/${token}/complete`);
   }
-
-  // Load brand + experience in parallel — they're independent.
-  const [brandConfig, experience] = await Promise.all([
-    getCachedEffectiveBrand(campaign.clientId, campaign.id),
-    getCachedEffectiveExperience(campaign.id),
-  ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const runnerContent = getPageContent(experience, "runner");
 

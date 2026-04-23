@@ -15,9 +15,32 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import { ReportRenderer } from "@/components/reports/report-renderer";
+import dynamic from "next/dynamic";
 import type { ReportContent } from "@/lib/experience/types";
 import type { ResolvedBlockData } from "@/lib/reports/types";
+
+const ReportRenderer = dynamic(
+  () =>
+    import("@/components/reports/report-renderer").then(
+      (mod) => mod.ReportRenderer,
+    ),
+  {
+    loading: () => (
+      <div className="space-y-6">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-48 animate-pulse rounded-xl"
+            style={{
+              background:
+                "var(--brand-neutral-100, hsl(var(--muted) / 0.5))",
+            }}
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 
 interface ReportScreenProps {
   content: ReportContent;

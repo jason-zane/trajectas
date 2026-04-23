@@ -1,14 +1,35 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { LikertResponse } from "./formats/likert-response";
 import { ForcedChoiceResponse } from "./formats/forced-choice-response";
 import { BinaryResponse } from "./formats/binary-response";
-import { RankingResponse } from "./formats/ranking-response";
 import { FreeTextResponse } from "./formats/free-text-response";
 import { SJTResponse } from "./formats/sjt-response";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import type { ItemForRunner } from "@/app/actions/assess";
+
+const RankingResponse = dynamic(
+  () =>
+    import("./formats/ranking-response").then((mod) => mod.RankingResponse),
+  {
+    loading: () => (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="h-14 animate-pulse rounded-xl"
+            style={{
+              background:
+                "var(--brand-neutral-100, hsl(var(--muted) / 0.5))",
+            }}
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 
 interface ItemCardProps {
   item: ItemForRunner;
