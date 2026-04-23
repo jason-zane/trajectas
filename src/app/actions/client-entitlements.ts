@@ -434,6 +434,22 @@ export async function getClientAssessmentLibraryDetail(
     )
   }
 
+  if (directConstructResult.error) {
+    throwActionError(
+      'getClientAssessmentLibraryDetail.directConstructs',
+      'Unable to load assessment constructs.',
+      directConstructResult.error
+    )
+  }
+
+  if (campaignLinkResult.error) {
+    throwActionError(
+      'getClientAssessmentLibraryDetail.campaigns',
+      'Unable to count assessment campaigns.',
+      campaignLinkResult.error
+    )
+  }
+
   if (!assessmentResult.data) {
     return null
   }
@@ -690,19 +706,23 @@ export async function assignAssessment(
   const db = createAdminClient()
 
   // If client belongs to a partner, verify assessment is in partner's pool
-  const { data: clientRow } = await db.from('clients')
+  const { data: clientRow, error: clientRowError } = await db.from('clients')
     .select('partner_id')
     .eq('id', clientId)
     .single()
 
+  if (clientRowError) return { error: clientRowError.message }
+
   if (clientRow?.partner_id) {
-    const { data: partnerAssignment } = await db
+    const { data: partnerAssignment, error: partnerAssignmentError } = await db
       .from('partner_assessment_assignments')
       .select('id')
       .eq('partner_id', clientRow.partner_id)
       .eq('assessment_id', input.assessmentId)
       .eq('is_active', true)
       .maybeSingle()
+
+    if (partnerAssignmentError) return { error: partnerAssignmentError.message }
 
     if (!partnerAssignment) {
       return { error: "This assessment is not available through the partner's allocation." }
@@ -830,21 +850,29 @@ export async function toggleReportTemplateAssignment(
 export async function isClientBrandingEnabled(clientId: string): Promise<boolean> {
   const db = await createClient()
 
-  const { data: client } = await db
+  const { data: client, error: clientError } = await db
     .from('clients')
     .select('can_customize_branding, partner_id')
     .eq('id', clientId)
     .single()
 
+  if (clientError) {
+    throwActionError('isClientBrandingEnabled', 'Unable to load client branding settings.', clientError)
+  }
+
   if (!client?.can_customize_branding) return false
 
   // If client has a partner, check partner's flag too
   if (client.partner_id) {
-    const { data: partner } = await db
+    const { data: partner, error: partnerError } = await db
       .from('partners')
       .select('can_customize_branding')
       .eq('id', client.partner_id)
       .single()
+
+    if (partnerError) {
+      throwActionError('isClientBrandingEnabled', 'Unable to load partner branding settings.', partnerError)
+    }
 
     if (!partner?.can_customize_branding) return false
   }
