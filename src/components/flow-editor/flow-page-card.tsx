@@ -62,9 +62,19 @@ export function FlowPageCard({
   return (
     <div
       ref={ref}
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
         "group/card flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-all duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
           ? "border-primary ring-2 ring-primary/20 bg-primary/5"
           : "border-border hover:border-primary/30 hover:bg-muted/50",
@@ -77,7 +87,7 @@ export function FlowPageCard({
         <button
           ref={handleRef}
           type="button"
-          className="shrink-0 cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
+          className="shrink-0 cursor-grab touch-none rounded text-muted-foreground hover:text-foreground active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Drag to reorder"
           onClick={(e) => e.stopPropagation()}
         >
@@ -125,9 +135,19 @@ export function StaticPageCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={selected}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       className={cn(
         "group/card flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-all duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         selected
           ? "border-primary ring-2 ring-primary/20 bg-primary/5"
           : "border-border hover:border-primary/30 hover:bg-muted/50",
