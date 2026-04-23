@@ -35,9 +35,9 @@ export function Problem() {
       ref={ref}
       data-section="problem"
       aria-label="Why generic assessment fails — and what replaces it"
-      className="relative min-h-[200vh]"
+      className="problem-section relative"
     >
-      <div className="problem-sticky sticky top-0 flex h-[100svh] flex-col items-center justify-center overflow-hidden px-5 md:px-8">
+      <div className="problem-sticky flex flex-col items-center justify-center px-5 md:px-8">
         {/* Generic text — dissolves as progress goes 0 → 0.5 */}
         <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
           <p className="mk-eyebrow problem-heading-generic mb-3 text-center md:mb-5">

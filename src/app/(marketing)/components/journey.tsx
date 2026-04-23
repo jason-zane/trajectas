@@ -43,9 +43,9 @@ export function Journey() {
     <section
       ref={ref}
       data-section="journey"
-      className="relative min-h-[350vh]"
+      className="journey-section relative"
     >
-      <div className="journey-sticky sticky top-0 flex h-[100svh] items-start justify-center overflow-hidden pt-16 md:items-center md:pt-0">
+      <div className="journey-sticky flex flex-col items-center justify-center pt-16 md:pt-0">
         {/* Central trajectory line — hidden on mobile */}
         <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2 hidden md:block">
           <div className="journey-line w-full origin-top" />

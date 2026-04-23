@@ -64,6 +64,22 @@ export function MarketingInteractive() {
     };
   }, [reducedMotion]);
 
+  // Promote the marketing surface to its animated layout once JS has hydrated
+  // and the user hasn't opted out of motion. The default static layout stays
+  // in place if either of those is false — the page is always readable.
+  useEffect(() => {
+    const root = document.querySelector('[data-surface="marketing"]');
+    if (!root) return;
+    if (reducedMotion) {
+      root.removeAttribute("data-motion");
+      return;
+    }
+    root.setAttribute("data-motion", "on");
+    return () => {
+      root.removeAttribute("data-motion");
+    };
+  }, [reducedMotion]);
+
   useEffect(() => {
     const observers: IntersectionObserver[] = [];
 

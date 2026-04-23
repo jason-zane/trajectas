@@ -47,12 +47,127 @@
   letter-spacing: 0.08em;
 }
 
-[data-surface="marketing"] [data-section="problem"],
-[data-surface="marketing"] [data-section="journey"] {
-  --scroll-progress: 0;
+/* ============================================================================
+   HERO — pure CSS entrance animation. Runs on first paint, no JS required.
+   If JS never runs, content is still visible (animation simply plays once).
+   ========================================================================= */
+
+[data-surface="marketing"] .hero-eyebrow {
+  animation: hero-fade-up 700ms ease-out backwards;
+}
+
+[data-surface="marketing"] .hero-word {
+  animation: hero-word-in 500ms ease-out backwards;
+  animation-delay: calc(300ms + var(--hero-word-index, 0) * 80ms);
+}
+
+[data-surface="marketing"] .hero-subtext {
+  animation: hero-fade-up 700ms ease-out 900ms backwards;
+}
+
+[data-surface="marketing"] .hero-cta {
+  animation: hero-fade-up 700ms ease-out 1100ms backwards;
+}
+
+[data-surface="marketing"] .hero-scroll-hint {
+  animation: hero-fade-in 500ms ease-out 1400ms backwards;
+}
+
+@keyframes hero-fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-word-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hero-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ============================================================================
+   PROBLEM — DEFAULT STATIC LAYOUT
+   Both messages stacked vertically, fully visible. Renders correctly with
+   no JS, before hydration, with prefers-reduced-motion, or if hydration fails.
+   ========================================================================= */
+
+[data-surface="marketing"] .problem-section {
+  min-height: 100svh;
 }
 
 [data-surface="marketing"] .problem-sticky {
+  position: static;
+  top: auto;
+  height: auto;
+  min-height: 100svh;
+  overflow: visible;
+  padding-block: 4rem;
+  gap: 3rem;
+  background-color: var(--mk-bg);
+}
+
+[data-surface="marketing"] .problem-layer {
+  position: static;
+  inset: auto;
+  width: 100%;
+}
+
+[data-surface="marketing"] .problem-char-generic,
+[data-surface="marketing"] .problem-char-reformed {
+  --char-delay: 0;
+  --char-dir: 1;
+  opacity: 1;
+  transform: none;
+  will-change: opacity, transform;
+}
+
+[data-surface="marketing"] .problem-heading-generic,
+[data-surface="marketing"] .problem-heading-reformed {
+  opacity: 1;
+  transform: none;
+}
+
+[data-surface="marketing"] .problem-char-generic {
+  color: var(--mk-text-muted);
+}
+
+[data-surface="marketing"] .problem-char-reformed {
+  color: var(--mk-primary);
+}
+
+[data-surface="marketing"] .problem-generic-phrase {
+  position: relative;
+}
+
+[data-surface="marketing"] .problem-reformed-phrase {
+  text-transform: none;
+}
+
+/* ============================================================================
+   PROBLEM — ENHANCED ANIMATED LAYOUT
+   Sticky scroll-driven morph. Activates only when JS has hydrated and motion
+   is allowed (data-motion="on" set by MarketingInteractive).
+   ========================================================================= */
+
+[data-surface="marketing"][data-motion="on"] .problem-section {
+  min-height: 200vh;
+}
+
+[data-surface="marketing"][data-motion="on"] [data-section="problem"] {
+  --scroll-progress: 0;
+}
+
+[data-surface="marketing"][data-motion="on"] .problem-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  padding-block: 0;
+  gap: 0;
   --problem-progress: clamp(0, var(--scroll-progress, 0), 1);
   --problem-bg-progress: clamp(
     0,
@@ -66,14 +181,24 @@
   );
 }
 
-[data-surface="marketing"] .problem-char-generic,
-[data-surface="marketing"] .problem-char-reformed {
-  --char-delay: 0;
-  --char-dir: 1;
-  will-change: opacity, transform;
+[data-surface="marketing"][data-motion="on"] .problem-layer {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
 }
 
-[data-surface="marketing"] .problem-heading-generic {
+@media (min-width: 768px) {
+  [data-surface="marketing"][data-motion="on"] .problem-layer {
+    gap: 1rem;
+  }
+}
+
+[data-surface="marketing"][data-motion="on"] .problem-heading-generic {
   opacity: calc(1 - clamp(0, calc((var(--problem-progress) - 0.38) * 4), 1));
   transform: translate3d(
     0,
@@ -82,7 +207,7 @@
   );
 }
 
-[data-surface="marketing"] .problem-heading-reformed {
+[data-surface="marketing"][data-motion="on"] .problem-heading-reformed {
   opacity: clamp(0, calc((var(--problem-progress) - 0.52) * 4), 1);
   transform: translate3d(
     0,
@@ -91,11 +216,7 @@
   );
 }
 
-[data-surface="marketing"] .problem-generic-phrase {
-  position: relative;
-}
-
-[data-surface="marketing"] .problem-generic-phrase::after {
+[data-surface="marketing"][data-motion="on"] .problem-generic-phrase::after {
   --problem-strike-progress: clamp(0, calc((var(--problem-progress) - 0.06) * 7), 1);
   --problem-strike-fade: clamp(0, calc((var(--problem-progress) - 0.21) * 16), 1);
   content: "";
@@ -114,7 +235,7 @@
   transform-origin: left center;
 }
 
-[data-surface="marketing"] .problem-char-generic {
+[data-surface="marketing"][data-motion="on"] .problem-char-generic {
   --problem-char-progress: clamp(
     0,
     calc((((var(--problem-progress) - 0.22) * 2.6) - var(--char-delay)) * 3),
@@ -137,7 +258,7 @@
     scale(calc(1 - var(--problem-char-progress) * 0.3));
 }
 
-[data-surface="marketing"] .problem-char-reformed {
+[data-surface="marketing"][data-motion="on"] .problem-char-reformed {
   --problem-progress: clamp(0, var(--scroll-progress, 0), 1);
   --problem-char-progress: clamp(
     0,
@@ -155,8 +276,86 @@
     scale(calc(0.7 + var(--problem-char-progress) * 0.3));
 }
 
+/* ============================================================================
+   JOURNEY — DEFAULT STATIC LAYOUT
+   Stages stacked vertically, fully visible. Robust without JS.
+   ========================================================================= */
+
+[data-surface="marketing"] .journey-section {
+  min-height: 100svh;
+}
+
 [data-surface="marketing"] .journey-sticky {
-  /* Compress animation into first ~70% of scroll; last ~30% is dwell (nothing moves) */
+  position: static;
+  top: auto;
+  height: auto;
+  min-height: 100svh;
+  overflow: visible;
+  padding-block: 4rem;
+  background-color: var(--mk-bg);
+}
+
+[data-surface="marketing"] .journey-list {
+  height: auto;
+  gap: 2rem;
+}
+
+[data-surface="marketing"] .journey-line {
+  height: 100%;
+  background: var(--mk-accent);
+  opacity: 0.3;
+}
+
+[data-surface="marketing"] .journey-stage {
+  --stage-start: 0;
+  --stage-dir: 1;
+  opacity: 1;
+  transform: none;
+  will-change: opacity, transform;
+}
+
+[data-surface="marketing"] .journey-title {
+  color: var(--mk-text);
+}
+
+[data-surface="marketing"] .journey-desc {
+  color: var(--mk-text-muted);
+}
+
+[data-surface="marketing"] .journey-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid var(--mk-accent);
+  background-color: var(--mk-accent);
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+/* ============================================================================
+   JOURNEY — ENHANCED ANIMATED LAYOUT
+   Sticky scroll-driven trajectory. Opt-in via data-motion="on".
+   ========================================================================= */
+
+[data-surface="marketing"][data-motion="on"] .journey-section {
+  min-height: 350vh;
+}
+
+[data-surface="marketing"][data-motion="on"] [data-section="journey"] {
+  --scroll-progress: 0;
+}
+
+[data-surface="marketing"][data-motion="on"] .journey-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  padding-block: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: center;
   --journey-active: clamp(0, calc(var(--scroll-progress, 0) * 1.43), 1);
   background-color: color-mix(
     in srgb,
@@ -165,15 +364,29 @@
   );
 }
 
-[data-surface="marketing"] .journey-line {
-  height: min(100%, calc(var(--journey-active) * 120%));
-  background: var(--mk-accent);
-  opacity: 0.3;
+@media (min-width: 768px) {
+  [data-surface="marketing"][data-motion="on"] .journey-sticky {
+    align-items: center;
+  }
 }
 
-[data-surface="marketing"] .journey-stage {
-  --stage-start: 0;
-  --stage-dir: 1;
+[data-surface="marketing"][data-motion="on"] .journey-list {
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  [data-surface="marketing"][data-motion="on"] .journey-list {
+    height: 70%;
+    gap: 0;
+    justify-content: space-between;
+  }
+}
+
+[data-surface="marketing"][data-motion="on"] .journey-line {
+  height: min(100%, calc(var(--journey-active) * 120%));
+}
+
+[data-surface="marketing"][data-motion="on"] .journey-stage {
   --stage-progress: clamp(
     0,
     calc((var(--journey-active) - var(--stage-start)) * 5),
@@ -185,10 +398,9 @@
     0,
     0
   );
-  will-change: opacity, transform;
 }
 
-[data-surface="marketing"] .journey-title {
+[data-surface="marketing"][data-motion="on"] .journey-title {
   color: color-mix(
     in srgb,
     var(--mk-text) calc((1 - var(--journey-active)) * 100%),
@@ -196,7 +408,7 @@
   );
 }
 
-[data-surface="marketing"] .journey-desc {
+[data-surface="marketing"][data-motion="on"] .journey-desc {
   color: color-mix(
     in srgb,
     var(--mk-text-muted) calc((1 - var(--journey-active)) * 100%),
@@ -204,13 +416,8 @@
   );
 }
 
-[data-surface="marketing"] .journey-dot {
+[data-surface="marketing"][data-motion="on"] .journey-dot {
   --journey-dot-active: clamp(0, calc((var(--stage-progress) - 0.8) * 5), 1);
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  border: 2px solid var(--mk-accent);
-  opacity: var(--stage-progress);
   background-color: color-mix(
     in srgb,
     transparent calc((1 - var(--journey-dot-active)) * 100%),
@@ -222,15 +429,16 @@
       transparent calc((1 - var(--journey-dot-active)) * 100%),
       var(--mk-accent) calc(var(--journey-dot-active) * 100%)
     );
+  opacity: var(--stage-progress);
   transform: translateX(-50%)
     scale(calc(1 + var(--journey-dot-active) * 0.3));
 }
 
-[data-surface="marketing"] .problem-reformed-phrase {
-  text-transform: none;
-}
+/* ============================================================================
+   CONTACT FORM — dissolve-on-success animation. Form is always visible by
+   default; only the post-submit success transition is animated.
+   ========================================================================= */
 
-/* Contact form dissolution */
 [data-surface="marketing"] .contact-field {
   transition: opacity 0.5s ease-out, transform 0.5s ease-out;
 }
@@ -256,79 +464,21 @@
   animation: contact-success-enter 0.6s ease-out 0.4s both;
 }
 
+/* ============================================================================
+   PREFERS-REDUCED-MOTION
+   Disables Hero entrance animations and the contact-success animation.
+   The Problem and Journey sections don't need overrides here — they default
+   to the static layout already, and MarketingInteractive only sets
+   data-motion="on" when the user has NOT requested reduced motion.
+   ========================================================================= */
+
 @media (prefers-reduced-motion: reduce) {
-  [data-surface="marketing"] .problem-sticky {
-    height: auto;
-    min-height: 100svh;
-    gap: 3rem;
-    padding-block: 4rem;
-    background-color: var(--mk-bg);
-  }
-
-  [data-surface="marketing"] .problem-layer {
-    position: static;
-    inset: auto;
-  }
-
-  [data-surface="marketing"] .problem-char-generic,
-  [data-surface="marketing"] .problem-char-reformed {
-    opacity: 1;
-    transform: none;
-  }
-
-  [data-surface="marketing"] .problem-heading-generic,
-  [data-surface="marketing"] .problem-heading-reformed {
-    opacity: 1;
-    transform: none;
-  }
-
-  [data-surface="marketing"] .problem-generic-phrase::after {
-    opacity: 0;
-    transform: translateY(-50%) scaleX(0);
-  }
-
-  [data-surface="marketing"] .problem-char-generic {
-    color: var(--mk-text-muted);
-  }
-
-  [data-surface="marketing"] .problem-char-reformed {
-    color: var(--mk-primary);
-  }
-
-  [data-surface="marketing"] .journey-sticky {
-    height: auto;
-    min-height: 100svh;
-    padding-block: 4rem;
-    background-color: var(--mk-bg);
-  }
-
-  [data-surface="marketing"] .journey-list {
-    height: auto;
-    gap: 2rem;
-  }
-
-  [data-surface="marketing"] .journey-line {
-    height: 100%;
-  }
-
-  [data-surface="marketing"] .journey-stage {
-    opacity: 1;
-    transform: none;
-  }
-
-  [data-surface="marketing"] .journey-title {
-    color: var(--mk-text);
-  }
-
-  [data-surface="marketing"] .journey-desc {
-    color: var(--mk-text-muted);
-  }
-
-  [data-surface="marketing"] .journey-dot {
-    opacity: 1;
-    background-color: var(--mk-accent);
-    box-shadow: none;
-    transform: translateX(-50%);
+  [data-surface="marketing"] .hero-eyebrow,
+  [data-surface="marketing"] .hero-word,
+  [data-surface="marketing"] .hero-subtext,
+  [data-surface="marketing"] .hero-cta,
+  [data-surface="marketing"] .hero-scroll-hint {
+    animation: none;
   }
 
   [data-surface="marketing"] .contact-field {
