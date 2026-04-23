@@ -16,6 +16,16 @@ import type {
   AssessmentAssignmentWithUsage,
   ClientReportTemplateAssignment,
 } from '@/types/database'
+import {
+  clientIdSchema,
+  clientAssessmentDetailSchema,
+  checkQuotaAvailabilitySchema,
+  assignAssessmentSchema,
+  updateAssessmentAssignmentSchema,
+  removeAssessmentAssignmentSchema,
+  toggleReportTemplateAssignmentSchema,
+  toggleClientBrandingSchema,
+} from '@/lib/validations/client-entitlements'
 
 // ---------------------------------------------------------------------------
 // Reads
@@ -24,6 +34,8 @@ import type {
 export async function getAssessmentAssignments(
   clientId: string,
 ): Promise<AssessmentAssignmentWithUsage[]> {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return []
   await requireClientAccess(clientId)
   const db = await createClient()
 
@@ -92,6 +104,8 @@ export async function getAvailableAssessmentsForClient(
     quotaRemaining: number | null
   }[]
 > {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return []
   const assignments = await getAssessmentAssignments(clientId)
 
   return assignments.map((a) => ({
@@ -154,6 +168,8 @@ export type ClientAssessmentLibraryDetail = ClientAssessmentLibrarySummary & {
 export async function getClientAssessmentLibrary(
   clientId: string,
 ): Promise<ClientAssessmentLibrarySummary[]> {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return []
   const assignments = await getAssessmentAssignments(clientId)
   if (assignments.length === 0) {
     return []
@@ -368,6 +384,8 @@ export async function getClientAssessmentLibraryDetail(
   clientId: string,
   assessmentId: string,
 ): Promise<ClientAssessmentLibraryDetail | null> {
+  const parsed = clientAssessmentDetailSchema.safeParse({ clientId, assessmentId })
+  if (!parsed.success) return null
   await requireClientAccess(clientId)
 
   const assignments = await getAssessmentAssignments(clientId)
@@ -504,6 +522,8 @@ export async function getClientAssessmentLibraryDetail(
 export async function getReportTemplateAssignments(
   clientId: string,
 ): Promise<ClientReportTemplateAssignment[]> {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return []
   await requireClientAccess(clientId)
   const db = await createClient()
 
@@ -527,6 +547,8 @@ export async function getReportTemplateAssignments(
 export async function getAvailableReportTemplateIds(
   clientId: string,
 ): Promise<string[]> {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return []
   const assignments = await getReportTemplateAssignments(clientId)
   return assignments.map((a) => a.reportTemplateId)
 }
@@ -542,6 +564,8 @@ export async function checkQuotaAvailability(
   allowed: boolean
   violations: { assessmentId: string; quotaLimit: number; quotaUsed: number }[]
 }> {
+  const parsed = checkQuotaAvailabilitySchema.safeParse({ clientId, assessmentIds })
+  if (!parsed.success) return { allowed: false, violations: [] }
   await requireClientAccess(clientId)
 
   if (assessmentIds.length === 0) {
@@ -679,6 +703,8 @@ export async function assignAssessment(
   clientId: string,
   input: { assessmentId: string; quotaLimit?: number | null },
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = assignAssessmentSchema.safeParse({ clientId, ...input })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can assign assessments.' }
@@ -736,6 +762,8 @@ export async function updateAssessmentAssignment(
   clientId: string,
   updates: { quotaLimit?: number | null; isActive?: boolean },
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = updateAssessmentAssignmentSchema.safeParse({ assignmentId, clientId, ...updates })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can update assessment assignments.' }
@@ -768,6 +796,8 @@ export async function removeAssessmentAssignment(
   assignmentId: string,
   clientId: string,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = removeAssessmentAssignmentSchema.safeParse({ assignmentId, clientId })
+  if (!parsed.success) return { error: 'Invalid input' }
   return updateAssessmentAssignment(assignmentId, clientId, {
     isActive: false,
   })
@@ -778,6 +808,8 @@ export async function toggleReportTemplateAssignment(
   reportTemplateId: string,
   assigned: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = toggleReportTemplateAssignmentSchema.safeParse({ clientId, reportTemplateId, assigned })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage report template assignments.' }
@@ -828,6 +860,8 @@ export async function toggleReportTemplateAssignment(
  * Returns false if the client's own flag is off OR if the client's partner has branding disabled.
  */
 export async function isClientBrandingEnabled(clientId: string): Promise<boolean> {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return false
   const db = await createClient()
 
   const { data: client } = await db
@@ -856,6 +890,8 @@ export async function toggleClientBranding(
   clientId: string,
   canCustomize: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = toggleClientBrandingSchema.safeParse({ clientId, canCustomize })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requireClientAccess(clientId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage branding settings.' }
