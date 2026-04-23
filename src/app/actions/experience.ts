@@ -18,6 +18,17 @@ import type {
   FlowConfig,
   DemographicsConfig,
 } from '@/lib/experience/types'
+import {
+  getExperienceTemplateSchema,
+  getEffectiveExperienceSchema,
+  upsertExperiencePageContentSchema,
+  upsertExperienceFlowConfigSchema,
+  upsertExperienceDemographicsSchema,
+  upsertExperienceTemplateSchema,
+  resetExperienceToDefaultSchema,
+  saveConsentSchema,
+  saveDemographicsSchema,
+} from '@/lib/validations/experience'
 
 // ---------------------------------------------------------------------------
 // Read
@@ -34,6 +45,8 @@ export async function getExperienceTemplate(
   ownerType: ExperienceOwnerType,
   ownerId: string | null
 ): Promise<ExperienceTemplateRecord | null> {
+  const parsed = getExperienceTemplateSchema.safeParse({ ownerType, ownerId })
+  if (!parsed.success) return null
   const db = createAdminClient()
 
   let query = db
@@ -98,6 +111,8 @@ async function getCampaignAssessmentCount(campaignId: string): Promise<number> {
 export async function getEffectiveExperience(
   campaignId?: string | null
 ): Promise<ExperienceTemplate> {
+  const parsed = getEffectiveExperienceSchema.safeParse({ campaignId })
+  if (!parsed.success) throw new Error('Invalid campaign ID')
   const platform = await getCachedPlatformExperienceTemplate()
 
   let campaign: ExperienceTemplateRecord | null = null
@@ -143,6 +158,8 @@ export async function upsertExperiencePageContent(
   ownerId: string | null,
   pageContent: Partial<PageContentMap>
 ): Promise<{ error?: string }> {
+  const parsed = upsertExperiencePageContentSchema.safeParse({ ownerType, ownerId, pageContent })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
@@ -192,6 +209,8 @@ export async function upsertExperienceFlowConfig(
   ownerId: string | null,
   flowConfig: Partial<FlowConfig>
 ): Promise<{ error?: string }> {
+  const parsed = upsertExperienceFlowConfigSchema.safeParse({ ownerType, ownerId, flowConfig })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
@@ -241,6 +260,8 @@ export async function upsertExperienceDemographics(
   ownerId: string | null,
   demographicsConfig: DemographicsConfig
 ): Promise<{ error?: string }> {
+  const parsed = upsertExperienceDemographicsSchema.safeParse({ ownerType, ownerId, demographicsConfig })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
@@ -290,6 +311,8 @@ export async function upsertExperienceTemplate(
   ownerId: string | null,
   template: Partial<ExperienceTemplate>
 ): Promise<{ error?: string }> {
+  const parsed = upsertExperienceTemplateSchema.safeParse({ ownerType, ownerId, template })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
@@ -348,6 +371,8 @@ export async function resetExperienceToDefault(
   ownerType: ExperienceOwnerType,
   ownerId: string | null
 ): Promise<{ error?: string }> {
+  const parsed = resetExperienceToDefaultSchema.safeParse({ ownerType, ownerId })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform template — edit it instead.' }
@@ -392,6 +417,8 @@ export async function saveConsent(
   token: string,
   participantId: string,
 ): Promise<{ error?: string }> {
+  const parsed = saveConsentSchema.safeParse({ token, participantId })
+  if (!parsed.success) return { error: 'Invalid input' }
   try {
     await requireParticipantRuntimeParticipantAccess(token, participantId)
   } catch (error) {
@@ -430,6 +457,8 @@ export async function saveDemographics(
   participantId: string,
   demographics: Record<string, string>
 ): Promise<{ error?: string }> {
+  const parsed = saveDemographicsSchema.safeParse({ token, participantId, demographics })
+  if (!parsed.success) return { error: 'Invalid input' }
   try {
     await requireParticipantRuntimeParticipantAccess(token, participantId)
   } catch (error) {
