@@ -359,11 +359,12 @@ export async function getResolvedReportTemplateBandScheme(
   if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
   await requireReportTemplateAccess(id, { forWrite: false })
   const db = createAdminClient()
-  const { data } = await db
+  const { data, error } = await db
     .from('report_templates')
     .select('band_scheme, partner_id')
     .eq('id', id)
     .maybeSingle()
+  if (error) throwActionError('getResolvedReportTemplateBandScheme', 'Unable to load report template.', error)
   const row = (data ?? {}) as { band_scheme: BandScheme | null; partner_id: string | null }
   return resolveTemplateBandScheme(db, {
     bandScheme: row.band_scheme ?? null,
@@ -507,13 +508,14 @@ export async function addCampaignTemplate(
   }
 
   const db = createAdminClient()
-  const { data: maxOrder } = await db
+  const { data: maxOrder, error: maxOrderError } = await db
     .from('campaign_report_templates')
     .select('sort_order')
     .eq('campaign_id', campaignId)
     .order('sort_order', { ascending: false })
     .limit(1)
     .maybeSingle()
+  if (maxOrderError) throwActionError('addCampaignTemplate', 'Unable to add campaign template.', maxOrderError)
 
   const nextOrder = ((maxOrder?.sort_order as number | null) ?? -1) + 1
 
@@ -1088,10 +1090,11 @@ export async function getReportSnapshotsForParticipant(
   if (!postgresUuid().safeParse(participantId).success) return []
   const access = await requireParticipantAccess(participantId)
   const db = await createClient()
-  const { data: sessions } = await db
+  const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')
     .select('id')
     .eq('campaign_participant_id', participantId)
+  if (sessionsError) throwActionError('getReportSnapshotsForParticipant', 'Unable to load report snapshots.', sessionsError)
   const sessionIds = (sessions ?? []).map((s) => s.id)
   if (sessionIds.length === 0) return []
   const { data: snapshots, error } = await db
@@ -1308,11 +1311,18 @@ export async function getEntityOptions(): Promise<EntityOption[]> {
   ensureReportTemplateLibraryAccess(scope)
 
   const db = createAdminClient()
-  const [{ data: dimensions }, { data: factors }, { data: constructs }] = await Promise.all([
+  const [
+    { data: dimensions, error: dimensionsError },
+    { data: factors, error: factorsError },
+    { data: constructs, error: constructsError },
+  ] = await Promise.all([
     db.from('dimensions').select(ENTITY_LIBRARY_FIELDS).is('deleted_at', null).eq('is_active', true),
     db.from('factors').select(`${ENTITY_LIBRARY_FIELDS}, dimension_id`).is('deleted_at', null).eq('is_active', true),
     db.from('constructs').select(`${ENTITY_LIBRARY_FIELDS}, factor_constructs(factor_id)`).is('deleted_at', null).eq('is_active', true),
   ])
+  if (dimensionsError) throwActionError('getEntityOptions', 'Unable to load entity options.', dimensionsError)
+  if (factorsError) throwActionError('getEntityOptions', 'Unable to load entity options.', factorsError)
+  if (constructsError) throwActionError('getEntityOptions', 'Unable to load entity options.', constructsError)
   const options: EntityOption[] = [
     ...(dimensions ?? []).map((d) => ({ ...mapEntityLibrary(d as EntityLibraryRow), type: 'dimension' as const })),
     ...(factors ?? []).map((f) => {
@@ -1391,10 +1401,11 @@ export async function backfillAllPreviewSeeds(): Promise<{ seededAssessmentIds: 
     throw new AuthorizationError('Only platform admins can backfill preview seeds.')
   }
   const db = createAdminClient()
-  const { data: assessments } = await db
+  const { data: assessments, error: assessmentsError } = await db
     .from('assessments')
     .select('id')
     .is('deleted_at', null)
+  if (assessmentsError) throwActionError('backfillAllPreviewSeeds', 'Unable to load assessments.', assessmentsError)
   const seeded: string[] = []
   for (const a of (assessments ?? []) as Array<{ id: string }>) {
     try {
