@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import { sessionIdSchema, bulkSessionIdsSchema } from '@/lib/validations/sessions'
 import type {
   ParticipantSessionProcessingStatus,
   ReportPdfStatus,
@@ -157,6 +158,8 @@ async function assertSessionAccess(sessionId: string): Promise<string> {
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
+  const parsed = sessionIdSchema.safeParse({ sessionId })
+  if (!parsed.success) return null
   try {
     await assertSessionAccess(sessionId)
   } catch (error) {
@@ -382,6 +385,8 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
 }
 
 export async function getSessionSnapshots(sessionId: string): Promise<SessionDetailSnapshot[]> {
+  const parsed = sessionIdSchema.safeParse({ sessionId })
+  if (!parsed.success) return []
   try {
     await assertSessionAccess(sessionId)
   } catch (error) {
@@ -430,6 +435,8 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
 
 export async function bulkDeleteParticipantSessions(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkSessionIdsSchema.safeParse({ ids })
+  if (!parsed.success) throw new Error('Invalid session IDs')
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
   const db = createAdminClient()
