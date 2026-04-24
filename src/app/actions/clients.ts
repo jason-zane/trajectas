@@ -386,15 +386,31 @@ export async function getClientStats(clientId: string): Promise<{
       .eq('client_id', clientId),
   ])
 
+  if (activeCampaignsResult.error) {
+    throwActionError('getClientStats', 'Unable to load client stats.', activeCampaignsResult.error)
+  }
+  if (campaignIdsResult.error) {
+    throwActionError('getClientStats', 'Unable to load client stats.', campaignIdsResult.error)
+  }
+  if (assignedAssessmentsResult.error) {
+    throwActionError('getClientStats', 'Unable to load client stats.', assignedAssessmentsResult.error)
+  }
+  if (reportsGeneratedResult.error) {
+    throwActionError('getClientStats', 'Unable to load client stats.', reportsGeneratedResult.error)
+  }
+
   const ids = (campaignIdsResult.data ?? []).map((c) => c.id)
 
   // Group B: participant count needs the campaign ids from Group A.
   let totalParticipants = 0
   if (ids.length > 0) {
-    const { count } = await db
+    const { count, error: participantsError } = await db
       .from('campaign_participants')
       .select('*', { count: 'exact', head: true })
       .in('campaign_id', ids)
+    if (participantsError) {
+      throwActionError('getClientStats', 'Unable to load client stats.', participantsError)
+    }
     totalParticipants = count ?? 0
   }
 
@@ -602,7 +618,7 @@ export async function inviteUserToClient(
 
   // Check for existing pending invite
   const db = createAdminClient()
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await db
     .from('user_invites')
     .select('id')
     .eq('tenant_type', 'client')
@@ -612,6 +628,8 @@ export async function inviteUserToClient(
     .is('revoked_at', null)
     .gt('expires_at', new Date().toISOString())
     .maybeSingle()
+
+  if (existingError) return { error: existingError.message }
 
   if (existing) {
     return { error: 'An invite is already pending for this email address' }
