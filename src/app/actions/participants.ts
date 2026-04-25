@@ -452,13 +452,13 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   const db = await createClient()
 
   // Get participant record
-  const { data: participant } = await db
+  const { data: participant, error: participantError } = await db
     .from('campaign_participants')
     .select('invited_at, started_at, completed_at, campaigns(title)')
     .eq('id', participantId)
     .single()
 
-  if (!participant) return []
+  if (participantError || !participant) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const p = participant as any
@@ -482,11 +482,13 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   }
 
   // Get session-level events
-  const { data: sessions } = await db
+  const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')
     .select('id, started_at, completed_at, assessments(title)')
     .eq('campaign_participant_id', participantId)
     .order('started_at', { ascending: true })
+
+  if (sessionsError) throwActionError('getParticipantActivity', 'Unable to load participant sessions.', sessionsError)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const s of (sessions ?? []) as any[]) {
@@ -551,16 +553,16 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
   const db = await createClient()
 
   // Get session's assessment
-  const { data: session } = await db
+  const { data: session, error: sessionError } = await db
     .from('participant_sessions')
     .select('assessment_id')
     .eq('id', sessionId)
     .single()
 
-  if (!session) return []
+  if (sessionError || !session) return []
 
   // Get sections with items
-  const { data: sections } = await db
+  const { data: sections, error: sectionsError } = await db
     .from('assessment_sections')
     .select(`
       id, title, display_order,
@@ -573,11 +575,15 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
     .eq('assessment_id', session.assessment_id)
     .order('display_order', { ascending: true })
 
+  if (sectionsError) throwActionError('getParticipantResponses', 'Unable to load assessment sections.', sectionsError)
+
   // Get all responses for this session
-  const { data: responses } = await db
+  const { data: responses, error: responsesError } = await db
     .from('participant_responses')
     .select('item_id, response_value, response_time_ms')
     .eq('session_id', sessionId)
+
+  if (responsesError) throwActionError('getParticipantResponses', 'Unable to load participant responses.', responsesError)
 
   const responseMap = new Map<string, { value: number; timeMs?: number }>()
   for (const r of responses ?? []) {
