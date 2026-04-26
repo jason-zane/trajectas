@@ -191,10 +191,11 @@ export async function getGenerationRuns(): Promise<GenerationRunWithConstructNam
     return runs.map((r) => ({ ...r, constructNames: [] }))
   }
 
-  const { data: constructs } = await db
+  const { data: constructs, error: constructsError } = await db
     .from('constructs')
     .select('id, name')
     .in('id', allConstructIds)
+  if (constructsError) throw new Error(constructsError.message)
 
   const nameMap = new Map<string, string>(
     (constructs ?? []).map((c) => [c.id, c.name]),
@@ -223,6 +224,7 @@ export async function getGenerationRun(
   ])
 
   if (runResult.error) return null
+  if (itemsResult.error) return null
 
   return {
     run: mapGenerationRunRow(runResult.data),
@@ -537,12 +539,12 @@ export async function acceptGeneratedItems(
     const item = mapGeneratedItemRow(row)
 
     // Determine next display_order for this construct
-    const { count } = await db
+    const { count, error: countError } = await db
       .from('items')
       .select('*', { count: 'exact', head: true })
       .eq('construct_id', item.constructId)
       .is('deleted_at', null)
-      .then((r) => ({ count: r.count ?? 0 }))
+    if (countError) throw new Error(countError.message)
 
     // Insert into items table
     const { data: newItem, error: insertError } = await db
@@ -582,10 +584,11 @@ export async function acceptGeneratedItems(
 
   // Update the accepted count on the run
   const previousAccepted = (runData.items_accepted as number | null) ?? 0
-  await db
+  const { error: updateRunError } = await db
     .from('generation_runs')
     .update({ items_accepted: previousAccepted + acceptedCount })
     .eq('id', runId)
+  if (updateRunError) throw new Error(updateRunError.message)
 
   revalidatePath('/generate')
   revalidatePath('/items')
@@ -614,7 +617,8 @@ export async function deleteGenerationRun(runId: string): Promise<void> {
   const db = createAdminClient()
 
   // Delete child rows first (no cascade assumed)
-  await db.from('generated_items').delete().eq('generation_run_id', runId)
+  const { error: itemsDeleteError } = await db.from('generated_items').delete().eq('generation_run_id', runId)
+  if (itemsDeleteError) throw new Error(itemsDeleteError.message)
   const { error } = await db.from('generation_runs').delete().eq('id', runId)
   if (error) throw new Error(error.message)
 
@@ -945,10 +949,11 @@ export async function exportRunItemsAsCSV(runId: string): Promise<{ success: boo
 
     // Fetch construct names for the IDs
     const constructIds = [...new Set(items.map(i => i.construct_id))]
-    const { data: constructs } = await db
+    const { data: constructs, error: constructNamesError } = await db
       .from('constructs')
       .select('id, name')
       .in('id', constructIds)
+    if (constructNamesError) return { success: false, error: constructNamesError.message }
 
     const constructNameMap = new Map((constructs ?? []).map(c => [c.id, c.name]))
 
