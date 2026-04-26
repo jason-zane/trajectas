@@ -9,6 +9,14 @@ import {
   mapPartnerAssessmentAssignmentRow,
   mapPartnerReportTemplateAssignmentRow,
 } from '@/lib/supabase/mappers'
+import {
+  partnerIdSchema,
+  assignAssessmentToPartnerSchema,
+  updatePartnerAssessmentAssignmentSchema,
+  removePartnerAssessmentAssignmentSchema,
+  togglePartnerReportTemplateAssignmentSchema,
+  togglePartnerBrandingSchema,
+} from '@/lib/validations/partner-entitlements'
 import type {
   PartnerAssessmentAssignmentWithUsage,
   PartnerReportTemplateAssignment,
@@ -21,6 +29,8 @@ import type {
 export async function getPartnerAssessmentAssignments(
   partnerId: string,
 ): Promise<PartnerAssessmentAssignmentWithUsage[]> {
+  const parsed = partnerIdSchema.safeParse({ partnerId })
+  if (!parsed.success) return []
   await requirePartnerAccess(partnerId)
   const db = await createClient()
 
@@ -78,6 +88,8 @@ export async function getPartnerAssessmentAssignments(
 export async function getPartnerReportTemplateAssignments(
   partnerId: string,
 ): Promise<PartnerReportTemplateAssignment[]> {
+  const parsed = partnerIdSchema.safeParse({ partnerId })
+  if (!parsed.success) return []
   await requirePartnerAccess(partnerId)
   const db = await createClient()
 
@@ -106,6 +118,8 @@ export async function assignAssessmentToPartner(
   partnerId: string,
   input: { assessmentId: string; quotaLimit?: number | null },
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = assignAssessmentToPartnerSchema.safeParse({ partnerId, ...input })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can assign assessments.' }
@@ -142,6 +156,8 @@ export async function updatePartnerAssessmentAssignment(
   partnerId: string,
   updates: { quotaLimit?: number | null; isActive?: boolean },
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = updatePartnerAssessmentAssignmentSchema.safeParse({ assignmentId, partnerId, ...updates })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can update assessment assignments.' }
@@ -174,6 +190,8 @@ export async function removePartnerAssessmentAssignment(
   assignmentId: string,
   partnerId: string,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = removePartnerAssessmentAssignmentSchema.safeParse({ assignmentId, partnerId })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can update assessment assignments.' }
@@ -224,6 +242,8 @@ export async function togglePartnerReportTemplateAssignment(
   reportTemplateId: string,
   assigned: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = togglePartnerReportTemplateAssignmentSchema.safeParse({ partnerId, reportTemplateId, assigned })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage report template assignments.' }
@@ -273,6 +293,8 @@ export async function togglePartnerBranding(
   partnerId: string,
   canCustomize: boolean,
 ): Promise<{ success: true; id: string } | { error: string }> {
+  const parsed = togglePartnerBrandingSchema.safeParse({ partnerId, canCustomize })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return { error: 'Only platform administrators can manage branding settings.' }
