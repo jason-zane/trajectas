@@ -14,9 +14,11 @@ export function RefreshOnFocus({
   minIntervalMs?: number;
 }) {
   const router = useRouter();
-  const lastRefreshRef = useRef<number>(Date.now());
+  const lastRefreshRef = useRef<number>(0);
 
   useEffect(() => {
+    lastRefreshRef.current = Date.now();
+
     function maybeRefresh() {
       if (document.visibilityState !== "visible") return;
       const now = Date.now();

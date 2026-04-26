@@ -1,30 +1,9 @@
 "use client"
 
-import "@maily-to/core/style.css"
-
 import { useCallback, useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { toast } from "sonner"
 import { Send, Code, Eye } from "lucide-react"
-import { Editor } from "@maily-to/core"
-import {
-  text,
-  heading1,
-  heading2,
-  heading3,
-  button as buttonBlock,
-  spacer,
-  divider,
-  image,
-  columns,
-} from "@maily-to/core/blocks"
-import type { JSONContent } from "@tiptap/core"
-
-// Maily re-exports its own Editor type which differs from @tiptap/core's.
-// We use a minimal interface that covers what we need from callbacks.
-type TiptapEditorInstance = {
-  getJSON(): JSONContent
-  commands: { setContent(content: JSONContent): boolean }
-}
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,19 +25,27 @@ import {
   type EmailTemplateScope,
 } from "@/lib/email/types"
 
+const MailyVisualEditor = dynamic(
+  () => import("./maily-visual-editor").then((mod) => mod.MailyVisualEditor),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-64 items-center justify-center rounded-lg border border-input bg-background text-sm text-muted-foreground">
+        Loading visual editor...
+      </div>
+    ),
+  },
+)
+
+// Maily re-exports its own Editor type which differs from @tiptap/core's.
+// We use a minimal interface that covers what we need from callbacks.
+type TiptapEditorInstance = {
+  getJSON(): Record<string, unknown>
+  commands: { setContent(content: Record<string, unknown>): boolean }
+}
+
 type SaveState = "idle" | "saving" | "saved"
 type EditorMode = "visual" | "json"
-
-const EDITOR_BLOCKS = [
-  {
-    title: "Content",
-    commands: [text, heading1, heading2, heading3, buttonBlock, image],
-  },
-  {
-    title: "Layout",
-    commands: [spacer, divider, columns],
-  },
-]
 
 interface EmailTemplateEditorProps {
   type: EmailType
@@ -79,8 +66,8 @@ export function EmailTemplateEditor({
 }: EmailTemplateEditorProps) {
   const [subject, setSubject] = useState(initialSubject)
   const [previewText, setPreviewText] = useState(initialPreviewText)
-  const [editorJson, setEditorJson] = useState<JSONContent>(
-    (initialEditorJson as JSONContent) ?? { type: "doc", content: [] }
+  const [editorJson, setEditorJson] = useState<Record<string, unknown>>(
+    initialEditorJson ?? { type: "doc", content: [] }
   )
   const [jsonStr, setJsonStr] = useState(
     initialEditorJson ? JSON.stringify(initialEditorJson, null, 2) : "{}"
@@ -294,15 +281,10 @@ export function EmailTemplateEditor({
         <CardContent>
           {editorMode === "visual" ? (
             <div className="rounded-lg border border-input bg-background min-h-64 [&_.maily-editor]:min-h-64">
-              <Editor
+              <MailyVisualEditor
                 contentJson={editorJson}
                 onUpdate={handleEditorUpdate}
                 onCreate={handleEditorCreate}
-                blocks={EDITOR_BLOCKS}
-                config={{
-                  hasMenuBar: true,
-                  spellCheck: true,
-                }}
               />
             </div>
           ) : (

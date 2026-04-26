@@ -1,7 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ParticleMesh } from "./particle-mesh";
+
+const ParticleMesh = dynamic(
+  () => import("./particle-mesh").then((mod) => mod.ParticleMesh),
+  { ssr: false },
+);
 
 const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
