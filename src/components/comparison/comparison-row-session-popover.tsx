@@ -15,24 +15,20 @@ export function ComparisonRowSessionPopover({
   onClose: () => void
   onPick: (assessmentId: string, sessionId: string) => void
 }) {
-  const [options, setOptions] = useState<SessionOption[]>([])
-  const [loading, setLoading] = useState(false)
+  const [options, setOptions] = useState<SessionOption[] | null>(null)
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
-    setLoading(true)
-    getSessionOptionsForRow(campaignParticipantId, assessmentIds)
-      .then((opts) => {
-        if (!cancelled) setOptions(opts)
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
+    getSessionOptionsForRow(campaignParticipantId, assessmentIds).then((opts) => {
+      if (!cancelled) setOptions(opts)
+    })
     return () => {
       cancelled = true
     }
   }, [open, campaignParticipantId, assessmentIds])
+
+  const loading = options === null
 
   if (!open) return null
   return (
@@ -52,7 +48,7 @@ export function ComparisonRowSessionPopover({
           <div className="text-xs opacity-70 p-2">No sessions found.</div>
         )}
         <ul className="max-h-72 overflow-auto text-xs">
-          {options.map((o) => (
+          {(options ?? []).map((o) => (
             <li key={o.sessionId}>
               <button
                 type="button"
