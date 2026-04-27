@@ -2,30 +2,38 @@
 import { Button } from '@/components/ui/button'
 import { ComparisonExportButton } from './comparison-export-button'
 import type {
+  ColumnLevel,
   ComparisonRequest,
   ComparisonRow,
-  Granularity,
 } from '@/lib/comparison/types'
 import type { EligibleAssessment } from '@/app/actions/comparison'
+
+const LEVEL_LABEL: Record<ColumnLevel, string> = {
+  dimension: 'Dimensions',
+  factor: 'Factors',
+  construct: 'Constructs',
+}
 
 export function ComparisonSelectionBar({
   rows,
   request,
+  visibleLevels,
   campaignSlug,
   eligibleAssessments,
   onRemoveEntry,
   onAddEntryClick,
   onToggleAssessment,
-  onChangeGranularity,
+  onToggleLevel,
 }: {
   rows: ComparisonRow[]
   request: ComparisonRequest
+  visibleLevels: ColumnLevel[]
   campaignSlug?: string
   eligibleAssessments: EligibleAssessment[]
   onRemoveEntry: (entryId: string) => void
   onAddEntryClick: () => void
   onToggleAssessment: (assessmentId: string) => void
-  onChangeGranularity: (g: Granularity) => void
+  onToggleLevel: (level: ColumnLevel) => void
 }) {
   const isEmpty = request.entries.length === 0
   return (
@@ -74,27 +82,26 @@ export function ComparisonSelectionBar({
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <div className="inline-flex rounded-md border border-border overflow-hidden text-xs">
-          <button
-            type="button"
-            className={`px-2 py-1 ${
-              request.granularity === 'dimensions' ? 'bg-primary text-primary-foreground' : ''
-            }`}
-            onClick={() => onChangeGranularity('dimensions')}
-          >
-            Dimensions
-          </button>
-          <button
-            type="button"
-            className={`px-2 py-1 ${
-              request.granularity === 'factors_or_constructs'
-                ? 'bg-primary text-primary-foreground'
-                : ''
-            }`}
-            onClick={() => onChangeGranularity('factors_or_constructs')}
-          >
-            Factors / Constructs
-          </button>
+        <div className="flex items-center gap-1 text-xs">
+          <span className="opacity-60 mr-1">Show:</span>
+          {(['dimension', 'factor', 'construct'] as ColumnLevel[]).map((level) => {
+            const active = visibleLevels.includes(level)
+            return (
+              <button
+                key={level}
+                type="button"
+                onClick={() => onToggleLevel(level)}
+                aria-pressed={active}
+                className={`rounded-full border px-2.5 py-1 transition-colors ${
+                  active
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'border-border bg-muted opacity-70 hover:opacity-100'
+                }`}
+              >
+                {LEVEL_LABEL[level]}
+              </button>
+            )
+          })}
         </div>
         <ComparisonExportButton
           request={request}

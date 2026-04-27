@@ -6,20 +6,8 @@ import {
 } from '@/app/actions/comparison'
 import { getPlatformBandScheme } from '@/app/actions/platform-settings'
 import { resolveClientOrg } from '@/lib/auth/resolve-client-org'
-import type {
-  ComparisonRequest,
-  EntryRequest,
-  Granularity,
-} from '@/lib/comparison/types'
-
-function decodeEntries(s: string | null): EntryRequest[] {
-  if (!s) return []
-  try {
-    return JSON.parse(decodeURIComponent(s)) as EntryRequest[]
-  } catch {
-    return []
-  }
-}
+import { decodeEntriesParam, decodeLevelsParam } from '@/lib/comparison/url-params'
+import type { ComparisonRequest, EntryRequest } from '@/lib/comparison/types'
 
 export default async function ClientComparePage({
   searchParams,
@@ -27,7 +15,7 @@ export default async function ClientComparePage({
   searchParams: Promise<{
     entries?: string
     assessments?: string
-    granularity?: Granularity
+    levels?: string
     ids?: string
   }>
 }) {
@@ -35,13 +23,12 @@ export default async function ClientComparePage({
   const sp = await searchParams
 
   const initialEntryIds = sp.ids ? sp.ids.split(',').filter(Boolean) : []
-  const decoded = decodeEntries(sp.entries ?? null)
+  const decoded = decodeEntriesParam(sp.entries)
   const entries: EntryRequest[] = decoded.length
     ? decoded
     : initialEntryIds.map((id) => ({ campaignParticipantId: id }))
   const assessmentIds = sp.assessments ? sp.assessments.split(',').filter(Boolean) : []
-  const granularity: Granularity =
-    sp.granularity === 'dimensions' ? 'dimensions' : 'factors_or_constructs'
+  const visibleLevels = decodeLevelsParam(sp.levels)
 
   const eligible = await getEligibleAssessmentsForParticipants(
     entries.map((e) => e.campaignParticipantId),
@@ -53,7 +40,7 @@ export default async function ClientComparePage({
       assessmentIds.length === 0
         ? eligible.map((a) => a.assessmentId).slice(0, 5)
         : assessmentIds,
-    granularity,
+    visibleLevels,
   }
 
   const result = await getComparisonMatrix(effectiveRequest)

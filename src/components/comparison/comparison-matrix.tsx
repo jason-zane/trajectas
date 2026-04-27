@@ -1,21 +1,77 @@
 'use client'
-import { useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ComparisonResult, ComparisonRow } from '@/lib/comparison/types'
+import { ALL_LEVELS } from '@/lib/comparison/types'
+import type {
+  ColumnGroup,
+  ColumnLevel,
+  ComparisonResult,
+  ComparisonRow,
+} from '@/lib/comparison/types'
 import { ComparisonCell } from './comparison-cell'
 
 type SortKey = { columnId: string; dir: 'asc' | 'desc' } | null
 
+type FilteredGroup = {
+  group: ColumnGroup
+  showRollup: boolean
+  childrenShown: ColumnGroup['children']
+  totalColumns: number
+}
+
+function filterByLevels(
+  columns: ColumnGroup[],
+  visibleLevels: ColumnLevel[],
+): FilteredGroup[] {
+  const wantsDimension = visibleLevels.includes('dimension')
+  return columns
+    .map((group) => {
+      const showRollup = wantsDimension && group.rollup.level === 'dimension'
+      const childrenShown = group.children.filter((c) => visibleLevels.includes(c.level))
+      const totalColumns = (showRollup ? 1 : 0) + childrenShown.length
+      return { group, showRollup, childrenShown, totalColumns }
+    })
+    .filter((g) => g.totalColumns > 0)
+}
+
 export function ComparisonMatrix({
   data,
+  visibleLevels = [...ALL_LEVELS],
   getCellStyle,
   onChangeRowSession,
 }: {
   data: ComparisonResult
+  visibleLevels?: ColumnLevel[]
   getCellStyle: (score: number | null) => CSSProperties
   onChangeRowSession: (entryId: string) => void
 }) {
-  const [sort, setSort] = useState<SortKey>(null)
+  const filtered = useMemo(
+    () => filterByLevels(data.columns, visibleLevels),
+    [data.columns, visibleLevels],
+  )
+
+  // Default sort: first visible rollup column descending. Resets when the
+  // visible-levels selection or the column set changes.
+  const defaultSortColumnId = useMemo(() => {
+    const firstWithRollup = filtered.find((g) => g.showRollup)
+    if (firstWithRollup) return firstWithRollup.group.rollup.id
+    const firstWithChild = filtered.find((g) => g.childrenShown.length > 0)
+    return firstWithChild?.childrenShown[0]?.id ?? null
+  }, [filtered])
+
+  const [sort, setSort] = useState<SortKey>(
+    defaultSortColumnId ? { columnId: defaultSortColumnId, dir: 'desc' } : null,
+  )
+  useEffect(() => {
+    if (sort && filtered.every(
+      (g) =>
+        g.group.rollup.id !== sort.columnId &&
+        !g.childrenShown.some((c) => c.id === sort.columnId),
+    )) {
+      setSort(defaultSortColumnId ? { columnId: defaultSortColumnId, dir: 'desc' } : null)
+    }
+  }, [filtered, sort, defaultSortColumnId])
 
   const sortedRows = useMemo(() => {
     if (!sort) return data.rows
@@ -39,8 +95,17 @@ export function ComparisonMatrix({
     setSort((prev) => {
       if (!prev || prev.columnId !== columnId) return { columnId, dir: 'desc' }
       if (prev.dir === 'desc') return { columnId, dir: 'asc' }
-      return null
+      return { columnId, dir: 'desc' }
     })
+  }
+
+  const sortIcon = (columnId: string) => {
+    if (sort?.columnId !== columnId) return null
+    return sort.dir === 'desc' ? (
+      <ChevronDown className="ml-1 inline-block size-3" />
+    ) : (
+      <ChevronUp className="ml-1 inline-block size-3" />
+    )
   }
 
   return (
@@ -66,48 +131,64 @@ export function ComparisonMatrix({
             >
               #
             </th>
-            {data.columns.map((g, idx) => (
+            {filtered.map(({ group, totalColumns }, idx) => (
               <th
-                key={`${g.assessmentId}-${idx}`}
-                colSpan={1 + g.children.length}
+                key={`${group.assessmentId}-${idx}`}
+                colSpan={totalColumns}
                 className="px-2 py-1 text-[9px] tracking-widest text-center uppercase bg-black/5 border-b border-r border-border"
               >
-                {g.assessmentName}
+                {group.assessmentName}
               </th>
             ))}
           </tr>
           <tr>
-            {data.columns.flatMap((g, gIdx) => [
-              <th
-                key={`rollup-${g.rollup.id}-${gIdx}`}
-                className={cn(
-                  'h-28 align-bottom border-b border-r border-border bg-muted',
-                  'min-w-[36px] max-w-[36px] p-0',
-                )}
-              >
-                <button
-                  type="button"
-                  onClick={() => onClickHeader(g.rollup.id)}
-                  className="origin-bottom-left -rotate-[55deg] translate-x-2 whitespace-nowrap pb-1.5 pl-1.5 text-[10px] font-bold uppercase tracking-wider"
-                >
-                  {g.rollup.name}
-                </button>
-              </th>,
-              ...g.children.map((c) => (
-                <th
-                  key={`child-${c.id}`}
-                  className="h-28 align-bottom border-b border-r border-border bg-muted min-w-[36px] max-w-[36px] p-0"
-                >
-                  <button
-                    type="button"
-                    onClick={() => onClickHeader(c.id)}
-                    className="origin-bottom-left -rotate-[55deg] translate-x-2 whitespace-nowrap pb-1.5 pl-1.5 text-[10px] font-medium"
+            {filtered.flatMap(({ group, showRollup, childrenShown }, gIdx) => {
+              const cells: React.ReactNode[] = []
+              if (showRollup) {
+                const sorted = sort?.columnId === group.rollup.id
+                cells.push(
+                  <th
+                    key={`rollup-${group.rollup.id}-${gIdx}`}
+                    className={cn(
+                      'h-28 align-bottom border-b border-r border-border bg-muted',
+                      'min-w-[36px] max-w-[36px] p-0',
+                      sorted && 'bg-primary/10',
+                    )}
                   >
-                    {c.name}
-                  </button>
-                </th>
-              )),
-            ])}
+                    <button
+                      type="button"
+                      onClick={() => onClickHeader(group.rollup.id)}
+                      className="origin-bottom-left -rotate-[55deg] translate-x-2 whitespace-nowrap pb-1.5 pl-1.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:text-primary"
+                    >
+                      {group.rollup.name}
+                      {sortIcon(group.rollup.id)}
+                    </button>
+                  </th>,
+                )
+              }
+              for (const c of childrenShown) {
+                const sorted = sort?.columnId === c.id
+                cells.push(
+                  <th
+                    key={`child-${c.id}`}
+                    className={cn(
+                      'h-28 align-bottom border-b border-r border-border bg-muted min-w-[36px] max-w-[36px] p-0',
+                      sorted && 'bg-primary/10',
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onClickHeader(c.id)}
+                      className="origin-bottom-left -rotate-[55deg] translate-x-2 whitespace-nowrap pb-1.5 pl-1.5 text-[10px] font-medium cursor-pointer hover:text-primary"
+                    >
+                      {c.name}
+                      {sortIcon(c.id)}
+                    </button>
+                  </th>,
+                )
+              }
+              return cells
+            })}
           </tr>
         </thead>
         <tbody>
@@ -115,7 +196,7 @@ export function ComparisonMatrix({
             <Row
               key={row.entryId}
               row={row}
-              columns={data.columns}
+              filtered={filtered}
               getCellStyle={getCellStyle}
               onChangeRowSession={onChangeRowSession}
             />
@@ -128,12 +209,12 @@ export function ComparisonMatrix({
 
 function Row({
   row,
-  columns,
+  filtered,
   getCellStyle,
   onChangeRowSession,
 }: {
   row: ComparisonRow
-  columns: ComparisonResult['columns']
+  filtered: FilteredGroup[]
   getCellStyle: (score: number | null) => CSSProperties
   onChangeRowSession: (entryId: string) => void
 }) {
@@ -167,23 +248,29 @@ function Row({
       <td className="text-[10px] opacity-60 px-2 py-1.5 border-b border-r border-border text-center min-w-[30px]">
         {repr?.attemptNumber ?? '—'}
       </td>
-      {columns.flatMap((g, gIdx) => {
-        const a = row.perAssessment.find((x) => x.assessmentId === g.assessmentId)!
-        return [
-          <ComparisonCell
-            key={`${row.entryId}-rollup-${g.rollup.id}-${gIdx}`}
-            value={a.cells[g.rollup.id] ?? null}
-            style={getCellStyle(a.cells[g.rollup.id] ?? null)}
-            isRollup
-          />,
-          ...g.children.map((c) => (
+      {filtered.flatMap(({ group, showRollup, childrenShown }, gIdx) => {
+        const a = row.perAssessment.find((x) => x.assessmentId === group.assessmentId)
+        const cells: React.ReactNode[] = []
+        if (showRollup) {
+          cells.push(
+            <ComparisonCell
+              key={`${row.entryId}-rollup-${group.rollup.id}-${gIdx}`}
+              value={a?.cells[group.rollup.id] ?? null}
+              style={getCellStyle(a?.cells[group.rollup.id] ?? null)}
+              isRollup
+            />,
+          )
+        }
+        for (const c of childrenShown) {
+          cells.push(
             <ComparisonCell
               key={`${row.entryId}-child-${c.id}`}
-              value={a.cells[c.id] ?? null}
-              style={getCellStyle(a.cells[c.id] ?? null)}
-            />
-          )),
-        ]
+              value={a?.cells[c.id] ?? null}
+              style={getCellStyle(a?.cells[c.id] ?? null)}
+            />,
+          )
+        }
+        return cells
       })}
     </tr>
   )

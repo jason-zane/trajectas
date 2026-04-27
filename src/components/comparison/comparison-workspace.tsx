@@ -12,11 +12,12 @@ import {
   type EligibleAssessment,
 } from '@/app/actions/comparison'
 import type { BandScheme } from '@/lib/reports/band-scheme'
+import { ALL_LEVELS } from '@/lib/comparison/types'
 import type {
+  ColumnLevel,
   ComparisonRequest,
   ComparisonResult,
   EntryRequest,
-  Granularity,
 } from '@/lib/comparison/types'
 
 type Props = {
@@ -62,11 +63,14 @@ export function ComparisonWorkspace({
     [partnerBandScheme, platformBandScheme],
   )
 
+  const visibleLevels = request.visibleLevels ?? [...ALL_LEVELS]
+
   useEffect(() => {
     const next = new URLSearchParams(params)
     next.set('entries', encodeEntries(request.entries))
     next.set('assessments', request.assessmentIds.join(','))
-    next.set('granularity', request.granularity)
+    next.set('levels', visibleLevels.join(','))
+    next.delete('granularity')
     router.replace(`${pathname}?${next.toString()}`, { scroll: false })
     // We deliberately omit `params` to avoid an update loop when router.replace
     // changes the URL.
@@ -108,8 +112,14 @@ export function ComparisonWorkspace({
     update({ ...request, assessmentIds: next })
   }
 
-  function changeGranularity(g: Granularity) {
-    update({ ...request, granularity: g })
+  function toggleLevel(level: ColumnLevel) {
+    const current = request.visibleLevels ?? [...ALL_LEVELS]
+    const next = current.includes(level)
+      ? current.filter((l) => l !== level)
+      : [...current, level]
+    // Never let all three turn off — preserve the previous selection in that case.
+    if (next.length === 0) return
+    update({ ...request, visibleLevels: next })
   }
 
   function changeRowSession(entryId: string, assessmentId: string, sessionId: string) {
@@ -130,12 +140,13 @@ export function ComparisonWorkspace({
       <ComparisonSelectionBar
         rows={result.rows}
         request={request}
+        visibleLevels={visibleLevels}
         campaignSlug={campaignSlug}
         eligibleAssessments={eligible}
         onRemoveEntry={removeEntry}
         onAddEntryClick={() => setShowAdd(true)}
         onToggleAssessment={toggleAssessment}
-        onChangeGranularity={changeGranularity}
+        onToggleLevel={toggleLevel}
       />
       {pending && <div className="text-xs opacity-60 px-4">Updating…</div>}
       <div className="px-4">
@@ -146,6 +157,7 @@ export function ComparisonWorkspace({
         ) : (
           <ComparisonMatrix
             data={result}
+            visibleLevels={visibleLevels}
             getCellStyle={getCellStyle}
             onChangeRowSession={(entryId) => {
               const row = result.rows.find((r) => r.entryId === entryId)
