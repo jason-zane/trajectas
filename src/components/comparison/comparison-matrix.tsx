@@ -150,15 +150,14 @@ export function ComparisonMatrix({
                   <th
                     key={`rollup-${group.rollup.id}-${gIdx}`}
                     className={cn(
-                      'h-28 align-bottom border-b border-r border-border bg-muted',
-                      'min-w-[36px] max-w-[36px] p-0',
+                      'align-bottom border-b border-r border-border bg-muted px-1.5 py-1.5',
                       sorted && 'bg-primary/10',
                     )}
                   >
                     <button
                       type="button"
                       onClick={() => onClickHeader(group.rollup.id)}
-                      className="origin-bottom-left -rotate-[55deg] translate-x-2 whitespace-nowrap pb-1.5 pl-1.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer hover:text-primary"
+                      className="block w-full text-center text-[10px] font-bold uppercase tracking-wider leading-tight whitespace-normal break-words cursor-pointer hover:text-primary"
                     >
                       {group.rollup.name}
                       {sortIcon(group.rollup.id)}
@@ -172,14 +171,14 @@ export function ComparisonMatrix({
                   <th
                     key={`child-${c.id}`}
                     className={cn(
-                      'h-28 align-bottom border-b border-r border-border bg-muted min-w-[36px] max-w-[36px] p-0',
+                      'align-bottom border-b border-r border-border bg-muted px-1.5 py-1.5',
                       sorted && 'bg-primary/10',
                     )}
                   >
                     <button
                       type="button"
                       onClick={() => onClickHeader(c.id)}
-                      className="origin-bottom-left -rotate-[55deg] translate-x-2 whitespace-nowrap pb-1.5 pl-1.5 text-[10px] font-medium cursor-pointer hover:text-primary"
+                      className="block w-full text-center text-[10px] font-medium leading-tight whitespace-normal break-words cursor-pointer hover:text-primary"
                     >
                       {c.name}
                       {sortIcon(c.id)}
@@ -227,11 +226,11 @@ function Row({
     <tr>
       <td
         data-testid="row-name"
-        className="font-semibold text-xs px-2.5 py-1.5 border-b border-r border-border min-w-[140px]"
+        className="font-semibold text-xs px-2 py-1.5 border-b border-r border-border w-[1%] whitespace-nowrap"
       >
         {row.participantName}
       </td>
-      <td className="text-[11px] opacity-75 px-2 py-1.5 border-b border-r border-border min-w-[80px]">
+      <td className="text-[11px] opacity-75 px-1.5 py-1.5 border-b border-r border-border w-[1%] whitespace-nowrap">
         <button
           type="button"
           onClick={() => onChangeRowSession(row.entryId)}
@@ -245,7 +244,7 @@ function Row({
           <span className="ml-1 text-[9px] uppercase tracking-wider opacity-70">in progress</span>
         )}
       </td>
-      <td className="text-[10px] opacity-60 px-2 py-1.5 border-b border-r border-border text-center min-w-[30px]">
+      <td className="text-[10px] opacity-60 px-1 py-1.5 border-b border-r border-border text-center w-[1%]">
         {repr?.attemptNumber ?? '—'}
       </td>
       {filtered.flatMap(({ group, showRollup, childrenShown }, gIdx) => {
