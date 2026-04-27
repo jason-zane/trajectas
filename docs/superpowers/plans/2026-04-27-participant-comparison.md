@@ -21,7 +21,7 @@ git fetch origin
 git checkout main
 git pull --ff-only
 git checkout -b feat/participant-comparison
-git cherry-pick 2dd2334 d85ad89   # the two spec commits
+git cherry-pick 2dd2334 d85ad89 78ffc83   # spec + clarification + this plan
 ```
 
 - [ ] **Step 0b: Verify the spec is on the new branch.**
@@ -561,7 +561,12 @@ git commit -m "feat(comparison): resolve-bands wrapper for cell heat colours"
 - Create (incremental): `src/app/actions/comparison.ts`
 - Test: `tests/integration/comparison-actions.test.ts`
 
-- [ ] **Step 1: Read an existing action for the auth/scope pattern.** Skim `src/app/actions/sessions.ts:1-80` and `src/app/actions/participants.ts:140-260` to mirror their use of `resolveAuthorizedScope` (`src/lib/auth/authorization.ts`).
+- [ ] **Step 1: Read the existing auth helpers.** Open `src/lib/auth/authorization.ts` and confirm the shapes of:
+  - `requireParticipantAccess(participantId)` (around `:565`) — throws `AuthorizationError` if the caller cannot see this `campaign_participants` row.
+  - `requireSessionAccess(sessionId)` (around `:584`) — same idea for a session.
+  - `resolveAuthorizedScope()` (no args, cached) — returns the caller's scope object.
+
+  Also skim `src/app/actions/sessions.ts:1-80` for the canonical action shape (imports, `'use server'`, `createClient` vs `createAdminClient`).
 
 - [ ] **Step 2: Write the failing integration test.** Use the local-Supabase test runner per `AGENTS.md`.
 
@@ -609,7 +614,7 @@ Expected: FAIL.
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope } from '@/lib/auth/authorization'
+import { requireParticipantAccess } from '@/lib/auth/authorization'
 
 export type EligibleAssessment = {
   assessmentId: string
@@ -622,14 +627,12 @@ export async function getEligibleAssessmentsForParticipants(
 ): Promise<EligibleAssessment[]> {
   if (campaignParticipantIds.length === 0) return []
 
+  // Each requireParticipantAccess call hits the DB. For typical comparison sizes
+  // (< 30 participants) this is fine. Throws AuthorizationError on the first
+  // unauthorized id, which we let propagate.
+  await Promise.all(campaignParticipantIds.map((id) => requireParticipantAccess(id)))
+
   const supabase = await createClient()
-  // resolveAuthorizedScope encapsulates the platform's existing access rules.
-  // Pass the participant ids; an unauthorized id throws.
-  await resolveAuthorizedScope({
-    table: 'campaign_participants',
-    ids: campaignParticipantIds,
-    supabase,
-  })
 
   const { data, error } = await supabase
     .from('participant_sessions')
@@ -657,7 +660,7 @@ export async function getEligibleAssessmentsForParticipants(
 }
 ```
 
-If `resolveAuthorizedScope` does not have that exact signature in your codebase, follow the helper's actual signature (read `src/lib/auth/authorization.ts:500` and around). The intent is: "throw if the caller cannot see any of these ids." Look at how `getCampaignById` or `getParticipantById` already does this and mirror that.
+The intent for every action in this file is: "throw `AuthorizationError` if the caller cannot see any of these ids." `requireParticipantAccess` and `requireSessionAccess` already do that — there's no need to re-implement scope filtering.
 
 - [ ] **Step 5: Run the test and confirm pass.**
 
@@ -725,8 +728,8 @@ export async function getSessionOptionsForRow(
   assessmentIds: string[],
 ): Promise<SessionOption[]> {
   if (assessmentIds.length === 0) return []
+  await requireParticipantAccess(campaignParticipantId)
   const supabase = await createClient()
-  await resolveAuthorizedScope({ table: 'campaign_participants', ids: [campaignParticipantId], supabase })
 
   const { data, error } = await supabase
     .from('participant_sessions')
@@ -839,6 +842,7 @@ describe('getComparisonMatrix', () => {
 
 ```ts
 // append to src/app/actions/comparison.ts
+import { requireSessionAccess } from '@/lib/auth/authorization'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
 import type {
   ComparisonRequest,
@@ -849,16 +853,15 @@ import type {
 } from '@/lib/comparison/types'
 
 export async function getComparisonMatrix(req: ComparisonRequest): Promise<ComparisonResult> {
-  const supabase = await createClient()
   const cpIds = [...new Set(req.entries.map((e) => e.campaignParticipantId))]
   if (cpIds.length === 0) return { columns: [], rows: [] }
-  await resolveAuthorizedScope({ table: 'campaign_participants', ids: cpIds, supabase })
-
-  // Authorize any explicit session ids supplied by the client.
+  // Authorize every participant id and every explicit session id; both helpers throw on unauthorized.
+  await Promise.all(cpIds.map((id) => requireParticipantAccess(id)))
   const explicitSessionIds = req.entries.flatMap((e) => Object.values(e.sessionIdsByAssessment ?? {}))
   if (explicitSessionIds.length) {
-    await resolveAuthorizedScope({ table: 'participant_sessions', ids: explicitSessionIds, supabase })
+    await Promise.all(explicitSessionIds.map((id) => requireSessionAccess(id)))
   }
+  const supabase = await createClient()
 
   // 1) Identity rows
   const { data: cpRows, error: cpErr } = await supabase
@@ -2168,7 +2171,7 @@ EOF
 ## Notes for the implementer
 
 - **The two `TODO`-marked helpers in Task 6** (`factorLevelGroup`, `constructLevelGroup`) intentionally don't have prescribed SQL — confirm column names against the live schema first (per `AGENTS.md`'s "When in doubt, query the live schema" guidance), mirror the join pattern from `getSessionDetail` in `src/app/actions/sessions.ts`, then implement.
-- **Authorization helpers may be named differently** than what's in the spec. The plan tells you to mirror `resolveAuthorizedScope`. If your codebase uses a different shape (e.g., `requireAccessToCampaignParticipants(ids)`), use that.
+- **Authorization helpers** in this codebase live in `src/lib/auth/authorization.ts`: `requireParticipantAccess(participantId)` and `requireSessionAccess(sessionId)`. Both throw `AuthorizationError` on unauthorized ids and use `createAdminClient()` internally — do not pass a Supabase client to them.
 - **Don't widen scope.** No statistics, no PDF, no saved comparisons, no row filters. The spec's Out-of-scope list is binding.
 - **If a test seam is missing** (e.g., no `tests/integration/helpers` module yet), port the smallest piece from an existing integration test rather than inventing new infrastructure.
 - **Frequent commits.** Each task ends in at least one commit. Don't squash until the PR review.
