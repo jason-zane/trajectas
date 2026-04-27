@@ -102,7 +102,7 @@ export function ParticleMesh({
     if (!ctx) return;
 
     function resize() {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas!.width = window.innerWidth * dpr;
       canvas!.height = window.innerHeight * dpr;
       canvas!.style.width = `${window.innerWidth}px`;
@@ -115,6 +115,11 @@ export function ParticleMesh({
     window.addEventListener("resize", resize);
 
     function animate(now: number) {
+      if (document.hidden) {
+        animFrameRef.current = 0;
+        return;
+      }
+
       // Lerp config transition (ease-out cubic)
       const elapsed = now - transitionStartRef.current;
       const t = Math.min(1, elapsed / transitionDuration);
@@ -194,10 +199,18 @@ export function ParticleMesh({
       animFrameRef.current = requestAnimationFrame(animate);
     }
 
+    function handleVisibilityChange() {
+      if (!document.hidden && animFrameRef.current === 0) {
+        animFrameRef.current = requestAnimationFrame(animate);
+      }
+    }
+
     animFrameRef.current = requestAnimationFrame(animate);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       cancelAnimationFrame(animFrameRef.current);
     };
   }, [initParticles, mouseRef]);

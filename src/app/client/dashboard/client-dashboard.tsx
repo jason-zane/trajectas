@@ -149,10 +149,6 @@ export function ClientDashboard({
     (sum, c) => sum + c.completedCount,
     0,
   );
-  const completionRate =
-    totalParticipants === 0
-      ? 0
-      : Math.round((totalCompleted / totalParticipants) * 100);
 
   const closingSoon = campaigns.filter((c) => {
     if (c.status !== "active") return false;

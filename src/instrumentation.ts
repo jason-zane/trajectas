@@ -9,22 +9,6 @@ export const onRequestError: Instrumentation.onRequestError = async (
   context,
 ) => {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
-  const { appendFile } = await import('node:fs/promises')
-  const error = err as Error & { digest?: string }
-  const entry = [
-    `\n===== ${new Date().toISOString()} =====`,
-    `digest: ${error.digest ?? '(none)'}`,
-    `path: ${request.path}`,
-    `method: ${request.method}`,
-    `routePath: ${context.routePath}`,
-    `routeType: ${context.routeType}`,
-    `renderSource: ${context.renderSource ?? '(n/a)'}`,
-    `message: ${error.message}`,
-    `stack: ${error.stack ?? '(no stack)'}`,
-  ].join('\n')
-  try {
-    await appendFile('/tmp/trajectas-errors.log', entry + '\n')
-  } catch {
-    // swallow — logging is best-effort
-  }
+  const { logRequestErrorToFile } = await import('./instrumentation-node')
+  await logRequestErrorToFile(err, request, context)
 }

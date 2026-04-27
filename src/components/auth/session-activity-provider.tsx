@@ -8,7 +8,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { WARNING_THRESHOLD_SECONDS, INACTIVITY_TIMEOUT_SECONDS } from "@/lib/auth/session-activity";
+import {
+  WARNING_THRESHOLD_SECONDS,
+  INACTIVITY_TIMEOUT_SECONDS,
+} from "@/lib/auth/session-activity-constants";
 
 const WARNING_MS = WARNING_THRESHOLD_SECONDS * 1000;
 const TIMEOUT_MS = INACTIVITY_TIMEOUT_SECONDS * 1000;
