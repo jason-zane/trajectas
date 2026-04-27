@@ -138,9 +138,9 @@ describe('getComparisonMatrix', () => {
           },
         ],
         participant_scores: [
-          { participant_session_id: 'sess1-new', factor_id: 'f1', construct_id: null, scaled_score: 80 },
-          { participant_session_id: 'sess1-new', factor_id: 'f2', construct_id: null, scaled_score: 70 },
-          { participant_session_id: 'sess1-old', factor_id: 'f1', construct_id: null, scaled_score: 50 },
+          { session_id: 'sess1-new', factor_id: 'f1', construct_id: null, scaled_score: 80 },
+          { session_id: 'sess1-new', factor_id: 'f2', construct_id: null, scaled_score: 70 },
+          { session_id: 'sess1-old', factor_id: 'f1', construct_id: null, scaled_score: 50 },
         ],
       }),
     )
@@ -238,8 +238,8 @@ describe('getComparisonMatrix', () => {
           },
         ],
         participant_scores: [
-          { participant_session_id: 'sess-A', factor_id: 'f1', construct_id: null, scaled_score: 60 },
-          { participant_session_id: 'sess-B', factor_id: 'f1', construct_id: null, scaled_score: 90 },
+          { session_id: 'sess-A', factor_id: 'f1', construct_id: null, scaled_score: 60 },
+          { session_id: 'sess-B', factor_id: 'f1', construct_id: null, scaled_score: 90 },
         ],
       }),
     )
@@ -291,8 +291,8 @@ describe('getComparisonMatrix', () => {
           },
         ],
         participant_scores: [
-          { participant_session_id: 's1', factor_id: null, construct_id: 'c1', scaled_score: 88 },
-          { participant_session_id: 's1', factor_id: null, construct_id: 'c2', scaled_score: 92 },
+          { session_id: 's1', factor_id: null, construct_id: 'c1', scaled_score: 88 },
+          { session_id: 's1', factor_id: null, construct_id: 'c2', scaled_score: 92 },
         ],
       }),
     )
