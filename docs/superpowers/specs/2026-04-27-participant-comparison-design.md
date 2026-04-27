@@ -81,13 +81,14 @@ Sorting: click any column header (rollup or child) to sort the matrix by that sc
 
 ### Per-row session switcher
 
-Clicking the date cell on a row opens a popover listing all sessions belonging to that participant for any of the chosen assessments. Each option shows: assessment name, attempt number, started date, status. Selecting a different session updates that row's per-assessment session id and refetches the row's cells. Default for any row added is the most recent **completed** session per (participant, assessment).
+Clicking the date cell on a row opens a popover listing all sessions belonging to that participant for any of the chosen assessments — including in-progress sessions, which are shown with a muted "in progress" badge. Each option shows: assessment name, attempt number, started date, status. Selecting a different session updates that row's per-assessment session id and refetches the row's cells. If the operator picks an in-progress session, its cells render with whatever scores already exist (potentially partial); empty cells display as em dashes. Default for any row added is the most recent **completed** session per (participant, assessment).
 
 ### Empty / partial states
 
 - Matrix has no rows → empty state with an "Add participants" CTA.
 - A participant has no completed session for a chosen assessment → that assessment's cells render as em dashes for that row; the rollup is also dashed.
-- A participant has only in-progress sessions for a chosen assessment → still rendered as dashes, with a small "in progress" annotation on the date cell.
+- A participant has only in-progress sessions for a chosen assessment → still rendered as dashes by default, with a small "in progress" annotation on the date cell. Operator can opt in to seeing the partial scores via the row's session-switcher popover.
+- A participant has no sessions at all for *any* chosen assessment → the row still renders with the participant's identity columns populated and every cell dashed. The row does not disappear; the operator added the participant deliberately, and silently dropping them would be confusing.
 
 ## Data layer
 
@@ -142,7 +143,7 @@ async function getComparisonMatrix(req: ComparisonRequest): Promise<ComparisonRe
 ```
 
 - Authorization: the action calls `requireParticipantAccess(campaignParticipantId)` for every entry and `requireSessionAccess(sessionId)` for every explicitly-passed session. If any check fails, the entire request is rejected.
-- Most-recent-completed resolution: per (`campaignParticipantId`, `assessmentId`), pick the `participant_sessions` row with `status = 'completed'` ordered by `completed_at desc`. If none exists, return null session id and dashed cells.
+- Most-recent-completed resolution: per (`campaignParticipantId`, `assessmentId`), pick the `participant_sessions` row with `status = 'completed'` ordered by `completed_at desc`, then by `started_at desc`, then by `id desc` as a fully deterministic tiebreaker. If no completed session exists, return null session id and dashed cells; the row still renders.
 - Attempt number: derived using the same ordinal logic as the existing `getParticipantSessions` action (rank by `started_at` ascending within `(campaign_participant_id, assessment_id)`).
 
 ### Picker queries
@@ -177,7 +178,13 @@ A thin helper at `src/lib/comparison/resolve-bands.ts` wraps the resolver and th
 
 ## CSV export
 
-Server-side only. A new route handler at `src/app/api/comparison/export/route.ts` accepts a POST body identical to the `getComparisonMatrix` input and responds with `text/csv` and `Content-Disposition: attachment; filename="trajectas-comparison-{slug}-{YYYYMMDD}.csv"`. Pattern follows the existing CSV export at `src/app/(dashboard)/generate/[runId]/page.tsx:303` (Blob + Content-Type).
+Server-side only. A new route handler at `src/app/api/comparison/export/route.ts` accepts a POST body identical to the `getComparisonMatrix` input and responds with `text/csv` and `Content-Disposition: attachment; filename="..."`. Pattern follows the existing CSV export at `src/app/(dashboard)/generate/[runId]/page.tsx:303` (Blob + Content-Type).
+
+Filename pattern:
+- Campaign-scoped export: `trajectas-comparison-{campaignSlug}-{YYYYMMDD}.csv`
+- Cross-campaign export: `trajectas-comparison-participants-{YYYYMMDD}.csv`
+
+The slug for campaign exports comes from the existing `campaigns.slug` column. Date is computed server-side in UTC.
 
 CSV format:
 
