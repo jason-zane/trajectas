@@ -9,9 +9,7 @@
 
 ALTER TABLE dimensions
 ADD COLUMN IF NOT EXISTS strength_commentary TEXT;
-
 ALTER TABLE factors
 ADD COLUMN IF NOT EXISTS strength_commentary TEXT;
-
 ALTER TABLE constructs
 ADD COLUMN IF NOT EXISTS strength_commentary TEXT;

@@ -1,5 +1,4 @@
 BEGIN;
-
 -- ==========================================================================
 -- 00049_generation_item_diagnostics.sql
 -- Persist paper-faithful AI-GENIE review diagnostics per generated item
@@ -14,5 +13,4 @@ ALTER TABLE generated_items
   ADD COLUMN IF NOT EXISTS removal_sweep INT CHECK (
     removal_sweep IS NULL OR removal_sweep >= 1
   );
-
 COMMIT;

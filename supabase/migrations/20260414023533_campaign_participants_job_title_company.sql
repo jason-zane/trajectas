@@ -6,4 +6,4 @@ COMMENT ON COLUMN campaign_participants.job_title IS
   'Optional job title collected during self-registration.';
 
 COMMENT ON COLUMN campaign_participants.company IS
-  'Optional company name collected during self-registration.';
+  'Optional company name collected during self-registration.';;

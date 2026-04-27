@@ -26,7 +26,6 @@ INSERT INTO dimensions (id, name, slug, description, is_scored, display_order, i
    'Gauges self-awareness, empathy, and the ability to manage emotions under pressure.',
    true, 4, true)
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Traits
 -- ---------------------------------------------------------------------------
@@ -47,7 +46,6 @@ INSERT INTO traits (id, name, slug, description, is_active) VALUES
    'The capacity to maintain composure and effectiveness under pressure or in ambiguous situations.',
    true)
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Competencies
 -- ---------------------------------------------------------------------------
@@ -85,7 +83,6 @@ INSERT INTO competencies (id, name, slug, description, definition, dimension_id,
    NULL,
    NULL, true)
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Competency ↔ Trait links
 -- ---------------------------------------------------------------------------
@@ -102,7 +99,6 @@ INSERT INTO competency_traits (id, competency_id, trait_id, weight, display_orde
   ('a4000000-0000-0000-0000-000000000010', 'a3000000-0000-0000-0000-000000000006', 'a2000000-0000-0000-0000-000000000005', 1.0, 2),
   ('a4000000-0000-0000-0000-000000000011', 'a3000000-0000-0000-0000-000000000007', 'a2000000-0000-0000-0000-000000000005', 1.5, 1)
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Response formats
 -- ---------------------------------------------------------------------------
@@ -116,7 +112,6 @@ INSERT INTO response_formats (id, name, type, config) VALUES
   ('a5000000-0000-0000-0000-000000000004', 'Free Text', 'free_text',
    '{"maxLength": 2000}')
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Items
 -- ---------------------------------------------------------------------------
@@ -152,7 +147,6 @@ INSERT INTO items (id, competency_id, trait_id, response_format_id, stem, revers
    'Describe a situation where you had to lead a team through a significant change. What was your approach and what was the outcome?',
    false, 6, 'draft')
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Item options (for Likert items)
 -- ---------------------------------------------------------------------------

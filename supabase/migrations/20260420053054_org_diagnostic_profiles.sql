@@ -1,5 +1,4 @@
 -- =========================================================================
--- 20260420044828_org_diagnostic_profiles.sql
 -- Versioned, immutable snapshot of a client's diagnostic profile (org-level
 -- or role-level). One row per closed campaign.
 -- IDEMPOTENT.
@@ -27,9 +26,6 @@ CREATE TABLE IF NOT EXISTS org_diagnostic_profiles (
 COMMENT ON TABLE org_diagnostic_profiles IS
     'Immutable snapshot produced when an org diagnostic campaign closes. One row per campaign.';
 
--- The campaign_id FK is added in the campaigns migration (A4) because
--- org_diagnostic_campaigns does not exist yet at this point.
-
 CREATE INDEX IF NOT EXISTS idx_org_diag_profiles_client_generated
     ON org_diagnostic_profiles (client_id, generated_at DESC);
 
@@ -40,9 +36,6 @@ CREATE INDEX IF NOT EXISTS idx_org_diag_profiles_pinned
     ON org_diagnostic_profiles (pinned_baseline_snapshot_id)
     WHERE pinned_baseline_snapshot_id IS NOT NULL;
 
--- ---------------------------------------------------------------------------
--- RLS
--- ---------------------------------------------------------------------------
 ALTER TABLE org_diagnostic_profiles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS org_diag_profiles_all_platform_admin ON org_diagnostic_profiles;
@@ -59,4 +52,4 @@ CREATE POLICY org_diag_profiles_select_client ON org_diagnostic_profiles
             WHERE c.partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid())
               AND c.deleted_at IS NULL
         )
-    );
+    );;

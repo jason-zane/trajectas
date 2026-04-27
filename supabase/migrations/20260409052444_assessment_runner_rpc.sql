@@ -70,4 +70,4 @@ BEGIN
 
   RETURN true;
 END;
-$$;
+$$;;

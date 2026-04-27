@@ -12,27 +12,22 @@ ALTER TYPE ai_prompt_purpose ADD VALUE IF NOT EXISTS 'item_generation';
 ALTER TYPE ai_prompt_purpose ADD VALUE IF NOT EXISTS 'preflight_analysis';
 ALTER TYPE ai_prompt_purpose ADD VALUE IF NOT EXISTS 'embedding';
 ALTER TYPE ai_prompt_purpose ADD VALUE IF NOT EXISTS 'chat';
-
 -- 2. Drop old unique constraint if it still exists
 ALTER TABLE ai_model_configs
     DROP CONSTRAINT IF EXISTS ai_model_configs_model_unique;
-
 -- 3. Add purpose column if missing
 ALTER TABLE ai_model_configs
     ADD COLUMN IF NOT EXISTS purpose ai_prompt_purpose;
-
 -- 4. Remove any duplicate purpose rows before creating the index
 DELETE FROM ai_model_configs a
 USING ai_model_configs b
 WHERE a.purpose IS NOT NULL
   AND a.purpose = b.purpose
   AND a.ctid < b.ctid;
-
 -- 5. Create partial unique index on purpose
 CREATE UNIQUE INDEX IF NOT EXISTS ai_model_configs_purpose_unique
     ON ai_model_configs (purpose)
     WHERE purpose IS NOT NULL;
-
 -- 6. Seed OpenRouter provider if not present
 INSERT INTO ai_providers (id, name, api_key_env_var, base_url, is_active)
 VALUES (
@@ -43,10 +38,9 @@ VALUES (
     true
 )
 ON CONFLICT (name) DO NOTHING;
-
 -- 7. Upsert one config row per purpose
--- The enum values were committed in earlier migrations, so explicit casting is
--- safe during full replay and avoids text-to-enum inference failures.
+-- Note: no explicit ::ai_prompt_purpose cast — PostgreSQL coerces text→enum
+-- implicitly on column assignment, avoiding "enum value not yet committed" errors.
 INSERT INTO ai_model_configs (provider_id, model_id, display_name, is_default, config, purpose)
 SELECT
     p.id,
@@ -54,7 +48,7 @@ SELECT
     v.display_name,
     false,
     v.config::jsonb,
-    v.purpose::ai_prompt_purpose
+    v.purpose
 FROM (VALUES
     ('anthropic/claude-sonnet-4-5',  'Claude Sonnet 4.5',      '{"temperature":0.8,"max_tokens":4096}', 'item_generation'),
     ('anthropic/claude-sonnet-4-5',  'Claude Sonnet 4.5',      '{"temperature":0.3,"max_tokens":2048}', 'preflight_analysis'),

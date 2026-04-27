@@ -1,14 +1,3 @@
--- Two fixes to platform default email templates:
---
--- 1. magic_link: promote the OTP code from a plain paragraph to a level-1
---    heading so the code is visually prominent.
---
--- 2. staff_invite: restore the "Accept Invitation" button using the
---    acceptUrl variable. A prior migration (20260409140000) incorrectly
---    rewrote this template to show an otpCode variable, but the staff
---    invite flow passes acceptUrl (a tokenised link), not otpCode, so the
---    template rendered an empty code and no clickable link.
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [
@@ -55,4 +44,4 @@ UPDATE email_templates SET editor_json = '{
     ]}
   ]
 }'::jsonb
-WHERE type = 'staff_invite' AND scope_type = 'platform' AND scope_id IS NULL;
+WHERE type = 'staff_invite' AND scope_type = 'platform' AND scope_id IS NULL;;

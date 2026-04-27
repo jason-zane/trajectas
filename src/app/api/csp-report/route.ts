@@ -4,21 +4,18 @@
  * flood of violations can't become a DoS vector.
  */
 
+import {
+  readRequestTextWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
+
 const MAX_BODY_BYTES = 8 * 1024
 
 export const runtime = "nodejs"
 
 export async function POST(request: Request) {
-  const contentLength = Number(request.headers.get("content-length") ?? 0)
-  if (contentLength > MAX_BODY_BYTES) {
-    return new Response(null, { status: 413 })
-  }
-
   try {
-    const raw = await request.text()
-    if (raw.length > MAX_BODY_BYTES) {
-      return new Response(null, { status: 413 })
-    }
+    const raw = await readRequestTextWithLimit(request, MAX_BODY_BYTES)
 
     // Browsers send either `application/csp-report` (classic report-uri) or
     // `application/reports+json` (Reporting API). Accept both — just log it.
@@ -35,7 +32,11 @@ export async function POST(request: Request) {
         lineNumber: report["line-number"] ?? report.lineNumber,
       })
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return new Response(null, { status: 413 })
+    }
+
     // Malformed report — ignore. A broken browser payload shouldn't 500.
   }
 

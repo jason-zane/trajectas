@@ -5,18 +5,20 @@ export class RequestBodyTooLargeError extends Error {
   }
 }
 
-export async function readRequestTextWithLimit(
-  request: Request,
-  limitBytes: number,
-) {
-  const contentLength = Number(request.headers.get('content-length') ?? 0)
+function assertContentLengthWithinLimit(headers: Headers, limitBytes: number) {
+  const contentLength = Number(headers.get('content-length') ?? 0)
   if (Number.isFinite(contentLength) && contentLength > limitBytes) {
     throw new RequestBodyTooLargeError(limitBytes)
   }
+}
 
-  if (!request.body) return ''
+async function readStreamTextWithLimit(
+  body: ReadableStream<Uint8Array> | null,
+  limitBytes: number,
+) {
+  if (!body) return ''
 
-  const reader = request.body.getReader()
+  const reader = body.getReader()
   const decoder = new TextDecoder()
   let received = 0
   let text = ''
@@ -37,10 +39,39 @@ export async function readRequestTextWithLimit(
   return text + decoder.decode()
 }
 
+export async function readRequestTextWithLimit(
+  request: Request,
+  limitBytes: number,
+) {
+  assertContentLengthWithinLimit(request.headers, limitBytes)
+  return readStreamTextWithLimit(request.body, limitBytes)
+}
+
+export async function readResponseTextWithLimit(
+  response: Response,
+  limitBytes: number,
+) {
+  assertContentLengthWithinLimit(response.headers, limitBytes)
+  return readStreamTextWithLimit(response.body, limitBytes)
+}
+
 export async function parseJsonRequestWithLimit<T>(
   request: Request,
   limitBytes: number,
 ): Promise<T> {
   const raw = await readRequestTextWithLimit(request, limitBytes)
+  return JSON.parse(raw) as T
+}
+
+export async function parseOptionalJsonRequestWithLimit<T>(
+  request: Request,
+  limitBytes: number,
+  emptyValue: T,
+): Promise<T> {
+  const raw = await readRequestTextWithLimit(request, limitBytes)
+  if (!raw.trim()) {
+    return emptyValue
+  }
+
   return JSON.parse(raw) as T
 }

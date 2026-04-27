@@ -1,5 +1,4 @@
 -- =========================================================================
--- 20260420042012_org_diagnostic_enums.sql
 -- Enum types for the Organisational Diagnostics feature.
 -- IDEMPOTENT: safe to re-run after partial application.
 -- =========================================================================
@@ -42,4 +41,4 @@ END $$;
 DO $$ BEGIN
   CREATE TYPE client_role_status AS ENUM ('open', 'filled', 'closed', 'archived');
 EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+END $$;;

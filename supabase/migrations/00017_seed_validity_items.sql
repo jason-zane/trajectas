@@ -17,7 +17,6 @@ INSERT INTO response_formats (id, name, type, config, is_active) VALUES
    '{"points": 6, "anchors": {"1": "Strongly Disagree", "2": "Disagree", "3": "Slightly Disagree", "4": "Slightly Agree", "5": "Agree", "6": "Strongly Agree"}}',
    true)
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Impression Management items (4 items, 5-point Agreement Likert)
 -- ---------------------------------------------------------------------------
@@ -39,7 +38,6 @@ INSERT INTO items (id, construct_id, response_format_id, stem, reverse_scored, w
    'I never find it difficult to accept feedback from others.',
    false, 1.0, 4, 'active', 'impression_management')
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Infrequency items (3 items, 5-point Agreement Likert)
 -- ---------------------------------------------------------------------------
@@ -57,7 +55,6 @@ INSERT INTO items (id, construct_id, response_format_id, stem, reverse_scored, w
    'I have never experienced any emotion of any kind.',
    false, 1.0, 7, 'active', 'infrequency')
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Attention Check items (2 items, 5-point Agreement Likert)
 -- ---------------------------------------------------------------------------
@@ -71,7 +68,6 @@ INSERT INTO items (id, construct_id, response_format_id, stem, reverse_scored, w
    'This is a quality check — please select ''Strongly Disagree'' for this statement.',
    false, 1.0, 9, 'active', 'attention_check', 1)
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- Item options for all validity items (5-point Likert anchors)
 -- ---------------------------------------------------------------------------

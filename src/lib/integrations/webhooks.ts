@@ -2,6 +2,12 @@ import crypto from 'crypto'
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decryptIntegrationSecret } from '@/lib/integrations/crypto'
+import {
+  readResponseTextWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
+
+const MAX_WEBHOOK_RESPONSE_EXCERPT_BYTES = 1024
 
 function buildWebhookSignature(secret: string, timestamp: string, payload: string) {
   const digest = crypto
@@ -130,7 +136,18 @@ export async function dispatchPendingIntegrationEvents(limit: number) {
         })
 
         responseStatus = response.status
-        responseBodyExcerpt = (await response.text()).slice(0, 1000)
+        try {
+          responseBodyExcerpt = await readResponseTextWithLimit(
+            response,
+            MAX_WEBHOOK_RESPONSE_EXCERPT_BYTES,
+          )
+        } catch (error) {
+          if (error instanceof RequestBodyTooLargeError) {
+            responseBodyExcerpt = 'Webhook response body exceeded 1024 bytes'
+          } else {
+            throw error
+          }
+        }
         if (!response.ok) {
           deliveryStatus = 'failed'
           eventSucceeded = false

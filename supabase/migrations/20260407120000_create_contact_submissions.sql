@@ -7,6 +7,5 @@ create table if not exists public.contact_submissions (
   message text not null,
   created_at timestamptz not null default now()
 );
-
 -- RLS: no public access, only service role can insert/read
 alter table public.contact_submissions enable row level security;

@@ -1,5 +1,4 @@
 -- =========================================================================
--- 20260420050000_client_roles.sql
 -- A position the client is hiring for. Pinned at creation to a baseline
 -- snapshot (org_diagnostic_profiles). The pin is read-only after creation
 -- except via the explicit re-pin admin operation (see spec §3.4).
@@ -40,9 +39,6 @@ CREATE TRIGGER set_client_roles_updated_at
     BEFORE UPDATE ON client_roles
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- ---------------------------------------------------------------------------
--- RLS
--- ---------------------------------------------------------------------------
 ALTER TABLE client_roles ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS client_roles_all_platform_admin ON client_roles;
@@ -59,4 +55,4 @@ CREATE POLICY client_roles_select_client ON client_roles
             WHERE c.partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid())
               AND c.deleted_at IS NULL
         )
-    );
+    );;

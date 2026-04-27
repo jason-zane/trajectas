@@ -1,11 +1,10 @@
 -- =========================================================================
--- 20260420050200_org_diagnostic_respondents.sql
 -- People invited to complete one instrument within one campaign. Token-based
 -- access (no Supabase Auth required).
 --
 -- ANONYMITY CONTRACT (spec §1.6): client members must NEVER read this table.
 -- Only the platform-admin policy is created. RLS denies by default for any
--- role without a matching policy, which is exactly the behaviour we want.
+-- role without a matching policy.
 -- IDEMPOTENT.
 -- =========================================================================
 
@@ -51,13 +50,8 @@ CREATE TRIGGER set_org_diag_respondents_updated_at
     BEFORE UPDATE ON org_diagnostic_respondents
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- ---------------------------------------------------------------------------
--- RLS — platform admin only.
--- DO NOT add SELECT/INSERT/UPDATE/DELETE policies for client members.
--- The anonymity contract requires that client admins cannot read this table.
--- ---------------------------------------------------------------------------
 ALTER TABLE org_diagnostic_respondents ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS org_diag_respondents_all_platform_admin ON org_diagnostic_respondents;
 CREATE POLICY org_diag_respondents_all_platform_admin ON org_diagnostic_respondents
-    FOR ALL TO authenticated USING (is_platform_admin());
+    FOR ALL TO authenticated USING (is_platform_admin());;

@@ -18,17 +18,14 @@ CREATE TABLE IF NOT EXISTS experience_templates (
   updated_at          TIMESTAMPTZ,
   deleted_at          TIMESTAMPTZ
 );
-
 -- Unique: one active template per owner
 CREATE UNIQUE INDEX IF NOT EXISTS experience_templates_owner_unique
   ON experience_templates (owner_type, owner_id)
   WHERE deleted_at IS NULL;
-
 -- Index for fast campaign lookups
 CREATE INDEX IF NOT EXISTS experience_templates_owner_id_idx
   ON experience_templates (owner_id)
   WHERE deleted_at IS NULL;
-
 -- Updated_at trigger
 CREATE OR REPLACE FUNCTION experience_templates_set_updated_at()
 RETURNS TRIGGER AS $$
@@ -37,16 +34,13 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS experience_templates_updated_at ON experience_templates;
 CREATE TRIGGER experience_templates_updated_at
   BEFORE UPDATE ON experience_templates
   FOR EACH ROW
   EXECUTE FUNCTION experience_templates_set_updated_at();
-
 -- RLS policies
 ALTER TABLE experience_templates ENABLE ROW LEVEL SECURITY;
-
 -- Platform admins: full access
 CREATE POLICY experience_templates_admin_all ON experience_templates
   FOR ALL TO authenticated
@@ -57,7 +51,6 @@ CREATE POLICY experience_templates_admin_all ON experience_templates
         AND profiles.role = 'platform_admin'
     )
   );
-
 -- Campaign owners (org admins): read/update campaign templates
 CREATE POLICY experience_templates_campaign_read ON experience_templates
   FOR SELECT TO authenticated
@@ -70,7 +63,6 @@ CREATE POLICY experience_templates_campaign_read ON experience_templates
         AND p.role IN ('org_admin', 'platform_admin')
     )
   );
-
 CREATE POLICY experience_templates_campaign_write ON experience_templates
   FOR UPDATE TO authenticated
   USING (
@@ -82,14 +74,12 @@ CREATE POLICY experience_templates_campaign_write ON experience_templates
         AND p.role IN ('org_admin', 'platform_admin')
     )
   );
-
 -- Platform default readable by all authenticated
 CREATE POLICY experience_templates_default_read ON experience_templates
   FOR SELECT TO authenticated
   USING (
     owner_type = 'platform' AND owner_id IS NULL
   );
-
 -- Anonymous access (for assessment runner)
 CREATE POLICY experience_templates_anon_read ON experience_templates
   FOR SELECT TO anon
@@ -97,7 +87,6 @@ CREATE POLICY experience_templates_anon_read ON experience_templates
     (owner_type = 'platform' AND owner_id IS NULL)
     OR owner_type = 'campaign'
   );
-
 -- =============================================================================
 -- Seed: Platform default experience template
 -- =============================================================================

@@ -19,7 +19,6 @@ SELECT
 FROM ai_model_configs
 WHERE purpose = 'item_generation'
 ON CONFLICT DO NOTHING;
-
 INSERT INTO ai_model_configs (provider_id, model_id, display_name, purpose, config)
 SELECT
   provider_id,
@@ -30,7 +29,6 @@ SELECT
 FROM ai_model_configs
 WHERE purpose = 'chat'
 ON CONFLICT DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- 2. Seed default system prompts for new purposes
 -- ---------------------------------------------------------------------------
@@ -62,7 +60,6 @@ For each item, assign one verdict:
 Return a JSON array with one entry per input item, in the same order:
 [{ "originalStem": "...", "verdict": "keep|revise|drop", "revisedStem": "...(only if verdict is revise)", "reason": "one sentence explanation (required for revise and drop)" }]$$
 );
-
 SELECT activate_ai_system_prompt(
   'synthetic_respondent',
   'Synthetic Respondent v1',

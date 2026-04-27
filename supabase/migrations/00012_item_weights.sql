@@ -5,11 +5,8 @@
 -- =============================================================================
 
 BEGIN;
-
 ALTER TABLE items
   ADD COLUMN weight NUMERIC(5,2) NOT NULL DEFAULT 1.0;
-
 ALTER TABLE items
   ADD CONSTRAINT items_weight_positive CHECK (weight > 0);
-
 COMMIT;

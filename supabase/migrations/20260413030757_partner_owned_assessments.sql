@@ -1,10 +1,5 @@
-BEGIN;
-
 ALTER TABLE assessments
   ADD COLUMN IF NOT EXISTS partner_id UUID REFERENCES partners(id) ON DELETE CASCADE;
-
-COMMENT ON COLUMN assessments.partner_id IS
-  'Owning partner for partner-scoped assessments. NULL means platform-owned or client-scoped.';
 
 CREATE INDEX IF NOT EXISTS idx_assessments_partner_id
   ON assessments(partner_id)
@@ -30,6 +25,4 @@ CREATE POLICY assessments_partner_admin_manage ON assessments
   WITH CHECK (
     partner_id IS NOT NULL
     AND partner_id = ANY(auth_user_partner_admin_ids())
-  );
-
-COMMIT;
+  );;

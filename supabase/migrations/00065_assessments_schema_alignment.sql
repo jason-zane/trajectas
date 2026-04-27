@@ -22,13 +22,8 @@ DO $$ BEGIN
     ALTER TABLE assessments RENAME COLUMN name TO title;
   END IF;
 END $$;
-
 -- Add matching_run_id if missing
 ALTER TABLE assessments
   ADD COLUMN IF NOT EXISTS matching_run_id UUID REFERENCES matching_runs(id) ON DELETE SET NULL;
-
 CREATE INDEX IF NOT EXISTS idx_assessments_matching_run
   ON assessments(matching_run_id) WHERE matching_run_id IS NOT NULL;
-
--- slug column is unused by the application — make it nullable
-ALTER TABLE assessments ALTER COLUMN slug DROP NOT NULL;

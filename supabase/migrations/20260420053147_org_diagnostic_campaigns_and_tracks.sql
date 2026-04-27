@@ -1,5 +1,4 @@
 -- =========================================================================
--- 20260420050100_org_diagnostic_campaigns_and_tracks.sql
 -- Diagnostic campaigns (baseline or role_rep) and the per-instrument tracks
 -- inside them. Also adds the deferred FK from org_diagnostic_profiles.
 -- IDEMPOTENT.
@@ -50,9 +49,6 @@ CREATE TRIGGER set_org_diag_campaigns_updated_at
     BEFORE UPDATE ON org_diagnostic_campaigns
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- ---------------------------------------------------------------------------
--- Tracks
--- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS org_diagnostic_campaign_tracks (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     campaign_id         UUID NOT NULL REFERENCES org_diagnostic_campaigns(id) ON DELETE CASCADE,
@@ -84,11 +80,6 @@ CREATE TRIGGER set_org_diag_tracks_updated_at
     BEFORE UPDATE ON org_diagnostic_campaign_tracks
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- ---------------------------------------------------------------------------
--- Deferred FK on org_diagnostic_profiles.campaign_id (added now that the
--- referenced table exists). RESTRICT so a campaign with a snapshot cannot
--- be hard-deleted accidentally.
--- ---------------------------------------------------------------------------
 DO $$ BEGIN
   ALTER TABLE org_diagnostic_profiles
     ADD CONSTRAINT org_diag_profiles_campaign_fk
@@ -96,9 +87,6 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- ---------------------------------------------------------------------------
--- RLS — campaigns
--- ---------------------------------------------------------------------------
 ALTER TABLE org_diagnostic_campaigns ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS org_diag_campaigns_all_platform_admin ON org_diagnostic_campaigns;
@@ -117,9 +105,6 @@ CREATE POLICY org_diag_campaigns_select_client ON org_diagnostic_campaigns
         )
     );
 
--- ---------------------------------------------------------------------------
--- RLS — tracks (follow campaign access)
--- ---------------------------------------------------------------------------
 ALTER TABLE org_diagnostic_campaign_tracks ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS org_diag_tracks_all_platform_admin ON org_diagnostic_campaign_tracks;
@@ -142,4 +127,4 @@ CREATE POLICY org_diag_tracks_select_via_campaign ON org_diagnostic_campaign_tra
                   )
               )
         )
-    );
+    );;

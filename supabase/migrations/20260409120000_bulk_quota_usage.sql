@@ -20,10 +20,8 @@ RETURNS TABLE (assessment_id UUID, quota_used INT) AS $$
     AND c.deleted_at IS NULL
   GROUP BY ca.assessment_id;
 $$ LANGUAGE sql STABLE;
-
 COMMENT ON FUNCTION get_client_assessment_quota_usage_bulk IS
   'Returns quota usage counts for all assessments belonging to a client in a single query.';
-
 CREATE OR REPLACE FUNCTION get_partner_assessment_quota_usage_bulk(
   p_partner_id UUID
 )
@@ -43,6 +41,5 @@ RETURNS TABLE (assessment_id UUID, quota_used INT) AS $$
     AND c.deleted_at IS NULL
   GROUP BY ca.assessment_id;
 $$ LANGUAGE sql STABLE;
-
 COMMENT ON FUNCTION get_partner_assessment_quota_usage_bulk IS
   'Returns quota usage counts for all assessments under a partner in a single query.';

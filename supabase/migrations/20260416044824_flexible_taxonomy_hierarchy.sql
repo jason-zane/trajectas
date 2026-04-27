@@ -1,21 +1,10 @@
--- =============================================================================
 -- Flexible taxonomy hierarchy: allow constructs to relate directly to dimensions
 -- without an intermediate factor layer.
---
--- New tables: dimension_constructs, assessment_constructs, campaign_assessment_constructs
--- Modified: assessments (scoring_level column), participant_scores (construct_id, scoring_level)
--- =============================================================================
 
-BEGIN;
-
--- ---------------------------------------------------------------------------
 -- 1. New enum: scoring_level
--- ---------------------------------------------------------------------------
 CREATE TYPE scoring_level AS ENUM ('factor', 'construct');
 
--- ---------------------------------------------------------------------------
 -- 2. New columns on assessments
--- ---------------------------------------------------------------------------
 ALTER TABLE assessments
   ADD COLUMN IF NOT EXISTS scoring_level scoring_level NOT NULL DEFAULT 'factor';
 
@@ -28,9 +17,7 @@ COMMENT ON COLUMN assessments.scoring_level IS
 COMMENT ON COLUMN assessments.min_custom_constructs IS
   'Minimum constructs required for custom campaign selection. NULL = customisation not allowed. Only applies when scoring_level = construct.';
 
--- ---------------------------------------------------------------------------
 -- 3. New table: dimension_constructs (library level)
--- ---------------------------------------------------------------------------
 CREATE TABLE dimension_constructs (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   dimension_id   UUID NOT NULL REFERENCES dimensions(id) ON DELETE CASCADE,
@@ -49,9 +36,7 @@ CREATE INDEX idx_dimension_constructs_construct ON dimension_constructs(construc
 COMMENT ON TABLE dimension_constructs IS
   'Links constructs directly to dimensions with configurable weights. Parallel to factor_constructs. A construct can appear under multiple dimensions.';
 
--- ---------------------------------------------------------------------------
 -- 4. New table: assessment_constructs (assessment level)
--- ---------------------------------------------------------------------------
 CREATE TABLE assessment_constructs (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   assessment_id  UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
@@ -81,9 +66,7 @@ CREATE INDEX idx_assessment_constructs_dimension ON assessment_constructs(dimens
 COMMENT ON TABLE assessment_constructs IS
   'Links constructs to a construct-level assessment with ordering, weighting, and item-count constraints. Parallel to assessment_factors.';
 
--- ---------------------------------------------------------------------------
 -- 5. New table: campaign_assessment_constructs (campaign level)
--- ---------------------------------------------------------------------------
 CREATE TABLE campaign_assessment_constructs (
   id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   campaign_assessment_id UUID NOT NULL REFERENCES campaign_assessments(id) ON DELETE CASCADE,
@@ -99,23 +82,16 @@ CREATE INDEX idx_campaign_assessment_constructs_ca
 COMMENT ON TABLE campaign_assessment_constructs IS
   'Per-campaign construct selection. No rows = full assessment (all constructs). Rows present = custom selection of specific constructs only.';
 
--- ---------------------------------------------------------------------------
 -- 6. Modify participant_scores
--- ---------------------------------------------------------------------------
-
--- Make factor_id nullable (existing rows all have it set)
 ALTER TABLE participant_scores
   ALTER COLUMN factor_id DROP NOT NULL;
 
--- Add construct_id column
 ALTER TABLE participant_scores
   ADD COLUMN IF NOT EXISTS construct_id UUID REFERENCES constructs(id) ON DELETE RESTRICT;
 
--- Add scoring_level column
 ALTER TABLE participant_scores
   ADD COLUMN IF NOT EXISTS scoring_level scoring_level NOT NULL DEFAULT 'factor';
 
--- Ensure exactly one of factor_id or construct_id is set
 ALTER TABLE participant_scores
   ADD CONSTRAINT participant_scores_entity_check
   CHECK (
@@ -123,24 +99,19 @@ ALTER TABLE participant_scores
     OR (scoring_level = 'construct' AND construct_id IS NOT NULL AND factor_id IS NULL)
   );
 
--- Partial unique index for construct-level scores
 CREATE UNIQUE INDEX IF NOT EXISTS participant_scores_unique_construct
   ON participant_scores(session_id, construct_id) WHERE scoring_level = 'construct';
 
 CREATE INDEX IF NOT EXISTS idx_participant_scores_construct
   ON participant_scores(construct_id) WHERE construct_id IS NOT NULL;
 
--- ---------------------------------------------------------------------------
 -- 7. Add construct-level item selection rule columns
--- ---------------------------------------------------------------------------
 ALTER TABLE item_selection_rules
   ADD COLUMN IF NOT EXISTS items_per_construct INT,
   ADD COLUMN IF NOT EXISTS total_construct_min INT,
   ADD COLUMN IF NOT EXISTS total_construct_max INT;
 
--- ---------------------------------------------------------------------------
 -- 8. RLS policies
--- ---------------------------------------------------------------------------
 
 -- dimension_constructs
 ALTER TABLE dimension_constructs ENABLE ROW LEVEL SECURITY;
@@ -188,5 +159,4 @@ CREATE POLICY campaign_assessment_constructs_select ON campaign_assessment_const
          OR c.partner_id = auth_user_partner_id()
     )
   );
-
-COMMIT;
+;

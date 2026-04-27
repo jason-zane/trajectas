@@ -1,5 +1,3 @@
-BEGIN;
-
 ALTER TABLE participant_sessions
   ADD COLUMN IF NOT EXISTS processing_status TEXT NOT NULL DEFAULT 'idle',
   ADD COLUMN IF NOT EXISTS processing_error TEXT,
@@ -100,6 +98,4 @@ ALTER TABLE participant_sessions
   );
 
 CREATE INDEX IF NOT EXISTS idx_participant_sessions_processing_status
-  ON participant_sessions (processing_status);
-
-COMMIT;
+  ON participant_sessions (processing_status);;

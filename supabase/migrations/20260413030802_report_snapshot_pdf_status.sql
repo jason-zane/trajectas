@@ -21,4 +21,4 @@ WHERE pdf_url IS NOT NULL
 
 CREATE INDEX IF NOT EXISTS report_snapshots_pdf_status_idx
   ON report_snapshots (pdf_status)
-  WHERE pdf_status IS NOT NULL;
+  WHERE pdf_status IS NOT NULL;;

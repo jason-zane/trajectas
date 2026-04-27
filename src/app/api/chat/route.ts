@@ -8,17 +8,16 @@ import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/providers/openrouter-retry'
+import {
+  parseJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
 
 const MAX_CHAT_BODY_BYTES = 256 * 1024
 
 export async function POST(request: Request) {
-  const contentLength = Number(request.headers.get('content-length') ?? 0)
-  if (contentLength > MAX_CHAT_BODY_BYTES) {
-    return new Response('Request body too large', { status: 413 })
-  }
-
   try {
     await requireAdminScope()
   } catch (error) {
@@ -33,10 +32,21 @@ export async function POST(request: Request) {
     throw error
   }
 
-  const { messages, model: modelOverride } = await request.json() as {
+  let body: {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>
     model?: string
   }
+  try {
+    body = await parseJsonRequestWithLimit(request, MAX_CHAT_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return new Response('Request body too large', { status: 413 })
+    }
+
+    return new Response('Request body must be valid JSON', { status: 400 })
+  }
+
+  const { messages, model: modelOverride } = body
 
   if (!messages?.length) {
     return new Response('Messages are required', { status: 400 })

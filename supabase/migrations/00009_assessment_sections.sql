@@ -5,7 +5,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1. Enums
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -15,7 +14,6 @@ CREATE TYPE item_ordering AS ENUM (
   'randomised',
   'interleaved_by_construct'
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. assessment_sections
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -39,7 +37,6 @@ CREATE TABLE assessment_sections (
   CONSTRAINT assessment_sections_items_per_page_positive CHECK (items_per_page IS NULL OR items_per_page > 0),
   CONSTRAINT assessment_sections_time_limit_positive CHECK (time_limit_seconds IS NULL OR time_limit_seconds > 0)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. assessment_section_items
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -54,14 +51,12 @@ CREATE TABLE assessment_section_items (
   CONSTRAINT assessment_section_items_unique UNIQUE (section_id, item_id),
   CONSTRAINT assessment_section_items_order_positive CHECK (display_order >= 0)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. Add section_id to candidate_responses
 -- ─────────────────────────────────────────────────────────────────────────────
 
 ALTER TABLE candidate_responses
   ADD COLUMN section_id UUID REFERENCES assessment_sections(id);
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5. Indexes
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -71,7 +66,6 @@ CREATE INDEX idx_assessment_sections_format ON assessment_sections(response_form
 CREATE INDEX idx_assessment_section_items_section ON assessment_section_items(section_id);
 CREATE INDEX idx_assessment_section_items_item ON assessment_section_items(item_id);
 CREATE INDEX idx_candidate_responses_section ON candidate_responses(section_id);
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 6. Triggers
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -79,14 +73,12 @@ CREATE INDEX idx_candidate_responses_section ON candidate_responses(section_id);
 CREATE TRIGGER set_assessment_sections_updated_at
   BEFORE UPDATE ON assessment_sections
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 7. Row-Level Security
 -- ─────────────────────────────────────────────────────────────────────────────
 
 ALTER TABLE assessment_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assessment_section_items ENABLE ROW LEVEL SECURITY;
-
 -- assessment_sections
 CREATE POLICY assessment_sections_select ON assessment_sections
   FOR SELECT TO authenticated USING (true);
@@ -105,7 +97,6 @@ CREATE POLICY assessment_sections_delete ON assessment_sections
   USING (
     EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin')
   );
-
 -- assessment_section_items
 CREATE POLICY assessment_section_items_select ON assessment_section_items
   FOR SELECT TO authenticated USING (true);
@@ -124,7 +115,6 @@ CREATE POLICY assessment_section_items_delete ON assessment_section_items
   USING (
     EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin')
   );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 8. Seed additional response formats
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -147,10 +137,8 @@ INSERT INTO response_formats (id, name, type, config, is_active) VALUES
    '{"scoringType": "rate_effectiveness", "optionsPerScenario": 4, "rubricLabels": ["best", "good", "neutral", "poor"], "rubricValues": [4, 3, 2, 1]}',
    true)
 ON CONFLICT DO NOTHING;
-
 -- Add anchorType to existing 5-point Likert format config
 UPDATE response_formats
   SET config = '{"points": 5, "anchorType": "agreement", "anchors": {"1": "Strongly Disagree", "2": "Disagree", "3": "Neutral", "4": "Agree", "5": "Strongly Agree"}}'
   WHERE id = 'a5000000-0000-0000-0000-000000000001';
-
 COMMIT;

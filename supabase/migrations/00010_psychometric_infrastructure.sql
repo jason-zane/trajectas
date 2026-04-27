@@ -5,7 +5,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 1. Enums
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -16,33 +15,28 @@ CREATE TYPE calibration_run_type AS ENUM (
   'recalibration',
   'on_demand'
 );
-
 CREATE TYPE calibration_method AS ENUM (
   'ctt_only',
   'irt_2pl',
   'irt_3pl',
   'concurrent'
 );
-
 CREATE TYPE calibration_status AS ENUM (
   'pending',
   'running',
   'completed',
   'failed'
 );
-
 CREATE TYPE dif_method AS ENUM (
   'mantel_haenszel',
   'logistic_regression',
   'lord_chi_square'
 );
-
 CREATE TYPE dif_classification AS ENUM (
   'A',
   'B',
   'C'
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 2. calibration_runs — audit trail for psychometric analyses
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -64,7 +58,6 @@ CREATE TABLE calibration_runs (
 
   CONSTRAINT calibration_runs_sample_positive CHECK (sample_size IS NULL OR sample_size > 0)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 3. item_statistics — per-item quality metrics per calibration run
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -101,7 +94,6 @@ CREATE TABLE item_statistics (
 
   CONSTRAINT item_statistics_unique UNIQUE (item_id, calibration_run_id)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 4. construct_reliability — per-construct reliability per calibration run
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -137,7 +129,6 @@ CREATE TABLE construct_reliability (
 
   CONSTRAINT construct_reliability_unique UNIQUE (construct_id, calibration_run_id)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5. norm_groups — segmentation for norm-referenced scoring
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -167,7 +158,6 @@ CREATE TABLE norm_groups (
   CONSTRAINT norm_groups_name_not_empty CHECK (char_length(trim(name)) > 0),
   CONSTRAINT norm_groups_sample_non_negative CHECK (sample_size >= 0)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 6. norm_tables — per-construct per-norm-group distribution data
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -198,7 +188,6 @@ CREATE TABLE norm_tables (
   CONSTRAINT norm_tables_sd_positive CHECK (standard_deviation > 0),
   CONSTRAINT norm_tables_sample_positive CHECK (sample_size > 0)
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 7. factor_analysis_results — CFA/EFA fit indices and loadings
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -237,7 +226,6 @@ CREATE TABLE factor_analysis_results (
   CONSTRAINT factor_analysis_results_type_check
     CHECK (analysis_type IN ('efa', 'cfa'))
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 8. dif_results — Differential Item Functioning per item per group
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -266,31 +254,24 @@ CREATE TABLE dif_results (
 
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 9. Indexes
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE INDEX idx_calibration_runs_status ON calibration_runs(status);
 CREATE INDEX idx_calibration_runs_created ON calibration_runs(created_at DESC);
-
 CREATE INDEX idx_item_statistics_item ON item_statistics(item_id);
 CREATE INDEX idx_item_statistics_run ON item_statistics(calibration_run_id);
 CREATE INDEX idx_item_statistics_flagged ON item_statistics(flagged) WHERE flagged = true;
-
 CREATE INDEX idx_construct_reliability_construct ON construct_reliability(construct_id);
 CREATE INDEX idx_construct_reliability_run ON construct_reliability(calibration_run_id);
-
 CREATE INDEX idx_norm_groups_active ON norm_groups(is_active) WHERE is_active = true;
 CREATE INDEX idx_norm_tables_group ON norm_tables(norm_group_id);
 CREATE INDEX idx_norm_tables_construct ON norm_tables(construct_id);
-
 CREATE INDEX idx_factor_analysis_results_run ON factor_analysis_results(calibration_run_id);
-
 CREATE INDEX idx_dif_results_item ON dif_results(item_id);
 CREATE INDEX idx_dif_results_run ON dif_results(calibration_run_id);
 CREATE INDEX idx_dif_results_flagged ON dif_results(flagged) WHERE flagged = true;
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 10. Triggers
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -298,15 +279,12 @@ CREATE INDEX idx_dif_results_flagged ON dif_results(flagged) WHERE flagged = tru
 CREATE TRIGGER set_calibration_runs_updated_at
   BEFORE UPDATE ON calibration_runs
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER set_norm_groups_updated_at
   BEFORE UPDATE ON norm_groups
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER set_norm_tables_updated_at
   BEFORE UPDATE ON norm_tables
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 11. Row-Level Security
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -318,7 +296,6 @@ ALTER TABLE norm_groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE norm_tables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE factor_analysis_results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dif_results ENABLE ROW LEVEL SECURITY;
-
 -- All authenticated users can read; platform_admin can write
 
 -- calibration_runs
@@ -329,7 +306,6 @@ CREATE POLICY calibration_runs_update ON calibration_runs FOR UPDATE TO authenti
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY calibration_runs_delete ON calibration_runs FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- item_statistics
 CREATE POLICY item_statistics_select ON item_statistics FOR SELECT TO authenticated USING (true);
 CREATE POLICY item_statistics_insert ON item_statistics FOR INSERT TO authenticated
@@ -338,7 +314,6 @@ CREATE POLICY item_statistics_update ON item_statistics FOR UPDATE TO authentica
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY item_statistics_delete ON item_statistics FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- construct_reliability
 CREATE POLICY construct_reliability_select ON construct_reliability FOR SELECT TO authenticated USING (true);
 CREATE POLICY construct_reliability_insert ON construct_reliability FOR INSERT TO authenticated
@@ -347,7 +322,6 @@ CREATE POLICY construct_reliability_update ON construct_reliability FOR UPDATE T
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY construct_reliability_delete ON construct_reliability FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- norm_groups
 CREATE POLICY norm_groups_select ON norm_groups FOR SELECT TO authenticated USING (true);
 CREATE POLICY norm_groups_insert ON norm_groups FOR INSERT TO authenticated
@@ -356,7 +330,6 @@ CREATE POLICY norm_groups_update ON norm_groups FOR UPDATE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY norm_groups_delete ON norm_groups FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- norm_tables
 CREATE POLICY norm_tables_select ON norm_tables FOR SELECT TO authenticated USING (true);
 CREATE POLICY norm_tables_insert ON norm_tables FOR INSERT TO authenticated
@@ -365,21 +338,18 @@ CREATE POLICY norm_tables_update ON norm_tables FOR UPDATE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY norm_tables_delete ON norm_tables FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- factor_analysis_results
 CREATE POLICY factor_analysis_results_select ON factor_analysis_results FOR SELECT TO authenticated USING (true);
 CREATE POLICY factor_analysis_results_insert ON factor_analysis_results FOR INSERT TO authenticated
   WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY factor_analysis_results_delete ON factor_analysis_results FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- dif_results
 CREATE POLICY dif_results_select ON dif_results FOR SELECT TO authenticated USING (true);
 CREATE POLICY dif_results_insert ON dif_results FOR INSERT TO authenticated
   WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
 CREATE POLICY dif_results_delete ON dif_results FOR DELETE TO authenticated
   USING (EXISTS (SELECT 1 FROM profiles WHERE profiles.id = auth.uid() AND profiles.role = 'platform_admin'));
-
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 12. Seed a General Population norm group
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -389,5 +359,4 @@ INSERT INTO norm_groups (id, name, description, is_active) VALUES
    'Baseline norm group encompassing all assessed candidates. Used as the default when more specific norms are not available.',
    true)
 ON CONFLICT DO NOTHING;
-
 COMMIT;

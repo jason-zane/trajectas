@@ -15,9 +15,15 @@
 import { NextResponse } from 'next/server'
 import { Webhook } from 'standardwebhooks'
 import { sendEmail } from '@/lib/email/send'
+import {
+  readRequestTextWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 import type { EmailType } from '@/lib/email/types'
 
 export const runtime = 'nodejs'
+
+const MAX_AUTH_HOOK_BODY_BYTES = 64 * 1024
 
 // ---------------------------------------------------------------------------
 // Supabase email_action_type → our EmailType mapping
@@ -47,7 +53,22 @@ export async function POST(request: Request) {
   }
 
   // 1. Read body + verify via Standard Webhooks
-  const rawBody = await request.text()
+  let rawBody: string
+  try {
+    rawBody = await readRequestTextWithLimit(request, MAX_AUTH_HOOK_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return NextResponse.json(
+        { error: 'Request body too large' },
+        { status: 413 },
+      )
+    }
+
+    return NextResponse.json(
+      { error: 'Invalid request body' },
+      { status: 400 },
+    )
+  }
   const headers = Object.fromEntries(request.headers)
 
   // Extract the base64 secret (strip "v1,whsec_" prefix)

@@ -21,4 +21,4 @@ insert into platform_settings (band_scheme) values (
 alter table partners add column if not exists band_scheme jsonb;
 
 -- Template-level override (null = inherit from partner)
-alter table report_templates add column if not exists band_scheme jsonb;
+alter table report_templates add column if not exists band_scheme jsonb;;

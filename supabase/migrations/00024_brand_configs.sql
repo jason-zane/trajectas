@@ -11,7 +11,6 @@ DO $$ BEGIN
   CREATE TYPE brand_owner_type AS ENUM ('platform', 'organization');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 -- Main table
 CREATE TABLE IF NOT EXISTS brand_configs (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,17 +22,14 @@ CREATE TABLE IF NOT EXISTS brand_configs (
   updated_at  TIMESTAMPTZ,
   deleted_at  TIMESTAMPTZ                                  -- soft-delete
 );
-
 -- Unique: one active config per owner
 CREATE UNIQUE INDEX IF NOT EXISTS brand_configs_owner_unique
   ON brand_configs (owner_type, owner_id)
   WHERE deleted_at IS NULL;
-
 -- Index for fast org lookups
 CREATE INDEX IF NOT EXISTS brand_configs_owner_id_idx
   ON brand_configs (owner_id)
   WHERE deleted_at IS NULL;
-
 -- Updated_at trigger
 CREATE OR REPLACE FUNCTION brand_configs_set_updated_at()
 RETURNS TRIGGER AS $$
@@ -42,16 +38,13 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 DROP TRIGGER IF EXISTS brand_configs_updated_at ON brand_configs;
 CREATE TRIGGER brand_configs_updated_at
   BEFORE UPDATE ON brand_configs
   FOR EACH ROW
   EXECUTE FUNCTION brand_configs_set_updated_at();
-
 -- RLS policies
 ALTER TABLE brand_configs ENABLE ROW LEVEL SECURITY;
-
 -- Platform admins: full access
 CREATE POLICY brand_configs_admin_all ON brand_configs
   FOR ALL TO authenticated
@@ -62,7 +55,6 @@ CREATE POLICY brand_configs_admin_all ON brand_configs
         AND profiles.role = 'platform_admin'
     )
   );
-
 -- Org admins: read their own org config
 CREATE POLICY brand_configs_org_read ON brand_configs
   FOR SELECT TO authenticated
@@ -74,7 +66,6 @@ CREATE POLICY brand_configs_org_read ON brand_configs
         AND profiles.role = 'org_admin'
     )
   );
-
 -- Org admins: update their own org config
 CREATE POLICY brand_configs_org_update ON brand_configs
   FOR UPDATE TO authenticated
@@ -86,14 +77,12 @@ CREATE POLICY brand_configs_org_update ON brand_configs
         AND profiles.role = 'org_admin'
     )
   );
-
 -- Platform default is readable by everyone (for fallback resolution)
 CREATE POLICY brand_configs_default_read ON brand_configs
   FOR SELECT TO authenticated
   USING (
     owner_type = 'platform' AND is_default = true
   );
-
 -- Anonymous access to brand configs (for assessment runner)
 CREATE POLICY brand_configs_anon_read ON brand_configs
   FOR SELECT TO anon
@@ -101,7 +90,6 @@ CREATE POLICY brand_configs_anon_read ON brand_configs
     (owner_type = 'platform' AND is_default = true)
     OR owner_type = 'organization'
   );
-
 -- =============================================================================
 -- Seed: Talent Fit platform default
 -- =============================================================================

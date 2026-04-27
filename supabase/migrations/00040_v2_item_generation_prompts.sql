@@ -1,26 +1,11 @@
 -- =============================================================================
--- Migration 00040: Seed factor v1 prompt + upgrade both prompts to v2
+-- Migration 00040: V2 item generation prompts (construct + factor)
 --
--- 1. Seed the factor_item_generation v1 prompt (moved from 00039 — enum values
---    cannot be used in the same transaction they are added)
--- 2. Activate v2 of both item_generation and factor_item_generation prompts
---    via the activate_ai_system_prompt() helper (auto-versions + deactivates old)
+-- Uses activate_ai_system_prompt() which auto-increments version,
+-- deactivates the previous active prompt, and inserts the new one.
 -- =============================================================================
 
--- 1. Seed factor v1 (if not already present from a partial earlier run)
-INSERT INTO ai_system_prompts (name, purpose, content, version, is_active)
-SELECT
-  'Factor Item Generation',
-  'factor_item_generation'::ai_prompt_purpose,
-  'Placeholder — superseded by v2 below.',
-  1,
-  false
-WHERE NOT EXISTS (
-  SELECT 1 FROM ai_system_prompts
-  WHERE purpose = 'factor_item_generation'::ai_prompt_purpose AND version = 1
-);
-
--- 2. Construct-level prompt v2
+-- Construct-level prompt (v2)
 SELECT activate_ai_system_prompt(
   'item_generation',
   'Construct Item Generation v2',
@@ -43,8 +28,7 @@ SELECT activate_ai_system_prompt(
 - Each element: { "stem": "...", "reverseScored": true|false, "rationale": "one sentence" }
 - `reverseScored` = true when endorsing the item indicates LOW standing on the construct.$$
 );
-
--- 3. Factor-level prompt v2
+-- Factor-level prompt (v2)
 SELECT activate_ai_system_prompt(
   'factor_item_generation',
   'Factor Item Generation v2',

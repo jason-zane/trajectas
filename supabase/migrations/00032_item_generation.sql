@@ -1,5 +1,4 @@
 BEGIN;
-
 -- ==========================================================================
 -- 00032_item_generation.sql
 -- AI-GENIE Item Generator: generation_runs, generated_items, generation_run_logs
@@ -10,7 +9,6 @@ CREATE TYPE generation_run_status AS ENUM (
   'configuring', 'generating', 'embedding',
   'analysing', 'reviewing', 'completed', 'failed'
 );
-
 -- Main run table
 CREATE TABLE generation_runs (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,7 +34,6 @@ CREATE TABLE generation_runs (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ
 );
-
 -- Candidate items (before acceptance)
 CREATE TABLE generated_items (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -59,7 +56,6 @@ CREATE TABLE generated_items (
 
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- Audit log
 CREATE TABLE generation_run_logs (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -70,11 +66,9 @@ CREATE TABLE generation_run_logs (
   duration_ms       INT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 -- Indexes
 CREATE INDEX idx_generation_runs_status ON generation_runs(status);
 CREATE INDEX idx_generated_items_run ON generated_items(generation_run_id);
 CREATE INDEX idx_generated_items_construct ON generated_items(construct_id);
 CREATE INDEX idx_generation_run_logs_run ON generation_run_logs(generation_run_id);
-
 COMMIT;

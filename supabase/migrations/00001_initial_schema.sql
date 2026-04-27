@@ -23,8 +23,10 @@
 -- ---------------------------------------------------------------------------
 -- 1. Extensions
 -- ---------------------------------------------------------------------------
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS "citext";     -- case-insensitive text for emails / slugs
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+-- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "citext";
+-- case-insensitive text for emails / slugs
 
 -- ---------------------------------------------------------------------------
 -- 2. Enum types
@@ -37,71 +39,60 @@ CREATE TYPE user_role AS ENUM (
     'assessor',
     'candidate'
 );
-
 CREATE TYPE response_format_type AS ENUM (
     'likert',
     'forced_choice',
     'binary',
     'free_text'
 );
-
 CREATE TYPE item_status AS ENUM (
     'draft',
     'active',
     'archived'
 );
-
 CREATE TYPE irt_model_type AS ENUM (
     '1PL',
     '2PL',
     '3PL'
 );
-
 CREATE TYPE scoring_method AS ENUM (
     'irt',
     'ctt',
     'hybrid'
 );
-
 CREATE TYPE item_selection_strategy AS ENUM (
     'fixed',
     'rule_based',
     'cat'
 );
-
 CREATE TYPE assessment_status AS ENUM (
     'draft',
     'active',
     'archived'
 );
-
 CREATE TYPE diagnostic_session_status AS ENUM (
     'draft',
     'active',
     'completed',
     'archived'
 );
-
 CREATE TYPE ai_prompt_purpose AS ENUM (
     'competency_matching',
     'ranking_explanation',
     'diagnostic_analysis'
 );
-
 CREATE TYPE matching_run_status AS ENUM (
     'pending',
     'running',
     'completed',
     'failed'
 );
-
 CREATE TYPE candidate_session_status AS ENUM (
     'not_started',
     'in_progress',
     'completed',
     'expired'
 );
-
 -- ---------------------------------------------------------------------------
 -- 3. Utility: auto-update updated_at
 -- ---------------------------------------------------------------------------
@@ -112,10 +103,8 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
 COMMENT ON FUNCTION set_updated_at() IS
     'Trigger function that stamps updated_at with the current timestamp on every UPDATE.';
-
 -- ---------------------------------------------------------------------------
 -- 4. Helper: check if the current user holds a given role
 -- ---------------------------------------------------------------------------
@@ -142,10 +131,8 @@ CREATE TABLE partners (
     CONSTRAINT partners_slug_format CHECK (slug ~ '^[a-z0-9][a-z0-9\-]*[a-z0-9]$' AND length(slug) >= 2),
     CONSTRAINT partners_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE partners IS
     'Consulting firms that license the Talent Fit platform. Top-level tenant.';
-
 -- ---------------------------------------------------------------------------
 -- organizations
 -- ---------------------------------------------------------------------------
@@ -164,10 +151,8 @@ CREATE TABLE organizations (
     CONSTRAINT organizations_slug_format CHECK (slug ~ '^[a-z0-9][a-z0-9\-]*[a-z0-9]$' AND length(slug) >= 2),
     CONSTRAINT organizations_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE organizations IS
     'Client organisations. May belong to a partner (consulting firm) or operate directly on the platform.';
-
 -- ---------------------------------------------------------------------------
 -- profiles
 -- ---------------------------------------------------------------------------
@@ -185,10 +170,8 @@ CREATE TABLE profiles (
     CONSTRAINT profiles_email_unique UNIQUE (email),
     CONSTRAINT profiles_email_format CHECK (email ~* '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$')
 );
-
 COMMENT ON TABLE profiles IS
     'Extends Supabase auth.users with platform-specific attributes including role and tenant association.';
-
 -- ---------------------------------------------------------------------------
 -- RLS helper functions (defined after profiles exists)
 -- ---------------------------------------------------------------------------
@@ -196,34 +179,28 @@ CREATE OR REPLACE FUNCTION auth_user_role()
 RETURNS user_role AS $$
     SELECT role FROM profiles WHERE id = auth.uid();
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 COMMENT ON FUNCTION auth_user_role() IS
     'Returns the platform role for the currently authenticated user.';
-
 CREATE OR REPLACE FUNCTION auth_user_partner_id()
 RETURNS UUID AS $$
     SELECT partner_id FROM profiles WHERE id = auth.uid();
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 CREATE OR REPLACE FUNCTION auth_user_organization_id()
 RETURNS UUID AS $$
     SELECT organization_id FROM profiles WHERE id = auth.uid();
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 CREATE OR REPLACE FUNCTION is_platform_admin()
 RETURNS BOOLEAN AS $$
     SELECT EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'platform_admin'
     );
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 CREATE OR REPLACE FUNCTION is_partner_admin()
 RETURNS BOOLEAN AS $$
     SELECT EXISTS (
         SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'partner_admin'
     );
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 -- ==========================================================================
 -- SECTION: COMPETENCY LIBRARY
 -- ==========================================================================
@@ -240,10 +217,8 @@ CREATE TABLE competency_categories (
 
     CONSTRAINT competency_categories_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE competency_categories IS
     'Logical groupings of competencies (e.g., Leadership, Cognitive, Interpersonal).';
-
 -- ---------------------------------------------------------------------------
 -- competencies
 -- ---------------------------------------------------------------------------
@@ -261,10 +236,8 @@ CREATE TABLE competencies (
     CONSTRAINT competencies_slug_format CHECK (slug ~ '^[a-z0-9][a-z0-9\-]*[a-z0-9]$' AND length(slug) >= 2),
     CONSTRAINT competencies_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE competencies IS
     'Individual competencies that can be measured via assessment items. Each belongs to a category.';
-
 -- ---------------------------------------------------------------------------
 -- response_formats
 -- ---------------------------------------------------------------------------
@@ -278,10 +251,8 @@ CREATE TABLE response_formats (
     CONSTRAINT response_formats_name_unique UNIQUE (name),
     CONSTRAINT response_formats_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE response_formats IS
     'Defines how a question is answered (e.g., likert_5, forced_choice, binary). Config JSONB holds scale labels and option definitions.';
-
 -- ---------------------------------------------------------------------------
 -- items (questions)
 -- ---------------------------------------------------------------------------
@@ -298,10 +269,8 @@ CREATE TABLE items (
 
     CONSTRAINT items_stem_not_empty CHECK (length(trim(stem)) > 0)
 );
-
 COMMENT ON TABLE items IS
     'Assessment questions. Each item maps to one competency and one response format.';
-
 -- ---------------------------------------------------------------------------
 -- item_options
 -- ---------------------------------------------------------------------------
@@ -314,10 +283,8 @@ CREATE TABLE item_options (
 
     CONSTRAINT item_options_label_not_empty CHECK (length(trim(label)) > 0)
 );
-
 COMMENT ON TABLE item_options IS
     'Individual response options for an item (e.g., Strongly Agree = 5, Agree = 4).';
-
 -- ---------------------------------------------------------------------------
 -- item_parameters (IRT)
 -- ---------------------------------------------------------------------------
@@ -336,10 +303,8 @@ CREATE TABLE item_parameters (
     CONSTRAINT item_parameters_discrimination_positive CHECK (discrimination IS NULL OR discrimination > 0),
     CONSTRAINT item_parameters_guessing_range CHECK (guessing IS NULL OR (guessing >= 0 AND guessing <= 1))
 );
-
 COMMENT ON TABLE item_parameters IS
     'Item Response Theory parameters for psychometric scoring. Supports 1PL, 2PL, and 3PL models.';
-
 -- ==========================================================================
 -- SECTION: ASSESSMENT BUILDER
 -- ==========================================================================
@@ -365,10 +330,8 @@ CREATE TABLE assessments (
     CONSTRAINT assessments_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT assessments_time_limit_positive CHECK (time_limit_minutes IS NULL OR time_limit_minutes > 0)
 );
-
 COMMENT ON TABLE assessments IS
     'An assessment definition. Can be org-specific or platform-wide. Defines scoring and item selection strategies.';
-
 -- ---------------------------------------------------------------------------
 -- assessment_competencies (junction)
 -- ---------------------------------------------------------------------------
@@ -390,10 +353,8 @@ CREATE TABLE assessment_competencies (
         OR (min_items > 0 AND max_items >= min_items)
     )
 );
-
 COMMENT ON TABLE assessment_competencies IS
     'Links competencies to an assessment with ordering, weighting, and item-count constraints.';
-
 -- ---------------------------------------------------------------------------
 -- item_selection_rules
 -- ---------------------------------------------------------------------------
@@ -410,10 +371,8 @@ CREATE TABLE item_selection_rules (
         total_competency_min > 0 AND items_per_competency > 0
     )
 );
-
 COMMENT ON TABLE item_selection_rules IS
     'Rules governing how many items are administered per competency based on how many competencies are selected (e.g., 1-3 comps = 10 items each, 4-7 = 7, 8+ = 5).';
-
 -- ==========================================================================
 -- SECTION: ORGANISATIONAL DIAGNOSTIC
 -- ==========================================================================
@@ -436,10 +395,8 @@ CREATE TABLE diagnostic_dimensions (
     CONSTRAINT diagnostic_dimensions_name_not_empty CHECK (length(trim(name)) > 0),
     CONSTRAINT diagnostic_dimensions_weight_positive CHECK (default_weight > 0)
 );
-
 COMMENT ON TABLE diagnostic_dimensions IS
     'Variables measured in an organisational diagnostic (e.g., Culture, Engagement, Innovation).';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_templates
 -- ---------------------------------------------------------------------------
@@ -452,10 +409,8 @@ CREATE TABLE diagnostic_templates (
 
     CONSTRAINT diagnostic_templates_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE diagnostic_templates IS
     'Reusable groupings of diagnostic dimensions that form a standard diagnostic instrument.';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_template_dimensions (junction)
 -- ---------------------------------------------------------------------------
@@ -469,10 +424,8 @@ CREATE TABLE diagnostic_template_dimensions (
     CONSTRAINT diagnostic_template_dimensions_unique UNIQUE (template_id, dimension_id),
     CONSTRAINT diagnostic_template_dimensions_weight_positive CHECK (weight_override IS NULL OR weight_override > 0)
 );
-
 COMMENT ON TABLE diagnostic_template_dimensions IS
     'Links dimensions to a diagnostic template, optionally overriding the dimension default weight.';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_sessions
 -- ---------------------------------------------------------------------------
@@ -494,10 +447,8 @@ CREATE TABLE diagnostic_sessions (
         completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at
     )
 );
-
 COMMENT ON TABLE diagnostic_sessions IS
     'An instance of a diagnostic being conducted for an organisation (optionally scoped to a department).';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_respondents
 -- ---------------------------------------------------------------------------
@@ -518,10 +469,8 @@ CREATE TABLE diagnostic_respondents (
     CONSTRAINT diagnostic_respondents_weight_positive CHECK (weight > 0),
     CONSTRAINT diagnostic_respondents_email_format CHECK (email ~* '^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$')
 );
-
 COMMENT ON TABLE diagnostic_respondents IS
     'People who respond to a diagnostic session. May or may not have a platform profile.';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_responses
 -- ---------------------------------------------------------------------------
@@ -536,10 +485,8 @@ CREATE TABLE diagnostic_responses (
     CONSTRAINT diagnostic_responses_unique UNIQUE (respondent_id, dimension_id),
     CONSTRAINT diagnostic_responses_score_range CHECK (score >= 0 AND score <= 100)
 );
-
 COMMENT ON TABLE diagnostic_responses IS
     'Individual respondent scores for each diagnostic dimension.';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_dimension_weights (per-session custom weights)
 -- ---------------------------------------------------------------------------
@@ -552,10 +499,8 @@ CREATE TABLE diagnostic_dimension_weights (
     CONSTRAINT diagnostic_dimension_weights_unique UNIQUE (session_id, dimension_id),
     CONSTRAINT diagnostic_dimension_weights_positive CHECK (weight > 0)
 );
-
 COMMENT ON TABLE diagnostic_dimension_weights IS
     'Per-session overrides for dimension weights, allowing consultants to tune importance per engagement.';
-
 -- ---------------------------------------------------------------------------
 -- diagnostic_snapshots
 -- ---------------------------------------------------------------------------
@@ -567,10 +512,8 @@ CREATE TABLE diagnostic_snapshots (
     aggregation_method  TEXT   NOT NULL DEFAULT 'weighted_mean',
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 COMMENT ON TABLE diagnostic_snapshots IS
     'Point-in-time aggregated scores for an organisation, persisted for trend analysis.';
-
 -- ==========================================================================
 -- SECTION: AI MATCHING
 -- ==========================================================================
@@ -589,10 +532,8 @@ CREATE TABLE ai_providers (
     CONSTRAINT ai_providers_name_unique UNIQUE (name),
     CONSTRAINT ai_providers_name_not_empty CHECK (length(trim(name)) > 0)
 );
-
 COMMENT ON TABLE ai_providers IS
     'AI service providers (e.g., Anthropic, OpenAI). Stores reference to env var, never the key itself.';
-
 -- ---------------------------------------------------------------------------
 -- ai_model_configs
 -- ---------------------------------------------------------------------------
@@ -609,10 +550,8 @@ CREATE TABLE ai_model_configs (
     CONSTRAINT ai_model_configs_model_unique UNIQUE (provider_id, model_id),
     CONSTRAINT ai_model_configs_display_name_not_empty CHECK (length(trim(display_name)) > 0)
 );
-
 COMMENT ON TABLE ai_model_configs IS
     'Specific model configurations (e.g., claude-sonnet-4-5-20250514 with temperature 0.3). Config JSONB holds temperature, max_tokens, etc.';
-
 -- ---------------------------------------------------------------------------
 -- ai_system_prompts
 -- ---------------------------------------------------------------------------
@@ -630,10 +569,8 @@ CREATE TABLE ai_system_prompts (
     CONSTRAINT ai_system_prompts_version_positive CHECK (version > 0),
     CONSTRAINT ai_system_prompts_content_not_empty CHECK (length(trim(content)) > 0)
 );
-
 COMMENT ON TABLE ai_system_prompts IS
     'Versioned system prompts for AI operations. Allows A/B testing and rollback of prompt engineering.';
-
 -- ---------------------------------------------------------------------------
 -- matching_runs
 -- ---------------------------------------------------------------------------
@@ -652,10 +589,8 @@ CREATE TABLE matching_runs (
         completed_at IS NULL OR completed_at >= created_at
     )
 );
-
 COMMENT ON TABLE matching_runs IS
     'An execution of the AI matching engine: takes diagnostic results and recommends competencies.';
-
 -- ---------------------------------------------------------------------------
 -- matching_results
 -- ---------------------------------------------------------------------------
@@ -673,10 +608,8 @@ CREATE TABLE matching_results (
     CONSTRAINT matching_results_rank_positive CHECK (rank > 0),
     CONSTRAINT matching_results_relevance_range CHECK (relevance_score >= 0 AND relevance_score <= 1)
 );
-
 COMMENT ON TABLE matching_results IS
     'Individual competency recommendations produced by an AI matching run, ranked by relevance.';
-
 -- ==========================================================================
 -- SECTION: CANDIDATE ASSESSMENT
 -- ==========================================================================
@@ -698,10 +631,8 @@ CREATE TABLE candidate_sessions (
         (completed_at IS NULL OR started_at IS NULL OR completed_at >= started_at)
     )
 );
-
 COMMENT ON TABLE candidate_sessions IS
     'A candidate''s attempt at an assessment. Tracks lifecycle from invitation through completion.';
-
 -- ---------------------------------------------------------------------------
 -- candidate_responses
 -- ---------------------------------------------------------------------------
@@ -717,10 +648,8 @@ CREATE TABLE candidate_responses (
     CONSTRAINT candidate_responses_unique UNIQUE (session_id, item_id),
     CONSTRAINT candidate_responses_time_positive CHECK (response_time_ms IS NULL OR response_time_ms >= 0)
 );
-
 COMMENT ON TABLE candidate_responses IS
     'Individual item responses captured during a candidate session. Stores both numeric value and rich data.';
-
 -- ---------------------------------------------------------------------------
 -- candidate_scores
 -- ---------------------------------------------------------------------------
@@ -746,10 +675,8 @@ CREATE TABLE candidate_scores (
             AND confidence_interval_upper >= confidence_interval_lower)
     )
 );
-
 COMMENT ON TABLE candidate_scores IS
     'Computed scores per competency for a candidate session, including confidence intervals and percentiles.';
-
 -- ==========================================================================
 -- SECTION: INDEXES
 -- ==========================================================================
@@ -760,7 +687,6 @@ CREATE INDEX idx_profiles_partner_id           ON profiles(partner_id)          
 CREATE INDEX idx_profiles_organization_id      ON profiles(organization_id)       WHERE organization_id IS NOT NULL;
 CREATE INDEX idx_profiles_role                 ON profiles(role);
 CREATE INDEX idx_profiles_email                ON profiles(email);
-
 -- Competency library
 CREATE INDEX idx_competencies_category_id      ON competencies(category_id);
 CREATE INDEX idx_items_competency_id           ON items(competency_id);
@@ -768,14 +694,12 @@ CREATE INDEX idx_items_response_format_id      ON items(response_format_id);
 CREATE INDEX idx_items_status                  ON items(status);
 CREATE INDEX idx_item_options_item_id          ON item_options(item_id);
 CREATE INDEX idx_item_parameters_item_id       ON item_parameters(item_id);
-
 -- Assessment builder
 CREATE INDEX idx_assessments_organization_id   ON assessments(organization_id)    WHERE organization_id IS NOT NULL;
 CREATE INDEX idx_assessments_status            ON assessments(status);
 CREATE INDEX idx_assessment_competencies_assessment ON assessment_competencies(assessment_id);
 CREATE INDEX idx_assessment_competencies_competency ON assessment_competencies(competency_id);
 CREATE INDEX idx_item_selection_rules_assessment    ON item_selection_rules(assessment_id);
-
 -- Diagnostic
 CREATE INDEX idx_diagnostic_sessions_org       ON diagnostic_sessions(organization_id);
 CREATE INDEX idx_diagnostic_sessions_template  ON diagnostic_sessions(template_id)  WHERE template_id IS NOT NULL;
@@ -789,7 +713,6 @@ CREATE INDEX idx_diagnostic_snapshots_org      ON diagnostic_snapshots(organizat
 CREATE INDEX idx_diagnostic_snapshots_session  ON diagnostic_snapshots(session_id);
 CREATE INDEX idx_diagnostic_template_dimensions_template ON diagnostic_template_dimensions(template_id);
 CREATE INDEX idx_diagnostic_template_dimensions_dimension ON diagnostic_template_dimensions(dimension_id);
-
 -- AI matching
 CREATE INDEX idx_ai_model_configs_provider     ON ai_model_configs(provider_id);
 CREATE INDEX idx_ai_system_prompts_purpose     ON ai_system_prompts(purpose);
@@ -799,7 +722,6 @@ CREATE INDEX idx_matching_runs_session         ON matching_runs(diagnostic_sessi
 CREATE INDEX idx_matching_runs_status          ON matching_runs(status);
 CREATE INDEX idx_matching_results_run          ON matching_results(matching_run_id);
 CREATE INDEX idx_matching_results_competency   ON matching_results(competency_id);
-
 -- Candidate assessment
 CREATE INDEX idx_candidate_sessions_assessment ON candidate_sessions(assessment_id);
 CREATE INDEX idx_candidate_sessions_candidate  ON candidate_sessions(candidate_profile_id);
@@ -809,7 +731,6 @@ CREATE INDEX idx_candidate_responses_session   ON candidate_responses(session_id
 CREATE INDEX idx_candidate_responses_item      ON candidate_responses(item_id);
 CREATE INDEX idx_candidate_scores_session      ON candidate_scores(session_id);
 CREATE INDEX idx_candidate_scores_competency   ON candidate_scores(competency_id);
-
 -- ==========================================================================
 -- SECTION: ROW-LEVEL SECURITY
 -- ==========================================================================
@@ -843,7 +764,6 @@ ALTER TABLE matching_results                ENABLE ROW LEVEL SECURITY;
 ALTER TABLE candidate_sessions              ENABLE ROW LEVEL SECURITY;
 ALTER TABLE candidate_responses             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE candidate_scores                ENABLE ROW LEVEL SECURITY;
-
 -- -------------------------------------------------------------------------
 -- Policy naming convention: {table}_{action}_{role_scope}
 -- -------------------------------------------------------------------------
@@ -852,45 +772,34 @@ ALTER TABLE candidate_scores                ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY partners_select_platform_admin ON partners
     FOR SELECT USING (is_platform_admin());
-
 CREATE POLICY partners_select_own ON partners
     FOR SELECT USING (id = auth_user_partner_id());
-
 CREATE POLICY partners_all_platform_admin ON partners
     FOR ALL USING (is_platform_admin());
-
 -- ===== ORGANIZATIONS =====
 
 CREATE POLICY organizations_select_platform_admin ON organizations
     FOR SELECT USING (is_platform_admin());
-
 CREATE POLICY organizations_select_partner ON organizations
     FOR SELECT USING (partner_id IS NOT NULL AND partner_id = auth_user_partner_id());
-
 CREATE POLICY organizations_select_own ON organizations
     FOR SELECT USING (id = auth_user_organization_id());
-
 CREATE POLICY organizations_all_platform_admin ON organizations
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY organizations_insert_partner_admin ON organizations
     FOR INSERT WITH CHECK (
         is_partner_admin() AND partner_id = auth_user_partner_id()
     );
-
 CREATE POLICY organizations_update_partner_admin ON organizations
     FOR UPDATE USING (
         is_partner_admin() AND partner_id = auth_user_partner_id()
     );
-
 -- ===== PROFILES =====
 
 CREATE POLICY profiles_select_own ON profiles
     FOR SELECT USING (id = auth.uid());
-
 CREATE POLICY profiles_select_platform_admin ON profiles
     FOR SELECT USING (is_platform_admin());
-
 CREATE POLICY profiles_select_partner ON profiles
     FOR SELECT USING (
         auth_user_role() IN ('partner_admin', 'consultant')
@@ -901,13 +810,11 @@ CREATE POLICY profiles_select_partner ON profiles
             )
         )
     );
-
 CREATE POLICY profiles_select_org ON profiles
     FOR SELECT USING (
         auth_user_role() = 'org_admin'
         AND organization_id = auth_user_organization_id()
     );
-
 CREATE POLICY profiles_update_own ON profiles
     FOR UPDATE USING (id = auth.uid())
     WITH CHECK (
@@ -915,48 +822,34 @@ CREATE POLICY profiles_update_own ON profiles
         id = auth.uid()
         AND role = (SELECT role FROM profiles WHERE id = auth.uid())
     );
-
 CREATE POLICY profiles_all_platform_admin ON profiles
     FOR ALL USING (is_platform_admin());
-
 -- ===== COMPETENCY LIBRARY (read-accessible to all authenticated users) =====
 
 CREATE POLICY competency_categories_select_authenticated ON competency_categories
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY competency_categories_all_platform_admin ON competency_categories
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY competencies_select_authenticated ON competencies
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY competencies_all_platform_admin ON competencies
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY response_formats_select_authenticated ON response_formats
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY response_formats_all_platform_admin ON response_formats
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY items_select_authenticated ON items
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY items_all_platform_admin ON items
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY item_options_select_authenticated ON item_options
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY item_options_all_platform_admin ON item_options
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY item_parameters_select_authenticated ON item_parameters
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY item_parameters_all_platform_admin ON item_parameters
     FOR ALL USING (is_platform_admin());
-
 -- ===== ASSESSMENTS =====
 
 -- Platform-wide assessments (organization_id IS NULL) are visible to all authenticated users.
@@ -970,16 +863,13 @@ CREATE POLICY assessments_select_all ON assessments
             SELECT o.id FROM organizations o WHERE o.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY assessments_all_platform_admin ON assessments
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY assessments_manage_org_admin ON assessments
     FOR ALL USING (
         auth_user_role() = 'org_admin'
         AND organization_id = auth_user_organization_id()
     );
-
 -- Assessment sub-tables follow the assessment's visibility
 CREATE POLICY assessment_competencies_select ON assessment_competencies
     FOR SELECT USING (
@@ -995,10 +885,8 @@ CREATE POLICY assessment_competencies_select ON assessment_competencies
             )
         )
     );
-
 CREATE POLICY assessment_competencies_all_platform_admin ON assessment_competencies
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY item_selection_rules_select ON item_selection_rules
     FOR SELECT USING (
         EXISTS (
@@ -1013,30 +901,22 @@ CREATE POLICY item_selection_rules_select ON item_selection_rules
             )
         )
     );
-
 CREATE POLICY item_selection_rules_all_platform_admin ON item_selection_rules
     FOR ALL USING (is_platform_admin());
-
 -- ===== DIAGNOSTIC DIMENSIONS & TEMPLATES (library-level, read to all authenticated) =====
 
 CREATE POLICY diagnostic_dimensions_select_authenticated ON diagnostic_dimensions
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY diagnostic_dimensions_all_platform_admin ON diagnostic_dimensions
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY diagnostic_templates_select_authenticated ON diagnostic_templates
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY diagnostic_templates_all_platform_admin ON diagnostic_templates
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY diagnostic_template_dimensions_select_authenticated ON diagnostic_template_dimensions
     FOR SELECT USING (auth.uid() IS NOT NULL);
-
 CREATE POLICY diagnostic_template_dimensions_all_platform_admin ON diagnostic_template_dimensions
     FOR ALL USING (is_platform_admin());
-
 -- ===== DIAGNOSTIC SESSIONS (org-scoped) =====
 
 CREATE POLICY diagnostic_sessions_select ON diagnostic_sessions
@@ -1047,10 +927,8 @@ CREATE POLICY diagnostic_sessions_select ON diagnostic_sessions
             SELECT o.id FROM organizations o WHERE o.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY diagnostic_sessions_all_platform_admin ON diagnostic_sessions
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY diagnostic_sessions_manage_org ON diagnostic_sessions
     FOR ALL USING (
         auth_user_role() IN ('org_admin', 'consultant')
@@ -1061,7 +939,6 @@ CREATE POLICY diagnostic_sessions_manage_org ON diagnostic_sessions
             )
         )
     );
-
 -- Diagnostic sub-tables derive access from their session's organization
 CREATE POLICY diagnostic_respondents_select ON diagnostic_respondents
     FOR SELECT USING (
@@ -1076,10 +953,8 @@ CREATE POLICY diagnostic_respondents_select ON diagnostic_respondents
             )
         )
     );
-
 CREATE POLICY diagnostic_respondents_all_platform_admin ON diagnostic_respondents
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY diagnostic_respondents_manage ON diagnostic_respondents
     FOR ALL USING (
         auth_user_role() IN ('org_admin', 'consultant')
@@ -1093,7 +968,6 @@ CREATE POLICY diagnostic_respondents_manage ON diagnostic_respondents
             )
         )
     );
-
 CREATE POLICY diagnostic_responses_select ON diagnostic_responses
     FOR SELECT USING (
         EXISTS (
@@ -1109,10 +983,8 @@ CREATE POLICY diagnostic_responses_select ON diagnostic_responses
             )
         )
     );
-
 CREATE POLICY diagnostic_responses_all_platform_admin ON diagnostic_responses
     FOR ALL USING (is_platform_admin());
-
 -- Respondents can insert their own responses
 CREATE POLICY diagnostic_responses_insert_respondent ON diagnostic_responses
     FOR INSERT WITH CHECK (
@@ -1121,7 +993,6 @@ CREATE POLICY diagnostic_responses_insert_respondent ON diagnostic_responses
             WHERE dr.id = respondent_id AND dr.profile_id = auth.uid()
         )
     );
-
 CREATE POLICY diagnostic_dimension_weights_select ON diagnostic_dimension_weights
     FOR SELECT USING (
         EXISTS (
@@ -1135,10 +1006,8 @@ CREATE POLICY diagnostic_dimension_weights_select ON diagnostic_dimension_weight
             )
         )
     );
-
 CREATE POLICY diagnostic_dimension_weights_all_platform_admin ON diagnostic_dimension_weights
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY diagnostic_snapshots_select ON diagnostic_snapshots
     FOR SELECT USING (
         is_platform_admin()
@@ -1147,36 +1016,28 @@ CREATE POLICY diagnostic_snapshots_select ON diagnostic_snapshots
             SELECT o.id FROM organizations o WHERE o.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY diagnostic_snapshots_all_platform_admin ON diagnostic_snapshots
     FOR ALL USING (is_platform_admin());
-
 -- ===== AI PROVIDERS & CONFIGS (platform_admin only for write, read for consultants+) =====
 
 CREATE POLICY ai_providers_select ON ai_providers
     FOR SELECT USING (
         auth_user_role() IN ('platform_admin', 'partner_admin', 'org_admin', 'consultant')
     );
-
 CREATE POLICY ai_providers_all_platform_admin ON ai_providers
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY ai_model_configs_select ON ai_model_configs
     FOR SELECT USING (
         auth_user_role() IN ('platform_admin', 'partner_admin', 'org_admin', 'consultant')
     );
-
 CREATE POLICY ai_model_configs_all_platform_admin ON ai_model_configs
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY ai_system_prompts_select ON ai_system_prompts
     FOR SELECT USING (
         auth_user_role() IN ('platform_admin', 'partner_admin', 'org_admin', 'consultant')
     );
-
 CREATE POLICY ai_system_prompts_all_platform_admin ON ai_system_prompts
     FOR ALL USING (is_platform_admin());
-
 -- ===== MATCHING RUNS & RESULTS (org-scoped) =====
 
 CREATE POLICY matching_runs_select ON matching_runs
@@ -1187,10 +1048,8 @@ CREATE POLICY matching_runs_select ON matching_runs
             SELECT o.id FROM organizations o WHERE o.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY matching_runs_all_platform_admin ON matching_runs
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY matching_runs_manage ON matching_runs
     FOR ALL USING (
         auth_user_role() IN ('org_admin', 'consultant')
@@ -1201,7 +1060,6 @@ CREATE POLICY matching_runs_manage ON matching_runs
             )
         )
     );
-
 CREATE POLICY matching_results_select ON matching_results
     FOR SELECT USING (
         EXISTS (
@@ -1215,10 +1073,8 @@ CREATE POLICY matching_results_select ON matching_results
             )
         )
     );
-
 CREATE POLICY matching_results_all_platform_admin ON matching_results
     FOR ALL USING (is_platform_admin());
-
 -- ===== CANDIDATE SESSIONS, RESPONSES & SCORES =====
 
 CREATE POLICY candidate_sessions_select ON candidate_sessions
@@ -1230,10 +1086,8 @@ CREATE POLICY candidate_sessions_select ON candidate_sessions
             SELECT o.id FROM organizations o WHERE o.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY candidate_sessions_all_platform_admin ON candidate_sessions
     FOR ALL USING (is_platform_admin());
-
 CREATE POLICY candidate_sessions_manage_org ON candidate_sessions
     FOR INSERT WITH CHECK (
         auth_user_role() IN ('org_admin', 'consultant', 'assessor')
@@ -1244,11 +1098,9 @@ CREATE POLICY candidate_sessions_manage_org ON candidate_sessions
             )
         )
     );
-
 -- Candidates can update their own session (start, complete)
 CREATE POLICY candidate_sessions_update_own ON candidate_sessions
     FOR UPDATE USING (candidate_profile_id = auth.uid());
-
 CREATE POLICY candidate_responses_select ON candidate_responses
     FOR SELECT USING (
         EXISTS (
@@ -1263,10 +1115,8 @@ CREATE POLICY candidate_responses_select ON candidate_responses
             )
         )
     );
-
 CREATE POLICY candidate_responses_all_platform_admin ON candidate_responses
     FOR ALL USING (is_platform_admin());
-
 -- Candidates can insert their own responses
 CREATE POLICY candidate_responses_insert_own ON candidate_responses
     FOR INSERT WITH CHECK (
@@ -1277,7 +1127,6 @@ CREATE POLICY candidate_responses_insert_own ON candidate_responses
             AND cs.status = 'in_progress'
         )
     );
-
 CREATE POLICY candidate_scores_select ON candidate_scores
     FOR SELECT USING (
         EXISTS (
@@ -1292,10 +1141,8 @@ CREATE POLICY candidate_scores_select ON candidate_scores
             )
         )
     );
-
 CREATE POLICY candidate_scores_all_platform_admin ON candidate_scores
     FOR ALL USING (is_platform_admin());
-
 -- ==========================================================================
 -- SECTION: TRIGGERS (updated_at auto-stamp)
 -- ==========================================================================
@@ -1303,47 +1150,36 @@ CREATE POLICY candidate_scores_all_platform_admin ON candidate_scores
 CREATE TRIGGER trg_partners_updated_at
     BEFORE UPDATE ON partners
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_organizations_updated_at
     BEFORE UPDATE ON organizations
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_competencies_updated_at
     BEFORE UPDATE ON competencies
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_items_updated_at
     BEFORE UPDATE ON items
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_assessments_updated_at
     BEFORE UPDATE ON assessments
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_diagnostic_dimensions_updated_at
     BEFORE UPDATE ON diagnostic_dimensions
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_diagnostic_templates_updated_at
     BEFORE UPDATE ON diagnostic_templates
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_diagnostic_sessions_updated_at
     BEFORE UPDATE ON diagnostic_sessions
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_ai_model_configs_updated_at
     BEFORE UPDATE ON ai_model_configs
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TRIGGER trg_ai_system_prompts_updated_at
     BEFORE UPDATE ON ai_system_prompts
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 -- ==========================================================================
 -- END OF MIGRATION
--- ==========================================================================
+-- ==========================================================================;

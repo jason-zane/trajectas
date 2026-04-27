@@ -34,4 +34,4 @@ FROM campaigns c;
 GRANT SELECT ON campaigns_with_counts TO authenticated, anon, service_role;
 
 COMMENT ON VIEW campaigns_with_counts IS
-  'Campaigns with participant_count, completed_count, and assessment_count inlined. Used by getCampaigns() to eliminate a sequential completed-count query. security_invoker=true so the view inherits RLS from the campaigns table.';
+  'Campaigns with participant_count, completed_count, and assessment_count inlined. Used by getCampaigns() to eliminate a sequential completed-count query. security_invoker=true so the view inherits RLS from the campaigns table.';;

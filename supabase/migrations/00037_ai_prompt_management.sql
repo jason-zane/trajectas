@@ -3,19 +3,16 @@
 -- =============================================================================
 
 BEGIN;
-
 -- ---------------------------------------------------------------------------
 -- 1. Capture effective AI config per generation run
 -- ---------------------------------------------------------------------------
 ALTER TABLE generation_runs
   ADD COLUMN IF NOT EXISTS ai_snapshot JSONB NOT NULL DEFAULT '{}'::jsonb;
-
 -- ---------------------------------------------------------------------------
 -- 2. Enforce prompt versioning invariants
 -- ---------------------------------------------------------------------------
 CREATE UNIQUE INDEX IF NOT EXISTS ai_system_prompts_purpose_version_unique
   ON ai_system_prompts (purpose, version);
-
 UPDATE ai_system_prompts AS older
 SET is_active = false
 FROM ai_system_prompts AS newer
@@ -27,11 +24,9 @@ WHERE older.purpose = newer.purpose
     older.version < newer.version
     OR (older.version = newer.version AND older.created_at < newer.created_at)
   );
-
 CREATE UNIQUE INDEX IF NOT EXISTS ai_system_prompts_one_active_per_purpose
   ON ai_system_prompts (purpose)
   WHERE is_active = true;
-
 CREATE OR REPLACE FUNCTION activate_ai_system_prompt(
   p_purpose ai_prompt_purpose,
   p_name TEXT,
@@ -62,7 +57,6 @@ BEGIN
   RETURN inserted;
 END;
 $$;
-
 -- ---------------------------------------------------------------------------
 -- 3. Seed version-1 prompts from current hard-coded runtime prompts
 -- ---------------------------------------------------------------------------
@@ -162,5 +156,4 @@ WHERE NOT EXISTS (
   WHERE existing.purpose = seed.purpose::ai_prompt_purpose
     AND existing.version = 1
 );
-
 COMMIT;

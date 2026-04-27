@@ -1,5 +1,4 @@
 BEGIN;
-
 -- ============================================================================
 -- 00070_security_hardening_rls.sql
 --
@@ -43,10 +42,8 @@ AS $$
     ARRAY[]::UUID[]
   );
 $$;
-
 COMMENT ON FUNCTION auth_user_partner_ids() IS
   'Returns all active partner IDs the current authenticated user can access.';
-
 CREATE OR REPLACE FUNCTION auth_user_partner_admin_ids()
 RETURNS UUID[]
 LANGUAGE sql
@@ -85,10 +82,8 @@ AS $$
     ARRAY[]::UUID[]
   );
 $$;
-
 COMMENT ON FUNCTION auth_user_partner_admin_ids() IS
   'Returns all active partner IDs where the current authenticated user is an admin.';
-
 CREATE OR REPLACE FUNCTION auth_user_client_ids()
 RETURNS UUID[]
 LANGUAGE sql
@@ -133,10 +128,8 @@ AS $$
     ARRAY[]::UUID[]
   );
 $$;
-
 COMMENT ON FUNCTION auth_user_client_ids() IS
   'Returns all active client IDs the current authenticated user can access, including partner-owned clients.';
-
 CREATE OR REPLACE FUNCTION auth_user_client_admin_ids()
 RETURNS UUID[]
 LANGUAGE sql
@@ -175,10 +168,8 @@ AS $$
     ARRAY[]::UUID[]
   );
 $$;
-
 COMMENT ON FUNCTION auth_user_client_admin_ids() IS
   'Returns all active client IDs where the current authenticated user is an admin.';
-
 CREATE OR REPLACE FUNCTION auth_user_partner_id()
 RETURNS UUID
 LANGUAGE sql
@@ -188,7 +179,6 @@ SET search_path = public
 AS $$
   SELECT (auth_user_partner_ids())[1];
 $$;
-
 CREATE OR REPLACE FUNCTION auth_user_client_id()
 RETURNS UUID
 LANGUAGE sql
@@ -198,10 +188,8 @@ SET search_path = public
 AS $$
   SELECT (auth_user_client_ids())[1];
 $$;
-
 COMMENT ON FUNCTION auth_user_client_id() IS
   'Returns the first accessible client ID for the currently authenticated user.';
-
 CREATE OR REPLACE FUNCTION is_partner_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -211,12 +199,10 @@ SET search_path = public
 AS $$
   SELECT COALESCE(array_length(auth_user_partner_admin_ids(), 1), 0) > 0;
 $$;
-
 DROP POLICY IF EXISTS partners_select_own ON partners;
 CREATE POLICY partners_select_own ON partners
   FOR SELECT TO authenticated
   USING (id = ANY(auth_user_partner_ids()));
-
 DROP POLICY IF EXISTS partner_memberships_select ON partner_memberships;
 CREATE POLICY partner_memberships_select ON partner_memberships
   FOR SELECT TO authenticated
@@ -225,7 +211,6 @@ CREATE POLICY partner_memberships_select ON partner_memberships
     OR profile_id = auth.uid()
     OR partner_id = ANY(auth_user_partner_admin_ids())
   );
-
 DROP POLICY IF EXISTS client_memberships_select ON client_memberships;
 CREATE POLICY client_memberships_select ON client_memberships
   FOR SELECT TO authenticated
@@ -234,7 +219,6 @@ CREATE POLICY client_memberships_select ON client_memberships
     OR profile_id = auth.uid()
     OR client_id = ANY(auth_user_client_admin_ids())
   );
-
 DROP POLICY IF EXISTS user_invites_select ON user_invites;
 CREATE POLICY user_invites_select ON user_invites
   FOR SELECT TO authenticated
@@ -243,7 +227,6 @@ CREATE POLICY user_invites_select ON user_invites
     OR (tenant_type = 'partner' AND tenant_id = ANY(auth_user_partner_admin_ids()))
     OR (tenant_type = 'client' AND tenant_id = ANY(auth_user_client_admin_ids()))
   );
-
 DROP POLICY IF EXISTS clients_select_partner ON clients;
 CREATE POLICY clients_select_partner ON clients
   FOR SELECT TO authenticated
@@ -251,12 +234,10 @@ CREATE POLICY clients_select_partner ON clients
     partner_id IS NOT NULL
     AND partner_id = ANY(auth_user_partner_ids())
   );
-
 DROP POLICY IF EXISTS clients_select_own ON clients;
 CREATE POLICY clients_select_own ON clients
   FOR SELECT TO authenticated
   USING (id = ANY(auth_user_client_ids()));
-
 DROP POLICY IF EXISTS clients_insert_partner_admin ON clients;
 CREATE POLICY clients_insert_partner_admin ON clients
   FOR INSERT TO authenticated
@@ -264,7 +245,6 @@ CREATE POLICY clients_insert_partner_admin ON clients
     partner_id IS NOT NULL
     AND partner_id = ANY(auth_user_partner_admin_ids())
   );
-
 DROP POLICY IF EXISTS clients_update_partner_admin ON clients;
 CREATE POLICY clients_update_partner_admin ON clients
   FOR UPDATE TO authenticated
@@ -272,7 +252,6 @@ CREATE POLICY clients_update_partner_admin ON clients
     partner_id IS NOT NULL
     AND partner_id = ANY(auth_user_partner_admin_ids())
   );
-
 DROP POLICY IF EXISTS profiles_select_partner ON profiles;
 CREATE POLICY profiles_select_partner ON profiles
   FOR SELECT TO authenticated
@@ -292,7 +271,6 @@ CREATE POLICY profiles_select_partner ON profiles
         AND cm.client_id = ANY(auth_user_client_ids())
     )
   );
-
 DROP POLICY IF EXISTS profiles_select_org ON profiles;
 CREATE POLICY profiles_select_org ON profiles
   FOR SELECT TO authenticated
@@ -314,7 +292,6 @@ CREATE POLICY profiles_select_org ON profiles
         AND pm.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 DROP POLICY IF EXISTS assessments_select_all ON assessments;
 CREATE POLICY assessments_select_all ON assessments
   FOR SELECT TO authenticated
@@ -323,7 +300,6 @@ CREATE POLICY assessments_select_all ON assessments
     OR client_id IS NULL
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS factors_select ON factors;
 CREATE POLICY factors_select ON factors
   FOR SELECT TO authenticated
@@ -332,7 +308,6 @@ CREATE POLICY factors_select ON factors
     OR client_id IS NULL
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS diagnostic_sessions_select ON diagnostic_sessions;
 CREATE POLICY diagnostic_sessions_select ON diagnostic_sessions
   FOR SELECT TO authenticated
@@ -340,7 +315,6 @@ CREATE POLICY diagnostic_sessions_select ON diagnostic_sessions
     is_platform_admin()
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS diagnostic_respondents_select ON diagnostic_respondents;
 CREATE POLICY diagnostic_respondents_select ON diagnostic_respondents
   FOR SELECT TO authenticated
@@ -355,7 +329,6 @@ CREATE POLICY diagnostic_respondents_select ON diagnostic_respondents
         )
     )
   );
-
 DROP POLICY IF EXISTS diagnostic_responses_select ON diagnostic_responses;
 CREATE POLICY diagnostic_responses_select ON diagnostic_responses
   FOR SELECT TO authenticated
@@ -371,7 +344,6 @@ CREATE POLICY diagnostic_responses_select ON diagnostic_responses
         )
     )
   );
-
 DROP POLICY IF EXISTS diagnostic_dimension_weights_select ON diagnostic_dimension_weights;
 CREATE POLICY diagnostic_dimension_weights_select ON diagnostic_dimension_weights
   FOR SELECT TO authenticated
@@ -386,7 +358,6 @@ CREATE POLICY diagnostic_dimension_weights_select ON diagnostic_dimension_weight
         )
     )
   );
-
 DROP POLICY IF EXISTS diagnostic_snapshots_select ON diagnostic_snapshots;
 CREATE POLICY diagnostic_snapshots_select ON diagnostic_snapshots
   FOR SELECT TO authenticated
@@ -394,7 +365,6 @@ CREATE POLICY diagnostic_snapshots_select ON diagnostic_snapshots
     is_platform_admin()
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS matching_runs_select ON matching_runs;
 CREATE POLICY matching_runs_select ON matching_runs
   FOR SELECT TO authenticated
@@ -402,7 +372,6 @@ CREATE POLICY matching_runs_select ON matching_runs
     is_platform_admin()
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS matching_results_select ON matching_results;
 CREATE POLICY matching_results_select ON matching_results
   FOR SELECT TO authenticated
@@ -417,7 +386,6 @@ CREATE POLICY matching_results_select ON matching_results
         )
     )
   );
-
 DROP POLICY IF EXISTS campaigns_select ON campaigns;
 CREATE POLICY campaigns_select ON campaigns
   FOR SELECT TO authenticated
@@ -426,7 +394,6 @@ CREATE POLICY campaigns_select ON campaigns
     OR (client_id IS NOT NULL AND client_id = ANY(auth_user_client_ids()))
     OR (partner_id IS NOT NULL AND partner_id = ANY(auth_user_partner_ids()))
   );
-
 DROP POLICY IF EXISTS campaign_assessments_select ON campaign_assessments;
 CREATE POLICY campaign_assessments_select ON campaign_assessments
   FOR SELECT TO authenticated
@@ -442,7 +409,6 @@ CREATE POLICY campaign_assessments_select ON campaign_assessments
         )
     )
   );
-
 DROP POLICY IF EXISTS campaign_participants_select ON campaign_participants;
 CREATE POLICY campaign_participants_select ON campaign_participants
   FOR SELECT TO authenticated
@@ -458,7 +424,6 @@ CREATE POLICY campaign_participants_select ON campaign_participants
         )
     )
   );
-
 DROP POLICY IF EXISTS campaign_access_links_select ON campaign_access_links;
 CREATE POLICY campaign_access_links_select ON campaign_access_links
   FOR SELECT TO authenticated
@@ -474,7 +439,6 @@ CREATE POLICY campaign_access_links_select ON campaign_access_links
         )
     )
   );
-
 DROP POLICY IF EXISTS participant_sessions_select ON participant_sessions;
 CREATE POLICY participant_sessions_select ON participant_sessions
   FOR SELECT TO authenticated
@@ -483,7 +447,6 @@ CREATE POLICY participant_sessions_select ON participant_sessions
     OR (client_id IS NOT NULL AND client_id = ANY(auth_user_client_ids()))
     OR participant_profile_id = auth.uid()
   );
-
 DROP POLICY IF EXISTS participant_responses_select ON participant_responses;
 CREATE POLICY participant_responses_select ON participant_responses
   FOR SELECT TO authenticated
@@ -499,7 +462,6 @@ CREATE POLICY participant_responses_select ON participant_responses
         )
     )
   );
-
 DROP POLICY IF EXISTS participant_scores_select ON participant_scores;
 CREATE POLICY participant_scores_select ON participant_scores
   FOR SELECT TO authenticated
@@ -515,7 +477,6 @@ CREATE POLICY participant_scores_select ON participant_scores
         )
     )
   );
-
 DROP POLICY IF EXISTS "client_members_select_own" ON client_assessment_assignments;
 CREATE POLICY "client_members_select_own" ON client_assessment_assignments
   FOR SELECT TO authenticated
@@ -523,7 +484,6 @@ CREATE POLICY "client_members_select_own" ON client_assessment_assignments
     is_platform_admin()
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS "client_members_select_own" ON client_report_template_assignments;
 CREATE POLICY "client_members_select_own" ON client_report_template_assignments
   FOR SELECT TO authenticated
@@ -531,7 +491,6 @@ CREATE POLICY "client_members_select_own" ON client_report_template_assignments
     is_platform_admin()
     OR client_id = ANY(auth_user_client_ids())
   );
-
 DROP POLICY IF EXISTS report_templates_select ON report_templates;
 CREATE POLICY report_templates_select ON report_templates
   FOR SELECT TO authenticated
@@ -540,7 +499,6 @@ CREATE POLICY report_templates_select ON report_templates
     OR partner_id IS NULL
     OR partner_id = ANY(auth_user_partner_ids())
   );
-
 DROP POLICY IF EXISTS report_snapshots_consultant_select ON report_snapshots;
 CREATE POLICY report_snapshots_consultant_select ON report_snapshots
   FOR SELECT TO authenticated
@@ -553,7 +511,6 @@ CREATE POLICY report_snapshots_consultant_select ON report_snapshots
       WHERE c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 DROP POLICY IF EXISTS report_snapshots_participant_select ON report_snapshots;
 CREATE POLICY report_snapshots_participant_select ON report_snapshots
   FOR SELECT TO authenticated
@@ -566,7 +523,6 @@ CREATE POLICY report_snapshots_participant_select ON report_snapshots
       WHERE ps.participant_profile_id = auth.uid()
     )
   );
-
 DROP POLICY IF EXISTS report_snapshots_hr_manager_select ON report_snapshots;
 CREATE POLICY report_snapshots_hr_manager_select ON report_snapshots
   FOR SELECT TO authenticated
@@ -579,12 +535,10 @@ CREATE POLICY report_snapshots_hr_manager_select ON report_snapshots
       WHERE c.client_id = ANY(auth_user_client_ids())
     )
   );
-
 DROP POLICY IF EXISTS report_snapshots_platform_admin_select ON report_snapshots;
 CREATE POLICY report_snapshots_platform_admin_select ON report_snapshots
   FOR SELECT TO authenticated
   USING (is_platform_admin());
-
 DROP POLICY IF EXISTS brand_configs_client_read ON brand_configs;
 CREATE POLICY brand_configs_client_read ON brand_configs
   FOR SELECT TO authenticated
@@ -596,7 +550,6 @@ CREATE POLICY brand_configs_client_read ON brand_configs
       AND owner_id = ANY(auth_user_client_ids())
     )
   );
-
 DROP POLICY IF EXISTS brand_configs_client_update ON brand_configs;
 CREATE POLICY brand_configs_client_update ON brand_configs
   FOR UPDATE TO authenticated
@@ -608,7 +561,6 @@ CREATE POLICY brand_configs_client_update ON brand_configs
       AND owner_id = ANY(auth_user_client_admin_ids())
     )
   );
-
 DROP POLICY IF EXISTS experience_templates_campaign_read ON experience_templates;
 CREATE POLICY experience_templates_campaign_read ON experience_templates
   FOR SELECT TO authenticated
@@ -623,7 +575,6 @@ CREATE POLICY experience_templates_campaign_read ON experience_templates
       )
     )
   );
-
 DROP POLICY IF EXISTS audit_events_select ON audit_events;
 CREATE POLICY audit_events_select ON audit_events
   FOR SELECT TO authenticated
@@ -632,8 +583,6 @@ CREATE POLICY audit_events_select ON audit_events
     OR (partner_id IS NOT NULL AND partner_id = ANY(auth_user_partner_ids()))
     OR (client_id IS NOT NULL AND client_id = ANY(auth_user_client_ids()))
   );
-
 CREATE INDEX IF NOT EXISTS idx_audit_events_event_type_created
   ON audit_events (event_type, created_at DESC);
-
 COMMIT;

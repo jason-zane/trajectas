@@ -1,6 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  parseJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
+
+const MAX_PROGRESS_BODY_BYTES = 8 * 1024
 
 /**
  * Lightweight POST endpoint for navigator.sendBeacon().
@@ -10,8 +16,12 @@ export const runtime = 'nodejs'
 export async function POST(request: Request) {
   let body: { token?: string; sessionId?: string; sectionId?: string; itemIndex?: number }
   try {
-    body = await request.json()
-  } catch {
+    body = await parseJsonRequestWithLimit(request, MAX_PROGRESS_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return new Response('Request body too large', { status: 413 })
+    }
+
     return new Response('Invalid JSON', { status: 400 })
   }
 

@@ -37,7 +37,6 @@ WHERE NOT EXISTS (
   SELECT 1 FROM ai_system_prompts
   WHERE purpose = 'report_strengths_analysis' AND version = 1
 );
-
 -- ---------------------------------------------------------------------------
 -- 2. Development advice prompt
 -- ---------------------------------------------------------------------------
@@ -71,7 +70,6 @@ WHERE NOT EXISTS (
   SELECT 1 FROM ai_system_prompts
   WHERE purpose = 'report_development_advice' AND version = 1
 );
-
 -- ---------------------------------------------------------------------------
 -- 3. Model configs — reuse same model as report_narrative
 -- ---------------------------------------------------------------------------
@@ -89,7 +87,6 @@ WHERE purpose = 'report_narrative' AND is_default = true
 AND NOT EXISTS (
   SELECT 1 FROM ai_model_configs WHERE purpose = 'report_strengths_analysis'
 );
-
 INSERT INTO ai_model_configs (provider_id, model_id, display_name, is_default, config, purpose)
 SELECT
   provider_id,
