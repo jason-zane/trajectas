@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Copy, FileBarChart, Mail, Plus, Trash2, Upload } from "lucide-react";
+import { Copy, FileBarChart, GitCompare, Mail, Plus, Trash2, Upload } from "lucide-react";
 
 import {
   bulkInviteParticipants,
@@ -295,6 +295,14 @@ export function CampaignParticipantManager({
   type Row = (typeof rows)[number];
 
   const bulkActions: BulkAction<Row>[] = [
+    {
+      label: "Compare selected",
+      icon: <GitCompare className="mr-1.5 h-3.5 w-3.5" />,
+      action: (ids) => {
+        const qs = new URLSearchParams({ ids: ids.join(",") });
+        router.push(`/campaigns/${campaignId}/compare?${qs.toString()}`);
+      },
+    },
     {
       label: "Remove",
       variant: "destructive",

@@ -115,6 +115,76 @@ export async function getSessionOptionsForRow(
 }
 
 // ---------------------------------------------------------------------------
+// Search server actions used by add-participant-dialog
+// ---------------------------------------------------------------------------
+
+export type ParticipantSearchHit = { id: string; name: string; email: string }
+
+type SearchRow = {
+  id: string
+  email: string
+  first_name: string | null
+  last_name: string | null
+}
+
+function rowToHit(row: SearchRow): ParticipantSearchHit {
+  const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim()
+  return { id: row.id, email: row.email, name: name || row.email }
+}
+
+function escapeOrPattern(value: string): string {
+  // Supabase `or()` filter uses commas to separate clauses; the value also
+  // can't contain unescaped percent signs we don't want.
+  return value.replace(/[,%]/g, '')
+}
+
+export async function searchCampaignParticipants(
+  campaignId: string,
+  query: string,
+): Promise<ParticipantSearchHit[]> {
+  const supabase = await createClient()
+  let q = supabase
+    .from('campaign_participants')
+    .select('id, email, first_name, last_name')
+    .eq('campaign_id', campaignId)
+    .limit(20)
+  const trimmed = escapeOrPattern(query.trim())
+  if (trimmed) {
+    q = q.or(
+      `email.ilike.%${trimmed}%,first_name.ilike.%${trimmed}%,last_name.ilike.%${trimmed}%`,
+    )
+  }
+  const { data, error } = await q
+  if (error) throw error
+  return (data ?? []).map((r) => rowToHit(r as SearchRow))
+}
+
+export async function searchAllParticipants(
+  query: string,
+): Promise<ParticipantSearchHit[]> {
+  const supabase = await createClient()
+  let q = supabase
+    .from('campaign_participants')
+    .select('id, email, first_name, last_name')
+    .limit(20)
+  const trimmed = escapeOrPattern(query.trim())
+  if (trimmed) {
+    q = q.or(
+      `email.ilike.%${trimmed}%,first_name.ilike.%${trimmed}%,last_name.ilike.%${trimmed}%`,
+    )
+  }
+  const { data, error } = await q
+  if (error) throw error
+  // Deduplicate by email — caller may have multiple campaign_participants rows
+  // for the same person across campaigns.
+  const byEmail = new Map<string, ParticipantSearchHit>()
+  for (const row of (data ?? []) as SearchRow[]) {
+    if (!byEmail.has(row.email)) byEmail.set(row.email, rowToHit(row))
+  }
+  return [...byEmail.values()]
+}
+
+// ---------------------------------------------------------------------------
 // getComparisonMatrix
 // ---------------------------------------------------------------------------
 
