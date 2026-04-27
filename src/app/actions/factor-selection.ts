@@ -6,6 +6,13 @@ import { requireCampaignAccess } from '@/lib/auth/authorization'
 import { revalidatePath } from 'next/cache'
 import { throwActionError } from '@/lib/security/action-errors'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
+import {
+  getFactorSelectionSchema,
+  getFactorsForAssessmentSchema,
+  saveFactorSelectionSchema,
+  clearFactorSelectionSchema,
+  getFactorSelectionEstimateSchema,
+} from '@/lib/validations/factor-selection'
 
 // =============================================================================
 // 1. Get factor selection for a campaign-assessment
@@ -14,6 +21,9 @@ import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules
 export async function getFactorSelectionForCampaignAssessment(
   campaignAssessmentId: string,
 ): Promise<{ isCustom: boolean; selectedFactorIds: string[] }> {
+  if (!getFactorSelectionSchema.safeParse({ campaignAssessmentId }).success) {
+    return { isCustom: false, selectedFactorIds: [] }
+  }
   const db = await createClient()
   const { data } = await db
     .from('campaign_assessment_factors')
@@ -46,6 +56,9 @@ export async function getFactorsForAssessment(assessmentId: string): Promise<
     }>
   }>
 > {
+  if (!getFactorsForAssessmentSchema.safeParse({ assessmentId }).success) {
+    return []
+  }
   const db = await createClient()
 
   // Step 1: Get factor IDs for this assessment
@@ -143,6 +156,8 @@ export async function saveFactorSelection(
   campaignAssessmentId: string,
   factorIds: string[],
 ): Promise<{ success: true }> {
+  const parsed = saveFactorSelectionSchema.safeParse({ campaignAssessmentId, factorIds })
+  if (!parsed.success) throw new Error('Invalid input')
   // Look up the campaign_assessment to get campaign_id and assessment_id
   const admin = createAdminClient()
   const { data: ca, error: caError } = await admin
@@ -232,6 +247,8 @@ export async function saveFactorSelection(
 export async function clearFactorSelection(
   campaignAssessmentId: string,
 ): Promise<{ success: true }> {
+  const parsed = clearFactorSelectionSchema.safeParse({ campaignAssessmentId })
+  if (!parsed.success) throw new Error('Invalid input')
   const admin = createAdminClient()
 
   // Look up campaign_assessment for auth
@@ -269,6 +286,8 @@ export async function getFactorSelectionEstimate(constructCount: number): Promis
   estimatedItems: number
   estimatedMinutes: number
 }> {
+  const parsed = getFactorSelectionEstimateSchema.safeParse({ constructCount })
+  if (!parsed.success) throw new Error('Invalid construct count')
   const itemsPerConstruct = (await getItemsPerConstructForCount(constructCount)) ?? 0
 
   const estimatedItems = constructCount * itemsPerConstruct
