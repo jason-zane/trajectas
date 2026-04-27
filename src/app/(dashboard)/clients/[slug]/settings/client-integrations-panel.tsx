@@ -42,7 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { INTEGRATION_EVENT_TYPES } from "@/lib/integrations/events";
+import { INTEGRATION_EVENT_TYPES } from "@/lib/integrations/event-types";
 import { INTEGRATION_API_SCOPES } from "@/lib/integrations/types";
 
 interface ClientIntegrationsPanelProps {

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { getReportPdfTokenSecret } from '@/lib/reports/token-secrets'
 
 interface PreviewPdfTokenPayload {
   purpose: 'preview_pdf'
@@ -7,21 +8,8 @@ interface PreviewPdfTokenPayload {
   exp: number
 }
 
-function getSigningSecret() {
-  const secret =
-    process.env.REPORT_PDF_TOKEN_SECRET ??
-    process.env.TRAJECTAS_CONTEXT_SECRET ??
-    process.env.INTERNAL_API_KEY
-  if (!secret) {
-    throw new Error(
-      'REPORT_PDF_TOKEN_SECRET (or TRAJECTAS_CONTEXT_SECRET / INTERNAL_API_KEY) must be set for PDF token signing.',
-    )
-  }
-  return secret
-}
-
 function signPayload(payload: string) {
-  return createHmac('sha256', getSigningSecret()).update(payload).digest('base64url')
+  return createHmac('sha256', getReportPdfTokenSecret()).update(payload).digest('base64url')
 }
 
 export function createPreviewPdfToken(

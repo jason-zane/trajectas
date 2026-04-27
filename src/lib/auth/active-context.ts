@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createHmac, timingSafeEqual } from "crypto";
 import type { ActiveContext, PreviewContext } from "@/lib/auth/types";
 

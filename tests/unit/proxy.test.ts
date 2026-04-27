@@ -9,9 +9,14 @@ vi.mock("../../src/lib/supabase/middleware", () => ({
   }),
 }));
 
-function createRequest(url: string, headers?: Record<string, string>) {
+function createRequest(
+  url: string,
+  headers?: Record<string, string>,
+  method = "GET"
+) {
   const parsed = new URL(url);
   return new NextRequest(url, {
+    method,
     headers: {
       host: parsed.host,
       ...headers,
@@ -65,5 +70,53 @@ describe("proxy surface routing", () => {
     expect(response.headers.get("location")).toBeNull();
     expect(response.headers.get("x-middleware-rewrite")).toBeNull();
     expect(response.headers.get("x-trajectas-surface")).toBe("partner");
+  });
+
+  it("rejects cookie-authenticated API mutations without origin or fetch metadata", async () => {
+    const response = await proxy(
+      createRequest("https://admin.trajectas.test/api/generation/start", undefined, "POST")
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Origin not allowed for protected mutation route.",
+    });
+  });
+
+  it("allows same-site API mutations based on fetch metadata", async () => {
+    const response = await proxy(
+      createRequest(
+        "https://admin.trajectas.test/api/generation/start",
+        { "sec-fetch-site": "same-origin" },
+        "POST"
+      )
+    );
+
+    expect(response.status).not.toBe(403);
+    expect(response.headers.get("x-trajectas-surface")).toBe("admin");
+  });
+
+  it("allows deliberate non-cookie API auth and signed webhook routes without Origin", async () => {
+    const internalResponse = await proxy(
+      createRequest(
+        "https://admin.trajectas.test/api/reports/generate",
+        { "x-internal-key": "test" },
+        "POST"
+      )
+    );
+    expect(internalResponse.status).not.toBe(403);
+
+    const webhookResponse = await proxy(
+      createRequest(
+        "https://admin.trajectas.test/api/auth/send-email",
+        {
+          "webhook-id": "msg_1",
+          "webhook-timestamp": "123",
+          "webhook-signature": "v1,sig",
+        },
+        "POST"
+      )
+    );
+    expect(webhookResponse.status).not.toBe(403);
   });
 });

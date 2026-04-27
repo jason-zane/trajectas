@@ -3,11 +3,19 @@ import {
   AuthorizationError,
   requireAdminScope,
 } from '@/lib/auth/authorization'
+import {
+  parseJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 import type { ConstructDraftInput, ConstructChange } from '@/types/generation'
 
 export const runtime = 'nodejs'
 // Readiness check makes sequential LLM calls per pair — can take 2-3 minutes
 export const maxDuration = 300
+
+const MAX_READINESS_BODY_BYTES = 128 * 1024
+const MAX_READINESS_CONSTRUCTS = 100
+const MAX_READINESS_CHANGES = 250
 
 /**
  * POST /api/generation/readiness
@@ -29,13 +37,30 @@ export async function POST(request: Request) {
     throw error
   }
 
-  const body = (await request.json()) as {
-    constructs: ConstructDraftInput[]
+  let body: {
+    constructs?: ConstructDraftInput[]
     changes?: ConstructChange[]
+  }
+
+  try {
+    body = await parseJsonRequestWithLimit(request, MAX_READINESS_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return Response.json({ error: 'Request body is too large' }, { status: 413 })
+    }
+    return Response.json({ error: 'Request body must be valid JSON' }, { status: 400 })
   }
 
   if (!Array.isArray(body.constructs) || body.constructs.length === 0) {
     return Response.json({ error: 'constructs array is required' }, { status: 400 })
+  }
+
+  if (body.constructs.length > MAX_READINESS_CONSTRUCTS) {
+    return Response.json({ error: 'constructs array is too large' }, { status: 400 })
+  }
+
+  if (body.changes && body.changes.length > MAX_READINESS_CHANGES) {
+    return Response.json({ error: 'changes array is too large' }, { status: 400 })
   }
 
   try {

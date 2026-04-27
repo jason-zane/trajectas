@@ -32,6 +32,7 @@ function getRedisClient(): Redis | null {
 }
 
 const redis = getRedisClient();
+let warnedInMemoryFallback = false;
 
 // Ratelimit instances are keyed on (limit, windowMs) so we share one per
 // unique rule config across requests.
@@ -50,6 +51,14 @@ function getRatelimit(limit: number, windowMs: number): Ratelimit | null {
   });
   ratelimitCache.set(key, instance);
   return instance;
+}
+
+function warnIfProductionInMemoryFallback(reason: string) {
+  if (process.env.NODE_ENV !== "production" || warnedInMemoryFallback) return;
+  warnedInMemoryFallback = true;
+  console.warn(
+    `[rate-limit] Using in-memory fallback in production (${reason}). Configure Upstash/KV for distributed limits.`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -263,7 +272,10 @@ export async function checkRequestRateLimit(
       // traffic if Redis has a transient error. The in-memory limit still
       // catches the single-instance worst case.
       console.warn("[rate-limit] Upstash error, falling back to in-memory:", error);
+      warnIfProductionInMemoryFallback("redis_error");
     }
+  } else {
+    warnIfProductionInMemoryFallback("redis_not_configured");
   }
 
   return applyRuleInMemory(rule);

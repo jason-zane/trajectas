@@ -9,7 +9,11 @@ import {
   isLocalDevelopmentHost,
 } from "@/lib/hosts";
 import { checkRequestRateLimit } from "@/lib/security/rate-limit";
-import { isAllowedOriginHost } from "@/lib/security/request-origin";
+import {
+  hasCredentialedApiAuth,
+  hasStandardWebhookSignature,
+  isAllowedMutationOrigin,
+} from "@/lib/security/request-origin";
 import type { Surface } from "@/lib/surfaces";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
 import {
@@ -225,6 +229,18 @@ function shouldSkipActivityCheck(pathname: string): boolean {
   );
 }
 
+function shouldSkipMutationOriginCheck(
+  pathname: string,
+  headers: Headers
+): boolean {
+  if (hasCredentialedApiAuth(headers)) return true;
+  if (pathname === "/api/csp-report") return true;
+  if (pathname === "/api/auth/send-email") {
+    return hasStandardWebhookSignature(headers);
+  }
+  return false;
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get("host");
@@ -258,7 +274,8 @@ export async function proxy(request: NextRequest) {
   if (
     mutationMethods.has(request.method) &&
     pathname.startsWith("/api") &&
-    !isAllowedOriginHost(request.headers.get("origin"), getAllowedOriginPatterns())
+    !shouldSkipMutationOriginCheck(pathname, request.headers) &&
+    !isAllowedMutationOrigin(request.headers, getAllowedOriginPatterns())
   ) {
     const response = NextResponse.json(
       { error: "Origin not allowed for protected mutation route." },
