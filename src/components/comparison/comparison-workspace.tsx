@@ -12,7 +12,7 @@ import {
   type EligibleAssessment,
 } from '@/app/actions/comparison'
 import type { BandScheme } from '@/lib/reports/band-scheme'
-import { ALL_LEVELS } from '@/lib/comparison/types'
+import { DEFAULT_VISIBLE_LEVELS } from '@/lib/comparison/url-params'
 import type {
   ColumnLevel,
   ComparisonRequest,
@@ -63,7 +63,7 @@ export function ComparisonWorkspace({
     [partnerBandScheme, platformBandScheme],
   )
 
-  const visibleLevels = request.visibleLevels ?? [...ALL_LEVELS]
+  const visibleLevels = request.visibleLevels ?? [...DEFAULT_VISIBLE_LEVELS]
 
   useEffect(() => {
     const next = new URLSearchParams(params)
@@ -113,11 +113,10 @@ export function ComparisonWorkspace({
   }
 
   function toggleLevel(level: ColumnLevel) {
-    const current = request.visibleLevels ?? [...ALL_LEVELS]
+    const current = request.visibleLevels ?? [...DEFAULT_VISIBLE_LEVELS]
     const next = current.includes(level)
       ? current.filter((l) => l !== level)
       : [...current, level]
-    // Never let all three turn off — preserve the previous selection in that case.
     if (next.length === 0) return
     update({ ...request, visibleLevels: next })
   }
