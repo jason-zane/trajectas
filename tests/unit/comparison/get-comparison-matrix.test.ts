@@ -59,8 +59,7 @@ describe('getComparisonMatrix', () => {
     const result = await getComparisonMatrix({
       entries: [],
       assessmentIds: ['a1'],
-      granularity: 'factors_or_constructs',
-    })
+          })
     expect(result).toEqual({ columns: [], rows: [] })
     expect(fromMock).not.toHaveBeenCalled()
   })
@@ -71,8 +70,7 @@ describe('getComparisonMatrix', () => {
       getComparisonMatrix({
         entries: [{ campaignParticipantId: 'cp1' }],
         assessmentIds: ['a1'],
-        granularity: 'factors_or_constructs',
-      }),
+              }),
     ).rejects.toThrow('Unauthorized')
     expect(fromMock).not.toHaveBeenCalled()
   })
@@ -88,8 +86,7 @@ describe('getComparisonMatrix', () => {
     const result = await getComparisonMatrix({
       entries: [{ campaignParticipantId: 'cp1' }],
       assessmentIds: [],
-      granularity: 'factors_or_constructs',
-    })
+          })
     expect(result.columns).toEqual([])
     expect(result.rows).toEqual([
       {
@@ -148,8 +145,7 @@ describe('getComparisonMatrix', () => {
     const result = await getComparisonMatrix({
       entries: [{ campaignParticipantId: 'cp1' }],
       assessmentIds: ['a1'],
-      granularity: 'factors_or_constructs',
-    })
+          })
 
     expect(result.columns).toHaveLength(1)
     expect(result.columns[0].rollup.id).toBe('d1')
@@ -197,8 +193,7 @@ describe('getComparisonMatrix', () => {
     const result = await getComparisonMatrix({
       entries: [{ campaignParticipantId: 'cp1' }],
       assessmentIds: ['a1'],
-      granularity: 'factors_or_constructs',
-    })
+          })
     const a = result.rows[0].perAssessment[0]
     expect(a.sessionId).toBeNull()
     expect(a.attemptNumber).toBeNull()
@@ -252,8 +247,7 @@ describe('getComparisonMatrix', () => {
         },
       ],
       assessmentIds: ['a1'],
-      granularity: 'factors_or_constructs',
-    })
+          })
     expect(requireSessionAccess).toHaveBeenCalledWith('sess-A')
     expect(result.rows[0].perAssessment[0].sessionId).toBe('sess-A')
     expect(result.rows[0].perAssessment[0].cells.f1).toBe(60)
@@ -300,8 +294,7 @@ describe('getComparisonMatrix', () => {
     const result = await getComparisonMatrix({
       entries: [{ campaignParticipantId: 'cp1' }],
       assessmentIds: ['a2'],
-      granularity: 'factors_or_constructs',
-    })
+          })
     expect(result.columns[0].rollup.name).toBe('Reasoning')
     expect(result.columns[0].children.map((c) => c.level)).toEqual(['construct', 'construct'])
     expect(result.rows[0].perAssessment[0].cells.c1).toBe(88)

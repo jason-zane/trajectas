@@ -1,4 +1,6 @@
-export type Granularity = 'dimensions' | 'factors_or_constructs'
+export type ColumnLevel = 'dimension' | 'factor' | 'construct'
+
+export const ALL_LEVELS: readonly ColumnLevel[] = ['dimension', 'factor', 'construct'] as const
 
 export type EntryRequest = {
   campaignParticipantId: string
@@ -8,10 +10,9 @@ export type EntryRequest = {
 export type ComparisonRequest = {
   entries: EntryRequest[]
   assessmentIds: string[]
-  granularity: Granularity
+  /** Which column levels are visible. Defaults to all three when not provided. */
+  visibleLevels?: ColumnLevel[]
 }
-
-export type ColumnLevel = 'dimension' | 'factor' | 'construct'
 
 export type Column = {
   id: string
