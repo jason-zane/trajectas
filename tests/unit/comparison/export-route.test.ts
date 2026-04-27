@@ -11,7 +11,7 @@ import { POST } from '@/app/api/comparison/export/route'
 const VALID_BODY = {
   entries: [{ campaignParticipantId: '11111111-1111-4111-8111-111111111111' }],
   assessmentIds: ['22222222-2222-4222-8222-222222222222'],
-  granularity: 'factors_or_constructs' as const,
+  visibleLevels: ['dimension', 'factor', 'construct'] as const,
 }
 
 const EMPTY_RESULT = { columns: [], rows: [] }
@@ -76,7 +76,7 @@ describe('POST /api/comparison/export', () => {
     expect(getComparisonMatrix).toHaveBeenCalledWith({
       entries: VALID_BODY.entries,
       assessmentIds: VALID_BODY.assessmentIds,
-      granularity: VALID_BODY.granularity,
+      visibleLevels: VALID_BODY.visibleLevels,
     })
   })
 })

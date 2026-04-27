@@ -11,7 +11,7 @@ const Body = z.object({
     }),
   ),
   assessmentIds: z.array(z.string().uuid()),
-  granularity: z.enum(['dimensions', 'factors_or_constructs']),
+  visibleLevels: z.array(z.enum(['dimension', 'factor', 'construct'])).optional(),
   campaignSlug: z.string().min(1).optional(),
 })
 
@@ -36,7 +36,7 @@ export async function POST(req: Request): Promise<Response> {
   const result = await getComparisonMatrix({
     entries: parsed.data.entries,
     assessmentIds: parsed.data.assessmentIds,
-    granularity: parsed.data.granularity,
+    visibleLevels: parsed.data.visibleLevels,
   })
   const csv = buildComparisonCsv(result)
   const filename = parsed.data.campaignSlug
