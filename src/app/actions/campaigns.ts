@@ -286,11 +286,13 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
   // Extract the Campaign scalars from the header; drop the header-only extras
   // that aren't part of the CampaignDetail shape.
   const {
-    clientCanCustomizeBranding: _ccb,
-    assessmentCount: _ac,
+    clientCanCustomizeBranding,
+    assessmentCount,
     clientName,
     ...campaign
   } = header
+  void clientCanCustomizeBranding
+  void assessmentCount
 
   return {
     ...campaign,
