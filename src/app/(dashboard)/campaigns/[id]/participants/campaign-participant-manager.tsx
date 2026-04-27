@@ -6,6 +6,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Copy, FileBarChart, GitCompare, Mail, Plus, Trash2, Upload } from "lucide-react";
+import { usePortal } from "@/components/portal-context";
 
 import {
   bulkInviteParticipants,
@@ -61,6 +62,7 @@ export function CampaignParticipantManager({
   participants: CampaignParticipant[];
 }) {
   const router = useRouter();
+  const { href } = usePortal();
   const [showInvite, setShowInvite] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [email, setEmail] = useState("");
@@ -300,7 +302,7 @@ export function CampaignParticipantManager({
       icon: <GitCompare className="mr-1.5 h-3.5 w-3.5" />,
       action: (ids) => {
         const qs = new URLSearchParams({ ids: ids.join(",") });
-        router.push(`/campaigns/${campaignId}/compare?${qs.toString()}`);
+        router.push(href(`/campaigns/${campaignId}/compare?${qs.toString()}`));
       },
     },
     {
