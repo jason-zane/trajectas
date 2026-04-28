@@ -1,3 +1,4 @@
+import { checkBotId } from "botid/server";
 import { notFound, redirect } from "next/navigation";
 import { WorkspacePortalLivePage } from "@/components/workspace-portal-live";
 import { WorkspacePortalPage } from "@/components/workspace-portal-page";
@@ -13,6 +14,11 @@ export default async function ClientPortalPage({
 }: {
   params: Promise<{ slug?: string[] }>;
 }) {
+  const verification = await checkBotId();
+  if (verification.isBot) {
+    notFound();
+  }
+
   const { slug } = await params;
   const key = slug?.join("/") ?? "";
 
