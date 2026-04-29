@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope, resolveAuthorizedScope } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import {
+  getSessionsForMatchingSelectSchema,
+  bulkDeleteMatchingRunsSchema,
+} from '@/lib/validations/matching'
 
 export type MatchingRunWithMeta = {
   id: string
@@ -185,6 +189,8 @@ export async function getClientsForMatchingSelect(): Promise<SelectOption[]> {
 }
 
 export async function getSessionsForMatchingSelect(clientId?: string): Promise<{ id: string; title: string }[]> {
+  const parsed = getSessionsForMatchingSelectSchema.safeParse({ clientId })
+  if (!parsed.success) return []
   await requireAdminScope()
   const db = await createClient()
   let query = db
@@ -222,6 +228,8 @@ export async function getSessionsForMatchingSelect(clientId?: string): Promise<{
 
 export async function bulkDeleteMatchingRuns(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkDeleteMatchingRunsSchema.safeParse({ ids })
+  if (!parsed.success) throw new Error('Invalid IDs')
   const scope = await resolveAuthorizedScope()
   if (!scope.isPlatformAdmin) throw new Error('Unauthorized')
   const db = createAdminClient()
