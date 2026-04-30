@@ -5,6 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requirePartnerAccess } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import { revalidatePath } from 'next/cache'
+import {
+  getPartnerTaxonomyAssignmentsSchema,
+  togglePartnerTaxonomyAssignmentSchema,
+  bulkTogglePartnerTaxonomyAssignmentsSchema,
+} from '@/lib/validations/partner-taxonomy'
 
 type EntityType = 'dimension' | 'factor' | 'construct'
 
@@ -21,6 +26,8 @@ export async function getPartnerTaxonomyAssignments(
   partnerId: string,
   entityType: EntityType,
 ): Promise<TaxonomyAssignmentRow[]> {
+  const parsed = getPartnerTaxonomyAssignmentsSchema.safeParse({ partnerId, entityType })
+  if (!parsed.success) return []
   await requirePartnerAccess(partnerId)
   const db = await createClient()
 
@@ -106,6 +113,8 @@ export async function togglePartnerTaxonomyAssignment(
   entityId: string,
   assigned: boolean,
 ): Promise<{ success: true } | { error: string }> {
+  const parsed = togglePartnerTaxonomyAssignmentSchema.safeParse({ partnerId, entityType, entityId, assigned })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return {
@@ -154,6 +163,9 @@ export async function bulkTogglePartnerTaxonomyAssignments(
   entityIds: string[],
   assigned: boolean,
 ): Promise<{ success: true } | { error: string }> {
+  if (entityIds.length === 0) return { success: true }
+  const parsed = bulkTogglePartnerTaxonomyAssignmentsSchema.safeParse({ partnerId, entityType, entityIds, assigned })
+  if (!parsed.success) return { error: 'Invalid input' }
   const { scope } = await requirePartnerAccess(partnerId)
   if (!scope.isPlatformAdmin) {
     return {
@@ -163,7 +175,6 @@ export async function bulkTogglePartnerTaxonomyAssignments(
   if (!scope.actor?.id) {
     return { error: 'Unable to determine the acting user.' }
   }
-  if (entityIds.length === 0) return { success: true }
 
   const db = createAdminClient()
 
