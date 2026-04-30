@@ -1,5 +1,7 @@
 import sanitizeHtml from "sanitize-html";
 
+export { escapeHtml, stripLineBreaks } from "@/lib/security/escape-html";
+
 const REPORT_ALLOWED_TAGS = [
   "p",
   "br",
@@ -78,24 +80,3 @@ export function sanitizeReportHtml(html: string | null | undefined): string {
   });
 }
 
-/**
- * HTML-escape a plain-text string for safe interpolation into HTML.
- * Use for email variable values and anywhere untrusted text is spliced
- * into rendered HTML without a rich-text editor involved.
- */
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Strip CR/LF from a string so it can't inject additional RFC 5322 headers
- * when interpolated into email subject lines, display names, or similar.
- */
-export function stripLineBreaks(value: string): string {
-  return value.replace(/[\r\n]+/g, " ");
-}
