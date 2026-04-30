@@ -74,11 +74,12 @@ export const getCachedPlatformExperienceTemplate = unstable_cache(
  */
 async function getCampaignAssessmentCount(campaignId: string): Promise<number> {
   const db = createAdminClient()
-  const { count } = await db
+  const { count, error } = await db
     .from('campaign_assessments')
     .select('*', { count: 'exact', head: true })
     .eq('campaign_id', campaignId)
     .is('deleted_at', null)
+  if (error) throw new Error(error.message)
   return count ?? 0
 }
 
