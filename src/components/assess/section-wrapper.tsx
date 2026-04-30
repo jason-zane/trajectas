@@ -107,6 +107,15 @@ export function SectionWrapper({
     sessionId,
   });
 
+  // Prefetch the next page so cross-section transitions feel instant.
+  useEffect(() => {
+    if (sectionIndex < totalSections - 1) {
+      router.prefetch(`/assess/${token}/section/${sectionIndex + 1}`);
+    } else {
+      router.prefetch(postAssessmentUrl);
+    }
+  }, [router, token, sectionIndex, totalSections, postAssessmentUrl]);
+
   // Build a flat global item list from all sections
   const globalItems = flattenItems(allSections);
   const totalItems = globalItems.length;

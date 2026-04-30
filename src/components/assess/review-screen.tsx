@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertCircle, Send, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,11 @@ export function ReviewScreen({
   termsUrl,
 }: ReviewScreenProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    router.prefetch(nextUrl);
+  }, [router, nextUrl]);
+
   const [submitStage, setSubmitStage] = useState<
     "idle" | "submitting" | "preparing_report"
   >("idle");

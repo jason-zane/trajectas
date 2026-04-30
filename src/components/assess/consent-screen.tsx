@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,10 @@ export function ConsentScreen({
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    router.prefetch(nextUrl);
+  }, [router, nextUrl]);
 
   async function handleContinue() {
     if (!agreed) return;
