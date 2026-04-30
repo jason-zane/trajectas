@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,10 @@ export function DemographicsForm({
   const [values, setValues] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    router.prefetch(nextUrl);
+  }, [router, nextUrl]);
 
   const enabledFields = fields.filter((f) => f.enabled);
 
