@@ -1,11 +1,33 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { LikertResponse } from "./formats/likert-response";
 import { ForcedChoiceResponse } from "./formats/forced-choice-response";
 import { BinaryResponse } from "./formats/binary-response";
-import { RankingResponse } from "./formats/ranking-response";
 import { FreeTextResponse } from "./formats/free-text-response";
 import { SJTResponse } from "./formats/sjt-response";
+
+const RankingResponse = dynamic(
+  () =>
+    import("./formats/ranking-response").then((m) => m.RankingResponse),
+  { loading: () => <RankingLoadingPlaceholder /> },
+);
+
+function RankingLoadingPlaceholder() {
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className="h-12 animate-pulse rounded-xl"
+          style={{
+            background: "var(--brand-neutral-100, hsl(var(--muted)))",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 import type { ItemForRunner } from "@/app/actions/assess";
 
 interface ItemDisplayProps {

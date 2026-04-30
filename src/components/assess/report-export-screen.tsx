@@ -1,9 +1,28 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Download, Printer } from "lucide-react";
-import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
 import type { ResolvedBlockData } from "@/lib/reports/types";
+
+const ReportRenderer = dynamic(
+  () =>
+    import("@/components/reports/report-renderer").then(
+      (m) => m.ReportRenderer,
+    ),
+  {
+    loading: () => (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-32 animate-pulse rounded-xl bg-muted"
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 
 interface ReportExportScreenProps {
   content: ReportContent;
