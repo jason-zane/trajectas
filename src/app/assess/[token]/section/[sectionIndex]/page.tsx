@@ -51,6 +51,11 @@ export default async function SectionPage({
     redirect(`/assess/${token}/complete`);
   }
 
+  // Start brand + experience fetch early — they only need campaign data from
+  // validateAccessToken, not from startSession / getSessionState.
+  const brandPromise = getCachedEffectiveBrand(campaign.clientId, campaign.id);
+  const experiencePromise = getCachedEffectiveExperience(campaign.id);
+
   const existingSession = sessions.find(
     (session) => session.assessmentId === targetAssessment.assessmentId && session.status === "in_progress"
   );
@@ -104,10 +109,10 @@ export default async function SectionPage({
     redirect(`/assess/${token}/complete`);
   }
 
-  // Load brand + experience in parallel — they're independent.
+  // Await the brand + experience promises started earlier.
   const [brandConfig, experience] = await Promise.all([
-    getCachedEffectiveBrand(campaign.clientId, campaign.id),
-    getCachedEffectiveExperience(campaign.id),
+    brandPromise,
+    experiencePromise,
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const runnerContent = getPageContent(experience, "runner");

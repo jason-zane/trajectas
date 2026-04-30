@@ -30,6 +30,11 @@ export default async function ReviewPage({
     redirect(`/assess/${token}/complete`);
   }
 
+  // Start brand + experience fetch early — they only need campaign data,
+  // not session state.
+  const brandPromise = getCachedEffectiveBrand(campaign.clientId, campaign.id);
+  const experiencePromise = getCachedEffectiveExperience(campaign.id);
+
   const stateResult = await getSessionState(token, currentSession.id);
   if (stateResult.error || !stateResult.data) {
     redirect(`/assess/${token}/welcome`);
@@ -42,10 +47,9 @@ export default async function ReviewPage({
     (a) => a.assessmentId === currentSession.assessmentId
   );
 
-  // Load brand + experience in parallel — independent.
   const [brandConfig, experience] = await Promise.all([
-    getCachedEffectiveBrand(campaign.clientId, campaign.id),
-    getCachedEffectiveExperience(campaign.id),
+    brandPromise,
+    experiencePromise,
   ]);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "review");

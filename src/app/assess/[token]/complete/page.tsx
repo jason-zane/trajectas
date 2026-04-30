@@ -16,38 +16,45 @@ export default async function CompletePage({
 }) {
   const { token } = await params;
 
-  let brandConfig: BrandConfig | null = null;
-  let campaignId: string | undefined;
+  let brandConfig: BrandConfig;
+  let experience;
 
   try {
     const result = await validateAccessToken(token);
     if (result.data?.campaign) {
-      campaignId = result.data.campaign.id;
-      brandConfig = await getCachedEffectiveBrand(
-        result.data.campaign.clientId,
-        result.data.campaign.id,
+      const { clientId, id } = result.data.campaign;
+
+      // Auto-submit any in-progress session — handles the case where the
+      // review page is disabled and submitSession was never triggered.
+      const inProgressSession = result.data.sessions?.find(
+        (s) => s.status === "in_progress",
       );
-    }
-    // Auto-submit any in-progress session — handles the case where the review
-    // page is disabled and submitSession was never triggered by review-screen.
-    const inProgressSession = result.data?.sessions?.find(
-      (s) => s.status === "in_progress",
-    );
-    if (inProgressSession) {
-      await submitSession(token, inProgressSession.id).catch(() => {});
+
+      // Brand, experience, and session submit are independent — run together.
+      const [brand, exp] = await Promise.all([
+        getCachedEffectiveBrand(clientId, id),
+        getCachedEffectiveExperience(id),
+        inProgressSession
+          ? submitSession(token, inProgressSession.id).catch(() => {})
+          : undefined,
+      ]);
+      brandConfig = brand;
+      experience = exp;
+    } else {
+      [brandConfig, experience] = await Promise.all([
+        getCachedEffectiveBrand(),
+        getCachedEffectiveExperience(),
+      ]);
     }
   } catch {
-    // Fall through — brandConfig stays null, resolved below.
+    // Token invalid / expired — fall back to platform defaults.
+    [brandConfig, experience] = await Promise.all([
+      getCachedEffectiveBrand(),
+      getCachedEffectiveExperience(),
+    ]);
   }
 
-  // Fallback only when token validation fails / no campaign. This preserves
-  // the prior behaviour of showing the platform brand even on an expired link.
-  if (!brandConfig) {
-    brandConfig = await getCachedEffectiveBrand();
-  }
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
-
-  const experience = await getCachedEffectiveExperience(campaignId);
   const rawContent = getPageContent(experience, "complete");
   const rawRunnerContent = getPageContent(experience, "runner");
   const variables: TemplateVariables = {};
