@@ -1,3 +1,16 @@
+/**
+ * Heavy HTML sanitiser for admin-authored rich text rendered to participants.
+ *
+ * IMPORTANT: this module must NOT be reachable from the login Lambda's static
+ * import graph. Past versions wrapped DOMPurify/jsdom and crashed login at
+ * cold start (see commits 68ffe8e, 772eec5, ab6a145, ea1bbeb).
+ *
+ * Pure escape helpers live in `./escape-html` precisely so callers in the
+ * login chain (e.g. `src/lib/email/render.ts`) can import them without
+ * pulling this file. The architectural guard is
+ * `tests/architecture/login-bundle-purity.test.ts` — if you add a new caller,
+ * make sure it is not on a route that login depends on, or the test will fail.
+ */
 import sanitizeHtml from "sanitize-html";
 
 export { escapeHtml, stripLineBreaks } from "@/lib/security/escape-html";

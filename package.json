@@ -14,6 +14,7 @@
     "test:integration": "vitest run tests/integration",
     "test:integration:local": "node scripts/run-integration-tests-local.mjs",
     "test:component": "vitest run tests/components",
+    "test:architecture": "vitest run tests/architecture",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test tests/e2e/smoke",

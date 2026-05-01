@@ -1,11 +1,13 @@
 /**
  * Pure string utilities for HTML / header-injection escaping.
  *
- * Kept in a dedicated module (no dependency on the `sanitize-html` package)
- * so importing these helpers does not pull the full HTML sanitiser into a
- * Lambda's static module graph. The login Lambda imports this via the email
- * render chain; eagerly loading `sanitize-html` there has caused
- * "Failed to load external module" cold-start failures.
+ * This module has zero dependencies on purpose. The login Lambda imports it
+ * via the email render chain, and eagerly loading any HTML sanitiser there
+ * (sanitize-html / isomorphic-dompurify / jsdom) has caused
+ * "Failed to load external module" cold-start failures three times now.
+ *
+ * Do NOT add imports to this file. The constraint is enforced by
+ * `tests/architecture/login-bundle-purity.test.ts`.
  */
 
 export function escapeHtml(value: string): string {
