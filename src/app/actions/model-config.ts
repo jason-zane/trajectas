@@ -6,6 +6,11 @@ import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import type { AIPromptPurpose } from '@/types/database'
+import {
+  aiPromptPurposeSchema,
+  applyModelToAllPurposesSchema,
+  updateModelForPurposeSchema,
+} from '@/lib/validations/model-config'
 
 export interface ModelConfigRow {
   id: string
@@ -47,6 +52,8 @@ export async function getModelConfigs(): Promise<ModelConfigRow[]> {
 export async function getModelConfigForPurpose(
   purpose: AIPromptPurpose,
 ): Promise<ModelConfigRow | null> {
+  const parsed = aiPromptPurposeSchema.safeParse(purpose)
+  if (!parsed.success) return null
   await requireAdminScope()
   const configs = await getModelConfigs()
   return configs.find((config) => config.purpose === purpose) ?? null
@@ -80,6 +87,8 @@ export async function getModelSelectionBootstrap(): Promise<{
 export async function getDefaultModelIdForPurpose(
   purpose: AIPromptPurpose,
 ): Promise<string | null> {
+  const parsed = aiPromptPurposeSchema.safeParse(purpose)
+  if (!parsed.success) return null
   await requireAdminScope()
   const supabase = createAdminClient()
 
@@ -113,6 +122,8 @@ const TEXT_PURPOSES: AIPromptPurpose[] = [
 export async function applyModelToAllPurposes(
   modelId: string,
 ): Promise<{ success: true } | { error: string }> {
+  const parsed = applyModelToAllPurposesSchema.safeParse({ modelId })
+  if (!parsed.success) return { error: 'Invalid model ID' }
   const scope = await requireAdminScope()
   const supabase = createAdminClient()
 
@@ -172,6 +183,8 @@ export async function updateModelForPurpose(
   modelId: string,
   config?: { temperature?: number; max_tokens?: number },
 ): Promise<{ success: true } | { error: string }> {
+  const parsed = updateModelForPurposeSchema.safeParse({ purpose, modelId, config })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const supabase = createAdminClient()
 
