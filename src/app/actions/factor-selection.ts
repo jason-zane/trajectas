@@ -15,10 +15,14 @@ export async function getFactorSelectionForCampaignAssessment(
   campaignAssessmentId: string,
 ): Promise<{ isCustom: boolean; selectedFactorIds: string[] }> {
   const db = await createClient()
-  const { data } = await db
+  const { data, error } = await db
     .from('campaign_assessment_factors')
     .select('factor_id')
     .eq('campaign_assessment_id', campaignAssessmentId)
+
+  if (error) {
+    throwActionError('getFactorSelectionForCampaignAssessment', 'Failed to load factor selection.', error)
+  }
 
   if (!data || data.length === 0) {
     return { isCustom: false, selectedFactorIds: [] }
