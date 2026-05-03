@@ -13,6 +13,10 @@ import {
   queueReportPdfGeneration,
 } from '@/lib/reports/pdf'
 import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
+import {
+  parseOptionalJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -206,11 +210,6 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ snapshotId: string }> },
 ) {
-  const contentLength = Number(request.headers.get('content-length') ?? 0)
-  if (contentLength > MAX_PDF_POST_BODY_BYTES) {
-    return Response.json({ error: 'Request body too large' }, { status: 413 })
-  }
-
   const { snapshotId } = await params
   const url = new URL(request.url)
   const reportToken = url.searchParams.get('reportToken')
@@ -228,9 +227,9 @@ export async function POST(
   }
 
   try {
-    const body = (await request.json().catch(() => ({}))) as {
+    const body = await parseOptionalJsonRequestWithLimit<{
       forceRefresh?: boolean
-    }
+    }>(request, MAX_PDF_POST_BODY_BYTES, {})
 
     const queued = await queueReportPdfGeneration(snapshotId)
     if (queued.queued) {
@@ -252,6 +251,14 @@ export async function POST(
       error: queued.error,
     })
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return Response.json({ error: 'Request body too large' }, { status: 413 })
+    }
+
+    if (error instanceof SyntaxError) {
+      return Response.json({ error: 'Request body must be valid JSON' }, { status: 400 })
+    }
+
     const message =
       error instanceof Error ? error.message : 'Failed to queue PDF generation'
     return Response.json({ error: message }, { status: 500 })

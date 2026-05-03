@@ -140,15 +140,18 @@ export async function getParticipants(filters?: {
     }
   }
 
-  // Build query
+  // Build query — inner join + deleted_at filter excludes participants whose
+  // campaign has been soft-deleted (those rows would 404 on detail since
+  // requireCampaignAccess rejects deleted campaigns).
   let query = db
     .from('campaign_participants')
     .select(`
       *,
-      campaigns!inner(title, slug),
+      campaigns!inner(title, slug, deleted_at),
       participant_sessions(id, status)
     `, { count: 'exact' })
     .is('deleted_at', null)
+    .is('campaigns.deleted_at', null)
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -223,10 +226,13 @@ export async function getUniqueParticipants(filters?: {
   // 1) Get all matching rows (scoped)
   // 2) Deduplicate in JS (acceptable because campaign_participants is bounded per-scope)
 
+  // Inner join + deleted_at filter excludes participants whose campaign has
+  // been soft-deleted; those rows would 404 on the detail page.
   let query = db
     .from('campaign_participants')
-    .select('*', { count: 'exact' })
+    .select('*, campaigns!inner(deleted_at)', { count: 'exact' })
     .is('deleted_at', null)
+    .is('campaigns.deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (scopedCampaignIds && scopedCampaignIds.length === 1) {
@@ -307,7 +313,10 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     throw error
   }
 
-  const db = await createClient()
+  // Access already verified by requireParticipantAccess above; use the admin
+  // client for the read so we don't re-apply RLS (which can block legitimate
+  // platform-admin sessions and the local-dev bypass).
+  const db = createAdminClient()
 
   const { data: row, error } = await db
     .from('campaign_participants')

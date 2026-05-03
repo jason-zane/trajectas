@@ -1,14 +1,9 @@
 -- =============================================================================
 -- Migration 00079: Seed library_import_structuring AI model config
 --
--- Renamed from 00048 → 00079 so it runs AFTER 00059, which adds
--- 'library_import_structuring' to the ai_prompt_purpose enum. The original
--- 00048 ordering caused fresh DB resets to fail with
--- "invalid input value for enum ai_prompt_purpose".
---
--- Production already has 00048's INSERT applied; the WHERE NOT EXISTS guard
--- makes this rename a safe no-op there. The orphaned 00048 row in
--- supabase_migrations.schema_migrations is harmless.
+-- This runs after 00059, which adds 'library_import_structuring' to the
+-- ai_prompt_purpose enum. Production already has the old 00048 INSERT applied;
+-- the WHERE NOT EXISTS guard makes this safe there.
 -- =============================================================================
 
 INSERT INTO ai_model_configs (provider_id, model_id, display_name, is_default, config, purpose)

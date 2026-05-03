@@ -18,7 +18,6 @@ WHERE NOT EXISTS (
   SELECT 1 FROM ai_system_prompts
   WHERE purpose = 'factor_item_generation'::ai_prompt_purpose AND version = 1
 );
-
 -- 2. Construct-level prompt v2
 SELECT activate_ai_system_prompt(
   'item_generation',
@@ -42,7 +41,6 @@ SELECT activate_ai_system_prompt(
 - Each element: { "stem": "...", "reverseScored": true|false, "rationale": "one sentence" }
 - `reverseScored` = true when endorsing the item indicates LOW standing on the construct.$$
 );
-
 -- 3. Factor-level prompt v2
 SELECT activate_ai_system_prompt(
   'factor_item_generation',

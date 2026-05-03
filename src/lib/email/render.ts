@@ -17,7 +17,7 @@
 
 import React from 'react'
 import { EmailBrandFrame } from './brand-frame'
-import { escapeHtml, stripLineBreaks } from '@/lib/security/sanitize-html'
+import { escapeHtml, stripLineBreaks } from '@/lib/security/escape-html'
 
 // ---------------------------------------------------------------------------
 // Types

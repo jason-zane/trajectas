@@ -4,10 +4,16 @@ import {
   AuthorizationError,
   requireAdminScope,
 } from '@/lib/auth/authorization'
+import {
+  parseJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
 // Allow long-running generation pipelines (up to 5 minutes)
 export const maxDuration = 300
+
+const MAX_GENERATION_START_BODY_BYTES = 8 * 1024
 
 /**
  * POST /api/generation/start
@@ -31,7 +37,18 @@ export async function POST(request: Request) {
     throw error
   }
 
-  const { runId } = await request.json() as { runId: string }
+  let body: { runId?: string }
+  try {
+    body = await parseJsonRequestWithLimit(request, MAX_GENERATION_START_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return Response.json({ error: 'Request body is too large' }, { status: 413 })
+    }
+
+    return Response.json({ error: 'Request body must be valid JSON' }, { status: 400 })
+  }
+
+  const { runId } = body
 
   if (!runId) {
     return Response.json({ error: 'runId is required' }, { status: 400 })
