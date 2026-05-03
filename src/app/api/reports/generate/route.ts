@@ -7,6 +7,10 @@ import {
   AuthorizationError,
   requireAdminScope,
 } from '@/lib/auth/authorization'
+import {
+  parseOptionalJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -33,11 +37,6 @@ function isValidInternalKey(provided: string | null): boolean {
  * background generation. Admin/retry calls await the response.
  */
 export async function POST(request: Request) {
-  const contentLength = Number(request.headers.get('content-length') ?? 0)
-  if (contentLength > MAX_REPORT_GENERATE_BODY_BYTES) {
-    return Response.json({ error: 'Request body too large' }, { status: 413 })
-  }
-
   // Allow internal server-to-server calls (e.g. from submitSession in participant context)
   const isInternal = isValidInternalKey(request.headers.get('x-internal-key'))
 
@@ -56,10 +55,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json().catch(() => ({})) as {
+    const body = await parseOptionalJsonRequestWithLimit<{
       snapshotId?: string
       sessionId?: string
-    }
+    }>(request, MAX_REPORT_GENERATE_BODY_BYTES, {})
 
     const db = createAdminClient()
 
@@ -117,6 +116,14 @@ export async function POST(request: Request) {
     })
     return Response.json({ queued: [next.id] }, { status: 202 })
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return Response.json({ error: 'Request body too large' }, { status: 413 })
+    }
+
+    if (error instanceof SyntaxError) {
+      return Response.json({ error: 'Request body must be valid JSON' }, { status: 400 })
+    }
+
     const message = error instanceof Error ? error.message : 'Runner failed'
     return Response.json({ error: message }, { status: 500 })
   }

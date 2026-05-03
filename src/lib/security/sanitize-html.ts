@@ -1,4 +1,19 @@
-import DOMPurify from "isomorphic-dompurify";
+/**
+ * Heavy HTML sanitiser for admin-authored rich text rendered to participants.
+ *
+ * IMPORTANT: this module must NOT be reachable from the login Lambda's static
+ * import graph. Past versions wrapped DOMPurify/jsdom and crashed login at
+ * cold start (see commits 68ffe8e, 772eec5, ab6a145, ea1bbeb).
+ *
+ * Pure escape helpers live in `./escape-html` precisely so callers in the
+ * login chain (e.g. `src/lib/email/render.ts`) can import them without
+ * pulling this file. The architectural guard is
+ * `tests/architecture/login-bundle-purity.test.ts` — if you add a new caller,
+ * make sure it is not on a route that login depends on, or the test will fail.
+ */
+import sanitizeHtml from "sanitize-html";
+
+export { escapeHtml, stripLineBreaks } from "@/lib/security/escape-html";
 
 const REPORT_ALLOWED_TAGS = [
   "p",
@@ -24,9 +39,23 @@ const REPORT_ALLOWED_TAGS = [
   "span",
 ];
 
-const REPORT_ALLOWED_ATTR = ["href", "target", "rel", "class"];
-
-const SAFE_URI_REGEXP = /^(?:(?:https?|mailto|tel):|\/|#)/i;
+const REPORT_ALLOWED_ATTRIBUTES: sanitizeHtml.IOptions["allowedAttributes"] = {
+  a: ["href", "target", "rel", "class"],
+  span: ["class"],
+  p: ["class"],
+  h1: ["class"],
+  h2: ["class"],
+  h3: ["class"],
+  h4: ["class"],
+  h5: ["class"],
+  h6: ["class"],
+  ul: ["class"],
+  ol: ["class"],
+  li: ["class"],
+  blockquote: ["class"],
+  code: ["class"],
+  pre: ["class"],
+};
 
 /**
  * Sanitise admin-authored rich-text HTML before rendering it as inline HTML
@@ -37,32 +66,30 @@ const SAFE_URI_REGEXP = /^(?:(?:https?|mailto|tel):|\/|#)/i;
  */
 export function sanitizeReportHtml(html: string | null | undefined): string {
   if (!html) return "";
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: REPORT_ALLOWED_TAGS,
-    ALLOWED_ATTR: REPORT_ALLOWED_ATTR,
-    ALLOWED_URI_REGEXP: SAFE_URI_REGEXP,
-    ALLOW_DATA_ATTR: false,
+  return sanitizeHtml(html, {
+    allowedTags: REPORT_ALLOWED_TAGS,
+    allowedAttributes: REPORT_ALLOWED_ATTRIBUTES,
+    allowedSchemes: ["http", "https", "mailto", "tel"],
+    allowedSchemesByTag: {
+      a: ["http", "https", "mailto", "tel"],
+    },
+    allowedSchemesAppliedToAttributes: ["href"],
+    allowProtocolRelative: false,
+    transformTags: {
+      a: (tagName, attribs) => {
+        const href = attribs.href ?? "";
+        const isExternal = /^https?:\/\//i.test(href);
+        return {
+          tagName: "a",
+          attribs: {
+            ...attribs,
+            ...(isExternal
+              ? { target: "_blank", rel: "noopener noreferrer" }
+              : {}),
+          },
+        };
+      },
+    },
   });
 }
 
-/**
- * HTML-escape a plain-text string for safe interpolation into HTML.
- * Use for email variable values and anywhere untrusted text is spliced
- * into rendered HTML without a rich-text editor involved.
- */
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-/**
- * Strip CR/LF from a string so it can't inject additional RFC 5322 headers
- * when interpolated into email subject lines, display names, or similar.
- */
-export function stripLineBreaks(value: string): string {
-  return value.replace(/[\r\n]+/g, " ");
-}

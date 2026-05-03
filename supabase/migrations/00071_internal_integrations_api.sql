@@ -25,21 +25,17 @@ CREATE TABLE IF NOT EXISTS integration_connections (
   CONSTRAINT integration_connections_status_check
     CHECK (status IN ('active', 'inactive'))
 );
-
 COMMENT ON TABLE integration_connections IS
   'Client-scoped integration connection records for internal API credentials and future ATS/HRIS adapters.';
-
 CREATE INDEX IF NOT EXISTS idx_integration_connections_client
   ON integration_connections (client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_integration_connections_provider
   ON integration_connections (provider_slug, mode)
   WHERE deleted_at IS NULL;
-
 DROP TRIGGER IF EXISTS trg_integration_connections_updated_at ON integration_connections;
 CREATE TRIGGER trg_integration_connections_updated_at
   BEFORE UPDATE ON integration_connections
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_credentials (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   integration_connection_id UUID NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
@@ -66,10 +62,8 @@ CREATE TABLE IF NOT EXISTS integration_credentials (
   CONSTRAINT integration_credentials_status_check
     CHECK (status IN ('active', 'revoked'))
 );
-
 COMMENT ON TABLE integration_credentials IS
   'Hashed TalentFit-issued machine credentials used by the private integrations API.';
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_integration_credentials_key_prefix_unique
   ON integration_credentials (key_prefix);
 CREATE INDEX IF NOT EXISTS idx_integration_credentials_client
@@ -77,12 +71,10 @@ CREATE INDEX IF NOT EXISTS idx_integration_credentials_client
 CREATE INDEX IF NOT EXISTS idx_integration_credentials_active
   ON integration_credentials (integration_connection_id, status)
   WHERE revoked_at IS NULL;
-
 DROP TRIGGER IF EXISTS trg_integration_credentials_updated_at ON integration_credentials;
 CREATE TRIGGER trg_integration_credentials_updated_at
   BEFORE UPDATE ON integration_credentials
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_idempotency_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   integration_credential_id UUID NOT NULL REFERENCES integration_credentials(id) ON DELETE CASCADE,
@@ -107,10 +99,8 @@ CREATE TABLE IF NOT EXISTS integration_idempotency_keys (
   CONSTRAINT integration_idempotency_status_check
     CHECK (status IN ('in_progress', 'completed'))
 );
-
 COMMENT ON TABLE integration_idempotency_keys IS
   'Replay protection and deterministic response storage for private integrations API mutations.';
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_integration_idempotency_unique
   ON integration_idempotency_keys (
     integration_credential_id,
@@ -120,12 +110,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_integration_idempotency_unique
   );
 CREATE INDEX IF NOT EXISTS idx_integration_idempotency_client
   ON integration_idempotency_keys (client_id, created_at DESC);
-
 DROP TRIGGER IF EXISTS trg_integration_idempotency_updated_at ON integration_idempotency_keys;
 CREATE TRIGGER trg_integration_idempotency_updated_at
   BEFORE UPDATE ON integration_idempotency_keys
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_external_refs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   integration_connection_id UUID NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
@@ -150,10 +138,8 @@ CREATE TABLE IF NOT EXISTS integration_external_refs (
   CONSTRAINT integration_external_refs_remote_id_not_empty
     CHECK (length(trim(remote_id)) > 0)
 );
-
 COMMENT ON TABLE integration_external_refs IS
   'Mappings between TalentFit records and external ATS/HRIS identifiers.';
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_integration_external_refs_unique_mapping
   ON integration_external_refs (
     integration_connection_id,
@@ -174,12 +160,10 @@ CREATE INDEX IF NOT EXISTS idx_integration_external_refs_lookup
   );
 CREATE INDEX IF NOT EXISTS idx_integration_external_refs_local
   ON integration_external_refs (local_table, local_id);
-
 DROP TRIGGER IF EXISTS trg_integration_external_refs_updated_at ON integration_external_refs;
 CREATE TRIGGER trg_integration_external_refs_updated_at
   BEFORE UPDATE ON integration_external_refs
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_launches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   integration_connection_id UUID NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
@@ -204,20 +188,16 @@ CREATE TABLE IF NOT EXISTS integration_launches (
   CONSTRAINT integration_launches_assessment_url_not_empty
     CHECK (length(trim(assessment_url)) > 0)
 );
-
 COMMENT ON TABLE integration_launches IS
   'Recorded assessment launches initiated by the private integrations API.';
-
 CREATE INDEX IF NOT EXISTS idx_integration_launches_participant
   ON integration_launches (campaign_participant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_integration_launches_client
   ON integration_launches (client_id, created_at DESC);
-
 DROP TRIGGER IF EXISTS trg_integration_launches_updated_at ON integration_launches;
 CREATE TRIGGER trg_integration_launches_updated_at
   BEFORE UPDATE ON integration_launches
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_events_outbox (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -240,21 +220,17 @@ CREATE TABLE IF NOT EXISTS integration_events_outbox (
   CONSTRAINT integration_events_outbox_status_check
     CHECK (status IN ('pending', 'dispatched', 'failed'))
 );
-
 COMMENT ON TABLE integration_events_outbox IS
   'Outbox of integration events awaiting client webhook delivery.';
-
 CREATE INDEX IF NOT EXISTS idx_integration_events_outbox_pending
   ON integration_events_outbox (status, available_at)
   WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_integration_events_outbox_client
   ON integration_events_outbox (client_id, created_at DESC);
-
 DROP TRIGGER IF EXISTS trg_integration_events_outbox_updated_at ON integration_events_outbox;
 CREATE TRIGGER trg_integration_events_outbox_updated_at
   BEFORE UPDATE ON integration_events_outbox
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_webhook_endpoints (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   integration_connection_id UUID NOT NULL REFERENCES integration_connections(id) ON DELETE CASCADE,
@@ -278,20 +254,16 @@ CREATE TABLE IF NOT EXISTS integration_webhook_endpoints (
   CONSTRAINT integration_webhook_endpoints_status_check
     CHECK (status IN ('active', 'inactive'))
 );
-
 COMMENT ON TABLE integration_webhook_endpoints IS
   'Client-managed webhook destinations for integration events.';
-
 CREATE INDEX IF NOT EXISTS idx_integration_webhook_endpoints_client
   ON integration_webhook_endpoints (client_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_integration_webhook_endpoints_status
   ON integration_webhook_endpoints (integration_connection_id, status);
-
 DROP TRIGGER IF EXISTS trg_integration_webhook_endpoints_updated_at ON integration_webhook_endpoints;
 CREATE TRIGGER trg_integration_webhook_endpoints_updated_at
   BEFORE UPDATE ON integration_webhook_endpoints
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 CREATE TABLE IF NOT EXISTS integration_webhook_deliveries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   integration_webhook_endpoint_id UUID NOT NULL REFERENCES integration_webhook_endpoints(id) ON DELETE CASCADE,
@@ -309,20 +281,16 @@ CREATE TABLE IF NOT EXISTS integration_webhook_deliveries (
   CONSTRAINT integration_webhook_deliveries_status_check
     CHECK (status IN ('pending', 'delivered', 'failed'))
 );
-
 COMMENT ON TABLE integration_webhook_deliveries IS
   'Attempt log for outbound integration webhook deliveries.';
-
 CREATE INDEX IF NOT EXISTS idx_integration_webhook_deliveries_endpoint
   ON integration_webhook_deliveries (integration_webhook_endpoint_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_integration_webhook_deliveries_event
   ON integration_webhook_deliveries (integration_event_outbox_id, attempt_no DESC);
-
 DROP TRIGGER IF EXISTS trg_integration_webhook_deliveries_updated_at ON integration_webhook_deliveries;
 CREATE TRIGGER trg_integration_webhook_deliveries_updated_at
   BEFORE UPDATE ON integration_webhook_deliveries
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 ALTER TABLE integration_connections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_idempotency_keys ENABLE ROW LEVEL SECURITY;
@@ -331,7 +299,6 @@ ALTER TABLE integration_launches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_events_outbox ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_webhook_endpoints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE integration_webhook_deliveries ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY integration_connections_select ON integration_connections
   FOR SELECT TO authenticated
   USING (
@@ -344,7 +311,6 @@ CREATE POLICY integration_connections_select ON integration_connections
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_credentials_select ON integration_credentials
   FOR SELECT TO authenticated
   USING (
@@ -357,7 +323,6 @@ CREATE POLICY integration_credentials_select ON integration_credentials
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_idempotency_keys_select ON integration_idempotency_keys
   FOR SELECT TO authenticated
   USING (
@@ -370,7 +335,6 @@ CREATE POLICY integration_idempotency_keys_select ON integration_idempotency_key
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_external_refs_select ON integration_external_refs
   FOR SELECT TO authenticated
   USING (
@@ -383,7 +347,6 @@ CREATE POLICY integration_external_refs_select ON integration_external_refs
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_launches_select ON integration_launches
   FOR SELECT TO authenticated
   USING (
@@ -396,7 +359,6 @@ CREATE POLICY integration_launches_select ON integration_launches
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_events_outbox_select ON integration_events_outbox
   FOR SELECT TO authenticated
   USING (
@@ -409,7 +371,6 @@ CREATE POLICY integration_events_outbox_select ON integration_events_outbox
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_webhook_endpoints_select ON integration_webhook_endpoints
   FOR SELECT TO authenticated
   USING (
@@ -422,7 +383,6 @@ CREATE POLICY integration_webhook_endpoints_select ON integration_webhook_endpoi
         AND c.partner_id = ANY(auth_user_partner_ids())
     )
   );
-
 CREATE POLICY integration_webhook_deliveries_select ON integration_webhook_deliveries
   FOR SELECT TO authenticated
   USING (

@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { getReportAccessTokenSecret } from '@/lib/reports/token-secrets'
 
 interface ReportAccessTokenPayload {
   purpose: 'report_access'
@@ -7,24 +8,8 @@ interface ReportAccessTokenPayload {
   exp: number
 }
 
-function getSigningSecret() {
-  const secret =
-    process.env.REPORT_ACCESS_TOKEN_SECRET ??
-    process.env.REPORT_PDF_TOKEN_SECRET ??
-    process.env.TRAJECTAS_CONTEXT_SECRET ??
-    process.env.INTERNAL_API_KEY
-
-  if (!secret) {
-    throw new Error(
-      'REPORT_ACCESS_TOKEN_SECRET (or REPORT_PDF_TOKEN_SECRET / TRAJECTAS_CONTEXT_SECRET / INTERNAL_API_KEY) must be set for report access token signing.'
-    )
-  }
-
-  return secret
-}
-
 function signPayload(payload: string) {
-  return createHmac('sha256', getSigningSecret())
+  return createHmac('sha256', getReportAccessTokenSecret())
     .update(payload)
     .digest('base64url')
 }
