@@ -49,6 +49,8 @@ import {
   bulkReportIdsSchema,
   bulkSetReportTemplateActiveSchema,
   bulkUpdateReportStatusSchema,
+  toggleReportTemplateActiveSchema,
+  toggleReportTemplateDefaultSchema,
 } from '@/lib/validations/reports'
 import {
   seedAssessmentPreview,
@@ -407,8 +409,8 @@ export async function toggleReportTemplateActive(
   id: string,
   isActive: boolean,
 ): Promise<void> {
-  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
-  if (typeof isActive !== 'boolean') throw new Error('isActive must be a boolean')
+  const parsed = toggleReportTemplateActiveSchema.safeParse({ id, isActive })
+  if (!parsed.success) throw new Error('Invalid input')
   await requireReportTemplateAccess(id, { forWrite: true })
   const db = createAdminClient()
   const { error } = await db
@@ -429,8 +431,8 @@ export async function toggleReportTemplateDefault(
   id: string,
   isDefault: boolean,
 ): Promise<void> {
-  if (!postgresUuid().safeParse(id).success) throw new Error('Invalid template ID')
-  if (typeof isDefault !== 'boolean') throw new Error('isDefault must be a boolean')
+  const parsed = toggleReportTemplateDefaultSchema.safeParse({ id, isDefault })
+  if (!parsed.success) throw new Error('Invalid input')
   await requireReportTemplateAccess(id, { forWrite: true })
   const db = createAdminClient()
 
