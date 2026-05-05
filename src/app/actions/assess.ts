@@ -264,6 +264,7 @@ export const validateAccessToken = cache(validateAccessTokenImpl)
 export async function getAssessmentItemCount(assessmentIds: string[]): Promise<number> {
   const parsed = getAssessmentItemCountSchema.safeParse({ assessmentIds })
   if (!parsed.success) return 0
+
   if (assessmentIds.length === 0) return 0
   const db = createAdminClient()
   const { data: sections } = await db
@@ -1251,7 +1252,7 @@ export async function submitSession(
 ): Promise<SubmitSessionResult> {
   const parsed = submitSessionSchema.safeParse({ token, sessionId })
   if (!parsed.success) {
-    return { ok: false, error: 'invalid_access', message: 'Invalid input' }
+    return { ok: false, error: 'invalid_access', message: 'Invalid session parameters' }
   }
 
   let access: Awaited<ReturnType<typeof requireParticipantRuntimeSessionAccess>>
@@ -1355,7 +1356,7 @@ export async function triggerReportGeneration(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const parsed = triggerReportGenerationSchema.safeParse({ sessionId })
   if (!parsed.success) {
-    return { ok: false, error: 'Invalid input' }
+    return { ok: false, error: 'Invalid session ID' }
   }
 
   const apiKey = process.env.INTERNAL_API_KEY
@@ -1501,7 +1502,7 @@ export async function registerViaLink(
 ) {
   const parsed = registerViaLinkSchema.safeParse({ linkToken, email, firstName, lastName, jobTitle, company, marketingConsent })
   if (!parsed.success) {
-    return { error: 'Invalid input' }
+    return { error: 'Invalid registration data' }
   }
 
   const db = createAdminClient()
