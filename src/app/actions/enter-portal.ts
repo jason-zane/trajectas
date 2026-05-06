@@ -6,6 +6,11 @@ import { logAuditEvent, startSupportSession } from "@/lib/auth/support-sessions"
 import { buildSurfaceUrl } from "@/lib/hosts";
 import { logActionError } from "@/lib/security/action-errors";
 import type { Surface } from "@/lib/surfaces";
+import {
+  logSupportSessionPageViewSchema,
+  enterPortalLaunchUrlSchema,
+  endSupportSessionSchema,
+} from "@/lib/validations/enter-portal";
 
 // ---------------------------------------------------------------------------
 // Page-level audit logging for support session data access
@@ -36,6 +41,11 @@ export async function logSupportSessionPageView(
   actorId: string,
   path: string
 ): Promise<void> {
+  const parsed = logSupportSessionPageViewSchema.safeParse({ sessionId, actorId, path })
+  if (!parsed.success) {
+    return
+  }
+
   const store = getPageViewDebounceStore();
   const key = `${sessionId}:${path}`;
   const now = Date.now();
@@ -75,6 +85,11 @@ export async function createEnterPortalLaunchUrl(input: {
   tenantType: "client" | "partner";
   tenantId: string;
 }): Promise<{ success: true; launchUrl: string } | { error: string }> {
+  const parsed = enterPortalLaunchUrlSchema.safeParse(input)
+  if (!parsed.success) {
+    return { error: "Invalid input." }
+  }
+
   try {
     const scope = await requireAdminScope();
 
@@ -132,6 +147,11 @@ export async function createEnterPortalLaunchUrl(input: {
 export async function endSupportSession(
   sessionId: string
 ): Promise<{ success: true } | { error: string }> {
+  const parsed = endSupportSessionSchema.safeParse({ sessionId })
+  if (!parsed.success) {
+    return { error: "Invalid input." }
+  }
+
   try {
     await requireAdminScope();
 
