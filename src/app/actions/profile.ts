@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { updateDisplayNameSchema } from '@/lib/validations/profile'
 
 export interface UpdateProfileResult {
   success?: boolean
@@ -12,6 +13,12 @@ export interface UpdateProfileResult {
 export async function updateDisplayName(
   displayName: string
 ): Promise<UpdateProfileResult> {
+  const parsed = updateDisplayNameSchema.safeParse({ displayName })
+  if (!parsed.success) {
+    const errors = parsed.error.flatten().fieldErrors
+    return { error: errors.displayName?.[0] ?? 'Invalid display name' }
+  }
+
   const supabase = await createServerSupabaseClient()
   const {
     data: { user },
