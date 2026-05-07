@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ArrowRight, RotateCcw, Check, Clock } from "lucide-react";
@@ -37,6 +38,10 @@ export function WelcomeScreen({
   termsUrl,
 }: WelcomeScreenProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    router.prefetch(nextUrl);
+  }, [router, nextUrl]);
 
   function handleBegin() {
     router.push(nextUrl);

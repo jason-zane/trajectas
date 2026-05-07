@@ -23,18 +23,21 @@ export default async function CompletePage({
     const result = await validateAccessToken(token);
     if (result.data?.campaign) {
       campaignId = result.data.campaign.id;
-      brandConfig = await getCachedEffectiveBrand(
-        result.data.campaign.clientId,
-        result.data.campaign.id,
+      // Auto-submit any in-progress session — handles the case where the review
+      // page is disabled and submitSession was never triggered by review-screen.
+      const inProgressSession = result.data?.sessions?.find(
+        (s) => s.status === "in_progress",
       );
-    }
-    // Auto-submit any in-progress session — handles the case where the review
-    // page is disabled and submitSession was never triggered by review-screen.
-    const inProgressSession = result.data?.sessions?.find(
-      (s) => s.status === "in_progress",
-    );
-    if (inProgressSession) {
-      await submitSession(token, inProgressSession.id).catch(() => {});
+      const [brand] = await Promise.all([
+        getCachedEffectiveBrand(
+          result.data.campaign.clientId,
+          result.data.campaign.id,
+        ),
+        inProgressSession
+          ? submitSession(token, inProgressSession.id).catch(() => {})
+          : undefined,
+      ]);
+      brandConfig = brand;
     }
   } catch {
     // Fall through — brandConfig stays null, resolved below.

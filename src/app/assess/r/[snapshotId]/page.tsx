@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ReportRenderer } from "@/components/reports/report-renderer";
+import { LazyReportRenderer } from "@/components/reports/lazy-report-renderer";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapReportSnapshotRow } from "@/lib/supabase/mappers";
 import { verifyReportAccessToken } from "@/lib/reports/report-access-token";
@@ -81,7 +81,7 @@ export default async function ReportByTokenPage({
       </div>
       <div className="space-y-8">
         <Suspense>
-          <ReportRenderer blocks={blocks} />
+          <LazyReportRenderer blocks={blocks} />
         </Suspense>
       </div>
     </div>

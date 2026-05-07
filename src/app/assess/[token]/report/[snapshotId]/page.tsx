@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ReportRenderer } from '@/components/reports/report-renderer'
+import { LazyReportRenderer } from '@/components/reports/lazy-report-renderer'
 import { getParticipantReportSnapshot } from '@/app/actions/assess'
 import { buildSurfaceUrl } from '@/lib/hosts'
 import type { ResolvedBlockData } from '@/lib/reports/types'
@@ -38,7 +38,7 @@ export default async function ParticipantReportPage({ params }: Props) {
       </div>
       <div className="space-y-8">
         <Suspense>
-          <ReportRenderer blocks={blocks} />
+          <LazyReportRenderer blocks={blocks} />
         </Suspense>
       </div>
     </div>

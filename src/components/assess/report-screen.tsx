@@ -8,6 +8,7 @@ function ensureAbsoluteUrl(url: string): string {
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   CheckCircle2,
   Clock,
@@ -15,9 +16,27 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
 import type { ResolvedBlockData } from "@/lib/reports/types";
+
+const ReportRenderer = dynamic(
+  () =>
+    import("@/components/reports/report-renderer").then(
+      (mod) => mod.ReportRenderer,
+    ),
+  {
+    loading: () => (
+      <div className="space-y-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-24 animate-pulse rounded-xl bg-muted/30"
+          />
+        ))}
+      </div>
+    ),
+  },
+);
 
 interface ReportScreenProps {
   content: ReportContent;

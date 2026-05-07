@@ -178,6 +178,15 @@ export function SectionWrapper({
     };
   }, [flushProgress, sessionId, token]);
 
+  // Prefetch the next navigation target so section transitions are instant.
+  useEffect(() => {
+    if (sectionIndex < totalSections - 1) {
+      router.prefetch(`/assess/${token}/section/${sectionIndex + 1}`);
+    } else {
+      router.prefetch(postAssessmentUrl);
+    }
+  }, [router, token, sectionIndex, totalSections, postAssessmentUrl]);
+
   const currentItem = section.items[localItemIndex];
   const globalIndex = sectionStartGlobal + localItemIndex;
   const responseFormatType = section.responseFormatType;
