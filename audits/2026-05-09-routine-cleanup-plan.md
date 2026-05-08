@@ -164,9 +164,16 @@ After all PRs merged and migrations applied:
 - Error boundary added (Phase 1 already covered).
 - Validation backfilled: 16 files via merged routine PRs + 3 directly in branch = 19 of the original 20 unvalidated files now have Zod validation.
 
-**Phase 4 — BLOCKED**
-- Production database queries (read or migration) require explicit per-target user authorization in this harness. Phase 4 (RLS policies, SECURITY DEFINER lockdown, search_path fix, citext schema move, perf migrations) cannot proceed without that approval.
-- Findings remain documented in the plan above.
+**Phase 4 — applied to production after explicit user approval**
+- Migrations recorded as committed files:
+  - `supabase/migrations/20260508214400_phase4_security_hardening.sql` — 4.1, 4.2, 4.3, 4.4, 4.5
+  - `supabase/migrations/20260508214500_phase4_fk_indexes.sql` — 4.7b
+- Security advisor: 51 → 13 findings.
+  - Cleared: 5 rls_enabled_no_policy, 12 function_search_path_mutable, 1 extension_in_public, 11 anon_security_definer, 3 rls_policy_always_true, 6 redundant authenticated permissive policies on campaign_report_templates.
+  - Accepted: 12 authenticated_security_definer (functions are needed inside RLS — only return the caller's own scope info).
+  - Manual: 1 auth_leaked_password_protection (Auth dashboard toggle, not SQL).
+- Performance advisor: unindexed_foreign_keys 38 → 0. The 38 new indexes show as unused_index until they receive query traffic; expected to drain over time.
+- Deferred (not done): 4.7a auth.uid() rewrites in 77 RLS policies (per-policy review needed; risk of breaking complex predicates), 4.7c drop_unused_indexes (need traffic-based confirmation), 4.7d consolidate multiple permissive policies (216 — needs careful per-table review).
 
 **Phase 5 — done (locally)**
 - After post-merge cleanup, 575/575 unit + component + architecture tests pass. Lint clean. Typecheck clean. Build clean.
