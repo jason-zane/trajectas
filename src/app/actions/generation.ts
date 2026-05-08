@@ -557,7 +557,7 @@ export async function acceptGeneratedItems(
         reverse_scored: item.reverseScored,
         weight: 1.0,
         status: 'draft',
-        display_order: count + 1,
+        display_order: (count ?? 0) + 1,
         keyed_answer: null,
       })
       .select('id')
