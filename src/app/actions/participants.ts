@@ -17,6 +17,13 @@ import {
 } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
+import { postgresUuid } from '@/lib/validations/uuid'
+import {
+  getParticipantsFiltersSchema,
+  getUniqueParticipantsFiltersSchema,
+  bulkParticipantIdsSchema,
+  bulkUpdateParticipantStatusSchema,
+} from '@/lib/validations/participants'
 import type {
   CampaignParticipant,
   CampaignParticipantStatus,
@@ -116,6 +123,8 @@ export async function getParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: ParticipantWithMeta[]; total: number }> {
+  const parsed = getParticipantsFiltersSchema.safeParse(filters ?? {})
+  if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
   const page = filters?.page ?? 1
@@ -207,6 +216,8 @@ export async function getUniqueParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: UniqueParticipant[]; total: number }> {
+  const parsed = getUniqueParticipantsFiltersSchema.safeParse(filters ?? {})
+  if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
   const page = filters?.page ?? 1
@@ -303,6 +314,7 @@ export async function getUniqueParticipants(filters?: {
 // ---------------------------------------------------------------------------
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
+  if (!postgresUuid().safeParse(id).success) return null
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
     access = await requireParticipantAccess(id)
@@ -360,6 +372,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 // ---------------------------------------------------------------------------
 
 export async function getParticipantSessions(participantId: string): Promise<ParticipantSession[]> {
+  if (!postgresUuid().safeParse(participantId).success) return []
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
     access = await requireParticipantAccess(participantId)
@@ -448,6 +461,7 @@ export async function getParticipantSessions(participantId: string): Promise<Par
 // ---------------------------------------------------------------------------
 
 export async function getParticipantActivity(participantId: string): Promise<ActivityEvent[]> {
+  if (!postgresUuid().safeParse(participantId).success) return []
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
     access = await requireParticipantAccess(participantId)
@@ -549,6 +563,7 @@ export async function getParticipantActivity(participantId: string): Promise<Act
 // ---------------------------------------------------------------------------
 
 export async function getParticipantResponses(sessionId: string): Promise<ParticipantResponseGroup[]> {
+  if (!postgresUuid().safeParse(sessionId).success) return []
   let access: Awaited<ReturnType<typeof requireSessionAccess>>
   try {
     access = await requireSessionAccess(sessionId)
@@ -672,6 +687,8 @@ async function assertCanManageParticipants(ids: string[]): Promise<void> {
 
 export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkParticipantIdsSchema.safeParse({ ids })
+  if (!parsed.success) throw new Error('Invalid input')
   await assertCanManageParticipants(ids)
   const db = createAdminClient()
   const { error } = await db
@@ -689,6 +706,8 @@ export async function bulkUpdateParticipantStatus(
   status: CampaignParticipantStatus
 ): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkUpdateParticipantStatusSchema.safeParse({ ids, status })
+  if (!parsed.success) throw new Error('Invalid input')
   await assertCanManageParticipants(ids)
   const db = createAdminClient()
   const { error } = await db
