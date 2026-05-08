@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { logActionError } from '@/lib/security/action-errors'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
 import {
@@ -1047,19 +1048,24 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
     insertedDimensionIds: string[]
   }) => {
     if (state.factorLinkFactorIds.length > 0) {
-      await db.from('factor_constructs').delete().in('factor_id', state.factorLinkFactorIds)
+      const { error } = await db.from('factor_constructs').delete().in('factor_id', state.factorLinkFactorIds)
+      if (error) logActionError('rollback', error)
     }
     if (state.insertedItemIds.length > 0) {
-      await db.from('items').delete().in('id', state.insertedItemIds)
+      const { error } = await db.from('items').delete().in('id', state.insertedItemIds)
+      if (error) logActionError('rollback', error)
     }
     if (state.insertedConstructIds.length > 0) {
-      await db.from('constructs').delete().in('id', state.insertedConstructIds)
+      const { error } = await db.from('constructs').delete().in('id', state.insertedConstructIds)
+      if (error) logActionError('rollback', error)
     }
     if (state.insertedFactorIds.length > 0) {
-      await db.from('factors').delete().in('id', state.insertedFactorIds)
+      const { error } = await db.from('factors').delete().in('id', state.insertedFactorIds)
+      if (error) logActionError('rollback', error)
     }
     if (state.insertedDimensionIds.length > 0) {
-      await db.from('dimensions').delete().in('id', state.insertedDimensionIds)
+      const { error } = await db.from('dimensions').delete().in('id', state.insertedDimensionIds)
+      if (error) logActionError('rollback', error)
     }
   }
 

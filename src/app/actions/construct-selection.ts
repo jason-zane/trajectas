@@ -14,10 +14,14 @@ export async function getConstructSelectionForCampaignAssessment(
   campaignAssessmentId: string,
 ): Promise<{ isCustom: boolean; selectedConstructIds: string[] }> {
   const db = await createClient()
-  const { data } = await db
+  const { data, error } = await db
     .from('campaign_assessment_constructs')
     .select('construct_id')
     .eq('campaign_assessment_id', campaignAssessmentId)
+
+  if (error) {
+    throwActionError('getConstructSelectionForCampaignAssessment', 'Failed to load construct selection.', error)
+  }
 
   if (!data || data.length === 0) {
     return { isCustom: false, selectedConstructIds: [] }
@@ -79,10 +83,14 @@ export async function getConstructsForAssessment(assessmentId: string): Promise<
 
   // Load dimension names
   const dimIds = [...new Set(dimensionMap.values())]
-  const { data: dimRows } =
+  const dimResult =
     dimIds.length > 0
       ? await db.from('dimensions').select('id, name').in('id', dimIds)
-      : { data: [] }
+      : { data: [], error: null }
+  if (dimResult.error) {
+    throwActionError('getConstructsForAssessment', 'Failed to load dimensions.', dimResult.error)
+  }
+  const dimRows = dimResult.data
 
   const dimNameMap = new Map<string, string>()
   for (const d of dimRows ?? []) {
