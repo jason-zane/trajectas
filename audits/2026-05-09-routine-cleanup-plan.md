@@ -140,4 +140,51 @@ After all PRs merged and migrations applied:
 
 ## Appendix — running progress log
 
-(filled in as phases complete)
+### 2026-05-09 — execution session
+
+**Phase 1 — done (merged in #91)**
+- Login Lambda regression #3 fixed: `email/render.ts` now dynamic-imports `EmailBrandFrame` alongside `@react-email/components` and `@maily-to/render`. Static-graph audit verified clean.
+- `npm audit` cleared all 7 advisories: `@anthropic-ai/sdk` `^0.89.0` → `^0.95.1`; `uuid` `^13.0.0` → `^14.0.0`; overrides for `basic-ftp` (`^6.0.1`), `ip-address` (`^10.2.0`), `postcss` (`^8.5.10`), `uuid` (`^14.0.0`).
+- Build was ALSO failing (the real cause of "Build: Failing" in the last 3 weekly reports — masked by the `security` job blocking `quality`): `/assess/expired` and `/assess/report-expired` were trying to prerender at build time and hitting Supabase admin without env vars. Fixed by `export const dynamic = "force-dynamic"` on the assess layout.
+- Lifted `scoring/pipeline.ts` coverage above thresholds (78% → 100% / 76% → 98% / 62% → 86%) by adding 4 tests.
+- Added `error.tsx` for `/assess/[token]/section/[sectionIndex]/` (matches PR #86 work).
+- Added Zod validation to 3 action files in this branch: `profile.ts`, `enter-portal.ts`, `sessions.ts`.
+
+**Phase 2 — done**
+- 11 PRs closed as duplicates/superseded: #10, #36, #49, #70, #48, #46, #28, #86, #88, #90, #56.
+- 29 routine PRs merged in batch on top of #91:
+  - 15 error-handling PRs: #87, #85, #83, #81, #78, #76, #74, #71, #68, #66, #60, #57, #55, #53, #35, #13, #9.
+  - 13 validation PRs: #84, #82, #79, #77, #75, #72, #67, #61, #54, #51, #47, #29.
+  - 1 test coverage PR: #58 (scoring/transforms.ts).
+- 2 PRs closed due to merge conflicts after the batch: #50 (assess.ts errors), #14 (assessments.ts errors). The Supabase Error Handling routine had already reported "0 unchecked errors" in health report #80, so these are likely no-ops.
+- 5 stale issues closed: #12, #52, #73 (duplicate baselines), #30, #59 (old health reports).
+- Open PR #92 (this branch's post-merge cleanup) created.
+
+**Phase 3 — done**
+- Error boundary added (Phase 1 already covered).
+- Validation backfilled: 16 files via merged routine PRs + 3 directly in branch = 19 of the original 20 unvalidated files now have Zod validation.
+
+**Phase 4 — BLOCKED**
+- Production database queries (read or migration) require explicit per-target user authorization in this harness. Phase 4 (RLS policies, SECURITY DEFINER lockdown, search_path fix, citext schema move, perf migrations) cannot proceed without that approval.
+- Findings remain documented in the plan above.
+
+**Phase 5 — done (locally)**
+- After post-merge cleanup, 575/575 unit + component + architecture tests pass. Lint clean. Typecheck clean. Build clean.
+- Dev server smoke test on localhost:3003 — all 13 critical paths return HTTP 200 (`/`, `/login`, `/assess/expired`, `/assess/report-expired`, `/dashboard`, `/campaigns`, `/items`, `/factors`, `/dimensions`, `/constructs`, `/reports`, `/clients`, `/profile`). No errors in dev log.
+- e2e-smoke job passed in CI for #91.
+
+**Net change to the routine backlog**
+- Started: 43 open `claude/*` PRs, 7 stale issues.
+- Finished: 1 open PR (#92, this branch), 2 issues kept (latest of each type).
+
+**Post-merge regressions caught and fixed in #92**
+- `campaigns.ts:285-289` — unreachable `logActionError` calls after early return; reordered.
+- `campaigns.ts:1427-1429` — stale reference to undefined `updateInvitedAtError`; removed.
+- `generation.ts:560` — `count` from Supabase is nullable; added `?? 0`.
+- `tests/unit/client-entitlements.test.ts` and `factor-selection.test.ts` — short test IDs (`"org-1"`, `"ca-1"`) rejected by new `postgresUuid()` schemas; replaced with deterministic valid UUIDs.
+
+### What still needs explicit user approval
+
+1. **Production DB hardening (Phase 4)** — 51 security advisor findings (5 RLS-no-policy tables, 12 mutable search_path, 13 SECURITY DEFINER funcs callable by anon, citext in public, leaked-password protection disabled), 400 perf advisor findings (77 `auth.uid()` not wrapped, 38 unindexed FKs, 216 multiple-permissive policies, 69 unused indexes).
+2. **Routine retirement** — once #92 merges, the user can disable the 8 active routines at https://claude.ai/code/routines. The Login Lambda one-time audit (May 14) is now redundant — the regression it was looking for is already fixed in main.
+
