@@ -83,11 +83,13 @@ export async function getDefaultModelIdForPurpose(
   await requireAdminScope()
   const supabase = createAdminClient()
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('ai_model_configs')
     .select('model_id')
     .eq('purpose', purpose)
     .single()
+
+  if (error) throw new Error(error.message)
 
   return (data?.model_id as string | undefined) ?? null
 }
@@ -129,11 +131,13 @@ export async function applyModelToAllPurposes(
   // Upsert all text purposes in parallel
   const results = await Promise.all(
     TEXT_PURPOSES.map(async (purpose) => {
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from('ai_model_configs')
         .select('id, config')
         .eq('purpose', purpose)
         .maybeSingle()
+
+      if (existingError) throw new Error(existingError.message)
 
       const payload = {
         provider_id: provider.id as string,
@@ -186,11 +190,13 @@ export async function updateModelForPurpose(
     return { error: 'OpenRouter provider not found in database' }
   }
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('ai_model_configs')
     .select('id, config')
     .eq('purpose', purpose)
     .maybeSingle()
+
+  if (existingError) return { error: existingError.message }
 
   const nextConfig =
     config ??
