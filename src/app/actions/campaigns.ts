@@ -282,6 +282,7 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
     ])
 
   if (!header) return null
+  if (assessmentResult.error || participantResult.error || linkResult.error) return null
 
   if (assessmentResult.error) logActionError('getCampaignByIdImpl', assessmentResult.error)
   if (participantResult.error) logActionError('getCampaignByIdImpl', participantResult.error)
@@ -394,11 +395,11 @@ export async function createCampaign(payload: Record<string, unknown>) {
     .is('deleted_at', null)
 
   if (defaultsError) {
-    logActionError('createCampaign', defaultsError)
+    logActionError('createCampaign.defaults', defaultsError)
   }
 
   if (defaults && defaults.length > 0) {
-    const { error: templatesInsertError } = await db
+    const { error: templateInsertError } = await db
       .from('campaign_report_templates')
       .insert(
         defaults.map((t, i) => ({
@@ -407,8 +408,9 @@ export async function createCampaign(payload: Record<string, unknown>) {
           sort_order: i,
         }))
       )
-    if (templatesInsertError) {
-      logActionError('createCampaign', templatesInsertError)
+
+    if (templateInsertError) {
+      logActionError('createCampaign.reportTemplates', templateInsertError)
     }
   }
 
@@ -921,7 +923,7 @@ export async function activateCampaign(id: string) {
 
   if (linkedAssessmentsError) {
     logActionError('activateCampaign', linkedAssessmentsError)
-    return { error: 'Unable to activate campaign.' }
+    return { error: 'Unable to check campaign readiness.' }
   }
 
   if (!linkedAssessments || linkedAssessments.length === 0) {
@@ -936,7 +938,7 @@ export async function activateCampaign(id: string) {
 
   if (participantCountError) {
     logActionError('activateCampaign', participantCountError)
-    return { error: 'Unable to activate campaign.' }
+    return { error: 'Unable to check campaign readiness.' }
   }
 
   const { count: linkCount, error: linkCountError } = await db
@@ -947,7 +949,7 @@ export async function activateCampaign(id: string) {
 
   if (linkCountError) {
     logActionError('activateCampaign', linkCountError)
-    return { error: 'Unable to activate campaign.' }
+    return { error: 'Unable to check campaign readiness.' }
   }
 
   if ((!participantCount || participantCount === 0) && (!linkCount || linkCount === 0)) {
@@ -1281,7 +1283,7 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
 
     if (campaignAssessmentsError) {
       logActionError('inviteParticipant', campaignAssessmentsError)
-      return { error: { _form: ['Unable to invite participant.'] } }
+      return { error: { _form: ['Unable to verify quota.'] } }
     }
 
     const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
@@ -1421,6 +1423,10 @@ export async function sendParticipantInviteEmail(
       .eq('id', participantId)
     if (invitedAtError) {
       logActionError('sendParticipantInviteEmail', invitedAtError)
+    }
+
+    if (updateInvitedAtError) {
+      logActionError('sendParticipantInviteEmail', updateInvitedAtError)
     }
 
     revalidatePath(`/campaigns/${campaignId}`)
