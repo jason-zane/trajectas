@@ -10,6 +10,10 @@ import {
   getParticipantAccessError,
 } from '@/lib/assess/access'
 import {
+  PARTICIPANT_COMPLETABLE_STATUSES,
+  PARTICIPANT_STARTABLE_STATUSES,
+} from '@/lib/assess/participant-status'
+import {
   ParticipantRuntimeAccessError,
   requireParticipantRuntimeCampaignAssessmentAccess,
   requireParticipantRuntimeSessionAccess,
@@ -132,6 +136,25 @@ type SnapshotStatusRow = {
   id: string
   template_id: string
   status: ReportSnapshotStatus
+}
+
+async function markCampaignParticipantStarted(
+  db: ReturnType<typeof createAdminClient>,
+  campaignParticipantId: string,
+  startedAt: string,
+) {
+  const { error } = await db
+    .from('campaign_participants')
+    .update({
+      status: 'in_progress',
+      started_at: startedAt,
+    })
+    .eq('id', campaignParticipantId)
+    .in('status', PARTICIPANT_STARTABLE_STATUSES)
+
+  if (error) {
+    logActionError('startSession.participantStatus', error)
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +306,7 @@ export async function startSession(
   }
 
   const db = createAdminClient()
+  const startedAt = new Date().toISOString()
 
   // Check for existing session
   const { data: existing } = await db
@@ -293,6 +317,7 @@ export async function startSession(
     .single()
 
   if (existing) {
+    await markCampaignParticipantStarted(db, campaignParticipantId, startedAt)
     return { id: existing.id }
   }
 
@@ -305,7 +330,7 @@ export async function startSession(
       campaign_participant_id: campaignParticipantId,
       status: 'in_progress',
       processing_status: 'idle',
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
     })
     .select('id')
     .single()
@@ -316,14 +341,7 @@ export async function startSession(
   }
 
   // Update participant status to in_progress
-  await db
-    .from('campaign_participants')
-    .update({
-      status: 'in_progress',
-      started_at: new Date().toISOString(),
-    })
-    .eq('id', campaignParticipantId)
-    .eq('status', 'invited')
+  await markCampaignParticipantStarted(db, campaignParticipantId, startedAt)
 
   return { id: session.id }
 }
@@ -1050,7 +1068,7 @@ async function finalizeCompletedSessionProcessing(input: {
     allDone = [...requiredIds].every((id) => completedIds.has(id))
 
     if (allDone) {
-      await db
+      const { error: participantUpdateError } = await db
         .from('campaign_participants')
         .update({
           status: 'completed',
@@ -1058,7 +1076,11 @@ async function finalizeCompletedSessionProcessing(input: {
           access_token: crypto.randomBytes(32).toString('hex'),
         })
         .eq('id', input.campaignParticipantId)
-        .eq('status', 'in_progress') // Idempotency: only rotate if not already completed
+        .in('status', PARTICIPANT_COMPLETABLE_STATUSES)
+
+      if (participantUpdateError) {
+        logActionError('submitSession.participantStatus', participantUpdateError)
+      }
     }
 
     if (input.emitAssessmentCompletedEvent && input.assessmentId) {
