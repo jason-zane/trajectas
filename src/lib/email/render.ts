@@ -16,8 +16,15 @@
  */
 
 import React from 'react'
-import { EmailBrandFrame } from './brand-frame'
 import { escapeHtml, stripLineBreaks } from '@/lib/security/escape-html'
+
+// NB: `EmailBrandFrame` is intentionally NOT statically imported.
+// `brand-frame.tsx` top-level imports `@react-email/components`, which is
+// heavy and would re-enter the static module graph of any Lambda that
+// transitively imports this file (the login Lambda does, via auth/otp →
+// email/send → email/render). That caused login cold-start 500s twice
+// before (commit 68ffe8e and the 2026-04-30 split-file fix). Keep this
+// import dynamic.
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,12 +88,14 @@ export async function renderEmailHtml(
 ): Promise<{ html: string; text: string }> {
   const { editorJson, variables, brand, previewText } = options
 
-  // Dynamic imports keep these heavy modules (maily, react-email) out of the
-  // module graph at load time — they're only resolved when email rendering is
-  // actually needed, preventing cold-start failures in unrelated Lambdas.
-  const [{ Maily }, { render }] = await Promise.all([
+  // Dynamic imports keep these heavy modules (maily, react-email, and the
+  // brand-frame component which itself imports react-email) out of the
+  // module graph at load time — they're only resolved when email rendering
+  // is actually needed, preventing cold-start failures in unrelated Lambdas.
+  const [{ Maily }, { render }, { EmailBrandFrame }] = await Promise.all([
     import('@maily-to/render'),
     import('@react-email/components'),
+    import('./brand-frame'),
   ])
 
   // Step 1: Render Maily editor JSON to body HTML with variables resolved.

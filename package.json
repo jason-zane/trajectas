@@ -29,7 +29,7 @@
     "db:test:stop": "npx supabase stop"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.89.0",
+    "@anthropic-ai/sdk": "^0.95.1",
     "@base-ui/react": "^1.3.0",
     "@dnd-kit/helpers": "^0.3.2",
     "@dnd-kit/react": "^0.3.2",
@@ -68,7 +68,7 @@
     "standardwebhooks": "^1.0.0",
     "tailwind-merge": "^3.5.0",
     "tw-animate-css": "^1.4.0",
-    "uuid": "^13.0.0",
+    "uuid": "^14.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -91,5 +91,11 @@
     "typescript": "^5",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.2"
+  },
+  "overrides": {
+    "basic-ftp": "^6.0.1",
+    "ip-address": "^10.2.0",
+    "postcss": "^8.5.10",
+    "uuid": "^14.0.0"
   }
 }
