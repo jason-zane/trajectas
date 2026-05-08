@@ -282,11 +282,10 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
     ])
 
   if (!header) return null
-  if (assessmentResult.error || participantResult.error || linkResult.error) return null
-
   if (assessmentResult.error) logActionError('getCampaignByIdImpl', assessmentResult.error)
   if (participantResult.error) logActionError('getCampaignByIdImpl', participantResult.error)
   if (linkResult.error) logActionError('getCampaignByIdImpl', linkResult.error)
+  if (assessmentResult.error || participantResult.error || linkResult.error) return null
 
   const assessmentRows = assessmentResult.data
   const participantRows = participantResult.data
@@ -1423,10 +1422,6 @@ export async function sendParticipantInviteEmail(
       .eq('id', participantId)
     if (invitedAtError) {
       logActionError('sendParticipantInviteEmail', invitedAtError)
-    }
-
-    if (updateInvitedAtError) {
-      logActionError('sendParticipantInviteEmail', updateInvitedAtError)
     }
 
     revalidatePath(`/campaigns/${campaignId}`)
