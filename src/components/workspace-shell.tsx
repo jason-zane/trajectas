@@ -84,6 +84,7 @@ export async function WorkspaceShell({
     brandConfig,
     supportSessionInfo,
   } = bootstrap;
+
   const dashboardCSS = generateDashboardCSS(brandConfig);
   const identity = await resolveSidebarIdentity(bootstrap);
 
