@@ -52,10 +52,10 @@ export default async function CampaignOverviewPage({
       />
 
       {campaign.assessments.length === 0 && (
-        <Alert className="border-amber-500/30 bg-amber-500/[0.08] text-amber-900">
-          <AlertTriangle className="size-4 text-amber-600" />
+        <Alert variant="warning">
+          <AlertTriangle className="size-4" />
           <AlertTitle>No assessments attached</AlertTitle>
-          <AlertDescription className="text-amber-800/90">
+          <AlertDescription>
             This campaign has no assessments. If you activate it now, participants will have nothing to complete.
           </AlertDescription>
         </Alert>
