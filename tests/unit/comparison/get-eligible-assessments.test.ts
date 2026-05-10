@@ -46,7 +46,7 @@ describe('getEligibleAssessmentsForParticipants', () => {
         { assessment_id: 'a2', status: 'completed', assessments: { id: 'a2', title: 'Behavioural' } },
       ]),
     )
-    const result = await getEligibleAssessmentsForParticipants(['cp1', 'cp2'])
+    const result = await getEligibleAssessmentsForParticipants(['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'])
     expect(result).toEqual([
       { assessmentId: 'a2', assessmentName: 'Behavioural', completedSessionCount: 1 },
       { assessmentId: 'a1', assessmentName: 'Cognitive', completedSessionCount: 2 },
@@ -60,28 +60,28 @@ describe('getEligibleAssessmentsForParticipants', () => {
         { assessment_id: 'a2', status: 'completed', assessments: { id: 'a2', title: 'Behavioural' } },
       ]),
     )
-    const result = await getEligibleAssessmentsForParticipants(['cp1'])
+    const result = await getEligibleAssessmentsForParticipants(['11111111-1111-1111-1111-111111111111'])
     expect(result.map((r) => r.assessmentId)).toEqual(['a2'])
   })
 
   it('authorizes every participant id before querying', async () => {
     fromMock.mockReturnValue(selectChain([]))
-    await getEligibleAssessmentsForParticipants(['cp1', 'cp2', 'cp3'])
+    await getEligibleAssessmentsForParticipants(['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222', '33333333-3333-3333-3333-333333333333'])
     expect(requireParticipantAccess).toHaveBeenCalledTimes(3)
-    expect(requireParticipantAccess).toHaveBeenCalledWith('cp1')
-    expect(requireParticipantAccess).toHaveBeenCalledWith('cp3')
+    expect(requireParticipantAccess).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111')
+    expect(requireParticipantAccess).toHaveBeenCalledWith('33333333-3333-3333-3333-333333333333')
   })
 
   it('propagates an authorization rejection', async () => {
     requireParticipantAccess.mockRejectedValueOnce(new Error('Unauthorized'))
     await expect(
-      getEligibleAssessmentsForParticipants(['cp1']),
+      getEligibleAssessmentsForParticipants(['11111111-1111-1111-1111-111111111111']),
     ).rejects.toThrow('Unauthorized')
     expect(fromMock).not.toHaveBeenCalled()
   })
 
   it('throws when the DB returns an error', async () => {
     fromMock.mockReturnValue(selectChain(null, { message: 'boom' }))
-    await expect(getEligibleAssessmentsForParticipants(['cp1'])).rejects.toBeTruthy()
+    await expect(getEligibleAssessmentsForParticipants(['11111111-1111-1111-1111-111111111111'])).rejects.toBeTruthy()
   })
 })

@@ -36,7 +36,7 @@ describe('getSessionOptionsForRow', () => {
   })
 
   it('returns an empty list when no assessmentIds are passed without authorising', async () => {
-    const result = await getSessionOptionsForRow('cp1', [])
+    const result = await getSessionOptionsForRow('11111111-1111-1111-1111-111111111111', [])
     expect(result).toEqual([])
     expect(requireParticipantAccess).not.toHaveBeenCalled()
     expect(fromMock).not.toHaveBeenCalled()
@@ -50,7 +50,10 @@ describe('getSessionOptionsForRow', () => {
         { id: 's3', assessment_id: 'a2', started_at: '2026-04-03T00:00:00Z', status: 'completed', assessments: { title: 'Beh' } },
       ]),
     )
-    const result = await getSessionOptionsForRow('cp1', ['a1', 'a2'])
+    const result = await getSessionOptionsForRow('11111111-1111-1111-1111-111111111111', [
+      '22222222-2222-2222-2222-222222222222',
+      '33333333-3333-3333-3333-333333333333',
+    ])
     expect(result).toEqual([
       { sessionId: 's1', assessmentId: 'a1', assessmentName: 'Cog', attemptNumber: 1, startedAt: '2026-04-01T00:00:00Z', status: 'completed' },
       { sessionId: 's2', assessmentId: 'a1', assessmentName: 'Cog', attemptNumber: 2, startedAt: '2026-04-05T00:00:00Z', status: 'in_progress' },
@@ -64,24 +67,32 @@ describe('getSessionOptionsForRow', () => {
         { id: 's1', assessment_id: 'a1', started_at: '2026-04-01T00:00:00Z', status: 'completed', assessments: null },
       ]),
     )
-    const [opt] = await getSessionOptionsForRow('cp1', ['a1'])
+    const [opt] = await getSessionOptionsForRow('11111111-1111-1111-1111-111111111111', [
+      '22222222-2222-2222-2222-222222222222',
+    ])
     expect(opt.assessmentName).toBe('')
   })
 
   it('authorises the participant before querying', async () => {
     fromMock.mockReturnValue(selectChain([]))
-    await getSessionOptionsForRow('cp1', ['a1'])
-    expect(requireParticipantAccess).toHaveBeenCalledWith('cp1')
+    await getSessionOptionsForRow('11111111-1111-1111-1111-111111111111', [
+      '22222222-2222-2222-2222-222222222222',
+    ])
+    expect(requireParticipantAccess).toHaveBeenCalledWith('11111111-1111-1111-1111-111111111111')
   })
 
   it('propagates an authorisation rejection', async () => {
     requireParticipantAccess.mockRejectedValueOnce(new Error('Unauthorized'))
-    await expect(getSessionOptionsForRow('cp1', ['a1'])).rejects.toThrow('Unauthorized')
+    await expect(getSessionOptionsForRow('11111111-1111-1111-1111-111111111111', [
+      '22222222-2222-2222-2222-222222222222',
+    ])).rejects.toThrow('Unauthorized')
     expect(fromMock).not.toHaveBeenCalled()
   })
 
   it('throws when the DB returns an error', async () => {
     fromMock.mockReturnValue(selectChain(null, { message: 'boom' }))
-    await expect(getSessionOptionsForRow('cp1', ['a1'])).rejects.toBeTruthy()
+    await expect(getSessionOptionsForRow('11111111-1111-1111-1111-111111111111', [
+      '22222222-2222-2222-2222-222222222222',
+    ])).rejects.toBeTruthy()
   })
 })
