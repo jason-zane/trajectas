@@ -1,5 +1,5 @@
 import { getPlatformExperienceTemplate } from "@/app/actions/experience";
-import { getPlatformBrand } from "@/app/actions/brand";
+import { getCachedPlatformBrand } from "@/app/actions/brand";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/page-header";
 import { FlowEditor } from "@/components/flow-editor";
@@ -8,7 +8,7 @@ export default async function ExperienceSettingsPage() {
   const db = createAdminClient()
   const [record, brandRecord, clientsResult] = await Promise.all([
     getPlatformExperienceTemplate(),
-    getPlatformBrand(),
+    getCachedPlatformBrand(),
     db.from("clients").select("id, name").eq("is_active", true).is("deleted_at", null).order("name"),
   ]);
 

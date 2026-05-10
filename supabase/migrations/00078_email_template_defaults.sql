@@ -20,7 +20,6 @@ UPDATE email_templates SET editor_json = '{
   ]
 }'::jsonb
 WHERE type = 'magic_link' AND scope_type = 'platform' AND scope_id IS NULL;
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [
@@ -46,7 +45,6 @@ UPDATE email_templates SET editor_json = '{
   ]
 }'::jsonb
 WHERE type = 'staff_invite' AND scope_type = 'platform' AND scope_id IS NULL;
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [
@@ -75,7 +73,6 @@ UPDATE email_templates SET editor_json = '{
   ]
 }'::jsonb
 WHERE type = 'assessment_invite' AND scope_type = 'platform' AND scope_id IS NULL;
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [
@@ -100,7 +97,6 @@ UPDATE email_templates SET editor_json = '{
   ]
 }'::jsonb
 WHERE type = 'assessment_reminder' AND scope_type = 'platform' AND scope_id IS NULL;
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [
@@ -122,7 +118,6 @@ UPDATE email_templates SET editor_json = '{
   ]
 }'::jsonb
 WHERE type = 'report_ready' AND scope_type = 'platform' AND scope_id IS NULL;
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [
@@ -143,7 +138,6 @@ UPDATE email_templates SET editor_json = '{
   ]
 }'::jsonb
 WHERE type = 'welcome' AND scope_type = 'platform' AND scope_id IS NULL;
-
 UPDATE email_templates SET editor_json = '{
   "type": "doc",
   "content": [

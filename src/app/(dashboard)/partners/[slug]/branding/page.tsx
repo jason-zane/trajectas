@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { getPartnerBySlug } from "@/app/actions/partners"
-import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
+import { getBrandConfig, getCachedPlatformBrand } from "@/app/actions/brand"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { PartnerBrandEditor } from "./partner-brand-editor"
 import type { BrandConfig } from "@/lib/brand/types"
@@ -16,7 +16,7 @@ export default async function PartnerBrandingPage({
 
   const [partnerRecord, platformRecord] = await Promise.all([
     getBrandConfig("partner", partner.id),
-    getPlatformBrand(),
+    getCachedPlatformBrand(),
   ])
 
   const inheritedBrand: BrandConfig =

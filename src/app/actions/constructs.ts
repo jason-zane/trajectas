@@ -13,24 +13,26 @@ export type SelectOption = { id: string; name: string }
 export async function getFactorsForSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
   const db = createAdminClient()
-  const { data } = await db
+  const { data, error } = await db
     .from('factors')
     .select('id, name')
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('name', { ascending: true })
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
 export async function getConstructsForSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
   const db = createAdminClient()
-  const { data } = await db
+  const { data, error } = await db
     .from('constructs')
     .select('id, name')
     .is('deleted_at', null)
     .eq('is_active', true)
     .order('name', { ascending: true })
+  if (error) throw new Error(error.message)
   return data ?? []
 }
 
@@ -68,6 +70,8 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
       .order('name', { ascending: true }),
   ])
 
+  if (countResult.error) throw new Error(countResult.error.message)
+  if (itemCountResult.error) throw new Error(itemCountResult.error.message)
   if (relResult.error) throw new Error(relResult.error.message)
 
   // Build count lookups
@@ -174,20 +178,22 @@ export async function createConstruct(formData: FormData) {
 
   // Link to parent factor if one was selected
   if (parentFactorId) {
-    const { data: maxOrder } = await db
+    const { data: maxOrder, error: maxOrderError } = await db
       .from('factor_constructs')
       .select('display_order')
       .eq('factor_id', parentFactorId)
       .order('display_order', { ascending: false })
       .limit(1)
-      .maybeSingle() as { data: { display_order: number } | null }
+      .maybeSingle()
+    if (maxOrderError) return { error: { _form: [maxOrderError.message] } }
 
-    await db.from('factor_constructs').insert({
+    const { error: linkError } = await db.from('factor_constructs').insert({
       factor_id: parentFactorId,
       construct_id: data.id,
       weight: 1.0,
       display_order: (maxOrder?.display_order ?? 0) + 1,
     })
+    if (linkError) return { error: { _form: [linkError.message] } }
     revalidatePath('/factors')
   }
 

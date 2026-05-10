@@ -1,19 +1,13 @@
 "use client";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { formatDistanceToNowStrict } from "date-fns";
 
 import type { ClientAssessmentLibrarySummary } from "@/app/actions/client-entitlements";
 import {
   DataTable,
   DataTableColumnHeader,
 } from "@/components/data-table";
-import { Badge } from "@/components/ui/badge";
 import { usePortal } from "@/components/portal-context";
-
-function formatModeLabel(formatMode: ClientAssessmentLibrarySummary["formatMode"]) {
-  return formatMode === "forced_choice" ? "Forced choice" : "Traditional";
-}
 
 function formatQuota(value: number | null) {
   return value === null ? "Unlimited" : value.toLocaleString("en-AU");
@@ -37,33 +31,24 @@ const columns: ColumnDef<ClientAssessmentLibrarySummary>[] = [
     ),
   },
   {
-    accessorKey: "formatMode",
+    accessorKey: "constructCount",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Format" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">{formatModeLabel(row.original.formatMode)}</Badge>
-    ),
-  },
-  {
-    accessorKey: "factorCount",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Factors" />
+      <DataTableColumnHeader column={column} title="Constructs" />
     ),
     cell: ({ row }) => (
       <span className="tabular-nums text-sm text-muted-foreground">
-        {row.original.factorCount}
+        {row.original.constructCount}
       </span>
     ),
   },
   {
-    accessorKey: "sectionCount",
+    accessorKey: "totalItemCount",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Sections" />
+      <DataTableColumnHeader column={column} title="Items" />
     ),
     cell: ({ row }) => (
       <span className="tabular-nums text-sm text-muted-foreground">
-        {row.original.sectionCount}
+        {row.original.totalItemCount}
       </span>
     ),
   },
@@ -91,18 +76,13 @@ const columns: ColumnDef<ClientAssessmentLibrarySummary>[] = [
     ),
   },
   {
-    accessorKey: "updatedAt",
-    accessorFn: (row) => row.updatedAt ?? "",
+    accessorKey: "campaignCount",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Updated" />
+      <DataTableColumnHeader column={column} title="Campaigns" />
     ),
     cell: ({ row }) => (
-      <span className="text-sm text-muted-foreground">
-        {row.original.updatedAt
-          ? formatDistanceToNowStrict(new Date(row.original.updatedAt), {
-              addSuffix: true,
-            })
-          : "—"}
+      <span className="tabular-nums text-sm text-muted-foreground">
+        {row.original.campaignCount}
       </span>
     ),
   },
@@ -121,17 +101,7 @@ export function AssessmentLibraryTable({
       data={assessments}
       searchableColumns={["title"]}
       searchPlaceholder="Search assessments"
-      filterableColumns={[
-        {
-          id: "formatMode",
-          title: "Format",
-          options: [
-            { label: "Traditional", value: "traditional" },
-            { label: "Forced choice", value: "forced_choice" },
-          ],
-        },
-      ]}
-      defaultSort={{ id: "updatedAt", desc: true }}
+      defaultSort={{ id: "title", desc: false }}
       rowHref={(row) => href(`/assessments/${row.id}`)}
       pageSize={20}
     />

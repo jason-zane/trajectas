@@ -13,7 +13,57 @@ import { SupportSessionBanner } from "@/components/support-session-banner";
 import { LazyCommandPalette } from "@/components/lazy-command-palette";
 import { generateDashboardCSS } from "@/lib/brand/tokens";
 import { logSupportSessionPageView } from "@/app/actions/enter-portal";
+import { getCachedPlatformBrand } from "@/app/actions/brand";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { type WorkspaceBootstrap } from "@/lib/auth/types";
+
+async function resolveSidebarIdentity(bootstrap: WorkspaceBootstrap) {
+  const platformBrand = await getCachedPlatformBrand();
+  const platformName = platformBrand?.config.name ?? "Trajectas";
+  const platformLogomarkUrl = platformBrand?.config.logomarkUrl ?? null;
+  const empty = {
+    tenantName: null,
+    tenantLogomarkUrl: null,
+    platformName,
+    platformLogomarkUrl,
+  };
+
+  if (bootstrap.portal === "admin") return empty;
+
+  const selected =
+    bootstrap.workspaceContextOptions.find((o) => o.selected) ??
+    bootstrap.workspaceContextOptions[0];
+
+  if (!selected?.tenantId || !selected?.tenantType) return empty;
+
+  const db = createAdminClient();
+  const [{ data: tenant }, { data: tenantBrand }] = await Promise.all([
+    db
+      .from(selected.tenantType === "partner" ? "partners" : "clients")
+      .select("name")
+      .eq("id", selected.tenantId)
+      .maybeSingle(),
+    db
+      .from("brand_configs")
+      .select("config")
+      .eq("owner_type", selected.tenantType)
+      .eq("owner_id", selected.tenantId)
+      .is("deleted_at", null)
+      .maybeSingle(),
+  ]);
+
+  const brandConfig = tenantBrand?.config as
+    | { logomarkUrl?: string }
+    | null
+    | undefined;
+
+  return {
+    tenantName: (tenant?.name as string | undefined) ?? selected.label,
+    tenantLogomarkUrl: brandConfig?.logomarkUrl ?? null,
+    platformName,
+    platformLogomarkUrl,
+  };
+}
 
 interface WorkspaceShellProps {
   children: React.ReactNode;
@@ -33,22 +83,10 @@ export async function WorkspaceShell({
     workspaceContextOptions,
     brandConfig,
     supportSessionInfo,
-    scope,
   } = bootstrap;
 
-  // Only client admins (and platform admins) see the Settings area in the
-  // client portal. Determined from the active client context; regular members
-  // don't get the footer entry.
-  const activeClientId =
-    scope.activeContext?.tenantType === "client"
-      ? scope.activeContext.tenantId ?? null
-      : null;
-  const canManageClientSettings =
-    portal === "client" &&
-    (scope.isPlatformAdmin ||
-      (activeClientId != null && scope.clientAdminIds.includes(activeClientId)) ||
-      (activeClientId == null && scope.clientAdminIds.length > 0));
   const dashboardCSS = generateDashboardCSS(brandConfig);
+  const identity = await resolveSidebarIdentity(bootstrap);
 
   if (supportSessionInfo && actor) {
     const headerStore = await headers();
@@ -74,7 +112,7 @@ export async function WorkspaceShell({
       {/* Brand CSS is generated server-side from sanitized config values */}
       <style dangerouslySetInnerHTML={{ __html: dashboardCSS }} />
       <SidebarProvider defaultOpen={sidebarDefaultOpen}>
-        <AppSidebar canManageClientSettings={canManageClientSettings} />
+        <AppSidebar identity={identity} />
         <SidebarInset>
           {supportSessionInfo && (
             <SupportSessionBanner
@@ -99,7 +137,7 @@ export async function WorkspaceShell({
               ) : null
             }
             workspaceControls={
-              portal === "admin" || workspaceContextOptions.length === 0 ? null : (
+              portal === "admin" || workspaceContextOptions.length <= 1 ? null : (
                 <WorkspaceContextSwitcher
                   surface={portal}
                   options={workspaceContextOptions}

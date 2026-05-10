@@ -19,6 +19,10 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent, startSupportSession } from '@/lib/auth/support-sessions'
+import {
+  setActiveWorkspaceContextSchema,
+  startAuditedSupportLaunchSchema,
+} from '@/lib/validations/workspace-context'
 
 type ContextTargetInput = {
   surface: WorkspaceSurface
@@ -35,6 +39,8 @@ export async function clearActiveWorkspaceContext() {
 }
 
 export async function setActiveWorkspaceContext(input: ContextTargetInput) {
+  const parsed = setActiveWorkspaceContextSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await resolveAuthorizedScope()
   const cookieStore = await cookies()
   const isPreviewSelection = scope.isLocalDevelopmentBypass && !scope.actor
@@ -117,6 +123,8 @@ export async function startAuditedSupportLaunch(input: {
   targetTenantId: string
   reason: string
 }) {
+  const parsed = startAuditedSupportLaunchSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await resolveAuthorizedScope()
 
   try {

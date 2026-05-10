@@ -1,0 +1,162 @@
+'use client'
+
+import { useRef } from 'react'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import { cn } from '@/lib/utils'
+import {
+  Bold,
+  Italic,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  TextQuote,
+} from 'lucide-react'
+import type { RichTextEditorProps } from './rich-text-editor'
+
+// ---------------------------------------------------------------------------
+// Toolbar button
+// ---------------------------------------------------------------------------
+
+function ToolbarButton({
+  onClick,
+  active,
+  children,
+  title,
+}: {
+  onClick: () => void
+  active: boolean
+  children: React.ReactNode
+  title: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        'rounded-md p-1.5 transition-colors',
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Editor
+// ---------------------------------------------------------------------------
+
+export function RichTextEditorImpl({
+  content,
+  onChange,
+  onBlur,
+  placeholder = 'Write your content here\u2026',
+}: RichTextEditorProps) {
+  // Prevent onChange from firing during initial TipTap content parse.
+  // Without this, plain text content gets re-parsed as HTML and auto-save
+  // immediately overwrites the DB with the TipTap interpretation.
+  const initialised = useRef(false)
+
+  const editor = useEditor({
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({
+        heading: { levels: [2, 3] },
+      }),
+      Placeholder.configure({ placeholder }),
+    ],
+    content,
+    onBlur: onBlur ? () => onBlur() : undefined,
+    onCreate: () => {
+      // Mark as initialised after the first render cycle
+      setTimeout(() => { initialised.current = true }, 0)
+    },
+    onUpdate: ({ editor: e }) => {
+      if (!initialised.current) return
+      onChange(e.getHTML())
+    },
+    editorProps: {
+      attributes: {
+        class:
+          'min-h-[120px] px-3 py-2 text-sm text-foreground outline-none prose prose-sm max-w-none',
+      },
+    },
+  })
+
+  if (!editor) return null
+
+  return (
+    <div className="rounded-lg border border-border bg-background transition-colors focus-within:ring-2 focus-within:ring-primary/40">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/50 px-2 py-1.5">
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive('bold')}
+          title="Bold"
+        >
+          <Bold className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive('italic')}
+          title="Italic"
+        >
+          <Italic className="size-4" />
+        </ToolbarButton>
+
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          active={editor.isActive('heading', { level: 2 })}
+          title="Heading 2"
+        >
+          <Heading2 className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          active={editor.isActive('heading', { level: 3 })}
+          title="Heading 3"
+        >
+          <Heading3 className="size-4" />
+        </ToolbarButton>
+
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          active={editor.isActive('bulletList')}
+          title="Bullet List"
+        >
+          <List className="size-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          active={editor.isActive('orderedList')}
+          title="Ordered List"
+        >
+          <ListOrdered className="size-4" />
+        </ToolbarButton>
+
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <ToolbarButton
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={editor.isActive('blockquote')}
+          title="Blockquote"
+        >
+          <TextQuote className="size-4" />
+        </ToolbarButton>
+      </div>
+
+      {/* Editor area */}
+      <EditorContent editor={editor} />
+    </div>
+  )
+}

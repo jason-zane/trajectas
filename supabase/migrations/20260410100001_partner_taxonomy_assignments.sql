@@ -10,25 +10,20 @@ CREATE TABLE IF NOT EXISTS partner_taxonomy_assignments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (partner_id, entity_type, entity_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_partner_taxonomy_partner
   ON partner_taxonomy_assignments(partner_id, entity_type);
-
 -- Updated-at trigger
 DROP TRIGGER IF EXISTS trg_partner_taxonomy_assignments_updated ON partner_taxonomy_assignments;
 CREATE TRIGGER trg_partner_taxonomy_assignments_updated
   BEFORE UPDATE ON partner_taxonomy_assignments
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 -- RLS
 ALTER TABLE partner_taxonomy_assignments ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "platform_admins_full_access" ON partner_taxonomy_assignments
   FOR ALL TO authenticated
   USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'platform_admin')
   );
-
 CREATE POLICY "partner_members_select_own" ON partner_taxonomy_assignments
   FOR SELECT TO authenticated
   USING (

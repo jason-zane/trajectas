@@ -54,11 +54,9 @@ function formatDate(dateString: string) {
 export function ClientUsersTable({
   clientId,
   members,
-  userProfileHref,
 }: {
   clientId: string;
   members: ClientMember[];
-  userProfileHref?: (userId: string) => string;
 }) {
   const router = useRouter();
   const [removeTarget, setRemoveTarget] = useState<ClientMember | null>(null);
@@ -114,20 +112,15 @@ export function ClientUsersTable({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Name" />
       ),
-      cell: ({ row }) =>
-        userProfileHref ? (
-          <DataTableRowLink
-            href={userProfileHref(row.original.userId)}
-            ariaLabel={`Open ${row.original.displayName}`}
-            className="font-medium text-foreground hover:text-primary"
-          >
-            {row.original.displayName}
-          </DataTableRowLink>
-        ) : (
-          <span className="font-medium text-foreground">
-            {row.original.displayName}
-          </span>
-        ),
+      cell: ({ row }) => (
+        <DataTableRowLink
+          href={`/users/${row.original.userId}`}
+          ariaLabel={`Open ${row.original.displayName}`}
+          className="font-medium text-foreground hover:text-primary"
+        >
+          {row.original.displayName}
+        </DataTableRowLink>
+      ),
     },
     {
       accessorKey: "email",
@@ -185,17 +178,11 @@ export function ClientUsersTable({
       enableSorting: false,
       cell: ({ row }) => (
         <DataTableActionsMenu label={`Open actions for ${row.original.displayName}`}>
-          {userProfileHref ? (
-            <>
-              <DropdownMenuItem
-                onClick={() => router.push(userProfileHref(row.original.userId))}
-              >
-                <ExternalLink className="size-4" />
-                Open user
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-            </>
-          ) : null}
+          <DropdownMenuItem onClick={() => router.push(`/users/${row.original.userId}`)}>
+            <ExternalLink className="size-4" />
+            Open user
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setRemoveTarget(row.original)}
             disabled={isRemoving}
@@ -217,9 +204,7 @@ export function ClientUsersTable({
         searchableColumns={["displayName", "email"]}
         searchPlaceholder="Search team members"
         defaultSort={{ id: "addedAt", desc: true }}
-        rowHref={
-          userProfileHref ? (row) => userProfileHref(row.userId) : undefined
-        }
+        rowHref={(row) => `/users/${row.userId}`}
         pageSize={20}
       />
 
