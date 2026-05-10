@@ -9,6 +9,12 @@ interface AssessLayoutProps {
   children: React.ReactNode;
 }
 
+// Brand config is resolved per-tenant from the database at request time;
+// these routes cannot be statically prerendered (the build runs without
+// Supabase env vars and the brand fetch would fail). Forcing dynamic at
+// the layout level cascades to every /assess/* page.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   robots: {
     index: false,

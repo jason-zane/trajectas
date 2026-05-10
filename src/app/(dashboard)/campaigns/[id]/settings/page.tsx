@@ -1,4 +1,4 @@
-import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignHeader } from "@/app/actions/campaigns";
 import { getCampaignTemplates, getReportTemplates } from "@/app/actions/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapClientRow } from "@/lib/supabase/mappers";
@@ -15,7 +15,7 @@ export default async function CampaignSettingsPage({
 }) {
   const { id } = await params;
   const [campaign, campaignTemplates, templates] = await Promise.all([
-    getCampaignById(id),
+    getCampaignHeader(id),
     getCampaignTemplates(id),
     getReportTemplates(),
   ]);

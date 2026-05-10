@@ -12,6 +12,7 @@ import { generateCSSTokens } from "@/lib/brand/tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { sanitizeReportHtml } from "@/lib/security/sanitize-html"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import type { TemplateVariables } from "@/lib/experience/types"
@@ -110,7 +111,11 @@ export default async function AssessmentIntroPage({
     questionCount: assessment.sectionCount,
   }
   heading = interpolateContent(heading, variables)
-  body = interpolateContent(body, variables)
+  // body is authored by partner/client admins and rendered as inline HTML to
+  // participants (who authenticate by URL token, not HttpOnly cookie). Strip
+  // script/event handlers before render so a malicious admin can't pivot into
+  // the participant's origin.
+  body = sanitizeReportHtml(interpolateContent(body, variables))
   buttonLabel = interpolateContent(buttonLabel, variables)
 
   // Generate brand CSS tokens
