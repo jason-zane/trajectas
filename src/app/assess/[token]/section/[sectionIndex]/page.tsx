@@ -8,8 +8,6 @@ import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getPageContent } from "@/lib/experience/resolve";
 import { getPostSectionsUrl } from "@/lib/experience/flow-router";
-import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { SectionWrapper } from "@/components/assess/section-wrapper";
 
@@ -129,20 +127,11 @@ export default async function SectionPage({
     postAssessmentUrl = getPostSectionsUrl(experience, token);
   }
 
-  // Generate org-specific CSS tokens
-  const { css: brandCss } = generateCSSTokens(brandConfig);
-
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // Brand CSS + Google Fonts <link> are injected once by the token layout
+  // (src/app/assess/[token]/layout.tsx) and inherited by all children.
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
-
       <SectionWrapper
         token={token}
         sessionId={sessionId}

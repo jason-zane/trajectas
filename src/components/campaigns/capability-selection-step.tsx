@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollReveal } from "@/components/scroll-reveal";
+import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -58,7 +59,7 @@ function computeEstimate(
   );
   const itemsPerConstruct = rule?.itemsPerConstruct ?? 6;
   const estimatedItems = constructCount * itemsPerConstruct;
-  const estimatedMinutes = Math.ceil((estimatedItems * 8) / 60);
+  const estimatedMinutes = estimateAssessmentDurationMinutes(estimatedItems);
 
   return {
     factorCount: selectedFactorIds.length,

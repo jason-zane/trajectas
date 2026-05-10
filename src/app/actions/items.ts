@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { logActionError } from '@/lib/security/action-errors'
 import { mapItemRow, mapResponseFormatRow } from '@/lib/supabase/mappers'
 import { itemSchema } from '@/lib/validations/items'
 import type { Item, ResponseFormat } from '@/types/database'
@@ -170,7 +171,8 @@ export async function createItem(formData: FormData) {
           value: opt.value,
           display_order: i + 1,
         }))
-        await db.from('item_options').insert(optionRows)
+        const { error: insertOptErr } = await db.from('item_options').insert(optionRows)
+        if (insertOptErr) logActionError('createItem', insertOptErr)
       }
     } catch {
       // ignore parse errors for options
@@ -242,7 +244,8 @@ export async function updateItem(id: string, formData: FormData) {
     try {
       const options = JSON.parse(optionsJson) as { label: string; value: number }[]
       // Delete existing options
-      await db.from('item_options').delete().eq('item_id', id)
+      const { error: deleteOptErr } = await db.from('item_options').delete().eq('item_id', id)
+      if (deleteOptErr) logActionError('updateItem', deleteOptErr)
       // Insert new options
       if (options.length > 0) {
         const optionRows = options.map((opt, i) => ({
@@ -251,7 +254,8 @@ export async function updateItem(id: string, formData: FormData) {
           value: opt.value,
           display_order: i + 1,
         }))
-        await db.from('item_options').insert(optionRows)
+        const { error: insertOptErr } = await db.from('item_options').insert(optionRows)
+        if (insertOptErr) logActionError('updateItem', insertOptErr)
       }
     } catch {
       // ignore parse errors for options
