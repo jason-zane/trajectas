@@ -5,6 +5,24 @@ Based on: audit findings (`findings-client-portal.md`, `findings-participant.md`
 
 ---
 
+## Status — 2026-04-20
+
+**P0 — complete.** Brand tokens, dark-mode removal (#33), typography system, branded error boundaries (#20), reduced-motion override all shipped.
+
+**P1 — complete.** Dashboard rebuild (#21, #24), campaign detail polish (#25), participant progress (#26), data tables uplift (#16, #17, #22), empty-state primitive (#18), alert variants (#19), motion language (absorbed into the above — `ease-spring` now applied across 34 files). Participant editorial typography (#27, #34) closed the assess-flow tail.
+
+**Client portal close-out (this session).**
+- Lane 4 housekeeping — stub routes + `ScrollArea` deletion (#37)
+- DD-P-01 — branded misconfig errors in assess flow (#38)
+- DD-BE-01 — brand-capability revalidation (#39)
+- DD-FE-01 — FlowEditor page-card keyboard a11y (#40)
+
+Spot-check of the client portal confirmed zero `<div onClick>` anti-patterns and zero `dark:` variant leftovers in `/client` or `/components`.
+
+**P2 — in scope next.** Admin + partner baseline sweep (tokens/typography/tables/empty-states/alerts/errors). Bespoke admin-only surfaces (dashboard, library, psychometrics, diagnostics, generate) deferred to later initiatives.
+
+---
+
 ## Discovery — the brand is already defined
 
 The marketing site (`src/app/(marketing)/`) isn't just "a landing page" — it's a finished brand expression that the app hasn't adopted yet. The uplift is mostly about **bringing the app up to what the marketing already promises**, not inventing something new.

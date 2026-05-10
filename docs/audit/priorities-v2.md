@@ -6,6 +6,16 @@ Scope: client portal + participant assessment flow (per product-owner direction)
 
 This replaces `priorities.md` with priorities grounded in real evidence from the phase-2-full audit, not the grep-scan inference.
 
+---
+
+## Status — 2026-04-20
+
+All lanes closed for the client portal + participant flow. See `uplift-plan.md` → "Status" for the PR breakdown. Remaining open work moves to the admin + partner baseline sweep tracked separately in the uplift plan.
+
+Deep-dive items 22 (DD-P-01), 23 (DD-BE-01), and 24 (DD-FE-01) shipped as PRs #38, #39, and #40 respectively. Lane 4 housekeeping (stub-route removal, ScrollArea deletion) shipped as #37. Lane 4 items #17 (client `error.tsx`) and #18 (alert variants) were already closed in earlier sweeps.
+
+---
+
 ## Lane 0 — BLOCKERS (ship before any other work)
 
 Production-breaking bugs surfaced during the audit. These affect all client users today.
