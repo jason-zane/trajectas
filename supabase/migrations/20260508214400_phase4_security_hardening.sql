@@ -69,7 +69,16 @@ REVOKE EXECUTE ON FUNCTION public.auth_user_role() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.is_platform_admin() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.is_partner_admin() FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.create_report_snapshots_on_completion() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC;
+-- rls_auto_enable() is not created by any earlier repo migration; guard the
+-- REVOKE so a fresh `supabase db reset` doesn't abort here when the function
+-- is absent. In production it was created out-of-band and was successfully
+-- locked down at the time this migration was applied.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'rls_auto_enable' AND pronamespace = 'public'::regnamespace) THEN
+    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM PUBLIC';
+  END IF;
+END $$;
 
 -- Also revoke direct anon grants (idempotent — succeeds even if grant
 -- never existed; covers a cleaner state for new environments).
@@ -83,7 +92,12 @@ REVOKE EXECUTE ON FUNCTION public.auth_user_role() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.is_platform_admin() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.is_partner_admin() FROM anon;
 REVOKE EXECUTE ON FUNCTION public.create_report_snapshots_on_completion() FROM anon;
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon;
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'rls_auto_enable' AND pronamespace = 'public'::regnamespace) THEN
+    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon';
+  END IF;
+END $$;
 
 -- =====================================================================
 -- 4.4 — pin search_path on functions flagged
