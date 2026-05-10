@@ -6,9 +6,16 @@ import {
 } from '@/lib/auth/authorization'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
+import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/providers/openrouter-retry'
+import {
+  parseJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
+
+const MAX_CHAT_BODY_BYTES = 256 * 1024
 
 export async function POST(request: Request) {
   try {
@@ -25,10 +32,21 @@ export async function POST(request: Request) {
     throw error
   }
 
-  const { messages, model: modelOverride } = await request.json() as {
+  let body: {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>
     model?: string
   }
+  try {
+    body = await parseJsonRequestWithLimit(request, MAX_CHAT_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return new Response('Request body too large', { status: 413 })
+    }
+
+    return new Response('Request body must be valid JSON', { status: 400 })
+  }
+
+  const { messages, model: modelOverride } = body
 
   if (!messages?.length) {
     return new Response('Messages are required', { status: 400 })
@@ -40,12 +58,24 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Resolve the configured model for chat purpose
-    const [taskConfig, systemPrompt] = await Promise.all([
+    // Resolve the configured model for chat purpose.
+    // A caller-supplied model is only accepted if it's in the OpenRouter
+    // allowlist — prevents arbitrary model injection (cost amplification,
+    // safety-filter bypass).
+    const [taskConfig, systemPrompt, allowedModels] = await Promise.all([
       getModelForTask('chat'),
       getActiveSystemPrompt('chat'),
+      openRouterProvider.listModels('text'),
     ])
-    const modelId = modelOverride || taskConfig.modelId
+
+    let modelId = taskConfig.modelId
+    if (modelOverride) {
+      const isAllowed = allowedModels.some((m) => m.id === modelOverride)
+      if (!isAllowed) {
+        return new Response('Requested model is not available', { status: 400 })
+      }
+      modelId = modelOverride
+    }
 
     const client = new OpenAI({
       apiKey,

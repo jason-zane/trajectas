@@ -1,21 +1,6 @@
-import { cache } from "react";
-import { getCampaignById } from "@/app/actions/campaigns";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getCampaignHeader } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { CampaignDetailShell } from "./campaign-detail-shell";
-
-const getCanCustomizeBranding = cache(async (clientId: string | null) => {
-  if (!clientId) return true;
-
-  const db = createAdminClient();
-  const { data } = await db
-    .from("clients")
-    .select("can_customize_branding")
-    .eq("id", clientId)
-    .single();
-
-  return data?.can_customize_branding ?? false;
-});
 
 export default async function CampaignDetailLayout({
   children,
@@ -25,12 +10,12 @@ export default async function CampaignDetailLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaignById(id);
+  const campaign = await getCampaignHeader(id);
   if (!campaign) notFound();
 
-  const canCustomizeBranding = await getCanCustomizeBranding(
-    campaign.clientId ?? null
-  );
+  // Platform-owned campaigns (no client) default to customisable in the admin
+  // portal; otherwise honour the client's flag.
+  const canCustomizeBranding = campaign.clientCanCustomizeBranding ?? true;
 
   return (
     <CampaignDetailShell

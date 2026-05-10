@@ -63,3 +63,15 @@ export const bulkUpdateReportStatusSchema = z.object({
   status: z.enum(['pending', 'generating', 'ready', 'released', 'failed']),
 })
 export type BulkUpdateReportStatusInput = z.infer<typeof bulkUpdateReportStatusSchema>
+
+export const toggleReportTemplateActiveSchema = z.object({
+  id: postgresUuid(),
+  isActive: z.boolean(),
+})
+export type ToggleReportTemplateActiveInput = z.infer<typeof toggleReportTemplateActiveSchema>
+
+export const toggleReportTemplateDefaultSchema = z.object({
+  id: postgresUuid(),
+  isDefault: z.boolean(),
+})
+export type ToggleReportTemplateDefaultInput = z.infer<typeof toggleReportTemplateDefaultSchema>

@@ -2,8 +2,9 @@ import {
   getExperienceTemplate,
   getPlatformExperienceTemplate,
 } from "@/app/actions/experience";
-import { getPlatformBrand } from "@/app/actions/brand";
-import { requireCampaignAccess } from "@/lib/auth/authorization";
+import { getEffectiveBrand } from "@/app/actions/brand";
+import { getCampaignHeader } from "@/app/actions/campaigns";
+import { getCampaignAssessmentIntros } from "@/app/actions/assessment-intro";
 import { notFound } from "next/navigation";
 import { FlowEditor } from "@/components/flow-editor";
 
@@ -14,20 +15,22 @@ export default async function ClientCampaignExperiencePage({
 }) {
   const { id } = await params;
 
-  // Enforce scope before fetching experience template. getExperienceTemplate
-  // uses the admin client (needed for unauthenticated participant-runtime
-  // callers) so it performs no auth check of its own.
-  try {
-    await requireCampaignAccess(id);
-  } catch {
-    notFound();
-  }
+  // getCampaignHeader runs requireCampaignAccess internally and returns null
+  // on AuthorizationError, so we don't need a separate access check here.
+  const [campaignTemplate, platformTemplate, campaign, campaignAssessments] =
+    await Promise.all([
+      getExperienceTemplate("campaign", id),
+      getPlatformExperienceTemplate(),
+      getCampaignHeader(id),
+      getCampaignAssessmentIntros(id),
+    ]);
 
-  const [campaignTemplate, platformTemplate, brandRecord] = await Promise.all([
-    getExperienceTemplate("campaign", id),
-    getPlatformExperienceTemplate(),
-    getPlatformBrand(),
-  ]);
+  if (!campaign) notFound();
+
+  // Resolve the effective brand for this campaign — client > partner > platform
+  // — so the preview renders with the client's actual colours and typography,
+  // not the platform defaults.
+  const brandConfig = await getEffectiveBrand(campaign.clientId ?? null, id);
 
   return (
     <div className="flex-1 min-h-0">
@@ -36,7 +39,9 @@ export default async function ClientCampaignExperiencePage({
         ownerType="campaign"
         ownerId={id}
         platformTemplate={platformTemplate}
-        brandConfig={brandRecord?.config ?? null}
+        brandConfig={brandConfig}
+        campaignAssessments={campaignAssessments}
+        campaignAssessmentCount={campaign.assessmentCount}
       />
     </div>
   );

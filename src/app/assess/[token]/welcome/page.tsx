@@ -2,13 +2,12 @@ import { redirect } from "next/navigation";
 import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
-import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { WelcomeScreen } from "@/components/assess/welcome-screen";
+import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration";
 import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function WelcomePage({
@@ -31,7 +30,7 @@ export default async function WelcomePage({
     getCachedEffectiveExperience(campaign.id),
     getAssessmentItemCount(assessmentIds),
   ])
-  const estimatedMinutes = Math.max(1, Math.round(totalItems * 15 / 60));
+  const estimatedMinutes = estimateAssessmentDurationMinutes(totalItems);
   const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
   const rawContent = getPageContent(experience, "welcome");
   const rawRunnerContent = getPageContent(experience, "runner");
@@ -51,21 +50,11 @@ export default async function WelcomePage({
     footerText: interpolated.footerText ?? rawRunnerContent.footerText,
   };
 
-  // Generate org-specific CSS tokens (server-generated from trusted DB brand config)
-  const { css: brandCss } = generateCSSTokens(brandConfig);
-
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // Brand CSS + Google Fonts <link> are injected once by the token layout
+  // (src/app/assess/[token]/layout.tsx) and inherited by all children.
 
   return (
     <>
-      {/* Server-generated CSS custom properties from trusted DB brand config */}
-      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
-
       <WelcomeScreen
         token={token}
         campaignTitle={campaign.title}

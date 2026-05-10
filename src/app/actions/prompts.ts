@@ -5,6 +5,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import type { AIPromptPurpose } from '@/types/database'
+import {
+  getPromptVersionsSchema,
+  createPromptVersionSchema,
+  activatePromptVersionSchema,
+} from '@/lib/validations/prompts'
 
 export interface PromptVersionRow {
   id: string
@@ -73,6 +78,8 @@ export async function getPromptSummaries(): Promise<PromptSummaryRow[]> {
 export async function getPromptVersions(
   purpose: AIPromptPurpose,
 ): Promise<PromptVersionRow[]> {
+  const parsed = getPromptVersionsSchema.safeParse({ purpose })
+  if (!parsed.success) return []
   await requireAdminScope()
   const supabase = createAdminClient()
   const { data, error } = await supabase
@@ -90,6 +97,8 @@ export async function createPromptVersion(
   content: string,
   name?: string,
 ): Promise<{ success: true } | { error: string }> {
+  const parsed = createPromptVersionSchema.safeParse({ purpose, content, name })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const trimmed = content.trim()
   if (!trimmed) {
@@ -131,6 +140,8 @@ export async function activatePromptVersion(
   purpose: AIPromptPurpose,
   versionId: string,
 ): Promise<{ success: true } | { error: string }> {
+  const parsed = activatePromptVersionSchema.safeParse({ purpose, versionId })
+  if (!parsed.success) return { error: 'Invalid input' }
   const scope = await requireAdminScope()
   const supabase = createAdminClient()
 
