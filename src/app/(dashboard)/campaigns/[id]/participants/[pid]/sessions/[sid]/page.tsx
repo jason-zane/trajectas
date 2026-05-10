@@ -7,25 +7,26 @@ async function loadTemplates() {
   try {
     return await getActiveReportTemplates();
   } catch (error) {
-    console.error("[session-detail] Failed to load report templates:", error);
+    console.error("[campaign-session-detail] Failed to load report templates:", error);
     return [];
   }
 }
 
-export default async function AdminSessionDetailPage({
+export default async function CampaignParticipantSessionDetailPage({
   params,
 }: {
-  params: Promise<{ id: string; sid: string }>;
+  params: Promise<{ id: string; pid: string; sid: string }>;
 }) {
-  const { id: participantId, sid: sessionId } = await params;
+  const { id: campaignId, pid, sid: sessionId } = await params;
 
   const session = await getSessionDetail(sessionId);
   if (!session) {
     notFound();
   }
-  if (session.participantId !== participantId) {
-    redirect(`/participants/${session.participantId}/sessions/${sessionId}`);
+  if (session.participantId !== pid || session.campaignId !== campaignId) {
+    redirect(`/campaigns/${session.campaignId}/participants/${session.participantId}/sessions/${sessionId}`);
   }
+
   const templates = await loadTemplates();
 
   return (
@@ -33,7 +34,7 @@ export default async function AdminSessionDetailPage({
       session={session}
       templates={templates}
       canSeeResponses={true}
-      backHref={`/participants/${participantId}`}
+      backHref={`/campaigns/${campaignId}/participants/${pid}`}
       backLabel="Back to participant"
     />
   );

@@ -43,23 +43,34 @@ export default async function SectionPage({
     }
   }
 
-  // Start or resume session
-  const sessionResult = await startSession(
-    token,
-    participant.id,
-    targetAssessment.assessmentId,
-    campaign.id
+  const existingSession = sessions.find(
+    (session) => session.assessmentId === targetAssessment.assessmentId
   );
 
-  if ("error" in sessionResult && sessionResult.error) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center px-4">
-        <p className="text-destructive">{sessionResult.error}</p>
-      </div>
+  let sessionId = existingSession?.id;
+  if (!sessionId) {
+    const sessionResult = await startSession(
+      token,
+      participant.id,
+      targetAssessment.assessmentId,
+      campaign.id
     );
+
+    if ("error" in sessionResult && sessionResult.error) {
+      return (
+        <div className="flex min-h-dvh items-center justify-center px-4">
+          <p className="text-destructive">{sessionResult.error}</p>
+        </div>
+      );
+    }
+
+    sessionId = sessionResult.id!;
   }
 
-  const sessionId = sessionResult.id!;
+  if (!sessionId) {
+    redirect(`/assess/${token}/welcome`);
+  }
+
   const stateResult = await getSessionState(token, sessionId);
 
   if (stateResult.error || !stateResult.data) {
@@ -80,6 +91,10 @@ export default async function SectionPage({
 
   const clampedIdx = Math.min(sectionIdx, sections.length - 1);
   const section = sections[clampedIdx];
+
+  if (!section) {
+    redirect(`/assess/${token}/review`);
+  }
 
   // Load brand + experience in parallel — they're independent.
   const [brandConfig, experience] = await Promise.all([

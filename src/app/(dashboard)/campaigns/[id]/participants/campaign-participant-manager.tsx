@@ -301,7 +301,12 @@ export function CampaignParticipantManager({
             {(row.original.firstName?.[0] ?? row.original.email[0]).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <p className="truncate font-medium">{row.original.displayName}</p>
+            <Link
+              href={`/campaigns/${campaignId}/participants/${row.original.id}`}
+              className="block truncate font-medium hover:text-primary transition-colors"
+            >
+              {row.original.displayName}
+            </Link>
             <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
           </div>
         </div>
@@ -323,7 +328,7 @@ export function CampaignParticipantManager({
       enableSorting: false,
       cell: ({ row }) => (
         <DataTableRowActions>
-          <Link href={`/participants/${row.original.id}`}>
+          <Link href={`/campaigns/${campaignId}/participants/${row.original.id}`}>
             <Button
               size="icon-sm"
               variant="ghost"

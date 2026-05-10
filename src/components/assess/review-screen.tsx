@@ -53,8 +53,11 @@ export function ReviewScreen({
   termsUrl,
 }: ReviewScreenProps) {
   const router = useRouter();
-  const [submitting, setSubmitting] = useState(false);
+  const [submitStage, setSubmitStage] = useState<
+    "idle" | "submitting" | "preparing_report"
+  >("idle");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const submitting = submitStage !== "idle";
 
   // Dedupe items by id across sections — defensive against historical duplicate-section
   // data and also the correct way to count "unique questions asked".
@@ -77,13 +80,17 @@ export function ReviewScreen({
 
   async function handleSubmit() {
     setSubmitError(null);
-    setSubmitting(true);
+    setSubmitStage("submitting");
     try {
       const result = await submitSession(token, sessionId);
-      if (result.error) {
-        setSubmitError(result.error);
-        setSubmitting(false);
+      if (!result.ok) {
+        setSubmitError(result.message);
+        setSubmitStage("idle");
         return;
+      }
+
+      if (result.outcome === "report_pending") {
+        setSubmitStage("preparing_report");
       }
 
       router.push(nextUrl);
@@ -91,9 +98,16 @@ export function ReviewScreen({
       setSubmitError(
         "We couldn't submit your assessment right now. Please try again.",
       );
-      setSubmitting(false);
+      setSubmitStage("idle");
     }
   }
+
+  const submitButtonLabel =
+    submitStage === "preparing_report"
+      ? "Opening your report..."
+      : submitStage === "submitting"
+        ? "Finishing assessment..."
+        : content.buttonLabel;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -369,9 +383,26 @@ export function ReviewScreen({
                 }}
               >
                 <Send className="size-4" />
-                {submitting ? "Submitting..." : content.buttonLabel}
+                {submitButtonLabel}
               </Button>
             </div>
+            {submitting && (
+              <div
+                className="mx-auto max-w-md rounded-xl border px-4 py-3 text-sm"
+                style={{
+                  borderColor:
+                    "var(--brand-neutral-200, hsl(var(--border)))",
+                  background:
+                    "var(--brand-neutral-50, hsl(var(--muted) / 0.45))",
+                  color:
+                    "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                }}
+              >
+                {submitStage === "preparing_report"
+                  ? "Your answers are saved. We’re opening the report view while the report finishes preparing."
+                  : "We’re saving your answers, scoring the assessment, and preparing the next step."}
+              </div>
+            )}
           </div>
         </div>
       </main>

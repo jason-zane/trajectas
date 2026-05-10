@@ -421,7 +421,10 @@ insert into participant_sessions (
   campaign_participant_id,
   current_section_id,
   current_item_index,
-  time_remaining_seconds
+  time_remaining_seconds,
+  processing_status,
+  processing_error,
+  processed_at
 )
 values
   (
@@ -437,7 +440,10 @@ values
     '10000000-0000-0000-0000-000000000502',
     '10000000-0000-0000-0000-000000000301',
     1,
-    '{"10000000-0000-0000-0000-000000000301": 420}'::jsonb
+    '{"10000000-0000-0000-0000-000000000301": 420}'::jsonb,
+    'idle',
+    null,
+    null
   ),
   (
     '10000000-0000-0000-0000-000000000602',
@@ -452,7 +458,10 @@ values
     '10000000-0000-0000-0000-000000000503',
     '10000000-0000-0000-0000-000000000301',
     2,
-    '{}'::jsonb
+    '{}'::jsonb,
+    'ready',
+    null,
+    '2026-03-13T09:32:00Z'
   )
 on conflict (id) do update
 set
@@ -466,7 +475,10 @@ set
   campaign_participant_id = excluded.campaign_participant_id,
   current_section_id = excluded.current_section_id,
   current_item_index = excluded.current_item_index,
-  time_remaining_seconds = excluded.time_remaining_seconds;
+  time_remaining_seconds = excluded.time_remaining_seconds,
+  processing_status = excluded.processing_status,
+  processing_error = excluded.processing_error,
+  processed_at = excluded.processed_at;
 
 insert into participant_responses (
   id,
