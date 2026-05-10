@@ -119,7 +119,7 @@ beforeEach(() => {
 
   auth.requireCampaignAccess.mockResolvedValue({
     scope: { isPlatformAdmin: true },
-    campaignId: 'camp-1',
+    campaignId: 'cccc1111-1111-1111-1111-111111111111',
     clientId: null,
     partnerId: null,
   })
@@ -133,22 +133,22 @@ describe('getFactorSelectionForCampaignAssessment', () => {
   it('returns isCustom: false when no rows exist', async () => {
     queryBuilder.eq.mockResolvedValueOnce({ data: [], error: null })
 
-    const result = await getFactorSelectionForCampaignAssessment('ca-1')
+    const result = await getFactorSelectionForCampaignAssessment('aaaa1111-1111-1111-1111-111111111111')
 
     expect(result).toEqual({ isCustom: false, selectedFactorIds: [] })
   })
 
   it('returns isCustom: true with factor IDs when rows exist', async () => {
     queryBuilder.eq.mockResolvedValueOnce({
-      data: [{ factor_id: 'f-1' }, { factor_id: 'f-2' }],
+      data: [{ factor_id: 'ffff1111-1111-1111-1111-111111111111' }, { factor_id: 'ffff2222-2222-2222-2222-222222222222' }],
       error: null,
     })
 
-    const result = await getFactorSelectionForCampaignAssessment('ca-1')
+    const result = await getFactorSelectionForCampaignAssessment('aaaa1111-1111-1111-1111-111111111111')
 
     expect(result).toEqual({
       isCustom: true,
-      selectedFactorIds: ['f-1', 'f-2'],
+      selectedFactorIds: ['ffff1111-1111-1111-1111-111111111111', 'ffff2222-2222-2222-2222-222222222222'],
     })
   })
 })
@@ -161,7 +161,7 @@ describe('saveFactorSelection', () => {
   it('rejects when below minimum factor count', async () => {
     // campaign_assessments lookup
     queryBuilder.single.mockResolvedValueOnce({
-      data: { campaign_id: 'camp-1', assessment_id: 'assess-1' },
+      data: { campaign_id: 'cccc1111-1111-1111-1111-111111111111', assessment_id: 'aaab1111-1111-1111-1111-111111111111' },
       error: null,
     })
 
@@ -171,7 +171,7 @@ describe('saveFactorSelection', () => {
       error: null,
     })
 
-    await expect(saveFactorSelection('ca-1', ['f-1', 'f-2'])).rejects.toThrow(
+    await expect(saveFactorSelection('aaaa1111-1111-1111-1111-111111111111', ['ffff1111-1111-1111-1111-111111111111', 'ffff2222-2222-2222-2222-222222222222'])).rejects.toThrow(
       'At least 3 factors must be selected.',
     )
   })
@@ -179,7 +179,7 @@ describe('saveFactorSelection', () => {
   it('rejects when assessment does not support customisation', async () => {
     // campaign_assessments lookup
     queryBuilder.single.mockResolvedValueOnce({
-      data: { campaign_id: 'camp-1', assessment_id: 'assess-1' },
+      data: { campaign_id: 'cccc1111-1111-1111-1111-111111111111', assessment_id: 'aaab1111-1111-1111-1111-111111111111' },
       error: null,
     })
 
@@ -189,7 +189,7 @@ describe('saveFactorSelection', () => {
       error: null,
     })
 
-    await expect(saveFactorSelection('ca-1', ['f-1'])).rejects.toThrow(
+    await expect(saveFactorSelection('aaaa1111-1111-1111-1111-111111111111', ['ffff1111-1111-1111-1111-111111111111'])).rejects.toThrow(
       'This assessment does not support factor customisation.',
     )
   })
@@ -203,7 +203,7 @@ describe('clearFactorSelection', () => {
   it('succeeds and returns success: true', async () => {
     // campaign_assessments lookup: .select().eq().single()
     queryBuilder.single.mockResolvedValueOnce({
-      data: { campaign_id: 'camp-1' },
+      data: { campaign_id: 'cccc1111-1111-1111-1111-111111111111' },
       error: null,
     })
 
@@ -214,10 +214,10 @@ describe('clearFactorSelection', () => {
       .mockReturnValueOnce(queryBuilder) // first .eq('id', ...) in select chain
       .mockResolvedValueOnce({ data: null, error: null }) // second .eq(...) in delete chain
 
-    const result = await clearFactorSelection('ca-1')
+    const result = await clearFactorSelection('aaaa1111-1111-1111-1111-111111111111')
 
     expect(result).toEqual({ success: true })
-    expect(auth.requireCampaignAccess).toHaveBeenCalledWith('camp-1')
+    expect(auth.requireCampaignAccess).toHaveBeenCalledWith('cccc1111-1111-1111-1111-111111111111')
     expect(cache.revalidatePath).toHaveBeenCalledWith('/campaigns')
   })
 })

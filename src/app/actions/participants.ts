@@ -17,6 +17,13 @@ import {
 } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
+import { postgresUuid } from '@/lib/validations/uuid'
+import {
+  getParticipantsFiltersSchema,
+  getUniqueParticipantsFiltersSchema,
+  bulkParticipantIdsSchema,
+  bulkUpdateParticipantStatusSchema,
+} from '@/lib/validations/participants'
 import type {
   CampaignParticipant,
   CampaignParticipantStatus,
@@ -116,6 +123,8 @@ export async function getParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: ParticipantWithMeta[]; total: number }> {
+  const parsed = getParticipantsFiltersSchema.safeParse(filters ?? {})
+  if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
   const page = filters?.page ?? 1
@@ -140,15 +149,18 @@ export async function getParticipants(filters?: {
     }
   }
 
-  // Build query
+  // Build query — inner join + deleted_at filter excludes participants whose
+  // campaign has been soft-deleted (those rows would 404 on detail since
+  // requireCampaignAccess rejects deleted campaigns).
   let query = db
     .from('campaign_participants')
     .select(`
       *,
-      campaigns!inner(title, slug),
+      campaigns!inner(title, slug, deleted_at),
       participant_sessions(id, status)
     `, { count: 'exact' })
     .is('deleted_at', null)
+    .is('campaigns.deleted_at', null)
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -204,6 +216,8 @@ export async function getUniqueParticipants(filters?: {
   page?: number
   perPage?: number
 }): Promise<{ data: UniqueParticipant[]; total: number }> {
+  const parsed = getUniqueParticipantsFiltersSchema.safeParse(filters ?? {})
+  if (!parsed.success) return { data: [], total: 0 }
   const scope = await resolveAuthorizedScope()
   const db = await createClient()
   const page = filters?.page ?? 1
@@ -223,10 +237,13 @@ export async function getUniqueParticipants(filters?: {
   // 1) Get all matching rows (scoped)
   // 2) Deduplicate in JS (acceptable because campaign_participants is bounded per-scope)
 
+  // Inner join + deleted_at filter excludes participants whose campaign has
+  // been soft-deleted; those rows would 404 on the detail page.
   let query = db
     .from('campaign_participants')
-    .select('*', { count: 'exact' })
+    .select('*, campaigns!inner(deleted_at)', { count: 'exact' })
     .is('deleted_at', null)
+    .is('campaigns.deleted_at', null)
     .order('created_at', { ascending: false })
 
   if (scopedCampaignIds && scopedCampaignIds.length === 1) {
@@ -297,6 +314,7 @@ export async function getUniqueParticipants(filters?: {
 // ---------------------------------------------------------------------------
 
 export async function getParticipant(id: string): Promise<ParticipantDetail | null> {
+  if (!postgresUuid().safeParse(id).success) return null
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
     access = await requireParticipantAccess(id)
@@ -307,7 +325,10 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     throw error
   }
 
-  const db = await createClient()
+  // Access already verified by requireParticipantAccess above; use the admin
+  // client for the read so we don't re-apply RLS (which can block legitimate
+  // platform-admin sessions and the local-dev bypass).
+  const db = createAdminClient()
 
   const { data: row, error } = await db
     .from('campaign_participants')
@@ -351,6 +372,7 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
 // ---------------------------------------------------------------------------
 
 export async function getParticipantSessions(participantId: string): Promise<ParticipantSession[]> {
+  if (!postgresUuid().safeParse(participantId).success) return []
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
     access = await requireParticipantAccess(participantId)
@@ -439,6 +461,7 @@ export async function getParticipantSessions(participantId: string): Promise<Par
 // ---------------------------------------------------------------------------
 
 export async function getParticipantActivity(participantId: string): Promise<ActivityEvent[]> {
+  if (!postgresUuid().safeParse(participantId).success) return []
   let access: Awaited<ReturnType<typeof requireParticipantAccess>>
   try {
     access = await requireParticipantAccess(participantId)
@@ -452,13 +475,13 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   const db = await createClient()
 
   // Get participant record
-  const { data: participant } = await db
+  const { data: participant, error: participantError } = await db
     .from('campaign_participants')
     .select('invited_at, started_at, completed_at, campaigns(title)')
     .eq('id', participantId)
     .single()
 
-  if (!participant) return []
+  if (participantError || !participant) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const p = participant as any
@@ -482,11 +505,13 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   }
 
   // Get session-level events
-  const { data: sessions } = await db
+  const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')
     .select('id, started_at, completed_at, assessments(title)')
     .eq('campaign_participant_id', participantId)
     .order('started_at', { ascending: true })
+
+  if (sessionsError) throwActionError('getParticipantActivity', 'Unable to load participant sessions.', sessionsError)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const s of (sessions ?? []) as any[]) {
@@ -538,6 +563,7 @@ export async function getParticipantActivity(participantId: string): Promise<Act
 // ---------------------------------------------------------------------------
 
 export async function getParticipantResponses(sessionId: string): Promise<ParticipantResponseGroup[]> {
+  if (!postgresUuid().safeParse(sessionId).success) return []
   let access: Awaited<ReturnType<typeof requireSessionAccess>>
   try {
     access = await requireSessionAccess(sessionId)
@@ -551,16 +577,16 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
   const db = await createClient()
 
   // Get session's assessment
-  const { data: session } = await db
+  const { data: session, error: sessionError } = await db
     .from('participant_sessions')
     .select('assessment_id')
     .eq('id', sessionId)
     .single()
 
-  if (!session) return []
+  if (sessionError || !session) return []
 
   // Get sections with items
-  const { data: sections } = await db
+  const { data: sections, error: sectionsError } = await db
     .from('assessment_sections')
     .select(`
       id, title, display_order,
@@ -573,11 +599,15 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
     .eq('assessment_id', session.assessment_id)
     .order('display_order', { ascending: true })
 
+  if (sectionsError) throwActionError('getParticipantResponses', 'Unable to load assessment sections.', sectionsError)
+
   // Get all responses for this session
-  const { data: responses } = await db
+  const { data: responses, error: responsesError } = await db
     .from('participant_responses')
     .select('item_id, response_value, response_time_ms')
     .eq('session_id', sessionId)
+
+  if (responsesError) throwActionError('getParticipantResponses', 'Unable to load participant responses.', responsesError)
 
   const responseMap = new Map<string, { value: number; timeMs?: number }>()
   for (const r of responses ?? []) {
@@ -657,6 +687,8 @@ async function assertCanManageParticipants(ids: string[]): Promise<void> {
 
 export async function bulkDeleteParticipants(ids: string[]): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkParticipantIdsSchema.safeParse({ ids })
+  if (!parsed.success) throw new Error('Invalid input')
   await assertCanManageParticipants(ids)
   const db = createAdminClient()
   const { error } = await db
@@ -674,6 +706,8 @@ export async function bulkUpdateParticipantStatus(
   status: CampaignParticipantStatus
 ): Promise<void> {
   if (ids.length === 0) return
+  const parsed = bulkUpdateParticipantStatusSchema.safeParse({ ids, status })
+  if (!parsed.success) throw new Error('Invalid input')
   await assertCanManageParticipants(ids)
   const db = createAdminClient()
   const { error } = await db

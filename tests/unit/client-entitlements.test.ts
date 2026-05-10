@@ -92,7 +92,7 @@ function adminScope() {
       isPlatformAdmin: true,
       actor: { id: "admin-user-1" },
     },
-    clientId: "org-1",
+    clientId: "11111111-1111-1111-1111-111111111111",
     partnerId: null,
   };
 }
@@ -103,7 +103,7 @@ function nonAdminScope() {
       isPlatformAdmin: false,
       actor: { id: "member-user-1" },
     },
-    clientId: "org-1",
+    clientId: "11111111-1111-1111-1111-111111111111",
     partnerId: null,
   };
 }
@@ -132,9 +132,9 @@ describe("client entitlement actions", () => {
       queryBuilder.order.mockResolvedValueOnce({
         data: [
           {
-            id: "assign-1",
-            client_id: "org-1",
-            assessment_id: "assess-1",
+            id: "33333333-3333-3333-3333-333333333333",
+            client_id: "11111111-1111-1111-1111-111111111111",
+            assessment_id: "22222222-2222-2222-2222-222222222222",
             quota_limit: 100,
             is_active: true,
             assigned_by: "admin-user-1",
@@ -148,16 +148,16 @@ describe("client entitlement actions", () => {
 
       // bulk rpc for quota usage
       queryBuilder.rpc.mockResolvedValueOnce({
-        data: [{ assessment_id: "assess-1", quota_used: 42 }],
+        data: [{ assessment_id: "22222222-2222-2222-2222-222222222222", quota_used: 42 }],
         error: null,
       });
 
-      const result = await getAssessmentAssignments("org-1");
+      const result = await getAssessmentAssignments("11111111-1111-1111-1111-111111111111");
 
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
-        id: "assign-1",
-        assessmentId: "assess-1",
+        id: "33333333-3333-3333-3333-333333333333",
+        assessmentId: "22222222-2222-2222-2222-222222222222",
         assessmentName: "Leadership 360",
         quotaLimit: 100,
         quotaUsed: 42,
@@ -165,7 +165,7 @@ describe("client entitlement actions", () => {
       expect(queryBuilder.rpc).toHaveBeenCalledWith(
         "get_client_assessment_quota_usage_bulk",
         {
-          p_client_id: "org-1",
+          p_client_id: "11111111-1111-1111-1111-111111111111",
         }
       );
     });
@@ -175,7 +175,7 @@ describe("client entitlement actions", () => {
       queryBuilder.order.mockResolvedValueOnce({ data: [], error: null });
       queryBuilder.rpc.mockResolvedValueOnce({ data: [], error: null });
 
-      const result = await getAssessmentAssignments("org-1");
+      const result = await getAssessmentAssignments("11111111-1111-1111-1111-111111111111");
       expect(result).toEqual([]);
     });
   });
@@ -187,8 +187,8 @@ describe("client entitlement actions", () => {
     it("rejects non-admin callers", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
 
-      const result = await assignAssessment("org-1", {
-        assessmentId: "assess-1",
+      const result = await assignAssessment("11111111-1111-1111-1111-111111111111", {
+        assessmentId: "22222222-2222-2222-2222-222222222222",
       });
 
       expect(result).toEqual({
@@ -202,14 +202,14 @@ describe("client entitlement actions", () => {
       queryBuilder.single
         .mockResolvedValueOnce({ data: { partner_id: null }, error: null })
         // INSERT result
-        .mockResolvedValueOnce({ data: { id: "new-assign-1" }, error: null });
+        .mockResolvedValueOnce({ data: { id: "44444444-4444-4444-4444-444444444444" }, error: null });
 
-      const result = await assignAssessment("org-1", {
-        assessmentId: "assess-1",
+      const result = await assignAssessment("11111111-1111-1111-1111-111111111111", {
+        assessmentId: "22222222-2222-2222-2222-222222222222",
         quotaLimit: 50,
       });
 
-      expect(result).toEqual({ success: true, id: "new-assign-1" });
+      expect(result).toEqual({ success: true, id: "44444444-4444-4444-4444-444444444444" });
       expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
     });
 
@@ -224,8 +224,8 @@ describe("client entitlement actions", () => {
           error: { code: "23505", message: "unique violation" },
         });
 
-      const result = await assignAssessment("org-1", {
-        assessmentId: "assess-1",
+      const result = await assignAssessment("11111111-1111-1111-1111-111111111111", {
+        assessmentId: "22222222-2222-2222-2222-222222222222",
       });
 
       expect(result).toEqual({
@@ -245,8 +245,8 @@ describe("client entitlement actions", () => {
       queryBuilder.in.mockResolvedValueOnce({
         data: [
           {
-            id: "assign-1",
-            assessment_id: "assess-1",
+            id: "33333333-3333-3333-3333-333333333333",
+            assessment_id: "22222222-2222-2222-2222-222222222222",
             quota_limit: null,
             is_active: true,
           },
@@ -259,7 +259,7 @@ describe("client entitlement actions", () => {
         error: null,
       });
 
-      const result = await checkQuotaAvailability("org-1", ["assess-1"]);
+      const result = await checkQuotaAvailability("11111111-1111-1111-1111-111111111111", ["22222222-2222-2222-2222-222222222222"]);
       expect(result).toEqual({ allowed: true, violations: [] });
     });
 
@@ -269,8 +269,8 @@ describe("client entitlement actions", () => {
       queryBuilder.in.mockResolvedValueOnce({
         data: [
           {
-            id: "assign-1",
-            assessment_id: "assess-1",
+            id: "33333333-3333-3333-3333-333333333333",
+            assessment_id: "22222222-2222-2222-2222-222222222222",
             quota_limit: 10,
             is_active: true,
           },
@@ -280,7 +280,7 @@ describe("client entitlement actions", () => {
 
       // bulk rpc for usage
       queryBuilder.rpc.mockResolvedValueOnce({
-        data: [{ assessment_id: "assess-1", quota_used: 10 }],
+        data: [{ assessment_id: "22222222-2222-2222-2222-222222222222", quota_used: 10 }],
         error: null,
       });
       queryBuilder.single.mockResolvedValueOnce({
@@ -288,19 +288,19 @@ describe("client entitlement actions", () => {
         error: null,
       });
 
-      const result = await checkQuotaAvailability("org-1", ["assess-1"]);
+      const result = await checkQuotaAvailability("11111111-1111-1111-1111-111111111111", ["22222222-2222-2222-2222-222222222222"]);
 
       expect(result.allowed).toBe(false);
       expect(result.violations).toHaveLength(1);
       expect(result.violations[0]).toEqual({
-        assessmentId: "assess-1",
+        assessmentId: "22222222-2222-2222-2222-222222222222",
         quotaLimit: 10,
         quotaUsed: 10,
       });
       expect(queryBuilder.rpc).toHaveBeenCalledWith(
         "get_client_assessment_quota_usage_bulk",
         {
-          p_client_id: "org-1",
+          p_client_id: "11111111-1111-1111-1111-111111111111",
         }
       );
     });
@@ -311,8 +311,8 @@ describe("client entitlement actions", () => {
       queryBuilder.in.mockResolvedValueOnce({
         data: [
           {
-            id: "assign-1",
-            assessment_id: "assess-1",
+            id: "33333333-3333-3333-3333-333333333333",
+            assessment_id: "22222222-2222-2222-2222-222222222222",
             quota_limit: 10,
             is_active: true,
           },
@@ -321,7 +321,7 @@ describe("client entitlement actions", () => {
       });
 
       queryBuilder.rpc.mockResolvedValueOnce({
-        data: [{ assessment_id: "assess-1", quota_used: 5 }],
+        data: [{ assessment_id: "22222222-2222-2222-2222-222222222222", quota_used: 5 }],
         error: null,
       });
       queryBuilder.single.mockResolvedValueOnce({
@@ -329,7 +329,7 @@ describe("client entitlement actions", () => {
         error: null,
       });
 
-      const result = await checkQuotaAvailability("org-1", ["assess-1"]);
+      const result = await checkQuotaAvailability("11111111-1111-1111-1111-111111111111", ["22222222-2222-2222-2222-222222222222"]);
       expect(result.allowed).toBe(true);
       expect(result.violations).toHaveLength(0);
     });
@@ -342,7 +342,7 @@ describe("client entitlement actions", () => {
     it("rejects non-admin callers", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
 
-      const result = await updateAssessmentAssignment("assign-1", "org-1", {
+      const result = await updateAssessmentAssignment("33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111", {
         quotaLimit: 200,
       });
 
@@ -359,11 +359,11 @@ describe("client entitlement actions", () => {
         .mockReturnValueOnce(queryBuilder)
         .mockResolvedValueOnce({ error: null });
 
-      const result = await updateAssessmentAssignment("assign-1", "org-1", {
+      const result = await updateAssessmentAssignment("33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111", {
         quotaLimit: 200,
       });
 
-      expect(result).toEqual({ success: true, id: "assign-1" });
+      expect(result).toEqual({ success: true, id: "33333333-3333-3333-3333-333333333333" });
       expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
     });
   });
@@ -379,8 +379,8 @@ describe("client entitlement actions", () => {
         .mockReturnValueOnce(queryBuilder)
         .mockResolvedValueOnce({ error: null });
 
-      const result = await removeAssessmentAssignment("assign-1", "org-1");
-      expect(result).toEqual({ success: true, id: "assign-1" });
+      const result = await removeAssessmentAssignment("33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111");
+      expect(result).toEqual({ success: true, id: "33333333-3333-3333-3333-333333333333" });
     });
   });
 
@@ -391,7 +391,7 @@ describe("client entitlement actions", () => {
     it("rejects non-admin callers", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
 
-      const result = await toggleClientBranding("org-1", true);
+      const result = await toggleClientBranding("11111111-1111-1111-1111-111111111111", true);
       expect(result).toEqual({
         error: "Only platform administrators can manage branding settings.",
       });
@@ -401,8 +401,8 @@ describe("client entitlement actions", () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
       queryBuilder.eq.mockResolvedValueOnce({ error: null });
 
-      const result = await toggleClientBranding("org-1", true);
-      expect(result).toEqual({ success: true, id: "org-1" });
+      const result = await toggleClientBranding("11111111-1111-1111-1111-111111111111", true);
+      expect(result).toEqual({ success: true, id: "11111111-1111-1111-1111-111111111111" });
       expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
     });
   });

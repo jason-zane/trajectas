@@ -1,7 +1,12 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { ParticleMesh } from "./particle-mesh";
+
+const ParticleMesh = dynamic(
+  () => import("./particle-mesh").then((mod) => mod.ParticleMesh),
+  { ssr: false },
+);
 
 const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
@@ -61,6 +66,22 @@ export function MarketingInteractive() {
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("touchmove", handleTouchMove);
+    };
+  }, [reducedMotion]);
+
+  // Promote the marketing surface to its animated layout once JS has hydrated
+  // and the user hasn't opted out of motion. The default static layout stays
+  // in place if either of those is false — the page is always readable.
+  useEffect(() => {
+    const root = document.querySelector('[data-surface="marketing"]');
+    if (!root) return;
+    if (reducedMotion) {
+      root.removeAttribute("data-motion");
+      return;
+    }
+    root.setAttribute("data-motion", "on");
+    return () => {
+      root.removeAttribute("data-motion");
     };
   }, [reducedMotion]);
 

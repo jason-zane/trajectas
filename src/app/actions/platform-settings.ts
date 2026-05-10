@@ -22,7 +22,8 @@ export async function updatePlatformBandScheme(scheme: BandScheme) {
   if (!isSchemeValid(scheme)) return { error: 'Invalid band scheme' }
 
   const db = createAdminClient()
-  const { data: rows } = await db.from('platform_settings').select('id').limit(1)
+  const { data: rows, error: rowsError } = await db.from('platform_settings').select('id').limit(1)
+  if (rowsError) return { error: rowsError.message }
   const existingId = (rows && rows[0] && 'id' in rows[0]) ? (rows[0].id as string) : null
 
   if (existingId) {

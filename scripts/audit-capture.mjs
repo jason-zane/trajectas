@@ -36,7 +36,6 @@ const CLIENT_EMAIL = "audit-cleanup-client@trajectas.test";
 const CAMPAIGN_ID = "0d1e6c21-d749-4b35-a431-7581e62862d6";
 const PARTICIPANT_ID = "4e1dd571-9d82-4bf4-8ebd-7b840ef716bd";
 const SESSION_ID = "32ebc7c4-d598-4610-aa7b-13fc3e195a89";
-const SAMPLE_CLIENT_ID = "00000000-0000-4000-8000-00008a4dc11e";
 
 const OUT_DIR = resolve(process.cwd(), "docs/audit/screenshots/phase-2-full");
 mkdirSync(resolve(OUT_DIR, "client"), { recursive: true });
