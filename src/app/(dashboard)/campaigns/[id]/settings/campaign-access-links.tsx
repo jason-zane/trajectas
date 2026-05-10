@@ -124,6 +124,7 @@ export function CampaignAccessLinks({
                     variant="ghost"
                     className="size-8"
                     onClick={() => copyUrl(link.token)}
+                    title="Copy link"
                   >
                     <Link2 className="size-3.5" />
                   </Button>

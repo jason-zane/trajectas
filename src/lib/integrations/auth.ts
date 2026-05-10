@@ -3,11 +3,16 @@ import crypto from 'crypto'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { extractIntegrationKeyPrefix, hashIntegrationApiKey } from '@/lib/integrations/credentials'
 import { IntegrationApiError, isIntegrationApiError } from '@/lib/integrations/errors'
+import { MAX_INTEGRATION_JSON_BODY_BYTES } from '@/lib/integrations/request'
 import type {
   IntegrationApiScope,
   IntegrationAuthContext,
   InternalApiContext,
 } from '@/lib/integrations/types'
+import {
+  readRequestTextWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -363,8 +368,20 @@ export async function withIntegrationApiRoute(
     const rateLimit = options.rateLimit ?? { limit: 120, windowMs: 60_000 }
     applyRateLimit(rateLimitKey, rateLimit.limit, rateLimit.windowMs)
 
-    // Buffer body once to avoid double-read of the request stream
-    const bodyText = await request.clone().text()
+    // Buffer body once for idempotency hashing with a hard cap before parsing.
+    const bodyText = await readRequestTextWithLimit(
+      request.clone(),
+      MAX_INTEGRATION_JSON_BODY_BYTES
+    ).catch((error) => {
+      if (error instanceof RequestBodyTooLargeError) {
+        throw new IntegrationApiError(
+          413,
+          'payload_too_large',
+          'The request body is too large.'
+        )
+      }
+      throw error
+    })
 
     if (options.enableIdempotency) {
       idempotencyState = await beginIdempotencyRecord({ context, request, bodyText })

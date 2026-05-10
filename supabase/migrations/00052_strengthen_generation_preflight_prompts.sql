@@ -41,7 +41,6 @@ If an item could plausibly belong to multiple constructs, do not write it.
   { "stem": "...", "reverseScored": true|false, "rationale": "one sentence" }
 - `reverseScored` must be true only when endorsing the item indicates lower standing on the construct.$$
 );
-
 SELECT activate_ai_system_prompt(
   'preflight_analysis',
   'Preflight Analysis v2',

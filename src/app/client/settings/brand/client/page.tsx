@@ -1,6 +1,6 @@
 import { Building2 } from "lucide-react"
 import { redirect, notFound } from "next/navigation"
-import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
+import { getBrandConfig, getCachedPlatformBrand } from "@/app/actions/brand"
 import { isClientBrandingEnabled } from "@/app/actions/client-entitlements"
 import { canManageClient, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org"
@@ -62,11 +62,11 @@ export default async function ClientPortalBrandPage() {
     if (partnerBrand) {
       inheritedBrand = partnerBrand.config
     } else {
-      const platform = await getPlatformBrand()
+      const platform = await getCachedPlatformBrand()
       inheritedBrand = platform?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
     }
   } else {
-    const platform = await getPlatformBrand()
+    const platform = await getCachedPlatformBrand()
     inheritedBrand = platform?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
   }
 

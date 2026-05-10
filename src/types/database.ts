@@ -78,6 +78,43 @@ export type FormatMode = 'traditional' | 'forced_choice'
 /** Lifecycle status of a 360-style diagnostic session. */
 export type DiagnosticSessionStatus = 'draft' | 'active' | 'completed' | 'archived'
 
+// ---------------------------------------------------------------------------
+// Org Diagnostic Enums
+// ---------------------------------------------------------------------------
+
+/** Kind of diagnostic campaign. */
+export type OrgDiagnosticCampaignKind = 'baseline' | 'role_rep'
+
+/** Lifecycle status of a diagnostic campaign. */
+export type OrgDiagnosticCampaignStatus = 'draft' | 'active' | 'closed' | 'archived'
+
+/** The instrument administered within a track. */
+export type OrgDiagnosticInstrument = 'OPS' | 'LCQ' | 'REP'
+
+/** Lifecycle status of an instrument track. */
+export type OrgDiagnosticTrackStatus = 'pending' | 'open' | 'closed'
+
+/** The role/perspective of a respondent. Determines which instrument they see. */
+export type OrgDiagnosticRespondentType =
+  | 'employee'
+  | 'senior_leader'
+  | 'hiring_manager'
+  | 'team_member'
+
+/** Progress of a respondent through their assigned instrument. */
+export type OrgDiagnosticRespondentStatus =
+  | 'invited'
+  | 'in_progress'
+  | 'completed'
+  | 'withdrawn'
+  | 'expired'
+
+/** Kind of profile snapshot — mirrors campaign kind. */
+export type OrgDiagnosticProfileKind = 'baseline' | 'role'
+
+/** Lifecycle status of a hiring role at a client. */
+export type ClientRoleStatus = 'open' | 'filled' | 'closed' | 'archived'
+
 /** Progress status of an individual participant's assessment attempt. */
 export type ParticipantSessionStatus =
   | 'not_started'
@@ -1656,6 +1693,159 @@ export interface CampaignAccessLink {
   /** Whether the link is currently active. */
   isActive: boolean
   created_at: string
+}
+
+// ---------------------------------------------------------------------------
+// Org Diagnostic Entities
+// ---------------------------------------------------------------------------
+
+/**
+ * Versioned, immutable snapshot of a client's diagnostic profile (org-level
+ * or role-level). Produced when a campaign closes.
+ */
+export interface OrgDiagnosticProfile {
+  /** UUID primary key. */
+  id: string
+  /** Owning client. */
+  clientId: string
+  /** Source campaign (1:1). */
+  campaignId: string
+  /** baseline (from a baseline campaign) or role (from a role_rep campaign). */
+  kind: OrgDiagnosticProfileKind
+  /** For role-kind snapshots: the baseline snapshot this role is anchored to. */
+  pinnedBaselineSnapshotId?: string
+  /** Composite snapshot data — per-respondent-type aggregates + gap analysis. Internal shape defined by the future scoring spec. */
+  data: Record<string, unknown>
+  /** Total respondents whose data is included. */
+  respondentCount: number
+  /** Per-type counts, e.g. { employee: 24, senior_leader: 6 }. */
+  respondentCountByType: Record<string, number>
+  /** When the snapshot was generated. */
+  generatedAt: string
+  /** Profile ID of the user who triggered generation. */
+  generatedBy?: string
+}
+
+/**
+ * A position the client is hiring for. Pinned at creation to a baseline
+ * diagnostic snapshot; the pin is read-only after creation except via the
+ * explicit re-pin admin operation (see spec §3.4).
+ */
+export interface ClientRole {
+  /** UUID primary key. */
+  id: string
+  /** Owning client. */
+  clientId: string
+  /** Role title, e.g. "Head of Product". */
+  title: string
+  /** Department/function, free text in MVP. */
+  function?: string
+  /** Hiring manager display name. */
+  hiringManagerName?: string
+  /** Hiring manager email (CITEXT). */
+  hiringManagerEmail?: string
+  /** Baseline snapshot this role is locked to. */
+  pinnedBaselineSnapshotId: string
+  /** Lifecycle status. */
+  status: ClientRoleStatus
+  created_at: string
+  updated_at?: string
+  /** Soft-delete timestamp. */
+  deletedAt?: string
+  /** Profile ID of creator. */
+  createdBy?: string
+}
+
+/**
+ * A diagnostic data-collection campaign (baseline or role_rep). Holds N
+ * instrument tracks and N respondents. Produces one OrgDiagnosticProfile
+ * snapshot when closed.
+ */
+export interface OrgDiagnosticCampaign {
+  /** UUID primary key. */
+  id: string
+  /** Owning client. */
+  clientId: string
+  /** baseline = OPS+/-LCQ; role_rep = REP for one role. */
+  kind: OrgDiagnosticCampaignKind
+  /** For role_rep campaigns: the role being assessed. NULL for baseline. */
+  clientRoleId?: string
+  /** For role_rep campaigns: the baseline snapshot this campaign anchors to. NULL for baseline. */
+  pinnedBaselineSnapshotId?: string
+  /** Display title. */
+  title: string
+  /** Optional description. */
+  description?: string
+  /** Lifecycle status. */
+  status: OrgDiagnosticCampaignStatus
+  /** Default open date — tracks inherit if their own opens_at is NULL. */
+  defaultOpensAt?: string
+  /** Default close date — tracks inherit if their own closes_at is NULL. */
+  defaultClosesAt?: string
+  /** Set when status transitions to 'closed'. */
+  closedAt?: string
+  created_at: string
+  updated_at?: string
+  /** Soft-delete timestamp. */
+  deletedAt?: string
+  /** Profile ID of creator. */
+  createdBy?: string
+}
+
+/**
+ * Per-instrument track inside a campaign. One track per instrument the
+ * campaign is administering. Inherits campaign-level dates if its own are
+ * NULL.
+ */
+export interface OrgDiagnosticCampaignTrack {
+  /** UUID primary key. */
+  id: string
+  /** Parent campaign. */
+  campaignId: string
+  /** The instrument administered in this track. */
+  instrument: OrgDiagnosticInstrument
+  /** Override open date — falls back to campaign default. */
+  opensAt?: string
+  /** Override close date — falls back to campaign default. */
+  closesAt?: string
+  /** Track lifecycle. */
+  status: OrgDiagnosticTrackStatus
+  /** Set when status transitions to 'closed'. */
+  closedAt?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * A person invited to complete one instrument in one diagnostic campaign.
+ * Token-based access — no Supabase Auth required. Identity is hidden from
+ * client admins per the anonymity contract (spec §1.6).
+ */
+export interface OrgDiagnosticRespondent {
+  /** UUID primary key. */
+  id: string
+  /** Parent campaign. */
+  campaignId: string
+  /** Track within that campaign — determines which instrument this respondent sees. */
+  trackId: string
+  /** Respondent's role/perspective. */
+  respondentType: OrgDiagnosticRespondentType
+  /** Display name (optional — may be missing from CSV upload). */
+  name?: string
+  /** Email (CITEXT in DB). */
+  email: string
+  /** Unique 64-char hex token used as URL identifier. */
+  accessToken: string
+  /** Progress status. */
+  status: OrgDiagnosticRespondentStatus
+  /** When the invitation was created. */
+  invitedAt: string
+  /** When the respondent first opened the survey. */
+  startedAt?: string
+  /** When the respondent finished. */
+  completedAt?: string
+  created_at: string
+  updated_at?: string
 }
 
 // ---------------------------------------------------------------------------

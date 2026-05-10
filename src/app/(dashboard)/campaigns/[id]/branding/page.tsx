@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation"
-import { getCampaignById } from "@/app/actions/campaigns"
+import { getCampaignHeader } from "@/app/actions/campaigns"
 import { getBrandConfig, getEffectiveBrand } from "@/app/actions/brand"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { CampaignBrandEditor } from "./campaign-brand-editor"
@@ -10,7 +10,7 @@ export default async function CampaignBrandingPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const campaign = await getCampaignById(id)
+  const campaign = await getCampaignHeader(id)
   if (!campaign) notFound()
 
   const [campaignBrandRecord, inheritedBrand, clientBrand] = await Promise.all([

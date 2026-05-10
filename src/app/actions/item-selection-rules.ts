@@ -146,10 +146,12 @@ export async function getItemsPerConstructLimit(factorIds: string[]): Promise<{
   const db = createAdminClient()
 
   // Get unique construct IDs for these factors
-  const { data: links } = await db
+  const { data: links, error: linksError } = await db
     .from('factor_constructs')
     .select('construct_id')
     .in('factor_id', factorIds)
+
+  if (linksError) throw new Error(linksError.message)
 
   const constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
   if (constructIds.length === 0) {
@@ -164,12 +166,14 @@ export async function getItemsPerConstructLimit(factorIds: string[]): Promise<{
   }
 
   // Count available active items per construct
-  const { data: items } = await db
+  const { data: items, error: itemsError } = await db
     .from('items')
     .select('construct_id, constructs(name)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
+
+  if (itemsError) throw new Error(itemsError.message)
 
   const countByConstruct = new Map<string, { count: number; name: string }>()
   for (const item of items ?? []) {

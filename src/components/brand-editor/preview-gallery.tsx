@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { Expand, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens } from "@/lib/brand/tokens"
+import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import type { BrandConfig } from "@/lib/brand/types"
 import { PreviewQuestions } from "./preview-questions"
 import { PreviewComplete } from "./preview-complete"
@@ -59,6 +60,11 @@ export function PreviewGallery({ config, compact = false, surfaces, brandName, l
     return styleObj
   }, [config])
 
+  const fontsUrl = useMemo(
+    () => buildGoogleFontsUrl([config.headingFont, config.bodyFont, config.monoFont]),
+    [config.headingFont, config.bodyFont, config.monoFont],
+  )
+
   const isMobile = mode === "mobile"
   const combinedStyles = lightStyles
 
@@ -73,6 +79,7 @@ export function PreviewGallery({ config, compact = false, surfaces, brandName, l
 
   return (
     <>
+      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
       <div className="flex flex-col gap-4">
         {/* Mode toggle bar */}
         <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1 self-start">
