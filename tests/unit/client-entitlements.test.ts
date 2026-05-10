@@ -403,7 +403,8 @@ describe("client entitlement actions", () => {
 
       const result = await toggleClientBranding("11111111-1111-1111-1111-111111111111", true);
       expect(result).toEqual({ success: true, id: "11111111-1111-1111-1111-111111111111" });
-      expect(cache.revalidatePath).toHaveBeenCalledWith("/clients");
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/clients", "layout");
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/client", "layout");
     });
   });
 });
