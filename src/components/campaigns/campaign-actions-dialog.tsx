@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, UserPlus } from "lucide-react";
+import { Link2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -69,7 +69,7 @@ export function CampaignActionsDialog({
         <ActionDialogBody>
           <div className="grid gap-3 sm:grid-cols-2">
             <ActionChoice
-              icon={Copy}
+              icon={Link2}
               title={accessToken ? "Copy access link" : "Create access link"}
               description={
                 accessToken

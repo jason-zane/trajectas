@@ -1,20 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { Archive, ArrowRight, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { Archive, ArrowRight, ExternalLink, Trash2, Users } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { toast } from "sonner";
 
 import {
   bulkDeleteCampaigns,
   bulkUpdateCampaignStatus,
+  deleteCampaign,
   type OperationalClientCampaign,
 } from "@/app/actions/campaigns";
 import { CampaignActionsDialog } from "@/components/campaigns/campaign-actions-dialog";
 import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign-button";
-import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import {
+  DataTable,
+  DataTableActionsMenu,
+  DataTableColumnHeader,
+} from "@/components/data-table";
 import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { usePortal } from "@/components/portal-context";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 
 const statusVariant: Record<
@@ -52,6 +65,75 @@ function getCompletionPercent(campaign: OperationalClientCampaign) {
 interface ClientCampaignListProps {
   campaigns: OperationalClientCampaign[];
   favoriteCampaignIds?: string[];
+}
+
+function ClientCampaignRowActions({
+  campaign,
+}: {
+  campaign: OperationalClientCampaign;
+}) {
+  const router = useRouter();
+  const { href } = usePortal();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  function handleDelete() {
+    startTransition(async () => {
+      const result = await deleteCampaign(campaign.id);
+      if (result && "error" in result && result.error) {
+        toast.error(
+          typeof result.error === "string"
+            ? result.error
+            : "Failed to delete campaign",
+        );
+        return;
+      }
+
+      toast.success("Campaign deleted");
+      setConfirmOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <DataTableActionsMenu label={`Open actions for ${campaign.title}`}>
+        <DropdownMenuItem
+          onClick={() => router.push(href(`/campaigns/${campaign.id}`))}
+        >
+          <ExternalLink className="size-4" />
+          Open campaign
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            router.push(href(`/campaigns/${campaign.id}/participants`))
+          }
+        >
+          <Users className="size-4" />
+          View participants
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => setConfirmOpen(true)}
+          disabled={isPending}
+          variant="destructive"
+        >
+          <Trash2 className="size-4" />
+          Delete campaign
+        </DropdownMenuItem>
+      </DataTableActionsMenu>
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete campaign?"
+        description={`Delete "${campaign.title}". This removes it from the list, but the action can still be undone later.`}
+        confirmLabel="Delete"
+        variant="destructive"
+        onConfirm={handleDelete}
+        loading={isPending}
+      />
+    </>
+  );
 }
 
 export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: ClientCampaignListProps) {
@@ -158,16 +240,19 @@ export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: Clie
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
-        <CampaignActionsDialog
-          campaignTitle={row.original.title}
-          accessToken={row.original.primaryAccessLink?.token}
-          inviteHref={href(
-            `/campaigns/${row.original.id}/participants?action=invite`,
-          )}
-          createLinkHref={href(
-            `/campaigns/${row.original.id}/participants?action=link`,
-          )}
-        />
+        <div className="flex items-center justify-end gap-1">
+          <CampaignActionsDialog
+            campaignTitle={row.original.title}
+            accessToken={row.original.primaryAccessLink?.token}
+            inviteHref={href(
+              `/campaigns/${row.original.id}/participants?action=invite`,
+            )}
+            createLinkHref={href(
+              `/campaigns/${row.original.id}/participants?action=link`,
+            )}
+          />
+          <ClientCampaignRowActions campaign={row.original} />
+        </div>
       ),
     },
   ];
