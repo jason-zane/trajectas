@@ -3,6 +3,13 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireParticipantAccess, requireSessionAccess } from '@/lib/auth/authorization'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
+import {
+  comparisonRequestSchema,
+  eligibleAssessmentsSchema,
+  searchAllParticipantsSchema,
+  searchCampaignParticipantsSchema,
+  sessionOptionsForRowSchema,
+} from '@/lib/validations/comparison'
 import type {
   Column,
   ColumnGroup,
@@ -35,8 +42,11 @@ export async function getEligibleAssessmentsForParticipants(
 ): Promise<EligibleAssessment[]> {
   if (campaignParticipantIds.length === 0) return []
 
+  const parsed = eligibleAssessmentsSchema.safeParse({ campaignParticipantIds })
+  if (!parsed.success) throw new Error('Invalid participant IDs.')
+
   // Throws AuthorizationError on the first unauthorized id; we let it propagate.
-  await Promise.all(campaignParticipantIds.map((id) => requireParticipantAccess(id)))
+  await Promise.all(parsed.data.campaignParticipantIds.map((id) => requireParticipantAccess(id)))
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -88,7 +98,9 @@ export async function getSessionOptionsForRow(
   assessmentIds: string[],
 ): Promise<SessionOption[]> {
   if (assessmentIds.length === 0) return []
-  await requireParticipantAccess(campaignParticipantId)
+  const parsed = sessionOptionsForRowSchema.safeParse({ campaignParticipantId, assessmentIds })
+  if (!parsed.success) throw new Error('Invalid input.')
+  await requireParticipantAccess(parsed.data.campaignParticipantId)
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -142,6 +154,8 @@ export async function searchCampaignParticipants(
   campaignId: string,
   query: string,
 ): Promise<ParticipantSearchHit[]> {
+  const parsed = searchCampaignParticipantsSchema.safeParse({ campaignId, query })
+  if (!parsed.success) return []
   const supabase = await createClient()
   let q = supabase
     .from('campaign_participants')
@@ -162,6 +176,8 @@ export async function searchCampaignParticipants(
 export async function searchAllParticipants(
   query: string,
 ): Promise<ParticipantSearchHit[]> {
+  const parsed = searchAllParticipantsSchema.safeParse({ query })
+  if (!parsed.success) return []
   const supabase = await createClient()
   let q = supabase
     .from('campaign_participants')
@@ -236,7 +252,10 @@ type ParticipantScoreRow = {
 export async function getComparisonMatrix(
   req: ComparisonRequest,
 ): Promise<ComparisonResult> {
-  const cpIds = [...new Set(req.entries.map((e) => e.campaignParticipantId))]
+  const parsed = comparisonRequestSchema.safeParse(req)
+  if (!parsed.success) return { columns: [], rows: [] }
+
+  const cpIds = [...new Set(parsed.data.entries.map((e) => e.campaignParticipantId))]
   if (cpIds.length === 0) return { columns: [], rows: [] }
 
   await Promise.all(cpIds.map((id) => requireParticipantAccess(id)))

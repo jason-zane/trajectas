@@ -173,7 +173,32 @@ After all PRs merged and migrations applied:
   - Accepted: 12 authenticated_security_definer (functions are needed inside RLS — only return the caller's own scope info).
   - Manual: 1 auth_leaked_password_protection (Auth dashboard toggle, not SQL).
 - Performance advisor: unindexed_foreign_keys 38 → 0. The 38 new indexes show as unused_index until they receive query traffic; expected to drain over time.
-- Deferred (not done): 4.7a auth.uid() rewrites in 77 RLS policies (per-policy review needed; risk of breaking complex predicates), 4.7c drop_unused_indexes (need traffic-based confirmation), 4.7d consolidate multiple permissive policies (216 — needs careful per-table review).
+
+### 2026-05-10 — Phase 4.7 follow-up
+
+**4.7a — staged in repo, not yet applied**
+- `supabase/migrations/20260508214600_phase4_rls_uid_subquery_wrap.sql` — wraps `auth.uid()` in `(select auth.uid())` for all 77 policies flagged by `0003_auth_rls_initplan` (verified count matches `pg_policies`).
+- Migration is BEGIN/COMMIT-wrapped, drops + recreates each policy with predicates preserved verbatim except for the `auth.uid()` wrap.
+- Direct production application via MCP `apply_migration` was blocked by the safety system as a high-severity 77-policy mass change; the file is staged and will deploy via the standard migration flow on PR merge / `supabase db push`.
+
+**4.7c — deferred (low value, high risk)**
+- 110+ indexes show `idx_scan = 0`, but most fall into one of:
+  - The 38 FK protective indexes added in 4.7b (zero scans because parent DELETE/UPDATE traffic hasn't fired since they were added — they exist to prevent future seq scans, not to serve SELECTs).
+  - Composite `*_status` / `*_active` filter indexes (likely intentional for narrow filter queries that haven't run since stats reset).
+  - Uniqueness-style `*_slug_unique`, `*_unique` indexes that may be enforcing data invariants.
+- Dropping any of these on the strength of the advisor finding alone risks (a) undoing 4.7b protection, (b) regressing app filter queries, (c) removing data invariants.
+- Decision: keep all current indexes. The advisor finding here is informational, not a security or correctness issue. Re-evaluate after 30 days of production traffic with `pg_stat_user_indexes.idx_scan` snapshots.
+
+**4.7d — deferred (informational, requires per-policy review)**
+- 14 (table, cmd) groups have multiple permissive policies (216 advisor rows when multiplied across roles). The biggest:
+  - `profiles SELECT` × 4: own / org / partner / platform_admin
+  - `report_snapshots SELECT` × 4: participant / consultant / hr_manager / platform_admin
+  - `assessments ALL` × 3: platform_admin / org_admin / partner_admin
+  - `clients SELECT` × 3: own / partner / platform_admin
+  - `email_templates` (4 cmds × 2 admin roles) = 8 rows
+- Each consolidation would replace N policies with one OR'd predicate. Several conflict groups span different roles (`anon_read` vs `authenticated`-only) which can't be cleanly OR'd into a single policy.
+- This is the only Phase 4 piece that touches authorization predicates rather than just decorating them. Without runtime testing on a staging copy, a typo could lock out a class of users or open a hole.
+- Decision: defer until 4.7a is verified safe in production for at least a release cycle, then revisit consolidation table-by-table with explicit before/after RLS tests.
 
 **Phase 5 — done (locally)**
 - After post-merge cleanup, 575/575 unit + component + architecture tests pass. Lint clean. Typecheck clean. Build clean.
@@ -192,6 +217,7 @@ After all PRs merged and migrations applied:
 
 ### What still needs explicit user approval
 
-1. **Production DB hardening (Phase 4)** — 51 security advisor findings (5 RLS-no-policy tables, 12 mutable search_path, 13 SECURITY DEFINER funcs callable by anon, citext in public, leaked-password protection disabled), 400 perf advisor findings (77 `auth.uid()` not wrapped, 38 unindexed FKs, 216 multiple-permissive policies, 69 unused indexes).
-2. **Routine retirement** — once #92 merges, the user can disable the 8 active routines at https://claude.ai/code/routines. The Login Lambda one-time audit (May 14) is now redundant — the regression it was looking for is already fixed in main.
+1. **Routine retirement** — once #92 merges, the user can disable the 8 active routines at https://claude.ai/code/routines. The Login Lambda one-time audit (May 14) is now redundant — the regression it was looking for is already fixed in main.
+2. **Phase 4.7a deploy** — the migration file is staged in this branch. It deploys via PR merge / `supabase db push`. After deploy, re-run `get_advisors` and confirm the 77 `auth_rls_initplan` rows drop out.
+3. **Phase 4.6 manual step** — toggle leaked-password protection in the Supabase Auth dashboard (not a SQL migration).
 

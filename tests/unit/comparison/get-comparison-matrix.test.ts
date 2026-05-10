@@ -58,7 +58,7 @@ describe('getComparisonMatrix', () => {
   it('returns empty columns + rows when no entries are passed', async () => {
     const result = await getComparisonMatrix({
       entries: [],
-      assessmentIds: ['a1'],
+      assessmentIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'],
           })
     expect(result).toEqual({ columns: [], rows: [] })
     expect(fromMock).not.toHaveBeenCalled()
@@ -68,8 +68,8 @@ describe('getComparisonMatrix', () => {
     requireParticipantAccess.mockRejectedValueOnce(new Error('Unauthorized'))
     await expect(
       getComparisonMatrix({
-        entries: [{ campaignParticipantId: 'cp1' }],
-        assessmentIds: ['a1'],
+        entries: [{ campaignParticipantId: '11111111-1111-1111-1111-111111111111' }],
+        assessmentIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'],
               }),
     ).rejects.toThrow('Unauthorized')
     expect(fromMock).not.toHaveBeenCalled()
@@ -79,19 +79,19 @@ describe('getComparisonMatrix', () => {
     fromMock.mockImplementation(
       fromRouter({
         campaign_participants: [
-          { id: 'cp1', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
+          { id: '11111111-1111-1111-1111-111111111111', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
         ],
       }),
     )
     const result = await getComparisonMatrix({
-      entries: [{ campaignParticipantId: 'cp1' }],
+      entries: [{ campaignParticipantId: '11111111-1111-1111-1111-111111111111' }],
       assessmentIds: [],
           })
     expect(result.columns).toEqual([])
     expect(result.rows).toEqual([
       {
-        entryId: 'cp1:0',
-        campaignParticipantId: 'cp1',
+        entryId: '11111111-1111-1111-1111-111111111111:0',
+        campaignParticipantId: '11111111-1111-1111-1111-111111111111',
         participantName: 'Sam Lee',
         participantEmail: 'sam@x.com',
         perAssessment: [],
@@ -103,27 +103,27 @@ describe('getComparisonMatrix', () => {
     fromMock.mockImplementation(
       fromRouter({
         campaign_participants: [
-          { id: 'cp1', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
+          { id: '11111111-1111-1111-1111-111111111111', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
         ],
         participant_sessions: [
           {
             id: 'sess1-old',
-            campaign_participant_id: 'cp1',
-            assessment_id: 'a1',
+            campaign_participant_id: '11111111-1111-1111-1111-111111111111',
+            assessment_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
             status: 'completed',
             started_at: '2026-03-01T00:00:00Z',
             completed_at: '2026-03-02T00:00:00Z',
           },
           {
             id: 'sess1-new',
-            campaign_participant_id: 'cp1',
-            assessment_id: 'a1',
+            campaign_participant_id: '11111111-1111-1111-1111-111111111111',
+            assessment_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
             status: 'completed',
             started_at: '2026-04-01T00:00:00Z',
             completed_at: '2026-04-02T00:00:00Z',
           },
         ],
-        assessments: [{ id: 'a1', title: 'Leadership', scoring_level: 'factor' }],
+        assessments: [{ id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', title: 'Leadership', scoring_level: 'factor' }],
         assessment_factors: [
           {
             factor_id: 'f1',
@@ -143,8 +143,8 @@ describe('getComparisonMatrix', () => {
     )
 
     const result = await getComparisonMatrix({
-      entries: [{ campaignParticipantId: 'cp1' }],
-      assessmentIds: ['a1'],
+      entries: [{ campaignParticipantId: '11111111-1111-1111-1111-111111111111' }],
+      assessmentIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'],
           })
 
     expect(result.columns).toHaveLength(1)
@@ -167,19 +167,19 @@ describe('getComparisonMatrix', () => {
     fromMock.mockImplementation(
       fromRouter({
         campaign_participants: [
-          { id: 'cp1', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
+          { id: '11111111-1111-1111-1111-111111111111', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
         ],
         participant_sessions: [
           {
             id: 'sess-ip',
-            campaign_participant_id: 'cp1',
-            assessment_id: 'a1',
+            campaign_participant_id: '11111111-1111-1111-1111-111111111111',
+            assessment_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
             status: 'in_progress',
             started_at: '2026-04-01T00:00:00Z',
             completed_at: null,
           },
         ],
-        assessments: [{ id: 'a1', title: 'Leadership', scoring_level: 'factor' }],
+        assessments: [{ id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', title: 'Leadership', scoring_level: 'factor' }],
         assessment_factors: [
           {
             factor_id: 'f1',
@@ -191,8 +191,8 @@ describe('getComparisonMatrix', () => {
     )
 
     const result = await getComparisonMatrix({
-      entries: [{ campaignParticipantId: 'cp1' }],
-      assessmentIds: ['a1'],
+      entries: [{ campaignParticipantId: '11111111-1111-1111-1111-111111111111' }],
+      assessmentIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'],
           })
     const a = result.rows[0].perAssessment[0]
     expect(a.sessionId).toBeNull()
@@ -205,27 +205,27 @@ describe('getComparisonMatrix', () => {
     fromMock.mockImplementation(
       fromRouter({
         campaign_participants: [
-          { id: 'cp1', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
+          { id: '11111111-1111-1111-1111-111111111111', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
         ],
         participant_sessions: [
           {
-            id: 'sess-A',
-            campaign_participant_id: 'cp1',
-            assessment_id: 'a1',
+            id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbba',
+            campaign_participant_id: '11111111-1111-1111-1111-111111111111',
+            assessment_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
             status: 'completed',
             started_at: '2026-04-01T00:00:00Z',
             completed_at: '2026-04-02T00:00:00Z',
           },
           {
             id: 'sess-B',
-            campaign_participant_id: 'cp1',
-            assessment_id: 'a1',
+            campaign_participant_id: '11111111-1111-1111-1111-111111111111',
+            assessment_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1',
             status: 'completed',
             started_at: '2026-04-10T00:00:00Z',
             completed_at: '2026-04-11T00:00:00Z',
           },
         ],
-        assessments: [{ id: 'a1', title: 'Leadership', scoring_level: 'factor' }],
+        assessments: [{ id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1', title: 'Leadership', scoring_level: 'factor' }],
         assessment_factors: [
           {
             factor_id: 'f1',
@@ -233,7 +233,7 @@ describe('getComparisonMatrix', () => {
           },
         ],
         participant_scores: [
-          { session_id: 'sess-A', factor_id: 'f1', construct_id: null, scaled_score: 60 },
+          { session_id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbba', factor_id: 'f1', construct_id: null, scaled_score: 60 },
           { session_id: 'sess-B', factor_id: 'f1', construct_id: null, scaled_score: 90 },
         ],
       }),
@@ -242,14 +242,16 @@ describe('getComparisonMatrix', () => {
     const result = await getComparisonMatrix({
       entries: [
         {
-          campaignParticipantId: 'cp1',
-          sessionIdsByAssessment: { a1: 'sess-A' },
+          campaignParticipantId: '11111111-1111-1111-1111-111111111111',
+          sessionIdsByAssessment: {
+            'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1': 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbba',
+          },
         },
       ],
-      assessmentIds: ['a1'],
+      assessmentIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa1'],
           })
-    expect(requireSessionAccess).toHaveBeenCalledWith('sess-A')
-    expect(result.rows[0].perAssessment[0].sessionId).toBe('sess-A')
+    expect(requireSessionAccess).toHaveBeenCalledWith('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbba')
+    expect(result.rows[0].perAssessment[0].sessionId).toBe('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbba')
     expect(result.rows[0].perAssessment[0].cells.f1).toBe(60)
   })
 
@@ -257,19 +259,19 @@ describe('getComparisonMatrix', () => {
     fromMock.mockImplementation(
       fromRouter({
         campaign_participants: [
-          { id: 'cp1', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
+          { id: '11111111-1111-1111-1111-111111111111', email: 'sam@x.com', first_name: 'Sam', last_name: 'Lee' },
         ],
         participant_sessions: [
           {
             id: 's1',
-            campaign_participant_id: 'cp1',
-            assessment_id: 'a2',
+            campaign_participant_id: '11111111-1111-1111-1111-111111111111',
+            assessment_id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2',
             status: 'completed',
             started_at: '2026-04-01T00:00:00Z',
             completed_at: '2026-04-02T00:00:00Z',
           },
         ],
-        assessments: [{ id: 'a2', title: 'Cognitive', scoring_level: 'construct' }],
+        assessments: [{ id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2', title: 'Cognitive', scoring_level: 'construct' }],
         assessment_constructs: [
           {
             construct_id: 'c1',
@@ -292,8 +294,8 @@ describe('getComparisonMatrix', () => {
     )
 
     const result = await getComparisonMatrix({
-      entries: [{ campaignParticipantId: 'cp1' }],
-      assessmentIds: ['a2'],
+      entries: [{ campaignParticipantId: '11111111-1111-1111-1111-111111111111' }],
+      assessmentIds: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaa2'],
           })
     expect(result.columns[0].rollup.name).toBe('Reasoning')
     expect(result.columns[0].children.map((c) => c.level)).toEqual(['construct', 'construct'])
