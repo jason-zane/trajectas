@@ -176,10 +176,12 @@ After all PRs merged and migrations applied:
 
 ### 2026-05-10 — Phase 4.7 follow-up
 
-**4.7a — staged in repo, not yet applied**
-- `supabase/migrations/20260508214600_phase4_rls_uid_subquery_wrap.sql` — wraps `auth.uid()` in `(select auth.uid())` for all 77 policies flagged by `0003_auth_rls_initplan` (verified count matches `pg_policies`).
-- Migration is BEGIN/COMMIT-wrapped, drops + recreates each policy with predicates preserved verbatim except for the `auth.uid()` wrap.
-- Direct production application via MCP `apply_migration` was blocked by the safety system as a high-severity 77-policy mass change; the file is staged and will deploy via the standard migration flow on PR merge / `supabase db push`.
+**4.7a — applied to production**
+- `supabase/migrations/20260508214600_phase4_rls_uid_subquery_wrap.sql` — wraps `auth.uid()` in `(select auth.uid())` for all 77 policies flagged by `0003_auth_rls_initplan`.
+- Merged to main in [#94](https://github.com/jason-zane/trajectas/pull/94).
+- Applied to production via direct psql against `db.rwpfwfcaxoevnvtkdmkx.supabase.co` (MCP `apply_migration` was blocked by the safety system as a high-severity mass change). All 77 DROP/CREATE pairs in one transaction.
+- Verified post-apply: `pg_policies` shows 77 wrapped, 0 unwrapped, 228 total (count preserved).
+- Tracking rows inserted in `supabase_migrations.schema_migrations` for `20260508214400 phase4_security_hardening`, `20260508214500 phase4_fk_indexes`, `20260508214600 phase4_rls_uid_subquery_wrap` — without these, the next `supabase db push` would have tried to re-apply the merged Phase 4 files and failed on already-dropped policies.
 
 **4.7c — deferred (low value, high risk)**
 - 110+ indexes show `idx_scan = 0`, but most fall into one of:
@@ -215,9 +217,26 @@ After all PRs merged and migrations applied:
 - `generation.ts:560` — `count` from Supabase is nullable; added `?? 0`.
 - `tests/unit/client-entitlements.test.ts` and `factor-selection.test.ts` — short test IDs (`"org-1"`, `"ca-1"`) rejected by new `postgresUuid()` schemas; replaced with deterministic valid UUIDs.
 
-### What still needs explicit user approval
+### 2026-05-10 — final PR backlog cleanup
 
-1. **Routine retirement** — once #92 merges, the user can disable the 8 active routines at https://claude.ai/code/routines. The Login Lambda one-time audit (May 14) is now redundant — the regression it was looking for is already fixed in main.
-2. **Phase 4.7a deploy** — the migration file is staged in this branch. It deploys via PR merge / `supabase db push`. After deploy, re-run `get_advisors` and confirm the 77 `auth_rls_initplan` rows drop out.
-3. **Phase 4.6 manual step** — toggle leaked-password protection in the Supabase Auth dashboard (not a SQL migration).
+The 9 client-portal/admin uplift PRs predating the routine cleanup were stale (lint failure on `Date.now()` in a `useRef` initialiser, fixed weeks ago in main). All resolved:
+
+- **Merged after rebase against main:** [#37](https://github.com/jason-zane/trajectas/pull/37), [#39](https://github.com/jason-zane/trajectas/pull/39), [#40](https://github.com/jason-zane/trajectas/pull/40), [#41](https://github.com/jason-zane/trajectas/pull/41), [#42](https://github.com/jason-zane/trajectas/pull/42), [#43](https://github.com/jason-zane/trajectas/pull/43), [#44](https://github.com/jason-zane/trajectas/pull/44).
+  - #39 needed a test-assertion update for the new layout-scoped `revalidatePath('/clients', 'layout')` + `('/client', 'layout')` calls.
+- **Merged after manual conflict resolution:**
+  - [#38](https://github.com/jason-zane/trajectas/pull/38) — branded /assess error surface. Sidebar/shell conflicts (`canManageClientSettings` prop vs. main's new `identity` API) and reconciliation of `client/settings/{brand,team}` against main's `brand/client/` + `users/` rename. Dropped orphaned `client-team-panel.tsx`.
+  - [#45](https://github.com/jason-zane/trajectas/pull/45) — campaign chain icon + client delete + started_at fix. Took main's `markCampaignParticipantStarted` helper which already covers the `started_at` bug PR #45 was fixing (via `PARTICIPANT_STARTABLE_STATUSES = ['invited', 'registered']`).
+- **Closed (auto-generated, conflicting, replaced):** [#2](https://github.com/jason-zane/trajectas/pull/2), [#3](https://github.com/jason-zane/trajectas/pull/3), [#4](https://github.com/jason-zane/trajectas/pull/4) — three Vercel auto-PRs (Speed Insights × 2 duplicates, Web Analytics). Replaced by clean [#95](https://github.com/jason-zane/trajectas/pull/95) which adds `@vercel/analytics`, wires `<Analytics />` + `<SpeedInsights />` in root layout in one commit.
+
+**Final advisor state (production)**
+
+Security advisor: **13 findings remaining**
+- 12 × `authenticated_security_definer_function_executable` — accepted by design (these helpers run inside RLS policies and only return the caller's own scope info).
+- 1 × `auth_leaked_password_protection` — manual dashboard toggle still pending (Phase 4.6).
+
+Performance advisor: 77 `auth_rls_initplan` cleared. Remaining counts are informational (4.7c/d deferred per documented rationale).
+
+### Outstanding manual items
+
+1. **Phase 4.6 — leaked-password protection.** Toggle in Supabase Auth dashboard (https://supabase.com/dashboard/project/rwpfwfcaxoevnvtkdmkx/auth/providers → Email → enable HaveIBeenPwned check). Single advisor finding, dashboard-only, no migration. The only remaining item from the original plan.
 
