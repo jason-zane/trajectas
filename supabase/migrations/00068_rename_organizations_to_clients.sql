@@ -16,45 +16,37 @@ DO $$ BEGIN
   ALTER TABLE organizations RENAME TO clients;
 EXCEPTION WHEN undefined_table THEN NULL;
 END $$;
-
 -- Rename constraints that reference the old name
 DO $$ BEGIN
   ALTER TABLE clients RENAME CONSTRAINT organizations_slug_unique TO clients_slug_unique;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE clients RENAME CONSTRAINT organizations_slug_format TO clients_slug_format;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE clients RENAME CONSTRAINT organizations_name_not_empty TO clients_name_not_empty;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 -- Rename indexes on the clients table itself
 DO $$ BEGIN
   ALTER INDEX idx_organizations_partner_id RENAME TO idx_clients_partner_id;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_organizations_not_deleted RENAME TO idx_clients_not_deleted;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_organizations_active RENAME TO idx_clients_active;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 -- Rename trigger
 DO $$ BEGIN
   ALTER TRIGGER trg_organizations_updated_at ON clients RENAME TO trg_clients_updated_at;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 -- =========================================================================
 -- 2. RENAME organization_id → client_id IN ALL TABLES
 -- =========================================================================
@@ -62,72 +54,58 @@ DO $$ BEGIN
   ALTER TABLE profiles RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE assessments RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE diagnostic_sessions RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE diagnostic_snapshots RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE matching_runs RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE participant_sessions RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE campaigns RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE client_memberships RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE support_sessions RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE audit_events RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE client_assessment_assignments RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE client_report_template_assignments RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE factors RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE norm_groups RENAME COLUMN organization_id TO client_id;
 EXCEPTION WHEN undefined_column THEN NULL;
 END $$;
-
 -- =========================================================================
 -- 3. RENAME INDEXES that reference organization_id
 -- =========================================================================
@@ -135,67 +113,54 @@ DO $$ BEGIN
   ALTER INDEX idx_profiles_organization_id RENAME TO idx_profiles_client_id;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_assessments_organization_id RENAME TO idx_assessments_client_id;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_diagnostic_sessions_org RENAME TO idx_diagnostic_sessions_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_diagnostic_snapshots_org RENAME TO idx_diagnostic_snapshots_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_matching_runs_org RENAME TO idx_matching_runs_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_participant_sessions_org RENAME TO idx_participant_sessions_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_campaigns_org RENAME TO idx_campaigns_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_client_memberships_client RENAME TO idx_client_memberships_client_id;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_support_sessions_client RENAME TO idx_support_sessions_client_id;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_audit_events_client_created RENAME TO idx_audit_events_client_id_created;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_client_assessment_assignments_org RENAME TO idx_client_assessment_assignments_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_client_report_template_assignments_org RENAME TO idx_client_report_template_assignments_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER INDEX idx_factors_organization RENAME TO idx_factors_client;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 -- =========================================================================
 -- 4. RENAME CONSTRAINTS referencing organization_id
 -- =========================================================================
@@ -204,43 +169,36 @@ DO $$ BEGIN
     RENAME CONSTRAINT client_memberships_unique TO client_memberships_profile_client_unique;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE support_sessions
     RENAME CONSTRAINT support_sessions_target_scope_check TO support_sessions_target_scope_check_old;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE client_assessment_assignments
     RENAME CONSTRAINT uq_client_assessment TO uq_client_assessment_assignment;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   ALTER TABLE client_report_template_assignments
     RENAME CONSTRAINT uq_client_report_template TO uq_client_report_template_assignment;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 -- Recreate the support_sessions target scope check with new column name
 DO $$ BEGIN
   ALTER TABLE support_sessions DROP CONSTRAINT support_sessions_target_scope_check_old;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 -- Drop+recreate to be idempotent: drop the new-name constraint if it exists, then create
 DO $$ BEGIN
   ALTER TABLE support_sessions DROP CONSTRAINT support_sessions_target_scope_check;
 EXCEPTION WHEN undefined_object THEN NULL;
 END $$;
-
 ALTER TABLE support_sessions ADD CONSTRAINT support_sessions_target_scope_check CHECK (
     (target_surface = 'partner' AND partner_id IS NOT NULL AND client_id IS NULL)
     OR
     (target_surface = 'client' AND client_id IS NOT NULL)
 );
-
 -- =========================================================================
 -- 5. REPLACE auth_user_organization_id() → auth_user_client_id()
 -- =========================================================================
@@ -249,14 +207,11 @@ CREATE OR REPLACE FUNCTION auth_user_client_id()
 RETURNS UUID AS $$
     SELECT client_id FROM profiles WHERE id = auth.uid();
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 COMMENT ON FUNCTION auth_user_client_id() IS
     'Returns the client ID for the currently authenticated user.';
-
 -- Drop the old function with CASCADE — this drops the dependent RLS policies,
 -- which we recreate immediately below with the new function reference.
 DROP FUNCTION IF EXISTS auth_user_organization_id() CASCADE;
-
 -- =========================================================================
 -- 6. UPDATE auth_user_client_ids() function (from 00038)
 -- =========================================================================
@@ -278,10 +233,8 @@ RETURNS UUID[] AS $$
         ARRAY[]::UUID[]
     );
 $$ LANGUAGE sql STABLE SECURITY DEFINER;
-
 COMMENT ON FUNCTION auth_user_client_ids() IS
     'Returns all client IDs the current authenticated user belongs to, including legacy direct profile ownership.';
-
 -- =========================================================================
 -- 7. UPDATE get_assessment_quota_usage() function
 -- =========================================================================
@@ -300,10 +253,8 @@ RETURNS INT AS $$
       OR (cp.status = 'withdrawn' AND cp.started_at IS NOT NULL)
     )
 $$ LANGUAGE sql STABLE;
-
 COMMENT ON FUNCTION get_assessment_quota_usage IS
   'Computes live quota usage for a given client + assessment. NULL-safe (returns 0 if no matches).';
-
 -- =========================================================================
 -- 8. UPDATE upsert_factor_with_constructs() function
 -- =========================================================================
@@ -383,7 +334,6 @@ BEGIN
   RETURN v_factor_id;
 END;
 $$;
-
 -- =========================================================================
 -- 9. UPDATE brand_owner_type ENUM: 'organization' → 'client'
 -- =========================================================================
@@ -391,7 +341,6 @@ DO $$ BEGIN
   ALTER TYPE brand_owner_type RENAME VALUE 'organization' TO 'client';
 EXCEPTION WHEN invalid_parameter_value THEN NULL;
 END $$;
-
 -- =========================================================================
 -- 10. UPDATE brand_configs RLS policies that reference 'organization'
 -- =========================================================================
@@ -407,7 +356,6 @@ CREATE POLICY brand_configs_client_read ON brand_configs
         AND profiles.role = 'org_admin'
     )
   );
-
 DROP POLICY IF EXISTS brand_configs_org_update ON brand_configs;
 DROP POLICY IF EXISTS brand_configs_client_update ON brand_configs;
 CREATE POLICY brand_configs_client_update ON brand_configs
@@ -420,7 +368,6 @@ CREATE POLICY brand_configs_client_update ON brand_configs
         AND profiles.role = 'org_admin'
     )
   );
-
 DROP POLICY IF EXISTS brand_configs_anon_read ON brand_configs;
 CREATE POLICY brand_configs_anon_read ON brand_configs
   FOR SELECT TO anon
@@ -429,7 +376,6 @@ CREATE POLICY brand_configs_anon_read ON brand_configs
     OR owner_type = 'client'
     OR owner_type = 'campaign'
   );
-
 -- =========================================================================
 -- 11. DROP & RECREATE RLS POLICIES ON clients (was organizations)
 -- =========================================================================
@@ -439,41 +385,33 @@ DROP POLICY IF EXISTS organizations_select_own ON clients;
 DROP POLICY IF EXISTS organizations_all_platform_admin ON clients;
 DROP POLICY IF EXISTS organizations_insert_partner_admin ON clients;
 DROP POLICY IF EXISTS organizations_update_partner_admin ON clients;
-
 DROP POLICY IF EXISTS clients_select_platform_admin ON clients;
 CREATE POLICY clients_select_platform_admin ON clients
     FOR SELECT USING (is_platform_admin());
-
 DROP POLICY IF EXISTS clients_select_partner ON clients;
 CREATE POLICY clients_select_partner ON clients
     FOR SELECT USING (partner_id IS NOT NULL AND partner_id = auth_user_partner_id());
-
 DROP POLICY IF EXISTS clients_select_own ON clients;
 CREATE POLICY clients_select_own ON clients
     FOR SELECT USING (id = auth_user_client_id());
-
 DROP POLICY IF EXISTS clients_all_platform_admin ON clients;
 CREATE POLICY clients_all_platform_admin ON clients
     FOR ALL USING (is_platform_admin());
-
 DROP POLICY IF EXISTS clients_insert_partner_admin ON clients;
 CREATE POLICY clients_insert_partner_admin ON clients
     FOR INSERT WITH CHECK (
         is_partner_admin() AND partner_id = auth_user_partner_id()
     );
-
 DROP POLICY IF EXISTS clients_update_partner_admin ON clients;
 CREATE POLICY clients_update_partner_admin ON clients
     FOR UPDATE USING (
         is_partner_admin() AND partner_id = auth_user_partner_id()
     );
-
 -- =========================================================================
 -- 12. DROP & RECREATE RLS POLICIES ON profiles
 -- =========================================================================
 DROP POLICY IF EXISTS profiles_select_partner ON profiles;
 DROP POLICY IF EXISTS profiles_select_org ON profiles;
-
 CREATE POLICY profiles_select_partner ON profiles
     FOR SELECT USING (
         auth_user_role() IN ('partner_admin', 'consultant')
@@ -484,19 +422,16 @@ CREATE POLICY profiles_select_partner ON profiles
             )
         )
     );
-
 CREATE POLICY profiles_select_org ON profiles
     FOR SELECT USING (
         auth_user_role() = 'org_admin'
         AND client_id = auth_user_client_id()
     );
-
 -- =========================================================================
 -- 13. DROP & RECREATE RLS POLICIES ON assessments
 -- =========================================================================
 DROP POLICY IF EXISTS assessments_select_all ON assessments;
 DROP POLICY IF EXISTS assessments_manage_org_admin ON assessments;
-
 CREATE POLICY assessments_select_all ON assessments
     FOR SELECT USING (
         is_platform_admin()
@@ -506,13 +441,11 @@ CREATE POLICY assessments_select_all ON assessments
             SELECT c.id FROM clients c WHERE c.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY assessments_manage_org_admin ON assessments
     FOR ALL USING (
         auth_user_role() = 'org_admin'
         AND client_id = auth_user_client_id()
     );
-
 -- Assessment sub-tables: assessment_competencies and item_selection_rules
 -- policies removed — those tables either don't exist or no longer have
 -- assessment_id columns.
@@ -522,7 +455,6 @@ CREATE POLICY assessments_manage_org_admin ON assessments
 -- =========================================================================
 DROP POLICY IF EXISTS diagnostic_sessions_select ON diagnostic_sessions;
 DROP POLICY IF EXISTS diagnostic_sessions_manage_org ON diagnostic_sessions;
-
 CREATE POLICY diagnostic_sessions_select ON diagnostic_sessions
     FOR SELECT USING (
         is_platform_admin()
@@ -531,7 +463,6 @@ CREATE POLICY diagnostic_sessions_select ON diagnostic_sessions
             SELECT c.id FROM clients c WHERE c.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY diagnostic_sessions_manage_org ON diagnostic_sessions
     FOR ALL USING (
         auth_user_role() IN ('org_admin', 'consultant')
@@ -542,7 +473,6 @@ CREATE POLICY diagnostic_sessions_manage_org ON diagnostic_sessions
             )
         )
     );
-
 -- Diagnostic sub-tables
 DROP POLICY IF EXISTS diagnostic_respondents_select ON diagnostic_respondents;
 CREATE POLICY diagnostic_respondents_select ON diagnostic_respondents
@@ -558,7 +488,6 @@ CREATE POLICY diagnostic_respondents_select ON diagnostic_respondents
             )
         )
     );
-
 DROP POLICY IF EXISTS diagnostic_respondents_manage ON diagnostic_respondents;
 CREATE POLICY diagnostic_respondents_manage ON diagnostic_respondents
     FOR ALL USING (
@@ -573,7 +502,6 @@ CREATE POLICY diagnostic_respondents_manage ON diagnostic_respondents
             )
         )
     );
-
 DROP POLICY IF EXISTS diagnostic_responses_select ON diagnostic_responses;
 CREATE POLICY diagnostic_responses_select ON diagnostic_responses
     FOR SELECT USING (
@@ -590,7 +518,6 @@ CREATE POLICY diagnostic_responses_select ON diagnostic_responses
             )
         )
     );
-
 DROP POLICY IF EXISTS diagnostic_dimension_weights_select ON diagnostic_dimension_weights;
 CREATE POLICY diagnostic_dimension_weights_select ON diagnostic_dimension_weights
     FOR SELECT USING (
@@ -605,7 +532,6 @@ CREATE POLICY diagnostic_dimension_weights_select ON diagnostic_dimension_weight
             )
         )
     );
-
 DROP POLICY IF EXISTS diagnostic_snapshots_select ON diagnostic_snapshots;
 CREATE POLICY diagnostic_snapshots_select ON diagnostic_snapshots
     FOR SELECT USING (
@@ -615,13 +541,11 @@ CREATE POLICY diagnostic_snapshots_select ON diagnostic_snapshots
             SELECT c.id FROM clients c WHERE c.partner_id = auth_user_partner_id()
         )
     );
-
 -- =========================================================================
 -- 15. DROP & RECREATE RLS POLICIES ON matching_runs & matching_results
 -- =========================================================================
 DROP POLICY IF EXISTS matching_runs_select ON matching_runs;
 DROP POLICY IF EXISTS matching_runs_manage ON matching_runs;
-
 CREATE POLICY matching_runs_select ON matching_runs
     FOR SELECT USING (
         is_platform_admin()
@@ -630,7 +554,6 @@ CREATE POLICY matching_runs_select ON matching_runs
             SELECT c.id FROM clients c WHERE c.partner_id = auth_user_partner_id()
         )
     );
-
 CREATE POLICY matching_runs_manage ON matching_runs
     FOR ALL USING (
         auth_user_role() IN ('org_admin', 'consultant')
@@ -641,7 +564,6 @@ CREATE POLICY matching_runs_manage ON matching_runs
             )
         )
     );
-
 DROP POLICY IF EXISTS matching_results_select ON matching_results;
 CREATE POLICY matching_results_select ON matching_results
     FOR SELECT USING (
@@ -656,24 +578,20 @@ CREATE POLICY matching_results_select ON matching_results
             )
         )
     );
-
 -- =========================================================================
 -- 16. DROP & RECREATE RLS POLICIES ON campaigns
 -- =========================================================================
 DROP POLICY IF EXISTS campaigns_select ON campaigns;
-
 CREATE POLICY campaigns_select ON campaigns
     FOR SELECT TO authenticated USING (
         is_platform_admin()
         OR (client_id IS NOT NULL AND client_id = auth_user_client_id())
         OR (partner_id IS NOT NULL AND partner_id = (SELECT partner_id FROM profiles WHERE id = auth.uid()))
     );
-
 -- =========================================================================
 -- 17. DROP & RECREATE RLS POLICIES ON campaign_assessments
 -- =========================================================================
 DROP POLICY IF EXISTS campaign_assessments_select ON campaign_assessments;
-
 CREATE POLICY campaign_assessments_select ON campaign_assessments
     FOR SELECT TO authenticated USING (
         EXISTS (
@@ -686,12 +604,10 @@ CREATE POLICY campaign_assessments_select ON campaign_assessments
             )
         )
     );
-
 -- =========================================================================
 -- 18. DROP & RECREATE RLS POLICIES ON campaign_participants
 -- =========================================================================
 DROP POLICY IF EXISTS campaign_participants_select ON campaign_participants;
-
 CREATE POLICY campaign_participants_select ON campaign_participants
     FOR SELECT TO authenticated USING (
         EXISTS (
@@ -703,12 +619,10 @@ CREATE POLICY campaign_participants_select ON campaign_participants
             )
         )
     );
-
 -- =========================================================================
 -- 19. DROP & RECREATE RLS POLICIES ON campaign_access_links
 -- =========================================================================
 DROP POLICY IF EXISTS campaign_access_links_select ON campaign_access_links;
-
 CREATE POLICY campaign_access_links_select ON campaign_access_links
     FOR SELECT TO authenticated USING (
         EXISTS (
@@ -720,31 +634,26 @@ CREATE POLICY campaign_access_links_select ON campaign_access_links
             )
         )
     );
-
 -- =========================================================================
 -- 20. DROP & RECREATE RLS POLICIES ON participant_sessions
 -- =========================================================================
 DROP POLICY IF EXISTS participant_sessions_select ON participant_sessions;
 DROP POLICY IF EXISTS participant_sessions_manage_org ON participant_sessions;
-
 CREATE POLICY participant_sessions_select ON participant_sessions
     FOR SELECT TO authenticated USING (
         is_platform_admin()
         OR (client_id IS NOT NULL AND client_id = auth_user_client_id())
         OR participant_profile_id = auth.uid()
     );
-
 CREATE POLICY participant_sessions_manage_org ON participant_sessions
     FOR INSERT TO authenticated WITH CHECK (
         is_platform_admin()
         OR (client_id IS NOT NULL AND client_id = auth_user_client_id())
     );
-
 -- =========================================================================
 -- 21. DROP & RECREATE RLS POLICIES ON participant_responses
 -- =========================================================================
 DROP POLICY IF EXISTS participant_responses_select ON participant_responses;
-
 CREATE POLICY participant_responses_select ON participant_responses
     FOR SELECT TO authenticated USING (
         EXISTS (
@@ -757,12 +666,10 @@ CREATE POLICY participant_responses_select ON participant_responses
             )
         )
     );
-
 -- =========================================================================
 -- 22. DROP & RECREATE RLS POLICIES ON participant_scores
 -- =========================================================================
 DROP POLICY IF EXISTS participant_scores_select ON participant_scores;
-
 CREATE POLICY participant_scores_select ON participant_scores
     FOR SELECT TO authenticated USING (
         EXISTS (
@@ -775,12 +682,10 @@ CREATE POLICY participant_scores_select ON participant_scores
             )
         )
     );
-
 -- =========================================================================
 -- 23. DROP & RECREATE RLS POLICIES ON client_assessment_assignments
 -- =========================================================================
 DROP POLICY IF EXISTS "client_members_select_own" ON client_assessment_assignments;
-
 CREATE POLICY "client_members_select_own" ON client_assessment_assignments
   FOR SELECT TO authenticated
   USING (
@@ -789,12 +694,10 @@ CREATE POLICY "client_members_select_own" ON client_assessment_assignments
       WHERE cm.profile_id = auth.uid() AND cm.revoked_at IS NULL
     )
   );
-
 -- =========================================================================
 -- 24. DROP & RECREATE RLS POLICIES ON client_report_template_assignments
 -- =========================================================================
 DROP POLICY IF EXISTS "client_members_select_own" ON client_report_template_assignments;
-
 CREATE POLICY "client_members_select_own" ON client_report_template_assignments
   FOR SELECT TO authenticated
   USING (
@@ -803,12 +706,10 @@ CREATE POLICY "client_members_select_own" ON client_report_template_assignments
       WHERE cm.profile_id = auth.uid() AND cm.revoked_at IS NULL
     )
   );
-
 -- =========================================================================
 -- 25. DROP & RECREATE RLS POLICY ON report_snapshots (hr_manager)
 -- =========================================================================
 DROP POLICY IF EXISTS "report_snapshots_hr_manager_select" ON report_snapshots;
-
 CREATE POLICY "report_snapshots_hr_manager_select" ON report_snapshots
   FOR SELECT TO authenticated
   USING (
@@ -820,7 +721,6 @@ CREATE POLICY "report_snapshots_hr_manager_select" ON report_snapshots
       WHERE cm.profile_id = auth.uid()
     )
   );
-
 -- =========================================================================
 -- 26. DROP & RECREATE RLS POLICIES ON experience_templates
 -- =========================================================================
@@ -836,7 +736,6 @@ CREATE POLICY experience_templates_campaign_read ON experience_templates
         AND p.role IN ('org_admin', 'platform_admin')
     )
   );
-
 DROP POLICY IF EXISTS experience_templates_campaign_write ON experience_templates;
 CREATE POLICY experience_templates_campaign_write ON experience_templates
   FOR UPDATE TO authenticated
@@ -849,18 +748,14 @@ CREATE POLICY experience_templates_campaign_write ON experience_templates
         AND p.role IN ('org_admin', 'platform_admin')
     )
   );
-
 -- =========================================================================
 -- 27. UPDATE TABLE COMMENTS
 -- =========================================================================
 COMMENT ON TABLE clients IS
     'Client organisations. May belong to a partner (consulting firm) or operate directly on the platform.';
-
 COMMENT ON TABLE client_memberships IS
     'Client-scoped memberships for multi-membership tenancy resolution.';
-
 COMMENT ON TABLE client_assessment_assignments IS
     'Links clients to the assessments they can use in campaigns, with optional per-row quota limits.';
-
 COMMENT ON TABLE client_report_template_assignments IS
     'Links clients to the report templates they can generate from campaign results.';

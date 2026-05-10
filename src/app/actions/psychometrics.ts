@@ -2,6 +2,7 @@
 
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { throwActionError } from '@/lib/security/action-errors'
 
 // ---------------------------------------------------------------------------
 // Inline indicators (for Library pages)
@@ -28,7 +29,7 @@ export async function getItemHealthIndicators(): Promise<ItemHealthIndicator[]> 
   await requireAdminScope()
   const db = createAdminClient()
 
-  const { data: latestRun } = await db
+  const { data: latestRun, error: latestRunError } = await db
     .from('calibration_runs')
     .select('id')
     .eq('status', 'completed')
@@ -36,13 +37,17 @@ export async function getItemHealthIndicators(): Promise<ItemHealthIndicator[]> 
     .limit(1)
     .single()
 
+  if (latestRunError) return []
   if (!latestRun) return []
 
-  const { data: stats } = await db
+  const { data: stats, error: statsError } = await db
     .from('item_statistics')
     .select('item_id, difficulty, discrimination, flagged')
     .eq('calibration_run_id', latestRun.id)
 
+  if (statsError) {
+    throwActionError('getItemHealthIndicators', 'Unable to load item health indicators.', statsError)
+  }
   if (!stats) return []
 
   return stats.map((row) => {
@@ -69,7 +74,7 @@ export async function getConstructAlphaIndicators(): Promise<ConstructAlphaIndic
   await requireAdminScope()
   const db = createAdminClient()
 
-  const { data: latestRun } = await db
+  const { data: latestRun, error: latestRunError } = await db
     .from('calibration_runs')
     .select('id')
     .eq('status', 'completed')
@@ -77,13 +82,17 @@ export async function getConstructAlphaIndicators(): Promise<ConstructAlphaIndic
     .limit(1)
     .single()
 
+  if (latestRunError) return []
   if (!latestRun) return []
 
-  const { data: rows } = await db
+  const { data: rows, error: rowsError } = await db
     .from('construct_reliability')
     .select('construct_id, cronbach_alpha')
     .eq('calibration_run_id', latestRun.id)
 
+  if (rowsError) {
+    throwActionError('getConstructAlphaIndicators', 'Unable to load construct alpha indicators.', rowsError)
+  }
   if (!rows) return []
 
   return rows.map((row) => ({
@@ -122,13 +131,26 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
       db.from('norm_groups').select('*', { count: 'exact', head: true }).eq('is_active', true),
     ])
 
+  if (items.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', items.error)
+  if (activeItems.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', activeItems.error)
+  if (flagged.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', flagged.error)
+  if (constructs.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', constructs.error)
+  if (reliable.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', reliable.error)
+  if (runs.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', runs.error)
+  if (norms.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', norms.error)
+
+  const calibrationRunsResult = await db.from('calibration_runs').select('*', { count: 'exact', head: true })
+  if (calibrationRunsResult.error) {
+    throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', calibrationRunsResult.error)
+  }
+
   return {
     totalItems: items.count ?? 0,
     activeItems: activeItems.count ?? 0,
     flaggedItems: flagged.count ?? 0,
     constructCount: constructs.count ?? 0,
     reliableConstructs: reliable.count ?? 0,
-    calibrationRuns: (await db.from('calibration_runs').select('*', { count: 'exact', head: true })).count ?? 0,
+    calibrationRuns: calibrationRunsResult.count ?? 0,
     lastCalibrationDate: runs.data?.[0]?.created_at ?? null,
     normGroupCount: norms.count ?? 0,
   }
@@ -156,7 +178,7 @@ export async function getItemHealth(): Promise<ItemHealthRow[]> {
   const db = createAdminClient()
 
   // Get the latest calibration run
-  const { data: latestRun } = await db
+  const { data: latestRun, error: latestRunError } = await db
     .from('calibration_runs')
     .select('id')
     .eq('status', 'completed')
@@ -164,9 +186,10 @@ export async function getItemHealth(): Promise<ItemHealthRow[]> {
     .limit(1)
     .single()
 
+  if (latestRunError) return []
   if (!latestRun) return []
 
-  const { data: stats } = await db
+  const { data: stats, error: statsError } = await db
     .from('item_statistics')
     .select(`
       item_id, difficulty, discrimination, alpha_if_deleted,
@@ -180,6 +203,9 @@ export async function getItemHealth(): Promise<ItemHealthRow[]> {
     .order('flagged', { ascending: false })
     .order('discrimination', { ascending: true })
 
+  if (statsError) {
+    throwActionError('getItemHealth', 'Unable to load item health data.', statsError)
+  }
   if (!stats) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -218,7 +244,7 @@ export async function getConstructReliability(): Promise<ConstructReliabilityRow
   await requireAdminScope()
   const db = createAdminClient()
 
-  const { data: latestRun } = await db
+  const { data: latestRun, error: latestRunError } = await db
     .from('calibration_runs')
     .select('id')
     .eq('status', 'completed')
@@ -226,9 +252,10 @@ export async function getConstructReliability(): Promise<ConstructReliabilityRow
     .limit(1)
     .single()
 
+  if (latestRunError) return []
   if (!latestRun) return []
 
-  const { data: rows } = await db
+  const { data: rows, error: rowsError } = await db
     .from('construct_reliability')
     .select(`
       construct_id, cronbach_alpha, omega_total, split_half,
@@ -238,6 +265,9 @@ export async function getConstructReliability(): Promise<ConstructReliabilityRow
     .eq('calibration_run_id', latestRun.id)
     .order('cronbach_alpha', { ascending: true })
 
+  if (rowsError) {
+    throwActionError('getConstructReliability', 'Unable to load construct reliability data.', rowsError)
+  }
   if (!rows) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -276,12 +306,15 @@ export async function getCalibrationRuns(): Promise<CalibrationRunRow[]> {
   await requireAdminScope()
   const db = createAdminClient()
 
-  const { data } = await db
+  const { data, error } = await db
     .from('calibration_runs')
     .select('*')
     .order('created_at', { ascending: false })
     .limit(50)
 
+  if (error) {
+    throwActionError('getCalibrationRuns', 'Unable to load calibration runs.', error)
+  }
   if (!data) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -320,12 +353,15 @@ export async function getNormGroups(): Promise<NormGroupRow[]> {
   await requireAdminScope()
   const db = createAdminClient()
 
-  const { data } = await db
+  const { data, error } = await db
     .from('norm_groups')
     .select('*, norm_tables(count)')
     .eq('is_active', true)
     .order('sample_size', { ascending: false })
 
+  if (error) {
+    throwActionError('getNormGroups', 'Unable to load norm groups.', error)
+  }
   if (!data) return []
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

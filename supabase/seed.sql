@@ -26,7 +26,7 @@ set
   settings = excluded.settings,
   updated_at = excluded.updated_at;
 
-insert into organizations (
+insert into clients (
   id,
   partner_id,
   name,
@@ -60,8 +60,8 @@ set
 
 insert into assessments (
   id,
-  organization_id,
-  name,
+  client_id,
+  title,
   slug,
   description,
   scoring_method,
@@ -90,8 +90,8 @@ values (
 )
 on conflict (id) do update
 set
-  organization_id = excluded.organization_id,
-  name = excluded.name,
+  client_id = excluded.client_id,
+  title = excluded.title,
   slug = excluded.slug,
   description = excluded.description,
   scoring_method = excluded.scoring_method,
@@ -182,7 +182,7 @@ insert into campaigns (
   slug,
   description,
   status,
-  organization_id,
+  client_id,
   partner_id,
   opens_at,
   closes_at,
@@ -237,7 +237,7 @@ set
   slug = excluded.slug,
   description = excluded.description,
   status = excluded.status,
-  organization_id = excluded.organization_id,
+  client_id = excluded.client_id,
   partner_id = excluded.partner_id,
   opens_at = excluded.opens_at,
   closes_at = excluded.closes_at,
@@ -412,7 +412,7 @@ insert into participant_sessions (
   id,
   assessment_id,
   participant_profile_id,
-  organization_id,
+  client_id,
   status,
   started_at,
   completed_at,
@@ -467,7 +467,7 @@ on conflict (id) do update
 set
   assessment_id = excluded.assessment_id,
   participant_profile_id = excluded.participant_profile_id,
-  organization_id = excluded.organization_id,
+  client_id = excluded.client_id,
   status = excluded.status,
   started_at = excluded.started_at,
   completed_at = excluded.completed_at,

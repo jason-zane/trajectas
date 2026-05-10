@@ -1,5 +1,4 @@
 BEGIN;
-
 -- Upsert a factor and replace all factor_constructs links atomically
 CREATE OR REPLACE FUNCTION upsert_factor_with_constructs(
   p_factor_id uuid,
@@ -80,7 +79,6 @@ BEGIN
   RETURN v_factor_id;
 END;
 $$;
-
 -- Delete a factor and its construct links in one transaction
 CREATE OR REPLACE FUNCTION delete_factor_cascade(p_factor_id uuid)
 RETURNS void
@@ -96,5 +94,4 @@ BEGIN
   DELETE FROM factors WHERE id = p_factor_id;
 END;
 $$;
-
 COMMIT;

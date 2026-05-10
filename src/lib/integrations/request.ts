@@ -1,6 +1,12 @@
 import { z, type ZodType } from 'zod'
 
 import { IntegrationApiError } from '@/lib/integrations/errors'
+import {
+  parseJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
+
+export const MAX_INTEGRATION_JSON_BODY_BYTES = 64 * 1024
 
 function firstValidationMessage(error: { issues?: Array<{ message?: string }> }) {
   return error.issues?.find((issue) => issue.message)?.message ?? 'The request payload is invalid.'
@@ -13,8 +19,16 @@ export async function parseIntegrationRequestBody<T>(
   let body: unknown
 
   try {
-    body = await request.json()
-  } catch {
+    body = await parseJsonRequestWithLimit(request, MAX_INTEGRATION_JSON_BODY_BYTES)
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      throw new IntegrationApiError(
+        413,
+        'payload_too_large',
+        'The request body is too large.'
+      )
+    }
+
     throw new IntegrationApiError(
       400,
       'invalid_json',
