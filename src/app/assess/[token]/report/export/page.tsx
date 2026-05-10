@@ -3,8 +3,6 @@ import { validateAccessToken } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
-import { generateCSSTokens } from "@/lib/brand/tokens";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
 import type { ReportContent, TemplateVariables } from "@/lib/experience/types";
@@ -33,13 +31,16 @@ export default async function ReportExportPage({
   }
 
   const { campaign, participant } = result.data!;
-  const experience = await getCachedEffectiveExperience(campaign.id);
+
+  const [experience, brandConfig] = await Promise.all([
+    getCachedEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+  ]);
 
   if (!isPageEnabled(experience, "report")) {
     redirect(`/assess/${token}/complete`);
   }
 
-  const brandConfig = await getCachedEffectiveBrand(campaign.clientId, campaign.id);
   const rawContent = getPageContent(experience, "report");
   const variables: TemplateVariables = {
     participantName: participant.firstName,
@@ -53,26 +54,18 @@ export default async function ReportExportPage({
       ? `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim()
       : participant.email;
 
-  const { css: safeCSS } = generateCSSTokens(brandConfig);
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // Brand CSS + Google Fonts <link> are injected by the token layout
+  // (src/app/assess/[token]/layout.tsx) and inherited here.
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: safeCSS }} />
-      {fontsUrl ? <link rel="stylesheet" href={fontsUrl} /> : null}
-      <ReportExportScreen
-        content={content}
-        participantName={participantName}
-        campaignTitle={campaign.title}
-        brandLogoUrl={brandConfig.logoUrl}
-        brandName={brandConfig.name ?? TRAJECTAS_DEFAULTS.name}
-        generatedAt={formatGeneratedAt(generatedAt)}
-        isReady={content.reportMode === "view_results"}
-      />
-    </>
+    <ReportExportScreen
+      content={content}
+      participantName={participantName}
+      campaignTitle={campaign.title}
+      brandLogoUrl={brandConfig.logoUrl}
+      brandName={brandConfig.name ?? TRAJECTAS_DEFAULTS.name}
+      generatedAt={formatGeneratedAt(generatedAt)}
+      isReady={content.reportMode === "view_results"}
+    />
   );
 }

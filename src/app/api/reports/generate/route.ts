@@ -1,4 +1,5 @@
 import { after } from 'next/server'
+import { timingSafeEqual } from 'node:crypto'
 import { processSnapshot } from '@/lib/reports/runner'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
@@ -6,9 +7,23 @@ import {
   AuthorizationError,
   requireAdminScope,
 } from '@/lib/auth/authorization'
+import {
+  parseOptionalJsonRequestWithLimit,
+  RequestBodyTooLargeError,
+} from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
+
+const MAX_REPORT_GENERATE_BODY_BYTES = 32 * 1024
+
+function isValidInternalKey(provided: string | null): boolean {
+  const expected = process.env.INTERNAL_API_KEY
+  if (!expected || !provided) return false
+  const a = Buffer.from(expected)
+  const b = Buffer.from(provided)
+  return a.length === b.length && timingSafeEqual(a, b)
+}
 
 /**
  * POST /api/reports/generate
@@ -23,8 +38,7 @@ export const maxDuration = 300
  */
 export async function POST(request: Request) {
   // Allow internal server-to-server calls (e.g. from submitSession in participant context)
-  const internalKey = request.headers.get('x-internal-key')
-  const isInternal = internalKey && internalKey === process.env.INTERNAL_API_KEY
+  const isInternal = isValidInternalKey(request.headers.get('x-internal-key'))
 
   if (!isInternal) {
     try {
@@ -41,10 +55,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = await request.json().catch(() => ({})) as {
+    const body = await parseOptionalJsonRequestWithLimit<{
       snapshotId?: string
       sessionId?: string
-    }
+    }>(request, MAX_REPORT_GENERATE_BODY_BYTES, {})
 
     const db = createAdminClient()
 
@@ -102,6 +116,14 @@ export async function POST(request: Request) {
     })
     return Response.json({ queued: [next.id] }, { status: 202 })
   } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return Response.json({ error: 'Request body too large' }, { status: 413 })
+    }
+
+    if (error instanceof SyntaxError) {
+      return Response.json({ error: 'Request body must be valid JSON' }, { status: 400 })
+    }
+
     const message = error instanceof Error ? error.message : 'Runner failed'
     return Response.json({ error: message }, { status: 500 })
   }

@@ -6,7 +6,7 @@ import { FavoriteCampaignButton } from "@/components/campaigns/favorite-campaign
 import { PageHeader } from "@/components/page-header";
 import { RouteTabs } from "@/components/route-tabs";
 import { usePortal } from "@/components/portal-context";
-import type { CampaignDetail } from "@/app/actions/campaigns";
+import type { CampaignHeader } from "@/app/actions/campaigns";
 
 const allTabs = (showAssessmentsAlert: boolean) => [
   { label: "Overview", segment: "overview" },
@@ -50,7 +50,7 @@ export function CampaignDetailShell({
   isFavorite = false,
   children,
 }: {
-  campaign: CampaignDetail;
+  campaign: CampaignHeader;
   canCustomizeBranding?: boolean;
   isFavorite?: boolean;
   children: React.ReactNode;
@@ -58,7 +58,7 @@ export function CampaignDetailShell({
   const pathname = usePathname();
   const { portal, href } = usePortal();
 
-  const showAssessmentsAlert = campaign.assessments.length === 0;
+  const showAssessmentsAlert = campaign.assessmentCount === 0;
   const tabs = allTabs(showAssessmentsAlert).filter((tab) => {
     if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
       return false;

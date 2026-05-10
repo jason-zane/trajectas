@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { getReportAccessTokenSecret } from '@/lib/reports/token-secrets'
 
 interface ReportAccessTokenPayload {
   purpose: 'report_access'
@@ -7,32 +8,21 @@ interface ReportAccessTokenPayload {
   exp: number
 }
 
-function getSigningSecret() {
-  const secret =
-    process.env.REPORT_ACCESS_TOKEN_SECRET ??
-    process.env.REPORT_PDF_TOKEN_SECRET ??
-    process.env.TRAJECTAS_CONTEXT_SECRET ??
-    process.env.INTERNAL_API_KEY
-
-  if (!secret) {
-    throw new Error(
-      'REPORT_ACCESS_TOKEN_SECRET (or REPORT_PDF_TOKEN_SECRET / TRAJECTAS_CONTEXT_SECRET / INTERNAL_API_KEY) must be set for report access token signing.'
-    )
-  }
-
-  return secret
-}
-
 function signPayload(payload: string) {
-  return createHmac('sha256', getSigningSecret())
+  return createHmac('sha256', getReportAccessTokenSecret())
     .update(payload)
     .digest('base64url')
 }
 
+// 48 hours. Short window keeps a leaked URL (forwarded email, browser
+// history, referrer) from granting indefinite access. Participants who hit
+// an expired link can self-serve a fresh one via /assess/report-expired.
+export const REPORT_ACCESS_TOKEN_TTL_SECONDS = 60 * 60 * 48
+
 export function createReportAccessToken(
   snapshotId: string,
   participantId: string,
-  ttlSeconds = 60 * 60 * 24 * 30
+  ttlSeconds: number = REPORT_ACCESS_TOKEN_TTL_SECONDS,
 ) {
   const payload = Buffer.from(
     JSON.stringify({

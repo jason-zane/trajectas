@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useCallback, useEffect } from "react"
 import { toast } from "sonner"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -40,6 +40,12 @@ interface FlowEditorProps {
   brandConfig?: BrandConfig | null
   clients?: Array<{ id: string; name: string }>
   campaignAssessments?: CampaignAssessmentIntro[]
+  /**
+   * Count of active assessments attached to the campaign. Used to compute the
+   * default state of the review step (off when < 2) for campaigns that have
+   * not explicitly customised it.
+   */
+  campaignAssessmentCount?: number
 }
 
 type SaveState = "idle" | "saving" | "saved"
@@ -56,6 +62,7 @@ export function FlowEditor({
   brandConfig = null,
   clients,
   campaignAssessments,
+  campaignAssessmentCount,
 }: FlowEditorProps) {
   const isCampaign = ownerType === "campaign"
 
@@ -75,6 +82,19 @@ export function FlowEditor({
     : initialRecord?.flowConfig
       ? cloneDeep(initialRecord.flowConfig)
       : cloneDeep(DEFAULT_FLOW_CONFIG as Partial<FlowConfig>)
+
+  // Mirror the server-side single-assessment review default (see
+  // getEffectiveExperience): when a campaign has < 2 assessments and has not
+  // explicitly customised review, default the toggle to off. Once the user
+  // flips the toggle, the saved record carries review.enabled explicitly.
+  if (
+    isCampaign &&
+    typeof campaignAssessmentCount === "number" &&
+    initialRecord?.flowConfig?.review === undefined &&
+    initFlow.review
+  ) {
+    initFlow.review = { ...initFlow.review, enabled: campaignAssessmentCount >= 2 }
+  }
 
   const initDemo = resolved
     ? cloneDeep(resolved.demographicsConfig)
@@ -271,11 +291,12 @@ export function FlowEditor({
       pageContent,
       flowConfig,
       customPageContent,
+      demographicsConfig,
       brandConfig: effectiveBrandConfig,
     }
     localStorage.setItem("tf-experience-preview", JSON.stringify(previewData))
     window.open("/preview/experience", "_blank")
-  }, [pageContent, flowConfig, customPageContent, effectiveBrandConfig])
+  }, [pageContent, flowConfig, customPageContent, demographicsConfig, effectiveBrandConfig])
 
   // --- Save ---
   async function handleSave() {
@@ -351,6 +372,15 @@ export function FlowEditor({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openFlowPreview}
+            className="gap-1.5"
+          >
+            <Play className="size-3.5" />
+            Preview Flow
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -447,7 +477,6 @@ export function FlowEditor({
                 flowConfig={flowConfig}
                 customPageContent={customPageContent}
                 brandConfig={effectiveBrandConfig}
-                onPreviewFlow={openFlowPreview}
               />
             </div>
           </div>

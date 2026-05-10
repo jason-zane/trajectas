@@ -213,6 +213,7 @@ export function ClientCampaignList({ campaigns, favoriteCampaignIds = [] }: Clie
         defaultSort={{ id: "dateRange", desc: true }}
         pageSize={20}
         enableRowSelection
+        getRowId={(row) => row.id}
         bulkActions={bulkActions}
       />
     </div>

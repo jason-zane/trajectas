@@ -1,13 +1,12 @@
 import { validateAccessToken, submitSession } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
-import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
 import { getPageContent } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
 import { CompleteScreen } from "@/components/assess/complete-screen";
+import type { BrandConfig } from "@/lib/brand/types";
 import type { TemplateVariables } from "@/lib/experience/types";
 
 export default async function CompletePage({
@@ -17,9 +16,7 @@ export default async function CompletePage({
 }) {
   const { token } = await params;
 
-  // Try to load brand config and experience template from the campaign
-  let brandConfig = await getCachedEffectiveBrand();
-  let isCustomBrand = false;
+  let brandConfig: BrandConfig | null = null;
   let campaignId: string | undefined;
 
   try {
@@ -30,7 +27,6 @@ export default async function CompletePage({
         result.data.campaign.clientId,
         result.data.campaign.id,
       );
-      isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
     }
     // Auto-submit any in-progress session — handles the case where the review
     // page is disabled and submitSession was never triggered by review-screen.
@@ -41,8 +37,15 @@ export default async function CompletePage({
       await submitSession(token, inProgressSession.id).catch(() => {});
     }
   } catch {
-    // Use default brand if token validation fails
+    // Fall through — brandConfig stays null, resolved below.
   }
+
+  // Fallback only when token validation fails / no campaign. This preserves
+  // the prior behaviour of showing the platform brand even on an expired link.
+  if (!brandConfig) {
+    brandConfig = await getCachedEffectiveBrand();
+  }
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name;
 
   const experience = await getCachedEffectiveExperience(campaignId);
   const rawContent = getPageContent(experience, "complete");
@@ -57,29 +60,18 @@ export default async function CompletePage({
   // Compute next URL from flow router (e.g. Report page if it comes after Complete)
   const nextUrl = getNextFlowUrl(experience, "complete", token);
 
-  // Server-generated CSS from trusted DB brand config
-  const { css: brandCss } = generateCSSTokens(brandConfig);
-
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // Brand CSS + Google Fonts <link> are injected once by the token layout
+  // (src/app/assess/[token]/layout.tsx) and inherited here.
 
   return (
-    <>
-      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
-
-      <CompleteScreen
-        content={content}
-        brandLogoUrl={brandConfig.logoUrl}
-        brandName={brandConfig.name}
-        isCustomBrand={isCustomBrand}
-        nextUrl={nextUrl}
-        privacyUrl={experience.privacyUrl}
-        termsUrl={experience.termsUrl}
-      />
-    </>
+    <CompleteScreen
+      content={content}
+      brandLogoUrl={brandConfig.logoUrl}
+      brandName={brandConfig.name}
+      isCustomBrand={isCustomBrand}
+      nextUrl={nextUrl}
+      privacyUrl={experience.privacyUrl}
+      termsUrl={experience.termsUrl}
+    />
   );
 }
