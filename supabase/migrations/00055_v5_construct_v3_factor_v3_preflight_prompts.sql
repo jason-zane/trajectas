@@ -79,7 +79,6 @@ For each item, also output these metadata fields:
   { "stem": "...", "reverseScored": true|false, "rationale": "one sentence", "difficultyTier": "easy|moderate|hard", "sdRisk": "low|moderate|high", "facet": "narrow facet label" }
 - `reverseScored` must be true only when endorsing the item indicates lower standing on the construct.$$
 );
-
 -- ---------------------------------------------------------------------------
 -- 2. Factor Item Generation v3
 -- ---------------------------------------------------------------------------
@@ -133,7 +132,6 @@ For each item, also output these metadata fields:
 - Each element: { "stem": "...", "reverseScored": true|false, "rationale": "one sentence", "difficultyTier": "foundation|applied|demanding", "sdRisk": "low|moderate|high", "facet": "narrow facet label" }
 - `reverseScored` = true when endorsing the item indicates LOW standing on the factor.$$
 );
-
 -- ---------------------------------------------------------------------------
 -- 3. Preflight Analysis v3
 -- ---------------------------------------------------------------------------

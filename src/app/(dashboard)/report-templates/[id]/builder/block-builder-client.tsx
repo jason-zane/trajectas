@@ -72,6 +72,7 @@ import { BlockContentPanel } from './block-content-panels'
 import { BlockHeadersPanel } from './block-headers-panel'
 import { BlockPresentationPanel } from './block-presentation-panel'
 import { BlockPrintPanel } from './block-print-panel'
+import { DefaultToggle } from '../../default-toggle'
 import type { ReportDisplayLevel, PersonReferenceType } from '@/types/database'
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,7 @@ interface Props {
   initialUsage?: TemplateUsageEntry[]
   campaigns?: { id: string; title: string }[]
   templateSettings: TemplateSettings
+  initialIsDefault?: boolean
   promptOptions?: PromptOption[]
   basePath?: string
 }
@@ -239,6 +241,7 @@ export function BlockBuilderClient({
   initialUsage,
   campaigns: allCampaigns,
   templateSettings: initialSettings,
+  initialIsDefault = false,
   promptOptions: initialPromptOptions = [],
   basePath = '/report-templates',
 }: Props) {
@@ -581,6 +584,7 @@ export function BlockBuilderClient({
               onLink={handleLinkCampaign}
               onUnlink={handleUnlinkCampaign}
               templateId={templateId}
+              initialIsDefault={initialIsDefault}
               onSchemeChange={setPreviewScheme}
             />
 
@@ -824,6 +828,7 @@ interface InlineTemplateSettingsPanelProps {
   onLink: (campaignId: string) => void
   onUnlink: (campaignId: string) => void
   templateId: string
+  initialIsDefault: boolean
   onSchemeChange: (scheme: BandScheme) => void
 }
 
@@ -843,6 +848,7 @@ function InlineTemplateSettingsPanel({
   onLink,
   onUnlink,
   templateId,
+  initialIsDefault,
   onSchemeChange,
 }: InlineTemplateSettingsPanelProps) {
   return (
@@ -872,6 +878,18 @@ function InlineTemplateSettingsPanel({
 
       {expanded && (
         <div className="space-y-6 border-t border-border px-4 py-4">
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/30 px-3 py-3">
+            <div className="space-y-0.5">
+              <Label className="text-sm">Default report</Label>
+              <p className="text-xs text-muted-foreground">
+                When on, this template auto-attaches to every campaign across the
+                platform — existing and new. Turning it on now will link it to all
+                current campaigns.
+              </p>
+            </div>
+            <DefaultToggle templateId={templateId} isDefault={initialIsDefault} />
+          </div>
+
           <div className="space-y-1.5">
             <Label className="text-sm">Description</Label>
             <Textarea

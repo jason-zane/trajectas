@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 import { getClientBySlug } from "@/app/actions/clients"
-import { getBrandConfig, getPlatformBrand } from "@/app/actions/brand"
+import { getBrandConfig, getCachedPlatformBrand } from "@/app/actions/brand"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig } from "@/lib/brand/types"
 import { ClientBrandEditor } from "./client-brand-editor"
@@ -23,11 +23,11 @@ export default async function ClientBrandingPage({
     if (partnerBrand) {
       inheritedBrand = partnerBrand.config
     } else {
-      const platform = await getPlatformBrand()
+      const platform = await getCachedPlatformBrand()
       if (platform) inheritedBrand = platform.config
     }
   } else {
-    const platform = await getPlatformBrand()
+    const platform = await getCachedPlatformBrand()
     if (platform) inheritedBrand = platform.config
   }
 

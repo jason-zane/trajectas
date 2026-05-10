@@ -5,7 +5,6 @@
 -- =============================================================================
 
 BEGIN;
-
 -- ---------------------------------------------------------------------------
 -- 1. New enum types
 -- ---------------------------------------------------------------------------
@@ -14,32 +13,26 @@ DO $$ BEGIN
   CREATE TYPE report_type AS ENUM ('self_report', '360');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   CREATE TYPE report_display_level AS ENUM ('dimension', 'factor', 'construct');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   CREATE TYPE person_reference_type AS ENUM ('you', 'first_name', 'participant', 'the_participant');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   CREATE TYPE report_snapshot_status AS ENUM ('pending', 'generating', 'ready', 'released', 'failed');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   CREATE TYPE report_audience_type AS ENUM ('participant', 'hr_manager', 'consultant');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 DO $$ BEGIN
   CREATE TYPE narrative_mode_type AS ENUM ('derived', 'ai_enhanced');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
-
 -- ---------------------------------------------------------------------------
 -- 2. Add band + development fields to taxonomy tables
 -- ---------------------------------------------------------------------------
@@ -51,7 +44,6 @@ ALTER TABLE dimensions
   ADD COLUMN IF NOT EXISTS pomp_threshold_low     INTEGER,
   ADD COLUMN IF NOT EXISTS pomp_threshold_high    INTEGER,
   ADD COLUMN IF NOT EXISTS development_suggestion TEXT;
-
 ALTER TABLE factors
   ADD COLUMN IF NOT EXISTS band_label_low         TEXT,
   ADD COLUMN IF NOT EXISTS band_label_mid         TEXT,
@@ -59,7 +51,6 @@ ALTER TABLE factors
   ADD COLUMN IF NOT EXISTS pomp_threshold_low     INTEGER,
   ADD COLUMN IF NOT EXISTS pomp_threshold_high    INTEGER,
   ADD COLUMN IF NOT EXISTS development_suggestion TEXT;
-
 ALTER TABLE constructs
   ADD COLUMN IF NOT EXISTS band_label_low         TEXT,
   ADD COLUMN IF NOT EXISTS band_label_mid         TEXT,
@@ -67,7 +58,6 @@ ALTER TABLE constructs
   ADD COLUMN IF NOT EXISTS pomp_threshold_low     INTEGER,
   ADD COLUMN IF NOT EXISTS pomp_threshold_high    INTEGER,
   ADD COLUMN IF NOT EXISTS development_suggestion TEXT;
-
 -- ---------------------------------------------------------------------------
 -- 3. report_templates
 -- ---------------------------------------------------------------------------
@@ -90,22 +80,17 @@ CREATE TABLE IF NOT EXISTS report_templates (
 
   CONSTRAINT report_templates_name_not_empty CHECK (char_length(trim(name)) > 0)
 );
-
 CREATE INDEX IF NOT EXISTS report_templates_partner_id_idx
   ON report_templates (partner_id);
 CREATE INDEX IF NOT EXISTS report_templates_report_type_idx
   ON report_templates (report_type);
 CREATE INDEX IF NOT EXISTS report_templates_active_idx
   ON report_templates (is_active) WHERE deleted_at IS NULL;
-
-DROP TRIGGER IF EXISTS set_report_templates_updated_at ON report_templates;
 CREATE TRIGGER set_report_templates_updated_at
   BEFORE UPDATE ON report_templates
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 COMMENT ON TABLE report_templates IS
   'Reusable report layouts for a single audience. Blocks stored as ordered JSONB array.';
-
 -- ---------------------------------------------------------------------------
 -- 4. campaign_report_config
 -- ---------------------------------------------------------------------------
@@ -119,15 +104,11 @@ CREATE TABLE IF NOT EXISTS campaign_report_config (
   created_at               TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-DROP TRIGGER IF EXISTS set_campaign_report_config_updated_at ON campaign_report_config;
 CREATE TRIGGER set_campaign_report_config_updated_at
   BEFORE UPDATE ON campaign_report_config
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 COMMENT ON TABLE campaign_report_config IS
   'Maps audience types to report templates for a campaign. One row per campaign.';
-
 -- ---------------------------------------------------------------------------
 -- 5. report_snapshots
 -- ---------------------------------------------------------------------------
@@ -152,7 +133,6 @@ CREATE TABLE IF NOT EXISTS report_snapshots (
   CONSTRAINT report_snapshots_session_audience_unique
     UNIQUE (participant_session_id, audience_type)
 );
-
 CREATE INDEX IF NOT EXISTS report_snapshots_session_id_idx
   ON report_snapshots (participant_session_id);
 CREATE INDEX IF NOT EXISTS report_snapshots_campaign_id_idx
@@ -161,15 +141,11 @@ CREATE INDEX IF NOT EXISTS report_snapshots_status_idx
   ON report_snapshots (status);
 CREATE INDEX IF NOT EXISTS report_snapshots_pending_idx
   ON report_snapshots (status, created_at) WHERE status = 'pending';
-
-DROP TRIGGER IF EXISTS set_report_snapshots_updated_at ON report_snapshots;
 CREATE TRIGGER set_report_snapshots_updated_at
   BEFORE UPDATE ON report_snapshots
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
 COMMENT ON TABLE report_snapshots IS
   'Point-in-time report renders. One row per session x audience. Frozen at generation.';
-
 -- ---------------------------------------------------------------------------
 -- 6. Snapshot creation trigger on participant_sessions completion
 -- ---------------------------------------------------------------------------
@@ -181,7 +157,6 @@ SECURITY DEFINER
 AS $$
 DECLARE
   v_config RECORD;
-  v_created INTEGER := 0;
 BEGIN
   IF NEW.status <> 'completed' OR OLD.status = 'completed' THEN
     RETURN NEW;
@@ -205,7 +180,6 @@ BEGIN
     VALUES
       (v_config.participant_template_id, NEW.id, NEW.campaign_id, 'participant', 'pending')
     ON CONFLICT (participant_session_id, audience_type) DO NOTHING;
-    IF FOUND THEN v_created := v_created + 1; END IF;
   END IF;
 
   IF v_config.hr_manager_template_id IS NOT NULL THEN
@@ -214,7 +188,6 @@ BEGIN
     VALUES
       (v_config.hr_manager_template_id, NEW.id, NEW.campaign_id, 'hr_manager', 'pending')
     ON CONFLICT (participant_session_id, audience_type) DO NOTHING;
-    IF FOUND THEN v_created := v_created + 1; END IF;
   END IF;
 
   IF v_config.consultant_template_id IS NOT NULL THEN
@@ -223,22 +196,17 @@ BEGIN
     VALUES
       (v_config.consultant_template_id, NEW.id, NEW.campaign_id, 'consultant', 'pending')
     ON CONFLICT (participant_session_id, audience_type) DO NOTHING;
-    IF FOUND THEN v_created := v_created + 1; END IF;
   END IF;
 
-  IF v_created > 0 THEN
-    PERFORM pg_notify('report_generation_queue', NEW.id::text);
-  END IF;
+  PERFORM pg_notify('report_generation_queue', NEW.id::text);
 
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS on_session_completed_create_snapshots ON participant_sessions;
 CREATE TRIGGER on_session_completed_create_snapshots
   AFTER UPDATE OF status ON participant_sessions
   FOR EACH ROW EXECUTE FUNCTION create_report_snapshots_on_completion();
-
 -- ---------------------------------------------------------------------------
 -- 7. RLS policies
 -- ---------------------------------------------------------------------------
@@ -246,7 +214,6 @@ CREATE TRIGGER on_session_completed_create_snapshots
 ALTER TABLE report_templates       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE campaign_report_config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE report_snapshots       ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "report_templates_select" ON report_templates
   FOR SELECT TO authenticated
   USING (
@@ -256,7 +223,6 @@ CREATE POLICY "report_templates_select" ON report_templates
       WHERE pm.profile_id = auth.uid()
     )
   );
-
 CREATE POLICY "report_templates_insert" ON report_templates
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -265,7 +231,6 @@ CREATE POLICY "report_templates_insert" ON report_templates
       WHERE pm.profile_id = auth.uid() AND pm.role = 'admin'
     )
   );
-
 CREATE POLICY "report_templates_update" ON report_templates
   FOR UPDATE TO authenticated
   USING (
@@ -274,7 +239,6 @@ CREATE POLICY "report_templates_update" ON report_templates
       WHERE pm.profile_id = auth.uid() AND pm.role = 'admin'
     )
   );
-
 CREATE POLICY "campaign_report_config_select" ON campaign_report_config
   FOR SELECT TO authenticated
   USING (
@@ -284,8 +248,6 @@ CREATE POLICY "campaign_report_config_select" ON campaign_report_config
       WHERE pm.profile_id = auth.uid()
     )
   );
-
-DROP POLICY IF EXISTS "campaign_report_config_all" ON campaign_report_config;
 CREATE POLICY "campaign_report_config_all" ON campaign_report_config
   FOR ALL TO authenticated
   USING (
@@ -294,15 +256,7 @@ CREATE POLICY "campaign_report_config_all" ON campaign_report_config
       JOIN partner_memberships pm ON pm.partner_id = c.partner_id
       WHERE pm.profile_id = auth.uid()
     )
-  )
-  WITH CHECK (
-    campaign_id IN (
-      SELECT c.id FROM campaigns c
-      JOIN partner_memberships pm ON pm.partner_id = c.partner_id
-      WHERE pm.profile_id = auth.uid()
-    )
   );
-
 CREATE POLICY "report_snapshots_consultant_select" ON report_snapshots
   FOR SELECT TO authenticated
   USING (
@@ -314,7 +268,6 @@ CREATE POLICY "report_snapshots_consultant_select" ON report_snapshots
       WHERE pm.profile_id = auth.uid()
     )
   );
-
 CREATE POLICY "report_snapshots_participant_select" ON report_snapshots
   FOR SELECT TO authenticated
   USING (
@@ -325,7 +278,6 @@ CREATE POLICY "report_snapshots_participant_select" ON report_snapshots
       WHERE ps.participant_profile_id = auth.uid()
     )
   );
-
 CREATE POLICY "report_snapshots_hr_manager_select" ON report_snapshots
   FOR SELECT TO authenticated
   USING (
@@ -337,7 +289,6 @@ CREATE POLICY "report_snapshots_hr_manager_select" ON report_snapshots
       WHERE cm.profile_id = auth.uid()
     )
   );
-
 -- ---------------------------------------------------------------------------
 -- 8. Seed 4 platform-global templates
 -- ---------------------------------------------------------------------------
@@ -416,12 +367,10 @@ VALUES
     true
   )
 ON CONFLICT (id) DO NOTHING;
-
 -- ---------------------------------------------------------------------------
 -- 9. Extend ai_prompt_purpose enum
 -- Must be committed before migration 00043 can INSERT a row using this value.
 -- ---------------------------------------------------------------------------
 
 ALTER TYPE ai_prompt_purpose ADD VALUE IF NOT EXISTS 'report_narrative';
-
 COMMIT;

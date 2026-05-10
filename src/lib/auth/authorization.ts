@@ -210,10 +210,15 @@ function getEffectivePreviewContext(
 async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
   const requestEnvironment = await getRequestEnvironment();
   const actor = await resolveSessionActor();
+  // Local-dev bypass lets an unauthenticated developer browse the app as a
+  // synthetic full-access principal. Requires BOTH a local host (localhost /
+  // 127.0.0.1 / 0.0.0.0) AND an explicit env opt-in, so a misconfigured
+  // staging environment with NODE_ENV != 'production' can't accidentally
+  // open the platform to the internet.
   const localDevBypass =
     !actor &&
     requestEnvironment.isLocalDevelopment &&
-    process.env.NODE_ENV !== "production";
+    process.env.TRAJECTAS_ALLOW_DEV_BYPASS === "1";
 
   if (!actor && !localDevBypass) {
     throw new AuthenticationRequiredError();
