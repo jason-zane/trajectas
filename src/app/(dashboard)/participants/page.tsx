@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { getParticipants, getUniqueParticipants } from "@/app/actions/participants";
 import { ParticipantsTable } from "./participants-table";
 
@@ -25,7 +28,15 @@ export default async function ParticipantsPage({
         eyebrow="Participants"
         title="Participants"
         description={`${total} ${view === "participants" ? "participant" : "session"}${total !== 1 ? "s" : ""} across all campaigns.`}
-      />
+      >
+        <Link
+          href="/participants/trajectory"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          <TrendingUp className="mr-1.5 size-4" />
+          Trajectory
+        </Link>
+      </PageHeader>
 
       <ParticipantsTable
         view={view}

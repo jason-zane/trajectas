@@ -27,6 +27,7 @@ import {
   Settings,
   ArrowLeft,
   Mail,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -102,6 +103,7 @@ const adminNav: NavSection[] = [
       { title: "Report Templates", href: "/report-templates", icon: LayoutTemplate },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
+      { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
     ],
   },
   {
