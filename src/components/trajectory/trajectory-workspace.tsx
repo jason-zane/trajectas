@@ -6,6 +6,7 @@ import { TrajectoryPersonHeader } from './trajectory-person-header'
 import { TrajectoryControls } from './trajectory-controls'
 import { TrajectoryChartGrid } from './trajectory-charts'
 import { TrajectoryMatrix } from './trajectory-matrix'
+import { TrajectoryLinkedRecordsDrawer } from './trajectory-linked-records-drawer'
 import type {
   TrajectoryLevel,
   TrajectoryResult,
@@ -30,6 +31,14 @@ export function TrajectoryWorkspace({
     initialResult.assessmentsTouched.map((a) => a.assessmentId),
   )
   const [pending, startTransition] = useTransition()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const refetchAtCurrentLevel = () => {
+    startTransition(async () => {
+      const r = await getPersonTrajectory(campaignParticipantId, { level: result.level })
+      setResult(r)
+    })
+  }
 
   const setLevel = (next: TrajectoryLevel) => {
     if (next === result.level) return
@@ -69,7 +78,17 @@ export function TrajectoryWorkspace({
 
   return (
     <div className="space-y-4">
-      <TrajectoryPersonHeader result={result} />
+      <TrajectoryPersonHeader
+        result={result}
+        onOpenLinkedRecords={() => setDrawerOpen(true)}
+      />
+
+      <TrajectoryLinkedRecordsDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        campaignParticipantId={campaignParticipantId}
+        onAfterChange={refetchAtCurrentLevel}
+      />
 
       <TrajectoryControls
         level={result.level}
