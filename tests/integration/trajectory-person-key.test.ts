@@ -43,7 +43,20 @@ loadEnvFile()
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const canRun = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY)
+
+// Hard safety: refuse to run against a hosted Supabase URL. `.env.local`
+// points at production by default for the runtime app; if someone runs
+// `npm test` instead of `npm run test:integration:local`, these env vars
+// would otherwise allow the test to write rows to prod. Whitelist only
+// localhost / 127.0.0.1 / Docker internal hosts.
+const isLocalSupabase =
+  !!SUPABASE_URL &&
+  /^(https?:\/\/)?(127\.0\.0\.1|localhost|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(
+    SUPABASE_URL,
+  )
+const canRun =
+  Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY) &&
+  isLocalSupabase
 
 const TEST_PASSWORD = 'trajectory-personkey-pw-123!'
 const ts = Date.now()
