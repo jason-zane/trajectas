@@ -9,7 +9,7 @@ import type {
   ComparisonResult,
   ComparisonRow,
 } from '@/lib/comparison/types'
-import { ComparisonCell } from './comparison-cell'
+import { ScoreCell } from '@/components/results/score-cell'
 
 type SortKey = { columnId: string; dir: 'asc' | 'desc' } | null
 
@@ -252,7 +252,7 @@ function Row({
         const cells: React.ReactNode[] = []
         if (showRollup) {
           cells.push(
-            <ComparisonCell
+            <ScoreCell
               key={`${row.entryId}-rollup-${group.rollup.id}-${gIdx}`}
               value={a?.cells[group.rollup.id] ?? null}
               style={getCellStyle(a?.cells[group.rollup.id] ?? null)}
@@ -262,7 +262,7 @@ function Row({
         }
         for (const c of childrenShown) {
           cells.push(
-            <ComparisonCell
+            <ScoreCell
               key={`${row.entryId}-child-${c.id}`}
               value={a?.cells[c.id] ?? null}
               style={getCellStyle(a?.cells[c.id] ?? null)}

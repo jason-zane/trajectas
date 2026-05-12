@@ -1,13 +1,22 @@
 import type { CSSProperties } from 'react'
 import { cn } from '@/lib/utils'
 
-export function ComparisonCell({
+/**
+ * Shared score-cell renderer used by both the Compare matrix and the
+ * Trajectory matrix. Renders a numeric score or an em-dash for null.
+ *
+ * `isRollup` styles the cell as a parent (heavier text + accent border on
+ * the left edge). Used by Compare for the dimension/factor rollup column.
+ * Trajectory may use it for parent entities when showing factor totals
+ * alongside their constructs.
+ */
+export function ScoreCell({
   value,
   style,
   isRollup = false,
 }: {
   value: number | null
-  style: CSSProperties
+  style?: CSSProperties
   isRollup?: boolean
 }) {
   return (
