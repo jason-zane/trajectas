@@ -24,7 +24,8 @@ interface ParticipantDetailViewProps {
   sessions: ParticipantSession[];
   activity: ActivityEvent[];
   snapshots: SnapshotWithTemplate[];
-  trajectory: TrajectoryResult;
+  /** Trajectory data. Omit to hide the Trajectory tab entirely (e.g. client / partner surfaces while the feature is admin-only). */
+  trajectory?: TrajectoryResult;
   backHref: string;
   backLabel: string;
   sessionBaseHref: string;
@@ -94,7 +95,7 @@ export function ParticipantDetailView({
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
+          {trajectory && <TabsTrigger value="trajectory">Trajectory</TabsTrigger>}
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -117,12 +118,14 @@ export function ParticipantDetailView({
           />
         </TabsContent>
 
-        <TabsContent value="trajectory" className="mt-6">
-          <TrajectoryWorkspace
-            campaignParticipantId={participant.id}
-            initialResult={trajectory}
-          />
-        </TabsContent>
+        {trajectory && (
+          <TabsContent value="trajectory" className="mt-6">
+            <TrajectoryWorkspace
+              campaignParticipantId={participant.id}
+              initialResult={trajectory}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="reports" className="mt-6">
           <ParticipantReportsPanel
