@@ -61,3 +61,53 @@ npm run test:integration:local -- tests/integration/foo.ts  # one file
 ```
 
 This wraps vitest with the local Supabase env from `supabase status`. The script lives at `scripts/run-integration-tests-local.mjs`.
+
+### The trap to avoid
+
+`npm run test`, `npm run test:coverage`, and `npm run test:integration` all pick up `.env.local` automatically. Each integration test file is responsible for its own production guard. New integration tests **must** include a host-whitelist check before they will run; see the pattern in `tests/integration/trajectory-person-key.test.ts`:
+
+```ts
+const isLocalSupabase =
+  !!SUPABASE_URL &&
+  /^(https?:\/\/)?(127\.0\.0\.1|localhost|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(SUPABASE_URL)
+const canRun = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY) && isLocalSupabase
+```
+
+CI does not have `.env.local`, so the env vars are unset and tests skip. The guard is for local-developer safety.
+
+## Migration & deploy flow
+
+The project uses a PR-then-merge model with CI gating on each PR. The order of operations for any DB-touching feature:
+
+1. **Branch from `origin/main`.** Never push to `main` directly — main is not currently protected, but the convention is PR-based and Vercel deploys from main. Use a descriptive branch name (`feat/X`, `fix/Y`, `refactor/Z`).
+2. **Apply schema changes locally first.** Use the local Supabase stack via `supabase db reset` (or `db push` for incremental) and verify via `npm run test:integration:local`.
+3. **Once the migration is green locally**, apply it to the live Supabase project via the Supabase MCP (`apply_migration`). The migration file in `supabase/migrations/` is the source of truth, but the MCP write keeps the live project in sync without waiting for a deploy.
+4. **Run `mcp__claude_ai_Supabase__get_advisors` after every DDL change.** New `SECURITY DEFINER` functions that aren't intended for direct RPC need a follow-up migration revoking `EXECUTE` from `anon` and `authenticated`. See `20260512150000_trajectory_revoke_trigger_fn_exec.sql` for the pattern.
+5. **Commit the migration file** so source matches live.
+6. **Open a PR** with `gh pr create` and watch CI with `gh pr checks <num> --watch`.
+7. **CI must be green to merge.** The three jobs are `security` → `quality` → `e2e-smoke`. Each gates the next.
+8. **If `security` fails on `npm audit`**, that's almost always a pre-existing dependency issue, not the PR's fault. `npm audit fix` and commit the lockfile bump as a separate `chore(deps)` commit on the same branch — do NOT mix dep bumps with feature work in the same commit.
+9. **Merge via `gh pr merge --squash --delete-branch`** once CI is green and any review feedback is addressed.
+
+### Sequencing rationale
+
+Apply the migration to live **before** opening the PR (step 3 before step 6) because:
+- Vercel previews built from the PR will exercise the new code against the new schema.
+- A failed-build PR is easier to diagnose if the schema is in place.
+- If the migration itself is the problem, you catch it before sinking CI time into the rest.
+
+Do NOT apply the migration to live after merging — the time between merge and Vercel's production deploy is when the schema and code can be out of sync.
+
+### Pre-existing CI debt — `npm audit`
+
+The `security → Audit production dependencies` step (`npm audit --omit=dev --audit-level=high`) is fragile because Next.js publishes high-severity advisories frequently. If a PR fails on this step and the failures are upstream of the PR's diff, treat it as repo maintenance, not feature work:
+
+```sh
+npm audit fix       # may bump minor versions
+npm test:unit       # sanity check
+npm run build       # sanity check
+git add package-lock.json
+git commit -m "chore(deps): npm audit fix — bump <pkg> to <version>"
+```
+
+If `npm audit fix` doesn't resolve the advisory (e.g. no patched version exists yet), surface it to the user — don't paper over it or relax `--audit-level`.

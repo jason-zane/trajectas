@@ -5,6 +5,7 @@ import {
   getParticipantActivity,
 } from "@/app/actions/participants";
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
+import { loadTrajectoryForParticipant } from "@/lib/trajectory/load";
 import { ParticipantDetailView } from "@/components/results/participant-detail-view";
 
 async function loadParticipant(participantId: string) {
@@ -17,7 +18,7 @@ async function loadParticipant(participantId: string) {
 }
 
 async function loadParticipantAuxiliaryData(participantId: string) {
-  const [sessions, activity, snapshots] = await Promise.all([
+  const [sessions, activity, snapshots, trajectory] = await Promise.all([
     getParticipantSessions(participantId).catch((error) => {
       console.error("[partner-participant-detail] Failed to load sessions:", error);
       return [];
@@ -30,9 +31,10 @@ async function loadParticipantAuxiliaryData(participantId: string) {
       console.error("[partner-participant-detail] Failed to load report snapshots:", error);
       return [];
     }),
+    loadTrajectoryForParticipant(participantId, "partner-participant-detail"),
   ]);
 
-  return { sessions, activity, snapshots };
+  return { sessions, activity, snapshots, trajectory };
 }
 
 export default async function PartnerParticipantDetailPage({
@@ -46,7 +48,8 @@ export default async function PartnerParticipantDetailPage({
 
   if (!participant) notFound();
 
-  const { sessions, activity, snapshots } = await loadParticipantAuxiliaryData(participantId);
+  const { sessions, activity, snapshots, trajectory } =
+    await loadParticipantAuxiliaryData(participantId);
 
   return (
     <ParticipantDetailView
@@ -54,6 +57,7 @@ export default async function PartnerParticipantDetailPage({
       sessions={sessions}
       activity={activity}
       snapshots={snapshots}
+      trajectory={trajectory}
       backHref={`/partner/campaigns/${campaignId}`}
       backLabel="Back to campaign"
       sessionBaseHref={`/partner/campaigns/${campaignId}/participants/${participantId}/sessions`}
