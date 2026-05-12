@@ -5,6 +5,7 @@ import {
   getParticipantActivity,
 } from "@/app/actions/participants";
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
+import { loadTrajectoryForParticipant } from "@/lib/trajectory/load";
 import { ParticipantDetailView } from "@/components/results/participant-detail-view";
 
 async function loadParticipant(participantId: string) {
@@ -17,7 +18,7 @@ async function loadParticipant(participantId: string) {
 }
 
 async function loadParticipantAuxiliaryData(participantId: string) {
-  const [sessions, activity, snapshots] = await Promise.all([
+  const [sessions, activity, snapshots, trajectory] = await Promise.all([
     getParticipantSessions(participantId).catch((error) => {
       console.error("[campaign-participant-detail] Failed to load sessions:", error);
       return [];
@@ -30,9 +31,10 @@ async function loadParticipantAuxiliaryData(participantId: string) {
       console.error("[campaign-participant-detail] Failed to load report snapshots:", error);
       return [];
     }),
+    loadTrajectoryForParticipant(participantId, "campaign-participant-detail"),
   ]);
 
-  return { sessions, activity, snapshots };
+  return { sessions, activity, snapshots, trajectory };
 }
 
 export default async function CampaignParticipantDetailPage({
@@ -47,7 +49,8 @@ export default async function CampaignParticipantDetailPage({
     notFound();
   }
 
-  const { sessions, activity, snapshots } = await loadParticipantAuxiliaryData(pid);
+  const { sessions, activity, snapshots, trajectory } =
+    await loadParticipantAuxiliaryData(pid);
 
   return (
     <ParticipantDetailView
@@ -55,6 +58,7 @@ export default async function CampaignParticipantDetailPage({
       sessions={sessions}
       activity={activity}
       snapshots={snapshots}
+      trajectory={trajectory}
       backHref={`/campaigns/${campaignId}/participants`}
       backLabel="Back to participants"
       sessionBaseHref={`/campaigns/${campaignId}/participants/${pid}/sessions`}

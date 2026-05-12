@@ -8,12 +8,14 @@ import { ParticipantOverviewPanel } from "./participant-overview-panel";
 import { ParticipantActivityPanel } from "./participant-activity-panel";
 import { ParticipantSessionsPanel } from "./participant-sessions-panel";
 import { ParticipantReportsPanel } from "./participant-reports-panel";
+import { TrajectoryWorkspace } from "@/components/trajectory/trajectory-workspace";
 import type {
   ParticipantDetail,
   ParticipantSession,
   ActivityEvent,
 } from "@/app/actions/participants";
 import type { ReportSnapshot } from "@/types/database";
+import type { TrajectoryResult } from "@/lib/trajectory/types";
 
 type SnapshotWithTemplate = ReportSnapshot & { templateName?: string };
 
@@ -22,6 +24,7 @@ interface ParticipantDetailViewProps {
   sessions: ParticipantSession[];
   activity: ActivityEvent[];
   snapshots: SnapshotWithTemplate[];
+  trajectory: TrajectoryResult;
   backHref: string;
   backLabel: string;
   sessionBaseHref: string;
@@ -48,6 +51,7 @@ export function ParticipantDetailView({
   sessions,
   activity,
   snapshots,
+  trajectory,
   backHref,
   backLabel,
   sessionBaseHref,
@@ -90,6 +94,7 @@ export function ParticipantDetailView({
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activity">Activity</TabsTrigger>
           <TabsTrigger value="sessions">Sessions</TabsTrigger>
+          <TabsTrigger value="trajectory">Trajectory</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
 
@@ -109,6 +114,13 @@ export function ParticipantDetailView({
           <ParticipantSessionsPanel
             sessions={sessions}
             sessionBaseHref={sessionBaseHref}
+          />
+        </TabsContent>
+
+        <TabsContent value="trajectory" className="mt-6">
+          <TrajectoryWorkspace
+            campaignParticipantId={participant.id}
+            initialResult={trajectory}
           />
         </TabsContent>
 
