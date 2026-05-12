@@ -2,6 +2,11 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  getPrefersReducedMotion,
+  subscribePrefersReducedMotion,
+  supportsIntersectionObserver,
+} from "./motion-support";
 
 const ParticleMesh = dynamic(
   () => import("./particle-mesh").then((mod) => mod.ParticleMesh),
@@ -9,31 +14,12 @@ const ParticleMesh = dynamic(
 );
 
 const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-function subscribeReducedMotion(onStoreChange: () => void) {
-  if (typeof window === "undefined") {
-    return () => {};
-  }
-
-  const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
-  mediaQuery.addEventListener("change", onStoreChange);
-  return () => mediaQuery.removeEventListener("change", onStoreChange);
-}
-
-function getReducedMotionSnapshot() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
-}
 
 export function MarketingInteractive() {
   const [activeSection, setActiveSection] = useState<string>("hero");
   const reducedMotion = useSyncExternalStore(
-    subscribeReducedMotion,
-    getReducedMotionSnapshot,
+    subscribePrefersReducedMotion,
+    getPrefersReducedMotion,
     () => false,
   );
   const glowRef = useRef<HTMLDivElement>(null);
@@ -86,6 +72,49 @@ export function MarketingInteractive() {
   }, [reducedMotion]);
 
   useEffect(() => {
+    if (!supportsIntersectionObserver()) {
+      let rafId = 0;
+
+      function updateActiveSection() {
+        rafId = 0;
+        const viewportCenter = window.innerHeight / 2;
+        let nextSection = "hero";
+        let closestDistance = Number.POSITIVE_INFINITY;
+
+        SECTIONS.forEach((section) => {
+          const el = document.querySelector(`[data-section="${section}"]`);
+          if (!el) return;
+
+          const rect = el.getBoundingClientRect();
+          if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+
+          const distance = Math.abs(
+            rect.top + rect.height / 2 - viewportCenter,
+          );
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            nextSection = section;
+          }
+        });
+
+        setActiveSection(nextSection);
+      }
+
+      function scheduleUpdate() {
+        if (rafId !== 0) return;
+        rafId = window.requestAnimationFrame(updateActiveSection);
+      }
+
+      updateActiveSection();
+      window.addEventListener("scroll", scheduleUpdate, { passive: true });
+      window.addEventListener("resize", scheduleUpdate);
+      return () => {
+        window.removeEventListener("scroll", scheduleUpdate);
+        window.removeEventListener("resize", scheduleUpdate);
+        if (rafId !== 0) cancelAnimationFrame(rafId);
+      };
+    }
+
     const observers: IntersectionObserver[] = [];
 
     SECTIONS.forEach((section) => {

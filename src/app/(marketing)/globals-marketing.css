@@ -47,6 +47,11 @@
   letter-spacing: 0.08em;
 }
 
+[data-surface="marketing"] .marketing-hero {
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
 /* ============================================================================
    HERO — pure CSS entrance animation. Runs on first paint, no JS required.
    If JS never runs, content is still visible (animation simply plays once).
@@ -95,6 +100,7 @@
    ========================================================================= */
 
 [data-surface="marketing"] .problem-section {
+  min-height: 100vh;
   min-height: 100svh;
 }
 
@@ -102,6 +108,7 @@
   position: static;
   top: auto;
   height: auto;
+  min-height: 100vh;
   min-height: 100svh;
   overflow: visible;
   padding-block: 4rem;
@@ -163,6 +170,7 @@
 [data-surface="marketing"][data-motion="on"] .problem-sticky {
   position: sticky;
   top: 0;
+  height: 100vh;
   height: 100svh;
   min-height: 0;
   overflow: hidden;
@@ -282,6 +290,7 @@
    ========================================================================= */
 
 [data-surface="marketing"] .journey-section {
+  min-height: 100vh;
   min-height: 100svh;
 }
 
@@ -289,6 +298,7 @@
   position: static;
   top: auto;
   height: auto;
+  min-height: 100vh;
   min-height: 100svh;
   overflow: visible;
   padding-block: 4rem;
@@ -348,6 +358,7 @@
 [data-surface="marketing"][data-motion="on"] .journey-sticky {
   position: sticky;
   top: 0;
+  height: 100vh;
   height: 100svh;
   min-height: 0;
   overflow: hidden;

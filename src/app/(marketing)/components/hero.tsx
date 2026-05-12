@@ -6,7 +6,7 @@ export function Hero() {
   return (
     <section
       data-section="hero"
-      className="relative z-10 flex min-h-[100svh] flex-col items-center justify-center px-6 pb-16 pt-28 text-center sm:px-8 md:px-16 md:pb-20 md:pt-24 lg:px-24"
+      className="marketing-hero relative z-10 flex flex-col items-center justify-center px-6 pb-16 pt-28 text-center sm:px-8 md:px-16 md:pb-20 md:pt-24 lg:px-24"
       style={{ backgroundColor: "var(--mk-primary-dark)" }}
     >
       <div className="w-full max-w-5xl">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { getPrefersReducedMotion } from "./motion-support";
 
 /**
  * Returns a normalised 0-1 scroll progress value for the given element.
@@ -18,10 +19,7 @@ export function useScrollProgress() {
     let rafId = 0;
     elementRef.current?.style.setProperty("--scroll-progress", "0");
 
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-    if (prefersReduced) {
+    if (getPrefersReducedMotion()) {
       elementRef.current?.style.setProperty("--scroll-progress", "0");
       return;
     }

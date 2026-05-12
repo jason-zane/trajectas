@@ -61,10 +61,28 @@ export function getAllowedServerActionOrigins(
   return Array.from(new Set([...configuredHosts, ...extraAllowedOrigins]));
 }
 
+export function getAllowedDevOrigins(
+  env: NodeJS.ProcessEnv = process.env
+): string[] {
+  const configuredHosts = surfaceUrlEnvKeys
+    .map((key) => extractConfiguredHost(env[key]))
+    .filter(Boolean) as string[];
+
+  const extraAllowedOrigins =
+    env.NEXT_ALLOWED_DEV_ORIGINS?.split(",")
+      .map((value) => value.trim())
+      .filter(Boolean) ?? [];
+
+  return Array.from(
+    new Set(["localhost", "127.0.0.1", ...configuredHosts, ...extraAllowedOrigins])
+  );
+}
+
 export function createTrajectasNextConfig(
   env: NodeJS.ProcessEnv = process.env
 ): NextConfig {
   return {
+    allowedDevOrigins: getAllowedDevOrigins(env),
     // Prevent Turbopack from bundling packages with complex CJS internals.
     // They are loaded from node_modules at runtime instead.
     serverExternalPackages: [
