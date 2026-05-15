@@ -13,10 +13,9 @@ function item(
   id: string,
   difficulty: ItemDifficulty,
   reverse = false,
-  selectionPriority = 0,
   displayOrder = 0,
 ): TestItem {
-  return { id, difficulty, reverseScored: reverse, selectionPriority, displayOrder }
+  return { id, difficulty, reverseScored: reverse, displayOrder }
 }
 
 describe('computeDifficultyDistribution', () => {
@@ -72,7 +71,7 @@ describe('selectItemsByDifficulty', () => {
     const pool: TestItem[] = []
     let i = 0
     for (const band of ['easy', 'medium', 'hard'] as ItemDifficulty[]) {
-      for (let n = 0; n < 5; n++) pool.push(item(`${band}-${n}`, band, false, n, i++))
+      for (let n = 0; n < 5; n++) pool.push(item(`${band}-${n}`, band, false, i++))
     }
 
     const picked = selectItemsByDifficulty(pool, 6, { reverseRatio: 0 })
@@ -123,7 +122,7 @@ describe('selectItemsByDifficulty', () => {
     let i = 0
     for (const band of ['easy', 'medium', 'hard'] as ItemDifficulty[]) {
       for (let n = 0; n < 4; n++) {
-        pool.push(item(`${band}-${n}`, band, n < 2, n, i++))
+        pool.push(item(`${band}-${n}`, band, n < 2, i++))
       }
     }
 
@@ -150,11 +149,11 @@ describe('selectItemsByDifficulty', () => {
     expect(picked.filter((p) => p.reverseScored === true).length).toBe(1)
   })
 
-  it('respects selection_priority within a band as the tiebreaker', () => {
-    // Two easy items, both eligible — the lower selection_priority wins.
+  it('respects display_order within a band as the tiebreaker', () => {
+    // Two easy items, both eligible — the lower display_order wins.
     const pool: TestItem[] = [
-      item('e-late', 'easy', false, 5, 0),
-      item('e-early', 'easy', false, 1, 0),
+      item('e-late', 'easy', false, 5),
+      item('e-early', 'easy', false, 1),
       item('m1', 'medium'),
       item('h1', 'hard'),
     ]
@@ -166,9 +165,9 @@ describe('selectItemsByDifficulty', () => {
   it('treats missing difficulty as medium (legacy items)', () => {
     // No `difficulty` set at all — bucketed into medium so selection still works.
     const pool: TestItem[] = [
-      { reverseScored: false, selectionPriority: 0 } as TestItem,
-      { reverseScored: false, selectionPriority: 1 } as TestItem,
-      { reverseScored: false, selectionPriority: 2 } as TestItem,
+      { reverseScored: false, displayOrder: 0 } as TestItem,
+      { reverseScored: false, displayOrder: 1 } as TestItem,
+      { reverseScored: false, displayOrder: 2 } as TestItem,
     ]
     const picked = selectItemsByDifficulty(pool, 2, { reverseRatio: 0 })
     expect(picked.length).toBe(2)
@@ -176,9 +175,9 @@ describe('selectItemsByDifficulty', () => {
 
   it('accepts snake_case row shapes from the database', () => {
     const pool: TestItem[] = [
-      { difficulty: 'easy', reverse_scored: true, selection_priority: 0 } as TestItem,
-      { difficulty: 'medium', reverse_scored: false, selection_priority: 0 } as TestItem,
-      { difficulty: 'hard', reverse_scored: false, selection_priority: 0 } as TestItem,
+      { difficulty: 'easy', reverse_scored: true, display_order: 0 } as TestItem,
+      { difficulty: 'medium', reverse_scored: false, display_order: 0 } as TestItem,
+      { difficulty: 'hard', reverse_scored: false, display_order: 0 } as TestItem,
     ]
     const picked = selectItemsByDifficulty(pool, 3)
     expect(picked.length).toBe(3)
@@ -196,7 +195,7 @@ function makeBalancedPool(counts: Record<ItemDifficulty, number>): TestItem[] {
   let order = 0
   for (const band of ['easy', 'medium', 'hard'] as ItemDifficulty[]) {
     for (let n = 0; n < counts[band]; n++) {
-      pool.push(item(`${band}-${n}`, band, false, n, order++))
+      pool.push(item(`${band}-${n}`, band, false, order++))
     }
   }
   return pool

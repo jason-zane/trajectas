@@ -1776,7 +1776,6 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
             weight: item.weight,
             status: item.status as 'draft' | 'active' | 'archived',
             displayOrder: item.displayOrder,
-            selectionPriority: 0,
             difficulty: item.difficulty,
             keyedAnswer: item.keyedAnswer,
           })

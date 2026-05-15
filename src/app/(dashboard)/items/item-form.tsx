@@ -74,7 +74,6 @@ interface ItemFormProps {
     weight: number;
     status: string;
     displayOrder: number;
-    selectionPriority?: number;
     difficulty?: ItemDifficulty;
     keyedAnswer?: number;
   };
@@ -106,9 +105,6 @@ export function ItemForm({
     initialData?.keyedAnswer != null ? String(initialData.keyedAnswer) : ""
   );
   const [status, setStatus] = useState(initialData?.status ?? "draft");
-  const [selectionPriority, setSelectionPriority] = useState(
-    initialData?.selectionPriority ?? 0
-  );
   const [difficulty, setDifficulty] = useState<ItemDifficulty>(
     initialData?.difficulty ?? "medium"
   );
@@ -587,31 +583,6 @@ export function ItemForm({
                     </div>
                   )}
 
-                  {isConstructItem && (
-                    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                          <ListOrdered className="size-4 text-primary" />
-                        </div>
-                        <div className="space-y-0.5">
-                          <Label htmlFor="selection-priority">Selection Priority</Label>
-                          <p className="text-xs text-muted-foreground">
-                            Lower values are selected first when item count is limited per construct. Default is 0.
-                          </p>
-                        </div>
-                      </div>
-                      <input
-                        id="selection-priority"
-                        type="number"
-                        step="1"
-                        min="0"
-                        value={selectionPriority}
-                        onChange={(e) => setSelectionPriority(Number(e.target.value) || 0)}
-                        className="w-20 rounded-md border bg-background px-3 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-                  )}
-
                   {purpose === "attention_check" && (
                     <div className="flex items-center justify-between gap-4 rounded-lg border border-blue-500/30 p-4">
                       <div className="flex items-start gap-3">
@@ -646,7 +617,6 @@ export function ItemForm({
               value={reverseScored ? "true" : "false"}
             />
             <input type="hidden" name="displayOrder" value="0" />
-            <input type="hidden" name="selectionPriority" value={selectionPriority} />
             <input type="hidden" name="difficulty" value={difficulty} />
             <input type="hidden" name="options" value={JSON.stringify(options)} />
           </TabsContent>

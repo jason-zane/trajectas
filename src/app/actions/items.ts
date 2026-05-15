@@ -129,7 +129,6 @@ export async function createItem(formData: FormData) {
     weight: purpose === 'construct' ? Number(formData.get('weight') ?? 1.0) : 1.0,
     status: (formData.get('status') as string) || 'draft',
     displayOrder: Number(formData.get('displayOrder') ?? 0),
-    selectionPriority: Number(formData.get('selectionPriority') ?? 0),
     difficulty: (formData.get('difficulty') as string) || 'medium',
     keyedAnswer: purpose === 'attention_check' ? Number(formData.get('keyedAnswer')) : undefined,
   }
@@ -152,7 +151,6 @@ export async function createItem(formData: FormData) {
       weight: parsed.data.weight,
       status: parsed.data.status,
       display_order: parsed.data.displayOrder,
-      selection_priority: parsed.data.selectionPriority,
       difficulty: parsed.data.difficulty,
       keyed_answer: parsed.data.keyedAnswer ?? null,
     })
@@ -211,7 +209,6 @@ export async function updateItem(id: string, formData: FormData) {
     weight: purpose === 'construct' ? Number(formData.get('weight') ?? 1.0) : 1.0,
     status: (formData.get('status') as string) || 'draft',
     displayOrder: Number(formData.get('displayOrder') ?? 0),
-    selectionPriority: Number(formData.get('selectionPriority') ?? 0),
     difficulty: (formData.get('difficulty') as string) || 'medium',
     keyedAnswer: purpose === 'attention_check' ? Number(formData.get('keyedAnswer')) : undefined,
   }
@@ -234,7 +231,6 @@ export async function updateItem(id: string, formData: FormData) {
       weight: parsed.data.weight,
       status: parsed.data.status,
       display_order: parsed.data.displayOrder,
-      selection_priority: parsed.data.selectionPriority,
       difficulty: parsed.data.difficulty,
       keyed_answer: parsed.data.keyedAnswer ?? null,
     })
