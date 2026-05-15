@@ -19,6 +19,7 @@ import {
   requireParticipantRuntimeSessionAccess,
 } from '@/lib/auth/participant-runtime'
 import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
+import { selectItemsByDifficulty } from '@/lib/item-selection/distribution'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import {
   mapCampaignRow,
@@ -115,7 +116,8 @@ type SectionItemRow = {
   stem: string
   construct_id: string | null
   purpose: string | null
-  selection_priority: number | null
+  difficulty: 'easy' | 'medium' | 'hard' | null
+  reverse_scored: boolean | null
   item_options: SectionOptionRow[] | null
 } | null
 
@@ -418,7 +420,7 @@ export async function getSessionState(token: string, sessionId: string) {
             id,
             item_id,
             display_order,
-            items(id, stem, construct_id, purpose, selection_priority, item_options(id, label, value, display_order))
+            items(id, stem, construct_id, purpose, difficulty, reverse_scored, item_options(id, label, value, display_order))
           )
         `)
         .eq('assessment_id', session.assessment_id)
@@ -559,15 +561,10 @@ export async function getSessionState(token: string, sessionId: string) {
         return item?.construct_id && allowedConstructIds!.has(item.construct_id)
       })
 
-      // Apply per-construct item count scaling
+      // Apply per-construct item count scaling — spread picks evenly across
+      // easy/medium/hard and meet the 25% reverse-coded floor. Non-construct
+      // items (attention checks, IM, infrequency) bypass the cap.
       if (itemsPerConstruct !== null) {
-        // Sort construct items by selection_priority (lower = higher priority)
-        // within each construct group, then apply limit
-        const constructItemCounts = new Map<string, number>()
-
-        // Pre-sort: items with lower selection_priority come first within
-        // their construct group so they survive the per-construct cap.
-        // Non-construct items stay in display_order position.
         const constructItems = sectionItems.filter(
           (si) => (!si.items?.purpose || si.items.purpose === 'construct') && si.items?.construct_id
         )
@@ -575,24 +572,26 @@ export async function getSessionState(token: string, sessionId: string) {
           (si) => si.items?.purpose && si.items.purpose !== 'construct'
         )
 
-        // Sort construct items by selection_priority (nulls last)
-        constructItems.sort((a, b) => {
-          const pa = a.items?.selection_priority ?? 999
-          const pb = b.items?.selection_priority ?? 999
-          return pa - pb
-        })
+        const byConstruct = new Map<string, typeof constructItems>()
+        for (const si of constructItems) {
+          const key = si.items?.construct_id ?? ''
+          const group = byConstruct.get(key)
+          if (group) group.push(si)
+          else byConstruct.set(key, [si])
+        }
 
-        // Apply per-construct limit
-        const keptConstructItems = constructItems.filter((si) => {
-          const key = si.items?.construct_id
-          if (!key) return false
-          const count = constructItemCounts.get(key) ?? 0
-          if (count >= itemsPerConstruct!) return false
-          constructItemCounts.set(key, count + 1)
-          return true
-        })
+        const keptConstructItems: typeof constructItems = []
+        for (const [, group] of byConstruct) {
+          const wrapped = group.map((si) => ({
+            si,
+            difficulty: si.items?.difficulty ?? 'medium',
+            reverseScored: si.items?.reverse_scored ?? false,
+            displayOrder: si.display_order,
+          }))
+          const picked = selectItemsByDifficulty(wrapped, itemsPerConstruct!)
+          keptConstructItems.push(...picked.map((p) => p.si))
+        }
 
-        // Recombine: non-construct items + kept construct items, re-sorted by display_order
         sectionItems = [...nonConstructItems, ...keptConstructItems]
           .sort((a, b) => a.display_order - b.display_order)
       }

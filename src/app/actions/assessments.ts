@@ -641,7 +641,7 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
   // Get active, non-deleted items for these constructs with their format info
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, response_format_id, selection_priority, display_order, difficulty, reverse_scored, response_formats(id, name, type)')
+    .select('id, construct_id, response_format_id, display_order, difficulty, reverse_scored, response_formats(id, name, type)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
@@ -1281,7 +1281,7 @@ async function persistSections(
   // Get all active, non-deleted items for these constructs with priority ordering
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, response_format_id, selection_priority, display_order, difficulty, reverse_scored')
+    .select('id, construct_id, response_format_id, display_order, difficulty, reverse_scored')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
@@ -1393,7 +1393,7 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   // Get active, non-deleted construct items with their construct names
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, stem, selection_priority, display_order, difficulty, reverse_scored, constructs(name)')
+    .select('id, construct_id, stem, display_order, difficulty, reverse_scored, constructs(name)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .eq('purpose', 'construct')

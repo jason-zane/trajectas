@@ -634,8 +634,6 @@ export interface Item {
   keyedAnswer?: number
   created_at: string
   updated_at?: string
-  /** Selection priority — tiebreaker within a difficulty band when rules limit items per construct. */
-  selectionPriority: number
   /** Difficulty band — easy / medium / hard. Drives even distribution across the construct's selected items. */
   difficulty: ItemDifficulty
   /** Soft-delete timestamp; NULL means active. */

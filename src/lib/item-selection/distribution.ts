@@ -21,6 +21,9 @@
  * 3. At least 25% (rounded up) of the selected items must be reverse-coded.
  * 4. If a band is undersupplied, the shortfall is borrowed from the closest
  *    other band so the construct still gets N items if at all possible.
+ *
+ * Within a band, items are ordered by display_order, with reverse-coded items
+ * winning ties so they bubble up when nothing else distinguishes them.
  */
 
 import type { ItemDifficulty } from '@/types/database'
@@ -31,11 +34,9 @@ export type DifficultyDistribution = Record<ItemDifficulty, number>
 export type SelectableItem = {
   difficulty?: ItemDifficulty | null
   reverseScored?: boolean | null
-  selectionPriority?: number | null
   displayOrder?: number | null
   // Snake-case mirrors so callers can pass DB rows untouched.
   reverse_scored?: boolean | null
-  selection_priority?: number | null
   display_order?: number | null
 }
 
@@ -81,21 +82,15 @@ function isReverse(item: SelectableItem): boolean {
   return Boolean(item.reverseScored ?? item.reverse_scored ?? false)
 }
 
-function priority(item: SelectableItem): number {
-  return Number(item.selectionPriority ?? item.selection_priority ?? 0)
-}
-
 function order(item: SelectableItem): number {
   return Number(item.displayOrder ?? item.display_order ?? 0)
 }
 
 /**
- * Sort comparator: lower selection_priority first, then lower display_order,
- * with reverse-coded items breaking ties so they bubble up when otherwise equal.
+ * Sort comparator: lower display_order first, with reverse-coded items
+ * breaking ties so they bubble up when otherwise equal.
  */
 function compareItems(a: SelectableItem, b: SelectableItem): number {
-  const p = priority(a) - priority(b)
-  if (p !== 0) return p
   const o = order(a) - order(b)
   if (o !== 0) return o
   return Number(isReverse(b)) - Number(isReverse(a))
