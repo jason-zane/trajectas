@@ -286,6 +286,25 @@ export interface Client {
 }
 
 /**
+ * A provenance / IP-attribution label for library content.
+ * Independent of the clients table — just a tag that says "where this
+ * dimension / factor / construct / item / assessment came from" so
+ * imports keep their origin visible in the UI.
+ */
+export interface ContentSource {
+  /** UUID primary key. */
+  id: string
+  /** Display name (e.g. "Executive Performance Partners"). */
+  name: string
+  /** URL-safe slug — unique. */
+  slug: string
+  /** Free-form admin notes. */
+  notes?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
  * A user profile linked to the auth layer (e.g. Supabase Auth).
  * One profile may belong to many clients through role assignments.
  */
@@ -450,6 +469,8 @@ export interface Dimension {
   developmentSuggestion?: string
   /** Strength commentary text shown when this entity is a top-scoring area. */
   strengthCommentary?: string
+  /** Optional content_sources.id — provenance label, not a tenant link. */
+  sourceId?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -505,6 +526,8 @@ export interface Factor {
   developmentSuggestion?: string
   /** Strength commentary text shown when this entity is a top-scoring area. */
   strengthCommentary?: string
+  /** Optional content_sources.id — provenance label, not a tenant link. */
+  sourceId?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -554,6 +577,8 @@ export interface Construct {
   developmentSuggestion?: string
   /** Strength commentary text shown when this entity is a top-scoring area. */
   strengthCommentary?: string
+  /** Optional content_sources.id — provenance label, not a tenant link. */
+  sourceId?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
@@ -636,6 +661,8 @@ export interface Item {
   updated_at?: string
   /** Difficulty band — easy / medium / hard. Drives even distribution across the construct's selected items. */
   difficulty: ItemDifficulty
+  /** Optional content_sources.id — provenance label, not a tenant link. */
+  sourceId?: string
   /** Soft-delete timestamp; NULL means active. */
   deletedAt?: string
 }
@@ -797,6 +824,8 @@ export interface Assessment {
   scoringLevel: 'factor' | 'construct'
   /** Minimum number of constructs a campaign must select when customising this assessment (NULL = no customisation). Only applies when scoringLevel = 'construct'. */
   minCustomConstructs: number | null
+  /** Optional content_sources.id — provenance label, not a tenant link. */
+  sourceId?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */

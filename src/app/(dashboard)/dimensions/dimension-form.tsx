@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Brain, ArrowRight } from "lucide-react"
 import { toast } from "sonner"
+import { SourcePicker } from "@/components/source-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -55,6 +56,7 @@ interface DimensionFormProps {
     constructs: any
   }>
   allConstructs?: Array<{ id: string; name: string }>
+  contentSources?: import("@/types/database").ContentSource[]
 }
 
 export function DimensionForm({
@@ -62,6 +64,7 @@ export function DimensionForm({
   dimension,
   dimensionConstructs = [],
   allConstructs = [],
+  contentSources = [],
 }: DimensionFormProps) {
   const router = useRouter()
 
@@ -81,6 +84,7 @@ export function DimensionForm({
   const [createDevelopmentSuggestion, setCreateDevelopmentSuggestion] = useState(dimension?.developmentSuggestion ?? "")
   const [createAnchorLow, setCreateAnchorLow] = useState(dimension?.anchorLow ?? "")
   const [createAnchorHigh, setCreateAnchorHigh] = useState(dimension?.anchorHigh ?? "")
+  const [sourceId, setSourceId] = useState<string>(dimension?.sourceId ?? "")
 
   // --- Auto-save hooks for text fields (edit mode only) ---
   const descriptionAutoSave = useAutoSave({
@@ -451,6 +455,15 @@ export function DimensionForm({
                   </div>
                 </div>
 
+                <div className="pt-2 border-t">
+                  <SourcePicker
+                    sources={contentSources}
+                    value={sourceId}
+                    onChange={setSourceId}
+                    name="sourceIdPicker"
+                  />
+                </div>
+
               </CardContent>
             </Card>
           </TabsContent>
@@ -670,6 +683,9 @@ export function DimensionForm({
         </Tabs>
 
         <input type="hidden" name="displayOrder" value={dimension?.displayOrder ?? 0} />
+        <input type="hidden" name="anchorLow" value={anchorLow} />
+        <input type="hidden" name="anchorHigh" value={anchorHigh} />
+        <input type="hidden" name="sourceId" value={sourceId} />
 
         {/* Sticky action bar */}
         <div className="sticky bottom-0 flex items-center justify-end gap-3 py-4 mt-6 bg-background/80 backdrop-blur-sm -mx-4 px-4 border-t border-border/50">

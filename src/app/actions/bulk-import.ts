@@ -89,6 +89,11 @@ type StagedDimensionRow = {
   indicatorsLow?: string
   indicatorsMid?: string
   indicatorsHigh?: string
+  anchorLow?: string
+  anchorHigh?: string
+  strengthCommentary?: string
+  developmentSuggestion?: string
+  sourceRef?: string
 }
 
 type StagedFactorRow = {
@@ -105,6 +110,11 @@ type StagedFactorRow = {
   indicatorsLow?: string
   indicatorsMid?: string
   indicatorsHigh?: string
+  anchorLow?: string
+  anchorHigh?: string
+  strengthCommentary?: string
+  developmentSuggestion?: string
+  sourceRef?: string
 }
 
 type StagedConstructRow = {
@@ -119,6 +129,11 @@ type StagedConstructRow = {
   indicatorsLow?: string
   indicatorsMid?: string
   indicatorsHigh?: string
+  anchorLow?: string
+  anchorHigh?: string
+  strengthCommentary?: string
+  developmentSuggestion?: string
+  sourceRef?: string
 }
 
 type StagedItemRow = {
@@ -132,6 +147,7 @@ type StagedItemRow = {
   status: string
   displayOrder: number
   difficulty: 'easy' | 'medium' | 'hard'
+  sourceRef?: string
   keyedAnswer?: number
 }
 
@@ -189,42 +205,57 @@ const HEADER_ALIASES: Record<string, string[]> = {
   weight: ['weight'],
   status: ['status'],
   difficulty: ['difficulty', 'difficultylevel', 'difficulty_level', 'level'],
+  anchorLow: ['anchorlow', 'anchor_low', 'lowanchor', 'low_anchor'],
+  anchorHigh: ['anchorhigh', 'anchor_high', 'highanchor', 'high_anchor'],
+  strengthCommentary: ['strengthcommentary', 'strength_commentary', 'strengthsnarrative', 'strengthsnotes', 'strengths', 'strengthcomment'],
+  developmentSuggestion: ['developmentsuggestion', 'development_suggestion', 'developmentsuggestions', 'development_suggestions', 'developmentnotes', 'development', 'devsuggestion', 'devsuggestions'],
+  source: ['source', 'sourcename', 'sourceslug', 'source_slug', 'source_name', 'provenance', 'origin'],
   keyedAnswer: ['keyedanswer', 'keyed_answer', 'correctanswer', 'correct_answer'],
 }
 
 const AI_TEMPLATE_HEADERS: Record<BulkImportEntity, string> = {
   dimensions:
-    'name,slug,description,definition,display_order,is_active,indicators_low,indicators_mid,indicators_high',
+    'name,slug,description,definition,display_order,is_active,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source',
   factors:
-    'name,slug,dimension,client,constructs,description,definition,is_active,is_match_eligible,indicators_low,indicators_mid,indicators_high',
+    'name,slug,dimension,client,constructs,description,definition,is_active,is_match_eligible,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source',
   constructs:
-    'name,slug,factor,dimension,description,definition,is_active,indicators_low,indicators_mid,indicators_high',
+    'name,slug,factor,dimension,description,definition,is_active,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source',
   items:
-    'stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,display_order,keyed_answer',
+    'stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,display_order,source,keyed_answer',
 }
 
 const AI_ENTITY_NOTES: Record<BulkImportEntity, string[]> = {
   dimensions: [
     'Every row is a dimension.',
     'Generate a slug when one is not explicit.',
+    'anchor_low and anchor_high are short sentences (under 150 chars each) describing what a low / high score means.',
+    'strength_commentary is the narrative shown when this is a top-scoring area; development_suggestion is the narrative for areas to improve.',
+    'source is the provenance label (the publisher / IP owner) — leave blank if not stated.',
   ],
   factors: [
     'Every row is a factor.',
     'dimension should reference an existing dimension name or slug when available.',
     'client should be blank unless the source clearly indicates a client-specific factor.',
     'constructs is optional and should use semicolon-separated entries such as stakeholder-framing:1;strategic-signalling:0.8.',
+    'anchor_low and anchor_high are short sentences (under 150 chars each).',
+    'strength_commentary and development_suggestion provide the narrative text used in reports.',
+    'source is the provenance label (publisher / IP owner) — blank when not stated.',
   ],
   constructs: [
     'Every row is a construct.',
     'factor is optional and should reference one parent factor by name or slug when clear.',
     'dimension is optional and lets you attach the construct directly to a dimension when there is no parent factor.',
     'A row may include factor, dimension, both, or neither.',
+    'anchor_low and anchor_high are short sentences (under 150 chars each).',
+    'strength_commentary and development_suggestion provide the narrative text used in reports.',
+    'source is the provenance label (publisher / IP owner) — blank when not stated.',
   ],
   items: [
     'Every row is an item.',
     'Construct items must use purpose=construct and include a construct reference.',
     'response_format should match an existing response format name if the source makes it obvious.',
     'difficulty must be easy, medium, or hard. Use medium when unsure — the assessment composer spreads picks evenly across the three bands.',
+    'source is the provenance label (publisher / IP owner) — blank when not stated.',
     'If unsure about keyed_answer, leave it blank.',
   ],
 }
@@ -552,6 +583,9 @@ async function importDimensions(table: ParsedTable) {
   const inserts = []
   const errors: BulkImportError[] = []
 
+  const { data: dimensionSources } = await db.from('content_sources').select('id, name, slug')
+  const dimensionSourceLookup = (dimensionSources ?? []) as LookupOption[]
+
   for (const [index, row] of table.rows.entries()) {
     try {
       const candidate = {
@@ -564,6 +598,10 @@ async function importDimensions(table: ParsedTable) {
         indicatorsLow: row.indicatorsLow || undefined,
         indicatorsMid: row.indicatorsMid || undefined,
         indicatorsHigh: row.indicatorsHigh || undefined,
+        anchorLow: row.anchorLow || undefined,
+        anchorHigh: row.anchorHigh || undefined,
+        strengthCommentary: row.strengthCommentary || undefined,
+        developmentSuggestion: row.developmentSuggestion || undefined,
       }
 
       if (existingSlugs.has(candidate.slug)) {
@@ -571,11 +609,13 @@ async function importDimensions(table: ParsedTable) {
       }
 
       const parsed = dimensionSchema.parse(candidate)
+      const sourceId = row.source ? lookupByNameOrSlugOrNull(dimensionSourceLookup, row.source) ?? undefined : undefined
       inserts.push(
         toDimensionInsert({
           ...parsed,
           partnerId: undefined,
           isScored: true,
+          sourceId,
         })
       )
       existingSlugs.add(parsed.slug)
@@ -628,12 +668,14 @@ async function importFactors(table: ParsedTable) {
     { data: clients, error: clientsError },
     { data: constructs, error: constructsError },
     { data: existingRows, error: existingError },
+    { data: factorSourcesRaw },
   ] =
     await Promise.all([
       db.from('dimensions').select('id, name, slug').is('deleted_at', null),
       db.from('clients').select('id, name, slug').is('deleted_at', null),
       db.from('constructs').select('id, name, slug').is('deleted_at', null),
       db.from('factors').select('slug').is('deleted_at', null),
+      db.from('content_sources').select('id, name, slug'),
     ])
 
   if (dimensionsError || clientsError || constructsError || existingError) {
@@ -644,6 +686,7 @@ async function importFactors(table: ParsedTable) {
         existingError?.message
     )
   }
+  const factorSourceLookup = (factorSourcesRaw ?? []) as LookupOption[]
 
   const existingSlugs = getExistingSlugMap((existingRows ?? []) as { slug: string }[])
   const errors: BulkImportError[] = []
@@ -696,6 +739,10 @@ async function importFactors(table: ParsedTable) {
         indicatorsLow: row.indicatorsLow || undefined,
         indicatorsMid: row.indicatorsMid || undefined,
         indicatorsHigh: row.indicatorsHigh || undefined,
+        anchorLow: row.anchorLow || undefined,
+        anchorHigh: row.anchorHigh || undefined,
+        strengthCommentary: row.strengthCommentary || undefined,
+        developmentSuggestion: row.developmentSuggestion || undefined,
       }
 
       if (existingSlugs.has(candidate.slug)) {
@@ -703,10 +750,12 @@ async function importFactors(table: ParsedTable) {
       }
 
       const parsed = factorSchema.parse(candidate)
+      const sourceId = row.source ? lookupByNameOrSlugOrNull(factorSourceLookup, row.source) ?? undefined : undefined
       inserts.push(
         toFactorInsert({
           ...parsed,
           partnerId: undefined,
+          sourceId,
         })
       )
       parsed.constructs.forEach((constructLink) => {
@@ -805,15 +854,18 @@ async function importConstructs(table: ParsedTable) {
     { data: factors, error: factorsError },
     { data: dimensions, error: dimensionsError },
     { data: existingRows, error: existingError },
+    { data: constructSourcesRaw },
   ] = await Promise.all([
     db.from('factors').select('id, name, slug').is('deleted_at', null),
     db.from('dimensions').select('id, name, slug').is('deleted_at', null),
     db.from('constructs').select('slug').is('deleted_at', null),
+    db.from('content_sources').select('id, name, slug'),
   ])
 
   if (factorsError || dimensionsError || existingError) {
     throw new Error(factorsError?.message || dimensionsError?.message || existingError?.message)
   }
+  const constructSourceLookup = (constructSourcesRaw ?? []) as LookupOption[]
 
   const existingSlugs = getExistingSlugMap((existingRows ?? []) as { slug: string }[])
   const errors: BulkImportError[] = []
@@ -842,6 +894,10 @@ async function importConstructs(table: ParsedTable) {
         indicatorsLow: row.indicatorsLow || undefined,
         indicatorsMid: row.indicatorsMid || undefined,
         indicatorsHigh: row.indicatorsHigh || undefined,
+        anchorLow: row.anchorLow || undefined,
+        anchorHigh: row.anchorHigh || undefined,
+        strengthCommentary: row.strengthCommentary || undefined,
+        developmentSuggestion: row.developmentSuggestion || undefined,
       }
 
       if (existingSlugs.has(candidate.slug)) {
@@ -849,10 +905,12 @@ async function importConstructs(table: ParsedTable) {
       }
 
       const parsed = constructSchema.parse(candidate)
+      const sourceId = row.source ? lookupByNameOrSlugOrNull(constructSourceLookup, row.source) ?? undefined : undefined
       constructInserts.push(
         toConstructInsert({
           ...parsed,
           partnerId: undefined,
+          sourceId,
         })
       )
       if (parentFactorId) {
@@ -984,15 +1042,21 @@ async function importConstructs(table: ParsedTable) {
 async function importItems(table: ParsedTable) {
   const scope = await requireAdminScope()
   const db = createAdminClient()
-  const [{ data: constructs, error: constructsError }, { data: responseFormats, error: responseFormatsError }] =
+  const [
+    { data: constructs, error: constructsError },
+    { data: responseFormats, error: responseFormatsError },
+    { data: itemSourcesRaw },
+  ] =
     await Promise.all([
       db.from('constructs').select('id, name, slug').is('deleted_at', null),
       db.from('response_formats').select('id, name').eq('is_active', true),
+      db.from('content_sources').select('id, name, slug'),
     ])
 
   if (constructsError || responseFormatsError) {
     throw new Error(constructsError?.message || responseFormatsError?.message)
   }
+  const itemSourceLookup = (itemSourcesRaw ?? []) as LookupOption[]
 
   const errors: BulkImportError[] = []
   const inserts = []
@@ -1028,6 +1092,7 @@ async function importItems(table: ParsedTable) {
         status: row.status?.trim() || 'draft',
         displayOrder: parseNumber(row.displayOrder, index),
         difficulty: parseDifficulty(row.difficulty),
+        sourceId: row.source ? lookupByNameOrSlugOrNull(itemSourceLookup, row.source) ?? undefined : undefined,
         keyedAnswer: row.keyedAnswer?.trim() ? parseNumber(row.keyedAnswer, 0) : undefined,
       }
 
@@ -1192,12 +1257,14 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
       { data: existingConstructs, error: existingConstructsError },
       { data: existingClients, error: existingClientsError },
       { data: responseFormats, error: responseFormatsError },
+      { data: existingSources, error: existingSourcesError },
     ] = await Promise.all([
       db.from('dimensions').select('id, name, slug').is('deleted_at', null),
       db.from('factors').select('id, name, slug').is('deleted_at', null),
       db.from('constructs').select('id, name, slug').is('deleted_at', null),
       db.from('clients').select('id, name, slug').is('deleted_at', null),
       db.from('response_formats').select('id, name').eq('is_active', true),
+      db.from('content_sources').select('id, name, slug'),
     ])
 
     if (
@@ -1205,14 +1272,16 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
       existingFactorsError ||
       existingConstructsError ||
       existingClientsError ||
-      responseFormatsError
+      responseFormatsError ||
+      existingSourcesError
     ) {
       throw new Error(
         existingDimensionsError?.message ||
           existingFactorsError?.message ||
           existingConstructsError?.message ||
           existingClientsError?.message ||
-          responseFormatsError?.message
+          responseFormatsError?.message ||
+          existingSourcesError?.message
       )
     }
 
@@ -1256,6 +1325,10 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           indicatorsLow: row.indicatorsLow || undefined,
           indicatorsMid: row.indicatorsMid || undefined,
           indicatorsHigh: row.indicatorsHigh || undefined,
+          anchorLow: row.anchorLow || undefined,
+          anchorHigh: row.anchorHigh || undefined,
+          strengthCommentary: row.strengthCommentary || undefined,
+          developmentSuggestion: row.developmentSuggestion || undefined,
         }
 
         if (dimensionSlugSet.has(candidate.slug)) {
@@ -1266,6 +1339,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
         stagedDimensions.push({
           rowNumber,
           ...parsed,
+          sourceRef: row.source?.trim() || undefined,
         })
         dimensionSlugSet.add(parsed.slug)
       } catch (error) {
@@ -1294,6 +1368,10 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           indicatorsLow: row.indicatorsLow || undefined,
           indicatorsMid: row.indicatorsMid || undefined,
           indicatorsHigh: row.indicatorsHigh || undefined,
+          anchorLow: row.anchorLow || undefined,
+          anchorHigh: row.anchorHigh || undefined,
+          strengthCommentary: row.strengthCommentary || undefined,
+          developmentSuggestion: row.developmentSuggestion || undefined,
         }
 
         if (factorSlugSet.has(candidate.slug)) {
@@ -1313,6 +1391,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           clientId: clientId ?? undefined,
           dimensionRef: row.dimension?.trim() || undefined,
           constructRefs: parseConstructReferenceList(row.constructs),
+          sourceRef: row.source?.trim() || undefined,
         })
         factorSlugSet.add(candidate.slug)
       } catch (error) {
@@ -1335,6 +1414,10 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           indicatorsLow: row.indicatorsLow || undefined,
           indicatorsMid: row.indicatorsMid || undefined,
           indicatorsHigh: row.indicatorsHigh || undefined,
+          anchorLow: row.anchorLow || undefined,
+          anchorHigh: row.anchorHigh || undefined,
+          strengthCommentary: row.strengthCommentary || undefined,
+          developmentSuggestion: row.developmentSuggestion || undefined,
         }
 
         if (constructSlugSet.has(candidate.slug)) {
@@ -1347,6 +1430,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           ...parsed,
           factorRef: row.factor?.trim() || undefined,
           dimensionRef: row.dimension?.trim() || undefined,
+          sourceRef: row.source?.trim() || undefined,
         })
         constructSlugSet.add(parsed.slug)
       } catch (error) {
@@ -1391,6 +1475,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           rowNumber,
           ...candidate,
           constructRef: row.construct?.trim() || undefined,
+          sourceRef: row.source?.trim() || undefined,
         })
       } catch (error) {
         errors.push({
@@ -1532,6 +1617,10 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
       const stagedFactorIdBySlug = new Map<string, string>()
       const stagedConstructIdBySlug = new Map<string, string>()
 
+      const sourceLookup = (existingSources ?? []) as LookupOption[]
+      const resolveSourceId = (ref?: string) =>
+        ref ? lookupByNameOrSlugOrNull(sourceLookup, ref) ?? undefined : undefined
+
       if (stagedDimensions.length > 0) {
         const { data, error } = await db
           .from('dimensions')
@@ -1541,6 +1630,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
                 ...dimension,
                 partnerId: undefined,
                 isScored: true,
+                sourceId: resolveSourceId(dimension.sourceRef),
               })
             )
           )
@@ -1574,6 +1664,11 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
             indicatorsLow: factor.indicatorsLow,
             indicatorsMid: factor.indicatorsMid,
             indicatorsHigh: factor.indicatorsHigh,
+            anchorLow: factor.anchorLow,
+            anchorHigh: factor.anchorHigh,
+            strengthCommentary: factor.strengthCommentary,
+            developmentSuggestion: factor.developmentSuggestion,
+            sourceId: resolveSourceId(factor.sourceRef),
             partnerId: undefined,
           })
         )
@@ -1594,6 +1689,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           toConstructInsert({
             ...construct,
             partnerId: undefined,
+            sourceId: resolveSourceId(construct.sourceRef),
           })
         )
 
@@ -1777,6 +1873,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
             status: item.status as 'draft' | 'active' | 'archived',
             displayOrder: item.displayOrder,
             difficulty: item.difficulty,
+            sourceId: resolveSourceId(item.sourceRef),
             keyedAnswer: item.keyedAnswer,
           })
         )

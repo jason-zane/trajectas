@@ -7,6 +7,7 @@ import type {
   Item,
   ItemOption,
   Client,
+  ContentSource,
   ResponseFormat,
   AssessmentSection,
   AssessmentSectionItem,
@@ -54,6 +55,8 @@ export function mapDimensionRow(row: any): Dimension {
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
+    anchorLow: row.anchor_low ?? undefined,
+    anchorHigh: row.anchor_high ?? undefined,
     bandLabelLow: row.band_label_low ?? undefined,
     bandLabelMid: row.band_label_mid ?? undefined,
     bandLabelHigh: row.band_label_high ?? undefined,
@@ -61,6 +64,7 @@ export function mapDimensionRow(row: any): Dimension {
     pompThresholdHigh: row.pomp_threshold_high ?? undefined,
     developmentSuggestion: row.development_suggestion ?? undefined,
     strengthCommentary: row.strength_commentary ?? undefined,
+    sourceId: row.source_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -83,6 +87,8 @@ export function mapFactorRow(row: any): Factor {
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
+    anchorLow: row.anchor_low ?? undefined,
+    anchorHigh: row.anchor_high ?? undefined,
     bandLabelLow: row.band_label_low ?? undefined,
     bandLabelMid: row.band_label_mid ?? undefined,
     bandLabelHigh: row.band_label_high ?? undefined,
@@ -90,6 +96,7 @@ export function mapFactorRow(row: any): Factor {
     pompThresholdHigh: row.pomp_threshold_high ?? undefined,
     developmentSuggestion: row.development_suggestion ?? undefined,
     strengthCommentary: row.strength_commentary ?? undefined,
+    sourceId: row.source_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -109,6 +116,8 @@ export function mapConstructRow(row: any): Construct {
     indicatorsLow: row.indicators_low ?? undefined,
     indicatorsMid: row.indicators_mid ?? undefined,
     indicatorsHigh: row.indicators_high ?? undefined,
+    anchorLow: row.anchor_low ?? undefined,
+    anchorHigh: row.anchor_high ?? undefined,
     bandLabelLow: row.band_label_low ?? undefined,
     bandLabelMid: row.band_label_mid ?? undefined,
     bandLabelHigh: row.band_label_high ?? undefined,
@@ -116,6 +125,7 @@ export function mapConstructRow(row: any): Construct {
     pompThresholdHigh: row.pomp_threshold_high ?? undefined,
     developmentSuggestion: row.development_suggestion ?? undefined,
     strengthCommentary: row.strength_commentary ?? undefined,
+    sourceId: row.source_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -147,6 +157,7 @@ export function mapItemRow(row: any): Item {
     displayOrder: row.display_order,
     purpose: row.purpose ?? 'construct',
     difficulty: (row.difficulty as Item['difficulty']) ?? 'medium',
+    sourceId: row.source_id ?? undefined,
     keyedAnswer: row.keyed_answer != null ? Number(row.keyed_answer) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
@@ -216,6 +227,18 @@ export function mapPartnerRow(row: any): Partner {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapContentSourceRow(row: any): ContentSource {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    notes: row.notes ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function mapBrandConfigRow(row: any): BrandConfigRecord {
   return {
     id: row.id,
@@ -264,6 +287,11 @@ export function toDimensionInsert(d: Omit<Dimension, 'id' | 'created_at' | 'upda
     indicators_low: d.indicatorsLow ?? null,
     indicators_mid: d.indicatorsMid ?? null,
     indicators_high: d.indicatorsHigh ?? null,
+    anchor_low: d.anchorLow ?? null,
+    anchor_high: d.anchorHigh ?? null,
+    development_suggestion: d.developmentSuggestion ?? null,
+    strength_commentary: d.strengthCommentary ?? null,
+    source_id: d.sourceId ?? null,
   }
 }
 
@@ -281,6 +309,11 @@ export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at
     indicators_low: c.indicatorsLow ?? null,
     indicators_mid: c.indicatorsMid ?? null,
     indicators_high: c.indicatorsHigh ?? null,
+    anchor_low: c.anchorLow ?? null,
+    anchor_high: c.anchorHigh ?? null,
+    development_suggestion: c.developmentSuggestion ?? null,
+    strength_commentary: c.strengthCommentary ?? null,
+    source_id: c.sourceId ?? null,
   }
 }
 
@@ -295,6 +328,11 @@ export function toConstructInsert(t: Omit<Construct, 'id' | 'created_at' | 'upda
     indicators_low: t.indicatorsLow ?? null,
     indicators_mid: t.indicatorsMid ?? null,
     indicators_high: t.indicatorsHigh ?? null,
+    anchor_low: t.anchorLow ?? null,
+    anchor_high: t.anchorHigh ?? null,
+    development_suggestion: t.developmentSuggestion ?? null,
+    strength_commentary: t.strengthCommentary ?? null,
+    source_id: t.sourceId ?? null,
   }
 }
 
@@ -309,6 +347,7 @@ export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) 
     display_order: i.displayOrder,
     difficulty: i.difficulty ?? 'medium',
     purpose: i.purpose ?? 'construct',
+    source_id: i.sourceId ?? null,
     keyed_answer: i.keyedAnswer ?? null,
   }
 }
@@ -362,6 +401,7 @@ export function mapAssessmentRow(row: any): Assessment {
     minCustomFactors: row.min_custom_factors ?? null,
     scoringLevel: (row.scoring_level as 'factor' | 'construct') ?? 'factor',
     minCustomConstructs: row.min_custom_constructs ?? null,
+    sourceId: row.source_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -384,6 +424,7 @@ export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 
     min_custom_factors: a.minCustomFactors ?? null,
     scoring_level: a.scoringLevel ?? 'factor',
     min_custom_constructs: a.minCustomConstructs ?? null,
+    source_id: a.sourceId ?? null,
   }
 }
 

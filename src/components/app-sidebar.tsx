@@ -27,6 +27,7 @@ import {
   Settings,
   ArrowLeft,
   Mail,
+  Tag,
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
@@ -174,6 +175,7 @@ const settingsNav: NavSection[] = [
       { title: "Experience", href: "/settings/experience", icon: Users },
       { title: "AI Configuration", href: "/settings/ai", icon: Cpu },
       { title: "Email Templates", href: "/settings/email-templates", icon: Mail },
+      { title: "Content Sources", href: "/settings/content-sources", icon: Tag },
     ],
   },
 ];

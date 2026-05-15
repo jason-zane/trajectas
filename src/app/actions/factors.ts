@@ -169,6 +169,11 @@ export async function createFactor(formData: FormData) {
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
+    anchorLow: (formData.get('anchorLow') as string) || undefined,
+    anchorHigh: (formData.get('anchorHigh') as string) || undefined,
+    developmentSuggestion: (formData.get('developmentSuggestion') as string) || undefined,
+    strengthCommentary: (formData.get('strengthCommentary') as string) || undefined,
+    sourceId: (formData.get('sourceId') as string) || undefined,
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -203,6 +208,19 @@ export async function createFactor(formData: FormData) {
   })
 
   if (rpcErr) return { error: { _form: [rpcErr.message] } }
+
+  // RPC body predates these columns — write them in a follow-up update.
+  const { error: extrasErr } = await db
+    .from('factors')
+    .update({
+      anchor_low: parsed.data.anchorLow ?? null,
+      anchor_high: parsed.data.anchorHigh ?? null,
+      development_suggestion: parsed.data.developmentSuggestion ?? null,
+      strength_commentary: parsed.data.strengthCommentary ?? null,
+      source_id: parsed.data.sourceId || null,
+    })
+    .eq('id', (factorId ?? newId) as string)
+  if (extrasErr) return { error: { _form: [extrasErr.message] } }
 
   revalidatePath('/factors')
   revalidatePath('/')
@@ -244,6 +262,11 @@ export async function updateFactor(id: string, formData: FormData) {
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
+    anchorLow: (formData.get('anchorLow') as string) || undefined,
+    anchorHigh: (formData.get('anchorHigh') as string) || undefined,
+    developmentSuggestion: (formData.get('developmentSuggestion') as string) || undefined,
+    strengthCommentary: (formData.get('strengthCommentary') as string) || undefined,
+    sourceId: (formData.get('sourceId') as string) || undefined,
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -277,6 +300,19 @@ export async function updateFactor(id: string, formData: FormData) {
   })
 
   if (rpcErr) return { error: { _form: [rpcErr.message] } }
+
+  // RPC body predates these columns — write them in a follow-up update.
+  const { error: extrasErr } = await db
+    .from('factors')
+    .update({
+      anchor_low: parsed.data.anchorLow ?? null,
+      anchor_high: parsed.data.anchorHigh ?? null,
+      development_suggestion: parsed.data.developmentSuggestion ?? null,
+      strength_commentary: parsed.data.strengthCommentary ?? null,
+      source_id: parsed.data.sourceId || null,
+    })
+    .eq('id', id)
+  if (extrasErr) return { error: { _form: [extrasErr.message] } }
 
   revalidatePath('/factors')
   revalidatePath('/')
@@ -418,7 +454,7 @@ export async function toggleFactorActive(id: string, isActive: boolean) {
   return { success: true }
 }
 
-const ALLOWED_FACTOR_FIELDS = ['description', 'definition', 'indicators_low', 'indicators_mid', 'indicators_high', 'development_suggestion', 'strength_commentary', 'anchor_low', 'anchor_high'] as const
+const ALLOWED_FACTOR_FIELDS = ['description', 'definition', 'indicators_low', 'indicators_mid', 'indicators_high', 'development_suggestion', 'strength_commentary', 'anchor_low', 'anchor_high', 'source_id'] as const
 type AllowedFactorField = typeof ALLOWED_FACTOR_FIELDS[number]
 
 const camelToSnakeMap: Record<string, AllowedFactorField> = {
@@ -431,6 +467,7 @@ const camelToSnakeMap: Record<string, AllowedFactorField> = {
   strengthCommentary: 'strength_commentary',
   anchorLow: 'anchor_low',
   anchorHigh: 'anchor_high',
+  sourceId: 'source_id',
 }
 
 export async function updateFactorField(id: string, field: string, value: string) {

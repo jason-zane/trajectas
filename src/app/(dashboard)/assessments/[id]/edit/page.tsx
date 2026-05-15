@@ -6,6 +6,7 @@ import {
   getConstructsForBuilder,
   getExistingBlocks,
 } from "@/app/actions/assessments";
+import { getContentSources } from "@/app/actions/content-sources";
 import { AssessmentBuilder } from "../../assessment-builder";
 
 export default async function EditAssessmentPage({
@@ -14,10 +15,11 @@ export default async function EditAssessmentPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [result, allFactors, allConstructs] = await Promise.all([
+  const [result, allFactors, allConstructs, contentSources] = await Promise.all([
     getAssessmentWithFactors(id),
     getFactorsForBuilder(),
     getConstructsForBuilder(),
+    getContentSources(),
   ]);
 
   if (!result) notFound();
@@ -51,6 +53,7 @@ export default async function EditAssessmentPage({
         existingBlocks={existingBlocks}
         allFactors={allFactors}
         allConstructs={allConstructs}
+        contentSources={contentSources}
       />
     </>
   );

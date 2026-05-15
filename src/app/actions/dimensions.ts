@@ -81,6 +81,11 @@ export async function createDimension(formData: FormData) {
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
+    anchorLow: (formData.get('anchorLow') as string) || undefined,
+    anchorHigh: (formData.get('anchorHigh') as string) || undefined,
+    developmentSuggestion: (formData.get('developmentSuggestion') as string) || undefined,
+    strengthCommentary: (formData.get('strengthCommentary') as string) || undefined,
+    sourceId: (formData.get('sourceId') as string) || undefined,
   }
 
   const parsed = dimensionSchema.safeParse(raw)
@@ -129,6 +134,11 @@ export async function updateDimension(id: string, formData: FormData) {
     indicatorsLow: (formData.get('indicatorsLow') as string) || undefined,
     indicatorsMid: (formData.get('indicatorsMid') as string) || undefined,
     indicatorsHigh: (formData.get('indicatorsHigh') as string) || undefined,
+    anchorLow: (formData.get('anchorLow') as string) || undefined,
+    anchorHigh: (formData.get('anchorHigh') as string) || undefined,
+    developmentSuggestion: (formData.get('developmentSuggestion') as string) || undefined,
+    strengthCommentary: (formData.get('strengthCommentary') as string) || undefined,
+    sourceId: (formData.get('sourceId') as string) || undefined,
   }
 
   const parsed = dimensionSchema.safeParse(raw)
@@ -149,6 +159,11 @@ export async function updateDimension(id: string, formData: FormData) {
       indicators_low: parsed.data.indicatorsLow ?? null,
       indicators_mid: parsed.data.indicatorsMid ?? null,
       indicators_high: parsed.data.indicatorsHigh ?? null,
+      anchor_low: parsed.data.anchorLow ?? null,
+      anchor_high: parsed.data.anchorHigh ?? null,
+      development_suggestion: parsed.data.developmentSuggestion ?? null,
+      strength_commentary: parsed.data.strengthCommentary ?? null,
+      source_id: parsed.data.sourceId || null,
     })
     .eq('id', id)
 
@@ -314,6 +329,7 @@ const ALLOWED_FIELDS: Record<string, string> = {
   strengthCommentary: 'strength_commentary',
   anchorLow: 'anchor_low',
   anchorHigh: 'anchor_high',
+  sourceId: 'source_id',
 }
 
 export async function updateDimensionField(id: string, field: string, value: string) {

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Brain, FileQuestion, ArrowRight, Plus, Wand2 } from "lucide-react"
 import { toast } from "sonner"
+import { SourcePicker } from "@/components/source-picker"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -81,6 +82,7 @@ interface ConstructFormProps {
     dimensions: any
   }>
   allDimensions?: Array<{ id: string; name: string }>
+  contentSources?: import("@/types/database").ContentSource[]
 }
 
 export function ConstructForm({
@@ -89,6 +91,7 @@ export function ConstructForm({
   availableFactors = [],
   constructDimensions = [],
   allDimensions = [],
+  contentSources = [],
 }: ConstructFormProps) {
   const router = useRouter()
 
@@ -105,6 +108,7 @@ export function ConstructForm({
   const [developmentSuggestion, setDevelopmentSuggestion] = useState(construct?.developmentSuggestion ?? "")
   const [anchorLow, setAnchorLow] = useState(construct?.anchorLow ?? "")
   const [anchorHigh, setAnchorHigh] = useState(construct?.anchorHigh ?? "")
+  const [sourceId, setSourceId] = useState<string>(construct?.sourceId ?? "")
   const [parentFactorId, setParentFactorId] = useState("")
   const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
@@ -464,6 +468,15 @@ export function ConstructForm({
                   </div>
                 </div>
 
+                <div className="pt-2 border-t">
+                  <SourcePicker
+                    sources={contentSources}
+                    value={sourceId}
+                    onChange={setSourceId}
+                    name="sourceIdPicker"
+                  />
+                </div>
+
               </CardContent>
             </Card>
           </TabsContent>
@@ -790,6 +803,12 @@ export function ConstructForm({
             </Card>
           </TabsContent>
         </Tabs>
+
+        <input type="hidden" name="strengthCommentary" value={strengthCommentary} />
+        <input type="hidden" name="developmentSuggestion" value={developmentSuggestion} />
+        <input type="hidden" name="anchorLow" value={anchorLow} />
+        <input type="hidden" name="anchorHigh" value={anchorHigh} />
+        <input type="hidden" name="sourceId" value={sourceId} />
 
         {/* Sticky action bar */}
         <div className="sticky bottom-0 flex items-center justify-end gap-3 py-4 mt-6 bg-background/80 backdrop-blur-sm -mx-4 px-4 border-t border-border/50">

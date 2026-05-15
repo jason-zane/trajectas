@@ -832,6 +832,7 @@ export async function createAssessment(payload: Record<string, unknown>) {
     min_custom_constructs: scoringLevel === 'construct'
       ? ((payload.minCustomConstructs as number) ?? null)
       : null,
+    source_id: parsed.data.sourceId || null,
   }).select('id').single()
 
   if (error) return { error: { _form: [error.message] } }
@@ -930,6 +931,7 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       min_custom_constructs: updatedScoringLevel === 'construct'
         ? ((payload.minCustomConstructs as number) ?? null)
         : null,
+      source_id: parsed.data.sourceId || null,
     })
     .eq('id', id)
 
