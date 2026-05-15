@@ -20,6 +20,7 @@ import {
 } from '@/lib/auth/participant-runtime'
 import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
 import { selectItemsByDifficulty } from '@/lib/item-selection/distribution'
+import { applyItemOrdering } from '@/lib/item-ordering'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import {
   mapCampaignRow,
@@ -596,6 +597,11 @@ export async function getSessionState(token: string, sessionId: string) {
           .sort((a, b) => a.display_order - b.display_order)
       }
     }
+
+    // Apply the section's item-ordering mode. Seeded by sessionId + section id
+    // so the order is stable across refreshes within a sitting but fresh for
+    // every new session (i.e. every time the assessment is taken).
+    sectionItems = applyItemOrdering(sectionItems, s.item_ordering, `${sessionId}:${s.id}`)
 
     return {
       id: s.id,
