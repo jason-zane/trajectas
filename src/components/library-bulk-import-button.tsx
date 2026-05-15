@@ -84,12 +84,13 @@ const IMPORT_CONFIG: Record<BulkImportEntity, ImportConfig> = {
     description:
       'Upload item rows. Construct items need a construct reference and every item needs an active response format.',
     sample: [
-      'stem,purpose,construct,response_format,reverse_scored,weight,status,display_order,keyed_answer',
-      '"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,1,active,0,',
+      'stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,display_order,keyed_answer',
+      '"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,medium,1,active,0,',
     ].join('\n'),
     notes: [
-      'Accepted fields: stem, purpose, construct, response_format, reverse_scored, weight, status, display_order, keyed_answer.',
+      'Accepted fields: stem, purpose, construct, response_format, reverse_scored, difficulty, weight, status, display_order, keyed_answer.',
       'Construct can resolve by slug, name, or ID. Response format can resolve by name or ID.',
+      'Difficulty must be easy, medium, or hard — defaults to medium when blank. Used to spread items evenly across the difficulty bands.',
     ],
   },
 }
