@@ -45,6 +45,7 @@ import {
   restoreAssessment,
   updateAssessmentField,
   updateAssessmentCustomisation,
+  updateAssessmentConstructCustomisation,
 } from "@/app/actions/assessments"
 import {
   getItemsPerConstructLimit,
@@ -156,8 +157,13 @@ export function AssessmentBuilder({
   const [scoringLevel, setScoringLevel] = useState<'factor' | 'construct'>(
     assessment?.scoringLevel ?? 'factor'
   )
-  const [minCustomConstructs] = useState<number | null>(
-    assessment?.minCustomConstructs ?? null
+  // Construct customisation state (Zone 1 — immediate save, edit mode only,
+  // construct-level assessments only)
+  const [customisationEnabledConstruct, setCustomisationEnabledConstruct] = useState(
+    assessment?.minCustomConstructs != null
+  )
+  const [minCustomConstructs, setMinCustomConstructs] = useState<number>(
+    assessment?.minCustomConstructs ?? 1
   )
 
   // Factor selection state
@@ -329,8 +335,6 @@ export function AssessmentBuilder({
       formatMode,
       fcBlockSize: formatMode === "forced_choice" ? fcBlockSize : undefined,
       scoringLevel,
-      minCustomConstructs:
-        scoringLevel === "construct" ? minCustomConstructs : null,
       sourceId: assessmentSourceId || undefined,
       factors: selectedFactors.map((f) => ({
         factorId: f.id,
@@ -447,6 +451,42 @@ export function AssessmentBuilder({
       toast.error(result.error)
     } else {
       toast.success(`Minimum factors updated to ${value}`)
+    }
+  }
+
+  async function handleConstructCustomisationToggle(enabled: boolean) {
+    if (!assessment) return
+    setCustomisationSaving(true)
+    setCustomisationEnabledConstruct(enabled)
+
+    const value = enabled ? Math.max(1, Math.floor(selectedConstructs.length / 2) || 1) : null
+    if (enabled) setMinCustomConstructs(value as number)
+
+    const result = await updateAssessmentConstructCustomisation(assessment.id, value)
+    setCustomisationSaving(false)
+
+    if ("error" in result) {
+      toast.error(result.error)
+      setCustomisationEnabledConstruct(!enabled)
+    } else {
+      toast.success(
+        enabled ? "Construct customisation enabled" : "Construct customisation disabled",
+      )
+    }
+  }
+
+  async function handleMinConstructsChange(value: number) {
+    if (!assessment) return
+    setMinCustomConstructs(value)
+    setCustomisationSaving(true)
+
+    const result = await updateAssessmentConstructCustomisation(assessment.id, value)
+    setCustomisationSaving(false)
+
+    if ("error" in result) {
+      toast.error(result.error)
+    } else {
+      toast.success(`Minimum constructs updated to ${value}`)
     }
   }
 
@@ -770,77 +810,94 @@ export function AssessmentBuilder({
         ruleInfo={ruleInfo}
       />
 
-      {/* Factor Customisation Settings — edit mode only */}
-      {isEditing && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Settings className="size-5 text-muted-foreground" />
-              <CardTitle>Factor Customisation</CardTitle>
-            </div>
-            <CardDescription>
-              Control whether campaign administrators can customise which factors
-              are included when deploying this assessment.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="customisation-toggle" className="text-sm font-medium">
-                  Allow partners to customise factors
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {customisationEnabled
-                    ? "Partners can select a subset of factors for each campaign"
-                    : "Partners must use all factors in this assessment"}
-                </p>
-              </div>
-              <Switch
-                id="customisation-toggle"
-                checked={customisationEnabled}
-                onCheckedChange={handleCustomisationToggle}
-                disabled={customisationSaving}
-              />
-            </div>
+      {/* Customisation Settings — edit mode only.
+          Branches by scoring level: factor vs. construct. */}
+      {isEditing && (() => {
+        const isConstruct = scoringLevel === "construct"
+        const noun = isConstruct ? "construct" : "factor"
+        const Noun = isConstruct ? "Construct" : "Factor"
+        const selectedCount = isConstruct ? selectedConstructs.length : selectedFactors.length
+        const enabled = isConstruct ? customisationEnabledConstruct : customisationEnabled
+        const minValue = isConstruct ? minCustomConstructs : minCustomFactors
+        const setMinValue = isConstruct ? setMinCustomConstructs : setMinCustomFactors
+        const onToggle = isConstruct
+          ? handleConstructCustomisationToggle
+          : handleCustomisationToggle
+        const onMinBlur = isConstruct
+          ? () => handleMinConstructsChange(minCustomConstructs)
+          : () => handleMinFactorsChange(minCustomFactors)
 
-            {customisationEnabled && (
-              <>
-                <Separator />
-                <div className="space-y-2">
-                  <Label htmlFor="min-factors">Minimum factors</Label>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      id="min-factors"
-                      type="number"
-                      min={1}
-                      max={selectedFactors.length || 1}
-                      value={minCustomFactors}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10)
-                        if (!isNaN(val)) setMinCustomFactors(val)
-                      }}
-                      onBlur={() => handleMinFactorsChange(minCustomFactors)}
-                      className="w-24"
-                      disabled={customisationSaving}
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      of {selectedFactors.length} factor{selectedFactors.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
-                    <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Partners must select at least this many factors when customising
-                      the assessment for a campaign. Set to the total factor count to
-                      prevent any removal.
-                    </p>
-                  </div>
+        return (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Settings className="size-5 text-muted-foreground" />
+                <CardTitle>{Noun} Customisation</CardTitle>
+              </div>
+              <CardDescription>
+                Control whether campaign administrators can customise which {noun}s
+                are included when deploying this assessment.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="customisation-toggle" className="text-sm font-medium">
+                    Allow partners to customise {noun}s
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {enabled
+                      ? `Partners can select a subset of ${noun}s for each campaign`
+                      : `Partners must use all ${noun}s in this assessment`}
+                  </p>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
+                <Switch
+                  id="customisation-toggle"
+                  checked={enabled}
+                  onCheckedChange={onToggle}
+                  disabled={customisationSaving}
+                />
+              </div>
+
+              {enabled && (
+                <>
+                  <Separator />
+                  <div className="space-y-2">
+                    <Label htmlFor="min-entities">Minimum {noun}s</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        id="min-entities"
+                        type="number"
+                        min={1}
+                        max={selectedCount || 1}
+                        value={minValue}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10)
+                          if (!isNaN(val)) setMinValue(val)
+                        }}
+                        onBlur={onMinBlur}
+                        className="w-24"
+                        disabled={customisationSaving}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        of {selectedCount} {noun}{selectedCount !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
+                      <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Partners must select at least this many {noun}s when customising
+                        the assessment for a campaign. Set to the total {noun} count to
+                        prevent any removal.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       {/* Sticky Action Bar */}
       <div className="sticky bottom-0 z-10 -mx-4 px-4 py-4 bg-background/80 backdrop-blur-sm border-t">
