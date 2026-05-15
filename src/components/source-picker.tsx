@@ -58,8 +58,13 @@ export function SourcePicker({
           value={selected}
           onValueChange={(next) => onChange(next == null || next === NONE_VALUE ? '' : next)}
         >
-          <SelectTrigger id={`${name}-picker`}>
-            <SelectValue placeholder="None" />
+          <SelectTrigger id={`${name}-picker`} className="w-full">
+            <SelectValue>
+              {(current: string | null) => {
+                if (!current || current === NONE_VALUE) return 'None'
+                return sources.find((s) => s.id === current)?.name ?? 'None'
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE_VALUE}>None</SelectItem>
