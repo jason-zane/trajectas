@@ -40,7 +40,8 @@ import {
   updateItemField,
 } from "@/app/actions/items";
 import type { SelectOption } from "@/app/actions/items";
-import type { ResponseFormat, ActiveResponseFormatType, ItemPurpose, ItemDifficulty } from "@/types/database";
+import { SourcePicker } from "@/components/source-picker";
+import type { ContentSource, ResponseFormat, ActiveResponseFormatType, ItemPurpose, ItemDifficulty } from "@/types/database";
 
 type SaveButtonState = "idle" | "saving" | "saved";
 
@@ -53,6 +54,7 @@ const itemStatusOptions = [
 interface ItemFormProps {
   constructs: SelectOption[];
   responseFormats: ResponseFormat[];
+  contentSources?: ContentSource[];
   mode: "create" | "edit";
   itemId?: string;
   returnTo?: string;
@@ -75,6 +77,7 @@ interface ItemFormProps {
     status: string;
     displayOrder: number;
     difficulty?: ItemDifficulty;
+    sourceId?: string;
     keyedAnswer?: number;
   };
 }
@@ -82,6 +85,7 @@ interface ItemFormProps {
 export function ItemForm({
   constructs,
   responseFormats,
+  contentSources = [],
   mode,
   itemId,
   returnTo,
@@ -108,6 +112,7 @@ export function ItemForm({
   const [difficulty, setDifficulty] = useState<ItemDifficulty>(
     initialData?.difficulty ?? "medium"
   );
+  const [sourceId, setSourceId] = useState<string>(initialData?.sourceId ?? "");
   const [options, setOptions] = useState<{ label: string; value: number }[]>(
     initialOptions ?? []
   );
@@ -156,9 +161,10 @@ export function ItemForm({
       reverseScored !== initialData.reverseScored ||
       weight !== initialData.weight ||
       difficulty !== (initialData.difficulty ?? "medium") ||
+      sourceId !== (initialData.sourceId ?? "") ||
       status !== initialData.status
     );
-  }, [mode, initialData, purpose, constructId, responseFormatId, reverseScored, weight, difficulty, status]);
+  }, [mode, initialData, purpose, constructId, responseFormatId, reverseScored, weight, difficulty, sourceId, status]);
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(structuralDirty);
@@ -556,6 +562,12 @@ export function ItemForm({
                       </div>
                     </div>
                   )}
+
+                  <SourcePicker
+                    sources={contentSources}
+                    value={sourceId}
+                    onChange={setSourceId}
+                  />
 
                   {isConstructItem && (
                     <div className="flex items-center justify-between gap-4 rounded-lg border p-4">

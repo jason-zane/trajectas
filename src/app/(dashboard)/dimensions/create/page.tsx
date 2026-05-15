@@ -1,7 +1,7 @@
-"use client"
-
+import { getContentSources } from "@/app/actions/content-sources"
 import { DimensionForm } from "../dimension-form"
 
-export default function CreateDimensionPage() {
-  return <DimensionForm mode="create" />
+export default async function CreateDimensionPage() {
+  const contentSources = await getContentSources()
+  return <DimensionForm mode="create" contentSources={contentSources} />
 }

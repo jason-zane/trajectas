@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Trash2, Info, Settings } from "lucide-react"
 import { toast } from "sonner"
+import { SourcePicker } from "@/components/source-picker"
 import { DragDropProvider } from "@dnd-kit/react"
 import { move } from "@dnd-kit/helpers"
 import { Button } from "@/components/ui/button"
@@ -106,6 +107,7 @@ interface AssessmentBuilderProps {
   existingBlocks?: ExistingFCBlock[]
   allFactors: BuilderFactor[]
   allConstructs?: BuilderConstruct[]
+  contentSources?: import("@/types/database").ContentSource[]
   basePath?: string
 }
 
@@ -117,6 +119,7 @@ export function AssessmentBuilder({
   existingBlocks,
   allFactors,
   allConstructs = [],
+  contentSources = [],
   basePath = "/assessments",
 }: AssessmentBuilderProps) {
   const router = useRouter()
@@ -132,6 +135,7 @@ export function AssessmentBuilder({
     assessment?.creationMode ?? "manual"
   )
   const [status, setStatus] = useState(assessment?.status ?? "draft")
+  const [assessmentSourceId, setAssessmentSourceId] = useState<string>(assessment?.sourceId ?? "")
   const [formatMode, setFormatMode] = useState<FormatMode>(
     assessment?.formatMode ?? "traditional"
   )
@@ -327,6 +331,7 @@ export function AssessmentBuilder({
       scoringLevel,
       minCustomConstructs:
         scoringLevel === "construct" ? minCustomConstructs : null,
+      sourceId: assessmentSourceId || undefined,
       factors: selectedFactors.map((f) => ({
         factorId: f.id,
         weight: 1,
@@ -547,6 +552,15 @@ export function AssessmentBuilder({
               </div>
             )}
           </div>
+
+          <SourcePicker
+            sources={contentSources}
+            value={assessmentSourceId}
+            onChange={setAssessmentSourceId}
+            label="Assessment source"
+            helpText="Where this assessment came from. Independent of which client uses it."
+            name="assessmentSourceIdPicker"
+          />
 
           {/* Advanced settings toggle */}
           <div>

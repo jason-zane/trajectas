@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
+import { SourcePicker } from "@/components/source-picker"
 import { IndicatorsTab } from "@/app/(dashboard)/_shared/indicators-tab"
 import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
@@ -62,6 +63,7 @@ interface FactorFormProps {
   dimensions: SelectOption[]
   availableConstructs: SelectOption[]
   clients: SelectOption[]
+  contentSources?: import("@/types/database").ContentSource[]
   mode: "create" | "edit"
   factorId?: string
   initialData?: {
@@ -80,6 +82,7 @@ interface FactorFormProps {
     developmentSuggestion?: string
     anchorLow?: string
     anchorHigh?: string
+    sourceId?: string
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
@@ -89,6 +92,7 @@ export function FactorForm({
   dimensions,
   availableConstructs,
   clients,
+  contentSources = [],
   mode,
   factorId,
   initialData,
@@ -183,6 +187,8 @@ export function FactorForm({
   const developmentSuggestion = mode === "edit" ? developmentSuggestionAutoSave.value : createDevelopmentSuggestion
   const anchorLow = mode === "edit" ? anchorLowAutoSave.value : createAnchorLow
   const anchorHigh = mode === "edit" ? anchorHighAutoSave.value : createAnchorHigh
+
+  const [sourceId, setSourceId] = useState<string>(initialData?.sourceId ?? "")
 
   // --- Form state ---
   const [pending, setPending] = useState(false)
@@ -537,6 +543,15 @@ export function FactorForm({
                       />
                     )}
                   </div>
+                </div>
+
+                <div className="pt-2 border-t">
+                  <SourcePicker
+                    sources={contentSources}
+                    value={sourceId}
+                    onChange={setSourceId}
+                    name="sourceIdPicker"
+                  />
                 </div>
 
               </CardContent>
@@ -930,6 +945,12 @@ export function FactorForm({
             </Card>
           </TabsContent>
         </Tabs>
+
+        <input type="hidden" name="strengthCommentary" value={strengthCommentary} />
+        <input type="hidden" name="developmentSuggestion" value={developmentSuggestion} />
+        <input type="hidden" name="anchorLow" value={anchorLow} />
+        <input type="hidden" name="anchorHigh" value={anchorHigh} />
+        <input type="hidden" name="sourceId" value={sourceId} />
 
         {/* Sticky action bar */}
         <div className="sticky bottom-0 flex items-center justify-end gap-3 py-4 mt-6 bg-background/80 backdrop-blur-sm -mx-4 px-4 border-t border-border/50">

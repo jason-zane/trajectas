@@ -32,6 +32,11 @@ export const factorSchema = z.object({
   indicatorsLow: z.string().max(4000).optional(),
   indicatorsMid: z.string().max(4000).optional(),
   indicatorsHigh: z.string().max(4000).optional(),
+  anchorLow: z.string().max(500).optional(),
+  anchorHigh: z.string().max(500).optional(),
+  developmentSuggestion: z.string().max(4000).optional(),
+  strengthCommentary: z.string().max(4000).optional(),
+  sourceId: z.string().uuid().optional().or(z.literal('')),
 })
 
 export type FactorInput = z.infer<typeof factorSchema>

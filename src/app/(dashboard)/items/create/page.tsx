@@ -2,6 +2,7 @@ import {
   getConstructsForSelect,
   getResponseFormats,
 } from "@/app/actions/items";
+import { getContentSources } from "@/app/actions/content-sources";
 import { ItemForm } from "../item-form";
 
 export default async function CreateItemPage({
@@ -10,9 +11,10 @@ export default async function CreateItemPage({
   searchParams: Promise<{ constructSlug?: string }>
 }) {
   const { constructSlug } = await searchParams;
-  const [constructs, responseFormats] = await Promise.all([
+  const [constructs, responseFormats, contentSources] = await Promise.all([
     getConstructsForSelect(),
     getResponseFormats(),
+    getContentSources(),
   ]);
 
   // Pre-select construct if slug provided
@@ -28,6 +30,7 @@ export default async function CreateItemPage({
     <ItemForm
       constructs={constructs}
       responseFormats={responseFormats}
+      contentSources={contentSources}
       mode="create"
       returnTo={returnTo}
       initialData={

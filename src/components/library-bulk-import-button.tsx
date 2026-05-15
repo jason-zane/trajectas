@@ -44,11 +44,14 @@ const IMPORT_CONFIG: Record<BulkImportEntity, ImportConfig> = {
     description:
       'Upload a CSV or TSV for top-level dimensions. Slug is optional and will be generated from the name if omitted.',
     sample: [
-      'name,slug,description,definition,display_order,is_active,indicators_low,indicators_mid,indicators_high',
-      '"Drive & Delivery",drive-delivery,"Execution under pressure","Sustains focus and delivery in demanding contexts",0,true,"Misses deadlines","Delivers consistently","Drives performance under pressure"',
+      'name,slug,description,definition,display_order,is_active,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source',
+      '"Drive & Delivery",drive-delivery,"Execution under pressure","Sustains focus and delivery in demanding contexts",0,true,"Misses deadlines","Delivers consistently","Drives performance under pressure","Avoids tough delivery moments","Sets the pace and finishes strong","A clear strength — keep stretching the team behind delivery","Pick one critical commitment and protect time on it",executive-performance-partners',
     ].join('\n'),
     notes: [
-      'Accepted fields: name, slug, description, definition, display_order, is_active, indicators_low, indicators_mid, indicators_high.',
+      'Accepted fields: name, slug, description, definition, display_order, is_active, indicators_low, indicators_mid, indicators_high, anchor_low, anchor_high, strength_commentary, development_suggestion, source.',
+      'anchor_low and anchor_high are short sentences (under 150 chars) describing what low / high scores mean.',
+      'strength_commentary and development_suggestion are the report-narrative texts shown when this is a top or improvement area.',
+      'source is a content-sources name or slug — the provenance / IP-attribution label. Manage the list under Settings → Content Sources.',
       'CSV and TSV are both supported.',
     ],
   },
@@ -57,12 +60,14 @@ const IMPORT_CONFIG: Record<BulkImportEntity, ImportConfig> = {
     description:
       'Upload factor rows and optionally reference an existing dimension, client, or construct linkage by name, slug, or ID.',
     sample: [
-      'name,slug,dimension,client,constructs,description,definition,is_active,is_match_eligible,indicators_low,indicators_mid,indicators_high',
-      '"Strategic Influence",strategic-influence,drive-delivery,,"stakeholder-framing:1;strategic-signalling:0.8","Shapes direction across stakeholders","Influences decisions and aligns effort",true,true,"Reactive and narrow","Balances priorities","Creates alignment and momentum"',
+      'name,slug,dimension,client,constructs,description,definition,is_active,is_match_eligible,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source',
+      '"Strategic Influence",strategic-influence,drive-delivery,,"stakeholder-framing:1;strategic-signalling:0.8","Shapes direction across stakeholders","Influences decisions and aligns effort",true,true,"Reactive and narrow","Balances priorities","Creates alignment and momentum","Reacts rather than shapes","Frames the strategic narrative","Use this to broker decisions across silos","Practice naming the strategic stake before pitching tactics",executive-performance-partners',
     ].join('\n'),
     notes: [
-      'Accepted fields: name, slug, dimension, client, constructs, description, definition, is_active, is_match_eligible, indicators_low, indicators_mid, indicators_high.',
+      'Accepted fields: name, slug, dimension, client, constructs, description, definition, is_active, is_match_eligible, indicators_low, indicators_mid, indicators_high, anchor_low, anchor_high, strength_commentary, development_suggestion, source.',
       'Construct links use semicolon-separated entries like stakeholder-framing:1;strategic-signalling:0.8.',
+      'anchor_low / anchor_high are short sentences; strength_commentary / development_suggestion are report-narrative text.',
+      'source is a content-sources name or slug — managed under Settings → Content Sources.',
     ],
   },
   constructs: {
@@ -70,13 +75,15 @@ const IMPORT_CONFIG: Record<BulkImportEntity, ImportConfig> = {
     description:
       'Upload construct rows and optionally link each construct to a parent factor and/or directly to a dimension by name, slug, or ID.',
     sample: [
-      'name,slug,factor,dimension,description,definition,is_active,indicators_low,indicators_mid,indicators_high',
-      '"Stakeholder Framing",stakeholder-framing,strategic-influence,,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",true,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely"',
-      '"Ethical Compass",ethical-compass,,integrity,"Anchors decisions in shared values","Applies a clear ethical lens to choices",true,"Bends rules under pressure","Holds the line in routine cases","Defends values in hard cases"',
+      'name,slug,factor,dimension,description,definition,is_active,indicators_low,indicators_mid,indicators_high,anchor_low,anchor_high,strength_commentary,development_suggestion,source',
+      '"Stakeholder Framing",stakeholder-framing,strategic-influence,,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",true,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely","Sends one message to everyone","Reads the room and tailors the pitch",,,executive-performance-partners',
+      '"Ethical Compass",ethical-compass,,integrity,"Anchors decisions in shared values","Applies a clear ethical lens to choices",true,"Bends rules under pressure","Holds the line in routine cases","Defends values in hard cases","Yields under commercial pressure","Defends the line publicly when it matters",,,executive-performance-partners',
     ].join('\n'),
     notes: [
-      'Accepted fields: name, slug, factor, dimension, description, definition, is_active, indicators_low, indicators_mid, indicators_high.',
+      'Accepted fields: name, slug, factor, dimension, description, definition, is_active, indicators_low, indicators_mid, indicators_high, anchor_low, anchor_high, strength_commentary, development_suggestion, source.',
       'Both factor and dimension are optional. Use dimension to attach a construct directly to a dimension without a parent factor; use factor to attach via a parent factor; both may be set on the same row.',
+      'anchor_low / anchor_high are short sentences; strength_commentary / development_suggestion are report-narrative text.',
+      'source is a content-sources name or slug — managed under Settings → Content Sources.',
     ],
   },
   items: {
@@ -84,13 +91,14 @@ const IMPORT_CONFIG: Record<BulkImportEntity, ImportConfig> = {
     description:
       'Upload item rows. Construct items need a construct reference and every item needs an active response format.',
     sample: [
-      'stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,display_order,keyed_answer',
-      '"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,medium,1,active,0,',
+      'stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,display_order,source,keyed_answer',
+      '"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,medium,1,active,0,executive-performance-partners,',
     ].join('\n'),
     notes: [
-      'Accepted fields: stem, purpose, construct, response_format, reverse_scored, difficulty, weight, status, display_order, keyed_answer.',
+      'Accepted fields: stem, purpose, construct, response_format, reverse_scored, difficulty, weight, status, display_order, source, keyed_answer.',
       'Construct can resolve by slug, name, or ID. Response format can resolve by name or ID.',
       'Difficulty must be easy, medium, or hard — defaults to medium when blank. Used to spread items evenly across the difficulty bands.',
+      'source is a content-sources name or slug — managed under Settings → Content Sources.',
     ],
   },
 }

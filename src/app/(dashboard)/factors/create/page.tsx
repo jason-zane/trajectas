@@ -3,13 +3,15 @@ import {
   getConstructsForSelect,
   getClientsForFactorSelect,
 } from "@/app/actions/factors";
+import { getContentSources } from "@/app/actions/content-sources";
 import { FactorForm } from "../factor-form";
 
 export default async function CreateFactorPage() {
-  const [dimensions, constructs, clients] = await Promise.all([
+  const [dimensions, constructs, clients, contentSources] = await Promise.all([
     getDimensionsForSelect(),
     getConstructsForSelect(),
     getClientsForFactorSelect(),
+    getContentSources(),
   ]);
 
   return (
@@ -17,6 +19,7 @@ export default async function CreateFactorPage() {
       dimensions={dimensions}
       availableConstructs={constructs}
       clients={clients}
+      contentSources={contentSources}
       mode="create"
     />
   );

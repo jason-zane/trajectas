@@ -18,6 +18,7 @@ export const itemSchema = z.object({
   status: z.enum(['draft', 'active', 'archived']).default('draft'),
   displayOrder: z.coerce.number().int().min(0).default(0),
   difficulty: itemDifficultyEnum.default('medium'),
+  sourceId: z.string().uuid().optional().or(z.literal('')),
   keyedAnswer: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
   if (data.purpose === 'construct' && !data.constructId) {

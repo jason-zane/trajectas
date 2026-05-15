@@ -12,6 +12,7 @@ export const assessmentSchema = z.object({
   fcBlockSize: z.coerce.number().int().min(3).max(4).optional(),
   scoringLevel: z.enum(['factor', 'construct']).default('factor'),
   minCustomConstructs: z.coerce.number().int().nonnegative().nullable().optional(),
+  sourceId: z.string().uuid().optional().or(z.literal('')),
   factors: z.array(z.object({
     factorId: postgresUuid(),
     weight: z.coerce.number().positive().default(1),
