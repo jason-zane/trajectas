@@ -68,14 +68,15 @@ const IMPORT_CONFIG: Record<BulkImportEntity, ImportConfig> = {
   constructs: {
     title: 'Bulk Import Constructs',
     description:
-      'Upload construct rows and optionally link each construct to one parent factor by name, slug, or ID.',
+      'Upload construct rows and optionally link each construct to a parent factor and/or directly to a dimension by name, slug, or ID.',
     sample: [
-      'name,slug,factor,description,definition,is_active,indicators_low,indicators_mid,indicators_high',
-      '"Stakeholder Framing",stakeholder-framing,strategic-influence,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",true,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely"',
+      'name,slug,factor,dimension,description,definition,is_active,indicators_low,indicators_mid,indicators_high',
+      '"Stakeholder Framing",stakeholder-framing,strategic-influence,,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",true,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely"',
+      '"Ethical Compass",ethical-compass,,integrity,"Anchors decisions in shared values","Applies a clear ethical lens to choices",true,"Bends rules under pressure","Holds the line in routine cases","Defends values in hard cases"',
     ].join('\n'),
     notes: [
-      'Accepted fields: name, slug, factor, description, definition, is_active, indicators_low, indicators_mid, indicators_high.',
-      'Factor linkage is optional in this import path.',
+      'Accepted fields: name, slug, factor, dimension, description, definition, is_active, indicators_low, indicators_mid, indicators_high.',
+      'Both factor and dimension are optional. Use dimension to attach a construct directly to a dimension without a parent factor; use factor to attach via a parent factor; both may be set on the same row.',
     ],
   },
   items: {
