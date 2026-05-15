@@ -19,6 +19,7 @@ const LIBRARY_TEMPLATE = [
   'dimension,"Drive & Delivery",drive-delivery,,,,,"Execution under pressure","Sustains focus and delivery in demanding contexts",0,true,,"Misses deadlines","Delivers consistently","Drives performance under pressure",,,,,,,,',
   'factor,"Strategic Influence",strategic-influence,drive-delivery,,"stakeholder-framing:1;strategic-signalling:0.8",,"Shapes direction across stakeholders","Influences decisions and aligns effort",,true,true,"Reactive and narrow","Balances priorities","Creates alignment and momentum",,,,,,,,',
   'construct,"Stakeholder Framing",stakeholder-framing,,,,strategic-influence,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",,true,,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely",,,,,,,,',
+  'construct,"Ethical Compass",ethical-compass,drive-delivery,,,,"Anchors decisions in shared values","Applies a clear ethical lens to choices",,true,,"Bends rules under pressure","Holds the line in routine cases","Defends values in hard cases",,,,,,,,',
   'item,,,,,,,,,,,,,,,"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,1,active,',
 ].join('\n')
 
@@ -213,6 +214,7 @@ export function LibraryBundleImportButton() {
                         <li>References can point to rows already in the library.</li>
                         <li>References can also point to rows staged in the same file.</li>
                         <li>Factors can include construct links in the same batch.</li>
+                        <li>Construct rows can set dimension to attach directly to a dimension without a parent factor.</li>
                       </ul>
                     </div>
                   </aside>
