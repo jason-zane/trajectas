@@ -18,6 +18,7 @@ import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
+import { selectItemsByDifficulty, type SelectableItem } from '@/lib/item-selection/distribution'
 import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
 import type { Assessment, ItemOrdering } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
@@ -640,7 +641,7 @@ export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGro
   // Get active, non-deleted items for these constructs with their format info
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, response_format_id, selection_priority, display_order, response_formats(id, name, type)')
+    .select('id, construct_id, response_format_id, selection_priority, display_order, difficulty, reverse_scored, response_formats(id, name, type)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
@@ -1280,7 +1281,7 @@ async function persistSections(
   // Get all active, non-deleted items for these constructs with priority ordering
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, response_format_id, selection_priority, display_order')
+    .select('id, construct_id, response_format_id, selection_priority, display_order, difficulty, reverse_scored')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .is('deleted_at', null)
@@ -1392,7 +1393,7 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
   // Get active, non-deleted construct items with their construct names
   const { data: items } = await db
     .from('items')
-    .select('id, construct_id, stem, selection_priority, display_order, constructs(name)')
+    .select('id, construct_id, stem, selection_priority, display_order, difficulty, reverse_scored, constructs(name)')
     .in('construct_id', constructIds)
     .eq('status', 'active')
     .eq('purpose', 'construct')
@@ -1413,40 +1414,28 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
 }
 
 /**
- * Apply per-construct item limit: group items by construct_id,
- * sort by selection_priority then display_order, and take the top N.
- * Returns all items if limit is null.
+ * Apply per-construct item limit by spreading the picks evenly across the
+ * easy/medium/hard difficulty bands and meeting a 25 % reverse-coded floor.
+ * Returns all items unchanged when no limit is set.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyPerConstructLimit<T extends Record<string, any> & { construct_id: string; selection_priority: number; display_order: number }>(
+function applyPerConstructLimit<T extends Record<string, any> & SelectableItem & { construct_id: string }>(
   items: T[],
   limit: number | null,
 ): T[] {
   if (limit === null) return items
 
-  // Group by construct
   const byConstruct = new Map<string, T[]>()
   for (const item of items) {
     const group = byConstruct.get(item.construct_id)
-    if (group) {
-      group.push(item)
-    } else {
-      byConstruct.set(item.construct_id, [item])
-    }
+    if (group) group.push(item)
+    else byConstruct.set(item.construct_id, [item])
   }
 
-  // Sort each group and take top N
   const result: T[] = []
   for (const [, group] of byConstruct) {
-    group.sort((a, b) => {
-      if (a.selection_priority !== b.selection_priority) {
-        return a.selection_priority - b.selection_priority
-      }
-      return a.display_order - b.display_order
-    })
-    result.push(...group.slice(0, limit))
+    result.push(...selectItemsByDifficulty(group, limit))
   }
-
   return result
 }
 

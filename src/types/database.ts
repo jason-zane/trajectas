@@ -602,6 +602,9 @@ export interface ResponseFormat {
 /** The purpose of an assessment item — whether it scores a construct or serves a validity function. */
 export type ItemPurpose = 'construct' | 'impression_management' | 'infrequency' | 'attention_check'
 
+/** Difficulty band — the assessment composer spreads items evenly across these. */
+export type ItemDifficulty = 'easy' | 'medium' | 'hard'
+
 /**
  * A single assessment item (question/prompt) linked to a construct.
  */
@@ -631,8 +634,10 @@ export interface Item {
   keyedAnswer?: number
   created_at: string
   updated_at?: string
-  /** Selection priority — lower values are selected first when rules limit items per construct. */
+  /** Selection priority — tiebreaker within a difficulty band when rules limit items per construct. */
   selectionPriority: number
+  /** Difficulty band — easy / medium / hard. Drives even distribution across the construct's selected items. */
+  difficulty: ItemDifficulty
   /** Soft-delete timestamp; NULL means active. */
   deletedAt?: string
 }

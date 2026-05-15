@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Dna, Settings2, ArrowLeftRight, Weight, Shield, AlertTriangle, Eye, BarChart3, ListOrdered, Plus, Trash2 } from "lucide-react";
+import { Dna, Settings2, ArrowLeftRight, Weight, Shield, AlertTriangle, Eye, BarChart3, ListOrdered, Plus, Trash2, Gauge } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +40,7 @@ import {
   updateItemField,
 } from "@/app/actions/items";
 import type { SelectOption } from "@/app/actions/items";
-import type { ResponseFormat, ActiveResponseFormatType, ItemPurpose } from "@/types/database";
+import type { ResponseFormat, ActiveResponseFormatType, ItemPurpose, ItemDifficulty } from "@/types/database";
 
 type SaveButtonState = "idle" | "saving" | "saved";
 
@@ -75,6 +75,7 @@ interface ItemFormProps {
     status: string;
     displayOrder: number;
     selectionPriority?: number;
+    difficulty?: ItemDifficulty;
     keyedAnswer?: number;
   };
 }
@@ -107,6 +108,9 @@ export function ItemForm({
   const [status, setStatus] = useState(initialData?.status ?? "draft");
   const [selectionPriority, setSelectionPriority] = useState(
     initialData?.selectionPriority ?? 0
+  );
+  const [difficulty, setDifficulty] = useState<ItemDifficulty>(
+    initialData?.difficulty ?? "medium"
   );
   const [options, setOptions] = useState<{ label: string; value: number }[]>(
     initialOptions ?? []
@@ -155,9 +159,10 @@ export function ItemForm({
       responseFormatId !== initialData.responseFormatId ||
       reverseScored !== initialData.reverseScored ||
       weight !== initialData.weight ||
+      difficulty !== (initialData.difficulty ?? "medium") ||
       status !== initialData.status
     );
-  }, [mode, initialData, purpose, constructId, responseFormatId, reverseScored, weight, status]);
+  }, [mode, initialData, purpose, constructId, responseFormatId, reverseScored, weight, difficulty, status]);
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(structuralDirty);
@@ -527,6 +532,39 @@ export function ItemForm({
                     <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
                       <div className="flex items-start gap-3">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                          <Gauge className="size-4 text-primary" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label htmlFor="difficulty">Difficulty</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Easy / medium / hard. The composer spreads picks evenly across the three bands and drops mediums first when N is uneven.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="inline-flex rounded-md border bg-background p-0.5 text-sm">
+                        {(["easy", "medium", "hard"] as ItemDifficulty[]).map((band) => (
+                          <button
+                            key={band}
+                            type="button"
+                            onClick={() => setDifficulty(band)}
+                            aria-pressed={difficulty === band}
+                            className={
+                              difficulty === band
+                                ? "rounded px-3 py-1 bg-primary text-primary-foreground capitalize"
+                                : "rounded px-3 py-1 text-muted-foreground hover:text-foreground capitalize"
+                            }
+                          >
+                            {band}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {isConstructItem && (
+                    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                           <Weight className="size-4 text-primary" />
                         </div>
                         <div className="space-y-0.5">
@@ -609,6 +647,7 @@ export function ItemForm({
             />
             <input type="hidden" name="displayOrder" value="0" />
             <input type="hidden" name="selectionPriority" value={selectionPriority} />
+            <input type="hidden" name="difficulty" value={difficulty} />
             <input type="hidden" name="options" value={JSON.stringify(options)} />
           </TabsContent>
 

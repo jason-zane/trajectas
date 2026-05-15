@@ -46,6 +46,7 @@ export default async function EditItemPage({
         status: item.status,
         displayOrder: item.displayOrder,
         selectionPriority: item.selectionPriority,
+        difficulty: item.difficulty,
         keyedAnswer: item.keyedAnswer,
       }}
     />
