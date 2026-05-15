@@ -147,6 +147,7 @@ export function mapItemRow(row: any): Item {
     displayOrder: row.display_order,
     purpose: row.purpose ?? 'construct',
     selectionPriority: row.selection_priority ?? 0,
+    difficulty: (row.difficulty as Item['difficulty']) ?? 'medium',
     keyedAnswer: row.keyed_answer != null ? Number(row.keyed_answer) : undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
@@ -308,6 +309,7 @@ export function toItemInsert(i: Omit<Item, 'id' | 'created_at' | 'updated_at'>) 
     status: i.status,
     display_order: i.displayOrder,
     selection_priority: i.selectionPriority ?? 0,
+    difficulty: i.difficulty ?? 'medium',
     purpose: i.purpose ?? 'construct',
     keyed_answer: i.keyedAnswer ?? null,
   }

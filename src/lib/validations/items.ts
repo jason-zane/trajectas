@@ -3,6 +3,8 @@ import { postgresUuid } from './uuid'
 
 export const itemPurposeEnum = z.enum(['construct', 'impression_management', 'infrequency', 'attention_check'])
 
+export const itemDifficultyEnum = z.enum(['easy', 'medium', 'hard'])
+
 export const itemSchema = z.object({
   purpose: itemPurposeEnum.default('construct'),
   constructId: postgresUuid('Construct is required').optional(),
@@ -16,6 +18,7 @@ export const itemSchema = z.object({
   status: z.enum(['draft', 'active', 'archived']).default('draft'),
   displayOrder: z.coerce.number().int().min(0).default(0),
   selectionPriority: z.coerce.number().int().min(0).default(0),
+  difficulty: itemDifficultyEnum.default('medium'),
   keyedAnswer: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
   if (data.purpose === 'construct' && !data.constructId) {

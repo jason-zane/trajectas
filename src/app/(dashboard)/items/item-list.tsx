@@ -510,6 +510,14 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                                             />
                                             {status.label}
                                           </Badge>
+                                          {!isValidity && (
+                                            <Badge variant="outline" className="capitalize">
+                                              {item.difficulty}
+                                            </Badge>
+                                          )}
+                                          {!isValidity && item.reverseScored && (
+                                            <Badge variant="outline">Reverse</Badge>
+                                          )}
                                           {health && (
                                             <Tooltip>
                                               <TooltipTrigger

@@ -130,6 +130,7 @@ export async function createItem(formData: FormData) {
     status: (formData.get('status') as string) || 'draft',
     displayOrder: Number(formData.get('displayOrder') ?? 0),
     selectionPriority: Number(formData.get('selectionPriority') ?? 0),
+    difficulty: (formData.get('difficulty') as string) || 'medium',
     keyedAnswer: purpose === 'attention_check' ? Number(formData.get('keyedAnswer')) : undefined,
   }
 
@@ -152,6 +153,7 @@ export async function createItem(formData: FormData) {
       status: parsed.data.status,
       display_order: parsed.data.displayOrder,
       selection_priority: parsed.data.selectionPriority,
+      difficulty: parsed.data.difficulty,
       keyed_answer: parsed.data.keyedAnswer ?? null,
     })
     .select('id')
@@ -210,6 +212,7 @@ export async function updateItem(id: string, formData: FormData) {
     status: (formData.get('status') as string) || 'draft',
     displayOrder: Number(formData.get('displayOrder') ?? 0),
     selectionPriority: Number(formData.get('selectionPriority') ?? 0),
+    difficulty: (formData.get('difficulty') as string) || 'medium',
     keyedAnswer: purpose === 'attention_check' ? Number(formData.get('keyedAnswer')) : undefined,
   }
 
@@ -232,6 +235,7 @@ export async function updateItem(id: string, formData: FormData) {
       status: parsed.data.status,
       display_order: parsed.data.displayOrder,
       selection_priority: parsed.data.selectionPriority,
+      difficulty: parsed.data.difficulty,
       keyed_answer: parsed.data.keyedAnswer ?? null,
     })
     .eq('id', id)

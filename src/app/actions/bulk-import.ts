@@ -131,6 +131,7 @@ type StagedItemRow = {
   weight: number
   status: string
   displayOrder: number
+  difficulty: 'easy' | 'medium' | 'hard'
   keyedAnswer?: number
 }
 
@@ -187,6 +188,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   reverseScored: ['reversescored', 'reverse_scored', 'reverse'],
   weight: ['weight'],
   status: ['status'],
+  difficulty: ['difficulty', 'difficultylevel', 'difficulty_level', 'level'],
   keyedAnswer: ['keyedanswer', 'keyed_answer', 'correctanswer', 'correct_answer'],
 }
 
@@ -198,7 +200,7 @@ const AI_TEMPLATE_HEADERS: Record<BulkImportEntity, string> = {
   constructs:
     'name,slug,factor,dimension,description,definition,is_active,indicators_low,indicators_mid,indicators_high',
   items:
-    'stem,purpose,construct,response_format,reverse_scored,weight,status,display_order,keyed_answer',
+    'stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,display_order,keyed_answer',
 }
 
 const AI_ENTITY_NOTES: Record<BulkImportEntity, string[]> = {
@@ -222,6 +224,7 @@ const AI_ENTITY_NOTES: Record<BulkImportEntity, string[]> = {
     'Every row is an item.',
     'Construct items must use purpose=construct and include a construct reference.',
     'response_format should match an existing response format name if the source makes it obvious.',
+    'difficulty must be easy, medium, or hard. Use medium when unsure — the assessment composer spreads picks evenly across the three bands.',
     'If unsure about keyed_answer, leave it blank.',
   ],
 }
@@ -252,6 +255,17 @@ function parseBoolean(value: string | undefined, defaultValue: boolean) {
     return false
   }
   throw new Error(`Expected a boolean value but received "${value}".`)
+}
+
+function parseDifficulty(value: string | undefined): 'easy' | 'medium' | 'hard' {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return 'medium'
+  if (normalized === 'easy' || normalized === 'low' || normalized === 'foundation') return 'easy'
+  if (normalized === 'medium' || normalized === 'moderate' || normalized === 'mid' || normalized === 'applied') {
+    return 'medium'
+  }
+  if (normalized === 'hard' || normalized === 'high' || normalized === 'demanding') return 'hard'
+  throw new Error(`Difficulty must be easy, medium, or hard (received "${value}").`)
 }
 
 function parseNumber(value: string | undefined, defaultValue: number) {
@@ -1013,6 +1027,7 @@ async function importItems(table: ParsedTable) {
         weight: parseNumber(row.weight, 1),
         status: row.status?.trim() || 'draft',
         displayOrder: parseNumber(row.displayOrder, index),
+        difficulty: parseDifficulty(row.difficulty),
         keyedAnswer: row.keyedAnswer?.trim() ? parseNumber(row.keyedAnswer, 0) : undefined,
       }
 
@@ -1363,6 +1378,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           weight: parseNumber(row.weight, 1),
           status: row.status?.trim() || 'draft',
           displayOrder: parseNumber(row.displayOrder, index),
+          difficulty: parseDifficulty(row.difficulty),
           keyedAnswer: row.keyedAnswer?.trim() ? parseNumber(row.keyedAnswer, 0) : undefined,
         }
 
@@ -1761,6 +1777,7 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
             status: item.status as 'draft' | 'active' | 'archived',
             displayOrder: item.displayOrder,
             selectionPriority: 0,
+            difficulty: item.difficulty,
             keyedAnswer: item.keyedAnswer,
           })
         )

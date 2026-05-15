@@ -83,6 +83,26 @@ const REVERSE_STEMS = [
 // Helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Map the generator's wider difficulty vocabulary onto the items table's
+ * easy/medium/hard band. Generators emit either personality-style tiers
+ * (easy/moderate/hard) or capability-style tiers (foundation/applied/demanding);
+ * both collapse onto the same three buckets used for assessment composition.
+ */
+function mapGeneratedDifficulty(tier: string | undefined | null): 'easy' | 'medium' | 'hard' {
+  switch ((tier ?? '').toLowerCase()) {
+    case 'easy':
+    case 'foundation':
+      return 'easy'
+    case 'hard':
+    case 'demanding':
+      return 'hard'
+    default:
+      // 'moderate' / 'applied' / unknown / missing → middle band
+      return 'medium'
+  }
+}
+
 function pickStem(index: number, reverseScored: boolean): string {
   if (reverseScored) {
     return REVERSE_STEMS[index % REVERSE_STEMS.length]
@@ -558,6 +578,7 @@ export async function acceptGeneratedItems(
         weight: 1.0,
         status: 'draft',
         display_order: (count ?? 0) + 1,
+        difficulty: mapGeneratedDifficulty(item.difficultyTier),
         keyed_answer: null,
       })
       .select('id')
