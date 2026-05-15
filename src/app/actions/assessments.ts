@@ -829,9 +829,6 @@ export async function createAssessment(payload: Record<string, unknown>) {
     format_mode: parsed.data.formatMode,
     fc_block_size: parsed.data.fcBlockSize ?? null,
     scoring_level: scoringLevel,
-    min_custom_constructs: scoringLevel === 'construct'
-      ? ((payload.minCustomConstructs as number) ?? null)
-      : null,
     source_id: parsed.data.sourceId || null,
   }).select('id').single()
 
@@ -928,9 +925,6 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       format_mode: parsed.data.formatMode,
       fc_block_size: parsed.data.fcBlockSize ?? null,
       scoring_level: updatedScoringLevel,
-      min_custom_constructs: updatedScoringLevel === 'construct'
-        ? ((payload.minCustomConstructs as number) ?? null)
-        : null,
       source_id: parsed.data.sourceId || null,
     })
     .eq('id', id)
@@ -1229,6 +1223,66 @@ export async function updateAssessmentCustomisation(
     targetTable: 'assessments',
     targetId: assessmentId,
     metadata: { minCustomFactors },
+  })
+  return { success: true }
+}
+
+/**
+ * Update construct customisation settings for a construct-level assessment
+ * (Zone 1 — immediate save). Pass `null` to disable customisation; pass a
+ * number to set the minimum.
+ */
+export async function updateAssessmentConstructCustomisation(
+  assessmentId: string,
+  minCustomConstructs: number | null
+): Promise<{ success: true } | { error: string }> {
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!scope) {
+    return { error: 'Unable to resolve assessment scope.' }
+  }
+
+  const db = createAdminClient()
+
+  if (minCustomConstructs !== null) {
+    const { count } = await db
+      .from('assessment_constructs')
+      .select('*', { count: 'exact', head: true })
+      .eq('assessment_id', assessmentId)
+
+    if (minCustomConstructs < 1) {
+      return { error: 'Minimum must be at least 1' }
+    }
+    if (count !== null && minCustomConstructs > count) {
+      return { error: `Minimum cannot exceed the ${count} constructs in this assessment` }
+    }
+  }
+
+  const { error } = await db
+    .from('assessments')
+    .update({ min_custom_constructs: minCustomConstructs })
+    .eq('id', assessmentId)
+
+  if (error) {
+    logActionError('updateAssessmentConstructCustomisation', error)
+    return { error: 'Unable to update customisation settings.' }
+  }
+
+  revalidateAssessmentPaths()
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.customisation.updated',
+    targetTable: 'assessments',
+    targetId: assessmentId,
+    metadata: { minCustomConstructs },
   })
   return { success: true }
 }
