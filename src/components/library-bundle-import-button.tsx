@@ -15,12 +15,12 @@ import { Input } from '@/components/ui/input'
 import { importLibraryBundleRows, type LibraryBundleImportResult } from '@/app/actions/bulk-import'
 
 const LIBRARY_TEMPLATE = [
-  'entity,name,slug,dimension,client,constructs,factor,description,definition,display_order,is_active,is_match_eligible,indicators_low,indicators_mid,indicators_high,stem,purpose,construct,response_format,reverse_scored,weight,status,keyed_answer',
-  'dimension,"Drive & Delivery",drive-delivery,,,,,"Execution under pressure","Sustains focus and delivery in demanding contexts",0,true,,"Misses deadlines","Delivers consistently","Drives performance under pressure",,,,,,,,',
-  'factor,"Strategic Influence",strategic-influence,drive-delivery,,"stakeholder-framing:1;strategic-signalling:0.8",,"Shapes direction across stakeholders","Influences decisions and aligns effort",,true,true,"Reactive and narrow","Balances priorities","Creates alignment and momentum",,,,,,,,',
-  'construct,"Stakeholder Framing",stakeholder-framing,,,,strategic-influence,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",,true,,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely",,,,,,,,',
-  'construct,"Ethical Compass",ethical-compass,drive-delivery,,,,"Anchors decisions in shared values","Applies a clear ethical lens to choices",,true,,"Bends rules under pressure","Holds the line in routine cases","Defends values in hard cases",,,,,,,,',
-  'item,,,,,,,,,,,,,,,"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,1,active,',
+  'entity,name,slug,dimension,client,constructs,factor,description,definition,display_order,is_active,is_match_eligible,indicators_low,indicators_mid,indicators_high,stem,purpose,construct,response_format,reverse_scored,difficulty,weight,status,keyed_answer',
+  'dimension,"Drive & Delivery",drive-delivery,,,,,"Execution under pressure","Sustains focus and delivery in demanding contexts",0,true,,"Misses deadlines","Delivers consistently","Drives performance under pressure",,,,,,,,,',
+  'factor,"Strategic Influence",strategic-influence,drive-delivery,,"stakeholder-framing:1;strategic-signalling:0.8",,"Shapes direction across stakeholders","Influences decisions and aligns effort",,true,true,"Reactive and narrow","Balances priorities","Creates alignment and momentum",,,,,,,,,',
+  'construct,"Stakeholder Framing",stakeholder-framing,,,,strategic-influence,"Frames ideas for different audiences","Tailors messages to influence different stakeholders",,true,,"One-size-fits-all communication","Adapts to some audiences","Tailors messages precisely",,,,,,,,,',
+  'construct,"Ethical Compass",ethical-compass,drive-delivery,,,,"Anchors decisions in shared values","Applies a clear ethical lens to choices",,true,,"Bends rules under pressure","Holds the line in routine cases","Defends values in hard cases",,,,,,,,,',
+  'item,,,,,,,,,,,,,,,"I adapt my message to suit different audiences.",construct,stakeholder-framing,"Likert 5",false,medium,1,active,',
 ].join('\n')
 
 type ImportStep = 'prepare' | 'review'
