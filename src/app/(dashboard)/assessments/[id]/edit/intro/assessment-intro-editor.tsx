@@ -238,11 +238,7 @@ export function AssessmentIntroEditor({
                     {"{{assessmentTitle}}"}
                   </span>
                   <span className="text-foreground font-mono">
-                    {"{{questionCount}}"}
-                  </span>
-                  <span className="text-muted-foreground/60 font-mono">
-                    {"{{estimatedMinutes}}"}{" "}
-                    <span className="font-sans italic">Coming soon</span>
+                    {"{{estimatedMinutes}}"}
                   </span>
                 </div>
               </div>

@@ -255,5 +255,5 @@ export interface TemplateVariables {
   sectionTitle?: string
   sectionNumber?: number
   assessmentTitle?: string
-  questionCount?: number
+  estimatedMinutes?: number
 }
