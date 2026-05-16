@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { validateAccessToken } from "@/app/actions/assess"
+import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess"
 import { getCachedEffectiveBrand } from "@/app/actions/brand"
 import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
@@ -13,6 +13,7 @@ import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sanitizeReportHtml } from "@/lib/security/sanitize-html"
+import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
 import type { TemplateVariables } from "@/lib/experience/types"
@@ -38,7 +39,7 @@ export default async function AssessmentIntroPage({
 
   // Load experience + brand + campaign-level intro override in parallel.
   // Experience is needed for the post-sections URL and all three are independent.
-  const [experience, brandConfig, caRowResult, assessmentRowResult] = await Promise.all([
+  const [experience, brandConfig, caRowResult, assessmentRowResult, itemCount] = await Promise.all([
     getCachedEffectiveExperience(campaign.id),
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
     assessment
@@ -56,6 +57,7 @@ export default async function AssessmentIntroPage({
           .eq("id", assessment.assessmentId)
           .single()
       : Promise.resolve({ data: null }),
+    getAssessmentItemCount(assessments.map((a) => a.assessmentId)),
   ])
 
   // No assessment at this index -- move to post-sections flow
@@ -108,7 +110,7 @@ export default async function AssessmentIntroPage({
     participantName: participant.firstName,
     candidateName: participant.firstName,
     assessmentTitle: assessment.title,
-    questionCount: assessment.sectionCount,
+    estimatedMinutes: estimateAssessmentDurationMinutes(itemCount),
   }
   heading = interpolateContent(heading, variables)
   // body is authored by partner/client admins and rendered as inline HTML to
