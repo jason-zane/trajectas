@@ -81,20 +81,36 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
 
       {/* Secondary logo / Powered by */}
       {(d.showLogo !== false || d.showPoweredBy) && (
-        <div className="mt-10 flex flex-col items-center gap-2">
+        <div className="mt-10 flex flex-col items-center gap-3">
           {d.showPoweredBy && d.poweredByText && (
-            <p className="text-[10px] uppercase tracking-[2px] opacity-40">
+            <p className="text-[10px] uppercase tracking-[2px] opacity-50">
               {d.poweredByText}
             </p>
           )}
-          {d.showLogo !== false && d.secondaryLogoUrl && (
+          {d.showLogo !== false && d.secondaryLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={d.secondaryLogoUrl}
               alt="Secondary logo"
               className="h-8 object-contain opacity-60"
             />
-          )}
+          ) : d.showPoweredBy ? (
+            // Span mark — pills inherit currentColor so the mark reads on
+            // both dark and light cover themes; gold accent is fixed.
+            <svg
+              viewBox="0 0 64 64"
+              width="22"
+              height="22"
+              role="img"
+              aria-label="Trajectas"
+              className="opacity-80"
+            >
+              <rect x="9" y="46" width="7" height="10" rx="3.5" fill="currentColor" />
+              <rect x="22" y="36" width="7" height="20" rx="3.5" fill="currentColor" />
+              <rect x="35" y="24" width="7" height="32" rx="3.5" fill="currentColor" />
+              <rect x="48" y="10" width="7" height="46" rx="3.5" fill="#c9a962" />
+            </svg>
+          ) : null}
         </div>
       )}
     </div>
