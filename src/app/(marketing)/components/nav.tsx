@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -45,10 +46,10 @@ export function Nav() {
     >
       <Link
         href="/"
-        className="text-lg font-bold tracking-tight"
-        style={{ color: "var(--mk-text-on-dark)" }}
+        aria-label="Trajectas — home"
+        className="inline-flex items-center"
       >
-        Trajectas
+        <TrajectasLogo variant="horizontal" light height={26} />
       </Link>
 
       <div className="flex items-center gap-2 md:gap-3">

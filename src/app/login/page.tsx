@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import { resolveSessionActor } from "@/lib/auth/actor";
 import {
   buildSurfaceDestinationUrl,
@@ -60,9 +61,10 @@ export default async function LoginPage({
         <header className="relative z-10 flex items-center justify-between px-6 py-6 md:px-10">
           <Link
             href={publicHomeUrl}
-            className="text-lg font-bold tracking-tight text-[var(--mk-primary-dark)]"
+            aria-label="Trajectas — home"
+            className="inline-flex items-center"
           >
-            Trajectas
+            <TrajectasLogo variant="horizontal" height={26} />
           </Link>
         </header>
 

@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
+import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -251,7 +252,11 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
                 unoptimized
               />
             </div>
-          ) : null}
+          ) : (
+            <div className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 shadow-sm">
+              <TrajectasLogo variant="mark" light height={20} />
+            </div>
+          )}
           <div className="flex flex-col">
             <span className="text-sm font-semibold leading-tight tracking-tight text-sidebar-accent-foreground">
               {identity?.platformName ?? "Trajectas"}

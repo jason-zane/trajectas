@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import {
   MARKETING_KEYWORDS,
   PUBLIC_SITE_NAME,
@@ -9,14 +9,14 @@ import "./globals-marketing.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "700", "800"],
+  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-display",
   display: "swap",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["300", "400"],
+  weight: ["300", "400", "500"],
   variable: "--font-mono",
   display: "swap",
 });
@@ -45,7 +45,7 @@ export default function MarketingLayout({
   return (
     <div
       data-surface="marketing"
-      className={`${plusJakarta.variable} ${jetbrainsMono.variable}`}
+      className={`${plusJakarta.variable} ${geistMono.variable}`}
     >
       {children}
     </div>
