@@ -786,6 +786,8 @@ const CONTENT_PANELS: Record<BlockType, React.ComponentType<BlockContentPanelPro
   rater_comparison: ComingSoonPanel,
   gap_analysis: ComingSoonPanel,
   open_comments: ComingSoonPanel,
+  // 'custom' is never user-edited via the block builder — it's runner-synthesised.
+  custom: ComingSoonPanel,
 }
 
 export function BlockContentPanel({

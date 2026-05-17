@@ -27,6 +27,8 @@ export type BlockType =
   | 'rater_comparison'
   | 'gap_analysis'
   | 'open_comments'
+  // Custom (code-registered) — bypasses block dispatch in renderer
+  | 'custom'
 
 export type BlockCategory = 'meta' | 'score' | 'highlight' | 'ai' | '360'
 
@@ -153,6 +155,15 @@ export interface OpenCommentsConfig {
   groupByFactor?: boolean
 }
 
+/**
+ * Custom-report block — not user-selectable. Synthesised by the runner when
+ * a template has custom_report_slug set; carries the slug + opaque payload
+ * that the matching component will consume.
+ */
+export interface CustomBlockConfig {
+  slug: string
+}
+
 // ---------------------------------------------------------------------------
 // BlockConfig — one entry in report_templates.blocks
 // ---------------------------------------------------------------------------
@@ -172,6 +183,7 @@ export type BlockConfigMap = {
   rater_comparison: RaterComparisonConfig
   gap_analysis: GapAnalysisConfig
   open_comments: OpenCommentsConfig
+  custom: CustomBlockConfig
 }
 
 export interface BlockConfig<T extends BlockType = BlockType> {

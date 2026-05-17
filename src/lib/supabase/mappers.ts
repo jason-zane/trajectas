@@ -818,6 +818,7 @@ export function mapReportTemplateRow(row: any): ReportTemplate {
     autoRelease: row.auto_release,
     pageHeaderLogo: row.page_header_logo ?? 'none',
     blocks: Array.isArray(row.blocks) ? row.blocks : [],
+    customReportSlug: row.custom_report_slug ?? undefined,
     isActive: row.is_active,
     isDefault: row.is_default ?? false,
     deletedAt: row.deleted_at ?? undefined,

@@ -143,6 +143,15 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     defaultMode: 'open',
     status: 'deferred',
   },
+  custom: {
+    label: 'Custom Report',
+    category: 'meta',
+    description: 'Hand-coded report — runner synthesises this block when template.customReportSlug is set. Not user-selectable.',
+    defaultConfig: {},
+    supportedModes: ['open'],
+    defaultMode: 'open',
+    status: 'hidden',
+  },
 }
 
 export const BLOCK_CATEGORIES: Record<BlockCategory, { label: string; order: number }> = {
