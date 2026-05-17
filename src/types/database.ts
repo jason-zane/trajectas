@@ -2035,6 +2035,7 @@ export interface ReportTemplate {
   autoRelease: boolean
   pageHeaderLogo: 'primary' | 'secondary' | 'none'
   blocks: Record<string, unknown>[]  // BlockConfig[] — typed in src/lib/reports/types.ts
+  customReportSlug?: string  // When set, runner dispatches to a registered custom report instead of resolving blocks
   isActive: boolean
   isDefault: boolean
   deletedAt?: string

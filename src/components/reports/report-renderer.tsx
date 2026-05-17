@@ -17,6 +17,7 @@ import { OpenCommentsBlock } from './blocks/open-comments'
 import { AiTextBlock } from './blocks/ai-text'
 import { ModeWrapper } from './modes/mode-wrapper'
 import { sanitizeBlockData } from '@/lib/reports/sanitize-block-data'
+import { CUSTOM_REPORTS, type CustomReportRenderContext } from '@/lib/reports/custom'
 import type { ResolvedBlockData, BlockType } from '@/lib/reports/types'
 import type { PresentationMode, ChartType, ReportTheme } from '@/lib/reports/presentation'
 
@@ -41,6 +42,8 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   gap_analysis: GapAnalysisBlock,
   open_comments: OpenCommentsBlock,
   ai_text: AiTextBlock,
+  // 'custom' is short-circuited before block dispatch — see ReportRenderer body
+  custom: () => null,
 }
 
 function themeToStyle(theme: ReportTheme): React.CSSProperties {
@@ -63,6 +66,61 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
 
   // Extract resolved brand theme from the first block that has it
   const brandTheme = blocks.find((b) => b.resolvedBrandTheme)?.resolvedBrandTheme
+
+  // -----------------------------------------------------------------------
+  // Custom-report short-circuit. If the runner emitted a single 'custom'
+  // block, dispatch to the registered component and skip the per-block loop.
+  // -----------------------------------------------------------------------
+  const customBlock = blocks.find((b) => b.type === 'custom' && !b.skipped)
+  if (customBlock) {
+    const data = customBlock.data as {
+      slug?: string
+      payload?: unknown
+      participantFirstName?: string
+      participantLastName?: string
+      campaignName?: string
+      assessmentName?: string
+    }
+    const slug = data.slug ?? ''
+    const report = CUSTOM_REPORTS[slug]
+    if (!report) {
+      return (
+        <div
+          data-print={isPrint ? 'true' : undefined}
+          className={className}
+          style={brandTheme ? themeToStyle(brandTheme) : undefined}
+        >
+          <p style={{ padding: '2rem', color: '#a00' }}>
+            Unknown custom report: <code>{slug || '(empty slug)'}</code>
+          </p>
+        </div>
+      )
+    }
+    const Component = report.Component as (props: {
+      data: unknown
+      ctx: CustomReportRenderContext
+    }) => React.ReactElement | null
+    const ctx: CustomReportRenderContext = {
+      brandTheme: customBlock.resolvedBrandTheme ?? ({} as ReportTheme),
+      participantName: [data.participantFirstName, data.participantLastName]
+        .filter(Boolean)
+        .join(' '),
+      participantFirstName: data.participantFirstName,
+      participantLastName: data.participantLastName,
+      campaignName: data.campaignName,
+      assessmentName: data.assessmentName,
+      generatedAt: new Date().toISOString(),
+    }
+    return (
+      <div
+        data-print={isPrint ? 'true' : undefined}
+        className={className}
+        style={brandTheme ? themeToStyle(brandTheme) : undefined}
+      >
+        <Component data={data.payload} ctx={ctx} />
+      </div>
+    )
+  }
 
   return (
     <div

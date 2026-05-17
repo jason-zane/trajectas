@@ -24,10 +24,12 @@ import { getModelForTask } from '@/lib/ai/model-config'
 import { DEFAULT_REPORT_THEME } from './presentation'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
+import { buildReportContext } from './report-context'
+import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
 import type { BlockConfig, ResolvedBlockData, BandResult } from './types'
 import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig } from './types'
-import type { PersonReferenceType, ReportDisplayLevel } from '@/types/database'
+import type { PersonReferenceType, ReportDisplayLevel, ReportSnapshot, ReportTemplate } from '@/types/database'
 
 interface SessionData {
   id: string
@@ -97,6 +99,19 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     }
 
     const template = mapReportTemplateRow(templateResult.data)
+
+    // -----------------------------------------------------------------------
+    // Custom-report branch — bypass block resolution entirely.
+    // When report_templates.custom_report_slug is set, dispatch to a registered
+    // custom report (src/lib/reports/custom). The runner becomes a thin wrapper
+    // that builds the shared ReportContext, calls the registered data-builder,
+    // and stores the payload as a single 'custom' block for the renderer.
+    // -----------------------------------------------------------------------
+    if (template.customReportSlug) {
+      await runCustomReport(db, snapshotId, snapshot, template)
+      return
+    }
+
     const blocks = parseBlocks(template.blocks)
 
     // Resolve band scheme via cascade: template → partner → platform → default
@@ -413,6 +428,85 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         })
         .eq('id', failedSnapshot.participant_session_id)
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Custom-report path
+// ---------------------------------------------------------------------------
+
+/**
+ * Run a hand-coded custom report. Builds the shared ReportContext, dispatches
+ * to the registered builder, and writes the payload as a single 'custom'
+ * ResolvedBlockData so the renderer can pick it up.
+ *
+ * Mirrors the finalisation steps of the block-path: snapshot status update,
+ * participant_sessions processing_status, and integration event enqueue.
+ */
+async function runCustomReport(
+  db: ReturnType<typeof createAdminClient>,
+  snapshotId: string,
+  snapshot: ReportSnapshot,
+  template: ReportTemplate,
+): Promise<void> {
+  const slug = template.customReportSlug
+  if (!slug) throw new Error('runCustomReport called without customReportSlug')
+
+  const report = getCustomReport(slug)
+  if (!report) {
+    throw new Error(`Unknown custom report slug: ${slug}`)
+  }
+
+  const ctx = await buildReportContext(db, snapshotId)
+  const payload = await report.buildData(ctx)
+
+  const resolvedBlock: ResolvedBlockData = {
+    blockId: 'custom',
+    type: 'custom',
+    order: 0,
+    data: {
+      slug,
+      payload,
+      participantFirstName: ctx.session.firstName,
+      participantLastName: ctx.session.lastName,
+      campaignName: ctx.session.campaignName,
+      assessmentName: ctx.session.assessmentName,
+    },
+    resolvedBrandTheme: ctx.brandTheme,
+  }
+
+  const generatedAt = new Date().toISOString()
+  const releasedAt = template.autoRelease ? generatedAt : null
+  const nextStatus = template.autoRelease ? 'released' : 'ready'
+
+  await db.from('report_snapshots').update({
+    status: nextStatus,
+    released_at: releasedAt,
+    generated_at: generatedAt,
+    rendered_data: [resolvedBlock],
+    error_message: null,
+  }).eq('id', snapshotId)
+
+  await db
+    .from('participant_sessions')
+    .update({
+      processing_status: 'ready',
+      processing_error: null,
+      processed_at: generatedAt,
+    })
+    .eq('id', snapshot.participantSessionId)
+
+  try {
+    await enqueueReportSnapshotEvent({
+      snapshotId,
+      campaignId: snapshot.campaignId,
+      participantSessionId: snapshot.participantSessionId,
+      status: nextStatus,
+      generatedAt,
+      releasedAt,
+    })
+  } catch (eventError) {
+    console.error(`[integrations] Failed to enqueue report event for ${snapshotId}:`, eventError)
   }
 }
 
