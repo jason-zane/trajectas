@@ -92,25 +92,37 @@ async function loadConstructLevelEntities(
   assessmentId: string,
   scoreFor: (id: string) => number,
 ): Promise<PreviewEntity[]> {
+  // Source dimension assignment from assessment_constructs (assessment-scoped,
+  // matches the report runner), not the global dimension_constructs library —
+  // otherwise the preview and the rendered report can drift if an assessment
+  // overrides the library mapping.
   const { data: ac } = await db
     .from('assessment_constructs')
-    .select('construct_id, constructs(id, name, definition, description, indicators_low, indicators_mid, indicators_high, strength_commentary, development_suggestion, anchor_low, anchor_high)')
+    .select('construct_id, dimension_id, weight, constructs(id, name, definition, description, indicators_low, indicators_mid, indicators_high, strength_commentary, development_suggestion, anchor_low, anchor_high)')
     .eq('assessment_id', assessmentId)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const constructRows = (ac ?? []).map((r: any) => r.constructs).filter(Boolean)
-
-  const constructIds = constructRows.map((c: { id: string }) => c.id)
-  const { data: dcLinks } = constructIds.length === 0
-    ? { data: [] as Array<{ dimension_id: string; construct_id: string; weight: number }> }
-    : await db
-        .from('dimension_constructs')
-        .select('dimension_id, construct_id, weight')
-        .in('construct_id', constructIds)
+  type AcRow = {
+    construct_id: string
+    dimension_id: string | null
+    weight: number | string | null
+    constructs: Record<string, unknown> | null
+  }
+  const acRows = (ac ?? []) as unknown as AcRow[]
+  const constructRows = acRows
+    .map((r) => r.constructs)
+    .filter((c): c is Record<string, unknown> => !!c)
 
   type DcLink = { dimension_id: string; construct_id: string; weight: number }
+  const dcLinks: DcLink[] = acRows
+    .filter((r): r is AcRow & { dimension_id: string } => !!r.dimension_id)
+    .map((r) => ({
+      dimension_id: r.dimension_id,
+      construct_id: r.construct_id,
+      weight: r.weight == null ? 1 : Number(r.weight),
+    }))
+
   const linksByDimension = new Map<string, DcLink[]>()
-  for (const link of (dcLinks ?? []) as DcLink[]) {
+  for (const link of dcLinks) {
     const list = linksByDimension.get(link.dimension_id) ?? []
     list.push(link)
     linksByDimension.set(link.dimension_id, list)
@@ -140,11 +152,12 @@ async function loadConstructLevelEntities(
     return mapToPreviewEntity(d, 'dimension', undefined, pomp)
   })
 
-  const constructEntities: PreviewEntity[] = (constructRows as Array<Record<string, unknown>>).map((c) => {
+  const parentByConstruct = new Map<string, string>()
+  for (const l of dcLinks) parentByConstruct.set(l.construct_id, l.dimension_id)
+
+  const constructEntities: PreviewEntity[] = constructRows.map((c) => {
     const id = String(c.id)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const parentId = (dcLinks ?? []).find((l: any) => l.construct_id === id)?.dimension_id as string | undefined
-    return mapToPreviewEntity(c, 'construct', parentId, constructScores.get(id)!)
+    return mapToPreviewEntity(c, 'construct', parentByConstruct.get(id), constructScores.get(id)!)
   })
 
   return [...dimensionEntities, ...constructEntities]

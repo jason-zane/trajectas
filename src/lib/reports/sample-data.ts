@@ -212,7 +212,7 @@ function generateBlockSampleData(
       }
       return {
         palette,
-        scores: filtered.slice(0, 8).map((e, i) => ({
+        scores: filtered.map((e, i) => ({
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
@@ -402,6 +402,17 @@ function generateBlockSampleData(
       const showIndicators = config.showIndicators !== false
       const showDefinition = config.showDefinition !== false
       const showNested = config.showNestedScores === true
+
+      // Derive nestedLabel based on the type of nested children we'd render.
+      // Honors any explicit user override (anything other than the legacy
+      // default 'Factors' is kept as-is).
+      const nestedChildIsConstruct = showNested && filtered.some((e) =>
+        entities.some((c) => c.parentId === e.id && c.type === 'construct'),
+      )
+      const isLegacyNestedLabel = !config.nestedLabel || config.nestedLabel === 'Factors'
+      const resolvedNestedLabel = isLegacyNestedLabel
+        ? (nestedChildIsConstruct ? 'Constructs' : 'Factors')
+        : (typeof config.nestedLabel === 'string' ? config.nestedLabel : 'Factors')
       const detailEntities = filtered.map((e) => {
         const indicator = resolveIndicator(e, e.bandResult.indicatorTier)
         const narrative = showIndicators && indicator ? indicator : null
@@ -447,7 +458,7 @@ function generateBlockSampleData(
           showIndicators: showIndicators,
           showDevelopment: config.showDevelopment === true,
           showNestedScores: config.showNestedScores === true,
-          nestedLabel: typeof config.nestedLabel === 'string' ? config.nestedLabel : 'Factors',
+          nestedLabel: resolvedNestedLabel,
         },
       }
     }
