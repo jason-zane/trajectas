@@ -49,3 +49,10 @@ yarn-error.log*
 next-env.d.ts
 .superpowers/
 .worktrees/
+
+# claude code scratch state
+.claude/worktrees/
+.claude/scheduled_tasks.lock
+
+# supabase cli scratch
+supabase/.temp/
