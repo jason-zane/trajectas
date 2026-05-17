@@ -697,7 +697,14 @@ async function resolveBlockData(
     }
 
     if (entities.length === 0) return { _empty: true, reason: 'no scored entities found' }
-    return { palette: scheme.palette, entities, config }
+
+    // Derive nestedLabel for the construct-level case when the user hasn't
+    // changed the legacy default. Honors any explicit override.
+    const isLegacyNestedLabel = !config.nestedLabel || config.nestedLabel === 'Factors'
+    const effectiveConfig = isLegacyNestedLabel
+      ? { ...config, nestedLabel: scoringLevel === 'construct' ? 'Constructs' : 'Factors' }
+      : config
+    return { palette: scheme.palette, entities, config: effectiveConfig }
   }
 
   if (block.type === 'score_overview') {
