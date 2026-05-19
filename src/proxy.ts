@@ -377,7 +377,17 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  if (configuredSurface === "assess" && !pathname.startsWith("/assess")) {
+  if (
+    configuredSurface === "assess" &&
+    !pathname.startsWith("/assess") &&
+    !pathname.startsWith("/api")
+  ) {
+    // Canonicalise page routes to /assess/<path> on the assess subdomain.
+    // API routes (`/api/...`) MUST be excluded — they live at the app root in
+    // the route tree, not under /app/assess/. Without this guard a fetch to
+    // `/api/assess/save-batch` from assess.trajectas.com gets 307'd to
+    // `/assess/api/assess/save-batch` (404), silently breaking every save
+    // queue and progress sendBeacon issued from the runner.
     const assessPath = pathname === "/" ? "/assess" : `/assess${pathname}`;
     const target = buildSurfaceUrl("assess", assessPath, search) ?? new URL(assessPath, request.url);
     const response = NextResponse.redirect(target);
