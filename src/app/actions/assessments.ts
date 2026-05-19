@@ -1599,3 +1599,345 @@ export async function bulkUpdateAssessmentStatus(ids: string[], status: string) 
   if (error) return { error: error.message }
   revalidateAssessmentPaths()
 }
+
+// ---------------------------------------------------------------------------
+// Focused per-tab update actions
+// ---------------------------------------------------------------------------
+// These actions update a single concern of an assessment so the tabbed editor
+// can save one tab without trampling the others. They are intentionally narrow:
+// each replaces only the rows it owns. Use createAssessment / updateAssessment
+// for the legacy single-shot create+overwrite flow.
+
+type ActionResult<T = void> =
+  | (T extends void ? { success: true } : { success: true; data: T })
+  | { error: string }
+
+export async function updateAssessmentMeta(
+  assessmentId: string,
+  updates: {
+    title?: string
+    description?: string | null
+    status?: 'draft' | 'active' | 'archived'
+    sourceId?: string | null
+  },
+): Promise<ActionResult> {
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) return { error: error.message }
+    throw error
+  }
+  if (!scope) return { error: 'Unable to resolve assessment scope.' }
+
+  const patch: Record<string, unknown> = {}
+  if (updates.title !== undefined) {
+    const trimmed = updates.title.trim()
+    if (!trimmed) return { error: 'Title cannot be empty.' }
+    if (trimmed.length > 300) return { error: 'Title is too long (max 300 chars).' }
+    patch.title = trimmed
+  }
+  if (updates.description !== undefined) {
+    patch.description = updates.description ?? null
+  }
+  if (updates.status !== undefined) {
+    patch.status = updates.status
+  }
+  if (updates.sourceId !== undefined) {
+    patch.source_id = updates.sourceId || null
+  }
+
+  if (Object.keys(patch).length === 0) return { success: true }
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessments')
+    .update(patch)
+    .eq('id', assessmentId)
+
+  if (error) {
+    logActionError('updateAssessmentMeta', error)
+    return { error: 'Unable to save changes.' }
+  }
+
+  revalidateAssessmentPaths()
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.meta.updated',
+    targetTable: 'assessments',
+    targetId: assessmentId,
+    metadata: { fields: Object.keys(patch) },
+  })
+  return { success: true }
+}
+
+/**
+ * Replace the factor or construct selection on an assessment. Does NOT touch
+ * sections or fc_blocks — those are owned by the Presentation tab and may need
+ * to be regenerated after composition changes.
+ */
+export async function updateAssessmentComposition(
+  assessmentId: string,
+  payload:
+    | { scoringLevel: 'factor'; factors: Array<{ factorId: string; weight?: number }> }
+    | {
+        scoringLevel: 'construct'
+        constructs: Array<{ constructId: string; dimensionId?: string | null; weight?: number }>
+      },
+): Promise<ActionResult> {
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) return { error: error.message }
+    throw error
+  }
+  if (!scope) return { error: 'Unable to resolve assessment scope.' }
+
+  // Guard: cannot restructure an assessment that already has participant responses.
+  const db = createAdminClient()
+  const responseCheck = await assertNoParticipantResponses(db, assessmentId)
+  if (responseCheck) return { error: responseCheck }
+
+  if (payload.scoringLevel === 'factor') {
+    await db.from('assessment_factors').delete().eq('assessment_id', assessmentId)
+    if (payload.factors.length > 0) {
+      const rows = payload.factors.map((f) => ({
+        assessment_id: assessmentId,
+        factor_id: f.factorId,
+        weight: f.weight ?? 1,
+        item_count: 0,
+      }))
+      const { error } = await db.from('assessment_factors').insert(rows)
+      if (error) {
+        logActionError('updateAssessmentComposition.factors', error)
+        return { error: 'Unable to save factor selection.' }
+      }
+    }
+  } else {
+    await db.from('assessment_constructs').delete().eq('assessment_id', assessmentId)
+    if (payload.constructs.length > 0) {
+      const rows = payload.constructs.map((c) => ({
+        assessment_id: assessmentId,
+        construct_id: c.constructId,
+        dimension_id: c.dimensionId ?? null,
+        weight: c.weight ?? 1,
+        item_count: 0,
+      }))
+      const { error } = await db.from('assessment_constructs').insert(rows)
+      if (error) {
+        logActionError('updateAssessmentComposition.constructs', error)
+        return { error: 'Unable to save construct selection.' }
+      }
+    }
+  }
+
+  revalidateAssessmentPaths()
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.composition.updated',
+    targetTable: 'assessments',
+    targetId: assessmentId,
+    metadata: { scoringLevel: payload.scoringLevel },
+  })
+  return { success: true }
+}
+
+/**
+ * Replace the section / fc-block configuration on an assessment, plus the
+ * top-level format_mode toggle. Does NOT touch composition.
+ */
+export async function updateAssessmentPresentation(
+  assessmentId: string,
+  payload: {
+    formatMode: 'traditional' | 'forced_choice'
+    fcBlockSize?: 3 | 4 | null
+    sections?: SectionDraft[]
+    forcedChoiceBlocks?: ForcedChoiceBlockDraft[]
+  },
+): Promise<ActionResult> {
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) return { error: error.message }
+    throw error
+  }
+  if (!scope) return { error: 'Unable to resolve assessment scope.' }
+
+  const db = createAdminClient()
+
+  const responseCheck = await assertNoParticipantResponses(db, assessmentId)
+  if (responseCheck) return { error: responseCheck }
+
+  // Read current scoring level + composition once so persistSections can scope items.
+  const { data: assessmentRow, error: assessmentReadErr } = await db
+    .from('assessments')
+    .select('scoring_level')
+    .eq('id', assessmentId)
+    .single()
+  if (assessmentReadErr || !assessmentRow) {
+    return { error: 'Assessment not found.' }
+  }
+  const scoringLevel = assessmentRow.scoring_level as 'factor' | 'construct'
+
+  let factorIds: string[] = []
+  let constructIds: string[] = []
+  if (scoringLevel === 'factor') {
+    const { data } = await db
+      .from('assessment_factors')
+      .select('factor_id')
+      .eq('assessment_id', assessmentId)
+    factorIds = ((data ?? []) as { factor_id: string }[]).map((r) => r.factor_id)
+  } else {
+    const { data } = await db
+      .from('assessment_constructs')
+      .select('construct_id')
+      .eq('assessment_id', assessmentId)
+    constructIds = ((data ?? []) as { construct_id: string }[]).map((r) => r.construct_id)
+  }
+
+  // Update top-level fields
+  const { error: updErr } = await db
+    .from('assessments')
+    .update({
+      format_mode: payload.formatMode,
+      fc_block_size: payload.formatMode === 'forced_choice' ? payload.fcBlockSize ?? null : null,
+    })
+    .eq('id', assessmentId)
+  if (updErr) {
+    logActionError('updateAssessmentPresentation.assessmentUpdate', updErr)
+    return { error: 'Unable to save presentation settings.' }
+  }
+
+  // Wipe & replace sections and FC blocks.
+  await db.from('assessment_sections').delete().eq('assessment_id', assessmentId)
+
+  const { data: existingBlockIds } = await db
+    .from('forced_choice_blocks')
+    .select('id')
+    .eq('assessment_id', assessmentId)
+  const oldBlockIds = ((existingBlockIds ?? []) as { id: string }[]).map((b) => b.id)
+  if (oldBlockIds.length > 0) {
+    await db.from('forced_choice_block_items').delete().in('block_id', oldBlockIds)
+    await db.from('forced_choice_blocks').delete().eq('assessment_id', assessmentId)
+  }
+
+  if (payload.formatMode === 'traditional') {
+    const sections = payload.sections ?? []
+    if (sections.length > 0) {
+      const err = await persistSections(db, assessmentId, sections, {
+        factorIds,
+        constructIds: scoringLevel === 'construct' ? constructIds : [],
+      })
+      if (err) return { error: err }
+    }
+  } else {
+    const blocks = payload.forcedChoiceBlocks ?? []
+    if (blocks.length > 0) {
+      const err = await persistForcedChoiceBlocks(db, assessmentId, blocks)
+      if (err) return { error: err }
+    }
+  }
+
+  revalidateAssessmentPaths()
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.presentation.updated',
+    targetTable: 'assessments',
+    targetId: assessmentId,
+    metadata: { formatMode: payload.formatMode },
+  })
+  return { success: true }
+}
+
+/**
+ * Minimal-fields creator for the simplified `/assessments/create` flow.
+ * Sets up a draft assessment with metadata only; composition and presentation
+ * are configured afterwards through the tabbed editor.
+ */
+export async function createAssessmentDraft(payload: {
+  title: string
+  description?: string
+  scoringLevel: 'factor' | 'construct'
+  sourceId?: string
+}): Promise<{ success: true; id: string } | { error: string }> {
+  let scope = null as Awaited<ReturnType<typeof requireAssessmentBuilderScope>> | null
+  try {
+    scope = await requireAssessmentBuilderScope()
+  } catch (error) {
+    if (error instanceof AuthorizationError) return { error: error.message }
+    throw error
+  }
+  if (!scope) return { error: 'Unable to resolve assessment scope.' }
+
+  const title = payload.title.trim()
+  if (!title) return { error: 'Title is required.' }
+  if (title.length > 300) return { error: 'Title is too long (max 300 chars).' }
+
+  const partnerId = scope.isPlatformAdmin
+    ? null
+    : getPreferredPartnerIdForAssessmentCreation(scope)
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('assessments')
+    .insert({
+      partner_id: partnerId,
+      title,
+      description: payload.description?.trim() || null,
+      status: 'draft',
+      item_selection_strategy: 'fixed',
+      scoring_method: 'ctt',
+      creation_mode: 'manual',
+      format_mode: 'traditional',
+      scoring_level: payload.scoringLevel,
+      source_id: payload.sourceId || null,
+    })
+    .select('id')
+    .single()
+
+  if (error || !data) {
+    logActionError('createAssessmentDraft', error)
+    return { error: 'Unable to create assessment.' }
+  }
+
+  revalidateAssessmentPaths()
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.created',
+    targetTable: 'assessments',
+    targetId: data.id,
+    metadata: { source: 'draft-create' },
+  })
+
+  return { success: true, id: data.id }
+}
+
+/**
+ * Returns a string error message if the assessment has participant responses
+ * (and therefore cannot be restructured), or null if it's safe to modify.
+ */
+async function assertNoParticipantResponses(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  assessmentId: string,
+): Promise<string | null> {
+  const { data: sectionRows } = await db
+    .from('assessment_sections')
+    .select('id')
+    .eq('assessment_id', assessmentId)
+
+  const sectionIds = ((sectionRows ?? []) as { id: string }[]).map((s) => s.id)
+  if (sectionIds.length === 0) return null
+
+  const { count } = await db
+    .from('participant_responses')
+    .select('*', { count: 'exact', head: true })
+    .in('section_id', sectionIds)
+
+  if (count && count > 0) {
+    return `Cannot modify this assessment's structure: ${count} participant response(s) already exist. Clone this assessment into a new version to make structural changes.`
+  }
+  return null
+}

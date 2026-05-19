@@ -26,7 +26,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import {
   Select,
   SelectContent,
@@ -792,7 +791,7 @@ function SectionFields({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-xs">Item Ordering</Label>
+          <Label className="text-xs">Item ordering</Label>
           <Select
             value={section.itemOrdering}
             onValueChange={(v) => onChange({ itemOrdering: v as ItemOrdering })}
@@ -818,51 +817,29 @@ function SectionFields({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs">Items Per Page</Label>
+          <Label className="text-xs">Duration override (minutes)</Label>
           <Input
             type="number"
             min={1}
-            value={section.itemsPerPage ?? ""}
+            value={
+              section.timeLimitSeconds != null
+                ? Math.round(section.timeLimitSeconds / 60)
+                : ""
+            }
             onChange={(e) =>
               onChange({
-                itemsPerPage: e.target.value ? Number(e.target.value) : null,
+                timeLimitSeconds: e.target.value
+                  ? Math.max(1, Number(e.target.value)) * 60
+                  : null,
               })
             }
-            placeholder="All on one page"
+            placeholder="Auto"
             className="h-9 text-sm"
           />
-          <p className="text-[11px] text-muted-foreground">
-            Leave blank to show all items on one scrollable page.
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Replaces the auto-calculated estimate shown to participants.
+            Display only — items aren&apos;t time-gated by the runner.
           </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-xs">Time Limit (seconds)</Label>
-          <Input
-            type="number"
-            min={1}
-            value={section.timeLimitSeconds ?? ""}
-            onChange={(e) =>
-              onChange({
-                timeLimitSeconds: e.target.value ? Number(e.target.value) : null,
-              })
-            }
-            placeholder="No time limit"
-            className="h-9 text-sm"
-          />
-        </div>
-
-        <div className="flex items-center justify-between rounded-lg border px-3 py-2.5">
-          <div>
-            <Label className="text-xs">Allow Back Navigation</Label>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Can participants go back within this section?
-            </p>
-          </div>
-          <Switch
-            checked={section.allowBackNav}
-            onCheckedChange={(v) => onChange({ allowBackNav: v })}
-          />
         </div>
       </div>
     </div>

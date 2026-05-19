@@ -25,12 +25,6 @@ const STATUS_VARIANT: Record<string, "secondary" | "default" | "outline"> = {
   archived: "outline",
 };
 
-const CREATION_MODE_LABEL: Record<string, string> = {
-  manual: "Manual",
-  ai_generated: "AI Generated",
-  org_choice: "Org Choice",
-};
-
 const columns: ColumnDef<AssessmentWithMeta>[] = [
   {
     accessorKey: "title",
@@ -57,17 +51,6 @@ const columns: ColumnDef<AssessmentWithMeta>[] = [
     cell: ({ row }) => (
       <Badge variant={STATUS_VARIANT[row.original.status] ?? "secondary"}>
         {row.original.status}
-      </Badge>
-    ),
-  },
-  {
-    accessorKey: "creationMode",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Creation Mode" />
-    ),
-    cell: ({ row }) => (
-      <Badge variant="outline">
-        {CREATION_MODE_LABEL[row.original.creationMode] ?? row.original.creationMode}
       </Badge>
     ),
   },
