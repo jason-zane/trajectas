@@ -105,6 +105,8 @@ function defaultSectionFromFormat(group: FormatGroup, order: number): SectionDra
 
 interface SectionConfiguratorProps {
   factorIds: string[]
+  /** Selected construct ids — populated when the assessment is construct-scored. */
+  constructIds?: string[]
   sections: SectionDraft[]
   onSectionsChange: (sections: SectionDraft[]) => void
   existingSections?: SectionDraft[]
@@ -124,6 +126,7 @@ interface SectionConfiguratorProps {
 
 export function SectionConfigurator({
   factorIds,
+  constructIds = [],
   sections,
   onSectionsChange,
   existingSections,
@@ -139,9 +142,11 @@ export function SectionConfigurator({
   const [loading, setLoading] = useState(false)
   const [formatGroups, setFormatGroups] = useState<FormatGroup[]>([])
 
-  // Fetch format breakdown when factors change
+  // Fetch format breakdown when the selected factors or constructs change.
+  // Either scope is sufficient; construct-level assessments have factorIds=[] but
+  // a populated constructIds list, and vice versa.
   useEffect(() => {
-    if (factorIds.length === 0) {
+    if (factorIds.length === 0 && constructIds.length === 0) {
       setFormatGroups([])
       onSectionsChange([])
       return
@@ -150,7 +155,7 @@ export function SectionConfigurator({
     let cancelled = false
     setLoading(true)
 
-    getFormatBreakdown(factorIds).then((groups) => {
+    getFormatBreakdown({ factorIds, constructIds }).then((groups) => {
       if (cancelled) return
       setFormatGroups(groups)
       setLoading(false)
@@ -171,7 +176,7 @@ export function SectionConfigurator({
 
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [factorIds.join(",")])
+  }, [factorIds.join(","), constructIds.join(",")])
 
   const updateSection = useCallback(
     (index: number, updates: Partial<SectionDraft>) => {
@@ -182,7 +187,7 @@ export function SectionConfigurator({
     [sections, onSectionsChange]
   )
 
-  if (factorIds.length === 0) return null
+  if (factorIds.length === 0 && constructIds.length === 0) return null
 
   return (
     <div className="space-y-6">

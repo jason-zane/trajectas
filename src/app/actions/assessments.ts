@@ -619,23 +619,34 @@ export async function getAssessmentWithFactors(id: string): Promise<{
 }
 
 /**
- * Get item format breakdown for selected factors.
- * Returns how many active items exist per response format
- * across the given factors' constructs.
+ * Get item format breakdown for selected factors or constructs.
+ * Returns how many active items exist per response format across the given
+ * factors' constructs (factor-scope) or the given constructs directly
+ * (construct-scope). Accepts a legacy positional factorIds array, or a scope
+ * object naming factorIds / constructIds explicitly.
  */
-export async function getFormatBreakdown(factorIds: string[]): Promise<FormatGroup[]> {
+export async function getFormatBreakdown(
+  scope: string[] | { factorIds?: string[]; constructIds?: string[] },
+): Promise<FormatGroup[]> {
   await requireAssessmentBuilderScope()
-  if (factorIds.length === 0) return []
+
+  const factorIds = Array.isArray(scope) ? scope : scope.factorIds ?? []
+  const directConstructIds = Array.isArray(scope) ? [] : scope.constructIds ?? []
+
+  if (factorIds.length === 0 && directConstructIds.length === 0) return []
 
   const db = createAdminClient()
 
-  // Get construct IDs for these factors
-  const { data: links } = await db
-    .from('factor_constructs')
-    .select('construct_id')
-    .in('factor_id', factorIds)
-
-  const constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
+  let constructIds: string[]
+  if (directConstructIds.length > 0) {
+    constructIds = [...new Set(directConstructIds)]
+  } else {
+    const { data: links } = await db
+      .from('factor_constructs')
+      .select('construct_id')
+      .in('factor_id', factorIds)
+    constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
+  }
   if (constructIds.length === 0) return []
 
   // Determine per-construct limit from rules
@@ -866,7 +877,11 @@ export async function createAssessment(payload: Record<string, unknown>) {
   const sections = (payload.sections ?? []) as SectionDraft[]
   if (sections.length > 0 && parsed.data.formatMode === 'traditional') {
     const factorIds = parsed.data.factors.map((f) => f.factorId)
-    const sectionErr = await persistSections(db, assessment.id, sections, factorIds)
+    const constructIds = parsed.data.constructs.map((c) => c.constructId)
+    const sectionErr = await persistSections(db, assessment.id, sections, {
+      factorIds,
+      constructIds: scoringLevel === 'construct' ? constructIds : [],
+    })
     if (sectionErr) return { error: { _form: [sectionErr] } }
   }
 
@@ -1016,7 +1031,11 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     const sections = (payload.sections ?? []) as SectionDraft[]
     if (sections.length > 0) {
       const factorIds = parsed.data.factors.map((f) => f.factorId)
-      const sectionErr = await persistSections(db, id, sections, factorIds)
+      const constructIds = parsed.data.constructs.map((c) => c.constructId)
+      const sectionErr = await persistSections(db, id, sections, {
+        factorIds,
+        constructIds: updatedScoringLevel === 'construct' ? constructIds : [],
+      })
       if (sectionErr) return { error: { _form: [sectionErr] } }
     }
 
@@ -1316,7 +1335,7 @@ async function persistSections(
   db: any,
   assessmentId: string,
   sections: SectionDraft[],
-  factorIds: string[],
+  scope: { factorIds: string[]; constructIds?: string[] },
 ): Promise<string | null> {
   // Insert sections
   const sectionInserts = sections.map((s) => ({
@@ -1338,13 +1357,21 @@ async function persistSections(
 
   if (secErr) return secErr.message
 
-  // Get construct IDs for these factors
-  const { data: links } = await db
-    .from('factor_constructs')
-    .select('construct_id')
-    .in('factor_id', factorIds)
-
-  const constructIds = [...new Set((links ?? []).map((l: { construct_id: string }) => l.construct_id))]
+  // Resolve construct IDs: prefer direct construct scope; otherwise expand factors.
+  let constructIds: string[]
+  if (scope.constructIds && scope.constructIds.length > 0) {
+    constructIds = [...new Set(scope.constructIds)]
+  } else {
+    const { data: links } = await db
+      .from('factor_constructs')
+      .select('construct_id')
+      .in('factor_id', scope.factorIds)
+    constructIds = [
+      ...new Set(
+        ((links ?? []) as { construct_id: string }[]).map((l) => l.construct_id),
+      ),
+    ]
+  }
   if (constructIds.length === 0) return null
 
   // Determine per-construct limit from rules
