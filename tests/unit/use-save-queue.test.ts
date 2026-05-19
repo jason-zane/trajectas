@@ -1,6 +1,15 @@
 // @vitest-environment jsdom
+import 'fake-indexeddb/auto'
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+
+import { useSaveQueue } from '@/components/assess/use-save-queue'
+import {
+  countPending,
+  getResponsesForSession,
+  getResponseDb,
+} from '@/lib/assess/response-store'
 
 const mockFetch = vi.fn()
 
@@ -11,73 +20,79 @@ function jsonResponse(status = 200, body: Record<string, unknown> = { success: t
   })
 }
 
-const { useSaveQueue } = await import('@/components/assess/use-save-queue')
+/** Vitest's jsdom environment lacks BroadcastChannel — stub it. */
+class FakeBroadcastChannel {
+  name: string
+  onmessage: ((event: MessageEvent) => void) | null = null
+  constructor(name: string) {
+    this.name = name
+  }
+  postMessage() {
+    /* no-op */
+  }
+  close() {
+    /* no-op */
+  }
+}
 
-describe('useSaveQueue', () => {
-  beforeEach(() => {
+describe('useSaveQueue (IndexedDB-backed)', () => {
+  beforeEach(async () => {
     vi.clearAllMocks()
-    // Fake only the timer APIs — leaving queueMicrotask alone so awaited
-    // promise continuations (e.g. the post-fetch retry-scheduling chain) run
-    // normally between timer advances.
-    vi.useFakeTimers({
-      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
-    })
     mockFetch.mockResolvedValue(jsonResponse())
     vi.stubGlobal('fetch', mockFetch)
+    vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
+    // Wipe IDB between tests so each one starts clean.
+    await getResponseDb().responses.clear()
   })
 
   afterEach(() => {
-    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
-  function bodyOf(call: unknown): Record<string, unknown> {
-    const [, init] = call as [string, RequestInit]
-    return JSON.parse(init.body as string)
+  const cfg = { token: 'tok', sessionId: '00000000-0000-0000-0000-000000000001' }
+
+  async function settle(ms = 2000) {
+    // Real timers — let the IDB writes and debounced flush happen on their
+    // own schedule. The debounce is 1500ms; 2000ms covers it comfortably.
+    await new Promise((r) => setTimeout(r, ms))
   }
 
-  it('processes a single save successfully', async () => {
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
-    )
-
-    await act(async () => {
-      result.current.enqueueSave({
-        itemId: 'item-1',
-        sectionId: 'sec-1',
-        value: 3,
-      })
-      await vi.waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(1)
-      })
-    })
-
-    expect(mockFetch.mock.calls[0][0]).toBe('/api/assess/save')
-    expect(bodyOf(mockFetch.mock.calls[0])).toMatchObject({
-      token: 'tok',
-      sessionId: 'sess',
-      itemId: 'item-1',
-      sectionId: 'sec-1',
-      responseValue: 3,
-    })
-    expect(result.current.saveStatus).toBe('saved')
-    expect(result.current.saveError).toBe(false)
-  })
-
-  it('fires multiple distinct-itemId saves concurrently up to CONCURRENCY', async () => {
-    // Hold every fetch open until we release it, so we can observe true
-    // concurrency rather than serial completion order.
-    const resolvers: Array<() => void> = []
+  it('persists each enqueueSave to IndexedDB before any network call', async () => {
+    // Hold the fetch open so we can observe IDB state before the POST resolves.
+    let release: (() => void) | null = null
     mockFetch.mockImplementation(
       () =>
         new Promise<Response>((resolve) => {
-          resolvers.push(() => resolve(jsonResponse()))
+          release = () => resolve(jsonResponse())
         }),
     )
 
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
-    )
+    const { result } = renderHook(() => useSaveQueue(cfg))
+
+    await act(async () => {
+      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec-1', value: 3 })
+      // Give the put/countPending microtasks a chance to settle.
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    // IDB has the row already, well before the debounced POST fires.
+    const stored = await getResponsesForSession(cfg.sessionId)
+    expect(stored.get('item-1')).toEqual({ value: 3, data: {} })
+    expect(mockFetch).not.toHaveBeenCalled()
+
+    // Release the fetch and let the flush complete.
+    await act(async () => {
+      await settle()
+      release?.()
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    expect(await countPending(cfg.sessionId)).toBe(0)
+  })
+
+  it('batches multiple enqueues into a single POST', async () => {
+    const { result } = renderHook(() => useSaveQueue(cfg))
 
     await act(async () => {
       for (let i = 1; i <= 5; i++) {
@@ -87,164 +102,129 @@ describe('useSaveQueue', () => {
           value: i,
         })
       }
-      await vi.waitFor(() => {
-        // CONCURRENCY = 4 → first four fire immediately, fifth waits.
-        expect(mockFetch).toHaveBeenCalledTimes(4)
-      })
+      await settle()
     })
 
-    // Release the first four; the fifth should then fire.
-    await act(async () => {
-      for (const r of resolvers.splice(0, 4)) r()
-      await vi.waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(5)
-      })
-      // Release the fifth too so the queue drains and the test exits cleanly.
-      for (const r of resolvers.splice(0)) r()
-    })
+    // Five rapid clicks should produce ONE POST containing all five rows
+    // (below the FLUSH_PENDING_THRESHOLD=8 fast-flush trigger).
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+    const call = mockFetch.mock.calls[0]
+    const body = JSON.parse((call[1] as RequestInit).body as string)
+    expect(body.saves).toHaveLength(5)
+    expect(body.saves.map((s: { itemId: string }) => s.itemId)).toEqual([
+      'item-1', 'item-2', 'item-3', 'item-4', 'item-5',
+    ])
+    expect(await countPending(cfg.sessionId)).toBe(0)
   })
 
-  it('serialises saves for the same itemId across concurrent fires', async () => {
-    const resolvers: Array<() => void> = []
-    const fireOrder: number[] = []
-    mockFetch.mockImplementation(
-      (_url: string, init: RequestInit) =>
-        new Promise<Response>((resolve) => {
-          const body = JSON.parse(init.body as string)
-          fireOrder.push(body.responseValue)
-          resolvers.push(() => resolve(jsonResponse()))
-        }),
-    )
-
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
-    )
+  it('fast-flushes immediately when pending count crosses the threshold', async () => {
+    const { result } = renderHook(() => useSaveQueue(cfg))
 
     await act(async () => {
-      // Three saves for SAME itemId — should fire one at a time, last value wins.
-      result.current.enqueueSave({ itemId: 'item-X', sectionId: 'sec', value: 1 })
-      result.current.enqueueSave({ itemId: 'item-X', sectionId: 'sec', value: 2 })
-      result.current.enqueueSave({ itemId: 'item-X', sectionId: 'sec', value: 3 })
-
-      await vi.waitFor(() => {
-        // Only the first should be in flight; values 2 and 3 dedup into one queued entry.
-        expect(mockFetch).toHaveBeenCalledTimes(1)
-      })
+      // 8 enqueues triggers immediate flush per FLUSH_PENDING_THRESHOLD.
+      for (let i = 1; i <= 8; i++) {
+        result.current.enqueueSave({
+          itemId: `item-${i}`,
+          sectionId: 'sec-1',
+          value: i,
+        })
+      }
+      // No need to wait for the debounce — the threshold should have fired.
+      await new Promise((r) => setTimeout(r, 200))
     })
 
-    expect(fireOrder).toEqual([1])
-
-    // Release the in-flight save; the deduped follow-up (value=3, not 2) should fire next.
-    await act(async () => {
-      resolvers.shift()!()
-      await vi.waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(2)
-      })
-      resolvers.shift()!()
-    })
-
-    expect(fireOrder).toEqual([1, 3])
+    expect(mockFetch).toHaveBeenCalledTimes(1)
   })
 
-  it('retries failed saves up to MAX_RETRIES then moves to failed list', async () => {
+  it('keeps rows pending in IDB on POST failure', async () => {
     mockFetch.mockResolvedValue(jsonResponse(500, { error: 'boom' }))
 
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
-    )
+    const { result } = renderHook(() => useSaveQueue(cfg))
 
     await act(async () => {
-      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec-1', value: 3 })
-      // Drain the full retry chain. runAllTimersAsync chases setTimeout
-      // callbacks (and microtasks scheduled inside them) until the queue
-      // settles or the max-retries threshold is hit.
-      await vi.runAllTimersAsync()
+      result.current.enqueueSave({ itemId: 'item-x', sectionId: 'sec', value: 1 })
+      await settle()
     })
 
-    // 1 initial attempt + 4 retries = 5 total calls (MAX_RETRIES = 5).
-    expect(mockFetch).toHaveBeenCalledTimes(5)
-    expect(result.current.saveError).toBe(true)
+    expect(mockFetch).toHaveBeenCalled()
+    // Row stayed pending — the user's response is not lost.
+    expect(await countPending(cfg.sessionId)).toBe(1)
   })
 
-  it('retryFailedSaves re-enqueues failed entries', async () => {
-    let callCount = 0
-    mockFetch.mockImplementation(async () => {
-      callCount++
-      if (callCount <= 5) return jsonResponse(500, { error: 'boom' })
-      return jsonResponse()
-    })
-
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
-    )
+  it('flushSaves drains pending and returns true on success', async () => {
+    const { result } = renderHook(() => useSaveQueue(cfg))
 
     await act(async () => {
-      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec-1', value: 3 })
-      await vi.runAllTimersAsync()
+      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec', value: 1 })
+      result.current.enqueueSave({ itemId: 'item-2', sectionId: 'sec', value: 2 })
+      // Don't wait for the debounce — flushSaves should drain immediately.
     })
 
-    expect(result.current.saveError).toBe(true)
+    let ok: boolean | null = null
+    await act(async () => {
+      ok = await result.current.flushSaves()
+    })
+
+    expect(ok).toBe(true)
+    expect(await countPending(cfg.sessionId)).toBe(0)
+  })
+
+  it('hydrates localResponses from IDB on mount', async () => {
+    // Pre-seed IDB with a synced row from a "previous session".
+    await getResponseDb().responses.put({
+      sessionId: cfg.sessionId,
+      itemId: 'pre-existing',
+      sectionId: 'sec',
+      value: 4,
+      data: {},
+      idempotencyKey: 'prior',
+      synced: 1,
+      updatedAt: Date.now(),
+    })
+
+    const { result } = renderHook(() => useSaveQueue(cfg))
+
+    await act(async () => {
+      // Give the hydration effect a tick.
+      await new Promise((r) => setTimeout(r, 100))
+    })
+
+    expect(result.current.localResponses).toEqual({
+      'pre-existing': { value: 4, data: {} },
+    })
+  })
+
+  it('retryFailedSaves clears the error flag and re-flushes', async () => {
+    mockFetch.mockResolvedValue(jsonResponse(500, { error: 'boom' }))
+
+    const { result } = renderHook(() => useSaveQueue(cfg))
+
+    await act(async () => {
+      result.current.enqueueSave({ itemId: 'item-r', sectionId: 'sec', value: 9 })
+    })
+
+    // 5 consecutive flush failures surface the error banner. The flusher
+    // uses exponential backoff (1s, 2s, 4s, 8s) between attempts, so we
+    // poll for ~20s before giving up — well under the 30s test timeout.
+    await vi.waitFor(
+      () => {
+        expect(result.current.saveError).toBe(true)
+      },
+      { timeout: 25_000, interval: 500 },
+    )
+
+    mockFetch.mockResolvedValue(jsonResponse())
 
     await act(async () => {
       result.current.retryFailedSaves()
-      await vi.runAllTimersAsync()
     })
 
-    expect(result.current.saveError).toBe(false)
-    // runAllTimersAsync drains every timer including the 2s saved→idle
-    // transition, so saveStatus may have settled to either 'saved' or 'idle'
-    // by this point. Both indicate the queue drained successfully.
-    expect(['saved', 'idle']).toContain(result.current.saveStatus)
-  })
-
-  it('deduplicates pending saves for the same itemId (last-write-wins)', async () => {
-    const savedValues: number[] = []
-    mockFetch.mockImplementation(async (_url: string, init: RequestInit) => {
-      const body = JSON.parse(init.body as string)
-      savedValues.push(body.responseValue)
-      return jsonResponse()
-    })
-
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
+    await vi.waitFor(
+      async () => {
+        expect(result.current.saveError).toBe(false)
+        expect(await countPending(cfg.sessionId)).toBe(0)
+      },
+      { timeout: 5_000, interval: 100 },
     )
-
-    await act(async () => {
-      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec-1', value: 1 })
-      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec-1', value: 2 })
-      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec-1', value: 3 })
-
-      await vi.waitFor(() => {
-        expect(mockFetch).toHaveBeenCalled()
-      })
-    })
-
-    // The first save (value 1) starts immediately, then 2 and 3 dedup to a single
-    // queued entry with value=3. So we expect at most two fetches and the last is 3.
-    expect(savedValues.length).toBeLessThanOrEqual(2)
-    expect(savedValues[savedValues.length - 1]).toBe(3)
-  })
-
-  it('enqueueSaveAndWait resolves when save completes', async () => {
-    const { result } = renderHook(() =>
-      useSaveQueue({ token: 'tok', sessionId: 'sess' })
-    )
-
-    let resolved = false
-    await act(async () => {
-      const promise = result.current.enqueueSaveAndWait({
-        itemId: 'item-1',
-        sectionId: 'sec-1',
-        value: 5,
-      })
-      promise.then((ok) => { resolved = ok })
-
-      await vi.waitFor(() => {
-        expect(mockFetch).toHaveBeenCalledTimes(1)
-      })
-    })
-
-    expect(resolved).toBe(true)
-    expect(result.current.saveStatus).toBe('saved')
-  })
+  }, 30_000)
 })
