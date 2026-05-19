@@ -99,7 +99,14 @@ export function SectionWrapper({
   void privacyUrl;
   void termsUrl;
 
-  const { enqueueSave, retryFailedSaves, flushSaves, saveStatus, saveError } = useSaveQueue({
+  const {
+    enqueueSave,
+    retryFailedSaves,
+    flushSaves,
+    saveStatus,
+    saveError,
+    localResponses,
+  } = useSaveQueue({
     token,
     sessionId,
   });
@@ -131,6 +138,22 @@ export function SectionWrapper({
     return firstUnanswered >= 0 ? firstUnanswered : 0;
   });
   const [responses, setResponses] = useState(existingResponses);
+
+  // When IndexedDB-backed local responses hydrate, merge them into the
+  // server-rendered snapshot. Local writes that haven't synced yet take
+  // precedence — a returning participant sees every response they made,
+  // even ones still pending flush from a previous session.
+  const hydratedLocalRef = useRef(false);
+  useEffect(() => {
+    if (!localResponses || hydratedLocalRef.current) return;
+    if (Object.keys(localResponses).length === 0) {
+      hydratedLocalRef.current = true;
+      return;
+    }
+    hydratedLocalRef.current = true;
+    setResponses((prev) => ({ ...prev, ...localResponses }));
+  }, [localResponses]);
+
   const [isAnimating, setIsAnimating] = useState(false);
   const [isBoundaryPending, setIsBoundaryPending] = useState(false);
 
