@@ -1,5 +1,8 @@
 import { notFound } from "next/navigation"
-import { getAssessmentById } from "@/app/actions/assessments"
+import {
+  getAssessmentById,
+  getAssessmentCustomReportLockNameForAssessment,
+} from "@/app/actions/assessments"
 import { AssessmentEditShell } from "./assessment-edit-shell"
 
 export default async function AssessmentEditLayout({
@@ -10,7 +13,10 @@ export default async function AssessmentEditLayout({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const assessment = await getAssessmentById(id)
+  const [assessment, customReportLockName] = await Promise.all([
+    getAssessmentById(id),
+    getAssessmentCustomReportLockNameForAssessment(id),
+  ])
   if (!assessment) notFound()
 
   return (
@@ -20,6 +26,7 @@ export default async function AssessmentEditLayout({
         title: assessment.title,
         status: assessment.status,
       }}
+      customReportLockName={customReportLockName}
     >
       {children}
     </AssessmentEditShell>

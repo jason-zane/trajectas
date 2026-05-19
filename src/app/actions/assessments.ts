@@ -930,6 +930,11 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
   const db = createAdminClient()
 
+  const lockName = await getAssessmentCustomReportLockName(db, id)
+  if (lockName) {
+    return { error: { _form: [formatTaxonomyLockedError(lockName)] } }
+  }
+
   const updatedScoringLevel = (payload.scoringLevel as string) ?? 'factor'
   const { error: updateErr } = await db
     .from('assessments')
@@ -1227,6 +1232,9 @@ export async function updateAssessmentCustomisation(
   const db = createAdminClient()
 
   if (minCustomFactors !== null) {
+    const lockName = await getAssessmentCustomReportLockName(db, assessmentId)
+    if (lockName) return { error: formatTaxonomyLockedError(lockName) }
+
     // Validate: get factor count for this assessment
     const { count } = await db
       .from('assessment_factors')
@@ -1288,6 +1296,9 @@ export async function updateAssessmentConstructCustomisation(
   const db = createAdminClient()
 
   if (minCustomConstructs !== null) {
+    const lockName = await getAssessmentCustomReportLockName(db, assessmentId)
+    if (lockName) return { error: formatTaxonomyLockedError(lockName) }
+
     const { count } = await db
       .from('assessment_constructs')
       .select('*', { count: 'exact', head: true })
@@ -1325,6 +1336,65 @@ export async function updateAssessmentConstructCustomisation(
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * Public wrapper for callers (server components, other actions) that don't
+ * already have a Supabase admin client in hand. Creates one and delegates
+ * to the internal helper.
+ */
+export async function getAssessmentCustomReportLockNameForAssessment(
+  assessmentId: string,
+): Promise<string | null> {
+  const db = createAdminClient()
+  return getAssessmentCustomReportLockName(db, assessmentId)
+}
+
+/**
+ * Returns the name of the custom report bound to this assessment, if any.
+ * When non-null, the assessment's taxonomy (factor/construct selection,
+ * scoring level, and customisation flags) is locked — its shape underpins
+ * a hand-coded report and can't be mutated without breaking the render.
+ *
+ * Returns null if no custom-report template is attached (i.e. only block-
+ * builder templates, or no templates at all).
+ */
+export async function getAssessmentCustomReportLockName(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  assessmentId: string,
+): Promise<string | null> {
+  const { data, error } = await db
+    .from('assessment_report_templates')
+    .select('report_templates(name, custom_report_slug, deleted_at)')
+    .eq('assessment_id', assessmentId)
+
+  if (error) {
+    logActionError('getAssessmentCustomReportLockName', error)
+    return null
+  }
+
+  type Row = {
+    report_templates:
+      | { name?: string | null; custom_report_slug?: string | null; deleted_at?: string | null }
+      | { name?: string | null; custom_report_slug?: string | null; deleted_at?: string | null }[]
+      | null
+  }
+  for (const row of (data ?? []) as Row[]) {
+    const tpl = Array.isArray(row.report_templates)
+      ? row.report_templates[0]
+      : row.report_templates
+    if (tpl && tpl.custom_report_slug && !tpl.deleted_at) {
+      return tpl.name ? String(tpl.name) : 'a custom report'
+    }
+  }
+  return null
+}
+
+const TAXONOMY_LOCKED_ERROR_PREFIX =
+  'This assessment is bound to a custom report'
+function formatTaxonomyLockedError(lockName: string): string {
+  return `${TAXONOMY_LOCKED_ERROR_PREFIX} ("${lockName}"). Detach the custom report on the assessment's Reports tab before changing its constructs, factors, or customisation settings.`
+}
 
 /**
  * Persist sections for an assessment and auto-assign matching items.
@@ -1698,6 +1768,9 @@ export async function updateAssessmentComposition(
   const db = createAdminClient()
   const responseCheck = await assertNoParticipantResponses(db, assessmentId)
   if (responseCheck) return { error: responseCheck }
+
+  const lockName = await getAssessmentCustomReportLockName(db, assessmentId)
+  if (lockName) return { error: formatTaxonomyLockedError(lockName) }
 
   if (payload.scoringLevel === 'factor') {
     await db.from('assessment_factors').delete().eq('assessment_id', assessmentId)

@@ -1,6 +1,7 @@
 "use client"
 
 import { usePathname } from "next/navigation"
+import { Lock } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { PageHeader } from "@/components/page-header"
 import { RouteTabs } from "@/components/route-tabs"
@@ -25,9 +26,11 @@ const TABS = [
 
 export function AssessmentEditShell({
   assessment,
+  customReportLockName,
   children,
 }: {
   assessment: { id: string; title: string; status: string }
+  customReportLockName: string | null
   children: React.ReactNode
 }) {
   const pathname = usePathname()
@@ -52,6 +55,23 @@ export function AssessmentEditShell({
           {assessment.status}
         </Badge>
       </PageHeader>
+
+      {customReportLockName && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3 text-sm">
+          <Lock className="size-4 mt-0.5 shrink-0 text-amber-700" />
+          <div className="text-amber-900">
+            <p className="font-medium">Taxonomy locked by a custom report.</p>
+            <p className="mt-1 text-amber-900/85">
+              This assessment is bound to{" "}
+              <span className="font-medium">&ldquo;{customReportLockName}&rdquo;</span>, a
+              hand-coded report that depends on a specific construct and factor set.
+              Composition, customisation, and scoring-level changes are disabled while
+              it&apos;s attached. To customise the assessment, remove the custom report on
+              the Reports tab first.
+            </p>
+          </div>
+        </div>
+      )}
 
       <RouteTabs tabs={TABS} basePath={basePath} activeSegment={activeSegment} />
 
