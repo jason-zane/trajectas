@@ -1901,10 +1901,14 @@ export type CampaignAssessmentOption = {
   description?: string
   status: 'draft' | 'active' | 'archived'
   factorCount: number
+  constructCount: number
   sectionCount: number
   totalItemCount: number
   formatLabel?: string
   estimatedDurationMinutes: number
+  scoringLevel: 'factor' | 'construct'
+  minCustomFactors: number | null
+  minCustomConstructs: number | null
 }
 
 function getNestedCount(value: unknown) {
@@ -2362,7 +2366,11 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
       description,
       status,
       format_mode,
+      scoring_level,
+      min_custom_factors,
+      min_custom_constructs,
       assessment_factors(count),
+      assessment_constructs(count),
       assessment_sections(
         id,
         response_formats(type),
@@ -2422,11 +2430,15 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
       description: row.description ?? undefined,
       status: row.status,
       factorCount: getNestedCount(row.assessment_factors),
+      constructCount: getNestedCount(row.assessment_constructs),
       sectionCount: sections.length,
       totalItemCount,
       formatLabel: getFormatLabel(formatTypes, row.format_mode),
       estimatedDurationMinutes:
         estimatedDurationSeconds > 0 ? Math.max(1, Math.ceil(estimatedDurationSeconds / 60)) : 0,
+      scoringLevel: (row.scoring_level ?? 'factor') as 'factor' | 'construct',
+      minCustomFactors: row.min_custom_factors ?? null,
+      minCustomConstructs: row.min_custom_constructs ?? null,
     }
   })
 }

@@ -32,9 +32,17 @@ import {
 } from "@/app/actions/campaigns";
 import { getFactorsForAssessment } from "@/app/actions/factor-selection";
 import { saveFactorSelection } from "@/app/actions/factor-selection";
+import {
+  getConstructsForAssessment,
+  saveConstructSelection,
+} from "@/app/actions/construct-selection";
 import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
 import { FileText, Link2, Mail, Plus, Rocket } from "lucide-react";
-import { CapabilitySelectionStep } from "./capability-selection-step";
+import {
+  CapabilitySelectionStep,
+  type FactorAssessmentData,
+  type ConstructAssessmentData,
+} from "./capability-selection-step";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -137,17 +145,6 @@ interface QuickLaunchModalProps {
 
 type WizardStep = 1 | 2 | 3 | 4;
 
-type AssessmentFactors = Array<{
-  dimensionId: string | null;
-  dimensionName: string | null;
-  factors: Array<{
-    factorId: string;
-    factorName: string;
-    factorDescription: string | null;
-    constructCount: number;
-  }>;
-}>;
-
 type ItemSelectionRule = {
   minConstructs: number;
   maxConstructs: number | null;
@@ -161,8 +158,9 @@ interface WizardState {
   closesAt: string;
   description: string;
   selectedAssessmentId: string | null;
-  selectedFactorIds: string[] | null;
-  assessmentFactors: AssessmentFactors;
+  selectedCapabilityIds: string[] | null;
+  assessmentFactors: FactorAssessmentData;
+  assessmentConstructs: ConstructAssessmentData;
   itemSelectionRules: ItemSelectionRule[];
   inviteMode: "single" | "csv" | "link";
   inviteSingleEmail: string;
@@ -188,8 +186,9 @@ export function QuickLaunchModal({
     closesAt: "",
     description: "",
     selectedAssessmentId: initialAssessmentId ?? null,
-    selectedFactorIds: null,
+    selectedCapabilityIds: null,
     assessmentFactors: [],
+    assessmentConstructs: [],
     itemSelectionRules: [],
     inviteMode: "link",
     inviteSingleEmail: "",
@@ -198,7 +197,7 @@ export function QuickLaunchModal({
     inviteCsv: "",
   });
   const [isLaunching, setIsLaunching] = useState(false);
-  const [loadingFactors, setLoadingFactors] = useState(false);
+  const [loadingCapabilities, setLoadingCapabilities] = useState(false);
   const [slideDirection, setSlideDirection] = useState<"left" | "right">("left");
   const router = useRouter();
 
@@ -225,10 +224,19 @@ export function QuickLaunchModal({
 
   // Quick launch is always 4 steps so the shape doesn't reshuffle partway
   // through. Step 3 (Capabilities) renders an empty-state hint when the
-  // selected assessment has no factors to customise.
+  // selected assessment doesn't expose customisation.
   const capabilitiesStep = 3;
   const inviteStep = 4;
-  const hasFactors = state.assessmentFactors.length > 0;
+  const capabilityMode: "factor" | "construct" =
+    selectedAssessment?.scoringLevel === "construct" ? "construct" : "factor";
+  const hasCapabilities =
+    capabilityMode === "factor"
+      ? state.assessmentFactors.length > 0
+      : state.assessmentConstructs.length > 0;
+  const supportsCustomisation =
+    selectedAssessment?.scoringLevel === "construct"
+      ? selectedAssessment.minCustomConstructs != null
+      : selectedAssessment?.minCustomFactors != null;
 
   function reset() {
     setStep(1);
@@ -239,8 +247,9 @@ export function QuickLaunchModal({
       closesAt: "",
       description: "",
       selectedAssessmentId: initialAssessmentId ?? null,
-      selectedFactorIds: null,
+      selectedCapabilityIds: null,
       assessmentFactors: [],
+      assessmentConstructs: [],
       itemSelectionRules: [],
       inviteMode: "link",
       inviteSingleEmail: "",
@@ -265,7 +274,10 @@ export function QuickLaunchModal({
       return !!state.selectedAssessmentId;
     }
     if (step === capabilitiesStep) {
-      return state.selectedFactorIds === null || state.selectedFactorIds.length > 0;
+      return (
+        state.selectedCapabilityIds === null ||
+        state.selectedCapabilityIds.length > 0
+      );
     }
     // Invite step
     if (state.inviteMode === "link") {
@@ -277,48 +289,63 @@ export function QuickLaunchModal({
     return csvValidInviteCount > 0;
   }
 
-  async function fetchFactorsForAssessment(assessmentId: string) {
-    setLoadingFactors(true);
+  async function fetchCapabilitiesForAssessment(
+    assessmentId: string,
+    mode: "factor" | "construct",
+  ) {
+    setLoadingCapabilities(true);
     try {
-      const [factors, rules] = await Promise.all([
-        getFactorsForAssessment(assessmentId),
+      const [capabilities, rules] = await Promise.all([
+        mode === "construct"
+          ? getConstructsForAssessment(assessmentId)
+          : getFactorsForAssessment(assessmentId),
         getItemSelectionRulesForEstimate(),
       ]);
       setState((s) => ({
         ...s,
-        assessmentFactors: factors,
+        assessmentFactors:
+          mode === "factor" ? (capabilities as FactorAssessmentData) : [],
+        assessmentConstructs:
+          mode === "construct" ? (capabilities as ConstructAssessmentData) : [],
         itemSelectionRules: rules,
-        selectedFactorIds: null,
+        selectedCapabilityIds: null,
       }));
     } finally {
-      setLoadingFactors(false);
+      setLoadingCapabilities(false);
     }
   }
 
   function selectAssessment(assessmentId: string) {
+    const picked = assessments.find((a) => a.id === assessmentId);
+    const mode: "factor" | "construct" =
+      picked?.scoringLevel === "construct" ? "construct" : "factor";
     setState((currentState) => ({
       ...currentState,
       selectedAssessmentId: assessmentId,
-      selectedFactorIds: null,
+      selectedCapabilityIds: null,
       assessmentFactors: [],
+      assessmentConstructs: [],
       itemSelectionRules: [],
     }));
-    // Prefetch factors so step 3 is ready by the time the user clicks Next.
-    void fetchFactorsForAssessment(assessmentId);
+    void fetchCapabilitiesForAssessment(assessmentId, mode);
   }
 
   async function handleNext() {
     if (!canAdvance()) return;
 
-    // Block the transition out of step 2 until factors have loaded, so step 3
-    // renders the Capabilities panel directly instead of flashing the Invite
-    // panel while the fetch resolves.
+    // Block the transition out of step 2 until capabilities have loaded, so
+    // step 3 renders the Capabilities panel directly instead of flashing the
+    // Invite panel while the fetch resolves.
     if (
       step === 2 &&
       state.selectedAssessmentId &&
-      state.assessmentFactors.length === 0
+      state.assessmentFactors.length === 0 &&
+      state.assessmentConstructs.length === 0
     ) {
-      await fetchFactorsForAssessment(state.selectedAssessmentId);
+      await fetchCapabilitiesForAssessment(
+        state.selectedAssessmentId,
+        capabilityMode,
+      );
     }
 
     setSlideDirection("left");
@@ -369,12 +396,19 @@ export function QuickLaunchModal({
         throw new Error(addAssessmentResult.error);
       }
 
-      // Apply custom factor selection if the user limited capabilities
-      if (state.selectedFactorIds !== null && state.selectedFactorIds.length > 0) {
+      // Apply custom capability selection if the user limited the assessment.
+      if (
+        state.selectedCapabilityIds !== null &&
+        state.selectedCapabilityIds.length > 0
+      ) {
         const { getCampaignAssessmentId } = await import("@/app/actions/campaigns");
         const caId = await getCampaignAssessmentId(campaignId, state.selectedAssessmentId);
         if (caId) {
-          await saveFactorSelection(caId, state.selectedFactorIds);
+          if (capabilityMode === "construct") {
+            await saveConstructSelection(caId, state.selectedCapabilityIds);
+          } else {
+            await saveFactorSelection(caId, state.selectedCapabilityIds);
+          }
         }
       }
 
@@ -700,12 +734,23 @@ export function QuickLaunchModal({
                                 </p>
                               )}
                               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                {assessment.factorCount > 0 && (
-                                  <span>
-                                    {assessment.factorCount}{" "}
-                                    {assessment.factorCount === 1 ? "factor" : "factors"}
-                                  </span>
-                                )}
+                                {assessment.scoringLevel === "construct"
+                                  ? assessment.constructCount > 0 && (
+                                      <span>
+                                        {assessment.constructCount}{" "}
+                                        {assessment.constructCount === 1
+                                          ? "construct"
+                                          : "constructs"}
+                                      </span>
+                                    )
+                                  : assessment.factorCount > 0 && (
+                                      <span>
+                                        {assessment.factorCount}{" "}
+                                        {assessment.factorCount === 1
+                                          ? "factor"
+                                          : "factors"}
+                                      </span>
+                                    )}
                                 {assessment.sectionCount > 0 && (
                                   <span>
                                     {assessment.sectionCount}{" "}
@@ -758,28 +803,41 @@ export function QuickLaunchModal({
                 </div>
               </div>
 
-              {loadingFactors ? (
+              {loadingCapabilities ? (
                 <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                   Loading capabilities...
                 </div>
-              ) : hasFactors ? (
+              ) : hasCapabilities && supportsCustomisation ? (
                 <>
                   <p className="text-sm text-muted-foreground">
                     By default, participants complete the full assessment. Toggle
                     custom selection to limit which capabilities are measured.
                   </p>
-                  <CapabilitySelectionStep
-                    assessmentFactors={state.assessmentFactors}
-                    selectedFactorIds={state.selectedFactorIds}
-                    onSelectionChange={(factorIds) =>
-                      setState((s) => ({ ...s, selectedFactorIds: factorIds }))
-                    }
-                    itemSelectionRules={state.itemSelectionRules}
-                  />
+                  {capabilityMode === "construct" ? (
+                    <CapabilitySelectionStep
+                      mode="construct"
+                      assessmentConstructs={state.assessmentConstructs}
+                      selectedIds={state.selectedCapabilityIds}
+                      onSelectionChange={(ids) =>
+                        setState((s) => ({ ...s, selectedCapabilityIds: ids }))
+                      }
+                      itemSelectionRules={state.itemSelectionRules}
+                    />
+                  ) : (
+                    <CapabilitySelectionStep
+                      mode="factor"
+                      assessmentFactors={state.assessmentFactors}
+                      selectedIds={state.selectedCapabilityIds}
+                      onSelectionChange={(ids) =>
+                        setState((s) => ({ ...s, selectedCapabilityIds: ids }))
+                      }
+                      itemSelectionRules={state.itemSelectionRules}
+                    />
+                  )}
                 </>
               ) : (
                 <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                  This assessment doesn&apos;t have factors to customise.
+                  This assessment doesn&apos;t support customisation.
                   Participants will complete it as authored — click Next to
                   continue.
                 </div>

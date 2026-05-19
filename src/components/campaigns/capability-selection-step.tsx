@@ -14,40 +14,108 @@ import { cn } from "@/lib/utils";
 // Types
 // ---------------------------------------------------------------------------
 
-type CapabilitySelectionStepProps = {
-  assessmentFactors: Array<{
-    dimensionId: string | null;
-    dimensionName: string | null;
-    factors: Array<{
-      factorId: string;
-      factorName: string;
-      factorDescription: string | null;
-      constructCount: number;
-    }>;
+export type FactorAssessmentData = Array<{
+  dimensionId: string | null;
+  dimensionName: string | null;
+  factors: Array<{
+    factorId: string;
+    factorName: string;
+    factorDescription: string | null;
+    constructCount: number;
   }>;
-  selectedFactorIds: string[] | null;
+}>;
+
+export type ConstructAssessmentData = Array<{
+  dimensionId: string | null;
+  dimensionName: string | null;
+  constructs: Array<{
+    constructId: string;
+    constructName: string;
+    constructDescription: string | null;
+  }>;
+}>;
+
+type ItemSelectionRules = Array<{
+  minConstructs: number;
+  maxConstructs: number | null;
+  itemsPerConstruct: number;
+}>;
+
+type FactorMode = {
+  mode: "factor";
+  assessmentFactors: FactorAssessmentData;
+  selectedIds: string[] | null;
   onSelectionChange: (factorIds: string[] | null) => void;
-  itemSelectionRules: Array<{
-    minConstructs: number;
-    maxConstructs: number | null;
-    itemsPerConstruct: number;
-  }>;
 };
+
+type ConstructMode = {
+  mode: "construct";
+  assessmentConstructs: ConstructAssessmentData;
+  selectedIds: string[] | null;
+  onSelectionChange: (constructIds: string[] | null) => void;
+};
+
+type CapabilitySelectionStepProps = (FactorMode | ConstructMode) & {
+  itemSelectionRules: ItemSelectionRules;
+};
+
+// ---------------------------------------------------------------------------
+// Normalisation: flatten into one shape so the render path is mode-agnostic
+// ---------------------------------------------------------------------------
+
+type Row = {
+  id: string;
+  name: string;
+  description: string | null;
+  constructCount: number;
+};
+
+type Group = {
+  dimensionId: string | null;
+  dimensionName: string | null;
+  rows: Row[];
+};
+
+function normalise(props: CapabilitySelectionStepProps): Group[] {
+  if (props.mode === "factor") {
+    return props.assessmentFactors.map((group) => ({
+      dimensionId: group.dimensionId,
+      dimensionName: group.dimensionName,
+      rows: group.factors.map((f) => ({
+        id: f.factorId,
+        name: f.factorName,
+        description: f.factorDescription,
+        constructCount: f.constructCount,
+      })),
+    }));
+  }
+
+  return props.assessmentConstructs.map((group) => ({
+    dimensionId: group.dimensionId,
+    dimensionName: group.dimensionName,
+    rows: group.constructs.map((c) => ({
+      id: c.constructId,
+      name: c.constructName,
+      description: c.constructDescription,
+      constructCount: 1,
+    })),
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // Estimate computation (client-side)
 // ---------------------------------------------------------------------------
 
 function computeEstimate(
-  selectedFactorIds: string[],
-  assessmentFactors: CapabilitySelectionStepProps["assessmentFactors"],
-  rules: CapabilitySelectionStepProps["itemSelectionRules"],
+  selectedIds: string[],
+  groups: Group[],
+  rules: ItemSelectionRules,
 ) {
   let constructCount = 0;
-  for (const group of assessmentFactors) {
-    for (const factor of group.factors) {
-      if (selectedFactorIds.includes(factor.factorId)) {
-        constructCount += factor.constructCount;
+  for (const group of groups) {
+    for (const row of group.rows) {
+      if (selectedIds.includes(row.id)) {
+        constructCount += row.constructCount;
       }
     }
   }
@@ -62,7 +130,7 @@ function computeEstimate(
   const estimatedMinutes = estimateAssessmentDurationMinutes(estimatedItems);
 
   return {
-    factorCount: selectedFactorIds.length,
+    rowCount: selectedIds.length,
     constructCount,
     estimatedItems,
     estimatedMinutes,
@@ -73,54 +141,53 @@ function computeEstimate(
 // Component
 // ---------------------------------------------------------------------------
 
-export function CapabilitySelectionStep({
-  assessmentFactors,
-  selectedFactorIds,
-  onSelectionChange,
-  itemSelectionRules,
-}: CapabilitySelectionStepProps) {
-  // Mode: full assessment vs custom selection
-  const [isCustom, setIsCustom] = useState(selectedFactorIds !== null);
+export function CapabilitySelectionStep(props: CapabilitySelectionStepProps) {
+  const groups = useMemo(() => normalise(props), [props]);
+  const unit = props.mode === "factor" ? "factor" : "construct";
+  const unitPlural = props.mode === "factor" ? "factors" : "constructs";
+
+  const [isCustom, setIsCustom] = useState(props.selectedIds !== null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(selectedFactorIds ?? []),
+    () => new Set(props.selectedIds ?? []),
   );
   const [expandedDimensions, setExpandedDimensions] = useState<Set<string>>(
-    () => new Set(assessmentFactors.map((g) => g.dimensionId ?? "__none__")),
+    () => new Set(groups.map((g) => g.dimensionId ?? "__none__")),
   );
 
-  // All factor IDs for convenience
-  const allFactorIds = useMemo(() => {
+  const allRowIds = useMemo(() => {
     const ids: string[] = [];
-    for (const group of assessmentFactors) {
-      for (const factor of group.factors) {
-        ids.push(factor.factorId);
+    for (const group of groups) {
+      for (const row of group.rows) {
+        ids.push(row.id);
       }
     }
     return ids;
-  }, [assessmentFactors]);
+  }, [groups]);
 
-  // Estimate
   const selectedArray = useMemo(() => Array.from(selectedIds), [selectedIds]);
   const estimate = useMemo(
-    () => computeEstimate(selectedArray, assessmentFactors, itemSelectionRules),
-    [selectedArray, assessmentFactors, itemSelectionRules],
+    () => computeEstimate(selectedArray, groups, props.itemSelectionRules),
+    [selectedArray, groups, props.itemSelectionRules],
   );
 
-  // Toggle factor selection
-  const toggleFactor = useCallback((factorId: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(factorId)) {
-        next.delete(factorId);
-      } else {
-        next.add(factorId);
-      }
-      onSelectionChange(Array.from(next));
-      return next;
-    });
-  }, [onSelectionChange]);
+  const onSelectionChange = props.onSelectionChange;
 
-  // Toggle dimension section expand/collapse
+  const toggleRow = useCallback(
+    (rowId: string) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(rowId)) {
+          next.delete(rowId);
+        } else {
+          next.add(rowId);
+        }
+        onSelectionChange(Array.from(next));
+        return next;
+      });
+    },
+    [onSelectionChange],
+  );
+
   const toggleDimension = useCallback((dimKey: string) => {
     setExpandedDimensions((prev) => {
       const next = new Set(prev);
@@ -133,16 +200,15 @@ export function CapabilitySelectionStep({
     });
   }, []);
 
-  // Select/deselect all factors in a dimension
   const toggleAllInDimension = useCallback(
-    (factors: Array<{ factorId: string }>) => {
+    (rows: Row[]) => {
       setSelectedIds((prev) => {
         const next = new Set(prev);
-        const allSelected = factors.every((f) => next.has(f.factorId));
+        const allSelected = rows.every((r) => next.has(r.id));
         if (allSelected) {
-          for (const f of factors) next.delete(f.factorId);
+          for (const r of rows) next.delete(r.id);
         } else {
-          for (const f of factors) next.add(f.factorId);
+          for (const r of rows) next.add(r.id);
         }
         onSelectionChange(Array.from(next));
         return next;
@@ -151,7 +217,6 @@ export function CapabilitySelectionStep({
     [onSelectionChange],
   );
 
-  // Mode switch handlers
   function handleSwitchToFull() {
     setIsCustom(false);
     setSelectedIds(new Set());
@@ -165,7 +230,6 @@ export function CapabilitySelectionStep({
 
   return (
     <div className="space-y-4">
-      {/* Mode toggle */}
       <div className="flex items-center gap-3">
         <Switch
           checked={isCustom}
@@ -176,36 +240,37 @@ export function CapabilitySelectionStep({
               handleSwitchToFull();
             }
           }}
-          aria-label="Toggle custom factor selection"
+          aria-label={`Toggle custom ${unit} selection`}
         />
         <span className="text-sm font-medium">
-          {isCustom ? "Custom Factors" : "Full Assessment"}
+          {isCustom
+            ? props.mode === "factor"
+              ? "Custom Factors"
+              : "Custom Constructs"
+            : "Full Assessment"}
         </span>
         {!isCustom && (
           <span className="text-xs text-muted-foreground">
-            All {allFactorIds.length} factors included
+            All {allRowIds.length} {unitPlural} included
           </span>
         )}
       </div>
 
-      {/* Factor picker panel (custom mode only) */}
       {isCustom && (
         <div className="space-y-3">
-          {/* Dimension groups */}
           <Card>
             <CardContent className="p-0">
               <div className="divide-y divide-border">
-                {assessmentFactors.map((group, groupIndex) => {
+                {groups.map((group, groupIndex) => {
                   const dimKey = group.dimensionId ?? "__none__";
                   const isExpanded = expandedDimensions.has(dimKey);
-                  const selectedInGroup = group.factors.filter((f) =>
-                    selectedIds.has(f.factorId),
+                  const selectedInGroup = group.rows.filter((r) =>
+                    selectedIds.has(r.id),
                   ).length;
 
                   return (
                     <ScrollReveal key={dimKey} delay={groupIndex * 60}>
                       <div>
-                        {/* Dimension header */}
                         <button
                           type="button"
                           className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50"
@@ -225,54 +290,54 @@ export function CapabilitySelectionStep({
                               selectedInGroup > 0 ? "default" : "outline"
                             }
                           >
-                            {selectedInGroup} of {group.factors.length}
+                            {selectedInGroup} of {group.rows.length}
                           </Badge>
                           <button
                             type="button"
                             className="text-xs text-primary hover:underline"
                             onClick={(e) => {
                               e.stopPropagation();
-                              toggleAllInDimension(group.factors);
+                              toggleAllInDimension(group.rows);
                             }}
                           >
-                            {group.factors.every((f) =>
-                              selectedIds.has(f.factorId),
-                            )
+                            {group.rows.every((r) => selectedIds.has(r.id))
                               ? "Deselect all"
                               : "Select all"}
                           </button>
                         </button>
 
-                        {/* Factor rows */}
                         {isExpanded && (
                           <div className="border-t border-border/50">
-                            {group.factors.map((factor) => (
+                            {group.rows.map((row) => (
                               <label
-                                key={factor.factorId}
+                                key={row.id}
                                 className="flex cursor-pointer items-center gap-3 px-4 py-2.5 pl-11 transition-colors hover:bg-accent/30"
                               >
                                 <Checkbox
-                                  checked={selectedIds.has(factor.factorId)}
-                                  onCheckedChange={() =>
-                                    toggleFactor(factor.factorId)
-                                  }
+                                  checked={selectedIds.has(row.id)}
+                                  onCheckedChange={() => toggleRow(row.id)}
                                 />
                                 <div className="flex-1 min-w-0">
                                   <span className="text-sm font-semibold">
-                                    {factor.factorName}
+                                    {row.name}
                                   </span>
-                                  {factor.factorDescription && (
+                                  {row.description && (
                                     <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                      {factor.factorDescription}
+                                      {row.description}
                                     </p>
                                   )}
                                 </div>
-                                <Badge variant="outline" className="text-[10px]">
-                                  {factor.constructCount}{" "}
-                                  {factor.constructCount === 1
-                                    ? "construct"
-                                    : "constructs"}
-                                </Badge>
+                                {props.mode === "factor" && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px]"
+                                  >
+                                    {row.constructCount}{" "}
+                                    {row.constructCount === 1
+                                      ? "construct"
+                                      : "constructs"}
+                                  </Badge>
+                                )}
                               </label>
                             ))}
                           </div>
@@ -285,7 +350,6 @@ export function CapabilitySelectionStep({
             </CardContent>
           </Card>
 
-          {/* Summary bar */}
           <div
             className={cn(
               "flex items-center justify-between gap-4 rounded-lg border px-4 py-3",
@@ -294,13 +358,14 @@ export function CapabilitySelectionStep({
           >
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <span className="font-medium">
-                {estimate.factorCount}{" "}
-                {estimate.factorCount === 1 ? "factor" : "factors"}
+                {estimate.rowCount} {estimate.rowCount === 1 ? unit : unitPlural}
               </span>
-              <span className="text-muted-foreground">
-                {estimate.constructCount}{" "}
-                {estimate.constructCount === 1 ? "construct" : "constructs"}
-              </span>
+              {props.mode === "factor" && (
+                <span className="text-muted-foreground">
+                  {estimate.constructCount}{" "}
+                  {estimate.constructCount === 1 ? "construct" : "constructs"}
+                </span>
+              )}
               <span className="text-muted-foreground">
                 ~{estimate.estimatedItems} items
               </span>
@@ -311,7 +376,7 @@ export function CapabilitySelectionStep({
               {selectedIds.size === 0 && (
                 <span className="flex items-center gap-1 text-xs font-medium text-destructive">
                   <AlertTriangle className="size-3" />
-                  At least 1 factor required
+                  At least 1 {unit} required
                 </span>
               )}
             </div>

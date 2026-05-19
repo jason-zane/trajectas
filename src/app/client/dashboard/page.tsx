@@ -59,10 +59,14 @@ export default async function ClientDashboardPage() {
       description: a.description,
       status: a.status,
       factorCount: a.factorCount ?? 0,
+      constructCount: a.constructCount ?? 0,
       sectionCount: a.sectionCount ?? 0,
       totalItemCount: a.totalItemCount ?? 0,
       formatLabel: a.formatMode ?? undefined,
       estimatedDurationMinutes: a.estimatedDurationMinutes ?? 0,
+      scoringLevel: a.scoringLevel,
+      minCustomFactors: a.minCustomFactors,
+      minCustomConstructs: a.minCustomConstructs,
     }),
   );
 
