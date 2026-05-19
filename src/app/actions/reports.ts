@@ -11,6 +11,7 @@ import {
   getAccessiblePartnerIds,
   getPreferredPartnerIdForReportTemplateCreation,
   requireAdminScope,
+  requireAssessmentAccess,
   requireCampaignAccess,
   requireParticipantAccess,
   requireReportTemplateAccess,
@@ -44,6 +45,8 @@ import {
   updateReportTemplateSettingsSchema,
   updateReportTemplateBlocksSchema,
   campaignTemplateSchema,
+  assessmentTemplateSchema,
+  setAssessmentTemplateDefaultSchema,
   sendReportSnapshotEmailSchema,
   getAllReadySnapshotsSchema,
   bulkReportIdsSchema,
@@ -574,6 +577,145 @@ export async function removeCampaignTemplate(
   }
 
   revalidatePath(`/campaigns/${campaignId}/settings`)
+}
+
+// ---------------------------------------------------------------------------
+// Assessment Report Templates — default reports that fire whenever a
+// participant completes this assessment (unless the campaign overrides via
+// campaign_report_templates).
+// ---------------------------------------------------------------------------
+
+export interface AssessmentTemplateRow {
+  id: string
+  templateId: string
+  templateName: string
+  templateDescription: string | null
+  isDefault: boolean
+  sortOrder: number
+}
+
+export async function getAssessmentTemplates(
+  assessmentId: string,
+): Promise<AssessmentTemplateRow[]> {
+  if (!postgresUuid().safeParse(assessmentId).success) return []
+  await requireAssessmentAccess(assessmentId)
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('assessment_report_templates')
+    .select('id, template_id, is_default, sort_order, report_templates(name, description)')
+    .eq('assessment_id', assessmentId)
+    .order('sort_order', { ascending: true })
+
+  if (error) {
+    throwActionError('getAssessmentTemplates', 'Unable to load assessment templates.', error)
+  }
+
+  return (data ?? []).map((row) => {
+    const tpl = getRelatedRecord(row.report_templates)
+    return {
+      id: String(row.id),
+      templateId: String(row.template_id),
+      templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      templateDescription: tpl?.description ? String(tpl.description) : null,
+      isDefault: Boolean(row.is_default),
+      sortOrder: Number(row.sort_order ?? 0),
+    }
+  })
+}
+
+export async function addAssessmentTemplate(
+  assessmentId: string,
+  templateId: string,
+): Promise<void> {
+  const parsed = assessmentTemplateSchema.safeParse({ assessmentId, templateId })
+  if (!parsed.success) throw new Error('Invalid assessment or template ID')
+  await requireAssessmentAccess(assessmentId, { forWrite: true })
+  await requireReportTemplateAccess(templateId)
+
+  const db = createAdminClient()
+  const { data: maxOrder, error: maxOrderError } = await db
+    .from('assessment_report_templates')
+    .select('sort_order')
+    .eq('assessment_id', assessmentId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (maxOrderError) {
+    throwActionError('addAssessmentTemplate', 'Unable to add assessment template.', maxOrderError)
+  }
+
+  const nextOrder = ((maxOrder?.sort_order as number | null) ?? -1) + 1
+
+  const { error } = await db
+    .from('assessment_report_templates')
+    .upsert(
+      {
+        assessment_id: assessmentId,
+        template_id: templateId,
+        is_default: true,
+        sort_order: nextOrder,
+      },
+      { onConflict: 'assessment_id,template_id' },
+    )
+
+  if (error) {
+    throwActionError('addAssessmentTemplate', 'Unable to link template.', error)
+  }
+
+  revalidatePath(`/assessments/${assessmentId}/edit/reports`)
+}
+
+export async function removeAssessmentTemplate(
+  assessmentId: string,
+  templateId: string,
+): Promise<void> {
+  const parsed = assessmentTemplateSchema.safeParse({ assessmentId, templateId })
+  if (!parsed.success) throw new Error('Invalid assessment or template ID')
+  await requireAssessmentAccess(assessmentId, { forWrite: true })
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessment_report_templates')
+    .delete()
+    .eq('assessment_id', assessmentId)
+    .eq('template_id', templateId)
+
+  if (error) {
+    throwActionError('removeAssessmentTemplate', 'Unable to unlink template.', error)
+  }
+
+  revalidatePath(`/assessments/${assessmentId}/edit/reports`)
+}
+
+export async function setAssessmentTemplateDefault(
+  assessmentId: string,
+  templateId: string,
+  isDefault: boolean,
+): Promise<void> {
+  const parsed = setAssessmentTemplateDefaultSchema.safeParse({
+    assessmentId,
+    templateId,
+    isDefault,
+  })
+  if (!parsed.success) throw new Error('Invalid input')
+  await requireAssessmentAccess(assessmentId, { forWrite: true })
+
+  const db = createAdminClient()
+  const { error } = await db
+    .from('assessment_report_templates')
+    .update({ is_default: isDefault })
+    .eq('assessment_id', assessmentId)
+    .eq('template_id', templateId)
+
+  if (error) {
+    throwActionError(
+      'setAssessmentTemplateDefault',
+      'Unable to update default flag.',
+      error,
+    )
+  }
+
+  revalidatePath(`/assessments/${assessmentId}/edit/reports`)
 }
 
 // ---------------------------------------------------------------------------

@@ -75,3 +75,16 @@ export const toggleReportTemplateDefaultSchema = z.object({
   isDefault: z.boolean(),
 })
 export type ToggleReportTemplateDefaultInput = z.infer<typeof toggleReportTemplateDefaultSchema>
+
+export const assessmentTemplateSchema = z.object({
+  assessmentId: postgresUuid(),
+  templateId: postgresUuid(),
+})
+export type AssessmentTemplateInput = z.infer<typeof assessmentTemplateSchema>
+
+export const setAssessmentTemplateDefaultSchema = z.object({
+  assessmentId: postgresUuid(),
+  templateId: postgresUuid(),
+  isDefault: z.boolean(),
+})
+export type SetAssessmentTemplateDefaultInput = z.infer<typeof setAssessmentTemplateDefaultSchema>

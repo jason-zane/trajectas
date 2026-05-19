@@ -22,6 +22,7 @@
 import type { ComponentType } from 'react'
 import type { ReportContext } from '../report-context'
 import type { ReportTheme } from '../presentation'
+import { fiveBrainsReport } from './5brains'
 
 /**
  * Subset of ReportContext that flows through to the rendering component.
@@ -61,7 +62,7 @@ export interface CustomReport<TData = unknown> {
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CUSTOM_REPORTS: Record<string, CustomReport<any>> = {
-  // Register custom reports here.
+  [fiveBrainsReport.slug]: fiveBrainsReport,
 }
 
 export function getCustomReport(slug: string): CustomReport | undefined {
