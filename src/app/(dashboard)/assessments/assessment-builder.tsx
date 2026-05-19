@@ -303,6 +303,11 @@ export function AssessmentBuilder({
     [selectedFactors]
   )
 
+  const constructIds = useMemo(
+    () => selectedConstructs.map((c) => c.id),
+    [selectedConstructs]
+  )
+
   // Item selection rule lookup
   const [ruleInfo, setRuleInfo] = useState<{
     constructCount: number
@@ -311,17 +316,17 @@ export function AssessmentBuilder({
   } | null>(null)
 
   useEffect(() => {
-    if (factorIds.length === 0) {
+    if (factorIds.length === 0 && constructIds.length === 0) {
       setRuleInfo(null)
       return
     }
     let cancelled = false
-    getItemsPerConstructLimit(factorIds).then((info) => {
+    getItemsPerConstructLimit({ factorIds, constructIds }).then((info) => {
       if (!cancelled) setRuleInfo(info)
     })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [factorIds.join(",")])
+  }, [factorIds.join(","), constructIds.join(",")])
 
   function handleSave() {
     setError(null)
@@ -794,9 +799,10 @@ export function AssessmentBuilder({
         </div>
       </DragDropProvider>
 
-      {/* Section Configuration — auto-grouped from selected factors' items */}
+      {/* Section Configuration — auto-grouped from selected factors' or constructs' items */}
       <SectionConfigurator
-        factorIds={factorIds}
+        factorIds={scoringLevel === "construct" ? [] : factorIds}
+        constructIds={scoringLevel === "construct" ? constructIds : []}
         sections={sections}
         onSectionsChange={setSections}
         existingSections={existingSections}

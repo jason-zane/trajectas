@@ -127,33 +127,42 @@ export type ConstructShortfall = {
 }
 
 /**
- * Compute the per-construct item limit for a set of factor IDs.
- * Returns construct count, items per construct, and any shortfalls.
+ * Compute the per-construct item limit for a set of factor IDs or construct IDs.
+ * Accepts a legacy positional factorIds array, or a scope object naming
+ * factorIds and/or constructIds. Returns construct count, items per construct,
+ * and any shortfalls.
  */
-export async function getItemsPerConstructLimit(factorIds: string[]): Promise<{
+export async function getItemsPerConstructLimit(
+  scope: string[] | { factorIds?: string[]; constructIds?: string[] },
+): Promise<{
   constructCount: number
   itemsPerConstruct: number | null
   shortfalls: ConstructShortfall[]
 }> {
-  const scope = await resolveAuthorizedScope()
-  if (!canManageAssessmentLibrary(scope)) {
+  const authScope = await resolveAuthorizedScope()
+  if (!canManageAssessmentLibrary(authScope)) {
     throw new AuthorizationError('You do not have permission to manage assessments.')
   }
-  if (factorIds.length === 0) {
+  const factorIds = Array.isArray(scope) ? scope : scope.factorIds ?? []
+  const directConstructIds = Array.isArray(scope) ? [] : scope.constructIds ?? []
+
+  if (factorIds.length === 0 && directConstructIds.length === 0) {
     return { constructCount: 0, itemsPerConstruct: null, shortfalls: [] }
   }
 
   const db = createAdminClient()
 
-  // Get unique construct IDs for these factors
-  const { data: links, error: linksError } = await db
-    .from('factor_constructs')
-    .select('construct_id')
-    .in('factor_id', factorIds)
-
-  if (linksError) throw new Error(linksError.message)
-
-  const constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
+  let constructIds: string[]
+  if (directConstructIds.length > 0) {
+    constructIds = [...new Set(directConstructIds)]
+  } else {
+    const { data: links, error: linksError } = await db
+      .from('factor_constructs')
+      .select('construct_id')
+      .in('factor_id', factorIds)
+    if (linksError) throw new Error(linksError.message)
+    constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
+  }
   if (constructIds.length === 0) {
     return { constructCount: 0, itemsPerConstruct: null, shortfalls: [] }
   }
