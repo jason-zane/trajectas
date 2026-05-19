@@ -104,9 +104,28 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
   }, [config.token, config.sessionId]);
 
   /**
+   * Compose two settlement callbacks so both fire once the underlying entry
+   * actually settles. Used when a queued entry is superseded — we must chain
+   * the old waiter to the new entry, not resolve it speculatively as "saved".
+   */
+  function chainSettled(
+    prev: SaveEntry["onSettled"],
+    next: SaveEntry["onSettled"],
+  ): SaveEntry["onSettled"] {
+    if (!prev) return next;
+    if (!next) return prev;
+    return (ok: boolean) => {
+      prev(ok);
+      next(ok);
+    };
+  }
+
+  /**
    * Enqueue a save (fire-and-forget). Deduplicates by itemId — if a pending
    * entry for the same item exists and hasn't started processing yet, it is
-   * replaced with the new value.
+   * replaced with the new value. Any settlement callback attached to the
+   * old entry is preserved and chained to the new entry, so waiters resolve
+   * based on the actual persistence outcome of the latest value.
    */
   const enqueueSave = useCallback(
     (entry: Omit<SaveEntry, "retries" | "onSettled">) => {
@@ -118,8 +137,11 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
       );
       if (existingIdx >= 0) {
         const old = queueRef.current[existingIdx];
-        old.onSettled?.(true); // resolve the old waiter as superseded
-        queueRef.current[existingIdx] = { ...entry, retries: 0 };
+        queueRef.current[existingIdx] = {
+          ...entry,
+          retries: 0,
+          onSettled: old.onSettled,
+        };
       } else {
         queueRef.current.push({ ...entry, retries: 0 });
       }
@@ -132,21 +154,24 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
 
   /**
    * Enqueue a save and return a promise that resolves when this specific
-   * entry is persisted (true) or permanently fails (false).
-   * Deduplicates by itemId like enqueueSave.
+   * entry is persisted (true) or permanently fails (false). Deduplicates
+   * by itemId like enqueueSave — when superseded, the waiter is chained to
+   * the latest entry rather than resolved speculatively.
    */
   const enqueueSaveAndWait = useCallback(
     (entry: Omit<SaveEntry, "retries" | "onSettled">): Promise<boolean> => {
       return new Promise<boolean>((resolve) => {
-        // Deduplicate: replace any pending entry for same item.
         const startIdx = isProcessingRef.current ? 1 : 0;
         const existingIdx = queueRef.current.findIndex(
           (e, i) => i >= startIdx && e.itemId === entry.itemId,
         );
         if (existingIdx >= 0) {
           const old = queueRef.current[existingIdx];
-          old.onSettled?.(true); // resolve old waiter as superseded
-          queueRef.current[existingIdx] = { ...entry, retries: 0, onSettled: resolve };
+          queueRef.current[existingIdx] = {
+            ...entry,
+            retries: 0,
+            onSettled: chainSettled(old.onSettled, resolve),
+          };
         } else {
           queueRef.current.push({ ...entry, retries: 0, onSettled: resolve });
         }
