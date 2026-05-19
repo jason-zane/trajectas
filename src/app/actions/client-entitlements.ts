@@ -145,6 +145,9 @@ export type ClientAssessmentLibrarySummary = {
   estimatedDurationMinutes: number
   campaignCount: number
   updatedAt?: string
+  scoringLevel: 'factor' | 'construct'
+  minCustomFactors: number | null
+  minCustomConstructs: number | null
 }
 
 export type ClientAssessmentLibrarySection = {
@@ -192,7 +195,7 @@ export async function getClientAssessmentLibrary(
     db
       .from('assessments')
       .select(
-        'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
+        'id, title, description, status, format_mode, scoring_level, min_custom_factors, min_custom_constructs, updated_at, assessment_factors(count)'
       )
       .in('id', assessmentIds)
       .is('deleted_at', null)
@@ -376,6 +379,12 @@ export async function getClientAssessmentLibrary(
         ),
         campaignCount: campaignCountByAssessment.get(String(row.id)) ?? 0,
         updatedAt: row.updated_at ? String(row.updated_at) : undefined,
+        scoringLevel: ((row as { scoring_level?: string | null }).scoring_level ??
+          'factor') as 'factor' | 'construct',
+        minCustomFactors:
+          (row as { min_custom_factors?: number | null }).min_custom_factors ?? null,
+        minCustomConstructs:
+          (row as { min_custom_constructs?: number | null }).min_custom_constructs ?? null,
       },
     ]
   })
@@ -409,7 +418,7 @@ export async function getClientAssessmentLibraryDetail(
     db
       .from('assessments')
       .select(
-        'id, title, description, status, format_mode, updated_at, assessment_factors(count)'
+        'id, title, description, status, format_mode, scoring_level, min_custom_factors, min_custom_constructs, updated_at, assessment_factors(count)'
       )
       .eq('id', assessmentId)
       .is('deleted_at', null)
@@ -533,6 +542,14 @@ export async function getClientAssessmentLibraryDetail(
       sections.reduce((sum, s) => sum + s.itemCount, 0),
       sections.map((s) => s.timeLimitSeconds),
     ),
+    scoringLevel: ((assessmentResult.data as { scoring_level?: string | null })
+      .scoring_level ?? 'factor') as 'factor' | 'construct',
+    minCustomFactors:
+      (assessmentResult.data as { min_custom_factors?: number | null })
+        .min_custom_factors ?? null,
+    minCustomConstructs:
+      (assessmentResult.data as { min_custom_constructs?: number | null })
+        .min_custom_constructs ?? null,
   }
 }
 
