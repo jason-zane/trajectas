@@ -870,53 +870,92 @@ async function ensureReportSnapshotsForSession(input: {
   | { error: string }
 > {
   const db = createAdminClient()
-  const { data: configuredTemplates, error: configError } = await db
-    .from('campaign_report_templates')
-    .select('template_id')
-    .eq('campaign_id', input.campaignId)
 
-  if (configError) {
-    logActionError('submitSession.reportConfig', configError)
-    return { error: 'Unable to load this campaign report configuration' }
-  }
-
-  let desiredTemplateIds = (configuredTemplates ?? [])
-    .map((r) => String(r.template_id))
-    .filter((id) => id.length > 0)
-
-  // Campaign-level attachments win when set; otherwise fall back to assessment-
-  // level defaults so e.g. every 5Brains run picks up its registered report
-  // without per-campaign wiring.
-  if (desiredTemplateIds.length === 0) {
-    const { data: sessionRow, error: sessionError } = await db
+  // Resolve which templates fire for this session.
+  // Layer 1: campaign-level extras  +  Layer 2: assessment-level defaults  (union)
+  // If both empty, Layer 3: platform-wide `report_templates.is_default = true` rows.
+  const [campaignTemplatesResult, sessionRowResult] = await Promise.all([
+    db.from('campaign_report_templates').select('template_id').eq('campaign_id', input.campaignId),
+    db
       .from('participant_sessions')
       .select('assessment_id')
       .eq('id', input.sessionId)
-      .maybeSingle()
+      .maybeSingle(),
+  ])
 
-    if (sessionError) {
-      logActionError('submitSession.assessmentLookup', sessionError)
+  if (campaignTemplatesResult.error) {
+    logActionError('submitSession.reportConfig', campaignTemplatesResult.error)
+    return { error: 'Unable to load this campaign report configuration' }
+  }
+  if (sessionRowResult.error) {
+    logActionError('submitSession.assessmentLookup', sessionRowResult.error)
+    return { error: 'Unable to load this campaign report configuration' }
+  }
+
+  const desiredIds = new Set<string>()
+  for (const row of campaignTemplatesResult.data ?? []) {
+    const id = String((row as { template_id?: string | null }).template_id ?? '')
+    if (id) desiredIds.add(id)
+  }
+
+  const assessmentId =
+    (sessionRowResult.data as { assessment_id?: string | null } | null)?.assessment_id ?? null
+  if (assessmentId) {
+    const { data: assessmentDefaults, error: assessmentDefaultsError } = await db
+      .from('assessment_report_templates')
+      .select('template_id')
+      .eq('assessment_id', assessmentId)
+      .eq('is_default', true)
+      .order('sort_order', { ascending: true })
+
+    if (assessmentDefaultsError) {
+      logActionError('submitSession.assessmentDefaults', assessmentDefaultsError)
       return { error: 'Unable to load this campaign report configuration' }
     }
 
-    const assessmentId = (sessionRow?.assessment_id as string | null) ?? null
-    if (assessmentId) {
-      const { data: assessmentDefaults, error: assessmentDefaultsError } = await db
-        .from('assessment_report_templates')
-        .select('template_id')
-        .eq('assessment_id', assessmentId)
-        .eq('is_default', true)
-        .order('sort_order', { ascending: true })
-
-      if (assessmentDefaultsError) {
-        logActionError('submitSession.assessmentDefaults', assessmentDefaultsError)
-        return { error: 'Unable to load this campaign report configuration' }
-      }
-
-      desiredTemplateIds = (assessmentDefaults ?? [])
-        .map((r) => String(r.template_id))
-        .filter((id) => id.length > 0)
+    for (const row of assessmentDefaults ?? []) {
+      const id = String((row as { template_id?: string | null }).template_id ?? '')
+      if (id) desiredIds.add(id)
     }
+  }
+
+  // Platform fallback (Layer 3): only when nothing more specific was bound.
+  if (desiredIds.size === 0) {
+    const { data: platformDefaults, error: platformDefaultsError } = await db
+      .from('report_templates')
+      .select('id')
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+
+    if (platformDefaultsError) {
+      logActionError('submitSession.platformDefaults', platformDefaultsError)
+      return { error: 'Unable to load this campaign report configuration' }
+    }
+    for (const row of platformDefaults ?? []) {
+      const id = String((row as { id?: string | null }).id ?? '')
+      if (id) desiredIds.add(id)
+    }
+  }
+
+  // Final pass: keep only active, non-deleted templates so a stale link doesn't
+  // produce an unrunnable snapshot.
+  let desiredTemplateIds: string[] = []
+  if (desiredIds.size > 0) {
+    const { data: liveTemplates, error: liveTemplatesError } = await db
+      .from('report_templates')
+      .select('id')
+      .in('id', Array.from(desiredIds))
+      .eq('is_active', true)
+      .is('deleted_at', null)
+
+    if (liveTemplatesError) {
+      logActionError('submitSession.templateActivityCheck', liveTemplatesError)
+      return { error: 'Unable to load this campaign report configuration' }
+    }
+    desiredTemplateIds = (liveTemplates ?? [])
+      .map((r) => String((r as { id?: string }).id ?? ''))
+      .filter((id) => id.length > 0)
   }
 
   if (desiredTemplateIds.length === 0) {

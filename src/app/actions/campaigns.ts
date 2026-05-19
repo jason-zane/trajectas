@@ -385,33 +385,12 @@ export async function createCampaign(payload: Record<string, unknown>) {
     return { error: { _form: ['Unable to create campaign.'] } }
   }
 
-  // Auto-populate with default report templates
-  const { data: defaults, error: defaultsError } = await db
-    .from('report_templates')
-    .select('id')
-    .eq('is_default', true)
-    .eq('is_active', true)
-    .is('deleted_at', null)
-
-  if (defaultsError) {
-    logActionError('createCampaign.defaults', defaultsError)
-  }
-
-  if (defaults && defaults.length > 0) {
-    const { error: templateInsertError } = await db
-      .from('campaign_report_templates')
-      .insert(
-        defaults.map((t, i) => ({
-          campaign_id: campaign.id,
-          template_id: t.id,
-          sort_order: i,
-        }))
-      )
-
-    if (templateInsertError) {
-      logActionError('createCampaign.reportTemplates', templateInsertError)
-    }
-  }
+  // Report templates are no longer auto-copied at campaign creation. The
+  // session-completion resolver in src/app/actions/assess.ts unions the
+  // campaign-level attachments with the assessment-level defaults at runtime,
+  // and falls back to report_templates.is_default = true only when both
+  // layers are empty. This keeps campaign_report_templates as a record of
+  // explicit overrides rather than a pre-populated soup.
 
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,

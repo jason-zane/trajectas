@@ -77,9 +77,11 @@ export function ReportConfigPanel({ campaignId, assignedTemplates: initial, allT
           <FileText className="size-4" />
         </div>
         <div>
-          <p className="font-semibold text-sm">Report templates</p>
+          <p className="font-semibold text-sm">Additional reports for this campaign</p>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Reports are generated automatically when a participant completes the campaign.
+            Reports added here are generated in addition to whatever is already
+            bound as a default on this campaign&apos;s assessments. Leave empty if the
+            assessment defaults are all you need.
           </p>
         </div>
       </div>
