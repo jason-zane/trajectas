@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { FileText, Plus, X } from 'lucide-react'
+import { ExternalLink, FileText, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -122,6 +123,16 @@ export function AssessmentReportsPanel({ assessmentId, initialAttached, allTempl
                 )}
               </div>
               <div className="flex items-center gap-4 shrink-0">
+                <Link
+                  href={`/report-templates/${entry.templateId}/builder`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={`Open ${entry.templateName} in report templates library`}
+                  title="Open template in builder"
+                >
+                  <ExternalLink className="size-3.5" />
+                </Link>
                 <label className="flex items-center gap-2 text-xs text-muted-foreground select-none">
                   <span>Default</span>
                   <Switch

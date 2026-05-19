@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import Link from "next/link"
 import {
   Layers,
   ChevronDown,
@@ -13,6 +14,7 @@ import {
   Shuffle,
   RefreshCw,
   LayoutGrid,
+  ExternalLink,
 } from "lucide-react"
 import {
   Card,
@@ -767,7 +769,7 @@ function SectionFields({
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs">Section Title</Label>
+          <Label className="text-xs">Section title</Label>
           <Input
             value={section.title}
             onChange={(e) => onChange({ title: e.target.value })}
@@ -777,13 +779,37 @@ function SectionFields({
         </div>
 
         <div className="space-y-2 sm:col-span-2">
-          <Label className="text-xs">Instructions for Participants</Label>
+          <Label className="text-xs">Instructions for participants</Label>
           <Textarea
             value={section.instructions}
             onChange={(e) => onChange({ instructions: e.target.value })}
             placeholder="Shown at the start of this section..."
             className="min-h-16 text-sm"
           />
+        </div>
+
+        <div className="sm:col-span-2 flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/20 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Response format
+            </p>
+            <p className="text-sm font-medium truncate">
+              {section.formatName}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Scale options &amp; reverse-scoring rules live in the response
+              formats library.
+            </p>
+          </div>
+          <Link
+            href={`/response-formats/${section.responseFormatId}/edit`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+          >
+            Edit format
+            <ExternalLink className="size-3" />
+          </Link>
         </div>
       </div>
 

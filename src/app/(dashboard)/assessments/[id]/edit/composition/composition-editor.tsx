@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import Link from "next/link"
 import { toast } from "sonner"
 import { DragDropProvider } from "@dnd-kit/react"
 import { move } from "@dnd-kit/helpers"
@@ -176,14 +177,14 @@ export function CompositionEditor({
             the library on the left into this assessment. Changes save
             automatically. Open the
             {" "}
-            <a
-              href={
-                scoringLevel === "construct" ? "/constructs" : "/factors"
-              }
+            <Link
+              href={scoringLevel === "construct" ? "/constructs" : "/factors"}
+              target="_blank"
+              rel="noopener noreferrer"
               className="underline hover:no-underline"
             >
               {scoringLevel === "construct" ? "Constructs" : "Factors"} library
-            </a>
+            </Link>
             {" "}
             to edit definitions.
           </CardDescription>
