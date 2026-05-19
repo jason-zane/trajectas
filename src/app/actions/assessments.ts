@@ -166,6 +166,9 @@ function revalidateAssessmentPaths() {
   revalidatePath('/assessments')
   revalidatePath('/partner/assessments')
   revalidatePath('/partner')
+  revalidatePath('/directory')
+  revalidatePath('/clients', 'layout')
+  revalidatePath('/partners', 'layout')
   revalidatePath('/')
 }
 
@@ -1088,6 +1091,19 @@ export async function deleteAssessment(id: string) {
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  // Cascade-equivalent: FK is ON DELETE CASCADE but fires only on hard DELETE.
+  // Not restored on undelete — admin re-enables manually.
+  await db
+    .from('client_assessment_assignments')
+    .update({ is_active: false })
+    .eq('assessment_id', id)
+    .eq('is_active', true)
+  await db
+    .from('partner_assessment_assignments')
+    .update({ is_active: false })
+    .eq('assessment_id', id)
+    .eq('is_active', true)
 
   revalidateAssessmentPaths()
   await logAuditEvent({

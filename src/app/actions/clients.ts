@@ -86,6 +86,7 @@ export async function getClients(): Promise<ClientWithCounts[]> {
     .from('clients')
     .select('*, partners(name), assessments(count), diagnostic_sessions(count)')
     .is('deleted_at', null)
+    .is('assessments.deleted_at', null)
     .order('name', { ascending: true })
 
   if (!scope.isPlatformAdmin) {
@@ -110,6 +111,7 @@ export async function getClientDirectoryEntries(): Promise<ClientWithCounts[]> {
   let query = db
     .from('clients')
     .select('*, partners(name), assessments(count), diagnostic_sessions(count)')
+    .is('assessments.deleted_at', null)
     .order('name', { ascending: true })
 
   if (!scope.isPlatformAdmin) {
@@ -330,6 +332,18 @@ export async function deleteClient(id: string) {
     .eq('id', id)
 
   if (error) return { error: error.message }
+
+  // Cascade-equivalent: FK is ON DELETE CASCADE but fires only on hard DELETE.
+  await db
+    .from('client_assessment_assignments')
+    .update({ is_active: false })
+    .eq('client_id', id)
+    .eq('is_active', true)
+  await db
+    .from('client_report_template_assignments')
+    .update({ is_active: false })
+    .eq('client_id', id)
+    .eq('is_active', true)
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,

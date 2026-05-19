@@ -46,6 +46,7 @@ export async function getPartners(): Promise<PartnerWithCounts[]> {
   const { data, error } = await db
     .from('partners')
     .select('*, clients(count)')
+    .is('clients.deleted_at', null)
     .order('name', { ascending: true })
 
   if (error) {
@@ -270,6 +271,18 @@ export async function deletePartner(id: string) {
     logActionError('deletePartner', error)
     return { error: 'Unable to archive partner.' }
   }
+
+  // Cascade-equivalent for soft delete (FK CASCADE only fires on hard DELETE).
+  await db
+    .from('partner_assessment_assignments')
+    .update({ is_active: false })
+    .eq('partner_id', id)
+    .eq('is_active', true)
+  await db
+    .from('partner_report_template_assignments')
+    .update({ is_active: false })
+    .eq('partner_id', id)
+    .eq('is_active', true)
 
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
@@ -769,6 +782,8 @@ export async function getPartnerClients(partnerId: string): Promise<PartnerClien
     .select('*, campaigns(count), client_assessment_assignments(count)')
     .eq('partner_id', partnerId)
     .is('deleted_at', null)
+    .is('campaigns.deleted_at', null)
+    .eq('client_assessment_assignments.is_active', true)
     .order('name', { ascending: true })
 
   if (error) {

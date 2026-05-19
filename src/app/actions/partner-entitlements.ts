@@ -36,9 +36,10 @@ export async function getPartnerAssessmentAssignments(
 
   const { data, error } = await db
     .from('partner_assessment_assignments')
-    .select('*, assessments(title)')
+    .select('*, assessments!inner(title, deleted_at)')
     .eq('partner_id', partnerId)
     .eq('is_active', true)
+    .is('assessments.deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -95,9 +96,10 @@ export async function getPartnerReportTemplateAssignments(
 
   const { data, error } = await db
     .from('partner_report_template_assignments')
-    .select('*')
+    .select('*, report_templates!inner(deleted_at)')
     .eq('partner_id', partnerId)
     .eq('is_active', true)
+    .is('report_templates.deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (error) {
