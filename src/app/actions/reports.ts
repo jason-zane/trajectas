@@ -402,8 +402,23 @@ export async function deleteReportTemplate(id: string): Promise<void> {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)
   if (error) throw new Error(error.message)
+
+  // Cascade-equivalent for soft delete (FK CASCADE only fires on hard DELETE).
+  await db
+    .from('client_report_template_assignments')
+    .update({ is_active: false })
+    .eq('report_template_id', id)
+    .eq('is_active', true)
+  await db
+    .from('partner_report_template_assignments')
+    .update({ is_active: false })
+    .eq('report_template_id', id)
+    .eq('is_active', true)
+
   revalidatePath('/report-templates')
   revalidatePath('/partner/report-templates')
+  revalidatePath('/clients', 'layout')
+  revalidatePath('/partners', 'layout')
 }
 
 export async function toggleReportTemplateActive(

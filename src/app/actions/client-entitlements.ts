@@ -42,9 +42,10 @@ export async function getAssessmentAssignments(
   const [assignmentResult, usageResult] = await Promise.all([
     db
       .from('client_assessment_assignments')
-      .select('*, assessments(title)')
+      .select('*, assessments!inner(title, deleted_at)')
       .eq('client_id', clientId)
       .eq('is_active', true)
+      .is('assessments.deleted_at', null)
       .order('created_at', { ascending: true }),
     db.rpc('get_client_assessment_quota_usage_bulk', {
       p_client_id: clientId,
@@ -545,9 +546,10 @@ export async function getReportTemplateAssignments(
 
   const { data, error } = await db
     .from('client_report_template_assignments')
-    .select('*')
+    .select('*, report_templates!inner(deleted_at)')
     .eq('client_id', clientId)
     .eq('is_active', true)
+    .is('report_templates.deleted_at', null)
     .order('created_at', { ascending: true })
 
   if (error) {
