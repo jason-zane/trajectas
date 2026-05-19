@@ -16,7 +16,7 @@ import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappe
 import { resolveTemplateBandScheme } from './resolve-template-band-scheme'
 import { resolveBand } from './band-resolution'
 import { DEFAULT_REPORT_THEME, type ReportTheme } from './presentation'
-import { getEffectiveBrand } from '@/app/actions/brand'
+import { getEffectiveBrand, getBrandConfig, getCachedPlatformBrand } from '@/app/actions/brand'
 import type { BandScheme } from './band-scheme'
 import type { BandResult } from './types'
 import type { ReportSnapshot, ReportTemplate } from '@/types/database'
@@ -32,6 +32,10 @@ export interface ReportContextSession {
   assessmentId: string
   firstName?: string
   lastName?: string
+  /** Job title collected at participant self-registration. May be empty. */
+  jobTitle?: string
+  /** Company name collected at participant self-registration. May be empty. */
+  company?: string
   campaignName?: string
   assessmentName?: string
   clientId: string | null
@@ -105,7 +109,7 @@ export async function buildReportContext(
     db
       .from('participant_sessions')
       .select(
-        'id, campaign_id, participant_profile_id, assessment_id, profiles(first_name, last_name), assessments(title), campaign_participants(first_name, last_name)',
+        'id, campaign_id, participant_profile_id, assessment_id, profiles(first_name, last_name), assessments(title), campaign_participants(first_name, last_name, job_title, company)',
       )
       .eq('id', snapshot.participantSessionId)
       .single(),
@@ -143,7 +147,7 @@ export async function buildReportContext(
   const profiles = sessionRow.profiles as { first_name?: string; last_name?: string } | null
   const cpRaw = sessionRow.campaign_participants
   const cp = (Array.isArray(cpRaw) ? cpRaw[0] : cpRaw) as
-    | { first_name?: string; last_name?: string }
+    | { first_name?: string; last_name?: string; job_title?: string; company?: string }
     | null
     | undefined
   const assessments = sessionRow.assessments as { title?: string } | null
@@ -169,6 +173,19 @@ export async function buildReportContext(
     }
   }
 
+  // Brand identity logos — primary = platform, secondary = client/campaign co-brand
+  const [platformBrandRecord, campaignBrandRecord, clientBrandRecord] = await Promise.all([
+    getCachedPlatformBrand(),
+    campaignId ? getBrandConfig('campaign', campaignId) : Promise.resolve(null),
+    clientId ? getBrandConfig('client', clientId) : Promise.resolve(null),
+  ])
+  brandTheme = {
+    ...brandTheme,
+    primaryLogoUrl: platformBrandRecord?.config.logoUrl ?? undefined,
+    secondaryLogoUrl:
+      campaignBrandRecord?.config.logoUrl ?? clientBrandRecord?.config.logoUrl ?? undefined,
+  }
+
   const session: ReportContextSession = {
     id: sessionRow.id as string,
     campaignId,
@@ -176,6 +193,8 @@ export async function buildReportContext(
     assessmentId: sessionRow.assessment_id as string,
     firstName: profiles?.first_name ?? cp?.first_name ?? undefined,
     lastName: profiles?.last_name ?? cp?.last_name ?? undefined,
+    jobTitle: cp?.job_title ?? undefined,
+    company: cp?.company ?? undefined,
     campaignName,
     assessmentName: assessments?.title ?? undefined,
     clientId,

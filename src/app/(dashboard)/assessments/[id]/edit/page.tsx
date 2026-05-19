@@ -43,6 +43,12 @@ export default async function EditAssessmentPage({
         >
           Intro
         </Link>
+        <Link
+          href={`/assessments/${id}/edit/reports`}
+          className="border-b-2 border-transparent pb-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Reports
+        </Link>
       </nav>
 
       <AssessmentBuilder

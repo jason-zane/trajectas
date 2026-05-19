@@ -880,9 +880,44 @@ async function ensureReportSnapshotsForSession(input: {
     return { error: 'Unable to load this campaign report configuration' }
   }
 
-  const desiredTemplateIds = (configuredTemplates ?? [])
+  let desiredTemplateIds = (configuredTemplates ?? [])
     .map((r) => String(r.template_id))
     .filter((id) => id.length > 0)
+
+  // Campaign-level attachments win when set; otherwise fall back to assessment-
+  // level defaults so e.g. every 5Brains run picks up its registered report
+  // without per-campaign wiring.
+  if (desiredTemplateIds.length === 0) {
+    const { data: sessionRow, error: sessionError } = await db
+      .from('participant_sessions')
+      .select('assessment_id')
+      .eq('id', input.sessionId)
+      .maybeSingle()
+
+    if (sessionError) {
+      logActionError('submitSession.assessmentLookup', sessionError)
+      return { error: 'Unable to load this campaign report configuration' }
+    }
+
+    const assessmentId = (sessionRow?.assessment_id as string | null) ?? null
+    if (assessmentId) {
+      const { data: assessmentDefaults, error: assessmentDefaultsError } = await db
+        .from('assessment_report_templates')
+        .select('template_id')
+        .eq('assessment_id', assessmentId)
+        .eq('is_default', true)
+        .order('sort_order', { ascending: true })
+
+      if (assessmentDefaultsError) {
+        logActionError('submitSession.assessmentDefaults', assessmentDefaultsError)
+        return { error: 'Unable to load this campaign report configuration' }
+      }
+
+      desiredTemplateIds = (assessmentDefaults ?? [])
+        .map((r) => String(r.template_id))
+        .filter((id) => id.length > 0)
+    }
+  }
 
   if (desiredTemplateIds.length === 0) {
     return {

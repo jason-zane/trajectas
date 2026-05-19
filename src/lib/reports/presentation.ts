@@ -9,6 +9,12 @@ export const CHART_TYPES = ['bar', 'radar', 'gauges', 'segment', 'scorecard', 'g
 export type ChartType = (typeof CHART_TYPES)[number]
 
 export interface ReportTheme {
+  // Brand identity
+  /** Primary brand logo URL — always the platform brand (e.g. Trajectas wordmark). May be undefined if the platform brand row has no logo set. */
+  primaryLogoUrl?: string
+  /** Secondary brand logo URL — the client/partner/campaign logo for co-brand slots. Undefined when there is no effective non-platform brand. */
+  secondaryLogoUrl?: string
+
   // Score colours
   reportHighBandFill: string
   reportMidBandFill: string
