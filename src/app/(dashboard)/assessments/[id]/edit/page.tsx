@@ -1,66 +1,10 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import {
-  getAssessmentWithFactors,
-  getFactorsForBuilder,
-  getConstructsForBuilder,
-  getExistingBlocks,
-} from "@/app/actions/assessments";
-import { getContentSources } from "@/app/actions/content-sources";
-import { AssessmentBuilder } from "../../assessment-builder";
+import { redirect } from "next/navigation"
 
-export default async function EditAssessmentPage({
+export default async function AssessmentEditPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }>
 }) {
-  const { id } = await params;
-  const [result, allFactors, allConstructs, contentSources] = await Promise.all([
-    getAssessmentWithFactors(id),
-    getFactorsForBuilder(),
-    getConstructsForBuilder(),
-    getContentSources(),
-  ]);
-
-  if (!result) notFound();
-
-  // Load existing FC blocks for forced-choice assessments
-  const existingBlocks =
-    result.assessment.formatMode === "forced_choice"
-      ? await getExistingBlocks(id)
-      : undefined;
-
-  return (
-    <>
-      {/* Tab navigation */}
-      <nav className="mb-6 flex gap-6 border-b border-border">
-        <span className="border-b-2 border-primary pb-2 text-sm font-medium text-foreground">
-          Builder
-        </span>
-        <Link
-          href={`/assessments/${id}/edit/intro`}
-          className="border-b-2 border-transparent pb-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Intro
-        </Link>
-        <Link
-          href={`/assessments/${id}/edit/reports`}
-          className="border-b-2 border-transparent pb-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Reports
-        </Link>
-      </nav>
-
-      <AssessmentBuilder
-        assessment={result.assessment}
-        existingFactors={result.factors}
-        existingConstructs={result.constructs}
-        existingSections={result.sections}
-        existingBlocks={existingBlocks}
-        allFactors={allFactors}
-        allConstructs={allConstructs}
-        contentSources={contentSources}
-      />
-    </>
-  );
+  const { id } = await params
+  redirect(`/assessments/${id}/edit/overview`)
 }
