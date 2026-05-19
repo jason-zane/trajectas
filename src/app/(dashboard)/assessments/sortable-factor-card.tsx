@@ -1,7 +1,15 @@
 "use client"
 
+import Link from "next/link"
 import { useSortable } from "@dnd-kit/react/sortable"
-import { GripVertical, X, Brain, Dna, FileQuestion } from "lucide-react"
+import {
+  GripVertical,
+  X,
+  Brain,
+  Dna,
+  FileQuestion,
+  ExternalLink,
+} from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { BuilderFactor } from "@/app/actions/assessments"
@@ -61,6 +69,19 @@ export function SortableFactorCard({
             </span>
           </div>
         </div>
+
+        {factor.slug && (
+          <Link
+            href={`/factors/${factor.slug}/edit`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label={`Open ${factor.name} in factors library`}
+            title="Open in factors library"
+          >
+            <ExternalLink className="size-3.5" />
+          </Link>
+        )}
 
         <button
           type="button"

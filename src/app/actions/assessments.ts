@@ -43,6 +43,7 @@ export type AssessmentWithMeta = Assessment & {
 
 export type BuilderFactor = {
   id: string
+  slug: string
   name: string
   description?: string
   dimensionId?: string
@@ -60,6 +61,7 @@ export type AssessmentFactorLink = {
 
 export type BuilderConstruct = {
   id: string
+  slug: string
   name: string
   description?: string
   dimensionId?: string
@@ -737,6 +739,7 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
     const itemCount = cIds.reduce((sum, cId) => sum + (itemCountByConstruct[cId] ?? 0), 0)
     return {
       id: r.id,
+      slug: r.slug,
       name: r.name,
       description: r.description ?? undefined,
       dimensionId: r.dimension_id ?? undefined,
@@ -754,7 +757,7 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
 
   const { data: constructs, error } = await db
     .from('constructs')
-    .select('id, name, description, is_active')
+    .select('id, slug, name, description, is_active')
     .eq('is_active', true)
     .is('deleted_at', null)
     .order('name', { ascending: true })
@@ -797,6 +800,7 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
 
   return (constructs ?? []).map((c) => ({
     id: c.id,
+    slug: c.slug,
     name: c.name,
     description: c.description ?? undefined,
     dimensionId: dimByConstruct.get(c.id)?.id,

@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useSortable } from "@dnd-kit/react/sortable"
-import { GripVertical, X, Dna, FileQuestion } from "lucide-react"
+import { GripVertical, X, Dna, FileQuestion, ExternalLink } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import type { BuilderConstruct } from "@/app/actions/assessments"
@@ -57,6 +58,19 @@ export function SortableConstructCard({
             </span>
           </div>
         </div>
+
+        {construct.slug && (
+          <Link
+            href={`/constructs/${construct.slug}/edit`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            aria-label={`Open ${construct.name} in constructs library`}
+            title="Open in constructs library"
+          >
+            <ExternalLink className="size-3.5" />
+          </Link>
+        )}
 
         <button
           type="button"
