@@ -45,6 +45,10 @@ const AUTO_ADVANCE_FORMATS = new Set([
   "sjt",
 ]);
 
+/** Formats that need a Continue button (multi-step input — user composes
+ *  a response over multiple interactions rather than picking a single option). */
+const CONTINUE_FORMATS = new Set(["free_text", "ranking"]);
+
 /** Animation + auto-advance delay. Single source of truth. */
 const ADVANCE_DELAY_MS = 120;
 
@@ -58,23 +62,9 @@ function getAssessmentBoundaryActionLabel(postAssessmentUrl: string): string {
   return "Complete assessment";
 }
 
-/**
- * Flatten all sections to get a global item list for navigation.
- * Returns array of { sectionIdx, itemIdx, item, section }.
- */
-function flattenItems(sections: SectionForRunner[]) {
-  const flat: {
-    sectionIdx: number;
-    itemIdx: number;
-    item: SectionForRunner["items"][number];
-    section: SectionForRunner;
-  }[] = [];
-  sections.forEach((section, sIdx) => {
-    section.items.forEach((item, iIdx) => {
-      flat.push({ sectionIdx: sIdx, itemIdx: iIdx, item, section });
-    });
-  });
-  return flat;
+/** Total item count across every section in the assessment. */
+function countAllItems(sections: SectionForRunner[]): number {
+  return sections.reduce((acc, s) => acc + s.items.length, 0);
 }
 
 export function SectionWrapper({
@@ -111,14 +101,8 @@ export function SectionWrapper({
     sessionId,
   });
 
-  // Build a flat global item list from all sections
-  const globalItems = flattenItems(allSections);
-  const totalItems = globalItems.length;
-
-  // Compute the global index for the first item of this section
-  const sectionStartGlobal = globalItems.findIndex(
-    (g) => g.sectionIdx === sectionIndex && g.itemIdx === 0
-  );
+  // Total item count across all sections — denominator for the progress bar.
+  const totalItems = countAllItems(allSections);
 
   // Find the first unanswered item in this section as the start point,
   // or resume from where we left off
@@ -199,27 +183,36 @@ export function SectionWrapper({
   }, [flushProgress, sessionId, token]);
 
   const currentItem = section.items[localItemIndex];
-  const globalIndex = sectionStartGlobal + localItemIndex;
   const responseFormatType = section.responseFormatType;
+  const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
   const isFinalItemInAssessment =
     sectionIndex === totalSections - 1 &&
     localItemIndex === section.items.length - 1;
   const hasCurrentResponse =
     currentItem != null && responses[currentItem.id] !== undefined;
-  // Show Continue whenever the current item already has a response. For
-  // multi-step formats (free_text, ranking) and the final item this is the
-  // only way to advance. For auto-advance formats this lets a returning
-  // participant skip past previously-answered items without having to
-  // re-click their existing selection — the dominant resume UX otherwise is
-  // "re-click every question you already answered to get back to where you
-  // were." During the post-click crossfade the ItemCard is at opacity 0, so
-  // the button cannot visibly flash during normal forward flow.
-  const showManualAdvanceButton = hasCurrentResponse;
+  // Continue is only for multi-step formats (free_text, ranking) where the
+  // user composes a response over several interactions and needs an explicit
+  // commit. Auto-advance formats (likert, binary, sjt, forced_choice) never
+  // show Continue — they advance to the next *unanswered* item on click, so
+  // a returning participant naturally skips past items they've already
+  // answered without re-clicking and without a flashing button.
+  const showManualAdvanceButton = hasCurrentResponse && needsContinue;
   const manualAdvanceLabel = isFinalItemInAssessment
     ? isBoundaryPending
       ? "Completing assessment..."
       : getAssessmentBoundaryActionLabel(postAssessmentUrl)
     : runnerContent?.continueButtonLabel ?? "Continue";
+
+  // Progress bar shows percentage of items actually completed across the whole
+  // assessment, not the current position. Means the bar reflects how much you
+  // have left to do — not how far you happen to have walked. Skip-mode on
+  // resume can jump localItemIndex forward by a lot; an honest "% answered"
+  // is the right signal for a participant.
+  const completedCount = allSections.reduce(
+    (acc, s) =>
+      acc + s.items.filter((it) => responses[it.id] !== undefined).length,
+    0,
+  );
 
   const pushAcrossBoundary = useCallback(
     async (href: string, progressItemIndex: number) => {
@@ -249,6 +242,37 @@ export function SectionWrapper({
     },
     [flushProgress, flushSaves, retryFailedSaves, router, section.id],
   );
+
+  // If every item in this section is already answered (either from a
+  // server-rendered snapshot or after IDB hydration merges in unsynced
+  // local rows), push straight through to the next section / completion.
+  // Means a returning participant who finished this section in a previous
+  // sitting never lands on it — they keep moving.
+  const autoSkipFiredRef = useRef(false);
+  useEffect(() => {
+    if (autoSkipFiredRef.current || section.items.length === 0) return;
+    const allAnswered = section.items.every(
+      (it) => responses[it.id] !== undefined,
+    );
+    if (!allAnswered) return;
+    autoSkipFiredRef.current = true;
+    if (sectionIndex < totalSections - 1) {
+      void pushAcrossBoundary(
+        `/assess/${token}/section/${sectionIndex + 1}`,
+        section.items.length - 1,
+      );
+    } else {
+      void pushAcrossBoundary(postAssessmentUrl, section.items.length - 1);
+    }
+  }, [
+    section.items,
+    responses,
+    sectionIndex,
+    totalSections,
+    token,
+    postAssessmentUrl,
+    pushAcrossBoundary,
+  ]);
 
   // For forced_choice, auto-advance only after both most+least are selected
   // For SJT, auto-advance only if single-select mode
@@ -283,9 +307,21 @@ export function SectionWrapper({
   );
 
   const goToNextItem = useCallback(() => {
-    if (localItemIndex < section.items.length - 1) {
-      navigateToItem(localItemIndex + 1, "left");
-      scheduleProgressUpdate(section.id, localItemIndex + 1);
+    // Skip-mode: jump to the next item without a response rather than the
+    // next sequential one. On a fresh forward run with no gaps this is
+    // identical to localItemIndex + 1; on resume, it walks the participant
+    // through only the items they still need to answer.
+    let nextIdx = -1;
+    for (let i = localItemIndex + 1; i < section.items.length; i++) {
+      if (responses[section.items[i].id] === undefined) {
+        nextIdx = i;
+        break;
+      }
+    }
+
+    if (nextIdx >= 0) {
+      navigateToItem(nextIdx, "left");
+      scheduleProgressUpdate(section.id, nextIdx);
     } else if (sectionIndex < totalSections - 1) {
       void pushAcrossBoundary(
         `/assess/${token}/section/${sectionIndex + 1}`,
@@ -297,7 +333,7 @@ export function SectionWrapper({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     localItemIndex,
-    section.items.length,
+    section.items,
     section.id,
     sectionIndex,
     totalSections,
@@ -305,6 +341,7 @@ export function SectionWrapper({
     postAssessmentUrl,
     navigateToItem,
     pushAcrossBoundary,
+    responses,
   ]);
 
   const goToPreviousItem = useCallback(() => {
@@ -424,7 +461,7 @@ export function SectionWrapper({
       )}
 
       {/* Progress bar */}
-      {showProgress && <ProgressBar currentIndex={globalIndex} totalItems={totalItems} />}
+      {showProgress && <ProgressBar currentIndex={completedCount} totalItems={totalItems} />}
 
       {/* Main content area */}
       <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
