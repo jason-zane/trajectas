@@ -187,8 +187,15 @@ export function SectionWrapper({
     localItemIndex === section.items.length - 1;
   const hasCurrentResponse =
     currentItem != null && responses[currentItem.id] !== undefined;
-  const showManualAdvanceButton =
-    hasCurrentResponse && (needsContinue || isFinalItemInAssessment);
+  // Show Continue whenever the current item already has a response. For
+  // multi-step formats (free_text, ranking) and the final item this is the
+  // only way to advance. For auto-advance formats this lets a returning
+  // participant skip past previously-answered items without having to
+  // re-click their existing selection — the dominant resume UX otherwise is
+  // "re-click every question you already answered to get back to where you
+  // were." During the post-click crossfade the ItemCard is at opacity 0, so
+  // the button cannot visibly flash during normal forward flow.
+  const showManualAdvanceButton = hasCurrentResponse;
   const manualAdvanceLabel = isFinalItemInAssessment
     ? isBoundaryPending
       ? "Completing assessment..."
