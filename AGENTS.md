@@ -88,6 +88,34 @@ The project uses a PR-then-merge model with CI gating on each PR. The order of o
 7. **CI must be green to merge.** The three jobs are `security` → `quality` → `e2e-smoke`. Each gates the next.
 8. **If `security` fails on `npm audit`**, that's almost always a pre-existing dependency issue, not the PR's fault. `npm audit fix` and commit the lockfile bump as a separate `chore(deps)` commit on the same branch — do NOT mix dep bumps with feature work in the same commit.
 9. **Merge via `gh pr merge --squash --delete-branch`** once CI is green and any review feedback is addressed.
+10. **Prune the local branch.** `--delete-branch` only removes the *remote* branch; the local one still points at the pre-squash commit and will not show up in `git branch --merged`. Run:
+    ```sh
+    git checkout main && git pull --ff-only
+    git branch -D <branch-just-merged>
+    ```
+    Or use the `pr-ship` helper (see "Branch hygiene" below). Skipping this step is why local branch lists accumulate dozens of dead refs.
+
+### Branch hygiene
+
+A periodic cleanup pass (run weekly or whenever `git branch` feels noisy):
+
+```sh
+# 1. Sync remote refs and prune deleted upstreams.
+git fetch -p
+
+# 2. Delete branches whose upstream is gone (squash-merged + deleted on remote).
+git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads/ \
+  | awk '/\[gone\]/{print $1}' | xargs -r git branch -D
+
+# 3. Cross-check remaining unmerged-vs-main branches against PR status:
+for b in $(git for-each-ref --format='%(refname:short)' refs/heads/); do
+  git merge-base --is-ancestor "$b" origin/main && continue
+  pr=$(gh pr list --state all --head "$b" --json number,state --jq '.[0] // empty')
+  [ -n "$pr" ] && echo "$b → $pr"
+done
+```
+
+Worktree hygiene: agent worktrees under `.claude/worktrees/*` and `.worktrees/*` pin branches. After the related PR is merged, remove the worktree (`git worktree remove <path>`) before deleting the branch.
 
 ### Sequencing rationale
 
