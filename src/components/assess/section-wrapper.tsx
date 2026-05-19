@@ -45,9 +45,6 @@ const AUTO_ADVANCE_FORMATS = new Set([
   "sjt",
 ]);
 
-/** Formats that need a Continue button (multi-step input). */
-const CONTINUE_FORMATS = new Set(["free_text", "ranking"]);
-
 /** Animation + auto-advance delay. Single source of truth. */
 const ADVANCE_DELAY_MS = 120;
 
@@ -181,7 +178,6 @@ export function SectionWrapper({
   const currentItem = section.items[localItemIndex];
   const globalIndex = sectionStartGlobal + localItemIndex;
   const responseFormatType = section.responseFormatType;
-  const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
   const isFinalItemInAssessment =
     sectionIndex === totalSections - 1 &&
     localItemIndex === section.items.length - 1;

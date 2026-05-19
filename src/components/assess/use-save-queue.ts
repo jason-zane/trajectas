@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 
 type SaveEntry = {
   itemId: string;
@@ -105,7 +105,9 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
   const drainWaitersRef = useRef<Array<(ok: boolean) => void>>([]);
 
   const configRef = useRef(config);
-  configRef.current = config;
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
 
   const notifyIdleIfDrained = useCallback(() => {
     if (
@@ -124,6 +126,11 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
       }
     }
   }, []);
+
+  // Hold processQueue in a ref so we can re-enter it from setTimeout and
+  // async-block closures without textually self-referencing it inside its
+  // own useCallback body (which the react-hooks immutability lint forbids).
+  const processQueueRef = useRef<() => void>(() => {});
 
   const processQueue = useCallback(() => {
     const now = Date.now();
@@ -161,7 +168,7 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
             entry.notBefore = Date.now() + backoff;
             queueRef.current.push(entry);
             setTimeout(() => {
-              processQueue();
+              processQueueRef.current();
               notifyIdleIfDrained();
             }, backoff);
           }
@@ -169,11 +176,14 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
           entry.onSettled?.(true);
         }
 
-        processQueue();
+        processQueueRef.current();
         notifyIdleIfDrained();
       })();
     }
   }, [notifyIdleIfDrained]);
+  useEffect(() => {
+    processQueueRef.current = processQueue;
+  }, [processQueue]);
 
   /**
    * Enqueue a save (fire-and-forget). Deduplicates by itemId — if a pending
