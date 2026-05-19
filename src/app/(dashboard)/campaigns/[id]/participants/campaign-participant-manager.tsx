@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import Papa from "papaparse";
 import { toast } from "sonner";
 import { FileBarChart, GitCompare, Link2, Mail, Plus, Trash2, Upload } from "lucide-react";
 import { usePortal } from "@/components/portal-context";
@@ -127,19 +128,47 @@ export function CampaignParticipantManager({
   }
 
   async function handleBulkUpload() {
-    const lines = csvText
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+    // Header row is optional. If present we read columns by header; otherwise
+    // we fall back to positional: email, firstName, lastName.
+    const { data, errors: parseErrors } = Papa.parse<string[] | Record<string, string>>(
+      csvText,
+      {
+        skipEmptyLines: "greedy",
+        // sniff a header row from the first non-empty line
+        header: /^\s*email\s*(,|\t|$)/im.test(csvText.split(/\r?\n/).find((l) => l.trim()) ?? ""),
+        transformHeader: (h) => h.trim().toLowerCase().replace(/[\s_-]+/g, ""),
+      },
+    );
 
-    const parsed = lines.map((line) => {
-      const [emailValue, firstNameValue, lastNameValue] = line
-        .split(",")
-        .map((segment) => segment.trim());
+    if (parseErrors.length > 0) {
+      toast.error("Could not parse CSV", {
+        description: parseErrors[0]?.message ?? "Check the formatting and try again.",
+      });
+      return;
+    }
+
+    const parsed = (data as Array<string[] | Record<string, string>>).map((row) => {
+      if (Array.isArray(row)) {
+        const [emailValue, firstNameValue, lastNameValue] = row.map((cell) =>
+          (cell ?? "").trim(),
+        );
+        return {
+          email: emailValue,
+          firstName: firstNameValue,
+          lastName: lastNameValue,
+        };
+      }
+      const lookup = (...keys: string[]) => {
+        for (const k of keys) {
+          const v = row[k];
+          if (typeof v === "string" && v.trim()) return v.trim();
+        }
+        return undefined;
+      };
       return {
-        email: emailValue,
-        firstName: firstNameValue,
-        lastName: lastNameValue,
+        email: lookup("email", "emailaddress") ?? "",
+        firstName: lookup("firstname", "givenname", "first"),
+        lastName: lookup("lastname", "surname", "familyname", "last"),
       };
     });
 
@@ -554,7 +583,9 @@ export function CampaignParticipantManager({
             <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
               email, first_name, last_name
             </code>
-            . First and last name are optional.
+            . First and last name are optional. A header row is also accepted,
+            and CSV pasted from Excel (with quoted names containing commas) is
+            handled correctly.
           </>
         }
       >
