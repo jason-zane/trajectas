@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { getComparisonMatrix } from '@/app/actions/comparison'
 import { buildComparisonCsv } from '@/lib/comparison/build-csv'
 
+export const maxDuration = 60
+
 const Body = z.object({
   entries: z.array(
     z.object({
