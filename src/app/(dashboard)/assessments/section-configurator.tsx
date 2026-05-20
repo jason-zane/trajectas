@@ -123,6 +123,8 @@ interface SectionConfiguratorProps {
     itemsPerConstruct: number | null
     shortfalls: ConstructShortfall[]
   } | null
+  /** Show the deep-link to /response-formats/[id]/edit per section. */
+  showFormatLink?: boolean
 }
 
 export function SectionConfigurator({
@@ -139,6 +141,7 @@ export function SectionConfigurator({
   onFcBlocksChange,
   existingBlocks,
   ruleInfo,
+  showFormatLink = true,
 }: SectionConfiguratorProps) {
   const [loading, setLoading] = useState(false)
   const [formatGroups, setFormatGroups] = useState<FormatGroup[]>([])
@@ -215,6 +218,7 @@ export function SectionConfigurator({
           formatGroups={formatGroups}
           sections={sections}
           updateSection={updateSection}
+          showFormatLink={showFormatLink}
         />
       ) : (
         <FCConfigurator
@@ -312,11 +316,13 @@ function TraditionalConfigurator({
   formatGroups,
   sections,
   updateSection,
+  showFormatLink,
 }: {
   loading: boolean
   formatGroups: FormatGroup[]
   sections: SectionDraft[]
   updateSection: (index: number, updates: Partial<SectionDraft>) => void
+  showFormatLink: boolean
 }) {
   if (loading) {
     return (
@@ -377,6 +383,7 @@ function TraditionalConfigurator({
                   index={index}
                   onChange={(updates) => updateSection(index, updates)}
                   defaultExpanded={false}
+                  showFormatLink={showFormatLink}
                 />
               </ScrollReveal>
             ))}
@@ -389,7 +396,11 @@ function TraditionalConfigurator({
             </div>
           </div>
         ) : (
-          <SingleSectionSummary section={sections[0]} onChange={(updates) => updateSection(0, updates)} />
+          <SingleSectionSummary
+            section={sections[0]}
+            onChange={(updates) => updateSection(0, updates)}
+            showFormatLink={showFormatLink}
+          />
         )}
       </CardContent>
     </Card>
@@ -671,9 +682,11 @@ function FCConfigurator({
 function SingleSectionSummary({
   section,
   onChange,
+  showFormatLink,
 }: {
   section: SectionDraft
   onChange: (updates: Partial<SectionDraft>) => void
+  showFormatLink: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -691,7 +704,11 @@ function SingleSectionSummary({
 
       {expanded && (
         <div className="animate-fade-in-up">
-          <SectionFields section={section} onChange={onChange} />
+          <SectionFields
+            section={section}
+            onChange={onChange}
+            showFormatLink={showFormatLink}
+          />
         </div>
       )}
     </div>
@@ -707,11 +724,13 @@ function SectionCard({
   index,
   onChange,
   defaultExpanded,
+  showFormatLink,
 }: {
   section: SectionDraft
   index: number
   onChange: (updates: Partial<SectionDraft>) => void
   defaultExpanded: boolean
+  showFormatLink: boolean
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
@@ -747,7 +766,11 @@ function SectionCard({
 
       {expanded && (
         <div className="border-t px-4 py-4 animate-fade-in-up">
-          <SectionFields section={section} onChange={onChange} />
+          <SectionFields
+            section={section}
+            onChange={onChange}
+            showFormatLink={showFormatLink}
+          />
         </div>
       )}
     </div>
@@ -761,9 +784,11 @@ function SectionCard({
 function SectionFields({
   section,
   onChange,
+  showFormatLink,
 }: {
   section: SectionDraft
   onChange: (updates: Partial<SectionDraft>) => void
+  showFormatLink: boolean
 }) {
   return (
     <div className="space-y-4">
@@ -797,19 +822,21 @@ function SectionFields({
               {section.formatName}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              Scale options &amp; reverse-scoring rules live in the response
-              formats library.
+              Scale options &amp; reverse-scoring rules
+              {showFormatLink ? " live in the response formats library." : " are managed by the platform admin."}
             </p>
           </div>
-          <Link
-            href={`/response-formats/${section.responseFormatId}/edit`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
-          >
-            Edit format
-            <ExternalLink className="size-3" />
-          </Link>
+          {showFormatLink && (
+            <Link
+              href={`/response-formats/${section.responseFormatId}/edit`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs text-foreground hover:bg-muted transition-colors"
+            >
+              Edit format
+              <ExternalLink className="size-3" />
+            </Link>
+          )}
         </div>
       </div>
 

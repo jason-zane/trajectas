@@ -11,12 +11,15 @@ interface SortableConstructCardProps {
   construct: BuilderConstruct
   index: number
   onRemove: (id: string) => void
+  /** Whether to show the deep-link to the constructs library editor. */
+  showLibraryLink?: boolean
 }
 
 export function SortableConstructCard({
   construct,
   index,
   onRemove,
+  showLibraryLink = true,
 }: SortableConstructCardProps) {
   const { ref, handleRef, isDragging } = useSortable({
     id: construct.id,
@@ -59,7 +62,7 @@ export function SortableConstructCard({
           </div>
         </div>
 
-        {construct.slug && (
+        {showLibraryLink && construct.slug && (
           <Link
             href={`/constructs/${construct.slug}/edit`}
             target="_blank"

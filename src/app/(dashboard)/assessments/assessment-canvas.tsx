@@ -17,6 +17,8 @@ interface AssessmentCanvasProps {
     itemsPerConstruct: number | null
     shortfalls: ConstructShortfall[]
   } | null
+  /** Show deep links to the factors/constructs library editor on each card. */
+  showLibraryLinks?: boolean
 }
 
 export function AssessmentCanvas({
@@ -25,6 +27,7 @@ export function AssessmentCanvas({
   selectedConstructs = [],
   onRemove,
   ruleInfo,
+  showLibraryLinks = true,
 }: AssessmentCanvasProps) {
   const { ref, isDropTarget } = useDroppable({ id: "assessment-canvas" })
 
@@ -92,6 +95,7 @@ export function AssessmentCanvas({
                     construct={construct}
                     index={index}
                     onRemove={onRemove}
+                    showLibraryLink={showLibraryLinks}
                   />
                 ))
               : selectedFactors.map((factor, index) => (
@@ -100,6 +104,7 @@ export function AssessmentCanvas({
                     factor={factor}
                     index={index}
                     onRemove={onRemove}
+                    showLibraryLink={showLibraryLinks}
                   />
                 ))}
           </div>

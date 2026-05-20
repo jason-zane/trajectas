@@ -18,12 +18,15 @@ interface SortableFactorCardProps {
   factor: BuilderFactor
   index: number
   onRemove: (id: string) => void
+  /** Whether to show the deep-link to the factors library editor. */
+  showLibraryLink?: boolean
 }
 
 export function SortableFactorCard({
   factor,
   index,
   onRemove,
+  showLibraryLink = true,
 }: SortableFactorCardProps) {
   const { ref, handleRef, isDragging } = useSortable({
     id: factor.id,
@@ -70,7 +73,7 @@ export function SortableFactorCard({
           </div>
         </div>
 
-        {factor.slug && (
+        {showLibraryLink && factor.slug && (
           <Link
             href={`/factors/${factor.slug}/edit`}
             target="_blank"

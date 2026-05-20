@@ -23,6 +23,8 @@ interface PresentationEditorProps {
   existingSections: ExistingSection[]
   existingBlocks: ExistingFCBlock[]
   noFactors: boolean
+  /** Set false in portals without access to the response-formats library. */
+  showFormatLink?: boolean
 }
 
 const SAVE_DEBOUNCE_MS = 1500
@@ -36,6 +38,7 @@ export function PresentationEditor({
   existingSections,
   existingBlocks,
   noFactors,
+  showFormatLink = true,
 }: PresentationEditorProps) {
   const [formatMode, setFormatMode] = useState<FormatMode>(initialFormatMode)
   const [fcBlockSize, setFcBlockSize] = useState<3 | 4>(initialFcBlockSize)
@@ -145,6 +148,7 @@ export function PresentationEditor({
         fcBlocks={fcBlocks}
         onFcBlocksChange={setFcBlocks}
         existingBlocks={existingBlocks}
+        showFormatLink={showFormatLink}
       />
     </div>
   )
