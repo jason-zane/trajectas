@@ -189,19 +189,11 @@ export default async function ClientAssessmentDetailPage({
                       ) : null}
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="secondary">{section.formatType}</Badge>
-                        <Badge variant="secondary">
-                          {section.itemsPerPage === null
-                            ? "All items on one page"
-                            : `${section.itemsPerPage} per page`}
-                        </Badge>
                         {section.timeLimitSeconds ? (
                           <Badge variant="secondary">
                             {Math.ceil(section.timeLimitSeconds / 60)} min limit
                           </Badge>
                         ) : null}
-                        <Badge variant="secondary">
-                          {section.allowBackNav ? "Back navigation enabled" : "Forward only"}
-                        </Badge>
                       </div>
                     </CardContent>
                   </Card>

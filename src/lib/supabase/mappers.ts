@@ -442,9 +442,7 @@ export function mapAssessmentSectionRow(row: any): AssessmentSection {
     instructions: row.instructions ?? undefined,
     displayOrder: row.display_order,
     itemOrdering: row.item_ordering,
-    itemsPerPage: row.items_per_page ?? undefined,
     timeLimitSeconds: row.time_limit_seconds ?? undefined,
-    allowBackNav: row.allow_back_nav,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }
@@ -471,9 +469,7 @@ export function toAssessmentSectionInsert(
     instructions: s.instructions ?? null,
     display_order: s.displayOrder,
     item_ordering: s.itemOrdering,
-    items_per_page: s.itemsPerPage ?? null,
     time_limit_seconds: s.timeLimitSeconds ?? null,
-    allow_back_nav: s.allowBackNav,
   }
 }
 

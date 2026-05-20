@@ -10,9 +10,7 @@ export const assessmentSectionSchema = z.object({
   itemOrdering: z
     .enum(['fixed', 'randomised', 'interleaved_by_construct'])
     .default('interleaved_by_construct'),
-  itemsPerPage: z.coerce.number().int().positive().optional(),
   timeLimitSeconds: z.coerce.number().int().positive().optional(),
-  allowBackNav: z.boolean().default(true),
 })
 
 export type AssessmentSectionInput = z.infer<typeof assessmentSectionSchema>

@@ -95,9 +95,7 @@ export type SectionDraft = {
   instructions: string
   displayOrder: number
   itemOrdering: ItemOrdering
-  itemsPerPage: number | null
   timeLimitSeconds: number | null
-  allowBackNav: boolean
   itemCount: number
 }
 
@@ -123,9 +121,7 @@ export type ExistingSection = {
   instructions: string
   displayOrder: number
   itemOrdering: ItemOrdering
-  itemsPerPage: number | null
   timeLimitSeconds: number | null
-  allowBackNav: boolean
   itemCount: number
 }
 
@@ -591,9 +587,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
     instructions: s.instructions ?? '',
     displayOrder: s.display_order,
     itemOrdering: s.item_ordering,
-    itemsPerPage: s.items_per_page ?? null,
     timeLimitSeconds: s.time_limit_seconds ?? null,
-    allowBackNav: s.allow_back_nav,
     itemCount: s.assessment_section_items?.[0]?.count ?? 0,
   }))
 
@@ -1419,9 +1413,7 @@ async function persistSections(
     instructions: s.instructions || null,
     display_order: s.displayOrder,
     item_ordering: s.itemOrdering,
-    items_per_page: s.itemsPerPage ?? null,
     time_limit_seconds: s.timeLimitSeconds ?? null,
-    allow_back_nav: s.allowBackNav,
   }))
 
   const { data: insertedSections, error: secErr } = await db
