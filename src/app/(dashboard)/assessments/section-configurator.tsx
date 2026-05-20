@@ -97,9 +97,7 @@ function defaultSectionFromFormat(group: FormatGroup, order: number): SectionDra
     instructions: DEFAULT_INSTRUCTIONS[group.formatType] ?? "",
     displayOrder: order,
     itemOrdering: group.formatType === "sjt" ? "fixed" : "randomised",
-    itemsPerPage: group.formatType === "sjt" ? 1 : null,
     timeLimitSeconds: null,
-    allowBackNav: true,
     itemCount: group.itemCount,
   }
 }

@@ -1264,12 +1264,9 @@ export interface AssessmentSection {
   displayOrder: number
   /** How items are ordered within this section. */
   itemOrdering: ItemOrdering
-  /** Number of items per page. NULL = all on one page; 1 = one-per-page (SJT). */
-  itemsPerPage?: number
-  /** Optional per-section time limit in seconds. */
+  /** Optional duration override (seconds) — used only to override the
+   *  duration estimate shown to participants. Not enforced as a timer. */
   timeLimitSeconds?: number
-  /** Whether participants can navigate backwards within this section. */
-  allowBackNav: boolean
   created_at: string
   updated_at?: string
 }

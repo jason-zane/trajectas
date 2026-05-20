@@ -92,9 +92,7 @@ export type SectionForRunner = {
   responseFormatType: string
   responseFormatConfig: Record<string, unknown>
   itemOrdering: string
-  itemsPerPage?: number
   timeLimitSeconds?: number
-  allowBackNav: boolean
   items: ItemForRunner[]
 }
 
@@ -141,9 +139,7 @@ type AssessmentSectionRow = {
   display_order: number
   response_format_id: string
   item_ordering: string
-  items_per_page: number | null
   time_limit_seconds: number | null
-  allow_back_nav: boolean
   response_formats: AssessmentSectionResponseFormatRow
   assessment_section_items: AssessmentSectionItemRow[] | null
 }
@@ -612,9 +608,7 @@ export async function getSessionState(token: string, sessionId: string) {
       responseFormatType: formatType,
       responseFormatConfig: formatConfig,
       itemOrdering: s.item_ordering,
-      itemsPerPage: s.items_per_page ?? undefined,
       timeLimitSeconds: s.time_limit_seconds ?? undefined,
-      allowBackNav: s.allow_back_nav,
       items: sectionItems.map((si) => {
           const itemOptions = (si.items?.item_options ?? [])
             .sort((a, b) => a.display_order - b.display_order)

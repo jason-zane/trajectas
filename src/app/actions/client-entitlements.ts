@@ -158,9 +158,7 @@ export type ClientAssessmentLibrarySection = {
   formatName: string
   formatType: string
   itemCount: number
-  itemsPerPage: number | null
   timeLimitSeconds: number | null
-  allowBackNav: boolean
 }
 
 export type ClientAssessmentLibraryDetail = ClientAssessmentLibrarySummary & {
@@ -426,7 +424,7 @@ export async function getClientAssessmentLibraryDetail(
     db
       .from('assessment_sections')
       .select(
-        'id, title, instructions, display_order, items_per_page, time_limit_seconds, allow_back_nav, response_formats(name, type), assessment_section_items(count)'
+        'id, title, instructions, display_order, time_limit_seconds, response_formats(name, type), assessment_section_items(count)'
       )
       .eq('assessment_id', assessmentId)
       .order('display_order', { ascending: true }),
@@ -495,11 +493,8 @@ export async function getClientAssessmentLibraryDetail(
       formatName: responseFormat?.name ? String(responseFormat.name) : 'Assessment',
       formatType: responseFormat?.type ? String(responseFormat.type) : 'unknown',
       itemCount: getNestedCount(row.assessment_section_items),
-      itemsPerPage:
-        row.items_per_page == null ? null : Number(row.items_per_page),
       timeLimitSeconds:
         row.time_limit_seconds == null ? null : Number(row.time_limit_seconds),
-      allowBackNav: Boolean(row.allow_back_nav),
     }
   })
 
