@@ -27,17 +27,20 @@ const TABS = [
 export function AssessmentEditShell({
   assessment,
   customReportLockName,
+  basePath,
   children,
 }: {
   assessment: { id: string; title: string; status: string }
   customReportLockName: string | null
+  /** Edit root path — defaults to /assessments/[id]/edit (admin portal). */
+  basePath?: string
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const basePath = `/assessments/${assessment.id}/edit`
+  const editRoot = basePath ?? `/assessments/${assessment.id}/edit`
 
-  const afterBase = pathname.startsWith(basePath)
-    ? pathname.slice(basePath.length).replace(/^\/+/, "").split("/")[0]
+  const afterBase = pathname.startsWith(editRoot)
+    ? pathname.slice(editRoot.length).replace(/^\/+/, "").split("/")[0]
     : ""
   const activeSegment =
     TABS.find((t) => t.segment === afterBase)?.segment ?? "overview"
@@ -73,7 +76,7 @@ export function AssessmentEditShell({
         </div>
       )}
 
-      <RouteTabs tabs={TABS} basePath={basePath} activeSegment={activeSegment} />
+      <RouteTabs tabs={TABS} basePath={editRoot} activeSegment={activeSegment} />
 
       {children}
     </div>

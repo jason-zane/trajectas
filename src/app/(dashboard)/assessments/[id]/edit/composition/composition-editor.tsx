@@ -32,6 +32,8 @@ interface CompositionEditorProps {
   initialConstructIds: string[]
   allFactors: BuilderFactor[]
   allConstructs: BuilderConstruct[]
+  /** Set to false in portals that don't have access to the factors/constructs library. */
+  showLibraryLinks?: boolean
 }
 
 export function CompositionEditor({
@@ -42,6 +44,7 @@ export function CompositionEditor({
   initialConstructIds,
   allFactors,
   allConstructs,
+  showLibraryLinks = true,
 }: CompositionEditorProps) {
   const [selectedFactors, setSelectedFactors] = useState<BuilderFactor[]>(() =>
     allFactors.filter((f) => initialFactorIds.includes(f.id)),
@@ -175,18 +178,23 @@ export function CompositionEditor({
           <CardDescription>
             Drag {scoringLevel === "construct" ? "constructs" : "factors"} from
             the library on the left into this assessment. Changes save
-            automatically. Open the
-            {" "}
-            <Link
-              href={scoringLevel === "construct" ? "/constructs" : "/factors"}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:no-underline"
-            >
-              {scoringLevel === "construct" ? "Constructs" : "Factors"} library
-            </Link>
-            {" "}
-            to edit definitions.
+            automatically.
+            {showLibraryLinks && (
+              <>
+                {" "}
+                Open the{" "}
+                <Link
+                  href={scoringLevel === "construct" ? "/constructs" : "/factors"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:no-underline"
+                >
+                  {scoringLevel === "construct" ? "Constructs" : "Factors"} library
+                </Link>
+                {" "}
+                to edit definitions.
+              </>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -254,6 +262,7 @@ export function CompositionEditor({
                   selectedConstructs={selectedConstructs}
                   onRemove={handleCanvasRemove}
                   ruleInfo={ruleInfo}
+                  showLibraryLinks={showLibraryLinks}
                 />
               </div>
             </div>

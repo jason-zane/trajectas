@@ -1,20 +1,12 @@
-import {
-  getFactorsForBuilder,
-  getConstructsForBuilder,
-} from "@/app/actions/assessments";
-import { AssessmentBuilder } from "@/app/(dashboard)/assessments/assessment-builder";
+import { getContentSources } from "@/app/actions/content-sources"
+import { AssessmentCreateForm } from "@/app/(dashboard)/assessments/create/create-form"
 
 export default async function PartnerCreateAssessmentPage() {
-  const [allFactors, allConstructs] = await Promise.all([
-    getFactorsForBuilder(),
-    getConstructsForBuilder(),
-  ]);
-
+  const contentSources = await getContentSources()
   return (
-    <AssessmentBuilder
-      allFactors={allFactors}
-      allConstructs={allConstructs}
+    <AssessmentCreateForm
+      contentSources={contentSources}
       basePath="/partner/assessments"
     />
-  );
+  )
 }

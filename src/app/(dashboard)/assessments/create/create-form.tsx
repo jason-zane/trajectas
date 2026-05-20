@@ -30,8 +30,11 @@ import type { ContentSource } from "@/types/database"
 
 export function AssessmentCreateForm({
   contentSources,
+  /** Base path for /assessments (default: admin portal). */
+  basePath = "/assessments",
 }: {
   contentSources: ContentSource[]
+  basePath?: string
 }) {
   const router = useRouter()
   const [title, setTitle] = useState("")
@@ -60,7 +63,7 @@ export function AssessmentCreateForm({
         return
       }
       toast.success("Draft created — continue setup")
-      router.push(`/assessments/${result.id}/edit/composition`)
+      router.push(`${basePath}/${result.id}/edit/composition`)
     })
   }
 
@@ -145,7 +148,7 @@ export function AssessmentCreateForm({
         </Card>
 
         <div className="flex items-center justify-end gap-3">
-          <Link href="/assessments">
+          <Link href={basePath}>
             <Button type="button" variant="outline">
               Cancel
             </Button>

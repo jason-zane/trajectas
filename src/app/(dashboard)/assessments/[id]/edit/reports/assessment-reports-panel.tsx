@@ -25,9 +25,16 @@ interface Props {
   assessmentId: string
   initialAttached: AssessmentTemplateRow[]
   allTemplates: ReportTemplate[]
+  /** Base path for the report-templates library (default: /report-templates). */
+  reportTemplatesBasePath?: string
 }
 
-export function AssessmentReportsPanel({ assessmentId, initialAttached, allTemplates }: Props) {
+export function AssessmentReportsPanel({
+  assessmentId,
+  initialAttached,
+  allTemplates,
+  reportTemplatesBasePath = "/report-templates",
+}: Props) {
   const [attached, setAttached] = useState(initialAttached)
   const [selectedTemplateId, setSelectedTemplateId] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -124,7 +131,7 @@ export function AssessmentReportsPanel({ assessmentId, initialAttached, allTempl
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <Link
-                  href={`/report-templates/${entry.templateId}/builder`}
+                  href={`${reportTemplatesBasePath}/${entry.templateId}/builder`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-muted-foreground hover:text-foreground transition-colors"

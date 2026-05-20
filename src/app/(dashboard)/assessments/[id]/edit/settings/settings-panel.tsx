@@ -31,6 +31,8 @@ interface SettingsPanelProps {
   selectedConstructCount: number
   initialMinCustomFactors: number | null
   initialMinCustomConstructs: number | null
+  /** Where to send the user after deleting (default: /assessments). */
+  listPath?: string
 }
 
 export function SettingsPanel({
@@ -40,6 +42,7 @@ export function SettingsPanel({
   selectedConstructCount,
   initialMinCustomFactors,
   initialMinCustomConstructs,
+  listPath = "/assessments",
 }: SettingsPanelProps) {
   const router = useRouter()
 
@@ -112,7 +115,7 @@ export function SettingsPanel({
 
     let undone = false
     const timer = setTimeout(() => {
-      if (!undone) router.push("/assessments")
+      if (!undone) router.push(listPath)
     }, 5000)
 
     toast.success("Assessment deleted", {
