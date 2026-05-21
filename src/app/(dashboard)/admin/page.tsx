@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,6 +23,7 @@ export default async function AdminPage() {
     { count: profileCount },
     { count: pendingDeletionCount },
     { data: recentDeletions },
+    { data: recentAdminActions },
   ] = await Promise.all([
     db.from("profiles").select("*", { count: "exact", head: true }),
     db
@@ -33,6 +35,11 @@ export default async function AdminPage() {
       .select("email, deleted_at, reason")
       .order("deleted_at", { ascending: false })
       .limit(5),
+    db
+      .from("admin_action_audit")
+      .select("action, created_at, target_profile_id, payload")
+      .order("created_at", { ascending: false })
+      .limit(10),
   ])
 
   const build = {
@@ -111,31 +118,56 @@ export default async function AdminPage() {
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent account deletions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentDeletions && recentDeletions.length > 0 ? (
-            <ul className="divide-y divide-border text-sm">
-              {recentDeletions.map((row, i) => (
-                <li key={i} className="flex items-center justify-between py-2">
-                  <span className="font-mono">{row.email}</span>
-                  <span className="text-muted-foreground">
-                    {new Date(row.deleted_at).toLocaleString()} · {row.reason}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-muted-foreground">No deletions on record.</p>
-          )}
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent admin actions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentAdminActions && recentAdminActions.length > 0 ? (
+              <ul className="divide-y divide-border text-sm">
+                {recentAdminActions.map((row, i) => (
+                  <li key={i} className="flex items-center justify-between py-2">
+                    <span className="font-mono">{row.action}</span>
+                    <span className="text-caption text-muted-foreground">
+                      {new Date(row.created_at).toLocaleString()}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No admin actions on record yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent account deletions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recentDeletions && recentDeletions.length > 0 ? (
+              <ul className="divide-y divide-border text-sm">
+                {recentDeletions.map((row, i) => (
+                  <li key={i} className="flex items-center justify-between py-2">
+                    <span className="font-mono">{row.email}</span>
+                    <span className="text-caption text-muted-foreground">
+                      {new Date(row.deleted_at).toLocaleString()} · {row.reason}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted-foreground">No deletions on record.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <p className="text-caption text-muted-foreground">
-        See <code>docs/superpowers/plans/2026-05-21-admin-dashboard.md</code> for the
-        roadmap of what this surface should grow into.
+        User triage actions (resend OTP, etc.) live on each user&apos;s detail page under{" "}
+        <Link href="/users" className="underline">/users</Link>. See{" "}
+        <code>docs/superpowers/plans/2026-05-21-admin-dashboard.md</code> for the roadmap.
       </p>
     </div>
   )

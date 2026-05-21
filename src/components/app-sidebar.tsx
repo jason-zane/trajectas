@@ -129,6 +129,10 @@ const adminNav: NavSection[] = [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
     ],
   },
+  {
+    label: "System",
+    items: [{ title: "Admin", href: "/admin", icon: Shield }],
+  },
 ];
 
 const partnerNav: NavSection[] = [

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { ResendOtpButton } from "@/components/admin/resend-otp-button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDetail } from "@/app/actions/user-management";
 import { UserDetailClient } from "./user-detail-client";
@@ -77,6 +79,15 @@ export default async function UserDetailPage({
         title={user.displayName ?? user.email}
         description={user.email}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ResendOtpButton targetProfileId={user.id} />
+        </CardContent>
+      </Card>
 
       <UserDetailClient user={user} partners={partners} clients={clients} />
     </div>
