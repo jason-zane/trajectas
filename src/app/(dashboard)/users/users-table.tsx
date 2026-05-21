@@ -24,7 +24,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 
 type TabKey = "all" | "platform" | "partner" | "client";
-type StatusKey = "active" | "inactive" | "pending";
+type StatusKey = "active" | "inactive" | "pending" | "pending_deletion";
 
 type UserTableRow = UserListItem & {
   displayName: string;
@@ -54,12 +54,14 @@ const STATUS_LABELS: Record<StatusKey, string> = {
   active: "Active",
   inactive: "Inactive",
   pending: "Pending",
+  pending_deletion: "Pending deletion",
 };
 
 const STATUS_DOT_CLASSES: Record<StatusKey, string> = {
   active: "bg-emerald-500",
   inactive: "bg-muted-foreground/50",
   pending: "bg-amber-500",
+  pending_deletion: "bg-destructive",
 };
 
 const bulkActions: BulkAction<UserTableRow>[] = [
@@ -97,6 +99,9 @@ function getInitials(value: string | null, fallbackEmail: string) {
 function getItemStatus(item: UserListItem): StatusKey {
   if (item.type === "invite") {
     return "pending";
+  }
+  if (item.scheduledDeletionAt) {
+    return "pending_deletion";
   }
 
   return item.isActive ? "active" : "inactive";

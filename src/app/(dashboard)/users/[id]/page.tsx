@@ -3,9 +3,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
-import { ForceSignOutButton } from "@/components/admin/force-sign-out-button";
-import { ResendOtpButton } from "@/components/admin/resend-otp-button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { UserActionsMenu } from "@/components/users/user-actions-menu";
+import { UserActivityCard } from "@/components/users/user-activity-card";
+import { Badge } from "@/components/ui/badge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDetail } from "@/app/actions/user-management";
 import { UserDetailClient } from "./user-detail-client";
@@ -15,32 +15,42 @@ type TenantOption = {
   name: string;
 };
 
+function formatDeletionDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-AU", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 export default async function UserDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [user, partnersResult, clientsResult] = await Promise.all([
+  const db = createAdminClient();
+
+  const [user, partnersResult, clientsResult, deletionStateResult] = await Promise.all([
     getUserDetail(id),
-    (async () => {
-      const db = createAdminClient();
-      return db
-        .from("partners")
-        .select("id, name")
-        .eq("is_active", true)
-        .is("deleted_at", null)
-        .order("name", { ascending: true });
-    })(),
-    (async () => {
-      const db = createAdminClient();
-      return db
-        .from("clients")
-        .select("id, name")
-        .eq("is_active", true)
-        .is("deleted_at", null)
-        .order("name", { ascending: true });
-    })(),
+    db
+      .from("partners")
+      .select("id, name")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("name", { ascending: true }),
+    db
+      .from("clients")
+      .select("id, name")
+      .eq("is_active", true)
+      .is("deleted_at", null)
+      .order("name", { ascending: true }),
+    db
+      .from("profiles")
+      .select("scheduled_deletion_at")
+      .eq("id", id)
+      .single(),
   ]);
 
   if (!user) {
@@ -65,6 +75,9 @@ export default async function UserDetailPage({
     name: String(row.name),
   })) satisfies TenantOption[];
 
+  const scheduledDeletionAt = deletionStateResult.data?.scheduled_deletion_at ?? null;
+  const hasPendingDeletion = Boolean(scheduledDeletionAt);
+
   return (
     <div className="space-y-8">
       <Link
@@ -79,19 +92,32 @@ export default async function UserDetailPage({
         eyebrow="People"
         title={user.displayName ?? user.email}
         description={user.email}
-      />
+      >
+        <UserActionsMenu
+          targetProfileId={user.id}
+          targetEmail={user.email}
+          hasPendingDeletion={hasPendingDeletion}
+        />
+      </PageHeader>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick actions</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <ResendOtpButton targetProfileId={user.id} />
-          <ForceSignOutButton targetProfileId={user.id} targetEmail={user.email} />
-        </CardContent>
-      </Card>
+      {hasPendingDeletion ? (
+        <div className="flex items-center justify-between rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Badge variant="destructive">Pending deletion</Badge>
+            <p className="text-sm">
+              Scheduled to be permanently removed on{" "}
+              <strong>{formatDeletionDate(scheduledDeletionAt!)}</strong>.
+            </p>
+          </div>
+          <p className="text-caption text-muted-foreground">
+            Use the Actions menu to cancel.
+          </p>
+        </div>
+      ) : null}
 
       <UserDetailClient user={user} partners={partners} clients={clients} />
+
+      <UserActivityCard profileId={user.id} limit={10} />
     </div>
   );
 }
