@@ -131,3 +131,68 @@ export async function adminForceSignOut(
     return { error: message }
   }
 }
+
+/**
+ * Clear the processing state on a participant_sessions row so a stuck
+ * scoring/processing run can be retried. Targets the common "completed
+ * but processing_status=failed" stuck state (6 sessions currently in
+ * that bucket on prod).
+ *
+ * Does NOT clear responses, position, or status — that would be a
+ * destructive "hard reset" which we deliberately don't ship as an
+ * admin action without a separate UX flow.
+ *
+ * Logged as `participant_session.reset_by_admin`.
+ */
+export async function adminResetParticipantSession(
+  sessionId: string,
+): Promise<AdminActionResult> {
+  try {
+    const scope = await requirePlatformAdmin()
+    if (!scope.actor) return { error: "Not authorised" }
+
+    const db = createAdminClient()
+    const { data: session, error: lookupError } = await db
+      .from("participant_sessions")
+      .select("id, processing_status, processing_error, participant_profile_id")
+      .eq("id", sessionId)
+      .single()
+
+    if (lookupError || !session) {
+      return { error: lookupError?.message ?? "Session not found" }
+    }
+
+    const previousState = {
+      processing_status: session.processing_status,
+      processing_error: session.processing_error,
+    }
+
+    const { error: updateError } = await db
+      .from("participant_sessions")
+      .update({
+        processing_status: "idle",
+        processing_error: null,
+        processed_at: null,
+      })
+      .eq("id", sessionId)
+
+    if (updateError) {
+      return { error: updateError.message }
+    }
+
+    await logAuditEvent({
+      actorProfileId: scope.actor.id,
+      eventType: "participant_session.reset_by_admin",
+      targetTable: "participant_sessions",
+      targetId: sessionId,
+      metadata: { previous: previousState },
+    })
+
+    revalidatePath(`/participants/${session.participant_profile_id}`)
+    revalidatePath(`/participants/${session.participant_profile_id}/sessions/${sessionId}`)
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { error: message }
+  }
+}
