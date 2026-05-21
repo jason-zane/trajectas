@@ -129,10 +129,6 @@ const adminNav: NavSection[] = [
       { title: "Matching Engine", href: "/matching", icon: Sparkles },
     ],
   },
-  {
-    label: "System",
-    items: [{ title: "Admin", href: "/admin", icon: Shield }],
-  },
 ];
 
 const partnerNav: NavSection[] = [
@@ -181,6 +177,8 @@ const settingsNav: NavSection[] = [
       { title: "AI Configuration", href: "/settings/ai", icon: Cpu },
       { title: "Email Templates", href: "/settings/email-templates", icon: Mail },
       { title: "Content Sources", href: "/settings/content-sources", icon: Tag },
+      { title: "Audit log", href: "/settings/audit", icon: Shield },
+      { title: "Migrations", href: "/settings/migrations", icon: Layers },
     ],
   },
 ];
