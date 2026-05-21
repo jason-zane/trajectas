@@ -14,6 +14,7 @@ import {
 } from '@/lib/security/request-body'
 
 export const runtime = 'nodejs'
+export const maxDuration = 300
 
 const MAX_CHAT_BODY_BYTES = 256 * 1024
 
