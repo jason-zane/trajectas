@@ -44,6 +44,7 @@ type ProfileRow = {
   role: UserRole | string;
   is_active: boolean;
   created_at: string;
+  scheduled_deletion_at: string | null;
 };
 
 type PartnerMembershipRow = {
@@ -98,6 +99,7 @@ export interface ProfileListItem {
   role: StaffProfileRole;
   isActive: boolean;
   createdAt: string;
+  scheduledDeletionAt: string | null;
   partnerMemberships: PartnerMembershipListItem[];
   clientMemberships: ClientMembershipListItem[];
 }
@@ -266,7 +268,7 @@ export async function listUsersForAdmin(): Promise<UserListItem[]> {
       db
         .from("profiles")
         .select(
-          "id, email, display_name, first_name, last_name, role, is_active, created_at"
+          "id, email, display_name, first_name, last_name, role, is_active, created_at, scheduled_deletion_at"
         ),
       db
         .from("partner_memberships")
@@ -371,6 +373,7 @@ export async function listUsersForAdmin(): Promise<UserListItem[]> {
       role: String(profile.role) as StaffProfileRole,
       isActive: Boolean(profile.is_active),
       createdAt: profile.created_at,
+      scheduledDeletionAt: profile.scheduled_deletion_at,
       partnerMemberships: partnerItems,
       clientMemberships: clientItems,
     };
