@@ -37,6 +37,8 @@ import {
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ManualCopyDialog } from "@/components/ui/manual-copy-dialog";
+import { copyToClipboard } from "@/lib/clipboard";
 
 const STATUS_VARIANT: Record<
   string,
@@ -70,6 +72,10 @@ export function CampaignParticipantManager({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [csvText, setCsvText] = useState("");
+  const [manualCopy, setManualCopy] = useState<{ open: boolean; value: string }>({
+    open: false,
+    value: "",
+  });
   const [showBulkErrors, setShowBulkErrors] = useState(false);
   const [bulkErrors, setBulkErrors] = useState<BulkInviteRowError[]>([]);
   const [bulkEmailFailures, setBulkEmailFailures] = useState<
@@ -296,10 +302,13 @@ export function CampaignParticipantManager({
     router.refresh();
   }
 
-  function copyLink(token: string) {
+  async function copyLink(token: string) {
     const url = `${window.location.origin}/assess/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Assessment link copied");
+    if (await copyToClipboard(url)) {
+      toast.success("Assessment link copied");
+    } else {
+      setManualCopy({ open: true, value: url });
+    }
   }
 
   async function handleSendEmail(participantId: string, emailAddress: string) {
@@ -691,6 +700,13 @@ export function CampaignParticipantManager({
             </div>
           </div>
         }
+      />
+      <ManualCopyDialog
+        open={manualCopy.open}
+        onOpenChange={(open) => setManualCopy((s) => ({ ...s, open }))}
+        title="Copy assessment link"
+        description="Your browser blocked the automatic copy. Select and copy the link below."
+        value={manualCopy.value}
       />
     </div>
   );

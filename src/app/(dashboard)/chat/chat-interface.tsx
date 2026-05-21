@@ -5,6 +5,7 @@ import { Send, Bot, User, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { randomId } from "@/lib/ids";
 import { ModelPickerCombobox } from "../settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -43,13 +44,13 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
     if (!trimmed || isStreaming || !isConfigured) return;
 
     const userMsg: Message = {
-      id: crypto.randomUUID(),
+      id: randomId(),
       role: "user",
       content: trimmed,
     };
 
     const assistantMsg: Message = {
-      id: crypto.randomUUID(),
+      id: randomId(),
       role: "assistant",
       content: "",
     };

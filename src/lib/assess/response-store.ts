@@ -13,6 +13,7 @@
  */
 
 import Dexie, { type Table } from "dexie";
+import { randomId } from "@/lib/ids";
 
 export interface ResponseRecord {
   /** Composite PK with itemId — Dexie sorts on the array form. */
@@ -155,10 +156,5 @@ export async function clearSession(sessionId: string): Promise<void> {
 }
 
 function makeIdempotencyKey(): string {
-  // crypto.randomUUID is available in all modern browsers and Node 19+.
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  // Fallback for environments without it (older test runners).
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return randomId();
 }
