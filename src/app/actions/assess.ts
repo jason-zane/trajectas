@@ -4,6 +4,7 @@ import crypto from 'crypto'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { logReportViewed } from '@/lib/auth/support-sessions'
+import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
 import {
   getCampaignAccessError,
@@ -1461,10 +1462,7 @@ export async function triggerReportGeneration(
   }
 
   try {
-    const appUrl =
-      process.env.ADMIN_APP_URL ??
-      process.env.NEXT_PUBLIC_APP_URL ??
-      'http://localhost:3002'
+    const appUrl = requireAppUrl('admin')
     const response = await fetch(`${appUrl}/api/reports/generate`, {
       method: 'POST',
       headers: {

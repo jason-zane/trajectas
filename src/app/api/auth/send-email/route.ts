@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server'
 import { Webhook } from 'standardwebhooks'
 import { sendEmail } from '@/lib/email/send'
+import { requireAppUrl } from '@/lib/hosts'
 import {
   readRequestTextWithLimit,
   RequestBodyTooLargeError,
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
       break
     case 'welcome':
       variables.userName = firstName || user.email
-      variables.loginUrl = process.env.NEXT_PUBLIC_APP_URL ?? supabaseUrl
+      variables.loginUrl = requireAppUrl('public')
       break
     case 'staff_invite':
       variables.inviteeName = firstName || user.email

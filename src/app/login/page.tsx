@@ -8,11 +8,7 @@ import {
   buildSurfaceDestinationUrl,
   resolveDefaultWorkspaceContext,
 } from "@/lib/auth/staff-auth";
-
-const publicHomeUrl =
-  process.env.PUBLIC_APP_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  "http://localhost:3002";
+import { requireAppUrl } from "@/lib/hosts";
 
 const errorCopy: Record<string, string> = {
   missing_code: "That sign-in link is missing required verification details.",
@@ -38,7 +34,7 @@ export default async function LoginPage({
     const destination = buildSurfaceDestinationUrl({
       surface: context.surface,
       path: params.next && params.next.startsWith("/") ? params.next : "/",
-      requestUrl: process.env.PUBLIC_APP_URL ?? process.env.ADMIN_APP_URL ?? "http://localhost:3002",
+      requestUrl: requireAppUrl("public"),
       host: headerStore.get("host"),
     });
     redirect(destination.toString());
@@ -60,7 +56,7 @@ export default async function LoginPage({
         {/* Header */}
         <header className="relative z-10 flex items-center justify-between px-6 py-6 md:px-10">
           <Link
-            href={publicHomeUrl}
+            href={requireAppUrl("public")}
             aria-label="Trajectas — home"
             className="inline-flex items-center"
           >

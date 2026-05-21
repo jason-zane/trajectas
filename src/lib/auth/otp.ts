@@ -1,5 +1,6 @@
 import { sendEmail } from "@/lib/email/send";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAppUrl } from "@/lib/hosts";
 
 interface AuthRedirectInput {
   origin?: string | null;
@@ -17,7 +18,6 @@ function resolveBaseUrl(input: Omit<AuthRedirectInput, "redirectPath">) {
     input.publicAppUrl,
     input.adminAppUrl,
     input.fallbackUrl,
-    "http://localhost:3002",
   ];
 
   for (const candidate of candidates) {
@@ -30,7 +30,10 @@ function resolveBaseUrl(input: Omit<AuthRedirectInput, "redirectPath">) {
     }
   }
 
-  return "http://localhost:3002";
+  // Final fallback uses the configured public surface URL. In production
+  // this either resolves or throws via requireAppUrl(); in development it
+  // returns the local dev URL.
+  return new URL(requireAppUrl("public")).origin;
 }
 
 export function buildAuthRedirectUrl(input: AuthRedirectInput) {

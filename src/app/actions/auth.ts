@@ -14,7 +14,7 @@ import {
   getInviteByToken,
   resolveDefaultWorkspaceContextForEmail,
 } from '@/lib/auth/staff-auth'
-import { inferSurfaceFromRequest } from '@/lib/hosts'
+import { inferSurfaceFromRequest, requireAppUrl } from '@/lib/hosts'
 import type { WorkspaceSurface } from '@/lib/surfaces'
 
 export type AuthFormState =
@@ -63,7 +63,7 @@ function buildRequestUrlFromHeaders(headerStore: Awaited<ReturnType<typeof heade
     return `${protocol}://${host}`
   }
 
-  return process.env.PUBLIC_APP_URL ?? process.env.ADMIN_APP_URL ?? 'http://localhost:3002'
+  return requireAppUrl('public')
 }
 
 async function buildCodeEntryRedirect(input: {
@@ -115,9 +115,8 @@ async function sendOtp(input: {
   const redirectUrl = buildAuthRedirectUrl({
     origin: requestOrigin,
     redirectPath: input.redirectPath,
-    publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
-    adminAppUrl: process.env.ADMIN_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
-    fallbackUrl: 'http://localhost:3002',
+    publicAppUrl: requireAppUrl('public'),
+    adminAppUrl: requireAppUrl('admin'),
   })
 
   await sendStaffOtpEmail({

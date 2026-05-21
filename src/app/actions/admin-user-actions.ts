@@ -6,6 +6,7 @@ import { resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { buildAuthRedirectUrl, sendStaffOtpEmail } from "@/lib/auth/otp"
 import { logAuditEvent } from "@/lib/auth/support-sessions"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { requireAppUrl } from "@/lib/hosts"
 
 /**
  * Admin-triggered actions on a user account. All require platform_admin
@@ -32,7 +33,7 @@ function buildRequestUrlFromHeaders(headerStore: Awaited<ReturnType<typeof heade
     headerStore.get("x-forwarded-proto") ??
     (process.env.NODE_ENV === "production" ? "https" : "http")
   if (host) return `${protocol}://${host}`
-  return process.env.PUBLIC_APP_URL ?? process.env.ADMIN_APP_URL ?? "http://localhost:3002"
+  return requireAppUrl('public')
 }
 
 async function requirePlatformAdmin() {
@@ -69,9 +70,8 @@ export async function sendSignInCode(targetProfileId: string): Promise<AdminUser
     const redirectUrl = buildAuthRedirectUrl({
       origin: buildRequestUrlFromHeaders(headerStore),
       redirectPath: "/auth/callback",
-      publicAppUrl: process.env.PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
-      adminAppUrl: process.env.ADMIN_APP_URL ?? process.env.NEXT_PUBLIC_APP_URL,
-      fallbackUrl: "http://localhost:3002",
+      publicAppUrl: requireAppUrl('public'),
+      adminAppUrl: requireAppUrl('admin'),
     })
     await sendStaffOtpEmail({ email: target.email, redirectUrl })
 

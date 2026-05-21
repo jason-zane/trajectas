@@ -54,6 +54,57 @@ export function getConfiguredSurfaceUrl(surface: Surface): string | null {
   return getConfiguredSurfaceUrls()[surface] ?? null;
 }
 
+/**
+ * Like {@link getConfiguredSurfaceUrl} but throws in production when the
+ * surface is not configured. In development, returns the local dev URL
+ * (`http://localhost:3002`) so the dev experience is unchanged.
+ *
+ * Use this anywhere a URL is constructed for user-visible side effects:
+ * auth redirect emails, share/access links, server-side fetches back to
+ * the app, OG metadata, etc. Fail-loud at boot beats fail-silent in an
+ * email that points users at localhost.
+ */
+export function requireAppUrl(surface: Surface = "public"): string {
+  const configured = getConfiguredSurfaceUrl(surface);
+  if (configured) return configured;
+  if (process.env.NODE_ENV !== "production") {
+    return "http://localhost:3002";
+  }
+  throw new Error(
+    `Missing surface URL env var for "${surface}". Configure ${surfaceEnvKeys[surface]} ` +
+      `(or its equivalent) before deploying.`,
+  );
+}
+
+/**
+ * The set of surface URLs that MUST be configured in production. Other
+ * surfaces (partner, client) are optional depending on tenant setup.
+ */
+const REQUIRED_PRODUCTION_SURFACES: Surface[] = ["public", "admin", "assess"];
+
+/**
+ * Boot-time assertion that all required surface URLs are configured.
+ * Call from `src/instrumentation.ts` (Next 16's recommended boot hook)
+ * so misconfigured deploys fail at boot instead of in the first user
+ * request — and to ensure `serverActions.allowedOrigins` (computed at
+ * config-evaluation time) was not silently shorted by missing envs.
+ *
+ * In development this is a no-op.
+ */
+export function assertSurfaceUrlsConfigured(): void {
+  if (process.env.NODE_ENV !== "production") return;
+  const missing = REQUIRED_PRODUCTION_SURFACES.filter(
+    (surface) => !getConfiguredSurfaceUrl(surface),
+  );
+  if (missing.length > 0) {
+    const envList = missing.map((surface) => surfaceEnvKeys[surface]).join(", ");
+    throw new Error(
+      `Missing required surface URL env vars in production: ${envList}. ` +
+        `Configure them before deploying.`,
+    );
+  }
+}
+
 export function getSurfaceForHost(host: string | null | undefined): Surface | null {
   const normalizedHost = normalizeHost(host);
   if (!normalizedHost) return null;
