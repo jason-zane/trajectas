@@ -186,11 +186,28 @@ export default async function AdminPage() {
         </Card>
       </div>
 
-      <p className="text-caption text-muted-foreground">
-        User triage actions (resend OTP, etc.) live on each user&apos;s detail page under{" "}
-        <Link href="/users" className="underline">/users</Link>. See{" "}
-        <code>docs/superpowers/plans/2026-05-21-admin-dashboard.md</code> for the roadmap.
-      </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Explore</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <p>
+            <Link href="/admin/audit" className="underline">Audit events</Link> — full
+            feed of every mutating action across the platform with filtering.
+          </p>
+          <p>
+            <Link href="/admin/migrations" className="underline">Migrations</Link> —
+            schema history as recorded by Supabase.
+          </p>
+          <p>
+            <Link href="/users" className="underline">Users</Link> — user lookup, role
+            management, Resend OTP, Force sign out.
+          </p>
+          <p className="text-caption text-muted-foreground">
+            See <code>docs/superpowers/plans/2026-05-21-admin-dashboard.md</code> for the roadmap.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
