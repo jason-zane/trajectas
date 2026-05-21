@@ -6,11 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { updateDisplayName } from "@/app/actions/profile"
+import {
+  cancelAccountDeletion,
+  requestAccountDeletion,
+} from "@/app/actions/account-deletion"
 
 interface ProfileFormProps {
   email: string
   displayName?: string | null
+  scheduledDeletionAt: string | null
 }
 
 type SaveState = "idle" | "saving" | "saved"
@@ -27,7 +33,16 @@ function getInitials(displayName: string | null | undefined, email: string) {
   )
 }
 
-export function ProfileForm({ email, displayName }: ProfileFormProps) {
+function formatDeletionDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-AU", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+}
+
+export function ProfileForm({ email, displayName, scheduledDeletionAt }: ProfileFormProps) {
   const [name, setName] = useState(displayName ?? "")
   const [savedName, setSavedName] = useState(displayName ?? "")
   const [saveState, setSaveState] = useState<SaveState>("idle")
@@ -124,6 +139,103 @@ export function ProfileForm({ email, displayName }: ProfileFormProps) {
           </div>
         </CardContent>
       </Card>
+
+      <DangerZone scheduledDeletionAt={scheduledDeletionAt} />
     </div>
+  )
+}
+
+function DangerZone({ scheduledDeletionAt }: { scheduledDeletionAt: string | null }) {
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
+  const pendingDeletion = Boolean(scheduledDeletionAt)
+
+  function handleRequest() {
+    startTransition(async () => {
+      const result = await requestAccountDeletion()
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      setConfirmOpen(false)
+      toast.success("Account deletion scheduled. Check your email for confirmation.")
+    })
+  }
+
+  function handleCancel() {
+    startTransition(async () => {
+      const result = await cancelAccountDeletion()
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
+      toast.success("Account deletion cancelled.")
+    })
+  }
+
+  return (
+    <>
+      <Card className="border-destructive/40">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger zone</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {pendingDeletion ? (
+            <>
+              <p className="text-sm text-foreground">
+                Your account is scheduled for permanent deletion on{" "}
+                <strong>{formatDeletionDate(scheduledDeletionAt!)}</strong>. All your
+                profile data and associated records will be removed.
+              </p>
+              <p className="text-caption text-muted-foreground">
+                You can cancel any time before that date.
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancel}
+                  disabled={isPending}
+                >
+                  {isPending ? "Cancelling…" : "Cancel deletion"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Deleting your account will permanently remove your profile and
+                associated data after a 30-day grace period. You can cancel during
+                that period by signing back in.
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setConfirmOpen(true)}
+                  disabled={isPending}
+                >
+                  Delete my account
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Delete your account?"
+        description="This will schedule your Trajectas account for permanent deletion in 30 days. You can cancel any time during the grace period by signing back in."
+        confirmLabel="Schedule deletion"
+        cancelLabel="Keep my account"
+        variant="destructive"
+        onConfirm={handleRequest}
+        loading={isPending}
+        loadingLabel="Scheduling…"
+      />
+    </>
   )
 }
