@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { fetchWithTimeout } from '@/lib/net/fetch-with-timeout'
 import type { ComparisonRequest } from '@/lib/comparison/types'
 
 export function ComparisonExportButton({
@@ -18,10 +19,11 @@ export function ComparisonExportButton({
   async function onClick() {
     setBusy(true)
     try {
-      const res = await fetch('/api/comparison/export', {
+      const res = await fetchWithTimeout('/api/comparison/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...request, campaignSlug }),
+        timeoutMs: 30_000,
       })
       if (!res.ok) throw new Error(await res.text())
       const blob = await res.blob()

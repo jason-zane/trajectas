@@ -1,6 +1,7 @@
 'use server'
 
 import { headers } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import {
   buildAuthRedirectUrl,
@@ -227,6 +228,135 @@ export async function requestInviteOtp(
     redirectTo: redirectTo ?? undefined,
     success: `We've sent a sign-in code to ${invite.email}. Enter the code to accept the invite.`,
   }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// OTP verify actions
+//
+// These run server-side so the verify step works without depending on the
+// browser reaching *.supabase.co directly (which some corporate firewalls
+// block) and without depending on React's synthetic onChange firing on
+// browser/password-manager autofill of the code input (a long-standing
+// React/controlled-input gap — see facebook/react#2125).
+//
+// On success they call redirect() server-side, so the flow works without
+// client-side JS. On failure they return an AuthFormState with an error.
+// ────────────────────────────────────────────────────────────────────────────
+
+const codeSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Enter the 6-digit code from your email.'),
+})
+
+const GENERIC_VERIFY_ERROR =
+  "That code didn't work. Request a new one and try again."
+
+function sanitizeNextPath(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  if (!value.startsWith('/') || value.startsWith('//')) return null
+  return value
+}
+
+export async function verifyStaffOtp(
+  _state: AuthFormState,
+  formData: FormData
+): Promise<AuthFormState> {
+  const emailRaw = formData.get('email')
+  const codeRaw = formData.get('code')
+  const next = sanitizeNextPath(formData.get('next'))
+
+  const emailParsed = emailSchema.safeParse({ email: emailRaw, next: next ?? undefined })
+  if (!emailParsed.success) {
+    return { error: 'Request a fresh sign-in code to continue.', step: 'code' }
+  }
+
+  const codeParsed = codeSchema.safeParse({ code: codeRaw })
+  if (!codeParsed.success) {
+    return {
+      error: codeParsed.error.flatten().fieldErrors.code?.[0] ?? GENERIC_VERIFY_ERROR,
+      step: 'code',
+      email: emailParsed.data.email,
+      next: next ?? undefined,
+    }
+  }
+
+  const supabase = await createServerSupabaseClient()
+  const { error } = await supabase.auth.verifyOtp({
+    email: emailParsed.data.email,
+    token: codeParsed.data.code,
+    type: 'email',
+  })
+
+  if (error) {
+    logActionError('verifyStaffOtp.verifyOtp', error)
+    return {
+      error: GENERIC_VERIFY_ERROR,
+      step: 'code',
+      email: emailParsed.data.email,
+      next: next ?? undefined,
+    }
+  }
+
+  // redirect() throws a special error caught by Next.js — must not be
+  // wrapped in try/catch that swallows it.
+  redirect(buildCallbackPath(next, null))
+}
+
+export async function verifyInviteOtp(
+  _state: AuthFormState,
+  formData: FormData
+): Promise<AuthFormState> {
+  const token = String(formData.get('invite') ?? '')
+  const codeRaw = formData.get('code')
+  const next = sanitizeNextPath(formData.get('next'))
+
+  // Re-load the invite server-side. Do NOT trust a hidden email input —
+  // the invite record is authoritative for which email we're verifying.
+  const invite = token ? await getInviteByToken(token) : null
+  if (!invite) {
+    return { error: 'This invite is invalid or expired.', step: 'code' }
+  }
+
+  if (
+    invite.revokedAt ||
+    invite.acceptedAt ||
+    new Date(invite.expiresAt).getTime() <= Date.now()
+  ) {
+    return { error: 'This invite is invalid or expired.', step: 'code' }
+  }
+
+  const codeParsed = codeSchema.safeParse({ code: codeRaw })
+  if (!codeParsed.success) {
+    return {
+      error: codeParsed.error.flatten().fieldErrors.code?.[0] ?? GENERIC_VERIFY_ERROR,
+      step: 'code',
+      email: invite.email,
+      invite: token,
+      next: next ?? undefined,
+    }
+  }
+
+  const supabase = await createServerSupabaseClient()
+  const { error } = await supabase.auth.verifyOtp({
+    email: invite.email,
+    token: codeParsed.data.code,
+    type: 'email',
+  })
+
+  if (error) {
+    logActionError('verifyInviteOtp.verifyOtp', error)
+    return {
+      error: GENERIC_VERIFY_ERROR,
+      step: 'code',
+      email: invite.email,
+      invite: token,
+      next: next ?? undefined,
+    }
+  }
+
+  redirect(buildCallbackPath(next, token))
 }
 
 export async function signOutStaff() {
