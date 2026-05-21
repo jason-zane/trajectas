@@ -1,0 +1,22 @@
+-- =========================================================================
+-- 20260521180000_drop_admin_action_audit.sql
+--
+-- The admin_action_audit table introduced in migration
+-- 20260521170000_admin_action_audit.sql duplicated the existing
+-- public.audit_events table that is the canonical project-wide audit
+-- log (used by 27+ event types across constructs, campaigns,
+-- staff_invites, etc., with 1300+ rows already on prod). Consolidating
+-- on audit_events — the new admin server actions (adminResendOtp,
+-- adminForceSignOut, plus the backfilled staff-management actions in
+-- src/app/actions/staff-users.ts) all log here.
+--
+-- Naming: admin-triggered events use the existing convention from
+-- user-management.ts — `staff_user.<action_past_tense>` (e.g.
+-- staff_user.otp_resent, staff_user.force_signed_out) and
+-- `staff_invite.<action_past_tense>` / `<tenant>_membership.<action>`.
+--
+-- The /admin overview page now reads from audit_events filtered by an
+-- explicit event-type allowlist (see src/app/(dashboard)/admin/page.tsx).
+-- =========================================================================
+
+DROP TABLE IF EXISTS public.admin_action_audit;

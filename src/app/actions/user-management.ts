@@ -910,26 +910,78 @@ export async function resendInvite(inviteId: string): Promise<
 // Bulk actions
 // ---------------------------------------------------------------------------
 
+/**
+ * Bulk-schedule account deletion for the given profiles. Uses the same
+ * 30-day grace + nightly cron sweep as the user-initiated deletion flow
+ * (see src/app/actions/account-deletion.ts and the cron at
+ * src/app/api/cron/account-deletion-sweep). Per-user audit row written.
+ *
+ * NOTE: this was previously writing to a non-existent profiles.deleted_at
+ * column — it would throw on any call. Bringing it in line with the
+ * actual schema and the scheduled-deletion flow.
+ */
 export async function bulkDeleteUsers(ids: string[]): Promise<void> {
   if (ids.length === 0) return
-  await requireAdminScope()
+  const scope = await requireAdminScope()
   const db = createAdminClient()
+
+  const now = new Date()
+  const scheduledFor = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+
   const { error } = await db
     .from('profiles')
-    .update({ deleted_at: new Date().toISOString() })
+    .update({
+      deletion_requested_at: now.toISOString(),
+      scheduled_deletion_at: scheduledFor.toISOString(),
+    })
     .in('id', ids)
   if (error) throw new Error(error.message)
+
+  for (const id of ids) {
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'staff_user.deletion_scheduled',
+      targetTable: 'profiles',
+      targetId: id,
+      metadata: { scheduled_for: scheduledFor.toISOString(), bulk: true },
+    })
+  }
+
   revalidatePath('/users')
 }
 
-export async function bulkUpdateUserStatus(ids: string[], status: 'active' | 'inactive'): Promise<void> {
+/**
+ * Bulk-toggle the is_active flag on the given profiles. Per-user audit row
+ * written.
+ *
+ * NOTE: this was previously writing to a non-existent profiles.status
+ * column — it would throw on any call. Switched to the real is_active
+ * boolean column.
+ */
+export async function bulkUpdateUserStatus(
+  ids: string[],
+  status: 'active' | 'inactive',
+): Promise<void> {
   if (ids.length === 0) return
-  await requireAdminScope()
+  const scope = await requireAdminScope()
   const db = createAdminClient()
+  const isActive = status === 'active'
+
   const { error } = await db
     .from('profiles')
-    .update({ status })
+    .update({ is_active: isActive })
     .in('id', ids)
   if (error) throw new Error(error.message)
+
+  for (const id of ids) {
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'staff_user.active_state_changed',
+      targetTable: 'profiles',
+      targetId: id,
+      metadata: { is_active: isActive, bulk: true },
+    })
+  }
+
   revalidatePath('/users')
 }
