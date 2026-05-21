@@ -109,6 +109,13 @@ export async function adminForceSignOut(
       return { error: lookupError?.message ?? "User not found" }
     }
 
+    const { error: signOutError } = await db.auth.admin.signOut(target.id, "global")
+    if (signOutError) {
+      return { error: `signOut failed: ${signOutError.message}` }
+    }
+
+    // Audit only after the revocation actually succeeds, so the audit
+    // trail never claims a force-sign-out that didn't happen.
     await logAuditEvent({
       actorProfileId: scope.actor.id,
       eventType: "staff_user.force_signed_out",
@@ -116,11 +123,6 @@ export async function adminForceSignOut(
       targetId: target.id,
       metadata: { email: target.email },
     })
-
-    const { error: signOutError } = await db.auth.admin.signOut(target.id, "global")
-    if (signOutError) {
-      return { error: `signOut failed: ${signOutError.message}` }
-    }
 
     revalidatePath(`/users/${targetProfileId}`)
     return { success: true }

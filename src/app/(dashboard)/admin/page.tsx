@@ -28,6 +28,7 @@ export default async function AdminPage() {
     "staff_user.force_signed_out",
     "staff_user.active_state_changed",
     "staff_user.deleted",
+    "staff_user.deletion_scheduled",
     "staff_invite.created",
     "staff_invite.resent",
     "staff_invite.revoked",
