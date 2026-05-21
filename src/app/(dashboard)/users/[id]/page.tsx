@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { PageHeader } from "@/components/page-header";
+import { ForceSignOutButton } from "@/components/admin/force-sign-out-button";
 import { ResendOtpButton } from "@/components/admin/resend-otp-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -84,8 +85,9 @@ export default async function UserDetailPage({
         <CardHeader>
           <CardTitle>Quick actions</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <ResendOtpButton targetProfileId={user.id} />
+          <ForceSignOutButton targetProfileId={user.id} targetEmail={user.email} />
         </CardContent>
       </Card>
 

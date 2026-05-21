@@ -2,10 +2,15 @@
 
 import { headers } from "next/headers"
 import { revalidatePath } from "next/cache"
-import { logAdminAction } from "@/lib/admin/log-action"
 import { resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { buildAuthRedirectUrl, sendStaffOtpEmail } from "@/lib/auth/otp"
+import { logAuditEvent } from "@/lib/auth/support-sessions"
 import { createAdminClient } from "@/lib/supabase/admin"
+
+export interface AdminActionResult {
+  success?: boolean
+  error?: string
+}
 
 function buildRequestUrlFromHeaders(headerStore: Awaited<ReturnType<typeof headers>>) {
   const origin = headerStore.get("origin")
@@ -16,11 +21,6 @@ function buildRequestUrlFromHeaders(headerStore: Awaited<ReturnType<typeof heade
     (process.env.NODE_ENV === "production" ? "https" : "http")
   if (host) return `${protocol}://${host}`
   return process.env.PUBLIC_APP_URL ?? process.env.ADMIN_APP_URL ?? "http://localhost:3002"
-}
-
-export interface AdminActionResult {
-  success?: boolean
-  error?: string
 }
 
 async function requirePlatformAdmin() {
@@ -36,8 +36,7 @@ async function requirePlatformAdmin() {
  * same email flow as a user-initiated sign-in — the target receives a
  * code they can enter at /login as if they had requested it themselves.
  *
- * Logged to admin_action_audit before the email is sent so we have
- * evidence even if email delivery fails downstream.
+ * Logged as `staff_user.otp_resent` in audit_events.
  */
 export async function adminResendOtp(targetProfileId: string): Promise<AdminActionResult> {
   try {
@@ -55,11 +54,12 @@ export async function adminResendOtp(targetProfileId: string): Promise<AdminActi
       return { error: lookupError?.message ?? "User not found" }
     }
 
-    await logAdminAction({
+    await logAuditEvent({
       actorProfileId: scope.actor.id,
-      action: "resend_otp",
-      targetProfileId: target.id,
-      payload: { email: target.email },
+      eventType: "staff_user.otp_resent",
+      targetTable: "profiles",
+      targetId: target.id,
+      metadata: { email: target.email },
     })
 
     const headerStore = await headers()
@@ -74,7 +74,57 @@ export async function adminResendOtp(targetProfileId: string): Promise<AdminActi
 
     await sendStaffOtpEmail({ email: target.email, redirectUrl })
 
-    revalidatePath(`/admin/users/${targetProfileId}`)
+    revalidatePath(`/users/${targetProfileId}`)
+    return { success: true }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    return { error: message }
+  }
+}
+
+/**
+ * Force a target user to sign out everywhere by revoking all of their
+ * refresh tokens. Their current sessions remain valid until the access
+ * token TTL expires (Supabase default ~1 hour), then they're forced
+ * to re-authenticate via OTP. Use when you suspect a session has been
+ * compromised or when revoking access immediately is needed.
+ *
+ * Logged as `staff_user.force_signed_out` in audit_events.
+ */
+export async function adminForceSignOut(
+  targetProfileId: string,
+): Promise<AdminActionResult> {
+  try {
+    const scope = await requirePlatformAdmin()
+    if (!scope.actor) return { error: "Not authorised" }
+
+    const db = createAdminClient()
+    const { data: target, error: lookupError } = await db
+      .from("profiles")
+      .select("id, email")
+      .eq("id", targetProfileId)
+      .single()
+
+    if (lookupError || !target) {
+      return { error: lookupError?.message ?? "User not found" }
+    }
+
+    const { error: signOutError } = await db.auth.admin.signOut(target.id, "global")
+    if (signOutError) {
+      return { error: `signOut failed: ${signOutError.message}` }
+    }
+
+    // Audit only after the revocation actually succeeds, so the audit
+    // trail never claims a force-sign-out that didn't happen.
+    await logAuditEvent({
+      actorProfileId: scope.actor.id,
+      eventType: "staff_user.force_signed_out",
+      targetTable: "profiles",
+      targetId: target.id,
+      metadata: { email: target.email },
+    })
+
+    revalidatePath(`/users/${targetProfileId}`)
     return { success: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)

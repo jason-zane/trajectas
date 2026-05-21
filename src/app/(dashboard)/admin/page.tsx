@@ -19,6 +19,27 @@ export default async function AdminPage() {
 
   const db = createAdminClient()
 
+  // Admin-portal-triggered actions live in audit_events under these
+  // event types. See logAuditEvent calls in src/app/actions/staff-users.ts,
+  // user-management.ts, and (dashboard)/admin/actions.ts.
+  const ADMIN_EVENT_TYPES = [
+    "staff_user.role_changed",
+    "staff_user.otp_resent",
+    "staff_user.force_signed_out",
+    "staff_user.active_state_changed",
+    "staff_user.deleted",
+    "staff_user.deletion_scheduled",
+    "staff_invite.created",
+    "staff_invite.resent",
+    "staff_invite.revoked",
+    "partner_membership.created",
+    "partner_membership.role_changed",
+    "partner_membership.revoked",
+    "client_membership.created",
+    "client_membership.role_changed",
+    "client_membership.revoked",
+  ]
+
   const [
     { count: profileCount },
     { count: pendingDeletionCount },
@@ -36,8 +57,9 @@ export default async function AdminPage() {
       .order("deleted_at", { ascending: false })
       .limit(5),
     db
-      .from("admin_action_audit")
-      .select("action, created_at, target_profile_id, payload")
+      .from("audit_events")
+      .select("event_type, created_at, target_id, metadata")
+      .in("event_type", ADMIN_EVENT_TYPES)
       .order("created_at", { ascending: false })
       .limit(10),
   ])
@@ -128,7 +150,7 @@ export default async function AdminPage() {
               <ul className="divide-y divide-border text-sm">
                 {recentAdminActions.map((row, i) => (
                   <li key={i} className="flex items-center justify-between py-2">
-                    <span className="font-mono">{row.action}</span>
+                    <span className="font-mono">{row.event_type}</span>
                     <span className="text-caption text-muted-foreground">
                       {new Date(row.created_at).toLocaleString()}
                     </span>
