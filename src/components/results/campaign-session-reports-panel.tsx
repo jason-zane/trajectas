@@ -105,11 +105,11 @@ export function CampaignSessionReportsPanel({
   if (rows.length === 0) {
     return (
       <EmptyState
-        title="No report templates configured for this campaign"
+        title="No reports for this session"
         description={
           settingsHref
-            ? 'Assign report templates in campaign settings to generate reports for completed sessions.'
-            : 'Assign report templates in the campaign configuration to generate reports for completed sessions.'
+            ? "There are no reports bound to this session's assessment, no campaign-level extras, and no platform fallback. Attach a default report on the assessment, or add one to this campaign in settings."
+            : "There are no reports bound to this session's assessment, no campaign-level extras, and no platform fallback. Attach a default report on the assessment, or add one to this campaign."
         }
         actionLabel={settingsHref ? 'Open campaign settings' : undefined}
         actionHref={settingsHref}

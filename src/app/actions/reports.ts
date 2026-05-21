@@ -896,29 +896,38 @@ export async function getCampaignSessionReportRows(
   const access = await requireSessionAccess(sessionId)
   const db = createAdminClient()
 
-  const [{ data: configuredTemplates, error: configError }, { data: snapshots, error: snapshotError }] =
-    await Promise.all([
-      db
-        .from('campaign_report_templates')
-        .select('template_id, sort_order, report_templates(name)')
-        .eq('campaign_id', access.campaignId)
-        .order('sort_order', { ascending: true }),
-      db
-        .from('report_snapshots')
-        .select(
-          'id, template_id, status, generated_at, error_message, report_templates(name)'
-        )
-        .eq('participant_session_id', sessionId)
-        .order('created_at', { ascending: false }),
-    ])
-
-  if (configError) {
-    throwActionError(
-      'getCampaignSessionReportRows',
-      'Unable to load campaign templates.',
-      configError
-    )
-  }
+  // Pull together everything that informs what the session SHOULD have:
+  //   1. existing report_snapshots (the authoritative answer)
+  //   2. campaign-level extras (L1)
+  //   3. assessment-level defaults (L2) — needs the session's assessment_id
+  //   4. platform fallback (L3) — only relevant when L1 and L2 are both empty
+  // The resolver in src/app/actions/assess.ts:ensureReportSnapshotsForSession
+  // produces snapshots from this same union; this view function shows the
+  // user the same picture so admins can see "what's coming" alongside
+  // "what's already generated".
+  const [
+    { data: snapshots, error: snapshotError },
+    { data: sessionRow, error: sessionError },
+    { data: campaignTemplates, error: campaignError },
+  ] = await Promise.all([
+    db
+      .from('report_snapshots')
+      .select(
+        'id, template_id, status, generated_at, error_message, report_templates(name)'
+      )
+      .eq('participant_session_id', sessionId)
+      .order('created_at', { ascending: false }),
+    db
+      .from('participant_sessions')
+      .select('assessment_id')
+      .eq('id', sessionId)
+      .maybeSingle(),
+    db
+      .from('campaign_report_templates')
+      .select('template_id, sort_order, report_templates(name)')
+      .eq('campaign_id', access.campaignId)
+      .order('sort_order', { ascending: true }),
+  ])
 
   if (snapshotError) {
     throwActionError(
@@ -927,38 +936,161 @@ export async function getCampaignSessionReportRows(
       snapshotError
     )
   }
+  if (sessionError) {
+    throwActionError(
+      'getCampaignSessionReportRows',
+      'Unable to load session.',
+      sessionError
+    )
+  }
+  if (campaignError) {
+    throwActionError(
+      'getCampaignSessionReportRows',
+      'Unable to load campaign templates.',
+      campaignError
+    )
+  }
 
-  // Index snapshots by template_id (latest first, so first wins)
-  const snapshotByTemplate = new Map<string, {
-    id: string | null
-    template_id: string | null
-    status: string | null
-    generated_at: string | null
-    error_message: string | null
-    report_templates: { name?: string | null } | { name?: string | null }[] | null
-  }>()
+  const assessmentId =
+    (sessionRow as { assessment_id?: string | null } | null)?.assessment_id ?? null
 
-  for (const snap of (snapshots ?? [])) {
-    const tid = String((snap as Record<string, unknown>).template_id ?? '')
+  // Index snapshots by template_id (most recent wins).
+  type SnapshotRow = {
+    id?: string | null
+    template_id?: string | null
+    status?: string | null
+    generated_at?: string | null
+    error_message?: string | null
+    report_templates?: { name?: string | null } | { name?: string | null }[] | null
+  }
+  const snapshotByTemplate = new Map<string, SnapshotRow>()
+  for (const snap of (snapshots ?? []) as SnapshotRow[]) {
+    const tid = snap.template_id ? String(snap.template_id) : ''
     if (tid && !snapshotByTemplate.has(tid)) {
-      snapshotByTemplate.set(tid, snap as typeof snapshotByTemplate extends Map<string, infer V> ? V : never)
+      snapshotByTemplate.set(tid, snap)
     }
   }
 
-  return (configuredTemplates ?? []).map((ct) => {
-    const templateId = String(ct.template_id)
-    const tpl = getRelatedRecord(ct.report_templates)
-    const snap = snapshotByTemplate.get(templateId)
+  // Collect expected template ids from each layer.
+  type ExpectedTemplate = {
+    templateId: string
+    templateName: string
+    sortOrder: number
+  }
+  const expectedByTemplate = new Map<string, ExpectedTemplate>()
 
-    return {
-      templateId,
+  let sortCounter = 0
+  for (const ct of campaignTemplates ?? []) {
+    const tid = ct.template_id ? String(ct.template_id) : ''
+    if (!tid || expectedByTemplate.has(tid)) continue
+    const tpl = getRelatedRecord(ct.report_templates)
+    expectedByTemplate.set(tid, {
+      templateId: tid,
       templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      sortOrder: Number(ct.sort_order ?? sortCounter++),
+    })
+  }
+
+  if (assessmentId) {
+    const { data: assessmentDefaults, error: assessmentDefaultsError } = await db
+      .from('assessment_report_templates')
+      .select('template_id, sort_order, report_templates(name)')
+      .eq('assessment_id', assessmentId)
+      .eq('is_default', true)
+      .order('sort_order', { ascending: true })
+
+    if (assessmentDefaultsError) {
+      throwActionError(
+        'getCampaignSessionReportRows',
+        'Unable to load assessment-level default templates.',
+        assessmentDefaultsError
+      )
+    }
+
+    for (const row of assessmentDefaults ?? []) {
+      const tid = row.template_id ? String(row.template_id) : ''
+      if (!tid || expectedByTemplate.has(tid)) continue
+      const tpl = getRelatedRecord(row.report_templates)
+      expectedByTemplate.set(tid, {
+        templateId: tid,
+        templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+        sortOrder: 1000 + Number(row.sort_order ?? 0),
+      })
+    }
+  }
+
+  // Layer 3 fallback: only fires when no campaign extras AND no assessment defaults.
+  if (expectedByTemplate.size === 0) {
+    const { data: platformDefaults, error: platformDefaultsError } = await db
+      .from('report_templates')
+      .select('id, name')
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+
+    if (platformDefaultsError) {
+      throwActionError(
+        'getCampaignSessionReportRows',
+        'Unable to load platform default templates.',
+        platformDefaultsError
+      )
+    }
+
+    for (const row of platformDefaults ?? []) {
+      const tid = row.id ? String(row.id) : ''
+      if (!tid || expectedByTemplate.has(tid)) continue
+      expectedByTemplate.set(tid, {
+        templateId: tid,
+        templateName: row.name ? String(row.name) : 'Unnamed template',
+        sortOrder: 2000,
+      })
+    }
+  }
+
+  // Build the final row set: existing snapshots win on display fields;
+  // expected templates without a snapshot show as pending. Sort: snapshots
+  // first (in creation order via expected sortOrder if present), then any
+  // expected-but-pending rows after.
+  const rows: CampaignSessionReportRow[] = []
+  const seen = new Set<string>()
+
+  for (const expected of [...expectedByTemplate.values()].sort(
+    (a, b) => a.sortOrder - b.sortOrder
+  )) {
+    const snap = snapshotByTemplate.get(expected.templateId)
+    rows.push({
+      templateId: expected.templateId,
+      templateName: snap
+        ? (() => {
+            const tpl = getRelatedRecord(snap.report_templates)
+            return tpl?.name ? String(tpl.name) : expected.templateName
+          })()
+        : expected.templateName,
       snapshotId: snap?.id ? String(snap.id) : undefined,
       status: snap ? String(snap.status ?? 'pending') : 'pending',
       generatedAt: snap?.generated_at ?? undefined,
       errorMessage: snap?.error_message ?? undefined,
-    }
-  })
+    })
+    seen.add(expected.templateId)
+  }
+
+  // Any snapshots whose template isn't in any expected set (e.g. historical
+  // attachments since unattached) still belong in the list — admins need to
+  // see and download what was actually generated.
+  for (const [templateId, snap] of snapshotByTemplate) {
+    if (seen.has(templateId)) continue
+    const tpl = getRelatedRecord(snap.report_templates)
+    rows.push({
+      templateId,
+      templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      snapshotId: snap.id ? String(snap.id) : undefined,
+      status: String(snap.status ?? 'pending'),
+      generatedAt: snap.generated_at ?? undefined,
+      errorMessage: snap.error_message ?? undefined,
+    })
+  }
+
+  return rows
 }
 
 type SnapshotRecipientContext = {
