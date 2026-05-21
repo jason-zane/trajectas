@@ -10,6 +10,19 @@ Read `docs/ui-standards.md` before building any UI component or page.
 - If uncertain or if multiple interpretations exist, surface it — don't pick silently
 - If a simpler approach exists, push back
 
+## Auth model — passwordless / OTP only
+
+Trajectas does not use password authentication. Sign-in is via email OTP (`signInWithOtp` → `verifyOtp`). Do not introduce any of the following:
+
+- `signInWithPassword(...)` / `signUp({ email, password })`
+- `resetPasswordForEmail(...)`
+- `updateUser({ password: ... })`
+- `auth.admin.createUser({ password })` / `auth.admin.updateUserById(..., { password })`
+
+These are enforced by `tests/architecture/passwordless-only.test.ts` (fails CI) and by a database trigger that nulls any `encrypted_password` written to `auth.users` (migration `20260521130000_clear_user_passwords_and_lock.sql`). If you find yourself wanting to bypass either, talk it through first — the constraint is what makes the security story coherent.
+
+MFA, HIBP leaked-password protection, password-strength rules, and password-reset flows are all N/A under this model.
+
 ## Naming Conventions
 
 The schema has been through several renames. **Use the canonical names below**; the old names appear in historical migrations but must NOT be used in new code, migrations, or types.
