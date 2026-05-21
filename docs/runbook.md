@@ -112,6 +112,16 @@ The Supabase MCP exposes `mcp__claude_ai_Supabase__get_logs` for the live projec
 
 `src/instrumentation.ts` also writes server render/action errors to a local file via `instrumentation-node.ts`. This is a **temporary** capture for the digest-671018856 crash — remove once that's resolved. Sentry is the long-term answer.
 
+## Scheduled jobs (Vercel cron)
+
+| Path | Schedule (UTC) | What it does |
+|---|---|---|
+| `/api/cron/account-deletion-sweep` | `0 17 * * *` (daily 17:00 UTC ≈ 03:00 AEST) | Hard-deletes profiles whose 30-day grace period has elapsed (Stage B of account deletion). Writes one row per deletion to `account_deletion_audit`. |
+
+All cron routes verify `Authorization: Bearer ${CRON_SECRET}` (Vercel injects this header automatically). Set `CRON_SECRET` per environment in Vercel project env vars.
+
+To trigger manually (against a Preview deployment): `curl -H "Authorization: Bearer $CRON_SECRET" https://<deployment-url>/api/cron/account-deletion-sweep`.
+
 ## Incident response
 
 When users report a critical issue (data loss, auth broken, RLS leak, mass error rate):
