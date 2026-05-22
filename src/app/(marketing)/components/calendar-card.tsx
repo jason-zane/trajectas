@@ -1,7 +1,6 @@
 "use client";
 
-import Script from "next/script";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 const CAL_NAMESPACE = "30min";
 const CAL_LINK = "jason-hunt/30min";
@@ -58,14 +57,48 @@ Cal("init", "${CAL_NAMESPACE}", { origin: "https://app.cal.com" });
  * Inline Cal.com booking embed (cal.com/jason-hunt/30min), themed to sit
  * inside the sage contact section with gold accents.
  *
- * Renders inside a glass card matching the rest of the dark sage block.
+ * Embed is lazy-mounted when the card scrolls into view via
+ * IntersectionObserver. In environments without IO (legacy browsers, a few
+ * smoke tests), the embed simply doesn't load — Cal.com's own polyfills
+ * call matchMedia.addEventListener directly and would throw on those, so
+ * the gate also protects them.
  */
 export function CalendarCard() {
-  // Allow more than one embed per page without id collisions.
   const reactId = useId();
   const containerId = `cal-inline-30min-${reactId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [shouldMount, setShouldMount] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (typeof window.IntersectionObserver !== "function") return;
+
+    const node = wrapperRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setShouldMount(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!shouldMount) return;
+    if (typeof window === "undefined") return;
+
+    if (!window.Cal?.loaded) {
+      const init = document.createElement("script");
+      init.textContent = INIT_SCRIPT;
+      document.head.appendChild(init);
+    }
+
     function mountEmbed() {
       const cal = window.Cal?.ns?.[CAL_NAMESPACE];
       if (!cal) return false;
@@ -104,20 +137,18 @@ export function CalendarCard() {
 
     if (mountEmbed()) return;
 
-    // Cal script loads async — retry until it's available.
     const id = window.setInterval(() => {
       if (mountEmbed()) window.clearInterval(id);
     }, 120);
-
     const timeout = window.setTimeout(() => window.clearInterval(id), 8000);
     return () => {
       window.clearInterval(id);
       window.clearTimeout(timeout);
     };
-  }, [containerId]);
+  }, [shouldMount, containerId]);
 
   return (
-    <div className="tj-cal-card tj-cal-embed">
+    <div ref={wrapperRef} className="tj-cal-card tj-cal-embed">
       <div className="tj-cal-head">
         <div>
           <p
@@ -138,10 +169,21 @@ export function CalendarCard() {
         id={containerId}
         className="tj-cal-iframe"
         aria-label="Cal.com booking calendar"
-      />
-      <Script id="cal-com-init" strategy="afterInteractive">
-        {INIT_SCRIPT}
-      </Script>
+      >
+        {!shouldMount && (
+          <p
+            className="tj-mono"
+            style={{
+              color: "rgba(255,255,255,.45)",
+              textAlign: "center",
+              padding: "32px 20px",
+              fontSize: 11,
+            }}
+          >
+            Loading calendar…
+          </p>
+        )}
+      </div>
     </div>
   );
 }
