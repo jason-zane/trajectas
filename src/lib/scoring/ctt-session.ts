@@ -189,6 +189,8 @@ export async function scoreSessionCTT(
 
     if (upsertErr) return { error: upsertErr.message }
 
+    await persistCompositeScore(db, sessionId, scoreRows.map((r) => r.scaled_score))
+
     return { success: true, scoreCount: scoreRows.length }
   }
 
@@ -284,5 +286,36 @@ export async function scoreSessionCTT(
 
   if (upsertErr) return { error: upsertErr.message }
 
+  await persistCompositeScore(db, sessionId, scoreRows.map((r) => r.scaled_score))
+
   return { success: true, scoreCount: factorScores.length }
+}
+
+/**
+ * Composite (overall) score for the session = mean of the scaled scores at the
+ * assessment's scoring level. v1 only supports mean-of-children; the method
+ * is recorded so we can introduce weighted variants later without losing
+ * historical context.
+ */
+async function persistCompositeScore(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
+  sessionId: string,
+  scaledScores: number[],
+): Promise<void> {
+  if (scaledScores.length === 0) return
+  const composite = scaledScores.reduce((a, b) => a + b, 0) / scaledScores.length
+  const { error } = await db
+    .from('participant_sessions')
+    .update({
+      composite_score: composite,
+      composite_method: 'mean_of_children',
+    })
+    .eq('id', sessionId)
+  if (error) {
+    console.error(
+      `[scoring] Failed to persist composite_score for session ${sessionId}:`,
+      error,
+    )
+  }
 }

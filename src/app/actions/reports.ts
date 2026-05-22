@@ -21,6 +21,7 @@ import {
   AuthorizationError,
 } from '@/lib/auth/authorization'
 import {
+  logAuditEvent,
   logReportViewed,
   logSupportSessionDataAccess,
 } from '@/lib/auth/support-sessions'
@@ -161,6 +162,8 @@ type CampaignSessionReportRow = {
   snapshotId?: string
   status: string
   generatedAt?: string
+  /** Set when the report has been emailed to the participant. */
+  sentToParticipantAt?: string
   errorMessage?: string
 }
 
@@ -906,7 +909,7 @@ export async function getCampaignSessionReportRows(
     db
       .from('report_snapshots')
       .select(
-        'id, template_id, status, generated_at, error_message, report_templates(name)'
+        'id, template_id, status, generated_at, sent_to_participant_at, error_message, report_templates(name)'
       )
       .eq('participant_session_id', sessionId)
       .order('created_at', { ascending: false }),
@@ -953,6 +956,7 @@ export async function getCampaignSessionReportRows(
     template_id?: string | null
     status?: string | null
     generated_at?: string | null
+    sent_to_participant_at?: string | null
     error_message?: string | null
     report_templates?: { name?: string | null } | { name?: string | null }[] | null
   }
@@ -1062,6 +1066,7 @@ export async function getCampaignSessionReportRows(
       snapshotId: snap?.id ? String(snap.id) : undefined,
       status: snap ? String(snap.status ?? 'pending') : 'pending',
       generatedAt: snap?.generated_at ?? undefined,
+      sentToParticipantAt: snap?.sent_to_participant_at ?? undefined,
       errorMessage: snap?.error_message ?? undefined,
     })
     seen.add(expected.templateId)
@@ -1079,6 +1084,7 @@ export async function getCampaignSessionReportRows(
       snapshotId: snap.id ? String(snap.id) : undefined,
       status: String(snap.status ?? 'pending'),
       generatedAt: snap.generated_at ?? undefined,
+      sentToParticipantAt: snap.sent_to_participant_at ?? undefined,
       errorMessage: snap.error_message ?? undefined,
     })
   }
@@ -1253,6 +1259,64 @@ export async function sendReportSnapshotEmail(input: {
   })
 
   await markSnapshotReleased(snapshotId)
+  await markSnapshotSentToParticipant(snapshotId, context)
+}
+
+/**
+ * One-click variant of sendReportSnapshotEmail — sends the default email body
+ * to the participant without an editor dialog. Used by the row-level "Send
+ * to candidate" button on session detail pages.
+ */
+export async function sendReportToCandidate(snapshotId: string): Promise<void> {
+  if (!postgresUuid().safeParse(snapshotId).success) {
+    throw new Error('Invalid snapshot ID')
+  }
+  await requireReportSnapshotManageAccess(snapshotId)
+
+  const draft = await prepareReportSnapshotSendDraft(snapshotId)
+  if (!draft) {
+    throw new Error('Unable to prepare the report email.')
+  }
+  await sendReportSnapshotEmail({ snapshotId, body: draft.body })
+}
+
+async function markSnapshotSentToParticipant(
+  snapshotId: string,
+  context: SnapshotRecipientContext,
+): Promise<void> {
+  const db = createAdminClient()
+  const sentAt = new Date().toISOString()
+  const { error } = await db
+    .from('report_snapshots')
+    .update({ sent_to_participant_at: sentAt })
+    .eq('id', snapshotId)
+  if (error) {
+    console.error(
+      `[reports] Failed to mark snapshot ${snapshotId} sent_to_participant_at:`,
+      error,
+    )
+  }
+  try {
+    const scope = await resolveAuthorizedScope()
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'report.sent_to_participant',
+      targetTable: 'report_snapshots',
+      targetId: snapshotId,
+      partnerId: context.partnerId ?? null,
+      clientId: context.clientId ?? null,
+      metadata: {
+        campaignId: context.campaignId,
+        participantSessionId: context.participantSessionId,
+        sentAt,
+      },
+    })
+  } catch (auditError) {
+    console.error(
+      `[reports] Failed to log audit event for snapshot ${snapshotId} send:`,
+      auditError,
+    )
+  }
 }
 
 export async function retrySnapshot(id: string): Promise<void> {

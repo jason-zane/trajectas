@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState, useTransition } from 'react'
-import { ExternalLink, Loader2, RefreshCw } from 'lucide-react'
+import { ExternalLink, Loader2, Mail, RefreshCw, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   getCampaignSessionReportRows,
   retrySnapshot,
   regenerateSnapshot,
+  sendReportToCandidate,
 } from '@/app/actions/reports'
 import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
@@ -102,6 +103,20 @@ export function CampaignSessionReportsPanel({
     })
   }
 
+  function handleSend(snapshotId: string, alreadySent: boolean) {
+    startTransition(async () => {
+      try {
+        await sendReportToCandidate(snapshotId)
+        toast.success(alreadySent ? 'Report sent again' : 'Report sent to candidate')
+        await refresh()
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : 'Failed to send report'
+        )
+      }
+    })
+  }
+
   if (rows.length === 0) {
     return (
       <EmptyState
@@ -152,6 +167,12 @@ export function CampaignSessionReportsPanel({
                         <LocalTime iso={row.generatedAt} format="relative" />
                       </p>
                     ) : null}
+                    {row.sentToParticipantAt ? (
+                      <p className="text-caption text-muted-foreground">
+                        Sent to candidate{' '}
+                        <LocalTime iso={row.sentToParticipantAt} format="relative" />
+                      </p>
+                    ) : null}
                     {row.errorMessage ? (
                       <p className="text-caption text-destructive">{row.errorMessage}</p>
                     ) : null}
@@ -164,7 +185,7 @@ export function CampaignSessionReportsPanel({
                 </TableCell>
                 <TableCell>
                   {row.snapshotId && isReportViewable(row.status) ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -178,6 +199,20 @@ export function CampaignSessionReportsPanel({
                       >
                         View
                         <ExternalLink className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleSend(row.snapshotId!, Boolean(row.sentToParticipantAt))
+                        }
+                      >
+                        {row.sentToParticipantAt ? (
+                          <Mail className="size-3.5" />
+                        ) : (
+                          <Send className="size-3.5" />
+                        )}
+                        {row.sentToParticipantAt ? 'Send again' : 'Send to candidate'}
                       </Button>
                       <Button
                         variant="ghost"

@@ -10,7 +10,7 @@ export function getReportStatusLabel(status: ReportSnapshotStatus | string) {
   }
 
   if (status === 'released') {
-    return 'Sent'
+    return 'Released'
   }
 
   if (status === 'failed') {
