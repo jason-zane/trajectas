@@ -8,9 +8,10 @@ import {
   createWebPageJsonLd,
 } from "@/lib/seo/public-site";
 
-const title = "Psychometric Assessment for Capability and Performance | Trajectas";
+const title =
+  "Contextual Psychometric Assessment, Built Around Your Organisation | Trajectas";
 const description =
-  "Learn how contextual psychometric assessment can measure capability, inform performance decisions, and connect assessment results to real organisational outcomes.";
+  "Trajectas is a psychometric assessment built around your organisation's capabilities and tied to the outcomes you care about — not a generic benchmark dressed up as a tool.";
 
 export const metadata: Metadata = {
   title,
@@ -18,7 +19,8 @@ export const metadata: Metadata = {
   keywords: [
     ...MARKETING_KEYWORDS,
     "psychometric assessment for organisations",
-    "contextual psychometric assessment",
+    "behavioural assessment",
+    "calibrated psychometric items",
   ],
   alternates: {
     canonical: "/psychometric-assessment",
@@ -29,6 +31,7 @@ export const metadata: Metadata = {
     url: buildPublicUrl("/psychometric-assessment"),
     siteName: PUBLIC_SITE_NAME,
     type: "article",
+    locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",
