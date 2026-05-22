@@ -153,11 +153,20 @@ function buildContentSecurityPolicy(surface: Surface, nonce: string) {
     ].join("; ");
   }
 
-  // Public (marketing) — allows the Cal.com inline booking embed.
+  if (surface === "public") {
+    // Marketing pages only — allow the Cal.com inline booking embed.
+    return [
+      ...shared,
+      "frame-src https://app.cal.com https://cal.com",
+      `connect-src 'self' ${supabaseHttps} ${supabaseWss} https://app.cal.com https://cal.com`.trim(),
+    ].join("; ");
+  }
+
+  // Every other surface (assess, etc.) — no third-party iframes allowed.
   return [
     ...shared,
-    "frame-src https://app.cal.com https://cal.com",
-    `connect-src 'self' ${supabaseHttps} ${supabaseWss} https://app.cal.com https://cal.com`.trim(),
+    "frame-src 'none'",
+    `connect-src 'self' ${supabaseHttps} ${supabaseWss}`.trim(),
   ].join("; ");
 }
 
