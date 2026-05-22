@@ -377,6 +377,7 @@ export async function createCampaign(payload: Record<string, unknown>) {
       allow_resume: parsed.data.allowResume,
       show_progress: parsed.data.showProgress,
       randomize_assessment_order: parsed.data.randomizeAssessmentOrder,
+      consultant_emails: scope.actor?.email ? [scope.actor.email] : [],
     })
     .select('id')
     .single()
