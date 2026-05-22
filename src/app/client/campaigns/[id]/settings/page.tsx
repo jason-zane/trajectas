@@ -1,7 +1,8 @@
-import { getCampaignHeader } from "@/app/actions/campaigns";
+import { getCampaignHeader, getCampaignConsultantSettings } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignSettingsToggles } from "@/app/(dashboard)/campaigns/[id]/settings/campaign-settings-toggles";
+import { ConsultantNotificationsPanel } from "@/app/(dashboard)/campaigns/[id]/settings/consultant-notifications-panel";
 import { CampaignForm } from "@/app/(dashboard)/campaigns/campaign-form";
 
 export default async function ClientCampaignSettingsPage({
@@ -10,7 +11,10 @@ export default async function ClientCampaignSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaignHeader(id);
+  const [campaign, consultantSettings] = await Promise.all([
+    getCampaignHeader(id),
+    getCampaignConsultantSettings(id),
+  ]);
   if (!campaign) notFound();
 
   return (
@@ -48,6 +52,14 @@ export default async function ClientCampaignSettingsPage({
         showProgress={campaign.showProgress}
         randomizeAssessmentOrder={campaign.randomizeAssessmentOrder}
       />
+
+      {/* Consultant notifications */}
+      {consultantSettings && (
+        <ConsultantNotificationsPanel
+          campaignId={campaign.id}
+          initial={consultantSettings}
+        />
+      )}
     </div>
   );
 }
