@@ -14,8 +14,19 @@ export async function GET(request: NextRequest) {
   const response = NextResponse.redirect(
     new URL("/login?error=session_expired", request.url)
   );
-  response.cookies.delete(ACTIVITY_COOKIE);
-  response.cookies.delete(ACTIVE_CONTEXT_COOKIE);
-  response.cookies.delete(PREVIEW_CONTEXT_COOKIE);
+  // Clear all known cookie-domain variants so a cookie set previously with a
+  // different domain scope (e.g. host-only vs .trajectas.com) can't shadow
+  // the fresh one set on the next sign-in. response.cookies.delete only
+  // targets the host-only variant.
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+  const clearVariants = [
+    { path: "/" },
+    ...(cookieDomain ? [{ path: "/", domain: cookieDomain }] : []),
+  ];
+  for (const name of [ACTIVITY_COOKIE, ACTIVE_CONTEXT_COOKIE, PREVIEW_CONTEXT_COOKIE]) {
+    for (const opts of clearVariants) {
+      response.cookies.set(name, "", { ...opts, maxAge: 0 });
+    }
+  }
   return response;
 }
