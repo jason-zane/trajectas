@@ -11,6 +11,7 @@ interface QuickLaunchButtonProps {
   clients: Array<{ id: string; name: string }>;
   forcedClientId?: string;
   successHrefPrefix?: string;
+  creatorEmail?: string;
 }
 
 export function QuickLaunchButton(props: QuickLaunchButtonProps) {

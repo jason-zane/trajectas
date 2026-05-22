@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import {
   activateCampaign,
   addAssessmentToCampaign,
+  updateCampaignConsultantSettings,
   bulkInviteParticipants,
   createAccessLink,
   createCampaign,
@@ -40,6 +41,9 @@ import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-r
 import { FileText, Link2, Mail, Plus, Rocket } from "lucide-react";
 import {
   CapabilitySelectionStep,
+} from "./capability-selection-step";
+import { NotificationsStep, type NotificationsStepValue } from "./notifications-step";
+import {
   type FactorAssessmentData,
   type ConstructAssessmentData,
 } from "./capability-selection-step";
@@ -141,9 +145,11 @@ interface QuickLaunchModalProps {
   forcedClientId?: string;
   successHrefPrefix?: string;
   initialAssessmentId?: string;
+  /** Email of the user opening the wizard — prefilled into the notifications step recipient list. */
+  creatorEmail?: string;
 }
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 type ItemSelectionRule = {
   minConstructs: number;
@@ -167,6 +173,7 @@ interface WizardState {
   inviteSingleFirstName: string;
   inviteSingleLastName: string;
   inviteCsv: string;
+  notifications: NotificationsStepValue;
 }
 
 export function QuickLaunchModal({
@@ -177,6 +184,7 @@ export function QuickLaunchModal({
   forcedClientId,
   successHrefPrefix = "/campaigns",
   initialAssessmentId,
+  creatorEmail,
 }: QuickLaunchModalProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [state, setState] = useState<WizardState>({
@@ -195,6 +203,12 @@ export function QuickLaunchModal({
     inviteSingleFirstName: "",
     inviteSingleLastName: "",
     inviteCsv: "",
+    notifications: {
+      enabled: true,
+      emails: creatorEmail ? [creatorEmail] : [],
+      includeSummary: true,
+      attachPdf: true,
+    },
   });
   const [isLaunching, setIsLaunching] = useState(false);
   const [loadingCapabilities, setLoadingCapabilities] = useState(false);
@@ -226,7 +240,8 @@ export function QuickLaunchModal({
   // through. Step 3 (Capabilities) renders an empty-state hint when the
   // selected assessment doesn't expose customisation.
   const capabilitiesStep = 3;
-  const inviteStep = 4;
+  const notificationsStep = 4;
+  const inviteStep = 5;
   const capabilityMode: "factor" | "construct" =
     selectedAssessment?.scoringLevel === "construct" ? "construct" : "factor";
   const hasCapabilities =
@@ -256,6 +271,12 @@ export function QuickLaunchModal({
       inviteSingleFirstName: "",
       inviteSingleLastName: "",
       inviteCsv: "",
+      notifications: {
+        enabled: true,
+        emails: creatorEmail ? [creatorEmail] : [],
+        includeSummary: true,
+        attachPdf: true,
+      },
     });
   }
 
@@ -278,6 +299,10 @@ export function QuickLaunchModal({
         state.selectedCapabilityIds === null ||
         state.selectedCapabilityIds.length > 0
       );
+    }
+    if (step === notificationsStep) {
+      // No required fields — disabled is a valid choice.
+      return true;
     }
     // Invite step
     if (state.inviteMode === "link") {
@@ -394,6 +419,21 @@ export function QuickLaunchModal({
       );
       if (addAssessmentResult?.error) {
         throw new Error(addAssessmentResult.error);
+      }
+
+      // Apply consultant notification settings from the wizard's Notifications step.
+      // createCampaign already seeds consultant_emails with the creator's email, but the
+      // wizard can override that and the two toggles. Best-effort: a failure here doesn't
+      // block the campaign from launching (the user can fix it in settings).
+      try {
+        await updateCampaignConsultantSettings(campaignId, {
+          emails: state.notifications.emails,
+          enabled: state.notifications.enabled,
+          includeSummary: state.notifications.includeSummary,
+          attachPdf: state.notifications.attachPdf,
+        });
+      } catch (notifyError) {
+        console.error('[quick-launch] consultant settings update failed', notifyError);
       }
 
       // Apply custom capability selection if the user limited the assessment.
@@ -529,6 +569,7 @@ export function QuickLaunchModal({
     { id: "campaign", label: "Campaign" },
     { id: "assessment", label: "Assessment" },
     { id: "capabilities", label: "Capabilities" },
+    { id: "notifications", label: "Notifications" },
     { id: "invite", label: "Invite" },
   ];
 
@@ -843,6 +884,15 @@ export function QuickLaunchModal({
                 </div>
               )}
             </div>
+          )}
+
+          {step === notificationsStep && (
+            <NotificationsStep
+              value={state.notifications}
+              onChange={(next) =>
+                setState((s) => ({ ...s, notifications: next }))
+              }
+            />
           )}
 
           {step === inviteStep && (
