@@ -1,5 +1,9 @@
 import { getCampaignHeader, getCampaignConsultantSettings } from "@/app/actions/campaigns";
-import { getCampaignTemplates, getReportTemplates } from "@/app/actions/reports";
+import {
+  getCampaignTemplates,
+  getCampaignReportPicture,
+  getReportTemplates,
+} from "@/app/actions/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapClientRow } from "@/lib/supabase/mappers";
 import { notFound } from "next/navigation";
@@ -7,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignForm } from "../../campaign-form";
 import { CampaignSettingsToggles } from "./campaign-settings-toggles";
 import { ReportConfigPanel } from "./report-config-panel";
+import { FiringReportsSection } from "./firing-reports-section";
 import { ConsultantNotificationsPanel } from "./consultant-notifications-panel";
 
 export default async function CampaignSettingsPage({
@@ -15,11 +20,18 @@ export default async function CampaignSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [campaign, campaignTemplates, templates, consultantSettings] = await Promise.all([
+  const [
+    campaign,
+    campaignTemplates,
+    templates,
+    consultantSettings,
+    reportPicture,
+  ] = await Promise.all([
     getCampaignHeader(id),
     getCampaignTemplates(id),
     getReportTemplates(),
     getCampaignConsultantSettings(id),
+    getCampaignReportPicture(id),
   ]);
   if (!campaign) notFound();
 
@@ -79,7 +91,10 @@ export default async function CampaignSettingsPage({
         randomizeAssessmentOrder={campaign.randomizeAssessmentOrder}
       />
 
-      {/* Report template assignment */}
+      {/* What will fire (read-only) */}
+      <FiringReportsSection picture={reportPicture} />
+
+      {/* Campaign extras (editable) */}
       <ReportConfigPanel
         campaignId={campaign.id}
         assignedTemplates={campaignTemplates}
