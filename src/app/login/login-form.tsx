@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { requestStaffOtp, verifyStaffOtp } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,9 @@ export function LoginForm({
       ? "If that email has staff access, we've sent a sign-in code. Check your inbox."
       : null);
 
+  const verifyFormRef = useRef<HTMLFormElement>(null);
+  const autoSubmittedCodeRef = useRef<string | null>(null);
+
   // Cross-surface redirect after request — keeps the request flow working
   // when the user lands on the wrong surface for their workspace.
   useEffect(() => {
@@ -67,7 +70,7 @@ export function LoginForm({
             <span className="font-medium text-[var(--mk-primary-dark)]">{email}</span>
           </p>
         </div>
-        <form action={verifyAction} className="space-y-4">
+        <form ref={verifyFormRef} action={verifyAction} className="space-y-4">
           <input type="hidden" name="email" value={email} />
           <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
           <div className="space-y-1.5">
@@ -81,6 +84,17 @@ export function LoginForm({
               maxLength={6}
               required
               pattern="\d{6}"
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                if (
+                  /^\d{6}$/.test(value) &&
+                  !verifyPending &&
+                  autoSubmittedCodeRef.current !== value
+                ) {
+                  autoSubmittedCodeRef.current = value;
+                  verifyFormRef.current?.requestSubmit();
+                }
+              }}
               className="h-11 rounded-xl border-[rgba(30,74,62,0.18)] bg-white/88 px-4 text-center text-lg font-semibold tracking-[0.3em] shadow-none placeholder:text-[var(--mk-text-muted)]/60 placeholder:tracking-[0.3em] focus-visible:border-[var(--mk-accent)] focus-visible:ring-[var(--mk-accent)]/30"
             />
           </div>
