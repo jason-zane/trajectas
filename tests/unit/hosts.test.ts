@@ -90,8 +90,16 @@ describe("requireAppUrl", () => {
     expect(requireAppUrl("public")).toBe("http://localhost:3002");
   });
 
-  it("throws in production when no env is set", () => {
+  it("returns localhost in CI (NODE_ENV=production, VERCEL unset)", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    expect(requireAppUrl("public")).toBe("http://localhost:3002");
+  });
+
+  it("throws on Vercel production when no env is set", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
     vi.stubEnv("PUBLIC_APP_URL", "");
     expect(() => requireAppUrl("public")).toThrow(
       /Missing surface URL env var for "public"/,
@@ -108,8 +116,18 @@ describe("assertSurfaceUrlsConfigured", () => {
     expect(() => assertSurfaceUrlsConfigured()).not.toThrow();
   });
 
-  it("throws when required surface URLs are missing in production", () => {
+  it("is a no-op in CI (NODE_ENV=production, VERCEL unset)", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    vi.stubEnv("ADMIN_APP_URL", "");
+    vi.stubEnv("ASSESS_APP_URL", "");
+    expect(() => assertSurfaceUrlsConfigured()).not.toThrow();
+  });
+
+  it("throws when required surface URLs are missing on Vercel production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
     vi.stubEnv("PUBLIC_APP_URL", "");
     vi.stubEnv("ADMIN_APP_URL", "");
     vi.stubEnv("ASSESS_APP_URL", "");
@@ -118,8 +136,9 @@ describe("assertSurfaceUrlsConfigured", () => {
     );
   });
 
-  it("passes when all required surface URLs are present in production", () => {
+  it("passes when all required surface URLs are present on Vercel production", () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
     vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.com");
     vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.com");
     vi.stubEnv("ASSESS_APP_URL", "https://assess.trajectas.com");

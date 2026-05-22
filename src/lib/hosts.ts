@@ -55,19 +55,25 @@ export function getConfiguredSurfaceUrl(surface: Surface): string | null {
 }
 
 /**
- * Like {@link getConfiguredSurfaceUrl} but throws in production when the
- * surface is not configured. In development, returns the local dev URL
- * (`http://localhost:3002`) so the dev experience is unchanged.
+ * Like {@link getConfiguredSurfaceUrl} but throws on Vercel production
+ * deploys when the surface is not configured. In development AND in CI
+ * builds (where VERCEL is unset and we don't have surface URL envs but
+ * still need the build to succeed), returns the local dev URL
+ * (`http://localhost:3002`) so the dev/CI experience is unchanged.
  *
  * Use this anywhere a URL is constructed for user-visible side effects:
  * auth redirect emails, share/access links, server-side fetches back to
  * the app, OG metadata, etc. Fail-loud at boot beats fail-silent in an
  * email that points users at localhost.
+ *
+ * Gated to Vercel (VERCEL=1) so CI's `next build` doesn't fail during
+ * page-data collection on marketing/SEO pages that resolve URLs at
+ * module-evaluation time.
  */
 export function requireAppUrl(surface: Surface = "public"): string {
   const configured = getConfiguredSurfaceUrl(surface);
   if (configured) return configured;
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV !== "production" || process.env.VERCEL !== "1") {
     return "http://localhost:3002";
   }
   throw new Error(
@@ -89,10 +95,10 @@ const REQUIRED_PRODUCTION_SURFACES: Surface[] = ["public", "admin", "assess"];
  * request — and to ensure `serverActions.allowedOrigins` (computed at
  * config-evaluation time) was not silently shorted by missing envs.
  *
- * In development this is a no-op.
+ * In development and CI this is a no-op (gated to VERCEL=1).
  */
 export function assertSurfaceUrlsConfigured(): void {
-  if (process.env.NODE_ENV !== "production") return;
+  if (process.env.NODE_ENV !== "production" || process.env.VERCEL !== "1") return;
   const missing = REQUIRED_PRODUCTION_SURFACES.filter(
     (surface) => !getConfiguredSurfaceUrl(surface),
   );
