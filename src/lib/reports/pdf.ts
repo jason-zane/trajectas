@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
 import { requireAppUrl } from '@/lib/hosts'
@@ -303,6 +304,15 @@ export async function generateAndStoreReportPdf(
 
     if (updateError) {
       throw updateError
+    }
+
+    try {
+      await notifyConsultantsForSnapshot(snapshotId)
+    } catch (notifyError) {
+      console.error(
+        `[notifications] Post-PDF consultant notify failed for snapshot ${snapshotId}:`,
+        notifyError,
+      )
     }
 
     return {

@@ -66,6 +66,35 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
     .filter(Boolean)
   if (recipients.length === 0) return
 
+  // If we promised a PDF, defer until the PDF actually exists. pdf.ts re-fires
+  // this notification after pdf_status flips to 'ready'.
+  if (campaign.consultant_notification_attach_pdf) {
+    const { data: pdfState } = await db
+      .from('report_snapshots')
+      .select('pdf_url, pdf_status')
+      .eq('id', snapshotId)
+      .maybeSingle()
+    if (!pdfState?.pdf_url || pdfState.pdf_status !== 'ready') return
+  }
+
+  // Atomic idempotency claim. Two concurrent callers race on this UPDATE; only
+  // one gets a row back. If the email send fails later we reset the column.
+  const claim = await db
+    .from('report_snapshots')
+    .update({ consultant_notified_at: new Date().toISOString() })
+    .eq('id', snapshotId)
+    .is('consultant_notified_at', null)
+    .select('id')
+
+  if (claim.error) {
+    console.error(
+      `[notifications] Consultant claim failed for snapshot ${snapshotId}:`,
+      claim.error,
+    )
+    return
+  }
+  if (!claim.data || claim.data.length === 0) return
+
   const summary = await loadSessionSummary(db, String(snapshot.participant_session_id))
 
   const templateNameRaw = snapshot.report_templates
@@ -124,17 +153,15 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
       attachments,
     })
   } catch (sendError) {
+    await db
+      .from('report_snapshots')
+      .update({ consultant_notified_at: null })
+      .eq('id', snapshotId)
     console.error(
       `[notifications] Consultant notification failed for snapshot ${snapshotId}:`,
       sendError,
     )
-    return
   }
-
-  await db
-    .from('report_snapshots')
-    .update({ consultant_notified_at: new Date().toISOString() })
-    .eq('id', snapshotId)
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
