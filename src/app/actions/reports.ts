@@ -1885,3 +1885,132 @@ export async function bulkUpdateReportStatus(ids: string[], status: string): Pro
   revalidatePath('/reports')
   revalidatePath('/participants')
 }
+
+// ---------------------------------------------------------------------------
+// Campaign-level report picture
+// ---------------------------------------------------------------------------
+
+export interface CampaignReportPictureEntry {
+  templateId: string
+  templateName: string
+  /** Where the entry came from: 'campaign' = L1 explicit, 'assessment' = L2
+   *  default, 'platform' = L3 fallback. */
+  source: 'campaign' | 'assessment' | 'platform'
+  /** Populated for source='assessment' — which assessment defaulted it. */
+  assessmentId?: string
+  assessmentTitle?: string
+}
+
+export interface CampaignReportPicture {
+  campaignExtras: CampaignReportPictureEntry[]
+  assessmentDefaults: CampaignReportPictureEntry[]
+  platformFallback: CampaignReportPictureEntry[]
+}
+
+/**
+ * Resolve which report templates will fire for sessions in this campaign,
+ * grouped by source. Mirrors the runtime resolver in
+ * ensureReportSnapshotsForSession (assess.ts) so the settings UI matches what
+ * actually happens at session completion.
+ */
+export async function getCampaignReportPicture(
+  campaignId: string,
+): Promise<CampaignReportPicture> {
+  if (!postgresUuid().safeParse(campaignId).success) {
+    return { campaignExtras: [], assessmentDefaults: [], platformFallback: [] }
+  }
+  await requireCampaignAccess(campaignId)
+  const db = createAdminClient()
+
+  const [campaignExtrasResult, assessmentRowsResult] = await Promise.all([
+    db
+      .from('campaign_report_templates')
+      .select('template_id, sort_order, report_templates(name)')
+      .eq('campaign_id', campaignId)
+      .order('sort_order', { ascending: true }),
+    db
+      .from('campaign_assessments')
+      .select('assessment_id, assessments(id, title)')
+      .eq('campaign_id', campaignId)
+      .is('deleted_at', null),
+  ])
+
+  const campaignExtras: CampaignReportPictureEntry[] = []
+  for (const row of campaignExtrasResult.data ?? []) {
+    const id = row.template_id ? String(row.template_id) : ''
+    if (!id) continue
+    const tpl = getRelatedRecord(row.report_templates)
+    campaignExtras.push({
+      templateId: id,
+      templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      source: 'campaign',
+    })
+  }
+
+  type AssessmentRow = {
+    assessment_id?: string | null
+    assessments?:
+      | { id?: string | null; title?: string | null }
+      | { id?: string | null; title?: string | null }[]
+      | null
+  }
+  const assessments: Array<{ id: string; title: string }> = []
+  for (const row of (assessmentRowsResult.data ?? []) as AssessmentRow[]) {
+    const a = getRelatedRecord(row.assessments) as {
+      id?: string | null
+      title?: string | null
+    } | null
+    const id = a?.id ? String(a.id) : row.assessment_id ? String(row.assessment_id) : ''
+    if (!id) continue
+    assessments.push({ id, title: a?.title ? String(a.title) : 'Untitled assessment' })
+  }
+
+  const assessmentDefaults: CampaignReportPictureEntry[] = []
+  if (assessments.length > 0) {
+    const { data: defaults } = await db
+      .from('assessment_report_templates')
+      .select('assessment_id, template_id, sort_order, report_templates(name)')
+      .in(
+        'assessment_id',
+        assessments.map((a) => a.id),
+      )
+      .eq('is_default', true)
+      .order('sort_order', { ascending: true })
+
+    for (const row of defaults ?? []) {
+      const tid = row.template_id ? String(row.template_id) : ''
+      const aid = row.assessment_id ? String(row.assessment_id) : ''
+      if (!tid || !aid) continue
+      const tpl = getRelatedRecord(row.report_templates)
+      const assessment = assessments.find((a) => a.id === aid)
+      assessmentDefaults.push({
+        templateId: tid,
+        templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+        source: 'assessment',
+        assessmentId: aid,
+        assessmentTitle: assessment?.title,
+      })
+    }
+  }
+
+  const platformFallback: CampaignReportPictureEntry[] = []
+  if (campaignExtras.length === 0 && assessmentDefaults.length === 0) {
+    const { data: fallbackRows } = await db
+      .from('report_templates')
+      .select('id, name')
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+    for (const row of fallbackRows ?? []) {
+      const tid = row.id ? String(row.id) : ''
+      if (!tid) continue
+      platformFallback.push({
+        templateId: tid,
+        templateName: row.name ? String(row.name) : 'Unnamed template',
+        source: 'platform',
+      })
+    }
+  }
+
+  return { campaignExtras, assessmentDefaults, platformFallback }
+}
