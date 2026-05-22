@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email/send'
+import { requireAppUrl } from '@/lib/hosts'
 
 const GRACE_PERIOD_DAYS = 30
 
@@ -126,9 +127,5 @@ function formatDate(d: Date): string {
 }
 
 function publicAppUrl(): string {
-  return (
-    process.env.PUBLIC_APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'http://localhost:3002'
-  )
+  return requireAppUrl('public')
 }

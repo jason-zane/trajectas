@@ -158,25 +158,33 @@ function buildContentSecurityPolicy(surface: Surface, nonce: string) {
   ].join("; ");
 }
 
+interface CspContext {
+  headerName: "Content-Security-Policy" | "Content-Security-Policy-Report-Only";
+  policy: string;
+}
+
+function resolveCspContext(surface: Surface, nonce: string): CspContext {
+  // Default to report-only mode for safe rollout. CSP_ENFORCE=1 flips this to
+  // enforcing, but enforcement is gated on PR 0's nonce-attachment verification
+  // landing first — see docs/audit/2026-05-22-cross-environment-reliability-plan.md.
+  const headerName =
+    process.env.CSP_ENFORCE === "1"
+      ? "Content-Security-Policy"
+      : "Content-Security-Policy-Report-Only";
+  return {
+    headerName,
+    policy: buildContentSecurityPolicy(surface, nonce),
+  };
+}
+
 function applySecurityHeaders(
   response: NextResponse,
   surface: Surface,
   pathname: string,
-  nonce: string,
+  csp: CspContext,
 ) {
   response.headers.set("x-trajectas-surface", surface);
-
-  // Default to report-only mode for safe rollout. Flip CSP_ENFORCE=1 once the
-  // violation log at /api/csp-report is clean.
-  const cspHeaderName =
-    process.env.CSP_ENFORCE === "1"
-      ? "Content-Security-Policy"
-      : "Content-Security-Policy-Report-Only";
-
-  response.headers.set(
-    cspHeaderName,
-    buildContentSecurityPolicy(surface, nonce),
-  );
+  response.headers.set(csp.headerName, csp.policy);
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
   response.headers.set("Cross-Origin-Resource-Policy", "same-site");
 
@@ -201,13 +209,18 @@ function withSurfaceHeaders(
   isLocalDev: boolean,
   routePrefix: string,
   nonce: string,
+  csp: CspContext,
 ) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-trajectas-surface", surface);
   requestHeaders.set("x-trajectas-route-prefix", routePrefix);
-  // Next.js reads this header to auto-propagate the nonce to framework
-  // scripts, page JS bundles, and <Script nonce={...}> components.
+  // Next.js reads `x-nonce` to propagate the nonce to framework scripts,
+  // page JS bundles, and <Script nonce={...}> components. It also reads the
+  // matching CSP header from request headers during SSR to know which scripts
+  // need a nonce attached — without the policy on the request, the nonce on
+  // its own is insufficient.
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set(csp.headerName, csp.policy);
 
   if (isLocalDev) {
     requestHeaders.set("x-trajectas-local-dev", "true");
@@ -249,15 +262,25 @@ export async function proxy(request: NextRequest) {
   const isLocalDev = isLocalDevelopmentHost(host);
   const routePrefix = getRoutePrefixForSurface(configuredSurface, isLocalDev);
   const nonce = generateNonce();
+  const csp = resolveCspContext(configuredSurface, nonce);
   const forwardedHeaders = withSurfaceHeaders(
     request,
     configuredSurface,
     isLocalDev,
     routePrefix,
     nonce,
+    csp,
   );
   const applyHeaders = (response: NextResponse, surface: Surface, p: string) =>
-    applySecurityHeaders(response, surface, p, nonce);
+    applySecurityHeaders(
+      response,
+      surface,
+      p,
+      // Recompute the CSP per-surface when the response surface differs from
+      // the inferred surface (cross-surface redirects), so the policy emitted
+      // on the response matches what the destination expects.
+      surface === configuredSurface ? csp : resolveCspContext(surface, nonce),
+    );
   const rateLimit = await checkRequestRateLimit(request);
 
   if (rateLimit && !rateLimit.allowed) {

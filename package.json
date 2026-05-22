@@ -108,5 +108,13 @@
     "ip-address": "^10.2.0",
     "postcss": "^8.5.10",
     "uuid": "^14.0.0"
-  }
+  },
+  "browserslist": [
+    "Chrome >= 111",
+    "Edge >= 111",
+    "Firefox >= 113",
+    "Safari >= 16.4",
+    "iOS >= 16.4",
+    "not dead"
+  ]
 }

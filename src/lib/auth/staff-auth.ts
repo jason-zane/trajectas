@@ -17,7 +17,12 @@ import type {
 } from "@/lib/auth/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { type WorkspaceSurface } from "@/lib/surfaces";
-import { getConfiguredSurfaceUrl, getRoutePrefixForSurface, isLocalDevelopmentHost } from "@/lib/hosts";
+import {
+  getConfiguredSurfaceUrl,
+  getRoutePrefixForSurface,
+  isLocalDevelopmentHost,
+  requireAppUrl,
+} from "@/lib/hosts";
 import type { UserRole } from "@/types/database";
 
 export const inviteTenantTypeSchema = z.enum(["platform", "partner", "client"]);
@@ -673,7 +678,7 @@ export async function listStaffUsers() {
 }
 
 export function createInviteLink(token: string) {
-  const base = getConfiguredSurfaceUrl("public") ?? getConfiguredSurfaceUrl("admin") ?? process.env.PUBLIC_APP_URL ?? process.env.ADMIN_APP_URL ?? "http://localhost:3002";
+  const base = getConfiguredSurfaceUrl("public") ?? requireAppUrl("admin");
   const url = new URL(base);
   const basePath = url.pathname.replace(/\/+$/, "");
   url.pathname = `${basePath}/auth/accept`;

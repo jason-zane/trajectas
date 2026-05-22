@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { fetchWithTimeout } from '@/lib/net/fetch-with-timeout'
 
 interface PreviewPdfButtonProps {
   templateId: string
@@ -20,8 +21,9 @@ export function PreviewPdfButton({ templateId, assessmentId }: PreviewPdfButtonP
     }
     setLoading(true)
     try {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `/api/report-templates/${templateId}/preview/pdf?assessment=${encodeURIComponent(assessmentId)}`,
+        { timeoutMs: 60_000 },
       )
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))

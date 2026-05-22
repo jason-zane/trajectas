@@ -19,6 +19,8 @@ import {
   reactivateAccessLink,
   deleteAccessLink,
 } from "@/app/actions/campaigns";
+import { copyToClipboard } from "@/lib/clipboard";
+import { ManualCopyDialog } from "@/components/ui/manual-copy-dialog";
 import type { CampaignAccessLink } from "@/types/database";
 
 export function CampaignAccessLinks({
@@ -31,6 +33,10 @@ export function CampaignAccessLinks({
   const [showCreate, setShowCreate] = useState(false);
   const [label, setLabel] = useState("");
   const [maxUses, setMaxUses] = useState("");
+  const [manualCopy, setManualCopy] = useState<{ open: boolean; value: string }>({
+    open: false,
+    value: "",
+  });
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -71,10 +77,13 @@ export function CampaignAccessLinks({
     toast.success("Link deleted");
   }
 
-  function copyUrl(token: string) {
+  async function copyUrl(token: string) {
     const url = `${window.location.origin}/assess/join/${token}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Enrollment link copied");
+    if (await copyToClipboard(url)) {
+      toast.success("Enrollment link copied");
+    } else {
+      setManualCopy({ open: true, value: url });
+    }
   }
 
   return (
@@ -202,6 +211,13 @@ export function CampaignAccessLinks({
           </ActionDialogFooter>
         </form>
       </ActionDialog>
+      <ManualCopyDialog
+        open={manualCopy.open}
+        onOpenChange={(open) => setManualCopy((s) => ({ ...s, open }))}
+        title="Copy enrollment link"
+        description="Your browser blocked the automatic copy. Select and copy the link below."
+        value={manualCopy.value}
+      />
     </Card>
   );
 }

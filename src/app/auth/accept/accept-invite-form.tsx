@@ -1,10 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
-import { requestInviteOtp } from "@/app/actions/auth";
+import { useActionState, useEffect } from "react";
+import { requestInviteOtp, verifyInviteOtp } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 function buildAcceptInviteUrl(inviteToken: string, nextPath?: string) {
   const params = new URLSearchParams();
@@ -28,65 +27,38 @@ export function AcceptInviteForm({
   initialEmail?: string;
   initialStep?: "email" | "code";
 }) {
-  const [state, formAction, pending] = useActionState(requestInviteOtp, undefined);
-  const [code, setCode] = useState("");
-  const [verifyError, setVerifyError] = useState<string | null>(null);
-  const [verifying, startVerify] = useTransition();
+  const [requestState, requestAction, requestPending] = useActionState(
+    requestInviteOtp,
+    undefined,
+  );
+  const [verifyState, verifyAction, verifyPending] = useActionState(
+    verifyInviteOtp,
+    undefined,
+  );
 
-  const email = state?.email ?? initialEmail ?? "";
-  const invite = state?.invite ?? inviteToken;
-  const resolvedNextPath = state?.next ?? nextPath;
+  // The displayed email comes from the server state — the verify action
+  // does not trust a hidden email input and re-derives it from the invite
+  // token on every submission. We only show the email here as a hint.
+  const email = verifyState?.email ?? requestState?.email ?? initialEmail ?? "";
+  const invite = verifyState?.invite ?? requestState?.invite ?? inviteToken;
+  const resolvedNextPath =
+    verifyState?.next ?? requestState?.next ?? nextPath;
   const isCodeStep =
-    state?.step === "code" || (initialStep === "code" && Boolean(email));
+    verifyState?.step === "code" ||
+    requestState?.step === "code" ||
+    (initialStep === "code" && Boolean(email));
+  const verifyError = verifyState?.error ?? null;
+  const requestError = requestState?.error ?? null;
   const successMessage =
-    state?.success ??
+    requestState?.success ??
     (isCodeStep && email
       ? `We've sent a sign-in code to ${email}. Enter the code to accept the invite.`
       : null);
 
   useEffect(() => {
-    if (!state?.redirectTo) return;
-    window.location.replace(state.redirectTo);
-  }, [state?.redirectTo]);
-
-  function handleVerify() {
-    if (!email) {
-      setVerifyError("Request a fresh sign-in code to continue.");
-      return;
-    }
-
-    setVerifyError(null);
-    startVerify(async () => {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: "email",
-      });
-
-      if (error) {
-        setVerifyError(error.message);
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.set("invite", invite);
-      if (
-        resolvedNextPath &&
-        resolvedNextPath.startsWith("/") &&
-        !resolvedNextPath.startsWith("//")
-      ) {
-        params.set("next", resolvedNextPath);
-      }
-      const query = params.toString();
-      window.location.replace(query ? `/auth/callback?${query}` : "/auth/callback");
-    });
-  }
-
-  function handleResend() {
-    setCode("");
-    setVerifyError(null);
-  }
+    if (!requestState?.redirectTo) return;
+    window.location.replace(requestState.redirectTo);
+  }, [requestState?.redirectTo]);
 
   if (isCodeStep) {
     return (
@@ -97,38 +69,47 @@ export function AcceptInviteForm({
             <span className="font-medium text-[var(--mk-primary-dark)]">{email}</span>
           </p>
         </div>
-        <div className="space-y-1.5">
-          <Input
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            placeholder="000000"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            autoFocus
-            maxLength={6}
-            className="h-11 text-center text-lg font-semibold tracking-[0.3em] placeholder:tracking-[0.3em]"
-          />
-        </div>
-        {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
-        {successMessage ? <p className="text-sm text-emerald-700">{successMessage}</p> : null}
-        <Button
-          type="button"
-          className="w-full"
-          disabled={code.length < 6 || verifying}
-          onClick={handleVerify}
-        >
-          {verifying ? "Verifying..." : "Verify"}
-        </Button>
+        <form action={verifyAction} className="space-y-4">
+          <input type="hidden" name="invite" value={invite} />
+          <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
+          <div className="space-y-1.5">
+            <Input
+              name="code"
+              defaultValue=""
+              placeholder="000000"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={6}
+              required
+              pattern="\d{6}"
+              className="h-11 text-center text-lg font-semibold tracking-[0.3em] placeholder:tracking-[0.3em]"
+            />
+          </div>
+          {verifyError ? (
+            <p className="text-sm text-destructive">{verifyError}</p>
+          ) : null}
+          {!verifyError && successMessage ? (
+            <p className="text-sm text-emerald-700">{successMessage}</p>
+          ) : null}
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={verifyPending}
+          >
+            {verifyPending ? "Verifying..." : "Verify"}
+          </Button>
+        </form>
         <div className="flex items-center justify-between text-sm">
-          <form action={formAction} onSubmit={handleResend}>
+          <form action={requestAction}>
             <input type="hidden" name="invite" value={invite} />
             <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
             <button
               type="submit"
               className="text-[var(--mk-primary)] hover:underline"
-              disabled={pending}
+              disabled={requestPending}
             >
-              {pending ? "Sending..." : "Resend code"}
+              {requestPending ? "Sending..." : "Resend code"}
             </button>
           </form>
           <button
@@ -139,17 +120,22 @@ export function AcceptInviteForm({
             Start over
           </button>
         </div>
+        {requestError ? (
+          <p className="text-sm text-destructive">{requestError}</p>
+        ) : null}
       </div>
     );
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={requestAction} className="space-y-4">
       <input type="hidden" name="invite" value={inviteToken} />
       <input type="hidden" name="next" value={nextPath ?? ""} />
-      {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Sending code..." : "Send sign-in code"}
+      {requestState?.error ? (
+        <p className="text-sm text-destructive">{requestState.error}</p>
+      ) : null}
+      <Button type="submit" className="w-full" disabled={requestPending}>
+        {requestPending ? "Sending code..." : "Send sign-in code"}
       </Button>
     </form>
   );

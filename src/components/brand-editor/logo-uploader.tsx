@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react"
 import { Upload, X, Loader2 } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { fetchWithTimeout } from "@/lib/net/fetch-with-timeout"
 
 interface LogoUploaderProps {
   label: string
@@ -49,9 +50,10 @@ export function LogoUploader({
           formData.append("ownerId", ownerId)
         }
 
-        const res = await fetch("/api/brand-assets/upload", {
+        const res = await fetchWithTimeout("/api/brand-assets/upload", {
           method: "POST",
           body: formData,
+          timeoutMs: 30_000,
         })
 
         const data = await res.json()

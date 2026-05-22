@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Loader2, RotateCcw } from "lucide-react";
+import { Send, Bot, User, Loader2, RotateCcw, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { randomId } from "@/lib/ids";
+import { cancellableFetch, isAbortError } from "@/lib/net/cancellable-fetch";
 import { ModelPickerCombobox } from "../settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -25,6 +27,7 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState(defaultModel);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,13 +46,13 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
     if (!trimmed || isStreaming || !isConfigured) return;
 
     const userMsg: Message = {
-      id: crypto.randomUUID(),
+      id: randomId(),
       role: "user",
       content: trimmed,
     };
 
     const assistantMsg: Message = {
-      id: crypto.randomUUID(),
+      id: randomId(),
       role: "assistant",
       content: "",
     };
@@ -59,8 +62,11 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
     setInput("");
     setIsStreaming(true);
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
-      const response = await fetch("/api/chat", {
+      const response = await cancellableFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -70,6 +76,7 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
           })),
           model: selectedModel,
         }),
+        controller,
       });
 
       if (!response.ok) {
@@ -106,19 +113,36 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
         );
       }
     } catch (error) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsg.id
-            ? {
-                ...m,
-                content: `Error: ${error instanceof Error ? error.message : "Failed to connect"}`,
-              }
-            : m
-        )
-      );
+      if (isAbortError(error)) {
+        // User clicked Stop. Preserve whatever streamed so far; append a
+        // small note so the cancellation is visible in the transcript.
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsg.id
+              ? { ...m, content: m.content + (m.content ? "\n\n[stopped]" : "[stopped]") }
+              : m
+          )
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsg.id
+              ? {
+                  ...m,
+                  content: `Error: ${error instanceof Error ? error.message : "Failed to connect"}`,
+                }
+              : m
+          )
+        );
+      }
     } finally {
+      abortControllerRef.current = null;
       setIsStreaming(false);
     }
+  }
+
+  function handleStop() {
+    abortControllerRef.current?.abort();
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -228,18 +252,28 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
             className="min-h-[44px] max-h-[120px] resize-none"
             disabled={isStreaming || !isConfigured}
           />
-          <Button
-            onClick={handleSubmit}
-            disabled={!input.trim() || isStreaming || !isConfigured}
-            size="icon"
-            className="size-[44px] shrink-0"
-          >
-            {isStreaming ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
+          {isStreaming ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleStop}
+              size="icon"
+              className="size-[44px] shrink-0"
+              aria-label="Stop generating"
+            >
+              <StopCircle className="size-4" />
+            </Button>
+          ) : (
+            <Button
+              onClick={handleSubmit}
+              disabled={!input.trim() || !isConfigured}
+              size="icon"
+              className="size-[44px] shrink-0"
+              aria-label="Send message"
+            >
               <Send className="size-4" />
-            )}
-          </Button>
+            </Button>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           Press Enter to send, Shift+Enter for new line

@@ -32,7 +32,7 @@ import type { BandScheme } from '@/lib/reports/band-scheme'
 import { isSchemeValid } from '@/lib/reports/band-scheme-validation'
 import { resolveTemplateBandScheme } from '@/lib/reports/resolve-template-band-scheme'
 import { sendHtmlEmail } from '@/lib/email/provider'
-import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
+import { buildSurfaceUrl, requireAppUrl } from '@/lib/hosts'
 import {
   mapReportTemplateRow,
   mapReportSnapshotRow,
@@ -165,14 +165,7 @@ type CampaignSessionReportRow = {
 }
 
 function getReportLinkBaseUrl() {
-  const adminUrl =
-    getConfiguredSurfaceUrl('admin') ?? process.env.NEXT_PUBLIC_APP_URL
-
-  if (!adminUrl) {
-    throw new Error('An admin app URL is required to build report links.')
-  }
-
-  return adminUrl
+  return requireAppUrl('admin')
 }
 
 function escapeHtml(value: string) {
@@ -1279,7 +1272,7 @@ export async function retrySnapshot(id: string): Promise<void> {
     .eq('status', 'failed')
   if (error) throw new Error(error.message)
   // Kick the runner
-  await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
+  await fetch(`${requireAppUrl('admin')}/api/reports/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1306,7 +1299,7 @@ export async function regenerateSnapshot(id: string): Promise<void> {
     .in('status', ['ready', 'released', 'failed'])
   if (error) throw new Error(error.message)
   // Kick the runner
-  await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/reports/generate`, {
+  await fetch(`${requireAppUrl('admin')}/api/reports/generate`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

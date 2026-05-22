@@ -15,6 +15,7 @@ import {
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
+import { requireAppUrl } from '@/lib/hosts'
 import {
   mapCampaignRow,
   mapCampaignAssessmentRow,
@@ -1374,7 +1375,7 @@ export async function sendParticipantInviteEmail(
   const participant = participantResult.data
   const campaign = campaignResult.data
 
-  const assessBaseUrl = process.env.NEXT_PUBLIC_APP_URL
+  const assessBaseUrl = requireAppUrl('public')
 
   try {
     const { sendEmail } = await import('@/lib/email/send')

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  assertSurfaceUrlsConfigured,
   buildSurfaceUrl,
   getAllowedOriginPatterns,
   getConfiguredSurfaceUrl,
@@ -9,6 +10,7 @@ import {
   isLocalDevelopmentHost,
   normalizeHost,
   normalizeUrl,
+  requireAppUrl,
 } from "@/lib/hosts";
 
 afterEach(() => {
@@ -73,5 +75,73 @@ describe("hosts", () => {
     expect(getRoutePrefixForSurface("admin", true)).toBe("");
     expect(getRoutePrefixForSurface("partner", true)).toBe("/partner");
     expect(getRoutePrefixForSurface("assess", false)).toBe("");
+  });
+});
+
+describe("requireAppUrl", () => {
+  it("returns the configured surface URL when set", () => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.com");
+    expect(requireAppUrl("public")).toBe("https://trajectas.com");
+  });
+
+  it("returns localhost in non-production when no env is set", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    expect(requireAppUrl("public")).toBe("http://localhost:3002");
+  });
+
+  it("returns localhost in CI (NODE_ENV=production, VERCEL unset)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    expect(requireAppUrl("public")).toBe("http://localhost:3002");
+  });
+
+  it("throws on Vercel production when no env is set", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    expect(() => requireAppUrl("public")).toThrow(
+      /Missing surface URL env var for "public"/,
+    );
+  });
+});
+
+describe("assertSurfaceUrlsConfigured", () => {
+  it("is a no-op in development", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    vi.stubEnv("ADMIN_APP_URL", "");
+    vi.stubEnv("ASSESS_APP_URL", "");
+    expect(() => assertSurfaceUrlsConfigured()).not.toThrow();
+  });
+
+  it("is a no-op in CI (NODE_ENV=production, VERCEL unset)", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    vi.stubEnv("ADMIN_APP_URL", "");
+    vi.stubEnv("ASSESS_APP_URL", "");
+    expect(() => assertSurfaceUrlsConfigured()).not.toThrow();
+  });
+
+  it("throws when required surface URLs are missing on Vercel production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("PUBLIC_APP_URL", "");
+    vi.stubEnv("ADMIN_APP_URL", "");
+    vi.stubEnv("ASSESS_APP_URL", "");
+    expect(() => assertSurfaceUrlsConfigured()).toThrow(
+      /Missing required surface URL env vars/,
+    );
+  });
+
+  it("passes when all required surface URLs are present on Vercel production", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("VERCEL", "1");
+    vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.com");
+    vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.com");
+    vi.stubEnv("ASSESS_APP_URL", "https://assess.trajectas.com");
+    expect(() => assertSurfaceUrlsConfigured()).not.toThrow();
   });
 });

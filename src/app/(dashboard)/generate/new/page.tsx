@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition, useCallback } from "react";
+import React, { useState, useEffect, useTransition, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -9,7 +9,9 @@ import {
   ArrowLeft,
   Loader2,
   AlertCircle,
+  X,
 } from "lucide-react";
+import { cancellableFetch, isAbortError } from "@/lib/net/cancellable-fetch";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -420,6 +422,7 @@ function Step2ReadinessCheck({
   const [preflightResult, setPreflightResult] = React.useState<PreflightResult | null>(null);
   const [preflightError, setPreflightError] = React.useState<string | null>(null);
   const [preflightLoading, setPreflightLoading] = React.useState(true);
+  const preflightControllerRef = useRef<AbortController | null>(null);
   const [lastCheckedSignature, setLastCheckedSignature] = React.useState("");
   const [preflightSnapshot, setPreflightSnapshot] = React.useState<ConstructSnapshot>({});
 
@@ -474,6 +477,12 @@ function Step2ReadinessCheck({
   );
 
   const runReadinessCheck = React.useCallback((constructInputs: ConstructDraftInput[]) => {
+    // Cancel any in-flight readiness check before starting a new one so a
+    // slow previous request can't race with a fresh one.
+    preflightControllerRef.current?.abort();
+    const controller = new AbortController();
+    preflightControllerRef.current = controller;
+
     setPreflightLoading(true);
     setRefinementState({});
     setPreflightError(null);
@@ -482,13 +491,14 @@ function Step2ReadinessCheck({
     const changes = computeChanges(constructInputs, preflightSnapshot);
     // Use API route instead of server action — server actions get killed by
     // dev-mode HMR and have no maxDuration config for long-running LLM calls.
-    fetch("/api/generation/readiness", {
+    cancellableFetch("/api/generation/readiness", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         constructs: constructInputs,
         changes: changes.length > 0 ? changes : undefined,
       }),
+      controller,
     })
       .then((res) => res.json())
       .then((res: { success: boolean; result?: PreflightResult; error?: string }) => {
@@ -501,15 +511,29 @@ function Step2ReadinessCheck({
         }
       })
       .catch((err) => {
+        if (isAbortError(err)) {
+          // User cancelled — leave the form in a neutral state, no error toast.
+          return;
+        }
         setPreflightError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
-        setPreflightLoading(false);
+        // Only clear loading if THIS request is still the latest — otherwise
+        // an aborted older request would hide the spinner while a newer
+        // request is still pending (Codex P2 on #147).
+        if (preflightControllerRef.current === controller) {
+          preflightControllerRef.current = null;
+          setPreflightLoading(false);
+        }
       });
   // preflightSnapshot is a dependency because we need the latest snapshot
   // to compute changes. The effect that triggers initial/auto runs intentionally
   // does NOT include runReadinessCheck — reruns are triggered by button click only.
   }, [preflightSnapshot]);
+
+  const cancelReadinessCheck = useCallback(() => {
+    preflightControllerRef.current?.abort();
+  }, []);
 
   // Track whether constructs have loaded (null → data) to trigger initial check
   const constructsLoaded = constructs != null;
@@ -706,9 +730,21 @@ function Step2ReadinessCheck({
       </div>
 
       {preflightLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center">
-          <Loader2 className="size-4 animate-spin" />
-          Running readiness check…
+        <div className="flex flex-col items-center gap-3 py-8">
+          <div className="flex items-center gap-2 text-muted-foreground text-sm">
+            <Loader2 className="size-4 animate-spin" />
+            Running readiness check…
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={cancelReadinessCheck}
+            className="gap-1.5"
+          >
+            <X className="size-3.5" />
+            Cancel
+          </Button>
         </div>
       ) : preflightError ? (
         <>

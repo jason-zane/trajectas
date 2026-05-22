@@ -1,12 +1,9 @@
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createPreviewPdfToken } from '@/lib/reports/preview-pdf-token'
+import { requireAppUrl } from '@/lib/hosts'
 
 function getAppUrl() {
-  return (
-    process.env.ADMIN_APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'http://localhost:3002'
-  )
+  return requireAppUrl('admin')
 }
 
 /**

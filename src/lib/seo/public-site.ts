@@ -1,7 +1,6 @@
-import { getConfiguredSurfaceUrl } from "@/lib/hosts";
+import { requireAppUrl } from "@/lib/hosts";
 
 export const PUBLIC_SITE_NAME = "Trajectas";
-export const PUBLIC_SITE_FALLBACK_URL = "http://localhost:3002";
 
 export const MARKETING_KEYWORDS = [
   "psychometric assessment",
@@ -17,12 +16,7 @@ export const MARKETING_KEYWORDS = [
 ] as const;
 
 export function getPublicSiteUrl(): string {
-  return (
-    getConfiguredSurfaceUrl("public") ??
-    process.env.PUBLIC_APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    PUBLIC_SITE_FALLBACK_URL
-  );
+  return requireAppUrl("public");
 }
 
 export function getPublicSiteMetadataBase(): URL {

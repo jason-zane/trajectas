@@ -1,10 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
-import { requestStaffOtp } from "@/app/actions/auth";
+import { useActionState, useEffect } from "react";
+import { requestStaffOtp, verifyStaffOtp } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 function buildLoginUrl(nextPath?: string) {
   const params = new URLSearchParams();
@@ -25,63 +24,36 @@ export function LoginForm({
   initialEmail?: string;
   initialStep?: "email" | "code";
 }) {
-  const [state, formAction, pending] = useActionState(requestStaffOtp, undefined);
-  const [code, setCode] = useState("");
-  const [verifyError, setVerifyError] = useState<string | null>(null);
-  const [verifying, startVerify] = useTransition();
+  const [requestState, requestAction, requestPending] = useActionState(
+    requestStaffOtp,
+    undefined,
+  );
+  const [verifyState, verifyAction, verifyPending] = useActionState(
+    verifyStaffOtp,
+    undefined,
+  );
 
-  const email = state?.email ?? initialEmail ?? "";
-  const resolvedNextPath = state?.next ?? nextPath;
+  const email = verifyState?.email ?? requestState?.email ?? initialEmail ?? "";
+  const resolvedNextPath =
+    verifyState?.next ?? requestState?.next ?? nextPath;
   const isCodeStep =
-    state?.step === "code" || (initialStep === "code" && Boolean(email));
+    verifyState?.step === "code" ||
+    requestState?.step === "code" ||
+    (initialStep === "code" && Boolean(email));
+  const verifyError = verifyState?.error ?? null;
+  const requestError = requestState?.error ?? null;
   const successMessage =
-    state?.success ??
+    requestState?.success ??
     (isCodeStep
       ? "If that email has staff access, we've sent a sign-in code. Check your inbox."
       : null);
 
+  // Cross-surface redirect after request — keeps the request flow working
+  // when the user lands on the wrong surface for their workspace.
   useEffect(() => {
-    if (!state?.redirectTo) return;
-    window.location.replace(state.redirectTo);
-  }, [state?.redirectTo]);
-
-  function handleVerify() {
-    if (!email) {
-      setVerifyError("Enter your email again and request a fresh sign-in code.");
-      return;
-    }
-
-    setVerifyError(null);
-    startVerify(async () => {
-      const supabase = createBrowserSupabaseClient();
-      const { error } = await supabase.auth.verifyOtp({
-        email,
-        token: code,
-        type: "email",
-      });
-
-      if (error) {
-        setVerifyError(error.message);
-        return;
-      }
-
-      const params = new URLSearchParams();
-      if (
-        resolvedNextPath &&
-        resolvedNextPath.startsWith("/") &&
-        !resolvedNextPath.startsWith("//")
-      ) {
-        params.set("next", resolvedNextPath);
-      }
-      const query = params.toString();
-      window.location.replace(query ? `/auth/callback?${query}` : "/auth/callback");
-    });
-  }
-
-  function handleResend() {
-    setCode("");
-    setVerifyError(null);
-  }
+    if (!requestState?.redirectTo) return;
+    window.location.replace(requestState.redirectTo);
+  }, [requestState?.redirectTo]);
 
   if (isCodeStep) {
     return (
@@ -95,52 +67,60 @@ export function LoginForm({
             <span className="font-medium text-[var(--mk-primary-dark)]">{email}</span>
           </p>
         </div>
-        <div className="space-y-4">
+        <form action={verifyAction} className="space-y-4">
+          <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
           <div className="space-y-1.5">
             <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              name="code"
+              defaultValue=""
               placeholder="000000"
               inputMode="numeric"
               autoComplete="one-time-code"
               autoFocus
               maxLength={6}
+              required
+              pattern="\d{6}"
               className="h-11 rounded-xl border-[rgba(30,74,62,0.18)] bg-white/88 px-4 text-center text-lg font-semibold tracking-[0.3em] shadow-none placeholder:text-[var(--mk-text-muted)]/60 placeholder:tracking-[0.3em] focus-visible:border-[var(--mk-accent)] focus-visible:ring-[var(--mk-accent)]/30"
             />
           </div>
-          {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
-          {successMessage ? (
+          {verifyError ? (
+            <p className="text-sm text-destructive">{verifyError}</p>
+          ) : null}
+          {!verifyError && successMessage ? (
             <p className="text-sm text-[var(--mk-primary)]">{successMessage}</p>
           ) : null}
           <Button
-            type="button"
+            type="submit"
             className="h-11 w-full rounded-xl bg-[var(--mk-primary-dark)] text-white hover:bg-[var(--mk-primary)]"
-            disabled={code.length < 6 || verifying}
-            onClick={handleVerify}
+            disabled={verifyPending}
           >
-            {verifying ? "Verifying..." : "Verify"}
+            {verifyPending ? "Verifying..." : "Verify"}
           </Button>
-          <div className="flex items-center justify-between text-sm">
-            <form action={formAction} onSubmit={handleResend}>
-              <input type="hidden" name="email" value={email} />
-              <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
-              <button
-                type="submit"
-                className="text-[var(--mk-primary)] hover:underline"
-                disabled={pending}
-              >
-                {pending ? "Sending..." : "Resend code"}
-              </button>
-            </form>
+        </form>
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <form action={requestAction}>
+            <input type="hidden" name="email" value={email} />
+            <input type="hidden" name="next" value={resolvedNextPath ?? ""} />
             <button
-              type="button"
-              className="text-[var(--mk-text-muted)] hover:underline"
-              onClick={() => window.location.replace(buildLoginUrl(nextPath))}
+              type="submit"
+              className="text-[var(--mk-primary)] hover:underline"
+              disabled={requestPending}
             >
-              Use different email
+              {requestPending ? "Sending..." : "Resend code"}
             </button>
-          </div>
+          </form>
+          <button
+            type="button"
+            className="text-[var(--mk-text-muted)] hover:underline"
+            onClick={() => window.location.replace(buildLoginUrl(nextPath))}
+          >
+            Use different email
+          </button>
         </div>
+        {requestError ? (
+          <p className="mt-3 text-sm text-destructive">{requestError}</p>
+        ) : null}
       </div>
     );
   }
@@ -155,7 +135,7 @@ export function LoginForm({
           Enter your email to receive a sign-in code.
         </p>
       </div>
-      <form action={formAction} className="space-y-4">
+      <form action={requestAction} className="space-y-4">
         <input type="hidden" name="next" value={nextPath ?? ""} />
         <div className="space-y-1.5">
           <Input
@@ -167,17 +147,19 @@ export function LoginForm({
             className="h-11 rounded-xl border-[rgba(30,74,62,0.18)] bg-white/88 px-4 shadow-none placeholder:text-[var(--mk-text-muted)]/60 focus-visible:border-[var(--mk-accent)] focus-visible:ring-[var(--mk-accent)]/30"
             required
           />
-          {state?.fields?.email?.length ? (
-            <p className="text-sm text-destructive">{state.fields.email[0]}</p>
+          {requestState?.fields?.email?.length ? (
+            <p className="text-sm text-destructive">{requestState.fields.email[0]}</p>
           ) : null}
         </div>
-        {state?.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+        {requestState?.error ? (
+          <p className="text-sm text-destructive">{requestState.error}</p>
+        ) : null}
         <Button
           type="submit"
           className="h-11 w-full rounded-xl bg-[var(--mk-primary-dark)] text-white hover:bg-[var(--mk-primary)]"
-          disabled={pending}
+          disabled={requestPending}
         >
-          {pending ? "Sending code..." : "Send sign-in code"}
+          {requestPending ? "Sending code..." : "Send sign-in code"}
         </Button>
       </form>
     </div>

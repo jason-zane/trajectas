@@ -3,11 +3,7 @@ import { CalendarClock, Link2 } from "lucide-react";
 import { AcceptInviteForm } from "@/app/auth/accept/accept-invite-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getInviteSummaryByToken } from "@/lib/auth/staff-auth";
-
-const publicHomeUrl =
-  process.env.PUBLIC_APP_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
-  "http://localhost:3002";
+import { requireAppUrl } from "@/lib/hosts";
 
 function formatRole(role: string) {
   return role
@@ -32,7 +28,7 @@ export default async function AcceptInvitePage({
     <div className="min-h-screen bg-background">
       <header className="mx-auto flex w-full max-w-5xl items-center px-6 py-6 md:px-10">
         <Link
-          href={publicHomeUrl}
+          href={requireAppUrl("public")}
           className="text-lg font-bold tracking-tight text-[var(--mk-primary-dark)]"
         >
           Trajectas
