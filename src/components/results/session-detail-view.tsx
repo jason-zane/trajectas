@@ -174,6 +174,8 @@ export function SessionDetailView({
         <TabsContent value="scores" className="mt-4">
           <SessionScoresPanel
             scores={session.scores}
+            dimensionScores={session.dimensionScores}
+            compositeScore={session.compositeScore}
             sessionStatus={session.status}
             processingStatus={session.processingStatus}
             processingError={session.processingError}

@@ -158,24 +158,9 @@ export function CampaignSessionView({
 
       <section className="space-y-4">
         <div className="space-y-1">
-          <h2 className="text-lg font-semibold">Scores</h2>
-          <p className="text-sm text-muted-foreground">
-            Existing factor and dimension scores for this completed session.
-          </p>
-        </div>
-        <SessionScoresPanel
-          scores={session.scores}
-          sessionStatus={session.status}
-          processingStatus={session.processingStatus}
-          processingError={session.processingError}
-        />
-      </section>
-
-      <section className="space-y-4">
-        <div className="space-y-1">
           <h2 className="text-lg font-semibold">Reports</h2>
           <p className="text-sm text-muted-foreground">
-            Campaign-configured report templates for this participant session.
+            Reports generated for this participant session.
           </p>
         </div>
         <CampaignSessionReportsPanel
@@ -183,6 +168,24 @@ export function CampaignSessionView({
           initialRows={reportRows}
           reportBasePath={reportBasePath}
           settingsHref={settingsHref}
+        />
+      </section>
+
+      <section className="space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-lg font-semibold">Scores</h2>
+          <p className="text-sm text-muted-foreground">
+            Overall, dimension, and capability scores for this completed
+            session.
+          </p>
+        </div>
+        <SessionScoresPanel
+          scores={session.scores}
+          dimensionScores={session.dimensionScores}
+          compositeScore={session.compositeScore}
+          sessionStatus={session.status}
+          processingStatus={session.processingStatus}
+          processingError={session.processingError}
         />
       </section>
     </div>

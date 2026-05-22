@@ -1,9 +1,14 @@
 import { EmptyState } from "@/components/empty-state";
-import type { SessionDetailScore } from "@/app/actions/sessions";
+import type {
+  SessionDetailScore,
+  SessionDetailDimensionScore,
+} from "@/app/actions/sessions";
 import type { ParticipantSessionProcessingStatus } from "@/types/database";
 
 interface SessionScoresPanelProps {
   scores: SessionDetailScore[];
+  dimensionScores: SessionDetailDimensionScore[];
+  compositeScore?: number;
   sessionStatus: string;
   processingStatus: ParticipantSessionProcessingStatus;
   processingError?: string;
@@ -15,10 +20,19 @@ const UNGROUPED_LABEL = "Other";
 interface ScoreGroup {
   key: string;
   label: string | null;
+  groupScore?: number;
   scores: SessionDetailScore[];
 }
 
-function groupScores(scores: SessionDetailScore[]): ScoreGroup[] {
+function groupScores(
+  scores: SessionDetailScore[],
+  dimensionScores: SessionDetailDimensionScore[],
+): ScoreGroup[] {
+  const dimensionScoreById = new Map<string, number>();
+  for (const dim of dimensionScores) {
+    dimensionScoreById.set(dim.dimensionId, dim.scaledScore);
+  }
+
   const hasAnyDimension = scores.some((s) => s.dimensionId);
   if (!hasAnyDimension) {
     return [
@@ -43,6 +57,10 @@ function groupScores(scores: SessionDetailScore[]): ScoreGroup[] {
           score.dimensionId == null
             ? UNGROUPED_LABEL
             : (score.dimensionName ?? "Unnamed dimension"),
+        groupScore:
+          score.dimensionId != null
+            ? dimensionScoreById.get(score.dimensionId)
+            : undefined,
         scores: [score],
       });
     }
@@ -56,12 +74,17 @@ function groupScores(scores: SessionDetailScore[]): ScoreGroup[] {
     .sort((a, b) => {
       if (a.key === UNGROUPED_KEY) return 1;
       if (b.key === UNGROUPED_KEY) return -1;
+      if (a.groupScore != null && b.groupScore != null) {
+        return b.groupScore - a.groupScore;
+      }
       return (a.label ?? "").localeCompare(b.label ?? "");
     });
 }
 
 export function SessionScoresPanel({
   scores,
+  dimensionScores,
+  compositeScore,
   sessionStatus,
   processingStatus,
   processingError,
@@ -82,16 +105,39 @@ export function SessionScoresPanel({
     return <EmptyState title="No scores yet" description={description} />;
   }
 
-  const groups = groupScores(scores);
+  const groups = groupScores(scores, dimensionScores);
 
   return (
     <div className="space-y-6">
+      {compositeScore != null && (
+        <div className="flex items-baseline justify-between gap-4 rounded-xl border border-border bg-card p-5">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
+              Overall score
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Mean of {scores.length} {scores.length === 1 ? "score" : "scores"}
+            </p>
+          </div>
+          <p className="text-4xl font-semibold tabular-nums tracking-tight">
+            {Math.round(compositeScore)}
+          </p>
+        </div>
+      )}
+
       {groups.map((group) => (
-        <div key={group.key} className="space-y-2">
+        <div key={group.key} className="space-y-3">
           {group.label != null && (
-            <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-              {group.label}
-            </h3>
+            <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+                {group.label}
+              </h3>
+              {group.groupScore != null && (
+                <span className="text-base font-semibold tabular-nums text-foreground">
+                  {Math.round(group.groupScore)}
+                </span>
+              )}
+            </div>
           )}
           <div className="space-y-2">
             {group.scores.map((score) => {
@@ -100,9 +146,9 @@ export function SessionScoresPanel({
               return (
                 <div
                   key={score.entityId}
-                  className="flex items-center gap-4 py-2"
+                  className="flex items-center gap-4 py-1.5"
                 >
-                  <span className="w-48 shrink-0 truncate text-sm font-medium">
+                  <span className="w-52 shrink-0 truncate text-sm">
                     {score.entityName}
                   </span>
                   <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
