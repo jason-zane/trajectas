@@ -39,6 +39,7 @@ import {
   mapReportSnapshotRow,
 } from '@/lib/supabase/mappers'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
+import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
 import { createReportAccessToken } from '@/lib/reports/report-access-token'
 import { postgresUuid } from '@/lib/validations/uuid'
 import {
@@ -902,6 +903,15 @@ async function markSnapshotReleased(snapshotId: string) {
   const campaignId = String(snapshot.campaign_id)
   const sessionId = String(snapshot.participant_session_id)
 
+  try {
+    await notifyConsultantsForSnapshot(snapshotId)
+  } catch (notifyError) {
+    console.error(
+      `[notifications] Consultant notify failed for snapshot ${snapshotId}:`,
+      notifyError,
+    )
+  }
+
   revalidatePath('/reports')
   revalidatePath(`/reports/${snapshotId}`)
   revalidatePath(`/client/reports/${snapshotId}`)
@@ -1282,12 +1292,18 @@ export async function sendReportSnapshotEmail(input: {
     `${buttonHtml}$1`,
   ) || `${bodyHtml}${buttonHtml}`
 
+  const pdf = await downloadSnapshotPdfBase64(snapshotId)
+  const attachments = pdf
+    ? [{ filename: pdf.filename, content: pdf.content, contentType: 'application/pdf' }]
+    : undefined
+
   await sendHtmlEmail({
     to: draft.recipientEmail,
     subject: draft.subject,
     html,
     text: `${trimmedBody}\n\nView your report: ${draft.reportUrl}`,
     from: `${brand.name} <${emailAddress}>`,
+    attachments,
   })
 
   await markSnapshotReleased(snapshotId)
