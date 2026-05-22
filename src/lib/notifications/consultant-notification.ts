@@ -36,6 +36,11 @@ type SessionSummary = {
   dimensions: Array<{ name: string; score: number }>
 }
 
+function pickEmbedded<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
+}
+
 const BRAND_PRIMARY = '#2d6a5a'
 
 export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<void> {
@@ -203,14 +208,19 @@ async function loadSessionSummary(db: any, sessionId: string): Promise<SessionSu
       }
     }
 
-    const buckets = new Map<string, { name: string; sum: number; count: number }>()
-    for (const s of (scoreRows ?? []) as Array<{
+    type FactorEmbed = {
+      dimension_id?: string | null
+      dimensions?: { name?: string | null } | { name?: string | null }[] | null
+    }
+    type ScoreRow = {
       factor_id?: string | null
       construct_id?: string | null
       scoring_level?: string | null
       scaled_score: number | string
-      factors: { dimension_id?: string; dimensions: { name: string } | { name: string }[] | null } | { dimension_id?: string; dimensions: { name: string } | { name: string }[] | null }[] | null
-    }>) {
+      factors?: FactorEmbed | FactorEmbed[] | null
+    }
+    const buckets = new Map<string, { name: string; sum: number; count: number }>()
+    for (const s of (scoreRows ?? []) as ScoreRow[]) {
       const score = Number(s.scaled_score)
       let dimId: string | undefined
       let dimName: string | undefined
@@ -219,9 +229,9 @@ async function loadSessionSummary(db: any, sessionId: string): Promise<SessionSu
         dimId = lookup?.id
         dimName = lookup?.name
       } else {
-        const factor = Array.isArray(s.factors) ? s.factors[0] : s.factors
+        const factor = pickEmbedded(s.factors)
         if (factor?.dimension_id) dimId = String(factor.dimension_id)
-        const dim = factor && Array.isArray(factor.dimensions) ? factor.dimensions[0] : factor?.dimensions
+        const dim = pickEmbedded(factor?.dimensions)
         if (dim?.name) dimName = String(dim.name)
       }
       if (!dimId || !dimName) continue
