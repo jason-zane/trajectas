@@ -1935,20 +1935,17 @@ export async function getCampaignReportPicture(
       .is('deleted_at', null),
   ])
 
-  const campaignExtras: CampaignReportPictureEntry[] = (
-    campaignExtrasResult.data ?? []
-  )
-    .map((row) => {
-      const id = row.template_id ? String(row.template_id) : ''
-      const tpl = getRelatedRecord(row.report_templates)
-      if (!id) return null
-      return {
-        templateId: id,
-        templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
-        source: 'campaign' as const,
-      } satisfies CampaignReportPictureEntry
+  const campaignExtras: CampaignReportPictureEntry[] = []
+  for (const row of campaignExtrasResult.data ?? []) {
+    const id = row.template_id ? String(row.template_id) : ''
+    if (!id) continue
+    const tpl = getRelatedRecord(row.report_templates)
+    campaignExtras.push({
+      templateId: id,
+      templateName: tpl?.name ? String(tpl.name) : 'Unnamed template',
+      source: 'campaign',
     })
-    .filter((e): e is CampaignReportPictureEntry => e !== null)
+  }
 
   type AssessmentRow = {
     assessment_id?: string | null
