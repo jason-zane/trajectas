@@ -125,9 +125,8 @@ function buildContentSecurityPolicy(surface: Surface, nonce: string) {
     scriptSrc,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
-    `img-src 'self' data: blob: ${supabaseHttps}`.trim(),
+    `img-src 'self' data: blob: ${supabaseHttps} https://cal.com https://app.cal.com`.trim(),
     "frame-ancestors 'none'",
-    "frame-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
@@ -139,6 +138,7 @@ function buildContentSecurityPolicy(surface: Surface, nonce: string) {
   if (surface === "admin") {
     return [
       ...shared,
+      "frame-src 'none'",
       `connect-src 'self' ${supabaseHttps} ${supabaseWss}`.trim(),
       "worker-src 'self' blob:",
     ].join("; ");
@@ -147,13 +147,25 @@ function buildContentSecurityPolicy(surface: Surface, nonce: string) {
   if (surface === "partner" || surface === "client") {
     return [
       ...shared,
+      "frame-src 'none'",
       `connect-src 'self' ${supabaseHttps} ${supabaseWss}`.trim(),
       "worker-src 'self'",
     ].join("; ");
   }
 
+  if (surface === "public") {
+    // Marketing pages only — allow the Cal.com inline booking embed.
+    return [
+      ...shared,
+      "frame-src https://app.cal.com https://cal.com",
+      `connect-src 'self' ${supabaseHttps} ${supabaseWss} https://app.cal.com https://cal.com`.trim(),
+    ].join("; ");
+  }
+
+  // Every other surface (assess, etc.) — no third-party iframes allowed.
   return [
     ...shared,
+    "frame-src 'none'",
     `connect-src 'self' ${supabaseHttps} ${supabaseWss}`.trim(),
   ].join("; ");
 }

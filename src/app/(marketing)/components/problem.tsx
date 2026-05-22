@@ -1,101 +1,58 @@
-"use client";
-
-import { useScrollProgress } from "./use-scroll-progress";
-
-const GENERIC_PHRASES = [
+const LEGACY = [
   "Standardised frameworks.",
   "One-size-fits-all models.",
   "Off-the-shelf benchmarks.",
   "Generic personality tests.",
 ];
 
-const REFORMED_PHRASES = [
+const REFORMED = [
   "Your organisational context.",
   "Your definition of capability.",
   "Assessment built around you.",
   "Measurement tied to outcomes.",
 ];
 
-function setProblemCharVariables(
-  element: HTMLSpanElement | null,
-  delay: number,
-  direction: number
-) {
-  if (!element) return;
-
-  element.style.setProperty("--char-delay", delay.toFixed(4));
-  element.style.setProperty("--char-dir", String(direction));
-}
-
 export function Problem() {
-  const { ref } = useScrollProgress();
-
   return (
-    <section
-      ref={ref}
-      data-section="problem"
-      aria-label="Why generic assessment fails — and what replaces it"
-      className="problem-section relative"
-    >
-      <div className="problem-sticky flex flex-col items-center justify-center px-5 md:px-8">
-        {/* Generic text — dissolves as progress goes 0 → 0.5 */}
-        <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
-          <p className="mk-eyebrow problem-heading-generic mb-3 text-center md:mb-5">
-            Legacy Assessment Providers
-          </p>
-          {GENERIC_PHRASES.map((phrase, phraseIdx) => (
-            <div
-              key={phraseIdx}
-              className="problem-line problem-generic-phrase flex flex-wrap justify-center"
-            >
-              {phrase.split("").map((char, charIdx) => {
-                const delay = (phraseIdx * 4 + charIdx) / 100;
-                const direction = charIdx % 2 === 0 ? 1 : -1;
+    <section id="why" className="tj-section tj-problem" data-section="problem">
+      <div className="tj-section-head center">
+        <p className="tj-eyebrow">Why now</p>
+        <h2 className="tj-h2">
+          Capability that knows what your organisation actually does.
+        </h2>
+        <p className="tj-lede" style={{ margin: "20px auto 0" }}>
+          Off-the-shelf assessments score people against a single fixed model
+          of human potential. Trajectas measures the capabilities{" "}
+          <em
+            style={{
+              fontStyle: "normal",
+              fontWeight: 600,
+              color: "var(--ink)",
+            }}
+          >
+            your
+          </em>{" "}
+          roles depend on, and links the measurement to the performance
+          outcomes you&apos;re trying to move.
+        </p>
+      </div>
 
-                return (
-                  <span
-                    key={charIdx}
-                    ref={(element) =>
-                      setProblemCharVariables(element, delay, direction)
-                    }
-                    className="problem-char-generic inline-block text-xl font-bold sm:text-2xl md:text-4xl"
-                  >
-                    {char === " " ? "\u00A0" : char}
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+      <div className="tj-dissolve">
+        <div className="tj-dissolve-col legacy">
+          <h4>Standardised providers</h4>
+          <ul>
+            {LEGACY.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
         </div>
-
-        {/* Reformed text — assembles as progress goes 0.5 → 1 */}
-        <div className="problem-layer absolute inset-0 flex flex-col items-center justify-center gap-3 md:gap-4">
-          <p className="mk-eyebrow problem-heading-reformed mb-3 text-center md:mb-5">
-            The Trajectas Difference
-          </p>
-          {REFORMED_PHRASES.map((phrase, phraseIdx) => (
-            <div
-              key={phraseIdx}
-              className="problem-line problem-reformed-phrase mx-auto flex w-fit max-w-full flex-wrap justify-center"
-            >
-              {phrase.split("").map((char, charIdx) => {
-                const delay = (phraseIdx * 4 + charIdx) / 100;
-                const direction = charIdx % 2 === 0 ? 1 : -1;
-
-                return (
-                  <span
-                    key={charIdx}
-                    ref={(element) =>
-                      setProblemCharVariables(element, delay, direction)
-                    }
-                    className="problem-char-reformed inline-block text-xl font-bold sm:text-2xl md:text-4xl"
-                  >
-                    {char === " " ? "\u00A0" : char}
-                  </span>
-                );
-              })}
-            </div>
-          ))}
+        <div className="tj-dissolve-col us">
+          <h4>Trajectas</h4>
+          <ul>
+            {REFORMED.map((p) => (
+              <li key={p}>{p}</li>
+            ))}
+          </ul>
         </div>
       </div>
     </section>

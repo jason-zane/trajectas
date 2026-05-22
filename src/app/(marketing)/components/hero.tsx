@@ -1,66 +1,36 @@
-import type { CSSProperties } from "react";
-
-const HEADLINE = "Map your people's capability and the trajectory you're on.";
-
 export function Hero() {
   return (
-    <section
-      data-section="hero"
-      className="marketing-hero relative z-10 flex flex-col items-center justify-center px-6 pb-16 pt-28 text-center sm:px-8 md:px-16 md:pb-20 md:pt-24 lg:px-24"
-      style={{ backgroundColor: "var(--mk-primary-dark)" }}
-    >
-      <div className="w-full max-w-5xl">
-        <p className="mk-eyebrow hero-eyebrow mb-6">
-          Assessments built for your organisation
-        </p>
-
-        <h1
-          className="font-[family-name:var(--font-display)] font-extrabold"
-          style={{
-            color: "var(--mk-text-on-dark)",
-            fontSize: "clamp(2.35rem, 8vw, 4rem)",
-            lineHeight: 1.04,
-            letterSpacing: "-0.03em",
-          }}
-        >
-          {HEADLINE.split(" ").map((word, wordIdx) => (
-            <span
-              key={wordIdx}
-              className="hero-word inline-block mr-[0.3em]"
-              style={{ "--hero-word-index": wordIdx } as CSSProperties}
-            >
-              {word}
-            </span>
-          ))}
-        </h1>
-
-        <p
-          className="hero-subtext mx-auto mt-6 max-w-2xl text-base leading-relaxed sm:text-lg md:max-w-none md:whitespace-nowrap md:text-lg lg:text-xl"
-          style={{ color: "var(--mk-text-on-dark-muted)" }}
-        >
-          Every organisation defines capability differently. Your assessment should too.
-        </p>
-
-        <a
-          href="#contact"
-          className="hero-cta mt-8 inline-block rounded-full px-7 py-3 text-sm font-bold tracking-wide transition-opacity duration-200 hover:opacity-90"
-          style={{
-            backgroundColor: "var(--mk-accent)",
-            color: "var(--mk-primary-dark)",
-          }}
-        >
-          Start a conversation
-        </a>
-      </div>
-
-      <div className="hero-scroll-hint absolute bottom-6 left-1/2 -translate-x-1/2 md:bottom-8">
-        <div
-          className="h-8 w-px animate-pulse"
-          style={{
-            background:
-              "linear-gradient(to bottom, rgba(255,255,255,0.4), transparent)",
-          }}
-        />
+    <section className="tj-hero" data-section="hero">
+      <div className="tj-hero-body centered">
+        <div className="tj-hero-text-center">
+          <p className="tj-eyebrow rise-in" style={{ animationDelay: ".05s" }}>
+            Trajectas · Capability assessment
+          </p>
+          <h1 className="tj-h1 rise-in" style={{ animationDelay: ".1s" }}>
+            Capabilities, contextualised.
+          </h1>
+          <p className="tj-lede rise-in" style={{ animationDelay: ".2s" }}>
+            Trajectas builds psychometric instruments around the capabilities
+            your organisation actually needs, with measurement tied to the
+            outcomes you&apos;re trying to move.
+          </p>
+          <div
+            className="tj-hero-ctas rise-in"
+            style={{ animationDelay: ".3s" }}
+          >
+            <a href="#contact" className="tj-btn tj-btn-primary">
+              Book a 30-min discovery call →
+            </a>
+            <a href="#try" className="tj-btn tj-btn-ghost">
+              Take the 60-second snapshot
+            </a>
+          </div>
+          <div className="tj-hero-meta">
+            <span className="tj-mono">CAPABILITY · TRAJECTORY · OUTCOMES</span>
+            <span className="tj-hero-meta-rule" />
+            <span className="tj-mono">BUILT AROUND YOUR ORGANISATION</span>
+          </div>
+        </div>
       </div>
     </section>
   );

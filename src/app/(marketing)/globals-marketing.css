@@ -1,5 +1,28 @@
-/* Marketing site colour tokens — scoped via [data-surface="marketing"] */
+/* Trajectas marketing — sage + gold bi-color system + home page styles.
+   All home-page elements use a `.tj-*` prefix; tokens are scoped to
+   `[data-surface="marketing"]` so they don't leak into the app surface. */
+
 [data-surface="marketing"] {
+  /* Bi-color sage + gold system */
+  --sage-50:  #f1efe7;
+  --sage-100: #d6e3dd;
+  --sage-300: #4e8c79;
+  --sage-500: #2d6a5a;
+  --sage-700: #1e4a3e;
+  --sage-900: #0f2820;
+
+  --gold-50:  #f3ead2;
+  --gold-300: #ddc888;
+  --gold-500: #c9a962;
+  --gold-700: #93782f;
+  --gold-900: #5a4818;
+
+  --cream:    #f8f6f1;
+  --paper:    #fefdfa;
+  --ink:      #1a1a1a;
+  --ink-mute: #6b6b6b;
+
+  /* Mirrors of legacy --mk-* tokens kept around for any leftover utilities */
   --mk-primary: #2d6a5a;
   --mk-primary-dark: #1e4a3e;
   --mk-accent: #c9a962;
@@ -8,497 +31,828 @@
   --mk-text-muted: #6b6b6b;
   --mk-text-on-dark: #ffffff;
   --mk-text-on-dark-muted: rgba(255, 255, 255, 0.55);
+
+  /* Defaults driven by the page (overridable via data-balance / data-density / data-motion) */
+  --primary-color: var(--sage-500);
+  --primary-on: #ffffff;
+  --primary-hover: var(--sage-700);
+  --link-color: var(--sage-500);
+  --rule-color: var(--gold-500);
+  --motion-amt: 1;
+
+  --pad-y: 120px;
+  --pad-x: 64px;
+
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
   scroll-behavior: smooth;
+  background: var(--cream);
+  color: var(--ink);
 }
 
-/* Marketing typography utilities */
-[data-surface="marketing"] .mk-eyebrow {
-  font-weight: 600;
-  font-size: 0.6875rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--mk-accent);
+[data-surface="marketing"][data-balance="gold-dom"] {
+  --primary-color: var(--gold-500);
+  --primary-on: #1a1a1a;
+  --primary-hover: var(--gold-700);
+  --link-color: var(--gold-700);
 }
 
-[data-surface="marketing"] .mk-display {
-  font-size: clamp(2.75rem, 5.5vw, 4.5rem);
-  line-height: 1.1;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+[data-surface="marketing"][data-density="spacious"] { --pad-y:120px; --pad-x:64px; }
+[data-surface="marketing"][data-density="compact"]  { --pad-y:80px;  --pad-x:48px; }
+
+/* ============================================================
+   ENTRANCE ANIMATIONS (transform-only, content always visible)
+   ============================================================ */
+@keyframes mk-rise { from { transform: translateY(calc(28px * var(--motion-amt, 1))); } }
+@keyframes mk-fade { from { transform: scale(.985); } }
+@keyframes mk-pulse-dot { 0%,100% { opacity:.5 } 50% { opacity:1 } }
+
+[data-surface="marketing"] .rise-in {
+  animation: mk-rise calc(.9s / max(var(--motion-amt, 1), .5)) var(--ease-spring);
+}
+[data-surface="marketing"] .fade-in {
+  animation: mk-fade calc(.9s / max(var(--motion-amt, 1), .5)) var(--ease-spring);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-surface="marketing"] .rise-in,
+  [data-surface="marketing"] .fade-in { animation: none; }
 }
 
-[data-surface="marketing"] .mk-headline {
-  font-size: clamp(1.75rem, 3vw, 2.25rem);
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-[data-surface="marketing"] .mk-body {
-  font-size: 1rem;
-  line-height: 1.7;
-  font-weight: 400;
-}
-
-[data-surface="marketing"] .mk-mono {
-  font-family: var(--font-mono);
-  font-weight: 300;
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-}
-
-[data-surface="marketing"] .marketing-hero {
-  min-height: 100vh;
-  min-height: 100svh;
-}
-
-/* ============================================================================
-   HERO — pure CSS entrance animation. Runs on first paint, no JS required.
-   If JS never runs, content is still visible (animation simply plays once).
-   ========================================================================= */
-
-[data-surface="marketing"] .hero-eyebrow {
-  animation: hero-fade-up 700ms ease-out backwards;
-}
-
-[data-surface="marketing"] .hero-word {
-  animation: hero-word-in 500ms ease-out backwards;
-  animation-delay: calc(300ms + var(--hero-word-index, 0) * 80ms);
-}
-
-[data-surface="marketing"] .hero-subtext {
-  animation: hero-fade-up 700ms ease-out 900ms backwards;
-}
-
-[data-surface="marketing"] .hero-cta {
-  animation: hero-fade-up 700ms ease-out 1100ms backwards;
-}
-
-[data-surface="marketing"] .hero-scroll-hint {
-  animation: hero-fade-in 500ms ease-out 1400ms backwards;
-}
-
-@keyframes hero-fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes hero-word-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes hero-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* ============================================================================
-   PROBLEM — DEFAULT STATIC LAYOUT
-   Both messages stacked vertically, fully visible. Renders correctly with
-   no JS, before hydration, with prefers-reduced-motion, or if hydration fails.
-   ========================================================================= */
-
-[data-surface="marketing"] .problem-section {
-  min-height: 100vh;
-  min-height: 100svh;
-}
-
-[data-surface="marketing"] .problem-sticky {
-  position: static;
-  top: auto;
-  height: auto;
-  min-height: 100vh;
-  min-height: 100svh;
-  overflow: visible;
-  padding-block: 4rem;
-  gap: 3rem;
-  background-color: var(--mk-bg);
-}
-
-[data-surface="marketing"] .problem-layer {
-  position: static;
-  inset: auto;
-  width: 100%;
-}
-
-[data-surface="marketing"] .problem-char-generic,
-[data-surface="marketing"] .problem-char-reformed {
-  --char-delay: 0;
-  --char-dir: 1;
-  opacity: 1;
-  transform: none;
-  will-change: opacity, transform;
-}
-
-[data-surface="marketing"] .problem-heading-generic,
-[data-surface="marketing"] .problem-heading-reformed {
-  opacity: 1;
-  transform: none;
-}
-
-[data-surface="marketing"] .problem-char-generic {
-  color: var(--mk-text-muted);
-}
-
-[data-surface="marketing"] .problem-char-reformed {
-  color: var(--mk-primary);
-}
-
-[data-surface="marketing"] .problem-generic-phrase {
+/* ============================================================
+   GLOBAL FRAME
+   ============================================================ */
+[data-surface="marketing"] .tj {
+  background: var(--cream); color: var(--ink);
   position: relative;
 }
-
-[data-surface="marketing"] .problem-reformed-phrase {
-  text-transform: none;
+/* Sections sit above the fixed particle canvas so opaque sections naturally
+   cover the mesh and transparent ones let it bleed through. */
+[data-surface="marketing"] .tj > main > section,
+[data-surface="marketing"] .tj > .tj-nav,
+[data-surface="marketing"] .tj > .tj-footer {
+  position: relative; z-index: 2;
 }
 
-/* ============================================================================
-   PROBLEM — ENHANCED ANIMATED LAYOUT
-   Sticky scroll-driven morph. Activates only when JS has hydrated and motion
-   is allowed (data-motion="on" set by MarketingInteractive).
-   ========================================================================= */
+/* Buttons */
+[data-surface="marketing"] .tj-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 13px 22px; border-radius: 9999px;
+  font-weight: 600; font-size: 14px; letter-spacing: .005em;
+  text-decoration: none; cursor: pointer; border: 1.5px solid transparent;
+  transition: transform .18s var(--ease-spring), box-shadow .18s, background .18s, color .18s, border-color .18s;
+  line-height: 1; white-space: nowrap;
+}
+[data-surface="marketing"] .tj-btn:active { transform: translateY(0) scale(.98); }
+[data-surface="marketing"] .tj-btn:hover  { transform: translateY(-1px); }
+[data-surface="marketing"] .tj-btn-primary    { background: var(--primary-color); color: var(--primary-on); }
+[data-surface="marketing"] .tj-btn-primary:hover { background: var(--primary-hover); box-shadow: 0 6px 18px color-mix(in oklch, var(--primary-color) 35%, transparent); }
+[data-surface="marketing"] .tj-btn-ghost      { background: transparent; color: var(--ink); border-color: rgba(0,0,0,.15); }
+[data-surface="marketing"] .tj-btn-ghost:hover{ background: rgba(0,0,0,.04); border-color: rgba(0,0,0,.25); }
+[data-surface="marketing"] .tj-btn-dark       { background: var(--sage-700); color: #fff; }
+[data-surface="marketing"] .tj-btn-dark:hover { background: var(--sage-900); }
 
-[data-surface="marketing"][data-motion="on"] .problem-section {
-  min-height: 200vh;
+/* Eyebrow */
+[data-surface="marketing"] .tj-eyebrow {
+  display: inline-flex; align-items: center;
+  font: 600 11px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold-700); white-space: nowrap;
 }
 
-[data-surface="marketing"][data-motion="on"] [data-section="problem"] {
-  --scroll-progress: 0;
+[data-surface="marketing"] .tj-mono { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+[data-surface="marketing"] .tj-mute { color: var(--ink-mute); }
+
+/* Headlines */
+[data-surface="marketing"] .tj-h1 {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(48px, 6.3vw, 84px); line-height: 1.03; letter-spacing: -.035em;
+  margin: 24px 0 0; text-wrap: balance; color: var(--ink);
+}
+[data-surface="marketing"] .tj-h2 {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(32px, 4vw, 52px); line-height: 1.08; letter-spacing: -.025em;
+  margin: 18px 0 0; text-wrap: balance; color: var(--ink);
+}
+[data-surface="marketing"] .tj-h3 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(22px, 2vw, 26px); line-height: 1.18; letter-spacing: -.012em;
+  margin: 0;
+}
+[data-surface="marketing"] .tj-lede {
+  font-size: 19px; line-height: 1.55; color: var(--ink-mute);
+  max-width: 60ch; margin: 22px 0 0;
+}
+[data-surface="marketing"] .tj-body { font-size: 15px; line-height: 1.6; color: var(--ink-mute); }
+
+/* Sections */
+[data-surface="marketing"] .tj-section { padding: var(--pad-y) max(var(--pad-x), 24px); }
+[data-surface="marketing"] .tj-container { max-width: 1240px; margin: 0 auto; }
+[data-surface="marketing"] .tj-section-head { max-width: 760px; margin-bottom: 56px; }
+[data-surface="marketing"] .tj-section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
+[data-surface="marketing"] .tj-section-head.center > * { text-align: center; }
+[data-surface="marketing"] .tj-section-head.center .tj-eyebrow { justify-content: center; margin-left: auto; margin-right: auto; }
+[data-surface="marketing"] .tj-section-head.center .tj-h2,
+[data-surface="marketing"] .tj-section-head.center .tj-lede { margin-left: auto; margin-right: auto; }
+[data-surface="marketing"] .tj-section-head.center .tj-lede { max-width: 56ch; }
+
+/* ============================================================
+   NAV
+   ============================================================ */
+[data-surface="marketing"] .tj-nav {
+  position: sticky; top: 0; z-index: 30;
+  background: color-mix(in oklch, var(--cream) 88%, transparent);
+  backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid rgba(0,0,0,.06);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 56px; gap: 24px;
+}
+[data-surface="marketing"] .tj-nav-brand {
+  flex: 0 0 auto; text-decoration: none; color: inherit;
+  display: inline-flex; align-items: center; gap: 12px;
+}
+@media (max-width: 1080px) {
+  [data-surface="marketing"] .tj-nav { padding: 14px 32px; gap: 16px; }
+}
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-nav { padding: 12px 20px; }
+  [data-surface="marketing"] .tj-nav-links { display: none; }
 }
 
-[data-surface="marketing"][data-motion="on"] .problem-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  height: 100svh;
-  min-height: 0;
-  overflow: hidden;
-  padding-block: 0;
-  gap: 0;
-  --problem-progress: clamp(0, var(--scroll-progress, 0), 1);
-  --problem-bg-progress: clamp(
-    0,
-    calc((var(--problem-progress) - 0.12) * 1.3889),
-    1
-  );
-  background-color: color-mix(
-    in srgb,
-    var(--mk-primary-dark) calc((1 - var(--problem-bg-progress)) * 100%),
-    var(--mk-bg) calc(var(--problem-bg-progress) * 100%)
-  );
+[data-surface="marketing"] .tj-nav-links { display: flex; gap: 4px; align-items: center; }
+[data-surface="marketing"] .tj-nav-links a {
+  font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
+  padding: 8px 14px; border-radius: 8px; opacity: .82;
+  transition: opacity .15s, background .15s;
+  white-space: nowrap; font-family: var(--font-sans);
+  display: inline-flex; align-items: center; gap: 6px;
 }
+[data-surface="marketing"] .tj-nav-links a:hover { opacity: 1; background: rgba(0,0,0,.04); }
 
-[data-surface="marketing"][data-motion="on"] .problem-layer {
-  position: absolute;
-  inset: 0;
-  width: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+[data-surface="marketing"] .tj-nav-ctas { display: flex; gap: 12px; align-items: center; }
+[data-surface="marketing"] .tj-nav-signin {
+  font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
+  opacity: .82; padding: 8px 14px; white-space: nowrap;
+}
+[data-surface="marketing"] .tj-nav-signin:hover { opacity: 1; }
+
+/* ============================================================
+   HERO
+   ============================================================ */
+[data-surface="marketing"] .tj-hero {
+  padding: 80px max(var(--pad-x), 24px) 56px;
+  position: relative; overflow: hidden;
+  background: transparent;
+}
+[data-surface="marketing"] .tj-hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(700px 420px at 12% 8%,  color-mix(in oklch, var(--sage-500) 12%, transparent), transparent 65%),
+    radial-gradient(600px 380px at 88% 32%, color-mix(in oklch, var(--gold-500) 10%, transparent), transparent 65%);
+}
+[data-surface="marketing"] .tj-hero-body { position: relative; max-width: 1240px; margin: 0 auto; }
+[data-surface="marketing"] .tj-hero-body.centered { text-align: center; }
+[data-surface="marketing"] .tj-hero-body.centered .tj-eyebrow { justify-content: center; }
+[data-surface="marketing"] .tj-hero-text-center { max-width: 880px; margin: 0 auto; }
+[data-surface="marketing"] .tj-hero-text-center .tj-h1 { max-width: 18ch; margin-left: auto; margin-right: auto; }
+[data-surface="marketing"] .tj-hero-text-center .tj-lede { margin-left: auto; margin-right: auto; }
+
+[data-surface="marketing"] .tj-hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; justify-content: center; }
+[data-surface="marketing"] .tj-hero-meta {
+  display: flex; align-items: center; gap: 14px; margin-top: 36px;
+  color: var(--ink-mute); justify-content: center; flex-wrap: wrap;
+}
+[data-surface="marketing"] .tj-hero-meta-rule { flex: 0 0 24px; height: 1px; background: rgba(0,0,0,.14); }
+
+/* ============================================================
+   PROBLEM ("Why now") — centred head + side-by-side dissolve
+   ============================================================ */
+[data-surface="marketing"] .tj-problem { background: transparent; }
+[data-surface="marketing"] .tj-dissolve {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 48px;
+  align-items: start; max-width: 720px; margin: 56px auto 0;
   justify-content: center;
-  gap: 0.75rem;
+  position: relative;
+}
+/* A thin vertical rule between the two columns to anchor the symmetry */
+[data-surface="marketing"] .tj-dissolve::after {
+  content: ""; position: absolute; top: 8px; bottom: 8px;
+  left: 50%; width: 1px; background: rgba(0,0,0,.08);
+  z-index: 0;
+}
+[data-surface="marketing"] .tj-dissolve-col { text-align: center; position: relative; z-index: 1; }
+[data-surface="marketing"] .tj-dissolve-col h4 {
+  font: 600 11px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase;
+  margin: 0 0 20px; color: var(--ink-mute);
+}
+[data-surface="marketing"] .tj-dissolve-col.us h4 { color: var(--gold-700); }
+[data-surface="marketing"] .tj-dissolve-col ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+[data-surface="marketing"] .tj-dissolve-col li {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 22px; letter-spacing: -.01em; line-height: 1.2;
+}
+[data-surface="marketing"] .tj-dissolve-col.legacy li {
+  color: rgba(0,0,0,.32);
+  text-decoration: line-through; text-decoration-thickness: 1.5px;
 }
 
-@media (min-width: 768px) {
-  [data-surface="marketing"][data-motion="on"] .problem-layer {
-    gap: 1rem;
-  }
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-dissolve { grid-template-columns: 1fr; gap: 40px; }
 }
 
-[data-surface="marketing"][data-motion="on"] .problem-heading-generic {
-  opacity: calc(1 - clamp(0, calc((var(--problem-progress) - 0.38) * 4), 1));
-  transform: translate3d(
-    0,
-    calc(clamp(0, calc((var(--problem-progress) - 0.38) * 4), 1) * -24px),
-    0
+/* ============================================================
+   JOURNEY ("How it works")
+   ============================================================ */
+[data-surface="marketing"] .tj-journey {
+  background: transparent;
+  border-top: 1px solid rgba(0,0,0,.05);
+  border-bottom: 1px solid rgba(0,0,0,.05);
+}
+[data-surface="marketing"] .tj-journey > .tj-container { max-width: 1240px; margin: 0 auto; }
+[data-surface="marketing"] .tj-journey .tj-section-head {
+  max-width: 720px; margin: 0 auto 56px; text-align: center;
+}
+[data-surface="marketing"] .tj-journey .tj-section-head .tj-eyebrow { justify-content: center; }
+[data-surface="marketing"] .tj-journey .tj-section-head .tj-lede {
+  margin-left: auto; margin-right: auto;
+}
+
+[data-surface="marketing"] .tj-steps {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px;
+  max-width: 100%; margin: 0 auto;
+}
+[data-surface="marketing"] .tj-step h3 { margin: 14px 0 10px; }
+[data-surface="marketing"] .tj-step-head { display: flex; align-items: center; gap: 12px; }
+[data-surface="marketing"] .tj-step-num { font: 600 13px/1 var(--font-mono); color: var(--gold-700); }
+[data-surface="marketing"] .tj-step-line { flex: 1; height: 1px; background: linear-gradient(to right, var(--gold-500), rgba(0,0,0,.08)); }
+[data-surface="marketing"] .tj-step:last-child .tj-step-line { background: rgba(0,0,0,.08); }
+[data-surface="marketing"] .tj-step p { font-size: 14px; line-height: 1.55; color: var(--ink-mute); margin: 0; }
+
+@media (max-width: 1080px) {
+  [data-surface="marketing"] .tj-steps { grid-template-columns: repeat(2, 1fr); gap: 36px; }
+}
+@media (max-width: 600px) {
+  [data-surface="marketing"] .tj-steps { grid-template-columns: 1fr; gap: 28px; }
+}
+
+/* ============================================================
+   SCIENCE ("How we measure") — 3 cards in a grid
+   ============================================================ */
+[data-surface="marketing"] .tj-science { background: transparent; }
+[data-surface="marketing"] .tj-science-grid-list {
+  list-style: none; padding: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; max-width: 1240px; margin: 56px auto 0;
+}
+[data-surface="marketing"] .tj-science-grid-list > li {
+  display: grid; grid-template-rows: auto 1fr; gap: 12px;
+  padding: 28px; border-radius: 18px;
+  background: var(--paper); border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+[data-surface="marketing"] .tj-science-grid-list > li > .num {
+  font: 500 12px/1 var(--font-mono); color: var(--gold-700);
+}
+[data-surface="marketing"] .tj-science-grid-list > li h4 {
+  font: 600 19px/1.2 var(--font-display); letter-spacing: -.01em;
+  margin: 0 0 6px; color: var(--ink);
+}
+[data-surface="marketing"] .tj-science-grid-list > li p {
+  font-size: 14px; line-height: 1.5; color: var(--ink-mute); margin: 0;
+}
+
+@media (max-width: 900px) {
+  [data-surface="marketing"] .tj-science-grid-list { grid-template-columns: 1fr; max-width: 640px; }
+}
+
+/* ============================================================
+   TRY IT (lead-magnet Likert runner)
+   ============================================================ */
+[data-surface="marketing"] .tj-try {
+  background: transparent;
+  border-top: 1px solid rgba(0,0,0,.05);
+  border-bottom: 1px solid rgba(0,0,0,.05);
+}
+[data-surface="marketing"] .tj-try .tj-container { margin-left: auto; margin-right: auto; max-width: 880px; }
+
+[data-surface="marketing"] .tj-runner {
+  background: var(--cream); border-radius: 22px;
+  border: 1px solid rgba(0,0,0,.06); overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 32px 80px -32px color-mix(in oklch, var(--sage-500) 25%, transparent);
+}
+[data-surface="marketing"] .tj-runner-progress {
+  height: 3px; width: 100%; background: rgba(0,0,0,.06); overflow: hidden;
+}
+[data-surface="marketing"] .tj-runner-progress > div {
+  height: 100%; background: var(--sage-500);
+  transition: width .5s cubic-bezier(.22,1,.36,1);
+}
+[data-surface="marketing"] .tj-runner-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 32px 0; gap: 16px; flex-wrap: wrap;
+}
+[data-surface="marketing"] .tj-runner-kicker {
+  font: 600 11px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--gold-700);
+}
+
+[data-surface="marketing"] .tj-runner-card {
+  padding: 36px 32px 32px;
+  display: flex; flex-direction: column; gap: 28px;
+}
+[data-surface="marketing"] .tj-runner-stem {
+  font: 600 28px/1.35 var(--font-display); letter-spacing: -.018em;
+  color: var(--ink); margin: 0; text-wrap: balance; max-width: 36ch;
+  animation: tj-stem-in .35s var(--ease-spring);
+}
+@keyframes tj-stem-in { from { transform: translateY(8px); } }
+
+[data-surface="marketing"] .tj-runner-scale {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+}
+[data-surface="marketing"] .tj-runner-opt {
+  appearance: none; cursor: pointer;
+  min-height: 64px; padding: 16px 12px;
+  border: 2px solid rgba(0,0,0,.1); background: var(--paper); border-radius: 14px;
+  font: 500 14px/1.3 var(--font-sans); color: var(--ink);
+  display: grid; place-items: center; text-align: center;
+  transition: border-color .15s, background .15s, color .15s, transform .15s var(--ease-spring);
+}
+[data-surface="marketing"] .tj-runner-opt:hover:not(:disabled) {
+  border-color: var(--sage-500); transform: scale(1.01);
+}
+[data-surface="marketing"] .tj-runner-opt.on {
+  border-color: var(--sage-500);
+  background: color-mix(in oklch, var(--sage-500) 8%, var(--paper));
+  color: var(--sage-700);
+  transform: scale(1.02);
+}
+[data-surface="marketing"] .tj-runner-card.advancing .tj-runner-opt:not(.on) { opacity: .4; }
+[data-surface="marketing"] .tj-runner-card.advancing .tj-runner-opt.on {
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--sage-500) 20%, transparent);
+}
+[data-surface="marketing"] .tj-runner-opt:disabled { cursor: default; }
+
+[data-surface="marketing"] .tj-runner-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 20px 32px 24px; border-top: 1px solid rgba(0,0,0,.06); gap: 12px;
+}
+[data-surface="marketing"] .tj-runner-back {
+  appearance: none; background: transparent; border: none; cursor: pointer;
+  color: var(--ink-mute); font: 500 13px/1 var(--font-sans);
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 0;
+}
+[data-surface="marketing"] .tj-runner-back:hover:not(:disabled) { color: var(--ink); }
+[data-surface="marketing"] .tj-runner-back:disabled { opacity: 0; cursor: default; }
+
+[data-surface="marketing"] .tj-runner-intro {
+  gap: 18px; padding: 56px 32px;
+  align-items: flex-start; text-align: left;
+}
+[data-surface="marketing"] .tj-runner-intro-h {
+  font: 800 34px/1.15 var(--font-display); letter-spacing: -.025em;
+  color: var(--ink); margin: 4px 0 0; text-wrap: balance; max-width: 24ch;
+}
+[data-surface="marketing"] .tj-runner-intro-p {
+  font-size: 17px; line-height: 1.55; color: var(--ink-mute); margin: 0; max-width: 60ch;
+}
+
+[data-surface="marketing"] .tj-runner-report { gap: 22px; padding: 36px 32px; }
+[data-surface="marketing"] .tj-runner-report-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap;
+}
+[data-surface="marketing"] .tj-runner-report-h {
+  font: 800 32px/1.15 var(--font-display); letter-spacing: -.025em; margin: 0;
+  color: var(--ink); text-wrap: balance;
+}
+[data-surface="marketing"] .tj-runner-report-p {
+  font-size: 16px; line-height: 1.6; color: var(--ink-mute); margin: 0; max-width: 60ch;
+}
+
+[data-surface="marketing"] .tj-runner-bars {
+  display: grid; gap: 14px; padding: 14px 0;
+  border-top: 1px solid rgba(0,0,0,.06); border-bottom: 1px solid rgba(0,0,0,.06);
+}
+[data-surface="marketing"] .tj-runner-bar-row {
+  display: grid; grid-template-columns: 200px 1fr 56px; gap: 16px; align-items: center;
+}
+[data-surface="marketing"] .tj-runner-bar-label {
+  font: 600 16px/1.2 var(--font-display); letter-spacing: -.01em; color: var(--ink);
+}
+[data-surface="marketing"] .tj-runner-bar-track {
+  height: 14px; background: var(--paper); border-radius: 999px; overflow: hidden;
+  border: 1px solid rgba(0,0,0,.05);
+}
+[data-surface="marketing"] .tj-runner-bar-fill { height: 100%; border-radius: 999px; transition: width .6s var(--ease-spring); }
+[data-surface="marketing"] .tj-runner-bar-score {
+  font: 800 24px/1 var(--font-display); letter-spacing: -.025em;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+[data-surface="marketing"] .tj-runner-report-foot {
+  display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-runner-bar-row { grid-template-columns: 1fr; gap: 4px; text-align: left; }
+  [data-surface="marketing"] .tj-runner-bar-score { text-align: left; }
+  [data-surface="marketing"] .tj-runner-scale { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   USE CASES — alternating rows
+   ============================================================ */
+[data-surface="marketing"] .tj-cases {
+  background: transparent;
+  border-top: 1px solid rgba(0,0,0,.05);
+}
+[data-surface="marketing"] .tj-cases .tj-section-head {
+  margin-left: auto; margin-right: auto; max-width: 720px;
+  text-align: center; margin-bottom: 56px;
+}
+[data-surface="marketing"] .tj-cases .tj-section-head .tj-eyebrow {
+  justify-content: center; margin-left: auto; margin-right: auto;
+}
+[data-surface="marketing"] .tj-cases-list { max-width: 1080px; margin: 0 auto; display: grid; gap: 96px; }
+[data-surface="marketing"] .tj-case {
+  display: grid; grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+  gap: 72px; align-items: center; justify-content: center;
+}
+[data-surface="marketing"] .tj-case.reverse {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+}
+[data-surface="marketing"] .tj-case.reverse > .tj-case-fragment { order: 2; }
+[data-surface="marketing"] .tj-case.reverse > .tj-case-fragment { order: 2; }
+[data-surface="marketing"] .tj-case h3 {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: 30px; letter-spacing: -.018em; line-height: 1.1;
+  margin: 14px 0 16px;
+}
+[data-surface="marketing"] .tj-case-link { font-weight: 600; font-size: 14px; color: var(--link-color); text-decoration: none; }
+[data-surface="marketing"] .tj-case-link:hover { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+[data-surface="marketing"] .tj-case-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+[data-surface="marketing"] .tj-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  font: 500 12px/1.2 var(--font-mono); letter-spacing: .04em; text-transform: uppercase;
+  background: rgba(0,0,0,.04); color: var(--ink-mute); white-space: nowrap;
+}
+[data-surface="marketing"] .tj-pill.sage { background: var(--sage-50); color: var(--sage-700); }
+[data-surface="marketing"] .tj-pill.gold { background: var(--gold-50); color: var(--gold-700); }
+
+[data-surface="marketing"] .tj-case-fragment {
+  position: relative; min-height: 300px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+@media (max-width: 980px) {
+  [data-surface="marketing"] .tj-cases-list { gap: 64px; }
+  [data-surface="marketing"] .tj-case { grid-template-columns: 1fr; gap: 32px; }
+  [data-surface="marketing"] .tj-case.reverse > .tj-case-fragment { order: 0; }
+}
+
+/* Fragment cards used inside use cases */
+[data-surface="marketing"] .frag {
+  background: var(--paper); border-radius: 16px; padding: 20px;
+  border: 1px solid rgba(0,0,0,.05);
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 12px 32px -16px rgba(0,0,0,.08);
+}
+[data-surface="marketing"] .frag-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-bottom: 12px; border-bottom: 1px solid rgba(0,0,0,.06); margin-bottom: 14px;
+}
+[data-surface="marketing"] .frag-title { font-weight: 600; font-size: 14px; color: var(--ink); }
+[data-surface="marketing"] .frag-sub {
+  font: 500 11px/1 var(--font-mono); letter-spacing: .04em;
+  text-transform: uppercase; color: var(--ink-mute);
+}
+
+/* ============================================================
+   COMPARISON
+   ============================================================ */
+[data-surface="marketing"] .tj-compare {
+  background: transparent;
+  border-top: 1px solid rgba(0,0,0,.05);
+}
+[data-surface="marketing"] .tj-cmp-vs {
+  max-width: 920px; margin: 0 auto 24px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  font: 500 12px/1.4 var(--font-mono); color: var(--ink-mute);
+  align-items: center; justify-content: center;
+}
+[data-surface="marketing"] .tj-cmp-vs .lab { margin-right: 8px; color: var(--ink-mute); }
+[data-surface="marketing"] .tj-cmp-vs .v {
+  background: rgba(0,0,0,.04); padding: 4px 10px; border-radius: 999px;
+  text-decoration: line-through; text-decoration-color: rgba(0,0,0,.3); white-space: nowrap;
+}
+[data-surface="marketing"] .tj-cmp-table {
+  max-width: 920px; margin: 0 auto; border-collapse: collapse; width: 100%;
+}
+[data-surface="marketing"] .tj-cmp-table th,
+[data-surface="marketing"] .tj-cmp-table td { text-align: left; padding: 18px 20px; }
+[data-surface="marketing"] .tj-cmp-table thead th {
+  font: 600 11px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-mute); border-bottom: 1px solid rgba(0,0,0,.08);
+}
+[data-surface="marketing"] .tj-cmp-table thead th.us { color: var(--gold-700); }
+[data-surface="marketing"] .tj-cmp-table {
+  background: color-mix(in oklch, var(--paper) 80%, transparent);
+  border-radius: 18px;
+  backdrop-filter: blur(2px);
+  border: 1px solid rgba(0,0,0,.05);
+}
+[data-surface="marketing"] .tj-cmp-table tbody tr { border-bottom: 1px solid rgba(0,0,0,.05); }
+[data-surface="marketing"] .tj-cmp-table tbody tr:last-child { border-bottom: none; }
+[data-surface="marketing"] .tj-cmp-table tbody td { font-size: 15px; }
+[data-surface="marketing"] .tj-cmp-table tbody td:first-child { font-weight: 500; color: var(--ink); }
+[data-surface="marketing"] .tj-cmp-table tbody tr:hover { background: rgba(0,0,0,.015); }
+[data-surface="marketing"] .tj-cmp-cell { text-align: center !important; }
+[data-surface="marketing"] .tj-cmp-note { font: 500 11px/1 var(--font-mono); color: var(--ink-mute); display: block; margin-top: 4px; }
+
+[data-surface="marketing"] .tj-cmp-dev {
+  font: 600 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--gold-700); background: var(--gold-50);
+  padding: 4px 8px; border-radius: 999px;
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+}
+[data-surface="marketing"] .tj-cmp-dev .dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; }
+
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-cmp-table th,
+  [data-surface="marketing"] .tj-cmp-table td { padding: 14px 10px; }
+  [data-surface="marketing"] .tj-cmp-table tbody td { font-size: 14px; }
+}
+
+/* ============================================================
+   CONTACT
+   ============================================================ */
+[data-surface="marketing"] .tj-contact {
+  background: var(--sage-700); color: #fff;
+  isolation: isolate;
+}
+[data-surface="marketing"] .tj-contact .tj-eyebrow { color: var(--gold-300); }
+[data-surface="marketing"] .tj-contact .tj-h2 { color: #fff; }
+[data-surface="marketing"] .tj-contact .tj-lede { color: rgba(255,255,255,.75); }
+[data-surface="marketing"] .tj-contact-grid {
+  display: grid; grid-template-columns: 1.1fr 1fr; gap: 80px;
+  max-width: 1240px; margin: 0 auto; align-items: start;
+}
+[data-surface="marketing"] .tj-contact-list {
+  display: grid; gap: 14px; margin-top: 40px; padding-top: 28px;
+  border-top: 1px solid rgba(255,255,255,.15);
+}
+[data-surface="marketing"] .tj-contact-list > div {
+  display: grid; grid-template-columns: 110px 1fr; gap: 16px;
+  font-size: 14px; align-items: baseline;
+}
+[data-surface="marketing"] .tj-contact-list > div span:first-child { color: rgba(255,255,255,.5); }
+[data-surface="marketing"] .tj-contact-list > div span:last-child  { color: rgba(255,255,255,.9); }
+
+/* New contact CTA flow — two numbered paths (Book / Email) */
+[data-surface="marketing"] .tj-contact-paths {
+  list-style: none; padding: 0; margin: 40px 0 0;
+  display: grid; gap: 24px;
+}
+[data-surface="marketing"] .tj-contact-paths > li {
+  display: grid; grid-template-columns: 40px 1fr; gap: 18px;
+  padding-top: 24px; border-top: 1px solid rgba(255,255,255,.15);
+}
+[data-surface="marketing"] .tj-contact-path-step {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 999px;
+  background: var(--gold-500); color: #1a1a1a;
+  font: 700 14px/1 var(--font-mono);
+}
+[data-surface="marketing"] .tj-contact-paths h3 {
+  font: 700 18px/1.2 var(--font-display); letter-spacing: -.012em;
+  color: #fff; margin: 4px 0 6px;
+}
+[data-surface="marketing"] .tj-contact-paths > li > div > p {
+  font-size: 14.5px; line-height: 1.5; color: rgba(255,255,255,.72);
+  margin: 0 0 8px; max-width: 44ch;
+}
+[data-surface="marketing"] .tj-contact-path-meta {
+  font: 500 11px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--gold-300);
+}
+[data-surface="marketing"] .tj-contact-email {
+  margin-top: 10px;
+  color: #fff; border-color: rgba(255,255,255,.28); background: transparent;
+}
+[data-surface="marketing"] .tj-contact-email:hover {
+  background: rgba(255,255,255,.08); border-color: var(--gold-500); color: var(--gold-300);
+}
+
+@media (max-width: 980px) {
+  [data-surface="marketing"] .tj-contact-grid { grid-template-columns: 1fr; gap: 48px; }
+}
+
+/* Calendar card (placeholder for cal.com inline embed) */
+[data-surface="marketing"] .tj-cal-card {
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12);
+  border-radius: 22px; padding: 28px; backdrop-filter: blur(8px);
+}
+[data-surface="marketing"] .tj-cal-head {
+  display: flex; justify-content: space-between; align-items: end;
+  margin-bottom: 18px; gap: 12px; flex-wrap: wrap;
+}
+[data-surface="marketing"] .tj-cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  padding: 16px; border-radius: 14px; background: rgba(0,0,0,.18);
+}
+[data-surface="marketing"] .tj-cal-dow {
+  font: 600 10px/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255,255,255,.5); text-align: center; padding: 6px 0;
+}
+[data-surface="marketing"] .tj-cal-day {
+  appearance: none; border: none; background: transparent; color: rgba(255,255,255,.4);
+  aspect-ratio: 1; border-radius: 8px; cursor: not-allowed;
+  font: 500 13px/1 var(--font-sans);
+  display: grid; place-items: center;
+  transition: background .15s, color .15s, transform .15s var(--ease-spring);
+}
+[data-surface="marketing"] .tj-cal-day.ok { color: #fff; cursor: pointer; background: rgba(255,255,255,.06); }
+[data-surface="marketing"] .tj-cal-day.ok:hover { background: rgba(255,255,255,.12); transform: scale(1.05); }
+[data-surface="marketing"] .tj-cal-day.today { box-shadow: inset 0 0 0 1px var(--gold-500); }
+[data-surface="marketing"] .tj-cal-day.sel { background: var(--gold-500); color: #1a1a1a; }
+[data-surface="marketing"] .tj-cal-times { margin-top: 18px; }
+[data-surface="marketing"] .tj-cal-time-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+[data-surface="marketing"] .tj-cal-time {
+  appearance: none; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  color: #fff; font: 500 13px/1 var(--font-mono);
+  transition: background .15s, border-color .15s;
+}
+[data-surface="marketing"] .tj-cal-time:hover { background: rgba(255,255,255,.12); }
+[data-surface="marketing"] .tj-cal-time.sel { background: var(--gold-500); border-color: var(--gold-500); color: #1a1a1a; }
+
+/* Cal.com inline embed — sits inside the dark sage contact card.
+   No fixed height; Cal posts iframe resize messages and the cal-inline
+   web component auto-fits, so the calendar is never scrolled inside. */
+[data-surface="marketing"] .tj-cal-embed { padding: 18px; }
+[data-surface="marketing"] .tj-cal-iframe {
+  width: 100%; overflow: visible;
+  border-radius: 14px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.08);
+}
+[data-surface="marketing"] .tj-cal-iframe cal-inline {
+  width: 100% !important; min-height: 0 !important;
+}
+[data-surface="marketing"] .tj-cal-iframe iframe {
+  width: 100% !important; border: 0; border-radius: 14px; background: transparent;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+[data-surface="marketing"] .tj-footer {
+  background: var(--sage-900); color: rgba(255,255,255,.6);
+  padding: 64px max(var(--pad-x), 24px) 28px;
+}
+[data-surface="marketing"] .tj-footer-cols {
+  display: grid; grid-template-columns: 2fr 1fr 1fr;
+  gap: 48px; max-width: 1240px; margin: 0 auto;
+}
+[data-surface="marketing"] .tj-footer-brand p {
+  font-size: 14px; max-width: 32ch; margin: 14px 0 0; line-height: 1.5;
+}
+[data-surface="marketing"] .tj-footer-status {
+  font-size: 12px; display: inline-flex; align-items: center; gap: 8px;
+  color: rgba(255,255,255,.85); margin-top: 14px;
+}
+[data-surface="marketing"] .tj-footer-pulse {
+  width: 8px; height: 8px; border-radius: 50%; background: #6cc587;
+  box-shadow: 0 0 0 4px rgba(108,197,135,.18);
+  animation: mk-pulse-dot 2s ease-in-out infinite;
+}
+[data-surface="marketing"] .tj-footer-h {
+  font: 600 11px/1 var(--font-mono); letter-spacing: .14em; text-transform: uppercase;
+  color: rgba(255,255,255,.8); margin: 0 0 16px;
+}
+[data-surface="marketing"] .tj-footer ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+[data-surface="marketing"] .tj-footer a { color: rgba(255,255,255,.65); text-decoration: none; font-size: 14px; }
+[data-surface="marketing"] .tj-footer a:hover { color: var(--gold-300); }
+[data-surface="marketing"] .tj-footer-bottom {
+  max-width: 1240px; margin: 56px auto 0; padding-top: 24px;
+  border-top: 1px solid rgba(255,255,255,.12);
+  display: flex; justify-content: space-between; gap: 24px;
+  font-size: 12px; flex-wrap: wrap;
+}
+[data-surface="marketing"] .tj-footer-bottom .tj-mono { white-space: nowrap; }
+
+@media (max-width: 980px) {
+  [data-surface="marketing"] .tj-footer-cols { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  [data-surface="marketing"] .tj-footer-cols { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   USE-CASE FRAGMENT VISUALS
+   ============================================================ */
+[data-surface="marketing"] .tj-bar-row {
+  display: grid; grid-template-columns: 140px 1fr 36px;
+  align-items: center; gap: 12px; font-size: 13px;
+}
+[data-surface="marketing"] .tj-bar-row > span:first-child { color: var(--ink-mute); }
+[data-surface="marketing"] .tj-bar-row > .bar-track {
+  height: 8px; background: var(--cream); border-radius: 999px; overflow: hidden;
+}
+[data-surface="marketing"] .tj-bar-row > .bar-track > .bar-fill {
+  height: 100%; border-radius: 999px;
+}
+[data-surface="marketing"] .tj-bar-row > span:last-child {
+  font: 500 11px/1 var(--font-mono); text-align: right; color: var(--ink);
+}
+
+/* ============================================================
+   PARTICLE MESH — sits at z-0 as the page background
+   ============================================================ */
+[data-surface="marketing"] .tj-particle-canvas {
+  position: fixed; inset: 0; pointer-events: none;
+  z-index: 0;
+}
+
+/* ============================================================
+   CONTENT HALOS
+   Soft cream radial gradients that fade the mesh to transparent
+   around text and cards so the particles don't fight readability.
+   ============================================================ */
+[data-surface="marketing"] .tj-hero-text-center,
+[data-surface="marketing"] .tj-section-head {
+  position: relative;
+}
+[data-surface="marketing"] .tj-hero-text-center::before,
+[data-surface="marketing"] .tj-section-head::before {
+  content: ""; position: absolute; inset: -80px -120px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklch, var(--cream) 92%, transparent) 0%,
+    color-mix(in oklch, var(--cream) 70%, transparent) 35%,
+    transparent 78%
   );
+  z-index: -1; pointer-events: none;
+  border-radius: 50%;
 }
+[data-surface="marketing"] .tj-hero-text-center::before { inset: -120px -160px; }
 
-[data-surface="marketing"][data-motion="on"] .problem-heading-reformed {
-  opacity: clamp(0, calc((var(--problem-progress) - 0.52) * 4), 1);
-  transform: translate3d(
-    0,
-    calc((1 - clamp(0, calc((var(--problem-progress) - 0.52) * 4), 1)) * 24px),
-    0
+/* The dissolve block (Why now lists) gets its own soft veil */
+[data-surface="marketing"] .tj-dissolve {
+  position: relative;
+}
+[data-surface="marketing"] .tj-dissolve::before {
+  content: ""; position: absolute; inset: -40px -80px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklch, var(--cream) 88%, transparent) 0%,
+    color-mix(in oklch, var(--cream) 50%, transparent) 50%,
+    transparent 85%
   );
+  z-index: -1; pointer-events: none;
 }
 
-[data-surface="marketing"][data-motion="on"] .problem-generic-phrase::after {
-  --problem-strike-progress: clamp(0, calc((var(--problem-progress) - 0.06) * 7), 1);
-  --problem-strike-fade: clamp(0, calc((var(--problem-progress) - 0.21) * 16), 1);
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 56%;
-  width: 100%;
-  height: 2px;
-  background: color-mix(
-    in srgb,
-    var(--mk-text-on-dark) calc((1 - var(--problem-bg-progress)) * 100%),
-    var(--mk-text-muted) calc(var(--problem-bg-progress) * 100%)
+/* Cards: large soft cream glow so the canvas fades smoothly into the card edges. */
+[data-surface="marketing"] .frag,
+[data-surface="marketing"] .tj-runner,
+[data-surface="marketing"] .tj-cmp-table,
+[data-surface="marketing"] .tj-science-grid-list > li {
+  box-shadow:
+    0 0 0 9999px transparent,
+    0 0 80px 50px color-mix(in oklch, var(--cream) 65%, transparent),
+    0 1px 3px rgba(0,0,0,.04),
+    0 24px 60px -32px rgba(0,0,0,.12);
+}
+/* Restore the runner's sage-flavoured drop shadow */
+[data-surface="marketing"] .tj-runner {
+  box-shadow:
+    0 0 80px 50px color-mix(in oklch, var(--cream) 65%, transparent),
+    0 1px 3px rgba(0,0,0,.04),
+    0 32px 80px -32px color-mix(in oklch, var(--sage-500) 25%, transparent);
+}
+
+/* Cases: the fragment cards already get the halo above; the text column gets a
+   wider veil so its eyebrow, headline, body and pills all read cleanly. */
+[data-surface="marketing"] .tj-case-text { position: relative; }
+[data-surface="marketing"] .tj-case-text::before {
+  content: ""; position: absolute; inset: -60px -80px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklch, var(--cream) 90%, transparent) 0%,
+    color-mix(in oklch, var(--cream) 65%, transparent) 45%,
+    transparent 95%
   );
-  opacity: calc((1 - var(--problem-strike-fade)) * var(--problem-strike-progress));
-  transform: translateY(-50%) scaleX(var(--problem-strike-progress));
-  transform-origin: left center;
+  z-index: -1; pointer-events: none;
 }
 
-[data-surface="marketing"][data-motion="on"] .problem-char-generic {
-  --problem-char-progress: clamp(
-    0,
-    calc((((var(--problem-progress) - 0.22) * 2.6) - var(--char-delay)) * 3),
-    1
+/* How-it-works steps: each step gets a soft cream backdrop so its number,
+   title and body sit on a calm mat rather than fighting the mesh. */
+[data-surface="marketing"] .tj-step { position: relative; }
+[data-surface="marketing"] .tj-step::before {
+  content: ""; position: absolute; inset: -24px -22px;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in oklch, var(--cream) 88%, transparent) 0%,
+    color-mix(in oklch, var(--cream) 50%, transparent) 55%,
+    transparent 95%
   );
-  color: color-mix(
-    in srgb,
-    var(--mk-text-on-dark-muted) calc((1 - var(--problem-bg-progress)) * 100%),
-    var(--mk-text-muted) calc(var(--problem-bg-progress) * 100%)
-  );
-  opacity: calc(1 - var(--problem-char-progress));
-  transform: translate3d(
-      calc(var(--problem-char-progress) * var(--char-dir) * 20px),
-      calc(var(--problem-char-progress) * -100px),
-      0
-    )
-    rotate(
-      calc(var(--problem-char-progress) * var(--char-dir) * 20deg)
-    )
-    scale(calc(1 - var(--problem-char-progress) * 0.3));
-}
-
-[data-surface="marketing"][data-motion="on"] .problem-char-reformed {
-  --problem-progress: clamp(0, var(--scroll-progress, 0), 1);
-  --problem-char-progress: clamp(
-    0,
-    calc((((var(--problem-progress) - 0.5) * 2) - var(--char-delay)) * 3),
-    1
-  );
-  color: var(--mk-primary);
-  opacity: var(--problem-char-progress);
-  transform: translate3d(
-      calc((1 - var(--problem-char-progress)) * var(--char-dir) * -20px),
-      calc((1 - var(--problem-char-progress)) * 100px),
-      0
-    )
-    rotate(calc((1 - var(--problem-char-progress)) * var(--char-dir) * -20deg))
-    scale(calc(0.7 + var(--problem-char-progress) * 0.3));
-}
-
-/* ============================================================================
-   JOURNEY — DEFAULT STATIC LAYOUT
-   Stages stacked vertically, fully visible. Robust without JS.
-   ========================================================================= */
-
-[data-surface="marketing"] .journey-section {
-  min-height: 100vh;
-  min-height: 100svh;
-}
-
-[data-surface="marketing"] .journey-sticky {
-  position: static;
-  top: auto;
-  height: auto;
-  min-height: 100vh;
-  min-height: 100svh;
-  overflow: visible;
-  padding-block: 4rem;
-  background-color: var(--mk-bg);
-}
-
-[data-surface="marketing"] .journey-list {
-  height: auto;
-  gap: 2rem;
-}
-
-[data-surface="marketing"] .journey-line {
-  height: 100%;
-  background: var(--mk-accent);
-  opacity: 0.3;
-}
-
-[data-surface="marketing"] .journey-stage {
-  --stage-start: 0;
-  --stage-dir: 1;
-  opacity: 1;
-  transform: none;
-  will-change: opacity, transform;
-}
-
-[data-surface="marketing"] .journey-title {
-  color: var(--mk-text);
-}
-
-[data-surface="marketing"] .journey-desc {
-  color: var(--mk-text-muted);
-}
-
-[data-surface="marketing"] .journey-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 999px;
-  border: 2px solid var(--mk-accent);
-  background-color: var(--mk-accent);
-  opacity: 1;
-  transform: translateX(-50%);
-}
-
-/* ============================================================================
-   JOURNEY — ENHANCED ANIMATED LAYOUT
-   Sticky scroll-driven trajectory. Opt-in via data-motion="on".
-   ========================================================================= */
-
-[data-surface="marketing"][data-motion="on"] .journey-section {
-  min-height: 350vh;
-}
-
-[data-surface="marketing"][data-motion="on"] [data-section="journey"] {
-  --scroll-progress: 0;
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-sticky {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  height: 100svh;
-  min-height: 0;
-  overflow: hidden;
-  padding-block: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  justify-content: center;
-  --journey-active: clamp(0, calc(var(--scroll-progress, 0) * 1.43), 1);
-  background-color: color-mix(
-    in srgb,
-    var(--mk-bg) calc((1 - var(--journey-active)) * 100%),
-    var(--mk-primary-dark) calc(var(--journey-active) * 100%)
-  );
-}
-
-@media (min-width: 768px) {
-  [data-surface="marketing"][data-motion="on"] .journey-sticky {
-    align-items: center;
-  }
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-list {
-  gap: 1.5rem;
-}
-
-@media (min-width: 768px) {
-  [data-surface="marketing"][data-motion="on"] .journey-list {
-    height: 70%;
-    gap: 0;
-    justify-content: space-between;
-  }
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-line {
-  height: min(100%, calc(var(--journey-active) * 120%));
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-stage {
-  --stage-progress: clamp(
-    0,
-    calc((var(--journey-active) - var(--stage-start)) * 5),
-    1
-  );
-  opacity: var(--stage-progress);
-  transform: translate3d(
-    calc((1 - var(--stage-progress)) * var(--stage-dir) * 30px),
-    0,
-    0
-  );
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-title {
-  color: color-mix(
-    in srgb,
-    var(--mk-text) calc((1 - var(--journey-active)) * 100%),
-    var(--mk-text-on-dark) calc(var(--journey-active) * 100%)
-  );
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-desc {
-  color: color-mix(
-    in srgb,
-    var(--mk-text-muted) calc((1 - var(--journey-active)) * 100%),
-    var(--mk-text-on-dark-muted) calc(var(--journey-active) * 100%)
-  );
-}
-
-[data-surface="marketing"][data-motion="on"] .journey-dot {
-  --journey-dot-active: clamp(0, calc((var(--stage-progress) - 0.8) * 5), 1);
-  background-color: color-mix(
-    in srgb,
-    transparent calc((1 - var(--journey-dot-active)) * 100%),
-    var(--mk-accent) calc(var(--journey-dot-active) * 100%)
-  );
-  box-shadow: 0 0 calc(2px + var(--journey-dot-active) * 8px)
-    color-mix(
-      in srgb,
-      transparent calc((1 - var(--journey-dot-active)) * 100%),
-      var(--mk-accent) calc(var(--journey-dot-active) * 100%)
-    );
-  opacity: var(--stage-progress);
-  transform: translateX(-50%)
-    scale(calc(1 + var(--journey-dot-active) * 0.3));
-}
-
-/* ============================================================================
-   CONTACT FORM — dissolve-on-success animation. Form is always visible by
-   default; only the post-submit success transition is animated.
-   ========================================================================= */
-
-[data-surface="marketing"] .contact-field {
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-}
-
-[data-surface="marketing"] .contact-field-dissolve {
-  opacity: 0;
-  transform: translateY(-20px) scale(0.95);
-  pointer-events: none;
-}
-
-@keyframes contact-success-enter {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-[data-surface="marketing"] .contact-success {
-  animation: contact-success-enter 0.6s ease-out 0.4s both;
-}
-
-/* ============================================================================
-   PREFERS-REDUCED-MOTION
-   Disables Hero entrance animations and the contact-success animation.
-   The Problem and Journey sections don't need overrides here — they default
-   to the static layout already, and MarketingInteractive only sets
-   data-motion="on" when the user has NOT requested reduced motion.
-   ========================================================================= */
-
-@media (prefers-reduced-motion: reduce) {
-  [data-surface="marketing"] .hero-eyebrow,
-  [data-surface="marketing"] .hero-word,
-  [data-surface="marketing"] .hero-subtext,
-  [data-surface="marketing"] .hero-cta,
-  [data-surface="marketing"] .hero-scroll-hint {
-    animation: none;
-  }
-
-  [data-surface="marketing"] .contact-field {
-    transition: none;
-  }
-
-  [data-surface="marketing"] .contact-success {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
+  z-index: -1; pointer-events: none;
 }

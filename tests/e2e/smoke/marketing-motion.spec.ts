@@ -23,22 +23,11 @@ test.describe("marketing motion", () => {
         }),
       )
       .toBe(true);
-    await expect(page.locator(".problem-sticky")).toHaveCSS(
-      "position",
-      "sticky",
-    );
 
-    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 1.45));
-
-    await expect
-      .poll(async () =>
-        page
-          .locator('[data-section="problem"]')
-          .evaluate((element) =>
-            getComputedStyle(element).getPropertyValue("--scroll-progress").trim(),
-          ),
-      )
-      .not.toBe("0");
+    // Core home-page sections render
+    await expect(page.locator(".tj-hero")).toBeVisible();
+    await expect(page.locator(".tj-problem")).toBeVisible();
+    await expect(page.locator(".tj-cases")).toBeVisible();
   });
 
   test("keeps the readable static surface for reduced motion", async ({ page }) => {
@@ -48,14 +37,11 @@ test.describe("marketing motion", () => {
     const root = page.locator('[data-surface="marketing"]');
     await expect(root).not.toHaveAttribute("data-motion", "on");
     await expect(page.locator("canvas")).toHaveCount(0);
-    await expect(page.locator(".problem-sticky")).toHaveCSS(
-      "position",
-      "static",
-    );
-    await expect(page.locator(".builtfor-panel").first()).toHaveCSS(
-      "opacity",
-      "1",
-    );
+
+    // Content is still fully readable without the mesh
+    await expect(page.locator(".tj-hero h1")).toBeVisible();
+    await expect(page.locator(".tj-problem")).toBeVisible();
+    await expect(page.locator(".tj-cases")).toBeVisible();
   });
 
   test("does not fail on legacy motion and viewport observer APIs", async ({
@@ -94,10 +80,7 @@ test.describe("marketing motion", () => {
       "on",
     );
     await expect(page.locator("canvas")).toHaveCount(1);
-    await expect(page.locator(".builtfor-panel").first()).toHaveCSS(
-      "opacity",
-      "1",
-    );
+    await expect(page.locator(".tj-hero h1")).toBeVisible();
     expect(pageErrors).toEqual([]);
   });
 });

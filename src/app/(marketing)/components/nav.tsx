@@ -1,71 +1,39 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 
+const NAV_LINKS = [
+  { href: "#why", label: "Why Trajectas" },
+  { href: "#how", label: "How it works" },
+  { href: "#try", label: "Try it" },
+  { href: "#cases", label: "Use cases" },
+  { href: "#compare", label: "Compare" },
+];
+
 export function Nav() {
-  const [scrolled, setScrolled] = useState(false);
-  const scrolledRef = useRef(false);
-
-  useEffect(() => {
-    let rafId = 0;
-
-    function handleScroll() {
-      const next = window.scrollY > 50;
-      if (next !== scrolledRef.current) {
-        scrolledRef.current = next;
-        setScrolled(next);
-      }
-    }
-
-    function onScroll() {
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(handleScroll);
-    }
-
-    handleScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      cancelAnimationFrame(rafId);
-    };
-  }, []);
-
   return (
-    <nav
-      aria-label="Main navigation"
-      className="fixed inset-x-0 top-0 z-50 flex items-center justify-between px-4 py-4 md:px-8 md:py-5 transition-all duration-200"
-      style={{
-        backgroundColor: scrolled ? "rgba(30, 74, 62, 0.92)" : "transparent",
-        backdropFilter: scrolled ? "blur(12px) saturate(180%)" : "none",
-        borderBottom: scrolled
-          ? "1px solid rgba(255, 255, 255, 0.06)"
-          : "1px solid transparent",
-      }}
-    >
-      <Link
-        href="/"
-        aria-label="Trajectas — home"
-        className="inline-flex items-center"
-      >
-        <TrajectasLogo variant="horizontal" light height={26} />
+    <header className="tj-nav" aria-label="Main navigation">
+      <Link href="/" className="tj-nav-brand" aria-label="Trajectas — home">
+        <TrajectasLogo variant="horizontal" height={28} />
       </Link>
-
-      <div className="flex items-center gap-2 md:gap-3">
-        <Link
-          href="/login"
-          className="rounded-full border border-white/30 px-4 py-2 text-sm text-[var(--mk-text-on-dark)] transition-colors duration-200 hover:border-[var(--mk-accent)] hover:text-[var(--mk-accent)]"
-        >
-          Log in
+      <nav className="tj-nav-links">
+        {NAV_LINKS.map((l) => (
+          <a key={l.href} href={l.href}>
+            {l.label}
+          </a>
+        ))}
+      </nav>
+      <div className="tj-nav-ctas">
+        <Link href="/login" className="tj-nav-signin">
+          Sign in
         </Link>
         <a
           href="#contact"
-          className="rounded-full border border-[var(--mk-accent)] bg-[var(--mk-accent)] px-4 py-2 text-sm text-[var(--mk-primary-dark)] transition-colors duration-200 hover:bg-[#d4b570] hover:border-[#d4b570]"
+          className="tj-btn tj-btn-primary"
+          style={{ padding: "10px 18px", fontSize: 13 }}
         >
-          Get in touch
+          Book a call →
         </a>
       </div>
-    </nav>
+    </header>
   );
 }
