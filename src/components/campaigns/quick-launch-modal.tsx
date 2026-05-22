@@ -374,7 +374,7 @@ export function QuickLaunchModal({
     }
 
     setSlideDirection("left");
-    setStep((currentStep) => Math.min(currentStep + 1, 4) as WizardStep);
+    setStep((currentStep) => Math.min(currentStep + 1, 5) as WizardStep);
   }
 
   function handleBack() {
