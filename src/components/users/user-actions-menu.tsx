@@ -8,6 +8,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -121,32 +122,36 @@ export function UserActionsMenu({
           }
         />
         <DropdownMenuContent align="end" className="min-w-56">
-          <DropdownMenuLabel>Account access</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setActiveAction(actions["send-sign-in-code"])}>
-            <KeyRound className="size-4" />
-            {actions["send-sign-in-code"].label}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setActiveAction(actions["revoke-all-sessions"])}>
-            <LogOut className="size-4" />
-            {actions["revoke-all-sessions"].label}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Account access</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => setActiveAction(actions["send-sign-in-code"])}>
+              <KeyRound className="size-4" />
+              {actions["send-sign-in-code"].label}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setActiveAction(actions["revoke-all-sessions"])}>
+              <LogOut className="size-4" />
+              {actions["revoke-all-sessions"].label}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>Account lifecycle</DropdownMenuLabel>
-          {hasPendingDeletion ? (
-            <DropdownMenuItem onClick={() => setActiveAction(actions["cancel-deletion"])}>
-              <RotateCcw className="size-4" />
-              {actions["cancel-deletion"].label}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() => setActiveAction(actions["schedule-deletion"])}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="size-4" />
-              {actions["schedule-deletion"].label}
-            </DropdownMenuItem>
-          )}
+          <DropdownMenuGroup>
+            <DropdownMenuLabel>Account lifecycle</DropdownMenuLabel>
+            {hasPendingDeletion ? (
+              <DropdownMenuItem onClick={() => setActiveAction(actions["cancel-deletion"])}>
+                <RotateCcw className="size-4" />
+                {actions["cancel-deletion"].label}
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onClick={() => setActiveAction(actions["schedule-deletion"])}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="size-4" />
+                {actions["schedule-deletion"].label}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 
