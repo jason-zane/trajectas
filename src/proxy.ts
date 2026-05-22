@@ -238,7 +238,26 @@ function shouldSkipActivityCheck(pathname: string): boolean {
   return (
     isAssessPath(pathname) ||
     isPublicHostedPath(pathname) ||
-    pathname.startsWith("/api/auth/send-email")
+    pathname.startsWith("/api/auth/send-email") ||
+    isAuthBoundaryPath(pathname)
+  );
+}
+
+/**
+ * Auth-boundary paths are part of the sign-in/sign-out chain itself, not real
+ * user activity. Applying the inactivity check on these creates a loop where a
+ * stale activity cookie from a previous session (e.g. set with a different
+ * domain scope than the fresh one) trips the expiry redirect during the
+ * verify → callback hand-off. /dashboard is intentionally NOT in this list:
+ * the main protected entry route must keep enforcing inactivity. The real
+ * fix is /auth/expire clearing the stale cookie under both domain scopes
+ * (see that route's cookies.set rows below).
+ */
+function isAuthBoundaryPath(pathname: string): boolean {
+  return (
+    pathname === "/login" ||
+    pathname === "/logout" ||
+    pathname.startsWith("/auth/")
   );
 }
 
