@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import {
   MARKETING_KEYWORDS,
+  PUBLIC_SITE_DESCRIPTION,
   PUBLIC_SITE_NAME,
+  PUBLIC_SITE_TAGLINE,
   getPublicSiteMetadataBase,
 } from "@/lib/seo/public-site";
 import "./globals-marketing.css";
@@ -24,16 +26,30 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: getPublicSiteMetadataBase(),
   title: {
-    default: "Trajectas — Contextual Psychometric Assessment",
+    default: `${PUBLIC_SITE_NAME} — ${PUBLIC_SITE_TAGLINE}`,
     template: "%s",
   },
-  description:
-    "Psychometric assessment built around organisational context, capability, performance, and measurable outcomes.",
+  description: PUBLIC_SITE_DESCRIPTION,
   keywords: [...MARKETING_KEYWORDS],
   applicationName: PUBLIC_SITE_NAME,
+  authors: [{ name: PUBLIC_SITE_NAME }],
+  creator: PUBLIC_SITE_NAME,
+  publisher: PUBLIC_SITE_NAME,
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-snippet": -1,
+      "max-image-preview": "large",
+      "max-video-preview": -1,
+    },
+  },
+  formatDetection: {
+    telephone: false,
+    email: false,
+    address: false,
   },
 };
 

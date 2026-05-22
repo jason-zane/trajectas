@@ -8,18 +8,20 @@ import {
   createWebPageJsonLd,
 } from "@/lib/seo/public-site";
 
-const title = "Capability Assessment for Organisations and Roles | Trajectas";
+const title =
+  "Capability Assessment, Calibrated to Your Roles and Outcomes | Trajectas";
 const description =
-  "Capability assessment should be built around your organisation, your roles, and your definition of good performance. See how Trajectas approaches capability measurement.";
+  "Capability is contextual. Trajectas builds capability assessment around your organisation's roles, your competency model, and the outcomes you're trying to predict — instead of forcing every client into the same benchmark.";
 
 export const metadata: Metadata = {
   title,
   description,
   keywords: [
     ...MARKETING_KEYWORDS,
-    "capability assessment",
-    "organisational capability assessment",
     "role-based capability assessment",
+    "capability mapping",
+    "competency assessment",
+    "leadership capability assessment",
   ],
   alternates: {
     canonical: "/capability-assessment",
@@ -30,6 +32,7 @@ export const metadata: Metadata = {
     url: buildPublicUrl("/capability-assessment"),
     siteName: PUBLIC_SITE_NAME,
     type: "article",
+    locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",
