@@ -2554,3 +2554,72 @@ export async function unfavoriteCampaign(campaignId: string) {
   revalidatePath('/client/dashboard')
   revalidatePath('/client/campaigns')
 }
+
+
+// ---------------------------------------------------------------------------
+// Consultant notification settings (per-campaign)
+// ---------------------------------------------------------------------------
+
+export interface CampaignConsultantSettings {
+  emails: string[]
+  enabled: boolean
+  includeSummary: boolean
+  attachPdf: boolean
+}
+
+export async function getCampaignConsultantSettings(
+  campaignId: string,
+): Promise<CampaignConsultantSettings | null> {
+  await requireCampaignAccess(campaignId)
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('campaigns')
+    .select(
+      'consultant_emails, consultant_notification_enabled, consultant_notification_include_summary, consultant_notification_attach_pdf',
+    )
+    .eq('id', campaignId)
+    .maybeSingle()
+  if (error || !data) return null
+  return {
+    emails: ((data.consultant_emails as string[] | null) ?? []).map((e) => String(e)),
+    enabled: Boolean(data.consultant_notification_enabled),
+    includeSummary: Boolean(data.consultant_notification_include_summary),
+    attachPdf: Boolean(data.consultant_notification_attach_pdf),
+  }
+}
+
+const CONSULTANT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export async function updateCampaignConsultantSettings(
+  campaignId: string,
+  input: Partial<CampaignConsultantSettings>,
+): Promise<{ success: true } | { error: string }> {
+  const access = await requireCampaignAccess(campaignId)
+  if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
+    return { error: 'You do not have permission to modify this campaign.' }
+  }
+  const patch: Record<string, unknown> = {}
+  if (input.emails !== undefined) {
+    const cleaned = Array.from(
+      new Set(
+        input.emails.map((e) => String(e ?? '').trim().toLowerCase()).filter(Boolean),
+      ),
+    )
+    const invalid = cleaned.filter((e) => !CONSULTANT_EMAIL_RE.test(e))
+    if (invalid.length > 0) return { error: `Invalid email address: ${invalid[0]}` }
+    patch.consultant_emails = cleaned
+  }
+  if (input.enabled !== undefined) patch.consultant_notification_enabled = input.enabled
+  if (input.includeSummary !== undefined)
+    patch.consultant_notification_include_summary = input.includeSummary
+  if (input.attachPdf !== undefined) patch.consultant_notification_attach_pdf = input.attachPdf
+  if (Object.keys(patch).length === 0) return { success: true }
+  const db = createAdminClient()
+  const { error } = await db.from('campaigns').update(patch).eq('id', campaignId)
+  if (error) {
+    logActionError('updateCampaignConsultantSettings', error)
+    return { error: 'Unable to update consultant settings.' }
+  }
+  revalidatePath(`/campaigns/${campaignId}/settings`)
+  return { success: true }
+}
