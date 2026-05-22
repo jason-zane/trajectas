@@ -41,11 +41,23 @@ export type SessionDetailSnapshot = {
   status: string
   generatedAt?: string
   releasedAt?: string
+  /** Set when the report has been emailed to the participant. */
+  sentToParticipantAt?: string
   errorMessage?: string
   pdfUrl?: string
   pdfStatus?: ReportPdfStatus
   pdfErrorMessage?: string
   narrativeMode: string
+}
+
+/** Dimension-level aggregate, computed from the session's entity scores. */
+export type SessionDetailDimensionScore = {
+  dimensionId: string
+  dimensionName: string
+  /** Mean of the entity scores rolling up to this dimension (POMP 0–100). */
+  scaledScore: number
+  /** How many scored entities contributed. */
+  childCount: number
 }
 
 export type SessionDetail = {
@@ -67,6 +79,12 @@ export type SessionDetail = {
   processedAt?: string
   durationMinutes?: number
   responseCount: number
+  /** Overall score for the session (mean of children). Undefined until scoring completes. */
+  compositeScore?: number
+  /** How compositeScore was computed (v1 always 'mean_of_children'). */
+  compositeMethod?: string
+  /** Per-dimension aggregates derived from the entity scores. */
+  dimensionScores: SessionDetailDimensionScore[]
   scores: SessionDetailScore[]
   snapshots: SessionDetailSnapshot[]
   attemptNumber: number
@@ -135,6 +153,7 @@ type SnapshotLookupRow = {
   status?: string | null
   generated_at?: string | null
   released_at?: string | null
+  sent_to_participant_at?: string | null
   error_message?: string | null
   pdf_url?: string | null
   pdf_status?: ReportPdfStatus | null
@@ -206,7 +225,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
   const { data: session, error } = await db
     .from('participant_sessions')
     .select(
-      'id, assessment_id, status, processing_status, processing_error, processed_at, started_at, completed_at, campaign_participant_id',
+      'id, assessment_id, status, processing_status, processing_error, processed_at, started_at, completed_at, campaign_participant_id, composite_score, composite_method',
     )
     .eq('id', sessionId)
     .maybeSingle()
@@ -259,7 +278,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       .order('started_at', { ascending: true, nullsFirst: false }),
     db
       .from('report_snapshots')
-      .select('id, template_id, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+      .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
       .eq('participant_session_id', sessionId)
       .order('created_at', { ascending: false }),
     db
@@ -427,6 +446,34 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     })
     .filter((s): s is SessionDetailScore => s !== null)
 
+  // Per-dimension aggregates: mean of children that report a parent dimension.
+  const dimensionBuckets = new Map<
+    string,
+    { dimensionName: string; sum: number; count: number }
+  >()
+  for (const score of scores) {
+    if (!score.dimensionId) continue
+    const existing = dimensionBuckets.get(score.dimensionId)
+    if (existing) {
+      existing.sum += score.scaledScore
+      existing.count += 1
+    } else {
+      dimensionBuckets.set(score.dimensionId, {
+        dimensionName: score.dimensionName ?? 'Unnamed dimension',
+        sum: score.scaledScore,
+        count: 1,
+      })
+    }
+  }
+  const dimensionScores: SessionDetailDimensionScore[] = Array.from(dimensionBuckets)
+    .map(([dimensionId, bucket]) => ({
+      dimensionId,
+      dimensionName: bucket.dimensionName,
+      scaledScore: bucket.count > 0 ? bucket.sum / bucket.count : 0,
+      childCount: bucket.count,
+    }))
+    .sort((a, b) => a.dimensionName.localeCompare(b.dimensionName))
+
   const snapshots: SessionDetailSnapshot[] = snapshotRows.map((r) => {
     const tpl = getEmbeddedRecord(r.report_templates)
     return {
@@ -437,6 +484,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       status: String(r.status),
       generatedAt: r.generated_at ?? undefined,
       releasedAt: r.released_at ?? undefined,
+      sentToParticipantAt: r.sent_to_participant_at ?? undefined,
       errorMessage: r.error_message ?? undefined,
       pdfUrl: r.pdf_url ?? undefined,
       pdfStatus: r.pdf_status ?? undefined,
@@ -474,6 +522,10 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     processedAt: session.processed_at ?? undefined,
     durationMinutes,
     responseCount: responseCount ?? 0,
+    compositeScore:
+      session.composite_score != null ? Number(session.composite_score) : undefined,
+    compositeMethod: session.composite_method ?? undefined,
+    dimensionScores,
     scores,
     snapshots,
     attemptNumber,
@@ -494,7 +546,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
 
   const { data, error } = await db
     .from('report_snapshots')
-    .select('id, template_id, status, generated_at, released_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+    .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
     .eq('participant_session_id', sessionId)
     .order('created_at', { ascending: false })
 
@@ -514,6 +566,7 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
       status: String(r.status),
       generatedAt: r.generated_at ?? undefined,
       releasedAt: r.released_at ?? undefined,
+      sentToParticipantAt: r.sent_to_participant_at ?? undefined,
       errorMessage: r.error_message ?? undefined,
       pdfUrl: r.pdf_url ?? undefined,
       pdfStatus: r.pdf_status ?? undefined,
