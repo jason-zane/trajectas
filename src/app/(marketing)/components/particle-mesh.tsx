@@ -218,7 +218,7 @@ export function ParticleMesh({
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-20 mix-blend-screen"
+      className="pointer-events-none fixed inset-0 z-0"
       aria-hidden="true"
     />
   );

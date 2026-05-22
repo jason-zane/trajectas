@@ -2263,6 +2263,8 @@ export type UniqueClientParticipant = {
   latestStatus: string
   sessionCount: number
   lastActivity?: string
+  latestCampaignId: string
+  latestSessionId?: string
 }
 
 export async function getUniqueParticipantsForClient(
@@ -2290,7 +2292,7 @@ export async function getUniqueParticipantsForClient(
 
   const { data: participants, error: participantsError } = await db
     .from('campaign_participants')
-    .select('id, email, first_name, last_name, status, started_at, completed_at, created_at')
+    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, participant_sessions(id, status)')
     .in('campaign_id', campaignIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
@@ -2317,6 +2319,14 @@ export async function getUniqueParticipantsForClient(
 
   return Array.from(byEmail.values()).map(({ latest, count }) => {
     const timestamps = [latest.started_at, latest.completed_at].filter(Boolean) as string[]
+    const sessions = latest.participant_sessions ?? []
+    const latestSessionId =
+      sessions
+        .slice()
+        .reverse()
+        .find((s: { status: string }) => s.status === 'completed' || s.status === 'in_progress')?.id
+      ?? sessions[sessions.length - 1]?.id
+      ?? undefined
     return {
       id: latest.id,
       email: latest.email,
@@ -2327,6 +2337,8 @@ export async function getUniqueParticipantsForClient(
       lastActivity: timestamps.length > 0
         ? timestamps.sort().reverse()[0]
         : latest.created_at,
+      latestCampaignId: latest.campaign_id,
+      latestSessionId,
     }
   })
 }

@@ -2,18 +2,41 @@ import { requireAppUrl } from "@/lib/hosts";
 
 export const PUBLIC_SITE_NAME = "Trajectas";
 
+export const PUBLIC_SITE_TAGLINE = "Capabilities, contextualised.";
+
+export const PUBLIC_SITE_DESCRIPTION =
+  "Trajectas builds psychometric instruments around the capabilities your organisation actually needs, with measurement tied to the outcomes you're trying to move.";
+
 export const MARKETING_KEYWORDS = [
   "psychometric assessment",
-  "capability assessment",
   "contextual psychometric assessment",
+  "capability assessment",
   "organisational capability assessment",
-  "performance assessment",
+  "role-based capability assessment",
+  "custom capability framework",
+  "capability measurement",
+  "competency assessment",
+  "leadership capability assessment",
+  "hiring capability assessment",
+  "succession capability assessment",
+  "behavioural assessment",
+  "outcome-tied assessment",
+  "performance prediction",
   "capability and performance",
-  "assessment outcomes",
-  "custom assessment design",
-  "assessment built around your context",
+  "trajectory assessment",
+  "capability mapping",
+  "calibrated psychometric items",
+  "organisational psychology assessment",
+  "industrial organisational psychology",
   "workforce capability measurement",
+  "assessment built around your context",
+  "alternative to SHL",
+  "alternative to Korn Ferry",
+  "alternative to Predictive Index",
 ] as const;
+
+/** OG title used when individual pages don't supply one. */
+export const PUBLIC_SITE_OG_TITLE = `${PUBLIC_SITE_NAME} — ${PUBLIC_SITE_TAGLINE}`;
 
 export function getPublicSiteUrl(): string {
   return requireAppUrl("public");

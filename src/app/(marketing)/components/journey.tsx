@@ -1,90 +1,54 @@
-"use client";
-
-import { useScrollProgress } from "./use-scroll-progress";
-
 const STAGES = [
   {
     num: "01",
-    title: "Where you are",
-    desc: "Numbers without context. Data that doesn't connect to performance or outcomes.",
+    title: "Discovery",
+    desc: "We map your roles, your competency framework, and the outcomes you're trying to predict. No assumptions about what \"capability\" means until you tell us.",
   },
   {
     num: "02",
-    title: "Your context",
-    desc: "Your organisation. Your roles. The capabilities that drive performance in your environment.",
+    title: "Build the model",
+    desc: "Capabilities are designed around your organisation. AI-drafted, your team approves. Pre-built starting points if you'd rather customise than start blank.",
   },
   {
     num: "03",
-    title: "Build the instrument",
-    desc: "A psychometrically rigorous assessment, calibrated to the capabilities your roles actually demand.",
+    title: "Run",
+    desc: "Participants take the assessment in a co-branded runner. Items drawn from a calibrated bank. Campaigns send to whole cohorts at once.",
   },
   {
     num: "04",
-    title: "Outcomes",
-    desc: "Capability mapped to performance. Insight that reveals trajectory — not just a score.",
+    title: "Read trajectory",
+    desc: "Individual capability profiles ship today. Over time, we connect the instrument to the performance signals you choose to share.",
   },
 ];
 
-function setJourneyStageVariables(
-  element: HTMLDivElement | null,
-  stageStart: number,
-  direction: number
-) {
-  if (!element) return;
-
-  element.style.setProperty("--stage-start", stageStart.toFixed(4));
-  element.style.setProperty("--stage-dir", String(direction));
-}
-
 export function Journey() {
-  const { ref } = useScrollProgress();
-
   return (
-    <section
-      ref={ref}
-      data-section="journey"
-      className="journey-section relative"
-    >
-      <div className="journey-sticky flex flex-col items-center justify-center pt-16 md:pt-0">
-        {/* Central trajectory line — hidden on mobile */}
-        <div className="absolute left-1/2 top-[10%] h-[80%] w-px -translate-x-1/2 hidden md:block">
-          <div className="journey-line w-full origin-top" />
+    <section id="how" className="tj-section tj-journey" data-section="journey">
+      <div className="tj-container">
+        <div className="tj-section-head">
+          <p className="tj-eyebrow">How it works</p>
+          <h2 className="tj-h2">From your context to a calibrated instrument.</h2>
+          <p className="tj-lede">
+            Discovery is where it starts. A short scoping engagement maps the
+            capabilities your organisation actually depends on, then the
+            instrument is built around it.
+          </p>
         </div>
-
-        {/* Stages */}
-        <div className="journey-list relative flex w-full max-w-4xl flex-col gap-6 px-5 py-6 md:h-[70%] md:justify-between md:gap-0 md:px-8 md:py-0">
-          {STAGES.map((stage, i) => {
-            const stageStart = i * 0.25;
-            const isLeft = i % 2 === 0;
-            const contentClass = isLeft
-              ? "md:col-start-1 md:justify-self-end md:pr-10 md:text-right"
-              : "md:col-start-3 md:justify-self-start md:pl-10 md:text-left";
-
-            return (
-              <div
-                key={i}
-                ref={(element) =>
-                  setJourneyStageVariables(element, stageStart, isLeft ? -1 : 1)
-                }
-                className="journey-stage relative grid w-full grid-cols-1 place-items-center md:grid-cols-[minmax(0,1fr)_0_minmax(0,1fr)]"
-              >
-                <div
-                  className={`max-w-[19rem] text-center md:w-full md:max-w-sm ${contentClass}`}
-                >
-                  <div className="mk-mono text-[var(--mk-accent)]">
-                    {stage.num}
-                  </div>
-                  <h3 className="journey-title mt-1 text-lg font-bold md:text-xl">
-                    {stage.title}
-                  </h3>
-                  <p className="journey-desc mk-body mt-2">{stage.desc}</p>
-                </div>
-
-                {/* Dot on center line — hidden on mobile */}
-                <div className="journey-dot absolute left-1/2 hidden md:block" />
+        <div className="tj-steps">
+          {STAGES.map((s, i) => (
+            <div
+              key={s.num}
+              className="tj-step rise-in"
+              style={{ animationDelay: `${i * 0.08}s` }}
+            >
+              <div className="tj-step-head">
+                <span className="tj-step-num">{s.num}</span>
+                <span className="tj-step-line" />
               </div>
-            );
-          })}
+              <h3 className="tj-h3">{s.title}</h3>
+              <p>{s.desc}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

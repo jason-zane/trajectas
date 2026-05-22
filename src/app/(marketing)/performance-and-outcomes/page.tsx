@@ -8,18 +8,20 @@ import {
   createWebPageJsonLd,
 } from "@/lib/seo/public-site";
 
-const title = "Assessment for Performance and Outcomes | Trajectas";
+const title =
+  "Assessment Tied to Performance, Trajectory and Outcomes | Trajectas";
 const description =
-  "Assessment becomes more useful when it helps organisations connect capability to performance and outcomes. Learn how Trajectas frames that link.";
+  "Most assessments stop at description. Trajectas links capability to the outcomes that matter — promotion, manager rating, retention, ramp — so the result is something you can actually act on.";
 
 export const metadata: Metadata = {
   title,
   description,
   keywords: [
     ...MARKETING_KEYWORDS,
-    "performance assessment",
-    "assessment outcomes",
-    "capability performance outcomes",
+    "outcome-tied assessment",
+    "performance prediction",
+    "trajectory assessment",
+    "capability and performance",
   ],
   alternates: {
     canonical: "/performance-and-outcomes",
@@ -30,6 +32,7 @@ export const metadata: Metadata = {
     url: buildPublicUrl("/performance-and-outcomes"),
     siteName: PUBLIC_SITE_NAME,
     type: "article",
+    locale: "en_GB",
   },
   twitter: {
     card: "summary_large_image",

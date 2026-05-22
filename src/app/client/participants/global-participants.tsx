@@ -16,36 +16,18 @@ import {
 import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { PageHeader } from "@/components/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ParticipantStatusBadge,
+  PARTICIPANT_STATUS_LABEL,
+} from "@/components/results/status-badges";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-const STATUS_VARIANT: Record<
-  string,
-  "secondary" | "default" | "outline" | "destructive"
-> = {
-  invited: "secondary",
-  registered: "outline",
-  in_progress: "default",
-  completed: "default",
-  withdrawn: "destructive",
-  expired: "outline",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  invited: "Invited",
-  registered: "Registered",
-  in_progress: "In Progress",
-  completed: "Completed",
-  withdrawn: "Withdrawn",
-  expired: "Expired",
-};
 
 function getDisplayName(p: { firstName?: string | null; lastName?: string | null; email: string }) {
   const name = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
@@ -118,25 +100,30 @@ const sessionsColumns: ColumnDef<SessionTableRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Participant" />
     ),
-    cell: ({ row }) => (
-      <DataTableRowLink
-        href={`/client/campaigns/${row.original.campaignId}/participants/${row.original.id}`}
-        ariaLabel={`Open ${row.original.displayName}`}
-        className="min-w-0"
-      >
-        <div className="flex items-center gap-3">
-          <Avatar className="size-9">
-            <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <p className="truncate font-semibold hover:text-primary">
-              {row.original.displayName}
-            </p>
-            <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+    cell: ({ row }) => {
+      const href = row.original.latestSessionId
+        ? `/client/campaigns/${row.original.campaignId}/sessions/${row.original.latestSessionId}`
+        : `/client/campaigns/${row.original.campaignId}/participants/${row.original.id}`;
+      return (
+        <DataTableRowLink
+          href={href}
+          ariaLabel={`Open ${row.original.displayName}`}
+          className="min-w-0"
+        >
+          <div className="flex items-center gap-3">
+            <Avatar className="size-9">
+              <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="truncate font-semibold hover:text-primary">
+                {row.original.displayName}
+              </p>
+              <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+            </div>
           </div>
-        </div>
-      </DataTableRowLink>
-    ),
+        </DataTableRowLink>
+      );
+    },
   },
   {
     accessorKey: "campaignTitle",
@@ -152,11 +139,7 @@ const sessionsColumns: ColumnDef<SessionTableRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
     ),
-    cell: ({ row }) => (
-      <Badge variant={STATUS_VARIANT[row.original.status] ?? "secondary"}>
-        {STATUS_LABEL[row.original.status] ?? row.original.status}
-      </Badge>
-    ),
+    cell: ({ row }) => <ParticipantStatusBadge status={row.original.status} />,
   },
   {
     id: "progress",
@@ -212,6 +195,12 @@ type ParticipantTableRow = UniqueClientParticipant & {
   lastActivityValue: string;
 };
 
+function uniqueParticipantHref(row: ParticipantTableRow) {
+  return row.latestSessionId
+    ? `/client/campaigns/${row.latestCampaignId}/sessions/${row.latestSessionId}`
+    : `/client/campaigns/${row.latestCampaignId}/participants/${row.id}`;
+}
+
 const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
   {
     accessorKey: "displayName",
@@ -219,15 +208,23 @@ const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
       <DataTableColumnHeader column={column} title="Participant" />
     ),
     cell: ({ row }) => (
-      <div className="flex items-center gap-3 min-w-0">
-        <Avatar className="size-9">
-          <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <p className="truncate font-semibold">{row.original.displayName}</p>
-          <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+      <DataTableRowLink
+        href={uniqueParticipantHref(row.original)}
+        ariaLabel={`Open ${row.original.displayName}`}
+        className="min-w-0"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar className="size-9">
+            <AvatarFallback>{getInitials(row.original)}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="truncate font-semibold hover:text-primary">
+              {row.original.displayName}
+            </p>
+            <p className="truncate text-sm text-muted-foreground">{row.original.email}</p>
+          </div>
         </div>
-      </div>
+      </DataTableRowLink>
     ),
   },
   {
@@ -247,9 +244,7 @@ const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
       <DataTableColumnHeader column={column} title="Latest Status" />
     ),
     cell: ({ row }) => (
-      <Badge variant={STATUS_VARIANT[row.original.latestStatus] ?? "secondary"}>
-        {STATUS_LABEL[row.original.latestStatus] ?? row.original.latestStatus}
-      </Badge>
+      <ParticipantStatusBadge status={row.original.latestStatus} />
     ),
   },
   {
@@ -379,10 +374,9 @@ export function GlobalParticipants({
               {
                 id: "status",
                 title: "Status",
-                options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
-                  value,
-                  label,
-                })),
+                options: Object.entries(PARTICIPANT_STATUS_LABEL).map(
+                  ([value, label]) => ({ value, label }),
+                ),
               },
             ]}
             defaultSort={{ id: "lastActivity", desc: true }}
@@ -390,6 +384,11 @@ export function GlobalParticipants({
             enableRowSelection
             getRowId={(row) => row.id}
             bulkActions={sessionsBulkActions}
+            rowHref={(row) =>
+              row.latestSessionId
+                ? `/client/campaigns/${row.campaignId}/sessions/${row.latestSessionId}`
+                : `/client/campaigns/${row.campaignId}/participants/${row.id}`
+            }
           />
         </div>
       </div>
@@ -428,14 +427,14 @@ export function GlobalParticipants({
             {
               id: "latestStatus",
               title: "Status",
-              options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
-                value,
-                label,
-              })),
+              options: Object.entries(PARTICIPANT_STATUS_LABEL).map(
+                ([value, label]) => ({ value, label }),
+              ),
             },
           ]}
           defaultSort={{ id: "lastActivity", desc: true }}
           pageSize={25}
+          rowHref={uniqueParticipantHref}
         />
       </div>
     </div>

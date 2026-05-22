@@ -27,7 +27,7 @@ import {
   DataTableRowActions,
 } from "@/components/data-table";
 import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
-import { Badge } from "@/components/ui/badge";
+import { ParticipantStatusBadge } from "@/components/results/status-badges";
 import { Button } from "@/components/ui/button";
 import {
   ActionDialog,
@@ -39,18 +39,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ManualCopyDialog } from "@/components/ui/manual-copy-dialog";
 import { copyToClipboard } from "@/lib/clipboard";
-
-const STATUS_VARIANT: Record<
-  string,
-  "secondary" | "default" | "outline" | "destructive"
-> = {
-  invited: "secondary",
-  registered: "outline",
-  in_progress: "default",
-  completed: "default",
-  withdrawn: "destructive",
-  expired: "outline",
-};
 
 function getDisplayName(participant: CampaignParticipant) {
   const name = `${participant.firstName ?? ""} ${participant.lastName ?? ""}`.trim();
@@ -386,11 +374,7 @@ export function CampaignParticipantManager({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Status" />
       ),
-      cell: ({ row }) => (
-        <Badge variant={STATUS_VARIANT[row.original.status] ?? "secondary"}>
-          {row.original.status.replace(/_/g, " ")}
-        </Badge>
-      ),
+      cell: ({ row }) => <ParticipantStatusBadge status={row.original.status} />,
     },
     {
       id: "startedAt",
@@ -517,6 +501,11 @@ export function CampaignParticipantManager({
         pageSize={20}
         enableRowSelection
         bulkActions={bulkActions}
+        rowHref={(row) =>
+          row.latestSessionId
+            ? `/campaigns/${campaignId}/sessions/${row.latestSessionId}`
+            : undefined
+        }
       />
 
       <ActionDialog
