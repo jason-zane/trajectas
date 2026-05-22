@@ -73,7 +73,7 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
       : null
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+    <div className="max-w-[850px] mx-auto space-y-6 pb-16">
       <PageHeader
         eyebrow="Reports"
         title="Report Preview"
@@ -97,7 +97,10 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
         </div>
       </PageHeader>
 
-      <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+      {/* A4 reports render at a fixed 794px width. Outer container fits that
+          on desktop; overflow-x-auto lets narrower viewports scroll rather
+          than clip the right edge (the visible-on-PDF / cut-off-on-web bug). */}
+      <div className="rounded-xl border border-border bg-card shadow-sm overflow-x-auto">
         <Suspense>
           <ReportRenderer blocks={blocks} />
         </Suspense>
