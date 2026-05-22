@@ -66,7 +66,17 @@ export function getAllowedServerActionOrigins(
   // envs would silently end up with a short allowedOrigins list, causing
   // Server Actions to 403 for hosts not in the list. Fail the build
   // instead — this matches the runtime assertion in src/instrumentation.ts.
-  if (env.NODE_ENV === "production" && env.SKIP_SURFACE_URL_ASSERT !== "1") {
+  //
+  // Gated to Vercel builds (VERCEL=1) because GitHub Actions `next build`
+  // runs as a syntax/compile check without surface URL envs, and we do
+  // not want CI to fail on a configuration concern that only matters at
+  // deploy time. SKIP_SURFACE_URL_ASSERT=1 is a manual override (e.g. a
+  // one-off `next build` against a preview env).
+  if (
+    env.VERCEL === "1" &&
+    env.NODE_ENV === "production" &&
+    env.SKIP_SURFACE_URL_ASSERT !== "1"
+  ) {
     const requiredKeys: Array<typeof surfaceUrlEnvKeys[number]> = [
       "PUBLIC_APP_URL",
       "ADMIN_APP_URL",
