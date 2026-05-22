@@ -39,6 +39,43 @@ describe("next config security helpers", () => {
     ]);
   });
 
+  it("throws on Vercel production builds with missing required surface URLs", () => {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "production",
+      VERCEL: "1",
+      // PUBLIC_APP_URL, ADMIN_APP_URL, ASSESS_APP_URL deliberately missing
+    };
+    expect(() => getAllowedServerActionOrigins(env)).toThrow(
+      /Missing required surface URL env vars at build time/,
+    );
+  });
+
+  it("does not throw on CI (Vercel unset) even with missing surface URLs", () => {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "production",
+      // VERCEL deliberately unset → simulates GitHub Actions
+    };
+    expect(() => getAllowedServerActionOrigins(env)).not.toThrow();
+    expect(getAllowedServerActionOrigins(env)).toEqual([]);
+  });
+
+  it("does not throw when SKIP_SURFACE_URL_ASSERT=1 is set", () => {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "production",
+      VERCEL: "1",
+      SKIP_SURFACE_URL_ASSERT: "1",
+    };
+    expect(() => getAllowedServerActionOrigins(env)).not.toThrow();
+  });
+
+  it("does not throw on Vercel preview builds (NODE_ENV != production)", () => {
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: "development",
+      VERCEL: "1",
+    };
+    expect(() => getAllowedServerActionOrigins(env)).not.toThrow();
+  });
+
   it("builds the expected next config contract", async () => {
     const env: NodeJS.ProcessEnv = {
       NODE_ENV: "test",

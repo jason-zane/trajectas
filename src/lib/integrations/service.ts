@@ -7,7 +7,7 @@ import type {
   IntegrationExternalRefInput,
   IntegrationLaunchRecord,
 } from '@/lib/integrations/types'
-import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
+import { buildSurfaceUrl, requireAppUrl } from '@/lib/hosts'
 import { mapCampaignAssessmentRow, mapCampaignParticipantRow, mapCampaignRow, mapReportSnapshotRow } from '@/lib/supabase/mappers'
 
 async function getClientPartnerId(clientId: string) {
@@ -30,16 +30,7 @@ function assessmentUrlFromToken(token: string) {
   const surfaceUrl = buildSurfaceUrl('assess', `/assess/${token}`)
   if (surfaceUrl) return surfaceUrl.toString()
 
-  const fallbackBase = getConfiguredSurfaceUrl('public') ?? process.env.NEXT_PUBLIC_APP_URL
-  if (!fallbackBase) {
-    throw new IntegrationApiError(
-      500,
-      'assess_surface_not_configured',
-      'Assessment surface URL is not configured.'
-    )
-  }
-
-  return new URL(`/assess/${token}`, fallbackBase).toString()
+  return new URL(`/assess/${token}`, requireAppUrl('public')).toString()
 }
 
 function reportViewerUrl(input: {

@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
+import { requireAppUrl } from '@/lib/hosts'
 import type { ReportPdfStatus, ReportSnapshotStatus } from '@/types/database'
 
 const REPORTS_BUCKET = 'reports'
@@ -45,11 +46,7 @@ async function ensureReportsBucket() {
 }
 
 function getAppUrl() {
-  return (
-    process.env.ADMIN_APP_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    'http://localhost:3002'
-  )
+  return requireAppUrl('admin')
 }
 
 export function getReportPdfDownloadPath(snapshotId: string) {

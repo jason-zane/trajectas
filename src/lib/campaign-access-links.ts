@@ -6,13 +6,16 @@ export function getCampaignAccessLinkPath(token: string) {
 
 export function buildCampaignAccessLinkUrl(token: string, origin?: string) {
   const path = getCampaignAccessLinkPath(token);
-  const base = origin ?? process.env.NEXT_PUBLIC_APP_URL;
 
-  if (!base) {
+  // Callers in the browser pass window.location.origin; server callers
+  // should pass an explicit base (see requireAppUrl in @/lib/hosts). If
+  // neither is given we return the relative path — callers that paste
+  // links into emails MUST resolve a base before doing so.
+  if (!origin) {
     return path;
   }
 
-  return `${base.replace(/\/$/, "")}${path}`;
+  return `${origin.replace(/\/$/, "")}${path}`;
 }
 
 export function getPrimaryActiveAccessLink<T extends Pick<CampaignAccessLink, "isActive" | "created_at">>(

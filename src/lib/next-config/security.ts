@@ -58,7 +58,40 @@ export function getAllowedServerActionOrigins(
       .map((value) => value.trim())
       .filter(Boolean) ?? [];
 
-  return Array.from(new Set([...configuredHosts, ...extraAllowedOrigins]));
+  const origins = Array.from(new Set([...configuredHosts, ...extraAllowedOrigins]));
+
+  // Build-time assertion: serverActions.allowedOrigins is computed during
+  // Next config evaluation, BEFORE any runtime instrumentation hook can
+  // assert env presence. A misconfigured deploy with missing surface URL
+  // envs would silently end up with a short allowedOrigins list, causing
+  // Server Actions to 403 for hosts not in the list. Fail the build
+  // instead — this matches the runtime assertion in src/instrumentation.ts.
+  //
+  // Gated to Vercel builds (VERCEL=1) because GitHub Actions `next build`
+  // runs as a syntax/compile check without surface URL envs, and we do
+  // not want CI to fail on a configuration concern that only matters at
+  // deploy time. SKIP_SURFACE_URL_ASSERT=1 is a manual override (e.g. a
+  // one-off `next build` against a preview env).
+  if (
+    env.VERCEL === "1" &&
+    env.NODE_ENV === "production" &&
+    env.SKIP_SURFACE_URL_ASSERT !== "1"
+  ) {
+    const requiredKeys: Array<typeof surfaceUrlEnvKeys[number]> = [
+      "PUBLIC_APP_URL",
+      "ADMIN_APP_URL",
+      "ASSESS_APP_URL",
+    ];
+    const missing = requiredKeys.filter((key) => !env[key]);
+    if (missing.length > 0) {
+      throw new Error(
+        `Missing required surface URL env vars at build time: ${missing.join(", ")}. ` +
+          `Configure them before building or set SKIP_SURFACE_URL_ASSERT=1 to bypass.`,
+      );
+    }
+  }
+
+  return origins;
 }
 
 export function getAllowedDevOrigins(

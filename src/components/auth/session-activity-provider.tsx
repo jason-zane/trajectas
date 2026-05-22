@@ -12,6 +12,7 @@ import {
   WARNING_THRESHOLD_SECONDS,
   INACTIVITY_TIMEOUT_SECONDS,
 } from "@/lib/auth/session-activity-constants";
+import { fetchWithTimeout } from "@/lib/net/fetch-with-timeout";
 
 const WARNING_MS = WARNING_THRESHOLD_SECONDS * 1000;
 const TIMEOUT_MS = INACTIVITY_TIMEOUT_SECONDS * 1000;
@@ -81,7 +82,7 @@ export function SessionActivityProvider({
 
   const callKeepAlive = useCallback(async () => {
     try {
-      await fetch("/api/auth/activity", { method: "POST" });
+      await fetchWithTimeout("/api/auth/activity", { method: "POST", timeoutMs: 5_000 });
     } catch {
       // Silently ignore — if the server is unreachable, expiry redirect will handle it
     }

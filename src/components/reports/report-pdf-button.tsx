@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Download, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { fetchWithTimeout } from "@/lib/net/fetch-with-timeout"
 import type { ReportPdfStatus } from "@/types/database"
 
 type ButtonStatus = "idle" | ReportPdfStatus
@@ -82,8 +83,9 @@ export function ReportPdfButton({
 
     const poll = async () => {
       try {
-        const response = await fetch(statusUrl, {
+        const response = await fetchWithTimeout(statusUrl, {
           cache: "no-store",
+          timeoutMs: 10_000,
         })
         const payload = (await response.json().catch(() => ({}))) as
           | ReportPdfStatusPayload
@@ -171,11 +173,12 @@ export function ReportPdfButton({
     // Otherwise kick off generation — auto-download will trigger when ready
     try {
       setError(null)
-      const response = await fetch(downloadUrl, {
+      const response = await fetchWithTimeout(downloadUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        timeoutMs: 30_000,
       })
       const payload = (await response.json().catch(() => ({}))) as
         | ReportPdfStatusPayload
