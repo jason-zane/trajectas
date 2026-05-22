@@ -28,3 +28,19 @@ ALTER TABLE report_snapshots
 
 COMMENT ON COLUMN report_snapshots.sent_to_participant_at IS
   'When the report was emailed to the participant (separate from released_at, which marks available for viewing). Null until a Send action fires.';
+
+-- Backfill composite_score for sessions that already have scores. The
+-- session-scoring path only writes composite on future runs, so without this
+-- backfill every historical session would render null in the new UI.
+-- Idempotent: WHERE composite_score IS NULL skips already-populated rows on
+-- any subsequent run (e.g. local-dev DB resets after the column landed).
+UPDATE participant_sessions ps
+SET composite_score = sub.avg_score,
+    composite_method = 'mean_of_children'
+FROM (
+  SELECT session_id, AVG(scaled_score) AS avg_score
+  FROM participant_scores
+  GROUP BY session_id
+) sub
+WHERE ps.id = sub.session_id
+  AND ps.composite_score IS NULL;
