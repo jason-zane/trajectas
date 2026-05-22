@@ -13,7 +13,16 @@ const ParticleMesh = dynamic(
   { ssr: false },
 );
 
-const SECTIONS = ["hero", "problem", "journey", "builtFor", "contact"] as const;
+const SECTIONS = [
+  "hero",
+  "problem",
+  "journey",
+  "science",
+  "try",
+  "builtFor",
+  "compare",
+  "contact",
+] as const;
 
 export function MarketingInteractive() {
   const [activeSection, setActiveSection] = useState<string>("hero");

@@ -1,33 +1,60 @@
-import { ContactForm } from "./contact-form";
+import { CalendarCard } from "./calendar-card";
 
 export function Contact() {
   return (
-    <section id="contact" data-section="contact" aria-label="Contact us" style={{ backgroundColor: "var(--mk-primary-dark)" }}>
-      <div className="flex min-h-[80vh] flex-col items-center justify-center px-4 py-16 text-center md:px-8 md:py-24">
-        <p className="mk-eyebrow mb-6">Get in touch</p>
-        <h2
-          className="mk-display max-w-2xl font-[family-name:var(--font-display)]"
-          style={{ color: "var(--mk-text-on-dark)" }}
-        >
-          Tell us what capability looks like in your world.
-        </h2>
-        <p className="mk-body mt-4 mb-12" style={{ color: "var(--mk-text-on-dark-muted)" }}>
-          We&apos;ll show you how a tailored assessment can map capability, performance, and trajectory for your organisation.
-        </p>
-        <ContactForm />
-      </div>
+    <section
+      id="contact"
+      className="tj-section tj-contact"
+      data-section="contact"
+      aria-label="Contact us"
+    >
+      <div className="tj-contact-grid">
+        <div className="tj-contact-pitch">
+          <p className="tj-eyebrow">Get in touch</p>
+          <h2 className="tj-h2">
+            Tell us what capability looks like in your world.
+          </h2>
+          <p className="tj-lede">
+            Thirty minutes, no pitch. Bring an actual problem — a hiring
+            decision, a promotion call, a capability gap you can&apos;t name —
+            and we&apos;ll show you how a tailored instrument would approach
+            it.
+          </p>
 
-      <footer
-        className="flex items-center justify-between px-4 py-6 md:px-8"
-        style={{ borderTop: "1px solid rgba(255, 255, 255, 0.06)" }}
-      >
-        <span className="text-sm font-bold" style={{ color: "rgba(255, 255, 255, 0.4)" }}>
-          Trajectas
-        </span>
-        <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.2)" }}>
-          © 2026 Trajectas
-        </span>
-      </footer>
+          <ol className="tj-contact-paths">
+            <li>
+              <span className="tj-contact-path-step">1</span>
+              <div>
+                <h3>Pick a time</h3>
+                <p>
+                  Grab any 30-minute slot from the calendar. Confirmed
+                  instantly.
+                </p>
+                <span className="tj-contact-path-meta">
+                  30-min video call · APAC hours
+                </span>
+              </div>
+            </li>
+            <li>
+              <span className="tj-contact-path-step">2</span>
+              <div>
+                <h3>Prefer email?</h3>
+                <p>
+                  Send a line about what you&apos;re trying to measure — happy
+                  to start there instead.
+                </p>
+                <a
+                  href="mailto:hello@trajectas.com?subject=Discovery%20call"
+                  className="tj-btn tj-btn-ghost tj-contact-email"
+                >
+                  hello@trajectas.com →
+                </a>
+              </div>
+            </li>
+          </ol>
+        </div>
+        <CalendarCard />
+      </div>
     </section>
   );
 }

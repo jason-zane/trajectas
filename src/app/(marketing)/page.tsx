@@ -3,8 +3,12 @@ import { Nav } from "./components/nav";
 import { Hero } from "./components/hero";
 import { Problem } from "./components/problem";
 import { Journey } from "./components/journey";
-import { BuiltFor } from "./components/built-for";
+import { Science } from "./components/science";
+import { TryIt } from "./components/try-it";
+import { UseCases } from "./components/use-cases";
+import { Compare } from "./components/compare";
 import { Contact } from "./components/contact";
+import { Footer } from "./components/footer";
 import { MarketingInteractive } from "./components/marketing-islands";
 import {
   MARKETING_KEYWORDS,
@@ -71,7 +75,7 @@ const homeStructuredData = [
 
 export default function MarketingPage() {
   return (
-    <>
+    <div className="tj">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -80,13 +84,17 @@ export default function MarketingPage() {
       />
       <MarketingInteractive />
       <Nav />
-      <main className="relative z-10">
+      <main>
         <Hero />
         <Problem />
         <Journey />
-        <BuiltFor />
+        <Science />
+        <TryIt />
+        <UseCases />
+        <Compare />
         <Contact />
       </main>
-    </>
+      <Footer />
+    </div>
   );
 }
