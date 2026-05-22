@@ -518,10 +518,13 @@ function Step2ReadinessCheck({
         setPreflightError(err instanceof Error ? err.message : String(err));
       })
       .finally(() => {
+        // Only clear loading if THIS request is still the latest — otherwise
+        // an aborted older request would hide the spinner while a newer
+        // request is still pending (Codex P2 on #147).
         if (preflightControllerRef.current === controller) {
           preflightControllerRef.current = null;
+          setPreflightLoading(false);
         }
-        setPreflightLoading(false);
       });
   // preflightSnapshot is a dependency because we need the latest snapshot
   // to compute changes. The effect that triggers initial/auto runs intentionally
