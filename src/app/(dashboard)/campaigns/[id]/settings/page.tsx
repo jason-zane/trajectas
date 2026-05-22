@@ -1,4 +1,4 @@
-import { getCampaignHeader } from "@/app/actions/campaigns";
+import { getCampaignHeader, getCampaignConsultantSettings } from "@/app/actions/campaigns";
 import { getCampaignTemplates, getReportTemplates } from "@/app/actions/reports";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapClientRow } from "@/lib/supabase/mappers";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CampaignForm } from "../../campaign-form";
 import { CampaignSettingsToggles } from "./campaign-settings-toggles";
 import { ReportConfigPanel } from "./report-config-panel";
+import { ConsultantNotificationsPanel } from "./consultant-notifications-panel";
 
 export default async function CampaignSettingsPage({
   params,
@@ -14,10 +15,11 @@ export default async function CampaignSettingsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [campaign, campaignTemplates, templates] = await Promise.all([
+  const [campaign, campaignTemplates, templates, consultantSettings] = await Promise.all([
     getCampaignHeader(id),
     getCampaignTemplates(id),
     getReportTemplates(),
+    getCampaignConsultantSettings(id),
   ]);
   if (!campaign) notFound();
 
@@ -83,6 +85,14 @@ export default async function CampaignSettingsPage({
         assignedTemplates={campaignTemplates}
         allTemplates={templates}
       />
+
+      {/* Consultant notifications */}
+      {consultantSettings && (
+        <ConsultantNotificationsPanel
+          campaignId={campaign.id}
+          initial={consultantSettings}
+        />
+      )}
     </div>
   );
 }

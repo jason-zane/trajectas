@@ -13,13 +13,21 @@ function getResendClient(): Resend {
   return resendClient
 }
 
+export interface SendHtmlEmailAttachment {
+  filename: string
+  /** Base64-encoded file content. */
+  content: string
+  contentType?: string
+}
+
 export interface SendHtmlEmailOptions {
-  to: string
+  to: string | string[]
   subject: string
   html: string
   text: string
   from?: string
   replyTo?: string
+  attachments?: SendHtmlEmailAttachment[]
 }
 
 export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
@@ -33,5 +41,10 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
     html: options.html,
     text: options.text,
     replyTo: options.replyTo,
+    attachments: options.attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      contentType: a.contentType,
+    })),
   })
 }

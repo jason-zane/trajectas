@@ -24,6 +24,7 @@ import { getModelForTask } from '@/lib/ai/model-config'
 import { DEFAULT_REPORT_THEME } from './presentation'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
+import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
 import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
@@ -404,6 +405,17 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       console.error(`[integrations] Failed to enqueue report event for ${snapshotId}:`, eventError)
     }
 
+    if (template.autoRelease) {
+      try {
+        await notifyConsultantsForSnapshot(snapshotId)
+      } catch (notifyError) {
+        console.error(
+          `[notifications] Consultant notify failed for snapshot ${snapshotId}:`,
+          notifyError,
+        )
+      }
+    }
+
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error(`[runner] processSnapshot failed for ${snapshotId}:`, message)
@@ -508,6 +520,17 @@ async function runCustomReport(
   } catch (eventError) {
     console.error(`[integrations] Failed to enqueue report event for ${snapshotId}:`, eventError)
   }
+
+    if (template.autoRelease) {
+      try {
+        await notifyConsultantsForSnapshot(snapshotId)
+      } catch (notifyError) {
+        console.error(
+          `[notifications] Consultant notify failed for snapshot ${snapshotId}:`,
+          notifyError,
+        )
+      }
+    }
 }
 
 // ---------------------------------------------------------------------------
