@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionDetail } from "@/app/actions/sessions";
+import { getCampaignSessionReportRows } from "@/app/actions/reports";
 import { SessionActionsMenu } from "@/components/sessions/session-actions-menu";
-import { SessionDetailView } from "@/components/results/session-detail-view";
+import { SessionView } from "@/components/results/session-view";
 
 export default async function AdminSessionDetailPage({
   params,
@@ -17,16 +18,22 @@ export default async function AdminSessionDetailPage({
   if (session.participantId !== participantId) {
     redirect(`/participants/${session.participantId}/sessions/${sessionId}`);
   }
+
+  const reportRows = await getCampaignSessionReportRows(sessionId);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-end">
         <SessionActionsMenu sessionId={sessionId} />
       </div>
-      <SessionDetailView
+      <SessionView
         session={session}
+        reportRows={reportRows}
         canSeeResponses={true}
         backHref={`/participants/${participantId}`}
         backLabel="Back to participant"
+        reportBasePath="/reports"
+        settingsHref={`/campaigns/${session.campaignId}/settings`}
       />
     </div>
   );

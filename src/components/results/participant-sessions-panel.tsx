@@ -6,10 +6,12 @@ import { ExternalLink, Trash2 } from "lucide-react";
 import { bulkDeleteParticipantSessions } from "@/app/actions/sessions";
 import type { ParticipantSession } from "@/app/actions/participants";
 import { DataTable, DataTableColumnHeader, DataTableRowLink, type BulkAction } from "@/components/data-table";
-import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { LocalTime } from "@/components/local-time";
-import { getSessionProcessingStatusLabel } from "@/lib/assess/session-processing";
+import {
+  SessionStatusBadge,
+  SessionProcessingBadge,
+} from "@/components/results/status-badges";
 
 interface ParticipantSessionsPanelProps {
   sessions: ParticipantSession[];
@@ -19,22 +21,6 @@ interface ParticipantSessionsPanelProps {
 type SessionRow = ParticipantSession & {
   attemptNumber: number;
 };
-
-function statusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
-  if (status === "completed") return "default";
-  if (status === "in_progress") return "secondary";
-  if (status === "expired") return "destructive";
-  return "outline";
-}
-
-function processingVariant(
-  status: string,
-): "default" | "secondary" | "outline" | "destructive" {
-  if (status === "ready") return "default";
-  if (status === "scoring" || status === "reporting") return "secondary";
-  if (status === "failed") return "destructive";
-  return "outline";
-}
 
 function computeAttempts(sessions: ParticipantSession[]): Map<string, number> {
   const byAssessment = new Map<string, ParticipantSession[]>();
@@ -89,13 +75,9 @@ function getColumns(sessionBaseHref: string): ColumnDef<SessionRow>[] {
       ),
       cell: ({ row }) => (
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={statusVariant(row.original.status)}>
-            {row.original.status}
-          </Badge>
+          <SessionStatusBadge status={row.original.status} />
           {row.original.status === "completed" && (
-            <Badge variant={processingVariant(row.original.processingStatus)}>
-              {getSessionProcessingStatusLabel(row.original.processingStatus)}
-            </Badge>
+            <SessionProcessingBadge status={row.original.processingStatus} />
           )}
         </div>
       ),

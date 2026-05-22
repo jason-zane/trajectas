@@ -14,11 +14,14 @@ import {
   type BulkAction,
 } from "@/components/data-table";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  ParticipantStatusBadge,
+  PARTICIPANT_STATUS_LABEL,
+} from "@/components/results/status-badges";
 
 type SessionTableRow = ParticipantWithMeta & {
   displayName: string;
@@ -29,27 +32,6 @@ type SessionTableRow = ParticipantWithMeta & {
 type ParticipantTableRow = UniqueParticipant & {
   displayName: string;
   lastActivityValue: string;
-};
-
-const STATUS_VARIANT: Record<
-  string,
-  "secondary" | "default" | "outline" | "destructive"
-> = {
-  invited: "secondary",
-  registered: "outline",
-  in_progress: "default",
-  completed: "default",
-  withdrawn: "destructive",
-  expired: "outline",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  invited: "Invited",
-  registered: "Registered",
-  in_progress: "In Progress",
-  completed: "Completed",
-  withdrawn: "Withdrawn",
-  expired: "Expired",
 };
 
 function formatRelativeDate(value: string) {
@@ -132,11 +114,7 @@ const sessionsColumns: ColumnDef<SessionTableRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Status" />
     ),
-    cell: ({ row }) => (
-      <Badge variant={STATUS_VARIANT[row.original.status] ?? "secondary"}>
-        {STATUS_LABEL[row.original.status] ?? row.original.status}
-      </Badge>
-    ),
+    cell: ({ row }) => <ParticipantStatusBadge status={row.original.status} />,
   },
   {
     id: "progress",
@@ -224,9 +202,7 @@ const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
       <DataTableColumnHeader column={column} title="Latest Status" />
     ),
     cell: ({ row }) => (
-      <Badge variant={STATUS_VARIANT[row.original.latestStatus] ?? "secondary"}>
-        {STATUS_LABEL[row.original.latestStatus] ?? row.original.latestStatus}
-      </Badge>
+      <ParticipantStatusBadge status={row.original.latestStatus} />
     ),
   },
   {
@@ -353,10 +329,9 @@ export function ParticipantsTable({
             {
               id: "status",
               title: "Status",
-              options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
-                value,
-                label,
-              })),
+              options: Object.entries(PARTICIPANT_STATUS_LABEL).map(
+                ([value, label]) => ({ value, label }),
+              ),
             },
             {
               id: "campaignTitle",
@@ -403,10 +378,9 @@ export function ParticipantsTable({
           {
             id: "latestStatus",
             title: "Latest Status",
-            options: Object.entries(STATUS_LABEL).map(([value, label]) => ({
-              value,
-              label,
-            })),
+            options: Object.entries(PARTICIPANT_STATUS_LABEL).map(
+              ([value, label]) => ({ value, label }),
+            ),
           },
         ]}
         defaultSort={{ id: "lastActivity", desc: true }}
