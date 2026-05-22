@@ -88,7 +88,7 @@ export interface DataTableProps<TData, TValue> {
   searchableColumns?: (keyof TData)[];
   filterableColumns?: DataTableFilterConfig[];
   onRowClick?: (row: TData) => void;
-  rowHref?: (row: TData) => string;
+  rowHref?: (row: TData) => string | undefined;
   emptyState?: ReactNode;
   defaultSort?: { id: string; desc: boolean };
   pageSize?: number;
@@ -232,7 +232,6 @@ export function DataTable<TData, TValue>({
   const selectedRows = table.getSelectedRowModel().rows.map((row) => row.original);
   const selectedIds = Object.keys(rowSelection);
 
-  const isInteractive = Boolean(onRowClick || rowHref);
   const hasToolbar = searchableColumns.length > 0 || filterableColumns.length > 0;
   const rows = table.getRowModel().rows;
   const defaultEmptyState =
@@ -333,34 +332,38 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {rows.length > 0 ? (
-              rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  tabIndex={isInteractive ? 0 : undefined}
-                  role={rowHref ? "link" : onRowClick ? "button" : undefined}
-                  onClick={
-                    isInteractive
-                      ? (event) => handleRowClick(event, row.original)
-                      : undefined
-                  }
-                  onKeyDown={
-                    isInteractive
-                      ? (event) => handleRowKeyDown(event, row.original)
-                      : undefined
-                  }
-                  className={cn(
-                    isInteractive
-                      ? "cursor-pointer hover:bg-[var(--cream)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-                      : undefined
-                  )}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              rows.map((row) => {
+                const resolvedHref = rowHref?.(row.original);
+                const rowIsInteractive = Boolean(resolvedHref) || Boolean(onRowClick);
+                return (
+                  <TableRow
+                    key={row.id}
+                    tabIndex={rowIsInteractive ? 0 : undefined}
+                    role={resolvedHref ? "link" : onRowClick ? "button" : undefined}
+                    onClick={
+                      rowIsInteractive
+                        ? (event) => handleRowClick(event, row.original)
+                        : undefined
+                    }
+                    onKeyDown={
+                      rowIsInteractive
+                        ? (event) => handleRowKeyDown(event, row.original)
+                        : undefined
+                    }
+                    className={cn(
+                      rowIsInteractive
+                        ? "cursor-pointer hover:bg-[var(--cream)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                        : undefined
+                    )}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow className="hover:bg-transparent">
                 <TableCell

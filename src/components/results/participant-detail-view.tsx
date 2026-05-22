@@ -2,8 +2,8 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ParticipantStatusBadge } from "./status-badges";
 import { ParticipantOverviewPanel } from "./participant-overview-panel";
 import { ParticipantActivityPanel } from "./participant-activity-panel";
 import { ParticipantSessionsPanel } from "./participant-sessions-panel";
@@ -29,15 +29,6 @@ interface ParticipantDetailViewProps {
   backHref: string;
   backLabel: string;
   sessionBaseHref: string;
-}
-
-function statusVariant(
-  status: string
-): "default" | "secondary" | "outline" | "destructive" {
-  if (status === "completed") return "default";
-  if (status === "in_progress" || status === "registered") return "secondary";
-  if (status === "withdrawn" || status === "expired") return "destructive";
-  return "outline";
 }
 
 function getInitials(name: string, email: string): string {
@@ -83,9 +74,7 @@ export function ParticipantDetailView({
               participant.clientName ? ` · ${participant.clientName}` : ""
             } · ${participant.campaignTitle}`}
           >
-            <Badge variant={statusVariant(participant.status)} className="uppercase">
-              {participant.status}
-            </Badge>
+            <ParticipantStatusBadge status={participant.status} />
           </PageHeader>
         </div>
       </div>

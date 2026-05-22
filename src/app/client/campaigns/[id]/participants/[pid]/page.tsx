@@ -44,7 +44,9 @@ export default async function ClientParticipantDetailPage({
 
   const participant = await loadParticipant(pid);
 
-  if (!participant) notFound();
+  if (!participant || participant.campaignId !== campaignId) {
+    notFound();
+  }
 
   const { sessions, activity, snapshots } = await loadParticipantAuxiliaryData(pid);
 

@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionDetail } from "@/app/actions/sessions";
-import { SessionDetailView } from "@/components/results/session-detail-view";
+import { getCampaignSessionReportRows } from "@/app/actions/reports";
+import { SessionView } from "@/components/results/session-view";
 
 export default async function ClientSessionDetailPage({
   params,
@@ -11,15 +12,21 @@ export default async function ClientSessionDetailPage({
 
   const session = await getSessionDetail(sessionId);
   if (!session) notFound();
-  if (session.participantId !== pid) {
-    redirect(`/client/campaigns/${campaignId}/participants/${session.participantId}/sessions/${sessionId}`);
+  if (session.participantId !== pid || session.campaignId !== campaignId) {
+    redirect(`/client/campaigns/${session.campaignId}/participants/${session.participantId}/sessions/${sessionId}`);
   }
+
+  const reportRows = await getCampaignSessionReportRows(sessionId);
+
   return (
-    <SessionDetailView
+    <SessionView
       session={session}
+      reportRows={reportRows}
       canSeeResponses={false}
       backHref={`/client/campaigns/${campaignId}/participants/${pid}`}
       backLabel="Back to participant"
+      reportBasePath="/client/reports"
+      settingsHref={`/client/campaigns/${campaignId}/settings`}
     />
   );
 }
