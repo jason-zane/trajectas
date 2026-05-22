@@ -3,15 +3,17 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { getActiveAssessments, getCampaigns } from "@/app/actions/campaigns";
+import { resolveSessionActor } from "@/lib/auth/actor";
 import { getClients } from "@/app/actions/clients";
 import { CampaignsTable } from "./campaigns-table";
 import { QuickLaunchButton } from "@/components/campaigns/quick-launch-button";
 
 export default async function CampaignsPage() {
-  const [campaigns, assessments, clients] = await Promise.all([
+  const [campaigns, assessments, clients, actor] = await Promise.all([
     getCampaigns(),
     getActiveAssessments(),
     getClients(),
+    resolveSessionActor(),
   ]);
 
   return (
@@ -25,6 +27,7 @@ export default async function CampaignsPage() {
           <QuickLaunchButton
             assessments={assessments}
             clients={clients.map((c) => ({ id: c.id, name: c.name }))}
+            creatorEmail={actor?.email}
           />
           <Link href="/campaigns/create">
             <Button variant="outline">
