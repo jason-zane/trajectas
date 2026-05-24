@@ -1,22 +1,36 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useMemo, useState, useTransition } from 'react'
+import { Table2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { getPersonTrajectory } from '@/app/actions/trajectory-data'
+import { computeTrajectorySummary } from '@/lib/trajectory/rollup'
 import { TrajectoryPersonHeader } from './trajectory-person-header'
-import { TrajectoryControls } from './trajectory-controls'
-import { TrajectoryChartGrid } from './trajectory-charts'
+import { TrajectorySummaryPanel } from './trajectory-summary'
+import { TrajectoryTimeline, type TimelineMode } from './trajectory-timeline'
+import { TrajectoryMoversStrip } from './trajectory-movers'
+import { TrajectoryDrillView } from './trajectory-drill-view'
 import { TrajectoryMatrix } from './trajectory-matrix'
 import { TrajectoryLinkedRecordsDrawer } from './trajectory-linked-records-drawer'
-import type {
-  TrajectoryLevel,
-  TrajectoryResult,
-} from '@/lib/trajectory/types'
+import type { TrajectoryResult, TrajectorySeries } from '@/lib/trajectory/types'
 
 /**
- * Top-level Trajectory workspace. Renders the person header, controls,
- * and the active view (charts or matrix). Re-fetches via the server action
- * when the level changes; the assessment filter and view toggle are
- * client-side filters over the loaded data.
+ * Top-level Trajectory workspace.
+ *
+ * Layout (overview state):
+ *   compact person header
+ *   editorial summary panel
+ *   optional assessment filter row
+ *   hero timeline
+ *   movers strip
+ *   optional dense matrix view (toggle in header)
+ *
+ * Drill state replaces the body with a single-entity focused view.
+ *
+ * The level toggle from V1 is gone — overview is always dimension level;
+ * deeper levels are reached through the drill (factor/construct drill is a
+ * follow-up). Charts/matrix dual view is replaced by a single hero chart
+ * with matrix demoted to a header toggle.
  */
 export function TrajectoryWorkspace({
   campaignParticipantId,
@@ -26,106 +40,195 @@ export function TrajectoryWorkspace({
   initialResult: TrajectoryResult
 }) {
   const [result, setResult] = useState<TrajectoryResult>(initialResult)
-  const [view, setView] = useState<'charts' | 'matrix'>('charts')
   const [selectedAssessmentIds, setSelectedAssessmentIds] = useState<string[]>(
     initialResult.assessmentsTouched.map((a) => a.assessmentId),
   )
-  const [pending, startTransition] = useTransition()
+  const [mode, setMode] = useState<TimelineMode>('absolute')
+  const [showMatrix, setShowMatrix] = useState(false)
+  const [drillEntityId, setDrillEntityId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [, startTransition] = useTransition()
 
-  const refetchAtCurrentLevel = () => {
+  const refetch = () => {
     startTransition(async () => {
-      const r = await getPersonTrajectory(campaignParticipantId, { level: result.level })
+      const r = await getPersonTrajectory(campaignParticipantId, { level: 'dimension' })
       setResult(r)
     })
   }
 
-  const setLevel = (next: TrajectoryLevel) => {
-    if (next === result.level) return
-    startTransition(async () => {
-      const r = await getPersonTrajectory(campaignParticipantId, { level: next })
-      setResult(r)
-      // Recompute assessment selection — keep only those still present.
-      setSelectedAssessmentIds((prev) =>
-        r.assessmentsTouched.length === 0
-          ? []
-          : prev.filter((id) =>
-              r.assessmentsTouched.some((a) => a.assessmentId === id),
-            ).length > 0
-          ? prev.filter((id) =>
-              r.assessmentsTouched.some((a) => a.assessmentId === id),
-            )
-          : r.assessmentsTouched.map((a) => a.assessmentId),
-      )
-    })
-  }
+  // Compare by set, not count — after a refetch the assessment list can
+  // change shape while selection length happens to match.
+  const allAssessmentsSelected = useMemo(() => {
+    if (selectedAssessmentIds.length !== result.assessmentsTouched.length) return false
+    const sel = new Set(selectedAssessmentIds)
+    return result.assessmentsTouched.every((a) => sel.has(a.assessmentId))
+  }, [selectedAssessmentIds, result.assessmentsTouched])
 
-  // Filter series down to the selected assessments
-  const filteredSeries = result.series
-    .map((s) => ({
-      ...s,
-      points: s.points.filter((p) =>
-        selectedAssessmentIds.includes(p.assessmentId),
-      ),
-    }))
-    .filter((s) => s.points.length > 0)
-    // Recompute the filtered series' deltas wouldn't be valid here without
-    // re-running the rollup; for v1 we just hide series with no remaining
-    // points and let the deltas reflect the full unfiltered history.
+  const filteredSeries = useMemo<TrajectorySeries[]>(() => {
+    if (allAssessmentsSelected) return result.series
+    return result.series
+      .map((s) => ({
+        ...s,
+        points: s.points.filter((p) => selectedAssessmentIds.includes(p.assessmentId)),
+      }))
+      .filter((s) => s.points.length > 0)
+  }, [result.series, selectedAssessmentIds, allAssessmentsSelected])
+
+  // Summary must reflect the visible data; recompute client-side when the
+  // filter is narrowed so the editorial lede can't drift from the chart.
+  const filteredSummary = useMemo(
+    () => (allAssessmentsSelected ? result.summary : computeTrajectorySummary(filteredSeries)),
+    [allAssessmentsSelected, result.summary, filteredSeries],
+  )
+
+  const seriesById = useMemo(
+    () => new Map(filteredSeries.map((s) => [s.entityId, s])),
+    [filteredSeries],
+  )
+
+  const drillSeries = drillEntityId ? seriesById.get(drillEntityId) ?? null : null
 
   const hasMultipleSessions = filteredSeries.some((s) => s.points.length >= 2)
   const hasAnyData = filteredSeries.length > 0
 
   return (
-    <div className="space-y-4">
-      <TrajectoryPersonHeader
-        result={result}
-        onOpenLinkedRecords={() => setDrawerOpen(true)}
-      />
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <TrajectoryPersonHeader
+          result={result}
+          onOpenLinkedRecords={() => setDrawerOpen(true)}
+        />
+        {hasAnyData && (
+          <button
+            type="button"
+            onClick={() => setShowMatrix((v) => !v)}
+            aria-pressed={showMatrix}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
+              showMatrix
+                ? 'border-foreground/30 bg-foreground/5 text-foreground'
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
+            )}
+          >
+            <Table2 className="size-3.5" />
+            Matrix
+          </button>
+        )}
+      </div>
 
       <TrajectoryLinkedRecordsDrawer
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         campaignParticipantId={campaignParticipantId}
-        onAfterChange={refetchAtCurrentLevel}
+        onAfterChange={refetch}
       />
 
-      <TrajectoryControls
-        level={result.level}
-        onLevelChange={setLevel}
-        assessments={result.assessmentsTouched}
-        selectedAssessmentIds={selectedAssessmentIds}
-        onAssessmentsChange={setSelectedAssessmentIds}
-        view={view}
-        onViewChange={setView}
-      />
-
-      {pending && (
-        <div className="text-xs text-muted-foreground italic px-1">
-          Reloading at {result.level} level…
-        </div>
-      )}
-
-      {!hasAnyData && (
+      {!hasAnyData ? (
         <EmptyState
           linkedCount={result.linkedParticipants.length}
           hasAnyTouched={result.assessmentsTouched.length > 0}
         />
-      )}
+      ) : drillSeries ? (
+        <TrajectoryDrillView
+          series={drillSeries}
+          mode={mode}
+          onModeChange={setMode}
+          onBack={() => setDrillEntityId(null)}
+        />
+      ) : (
+        <>
+          <TrajectorySummaryPanel
+            displayName={result.displayName}
+            summary={filteredSummary}
+          />
 
-      {hasAnyData && !hasMultipleSessions && (
-        <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-          Snapshot view — trajectory becomes meaningful with 2+ completed sessions per entity.
-        </div>
-      )}
+          {result.assessmentsTouched.length > 1 && (
+            <AssessmentFilter
+              assessments={result.assessmentsTouched}
+              selectedIds={selectedAssessmentIds}
+              onChange={setSelectedAssessmentIds}
+            />
+          )}
 
-      {hasAnyData && view === 'charts' && (
-        <TrajectoryChartGrid series={filteredSeries} />
-      )}
+          {hasMultipleSessions ? (
+            <TrajectoryTimeline
+              series={filteredSeries}
+              mode={mode}
+              onModeChange={setMode}
+              onSeriesClick={(entityId) => setDrillEntityId(entityId)}
+            />
+          ) : (
+            <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+              Snapshot view — trajectory becomes meaningful with 2+ completed sessions per dimension.
+            </div>
+          )}
 
-      {hasAnyData && view === 'matrix' && (
-        <TrajectoryMatrix series={filteredSeries} />
+          <TrajectoryMoversStrip
+            summary={filteredSummary}
+            seriesById={seriesById}
+            onSelect={(entityId) => setDrillEntityId(entityId)}
+          />
+
+          {showMatrix && <TrajectoryMatrix series={filteredSeries} />}
+        </>
       )}
+    </div>
+  )
+}
+
+function AssessmentFilter({
+  assessments,
+  selectedIds,
+  onChange,
+}: {
+  assessments: TrajectoryResult['assessmentsTouched']
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const allSelected = selectedIds.length === assessments.length
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 px-1">
+      <span className="text-overline text-muted-foreground mr-1">Assessments</span>
+      <button
+        type="button"
+        onClick={() =>
+          onChange(allSelected ? [] : assessments.map((a) => a.assessmentId))
+        }
+        className={cn(
+          'rounded-full border px-2.5 py-0.5 text-[11px] transition-colors',
+          allSelected
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border bg-card hover:bg-muted',
+        )}
+      >
+        All
+      </button>
+      {assessments.map((a) => {
+        const active = selectedIds.includes(a.assessmentId)
+        return (
+          <button
+            key={a.assessmentId}
+            type="button"
+            onClick={() =>
+              onChange(
+                active
+                  ? selectedIds.filter((x) => x !== a.assessmentId)
+                  : [...selectedIds, a.assessmentId],
+              )
+            }
+            className={cn(
+              'rounded-full border px-2.5 py-0.5 text-[11px] transition-colors',
+              active
+                ? 'border-foreground/30 bg-foreground/5 text-foreground'
+                : 'border-border bg-card text-muted-foreground hover:bg-muted',
+            )}
+          >
+            {a.assessmentName}
+            <span className="ml-1 opacity-60 tabular-nums">{a.sessionCount}</span>
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -143,10 +246,10 @@ function EmptyState({
   } else if (!hasAnyTouched) {
     message = 'No completed sessions for this person yet.'
   } else {
-    message = 'No scores available at this level for the selected assessments.'
+    message = 'No scores available for the selected assessments.'
   }
   return (
-    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-10 text-center text-sm text-muted-foreground">
       {message}
     </div>
   )

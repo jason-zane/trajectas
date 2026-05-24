@@ -6,9 +6,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeDeltas,
+  computeTrajectorySummary,
   deltaMagnitude,
 } from '@/lib/trajectory/rollup'
-import type { TrajectoryPoint } from '@/lib/trajectory/types'
+import type { TrajectoryPoint, TrajectorySeries } from '@/lib/trajectory/types'
 
 function point(
   overrides: Partial<TrajectoryPoint> & { sessionId: string; completedAt: string },
@@ -77,6 +78,104 @@ describe('computeDeltas', () => {
     const deltas = computeDeltas([p1, p2])
     expect(deltas[0].deltaScaled).toBe(10)
     expect(deltas[0].deltaScaledFraction).toBeNull()
+  })
+})
+
+describe('computeTrajectorySummary', () => {
+  function series(
+    entityId: string,
+    entityName: string,
+    pts: { sessionId: string; assessmentId?: string; completedAt: string; scaledScore: number | null }[],
+  ): TrajectorySeries {
+    return {
+      entityId,
+      entityName,
+      level: 'dimension',
+      parentId: null,
+      parentName: null,
+      points: pts.map((p) =>
+        point({
+          sessionId: p.sessionId,
+          assessmentId: p.assessmentId ?? 'a',
+          completedAt: p.completedAt,
+          scaledScore: p.scaledScore,
+        }),
+      ),
+      deltas: [],
+    }
+  }
+
+  it('returns empty summary for no series', () => {
+    const s = computeTrajectorySummary([])
+    expect(s.sessionCount).toBe(0)
+    expect(s.assessmentCount).toBe(0)
+    expect(s.topMovers).toEqual([])
+    expect(s.stable).toEqual([])
+    expect(s.earliestCompletedAt).toBeNull()
+    expect(s.latestCompletedAt).toBeNull()
+  })
+
+  it('counts unique sessions and assessments across dimensions', () => {
+    const s = computeTrajectorySummary([
+      series('d1', 'Resilience', [
+        { sessionId: 's1', assessmentId: 'big5', completedAt: '2024-03-01T00:00:00Z', scaledScore: 50 },
+        { sessionId: 's2', assessmentId: 'big5', completedAt: '2025-06-01T00:00:00Z', scaledScore: 65 },
+      ]),
+      series('d2', 'Influence', [
+        { sessionId: 's1', assessmentId: 'big5', completedAt: '2024-03-01T00:00:00Z', scaledScore: 60 },
+        { sessionId: 's3', assessmentId: 'opq', completedAt: '2026-04-01T00:00:00Z', scaledScore: 60 },
+      ]),
+    ])
+    expect(s.sessionCount).toBe(3)
+    expect(s.assessmentCount).toBe(2)
+    expect(s.earliestCompletedAt).toBe('2024-03-01T00:00:00Z')
+    expect(s.latestCompletedAt).toBe('2026-04-01T00:00:00Z')
+  })
+
+  it('classifies dimensions by absolute delta against threshold', () => {
+    const s = computeTrajectorySummary([
+      // |Δ|=15 — top mover
+      series('d1', 'Resilience', [
+        { sessionId: 's1', completedAt: '2024-03-01T00:00:00Z', scaledScore: 50 },
+        { sessionId: 's2', completedAt: '2025-06-01T00:00:00Z', scaledScore: 65 },
+      ]),
+      // |Δ|=8 — top mover
+      series('d2', 'Strategic Thinking', [
+        { sessionId: 's1', completedAt: '2024-03-01T00:00:00Z', scaledScore: 70 },
+        { sessionId: 's2', completedAt: '2025-06-01T00:00:00Z', scaledScore: 62 },
+      ]),
+      // |Δ|=1 — stable
+      series('d3', 'Influence', [
+        { sessionId: 's1', completedAt: '2024-03-01T00:00:00Z', scaledScore: 55 },
+        { sessionId: 's2', completedAt: '2025-06-01T00:00:00Z', scaledScore: 56 },
+      ]),
+      // Single point — excluded entirely
+      series('d4', 'Curiosity', [
+        { sessionId: 's1', completedAt: '2024-03-01T00:00:00Z', scaledScore: 80 },
+      ]),
+    ])
+    expect(s.topMovers.map((m) => m.entityId)).toEqual(['d1', 'd2'])
+    expect(s.topMovers[0].deltaScaled).toBe(15)
+    expect(s.topMovers[1].deltaScaled).toBe(-8)
+    expect(s.stable.map((m) => m.entityId)).toEqual(['d3'])
+  })
+
+  it('ignores non-dimension series', () => {
+    const factorSeries: TrajectorySeries = {
+      entityId: 'f1',
+      entityName: 'a factor',
+      level: 'factor',
+      parentId: null,
+      parentName: null,
+      points: [
+        point({ sessionId: 's1', completedAt: '2024-03-01T00:00:00Z', scaledScore: 30 }),
+        point({ sessionId: 's2', completedAt: '2025-03-01T00:00:00Z', scaledScore: 90 }),
+      ],
+      deltas: [],
+    }
+    const s = computeTrajectorySummary([factorSeries])
+    expect(s.sessionCount).toBe(0)
+    expect(s.topMovers).toEqual([])
   })
 })
 
