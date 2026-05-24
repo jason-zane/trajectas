@@ -44,7 +44,9 @@ import {
 } from "@/app/actions/generation";
 import { saveConstructDraftToLibrary } from "@/app/actions/constructs";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
-import type { GenerationRunConfig } from "@/types/database";
+import { listGenerationPresets } from "@/app/actions/generation-presets";
+import type { GenerationPreset, GenerationRunConfig } from "@/types/database";
+import { ConfiguratorCanvas } from "./configurator-canvas";
 import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult, ConstructPairResult, ConstructSnapshot, ConstructChange } from "@/types/generation";
 import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
@@ -70,6 +72,14 @@ interface WizardConfig {
   enableLeakageGuard: boolean;
   enableDifficultyTargeting: boolean;
   enableSyntheticValidation: boolean;
+
+  // Steering inputs added in the refactor
+  presetId?: string;
+  measurementMode?: import('@/types/database').MeasurementMode;
+  measurementModeDescription?: string;
+  audience?: import('@/types/database').Audience;
+  useContext?: import('@/types/database').UseContext;
+  useContextDescription?: string;
 }
 
 interface WizardModelBootstrap {
@@ -222,8 +232,7 @@ function resolveOverlappingPairs(
 const STEPS = [
   { number: 1, label: "Select Constructs" },
   { number: 2, label: "Readiness Check" },
-  { number: 3, label: "Configure" },
-  { number: 4, label: "Launch" },
+  { number: 3, label: "Configure & Launch" },
 ] as const;
 
 function StepIndicator({
@@ -1739,6 +1748,7 @@ export default function NewGenerationPage() {
   const [constructs, setConstructs] = useState<Construct[] | null>(null);
   const [responseFormats, setResponseFormats] = useState<ResponseFormat[] | null>(null);
   const [modelBootstrap, setModelBootstrap] = useState<WizardModelBootstrap | null>(null);
+  const [presets, setPresets] = useState<GenerationPreset[] | null>(null);
 
   const patchConfig = useCallback((patch: Partial<WizardConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
@@ -1766,6 +1776,9 @@ export default function NewGenerationPage() {
     getResponseFormatsForGeneration()
       .then(setResponseFormats)
       .catch(() => toast.error("Failed to load response formats"));
+    listGenerationPresets()
+      .then(setPresets)
+      .catch(() => setPresets([]));
     getModelSelectionBootstrap()
       .then((bootstrap) => {
         setModelBootstrap(bootstrap);
@@ -1831,6 +1844,12 @@ export default function NewGenerationPage() {
             config.selectedConstructIds,
             constructDrafts,
           ),
+          presetId: config.presetId,
+          measurementMode: config.measurementMode,
+          measurementModeDescription: config.measurementModeDescription,
+          audience: config.audience,
+          useContext: config.useContext,
+          useContextDescription: config.useContextDescription,
         };
 
         const run = await createGenerationRun(runConfig);
@@ -1893,27 +1912,34 @@ export default function NewGenerationPage() {
             />
           )}
           {step === 3 && (
-            <Step3Configure
-              config={config}
+            <ConfiguratorCanvas
+              config={{
+                targetItemsPerConstruct: config.targetItemsPerConstruct,
+                promptPurpose: config.promptPurpose,
+                presetId: config.presetId,
+                measurementMode: config.measurementMode,
+                measurementModeDescription: config.measurementModeDescription,
+                audience: config.audience,
+                useContext: config.useContext,
+                useContextDescription: config.useContextDescription,
+                responseFormatId: config.responseFormatId,
+                enableItemCritique: config.enableItemCritique,
+                enableLeakageGuard: config.enableLeakageGuard,
+                enableDifficultyTargeting: config.enableDifficultyTargeting,
+                enableSyntheticValidation: config.enableSyntheticValidation,
+                generationModel: config.generationModel,
+                embeddingModel: config.embeddingModel,
+                temperature: config.temperature,
+              }}
+              selectedConstructCount={config.selectedConstructIds.length}
+              presets={presets}
               textModels={modelBootstrap?.textModels ?? []}
               embeddingModels={modelBootstrap?.embeddingModels ?? []}
               responseFormats={responseFormats}
-              onChange={patchConfig}
+              onChange={(patch) => patchConfig(patch as Partial<WizardConfig>)}
               onBack={() => goToStep(2)}
-              onNext={() => goToStep(4)}
-            />
-          )}
-          {step === 4 && (
-            <Step4Launch
-              config={config}
-              constructs={constructs}
-              constructDrafts={constructDrafts}
-              textModels={modelBootstrap?.textModels ?? []}
-              embeddingModels={modelBootstrap?.embeddingModels ?? []}
-              responseFormats={responseFormats}
-              onBack={() => goToStep(3)}
               onLaunch={handleLaunch}
-              isLaunching={isPending || launched}
+              launching={isPending || launched}
             />
           )}
         </div>
