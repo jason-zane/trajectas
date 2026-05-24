@@ -212,10 +212,11 @@
 }
 @media (max-width: 880px) {
   [data-surface="marketing"] .tj-nav-links { display: none; }
-  [data-surface="marketing"] .tj-nav-signin { display: none; }
 }
 @media (max-width: 720px) {
-  [data-surface="marketing"] .tj-nav { padding: 12px 20px; gap: 12px; }
+  [data-surface="marketing"] .tj-nav { padding: 12px 16px; gap: 8px; }
+  [data-surface="marketing"] .tj-nav-signin { padding: 6px 10px; font-size: 13px; }
+  [data-surface="marketing"] .tj-nav-ctas { gap: 8px; }
 }
 [data-surface="marketing"] .tj-nav-signin {
   font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
