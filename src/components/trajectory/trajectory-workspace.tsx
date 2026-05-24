@@ -50,8 +50,9 @@ export function TrajectoryWorkspace({
   const searchParams = useSearchParams()
 
   // Read initial state from URL on first render only; subsequent URL changes
-  // are driven by state, not the other way around.
-  const initialUrl = useMemo(() => decodeTrajectoryParams(searchParams), [])  // eslint-disable-line react-hooks/exhaustive-deps
+  // are driven by state, not the other way around. useState's init function
+  // runs exactly once, so this is safe under the React Compiler.
+  const [initialUrl] = useState(() => decodeTrajectoryParams(searchParams))
 
   // Cache: trajectory result per level. Seeded with the dimension-level result.
   const [resultsByLevel, setResultsByLevel] = useState<
