@@ -3,6 +3,28 @@ This version has breaking changes — APIs, conventions, and file structure
 may differ from your training data. Read the relevant guide in
 `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
+## Workspace isolation — ALWAYS use a git worktree
+
+The repo is regularly worked on in parallel (Jason's terminal, other Claude
+sessions, scheduled agents). A git checkout has one HEAD across the whole
+working tree, so a `git checkout` or `git switch` from any of those processes
+silently rewrites the files under your feet. We have lost work to this twice.
+
+**Rule:** any time you create a new branch — feature, fix, refactor, chore —
+do it in a worktree under `.claude/worktrees/<branch-slug>/`, NOT in the
+primary checkout at `/Users/jasonhunt/projects/trajectas`. The primary
+checkout is reserved for Jason's terminal.
+
+The one-liner is `scripts/agent-worktree.sh <branch-name>`. It creates the
+worktree off `origin/main`, prints the path, and `cd` into it is your first
+command. From there, every subsequent `Bash` / `Read` / `Edit` should use
+the worktree path. See the script for details and the "Worktree hygiene"
+note under "Branch hygiene" below for cleanup after the PR merges.
+
+Read-only work (grep, lookups, audits, answering questions) on existing
+checked-in code is fine in the primary checkout — but the moment you're
+about to `git checkout -b`, switch to a worktree.
+
 ## UI/UX Standards
 Read `docs/ui-standards.md` before building any UI component or page.
 
