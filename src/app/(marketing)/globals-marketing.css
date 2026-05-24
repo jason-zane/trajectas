@@ -566,7 +566,12 @@
 
 @media (max-width: 980px) {
   [data-surface="marketing"] .tj-cases-list { gap: 64px; }
-  [data-surface="marketing"] .tj-case { grid-template-columns: 1fr; gap: 32px; }
+  /* The `.tj-case.reverse` rule above sets a 2-column grid with higher
+     specificity, so we have to repeat its selector here to actually collapse
+     the reversed rows to single-column on mobile (otherwise the fragment
+     column gets squeezed to 0px and the card renders at ~46px wide). */
+  [data-surface="marketing"] .tj-case,
+  [data-surface="marketing"] .tj-case.reverse { grid-template-columns: 1fr; gap: 32px; }
   [data-surface="marketing"] .tj-case.reverse > .tj-case-fragment { order: 0; }
 }
 
