@@ -9,9 +9,20 @@ const NAV_LINKS = [
   { href: "#compare", label: "Compare" },
 ];
 
+// Lightning CSS (Tailwind v4 pipeline) currently drops backdrop-filter from
+// our CSS files, so we set it inline here to preserve the frosted-glass look.
+const NAV_INLINE_STYLE: React.CSSProperties = {
+  backdropFilter: "blur(20px) saturate(180%)",
+  WebkitBackdropFilter: "blur(20px) saturate(180%)",
+};
+
 export function Nav() {
   return (
-    <header className="tj-nav" aria-label="Main navigation">
+    <header
+      className="tj-nav"
+      aria-label="Main navigation"
+      style={NAV_INLINE_STYLE}
+    >
       <Link href="/" className="tj-nav-brand" aria-label="Trajectas — home">
         <TrajectasLogo variant="horizontal" height={28} />
       </Link>
@@ -31,7 +42,7 @@ export function Nav() {
           className="tj-btn tj-btn-primary"
           style={{ padding: "10px 18px", fontSize: 13 }}
         >
-          Book a call →
+          Book a call
         </a>
       </div>
     </header>

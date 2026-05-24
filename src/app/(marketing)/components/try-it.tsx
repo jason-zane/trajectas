@@ -155,7 +155,7 @@ function LikertDemo() {
             style={{ padding: "14px 22px", fontSize: 14 }}
             onClick={start}
           >
-            Begin →
+            Begin
           </button>
         </div>
       </div>
@@ -232,7 +232,7 @@ function LikertDemo() {
               className="tj-btn tj-btn-primary"
               style={{ padding: "12px 20px", fontSize: 13 }}
             >
-              Talk about a real one →
+              Talk about a real one
             </a>
           </div>
         </div>

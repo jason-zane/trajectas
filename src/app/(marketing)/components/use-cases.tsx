@@ -77,7 +77,7 @@ export function UseCases() {
               </div>
               <div style={{ marginTop: 24 }}>
                 <a className="tj-case-link" href="#try">
-                  See the runner in action →
+                  See the runner in action
                 </a>
               </div>
             </div>

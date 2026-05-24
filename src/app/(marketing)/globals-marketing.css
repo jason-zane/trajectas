@@ -86,11 +86,24 @@
   position: relative;
 }
 /* Sections sit above the fixed particle canvas so opaque sections naturally
-   cover the mesh and transparent ones let it bleed through. */
+   cover the mesh and transparent ones let it bleed through. The nav is
+   positioned `fixed` separately below and creates its own stacking context. */
 [data-surface="marketing"] .tj > main > section,
-[data-surface="marketing"] .tj > .tj-nav,
 [data-surface="marketing"] .tj > .tj-footer {
   position: relative; z-index: 2;
+}
+
+/* Section ornament — a small centred gold tick that anchors the start of
+   every section after the hero. Replaces the old 1px hairline rules with
+   a calmer, brand-y break between sections. The dark contact section
+   already pops on its own ground, so it skips the ornament. */
+[data-surface="marketing"] .tj > main > section + section:not(.tj-contact)::before {
+  content: ""; position: absolute;
+  top: 36px; left: 50%; transform: translateX(-50%);
+  width: 36px; height: 2px; border-radius: 1px;
+  background: var(--gold-500);
+  opacity: .85;
+  z-index: 3;
 }
 
 /* Buttons */
@@ -158,10 +171,11 @@
    NAV
    ============================================================ */
 [data-surface="marketing"] .tj-nav {
-  position: sticky; top: 0; z-index: 30;
-  background: color-mix(in oklch, var(--cream) 88%, transparent);
-  backdrop-filter: blur(14px) saturate(160%);
-  border-bottom: 1px solid rgba(0,0,0,.06);
+  position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+  background: color-mix(in oklch, var(--cream) 62%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(0,0,0,.04);
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 56px; gap: 24px;
 }
@@ -198,7 +212,8 @@
    HERO
    ============================================================ */
 [data-surface="marketing"] .tj-hero {
-  padding: 80px max(var(--pad-x), 24px) 56px;
+  /* Extra top padding so the fixed nav doesn't overlap hero content. */
+  padding: 128px max(var(--pad-x), 24px) 56px;
   position: relative; overflow: hidden;
   background: transparent;
 }
@@ -263,8 +278,6 @@
    ============================================================ */
 [data-surface="marketing"] .tj-journey {
   background: transparent;
-  border-top: 1px solid rgba(0,0,0,.05);
-  border-bottom: 1px solid rgba(0,0,0,.05);
 }
 [data-surface="marketing"] .tj-journey > .tj-container { max-width: 1240px; margin: 0 auto; }
 [data-surface="marketing"] .tj-journey .tj-section-head {
@@ -328,8 +341,6 @@
    ============================================================ */
 [data-surface="marketing"] .tj-try {
   background: transparent;
-  border-top: 1px solid rgba(0,0,0,.05);
-  border-bottom: 1px solid rgba(0,0,0,.05);
 }
 [data-surface="marketing"] .tj-try .tj-container { margin-left: auto; margin-right: auto; max-width: 880px; }
 
@@ -462,7 +473,6 @@
    ============================================================ */
 [data-surface="marketing"] .tj-cases {
   background: transparent;
-  border-top: 1px solid rgba(0,0,0,.05);
 }
 [data-surface="marketing"] .tj-cases .tj-section-head {
   margin-left: auto; margin-right: auto; max-width: 720px;
@@ -530,7 +540,6 @@
    ============================================================ */
 [data-surface="marketing"] .tj-compare {
   background: transparent;
-  border-top: 1px solid rgba(0,0,0,.05);
 }
 [data-surface="marketing"] .tj-cmp-vs {
   max-width: 920px; margin: 0 auto 24px;

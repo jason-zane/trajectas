@@ -19,7 +19,7 @@ export function Hero() {
             style={{ animationDelay: ".3s" }}
           >
             <a href="#contact" className="tj-btn tj-btn-primary">
-              Book a 30-min discovery call →
+              Book a 30-min discovery call
             </a>
             <a href="#try" className="tj-btn tj-btn-ghost">
               Take the 60-second snapshot
