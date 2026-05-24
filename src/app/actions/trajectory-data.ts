@@ -336,6 +336,7 @@ type TaxonomyEntity = {
   level: TrajectoryLevel
   parentId: string | null
   parentName: string | null
+  additionalParentIds: string[]
 }
 
 type TaxonomyMaps = {
@@ -384,6 +385,7 @@ async function loadTaxonomyForLevel(
           level: 'factor',
           parentId: dim?.id ?? null,
           parentName: dim?.name ?? null,
+          additionalParentIds: [],
         })
       }
       if (dim) {
@@ -425,14 +427,41 @@ async function loadTaxonomyForLevel(
     }
 
     if (level === 'construct') {
+      // Resolve construct → factor via factor_constructs. The relation is
+      // many-to-many: a construct can sit under multiple factors. The first
+      // factor encountered becomes the primary parent (drives breadcrumb +
+      // matrix grouping); the rest go on additionalParentIds so the drill
+      // from any of those factors still surfaces this construct.
+      const { data: fcRows, error: fcErr } = await db
+        .from('factor_constructs')
+        .select('construct_id, factor_id, factors(id, name)')
+        .in('construct_id', [...constructIds])
+      if (fcErr) {
+        throwActionError('getPersonTrajectory', 'Unable to load factor_constructs.', fcErr)
+      }
+      const factorParentsByConstruct = new Map<string, { id: string; name: string }[]>()
+      for (const row of (fcRows ?? []) as FactorConstructLite[]) {
+        const f = unwrap(row.factors)
+        if (!f) continue
+        const cid = String(row.construct_id)
+        const entry = { id: String(f.id), name: String(f.name) }
+        const list = factorParentsByConstruct.get(cid) ?? []
+        if (!list.some((x) => x.id === entry.id)) list.push(entry)
+        factorParentsByConstruct.set(cid, list)
+      }
+
       for (const id of constructIds) {
-        const parent = parentDimensionByEntity.get(id) ?? null
+        const factorParents = factorParentsByConstruct.get(id) ?? []
+        const primary = factorParents[0] ?? null
+        const additional = factorParents.slice(1).map((p) => p.id)
+        const dimFallback = primary ? null : (parentDimensionByEntity.get(id) ?? null)
         entitiesByLevel.set(id, {
           id,
           name: constructNameById.get(id) ?? id,
           level: 'construct',
-          parentId: parent?.id ?? null,
-          parentName: parent?.name ?? null,
+          parentId: primary?.id ?? dimFallback?.id ?? null,
+          parentName: primary?.name ?? dimFallback?.name ?? null,
+          additionalParentIds: additional,
         })
       }
     }
@@ -457,6 +486,7 @@ async function loadTaxonomyForLevel(
           level: 'dimension',
           parentId: null,
           parentName: null,
+          additionalParentIds: [],
         })
       }
     }
@@ -479,6 +509,11 @@ type AssessmentConstructLite = {
   construct_id: string
   dimension_id: string | null
   dimensions: { id: string; name: string } | { id: string; name: string }[] | null
+}
+type FactorConstructLite = {
+  construct_id: string
+  factor_id: string | null
+  factors: { id: string; name: string } | { id: string; name: string }[] | null
 }
 
 function unwrap<T>(v: T | T[] | null | undefined): T | null {
@@ -602,6 +637,7 @@ function buildSeries(input: BuildSeriesInput): TrajectorySeries[] {
       level: taxonomy.level,
       parentId: taxonomy.parentId,
       parentName: taxonomy.parentName,
+      additionalParentIds: taxonomy.additionalParentIds,
       points,
       deltas: computeDeltas(points),
     })
