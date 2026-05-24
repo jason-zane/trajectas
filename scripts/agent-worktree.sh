@@ -8,12 +8,13 @@
 #
 # Effect:
 #   - fetches origin/main
-#   - creates .claude/worktrees/<branch-slug>/ pinned to a new branch
-#     branched from origin/main
+#   - creates .claude/worktrees/<branch-name>/ pinned to a new branch
+#     branched from origin/main (the path uses the branch name verbatim, so
+#     slash-style branches like fix/foo nest as .claude/worktrees/fix/foo/)
 #   - prints the absolute path of the worktree (cd into it as your next step)
 #
 # Cleanup after the related PR is merged:
-#   git worktree remove .claude/worktrees/<branch-slug>
+#   git worktree remove .claude/worktrees/<branch-name>
 #   git branch -D <branch-name>      # local branch is now orphaned
 
 set -euo pipefail
@@ -35,9 +36,10 @@ fi
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 
-# Slug for the on-disk path — slashes become dashes so the path is flat.
-SLUG="${BRANCH//\//-}"
-WORKTREE_PATH=".claude/worktrees/${SLUG}"
+# Use the branch name verbatim as the on-disk path so `feat/x` and `feat-x`
+# don't collide. Git handles nested directories under .claude/worktrees/ fine,
+# and the path stays grep-able back to the branch.
+WORKTREE_PATH=".claude/worktrees/${BRANCH}"
 
 if [[ -e "$WORKTREE_PATH" ]]; then
   echo "error: $WORKTREE_PATH already exists. Either reuse it, or run:" >&2
