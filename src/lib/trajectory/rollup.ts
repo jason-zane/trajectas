@@ -1,4 +1,10 @@
-import type { TrajectoryDelta, TrajectoryPoint } from './types'
+import type {
+  TrajectoryDelta,
+  TrajectoryMover,
+  TrajectoryPoint,
+  TrajectorySeries,
+  TrajectorySummary,
+} from './types'
 
 /**
  * Compute pairwise deltas for a single entity's series. The points are
@@ -64,4 +70,90 @@ export function deltaMagnitude(deltaScaled: number | null): DeltaMagnitude {
   if (abs < 8) return 'small'
   if (abs < 15) return 'medium'
   return 'large'
+}
+
+/** Movement smaller than this on the scaled scale is treated as noise. */
+export const STABLE_THRESHOLD = 3
+
+function moverFromSeries(series: TrajectorySeries): TrajectoryMover | null {
+  const points = series.points
+  if (points.length === 0) return null
+  const first = points[0]?.scaledScore ?? null
+  const latest = points[points.length - 1]?.scaledScore ?? null
+  const deltaScaled = first !== null && latest !== null ? latest - first : null
+  return {
+    entityId: series.entityId,
+    entityName: series.entityName,
+    firstScaled: first,
+    latestScaled: latest,
+    deltaScaled,
+    pointCount: points.length,
+  }
+}
+
+/**
+ * Editorial summary derived from a fully-assembled dimension-level series
+ * list. Counts the unique sessions (across all dimensions), date range,
+ * and splits dimensions into movers vs. stable by absolute Δ. Series at
+ * other levels are ignored.
+ */
+export function computeTrajectorySummary(
+  series: TrajectorySeries[],
+): TrajectorySummary {
+  const dimensionSeries = series.filter((s) => s.level === 'dimension')
+
+  const sessionIds = new Set<string>()
+  const assessmentIds = new Set<string>()
+  let earliest: string | null = null
+  let latest: string | null = null
+
+  for (const s of dimensionSeries) {
+    for (const p of s.points) {
+      sessionIds.add(p.sessionId)
+      assessmentIds.add(p.assessmentId)
+      if (!earliest || p.completedAt < earliest) earliest = p.completedAt
+      if (!latest || p.completedAt > latest) latest = p.completedAt
+    }
+  }
+
+  const movers: TrajectoryMover[] = []
+  for (const s of dimensionSeries) {
+    const m = moverFromSeries(s)
+    if (m && m.pointCount >= 2) movers.push(m)
+  }
+
+  const topMovers = movers
+    .filter((m) => m.deltaScaled !== null && Math.abs(m.deltaScaled) >= STABLE_THRESHOLD)
+    .sort(
+      (a, b) =>
+        Math.abs(b.deltaScaled ?? 0) - Math.abs(a.deltaScaled ?? 0),
+    )
+
+  const stable = movers
+    .filter(
+      (m) =>
+        m.deltaScaled !== null &&
+        Math.abs(m.deltaScaled) < STABLE_THRESHOLD,
+    )
+    .sort((a, b) => a.entityName.localeCompare(b.entityName))
+
+  return {
+    sessionCount: sessionIds.size,
+    assessmentCount: assessmentIds.size,
+    earliestCompletedAt: earliest,
+    latestCompletedAt: latest,
+    topMovers,
+    stable,
+  }
+}
+
+export function emptyTrajectorySummary(): TrajectorySummary {
+  return {
+    sessionCount: 0,
+    assessmentCount: 0,
+    earliestCompletedAt: null,
+    latestCompletedAt: null,
+    topMovers: [],
+    stable: [],
+  }
 }

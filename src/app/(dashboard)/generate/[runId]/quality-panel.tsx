@@ -2,6 +2,7 @@
 
 import React from "react"
 import { Info } from "lucide-react"
+import { Card, CardContent } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { nmiInterpretation, wtoInterpretation } from "./metric-helpers"
 import type { GenerationRun, GeneratedItem } from "@/types/database"
@@ -74,7 +75,7 @@ const WTO_RANGES = [
 function MetricGuide({ isMultiConstruct }: { isMultiConstruct: boolean }) {
   return (
     <div>
-      <p className="text-overline text-primary mb-2">Reading the Metrics</p>
+      <p className="text-overline text-gold mb-2">Reading the Metrics</p>
       <div className="space-y-3">
         <div>
           <p className="text-xs font-medium text-foreground mb-1.5">wTO (Redundancy)</p>
@@ -207,9 +208,10 @@ export function QualityPanel({
   })
 
   return (
-    <div className="rounded-xl bg-card ring-1 ring-foreground/[0.06] shadow-sm p-5 space-y-5">
+    <Card>
+      <CardContent className="p-5 space-y-5">
       <div>
-        <p className="text-overline text-primary mb-3">Quality Funnel</p>
+        <p className="text-overline text-gold mb-3">Quality Funnel</p>
         <div className="space-y-3">
           <FunnelBar label="Generated" count={run.itemsGenerated} maxCount={maxCount} colorClass="bg-primary/60" />
           <FunnelBar label="After UVA" count={afterUva} maxCount={maxCount} colorClass="bg-primary/70" />
@@ -226,7 +228,7 @@ export function QualityPanel({
         initialNmi !== undefined && (
           <div>
             <div className="flex items-center gap-1.5 mb-3">
-              <p className="text-overline text-primary">Construct Alignment (NMI)</p>
+              <p className="text-overline text-gold">Construct Alignment (NMI)</p>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger render={<span className="inline-flex" />}>
@@ -262,7 +264,7 @@ export function QualityPanel({
         )
       ) : (
         <div>
-          <p className="text-overline text-primary mb-3">Dimensionality</p>
+          <p className="text-overline text-gold mb-3">Dimensionality</p>
           <p className="text-xs text-muted-foreground">
             The retained pool contains <span className="font-medium text-foreground">{subthemeCount}</span> semantic sub-theme{subthemeCount === 1 ? "" : "s"}.
             That is expected for a single construct: you want coverage across facets, not just repeated wording of one narrow behaviour.
@@ -272,7 +274,7 @@ export function QualityPanel({
 
       {qualityWarnings.length > 0 && (
         <div>
-          <p className="text-overline text-primary mb-2">Why Results May Be Weak</p>
+          <p className="text-overline text-gold mb-2">Why Results May Be Weak</p>
           <div className="space-y-2 text-xs text-muted-foreground">
             {qualityWarnings.map((warning) => (
               <p key={warning}>{warning}</p>
@@ -282,7 +284,7 @@ export function QualityPanel({
       )}
 
       <div>
-        <p className="text-overline text-primary mb-2">Selecting Items</p>
+        <p className="text-overline text-gold mb-2">Selecting Items</p>
         <div className="space-y-2 text-xs text-muted-foreground">
           <p>
             Sort by <span className="font-medium text-foreground">wTO</span> ascending to find the most unique items first. Low wTO means the item adds information instead of echoing a neighbour.
@@ -338,6 +340,7 @@ export function QualityPanel({
           </div>
         )}
       </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

@@ -15,10 +15,6 @@ import { cancellableFetch, isAbortError } from "@/lib/net/cancellable-fetch";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion,
@@ -26,15 +22,7 @@ import {
   AccordionPanel,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PageHeader } from "@/components/page-header";
-import { getSelectLabel } from "@/lib/select-display";
 import {
   getConstructsForGeneration,
   getResponseFormatsForGeneration,
@@ -44,9 +32,11 @@ import {
 } from "@/app/actions/generation";
 import { saveConstructDraftToLibrary } from "@/app/actions/constructs";
 import { getModelSelectionBootstrap } from "@/app/actions/model-config";
-import type { GenerationRunConfig } from "@/types/database";
+import { listGenerationPresets } from "@/app/actions/generation-presets";
+import type { GenerationPreset, GenerationRunConfig } from "@/types/database";
+import { ConfiguratorCanvas } from "./configurator-canvas";
+import { ConstructPicker } from "./construct-picker";
 import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult, ConstructPairResult, ConstructSnapshot, ConstructChange } from "@/types/generation";
-import { ModelPickerCombobox } from "@/app/(dashboard)/settings/models/model-picker-combobox";
 import type { OpenRouterModel } from "@/types/generation";
 
 // ---------------------------------------------------------------------------
@@ -70,6 +60,14 @@ interface WizardConfig {
   enableLeakageGuard: boolean;
   enableDifficultyTargeting: boolean;
   enableSyntheticValidation: boolean;
+
+  // Steering inputs added in the refactor
+  presetId?: string;
+  measurementMode?: import('@/types/database').MeasurementMode;
+  measurementModeDescription?: string;
+  audience?: import('@/types/database').Audience;
+  useContext?: import('@/types/database').UseContext;
+  useContextDescription?: string;
 }
 
 interface WizardModelBootstrap {
@@ -79,11 +77,6 @@ interface WizardModelBootstrap {
 }
 
 type ConstructDraftMap = Record<string, ConstructDraftState>;
-
-const promptPurposeOptions = [
-  { value: "item_generation", label: "Construct" },
-  { value: "factor_item_generation", label: "Factor" },
-] as const;
 
 function createConstructDraftState(construct?: Partial<Construct>): ConstructDraftState {
   return {
@@ -222,8 +215,7 @@ function resolveOverlappingPairs(
 const STEPS = [
   { number: 1, label: "Select Constructs" },
   { number: 2, label: "Readiness Check" },
-  { number: 3, label: "Configure" },
-  { number: 4, label: "Launch" },
+  { number: 3, label: "Configure & Launch" },
 ] as const;
 
 function StepIndicator({
@@ -275,116 +267,6 @@ function StepIndicator({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 1: Select Constructs
-// ---------------------------------------------------------------------------
-
-function Step1SelectConstructs({
-  constructs,
-  selectedIds,
-  onToggle,
-  onNext,
-}: {
-  constructs: Construct[] | null;
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-  onNext: () => void;
-}) {
-  // Group by dimensionName
-  const grouped = React.useMemo(() => {
-    if (!constructs) return new Map<string, Construct[]>();
-    const map = new Map<string, Construct[]>();
-    for (const c of constructs) {
-      const key = c.dimensionName ?? "Other";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(c);
-    }
-    return map;
-  }, [constructs]);
-
-  const isLoading = constructs === null;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Select Constructs</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Choose the constructs you want to generate items for. At least one construct is required.
-        </p>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center">
-          <Loader2 className="size-4 animate-spin" />
-          Loading constructs...
-        </div>
-      ) : grouped.size === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No active constructs found. Create and activate constructs in the Library first.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6 max-h-[520px] overflow-y-auto pr-1">
-          {Array.from(grouped.entries()).map(([dimension, items]) => (
-            <div key={dimension}>
-              <p className="text-overline text-muted-foreground mb-2">{dimension}</p>
-              <div className="grid gap-2">
-                {items.map((construct) => {
-                  const isSelected = selectedIds.includes(construct.id);
-                  return (
-                    <label
-                      key={construct.id}
-                      className={[
-                        "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-                        isSelected
-                          ? "border-primary/50 bg-primary/5"
-                          : "border-border hover:border-primary/30 hover:bg-muted/50",
-                      ].join(" ")}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => onToggle(construct.id)}
-                        className="mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold">{construct.name}</span>
-                          <Badge variant="outline" className="text-caption">
-                            {construct.existingItemCount}{" "}
-                            {construct.existingItemCount === 1 ? "item" : "items"}
-                          </Badge>
-                        </div>
-                        {construct.definition && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {construct.definition}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-sm text-muted-foreground">
-          {selectedIds.length === 0
-            ? "No constructs selected"
-            : `${selectedIds.length} construct${selectedIds.length !== 1 ? "s" : ""} selected`}
-        </span>
-        <Button onClick={onNext} disabled={selectedIds.length === 0}>
-          Next: Check Readiness
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
     </div>
   );
 }
@@ -1300,412 +1182,6 @@ function Step2ReadinessCheck({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Step 3: Configure
-// ---------------------------------------------------------------------------
-
-function Step3Configure({
-  config,
-  textModels,
-  embeddingModels,
-  responseFormats,
-  onChange,
-  onBack,
-  onNext,
-}: {
-  config: WizardConfig;
-  textModels: OpenRouterModel[];
-  embeddingModels: OpenRouterModel[];
-  responseFormats: ResponseFormat[] | null;
-  onChange: (patch: Partial<WizardConfig>) => void;
-  onBack: () => void;
-  onNext: () => void;
-}) {
-  const selectedGenModel = textModels.find((m) => m.id === config.generationModel);
-  const supportsTemperature = selectedGenModel?.supported_parameters?.includes("temperature") ?? true;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Configure Generation</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Tune the generation parameters before launching the pipeline.
-        </p>
-      </div>
-
-      <div className="space-y-6">
-        {/* Item style */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Item Style</label>
-          <Select
-            value={config.promptPurpose}
-            onValueChange={(v) =>
-              onChange({ promptPurpose: v as WizardConfig['promptPurpose'] })
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue>
-                {(value: string | null) =>
-                  getSelectLabel(
-                    value as typeof promptPurposeOptions[number]["value"] | null,
-                    promptPurposeOptions
-                  )
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="item_generation">
-                Construct
-              </SelectItem>
-              <SelectItem value="factor_item_generation">
-                Factor
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            {config.promptPurpose === 'item_generation'
-              ? "Narrow construct items — personality-style, measuring dispositions and tendencies."
-              : "Broad factor items — behaviour-focused, measuring observable workplace capabilities."}
-          </p>
-        </div>
-
-        {/* Items per construct */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Items per Construct</label>
-            <span className="text-sm font-semibold text-primary tabular-nums">
-              {config.targetItemsPerConstruct}
-            </span>
-          </div>
-          <Slider
-            min={20}
-            max={80}
-            value={[config.targetItemsPerConstruct]}
-            onValueChange={(v) =>
-              onChange({ targetItemsPerConstruct: Array.isArray(v) ? v[0] : v })
-            }
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>20</span>
-            <span>80</span>
-          </div>
-        </div>
-
-        {/* Temperature */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">Generation Temperature</label>
-            <span className="text-sm font-semibold text-primary tabular-nums">
-              {supportsTemperature ? config.temperature.toFixed(1) : "N/A"}
-            </span>
-          </div>
-          <Slider
-            min={0.5}
-            max={1.5}
-            step={0.1}
-            value={[config.temperature]}
-            onValueChange={(v) => {
-              const n = Array.isArray(v) ? v[0] : v;
-              onChange({ temperature: Math.round(n * 10) / 10 });
-            }}
-            disabled={!supportsTemperature}
-          />
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>0.5 — Focused</span>
-            <span>1.5 — Diverse</span>
-          </div>
-          {supportsTemperature ? (
-            <p className="text-xs text-muted-foreground">
-              Higher values produce more diverse items but may increase redundancy. The pipeline
-              filters redundant items automatically.
-            </p>
-          ) : (
-            <p className="text-xs text-amber-600">
-              This model does not support temperature adjustment.
-            </p>
-          )}
-        </div>
-
-        {/* Generation model */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Generation Model</label>
-          <ModelPickerCombobox
-            value={config.generationModel}
-            onChange={(modelId) => onChange({ generationModel: modelId })}
-            models={textModels}
-          />
-        </div>
-
-        {/* Embedding model */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Embedding Model</label>
-          <ModelPickerCombobox
-            value={config.embeddingModel}
-            onChange={(modelId) => onChange({ embeddingModel: modelId })}
-            models={embeddingModels}
-          />
-        </div>
-
-        {/* Response format */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Response Format (Optional)</label>
-          <Select
-            value={config.responseFormatId ?? "__none__"}
-            onValueChange={(v) => {
-              if (v !== null) onChange({ responseFormatId: v === "__none__" ? undefined : v });
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue>
-                {(value: string | null) =>
-                  getSelectLabel(
-                    value,
-                    [
-                      { value: "__none__", label: "None" },
-                      ...(responseFormats ?? []).map((responseFormat) => ({
-                        value: responseFormat.id,
-                        label: responseFormat.name,
-                      })),
-                    ]
-                  )
-                }
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none__">None</SelectItem>
-              {(responseFormats ?? []).map((rf) => (
-                <SelectItem key={rf.id} value={rf.id}>
-                  {rf.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Items will be linked to this response format when accepted into the library.
-          </p>
-          {!config.responseFormatId && (
-            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-              <AlertCircle className="size-4 shrink-0 text-amber-600 mt-0.5" />
-              <p className="text-xs text-amber-700">
-                Without a response format, generated items cannot be accepted into the library.
-                You can still review them but won&apos;t be able to save them.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* Pipeline Options */}
-        <div className="space-y-3">
-          <label className="text-sm font-medium">Pipeline Options</label>
-          <p className="text-xs text-muted-foreground">
-            Optional quality stages that run during generation. Enabled stages improve item quality but increase processing time.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {[
-              {
-                key: "enableItemCritique" as const,
-                label: "Item Critique",
-                description: "A second AI model reviews each batch for construct purity, inflation risk, and readability.",
-                cost: "+1 LLM call per batch",
-              },
-              {
-                key: "enableLeakageGuard" as const,
-                label: "Leakage Guard",
-                description: "Checks each item's embedding against other constructs to catch cross-loading during generation.",
-                cost: "Embedding comparison (fast)",
-                requiresMultiple: true,
-              },
-              {
-                key: "enableDifficultyTargeting" as const,
-                label: "Difficulty Targeting",
-                description: "Steers generation toward difficulty gaps so the item pool covers easy, moderate, and hard items.",
-                cost: "Embedding analysis between batches",
-              },
-              {
-                key: "enableSyntheticValidation" as const,
-                label: "Synthetic Validation",
-                description: "Simulates respondent data to estimate factor structure and reliability before human testing.",
-                cost: "+50-100 LLM calls per construct",
-              },
-            ].map((option) => {
-              const isDisabled = option.requiresMultiple && config.selectedConstructIds.length < 2;
-              const isChecked = isDisabled ? false : config[option.key];
-              return (
-                <Card key={option.key} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold">{option.label}</p>
-                      <p className="text-caption text-muted-foreground mt-0.5">
-                        {option.description}
-                      </p>
-                      <p className="text-caption text-muted-foreground/70 mt-1">
-                        {isDisabled ? "Requires 2+ constructs" : option.cost}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={isChecked}
-                      onCheckedChange={(checked) => onChange({ [option.key]: checked } as Partial<WizardConfig>)}
-                      disabled={isDisabled}
-                    />
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between pt-2">
-        <Button variant="outline" onClick={onBack}>
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-        <Button onClick={onNext} disabled={!config.generationModel || !config.embeddingModel}>
-          Next: Review &amp; Launch
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 4: Review & Launch
-// ---------------------------------------------------------------------------
-
-function Step4Launch({
-  config,
-  constructs,
-  constructDrafts,
-  textModels,
-  embeddingModels,
-  responseFormats,
-  onBack,
-  onLaunch,
-  isLaunching,
-}: {
-  config: WizardConfig;
-  constructs: Construct[] | null;
-  constructDrafts: ConstructDraftMap;
-  textModels: OpenRouterModel[];
-  embeddingModels: OpenRouterModel[];
-  responseFormats: ResponseFormat[] | null;
-  onBack: () => void;
-  onLaunch: () => void;
-  isLaunching: boolean;
-}) {
-  const selectedConstructs = (constructs ?? []).filter((c) =>
-    config.selectedConstructIds.includes(c.id),
-  );
-  const selectedFormat = (responseFormats ?? []).find(
-    (rf) => rf.id === config.responseFormatId,
-  );
-  const selectedGenerationModel = textModels.find((m) => m.id === config.generationModel);
-  const selectedEmbeddingModel = embeddingModels.find((m) => m.id === config.embeddingModel);
-  const totalItems = config.selectedConstructIds.length * config.targetItemsPerConstruct;
-  const overrideCount = Object.keys(
-    buildConstructOverrides(constructs, config.selectedConstructIds, constructDrafts) ?? {},
-  ).length;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Review &amp; Launch</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Confirm your configuration before starting the generation pipeline.
-        </p>
-      </div>
-
-      <Card className="bg-muted/30">
-        <CardHeader>
-          <CardTitle className="text-sm">Generation Summary</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <p className="text-xs text-muted-foreground mb-1.5">Selected Constructs</p>
-            <div className="flex flex-wrap gap-1.5">
-              {selectedConstructs.map((c) => (
-                <Badge key={c.id} variant="outline">
-                  {c.name}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-xs text-muted-foreground">Item Style</p>
-              <p className="font-semibold">
-                {config.promptPurpose === 'factor_item_generation'
-                  ? 'Factor'
-                  : 'Construct'}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Temperature</p>
-              <p className="font-semibold">{config.temperature.toFixed(1)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Target Items</p>
-              <p className="font-semibold">
-                {config.selectedConstructIds.length} constructs × {config.targetItemsPerConstruct} ={" "}
-                <span className="text-primary">{totalItems} total</span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Generation Model</p>
-              <p className="font-semibold">
-                {(selectedGenerationModel?.name ?? config.generationModel) || "Unconfigured"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Embedding Model</p>
-              <p className="font-semibold">
-                {(selectedEmbeddingModel?.name ?? config.embeddingModel) || "Unconfigured"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Response Format</p>
-              <p className="font-semibold">{selectedFormat?.name ?? "None"}</p>
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Refined Definitions</p>
-              <p className="font-semibold">
-                {overrideCount === 0
-                  ? "None"
-                  : `${overrideCount} construct${overrideCount !== 1 ? "s" : ""}`}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex items-center justify-between pt-2">
-        <Button variant="outline" onClick={onBack} disabled={isLaunching}>
-          <ArrowLeft className="size-4" />
-          Back
-        </Button>
-        <Button
-          onClick={onLaunch}
-          disabled={isLaunching || !config.generationModel || !config.embeddingModel}
-          className="min-w-36"
-        >
-          {isLaunching ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Launching...
-            </>
-          ) : (
-            <>
-              <Wand2 className="size-4" />
-              Generate Items
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Main wizard page
@@ -1739,6 +1215,7 @@ export default function NewGenerationPage() {
   const [constructs, setConstructs] = useState<Construct[] | null>(null);
   const [responseFormats, setResponseFormats] = useState<ResponseFormat[] | null>(null);
   const [modelBootstrap, setModelBootstrap] = useState<WizardModelBootstrap | null>(null);
+  const [presets, setPresets] = useState<GenerationPreset[] | null>(null);
 
   const patchConfig = useCallback((patch: Partial<WizardConfig>) => {
     setConfig((prev) => ({ ...prev, ...patch }));
@@ -1766,6 +1243,9 @@ export default function NewGenerationPage() {
     getResponseFormatsForGeneration()
       .then(setResponseFormats)
       .catch(() => toast.error("Failed to load response formats"));
+    listGenerationPresets()
+      .then(setPresets)
+      .catch(() => setPresets([]));
     getModelSelectionBootstrap()
       .then((bootstrap) => {
         setModelBootstrap(bootstrap);
@@ -1786,6 +1266,10 @@ export default function NewGenerationPage() {
         : [...prev.selectedConstructIds, id];
       return { ...prev, selectedConstructIds: ids };
     });
+  }
+
+  function setSelectedConstructIds(ids: string[]) {
+    setConfig((prev) => ({ ...prev, selectedConstructIds: ids }));
   }
 
   const patchConstructDraft = useCallback(
@@ -1831,6 +1315,12 @@ export default function NewGenerationPage() {
             config.selectedConstructIds,
             constructDrafts,
           ),
+          presetId: config.presetId,
+          measurementMode: config.measurementMode,
+          measurementModeDescription: config.measurementModeDescription,
+          audience: config.audience,
+          useContext: config.useContext,
+          useContextDescription: config.useContextDescription,
         };
 
         const run = await createGenerationRun(runConfig);
@@ -1870,10 +1360,11 @@ export default function NewGenerationPage() {
         {/* Right: Step content */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           {step === 1 && (
-            <Step1SelectConstructs
+            <ConstructPicker
               constructs={constructs}
               selectedIds={config.selectedConstructIds}
               onToggle={toggleConstruct}
+              onBulkSet={setSelectedConstructIds}
               onNext={() => goToStep(2)}
             />
           )}
@@ -1893,27 +1384,34 @@ export default function NewGenerationPage() {
             />
           )}
           {step === 3 && (
-            <Step3Configure
-              config={config}
+            <ConfiguratorCanvas
+              config={{
+                targetItemsPerConstruct: config.targetItemsPerConstruct,
+                promptPurpose: config.promptPurpose,
+                presetId: config.presetId,
+                measurementMode: config.measurementMode,
+                measurementModeDescription: config.measurementModeDescription,
+                audience: config.audience,
+                useContext: config.useContext,
+                useContextDescription: config.useContextDescription,
+                responseFormatId: config.responseFormatId,
+                enableItemCritique: config.enableItemCritique,
+                enableLeakageGuard: config.enableLeakageGuard,
+                enableDifficultyTargeting: config.enableDifficultyTargeting,
+                enableSyntheticValidation: config.enableSyntheticValidation,
+                generationModel: config.generationModel,
+                embeddingModel: config.embeddingModel,
+                temperature: config.temperature,
+              }}
+              selectedConstructCount={config.selectedConstructIds.length}
+              presets={presets}
               textModels={modelBootstrap?.textModels ?? []}
               embeddingModels={modelBootstrap?.embeddingModels ?? []}
               responseFormats={responseFormats}
-              onChange={patchConfig}
+              onChange={(patch) => patchConfig(patch as Partial<WizardConfig>)}
               onBack={() => goToStep(2)}
-              onNext={() => goToStep(4)}
-            />
-          )}
-          {step === 4 && (
-            <Step4Launch
-              config={config}
-              constructs={constructs}
-              constructDrafts={constructDrafts}
-              textModels={modelBootstrap?.textModels ?? []}
-              embeddingModels={modelBootstrap?.embeddingModels ?? []}
-              responseFormats={responseFormats}
-              onBack={() => goToStep(3)}
               onLaunch={handleLaunch}
-              isLaunching={isPending || launched}
+              launching={isPending || launched}
             />
           )}
         </div>

@@ -1,59 +1,54 @@
-type RowState = boolean | "next";
+type LegacyState = boolean | "varies";
 
 const COMPARISON: Array<{
   trait: string;
-  legacy: boolean;
-  us: RowState;
-  note: string;
+  legacy: LegacyState;
+  us: boolean;
 }> = [
+  {
+    trait: "Grounded in organisational and behavioural psychology",
+    legacy: true,
+    us: true,
+  },
+  {
+    trait: "Designed to predict real-world performance",
+    legacy: "varies",
+    us: true,
+  },
+  {
+    trait: "Mobile-optimised participant experience",
+    legacy: "varies",
+    us: true,
+  },
   {
     trait: "Built around your capability model",
     legacy: false,
     us: true,
-    note: "today",
   },
   {
-    trait: "Calibrated to your roles and outcomes",
+    trait: "Off-the-shelf, customised, or fully bespoke",
     legacy: false,
     us: true,
-    note: "today",
   },
   {
-    trait: "Psychometric rigour (CTT, EFA/CFA)",
-    legacy: true,
-    us: true,
-    note: "today",
-  },
-  { trait: "Item bank you can extend", legacy: false, us: true, note: "today" },
-  {
-    trait: "AI-assisted build (with human approval)",
+    trait: "AI-augmented assessment design",
     legacy: false,
     us: true,
-    note: "today",
   },
   {
-    trait: "Outcome-tied measurement",
+    trait: "White-labelled to your brand",
     legacy: false,
-    us: "next",
-    note: "in development",
+    us: true,
   },
   {
-    trait: "Self-serve framework builder",
+    trait: "Framework updates as your context shifts",
     legacy: false,
-    us: "next",
-    note: "in development",
+    us: true,
   },
   {
-    trait: "Updates as your context shifts",
+    trait: "Launch an assessment in five clicks",
     legacy: false,
-    us: "next",
-    note: "in development",
-  },
-  {
-    trait: "Single fixed model for every client",
-    legacy: true,
-    us: false,
-    note: "by design",
+    us: true,
   },
 ];
 
@@ -98,24 +93,14 @@ export function Compare() {
         <tbody>
           {COMPARISON.map((row) => (
             <tr key={row.trait}>
-              <td>
-                {row.trait}
-                {row.note !== "today" && row.note !== "by design" && (
-                  <span className="tj-cmp-note">{row.note}</span>
-                )}
+              <td>{row.trait}</td>
+              <td className="tj-cmp-cell">
+                {row.legacy === true && <Tick />}
+                {row.legacy === "varies" && <Partial />}
+                {row.legacy === false && <Dash />}
               </td>
               <td className="tj-cmp-cell">
-                {row.legacy ? <Tick /> : <Dash />}
-              </td>
-              <td className="tj-cmp-cell">
-                {row.us === true && <Tick accent />}
-                {row.us === "next" && (
-                  <span className="tj-cmp-dev">
-                    <span className="dot" />
-                    In dev
-                  </span>
-                )}
-                {row.us === false && <Dash />}
+                {row.us ? <Tick accent /> : <Dash />}
               </td>
             </tr>
           ))}
@@ -147,6 +132,28 @@ function Tick({ accent }: { accent?: boolean }) {
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Partial() {
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 22 22"
+      style={{ display: "inline-block", verticalAlign: "middle" }}
+      role="img"
+      aria-label="Varies by provider"
+    >
+      <circle cx="11" cy="11" r="10" fill="rgba(0,0,0,.06)" />
+      <path
+        d="M6 11.5 Q 8.5 8.5, 11 11.5 T 16 11.5"
+        fill="none"
+        stroke="rgba(0,0,0,.4)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
       />
     </svg>
   );

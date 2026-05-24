@@ -1906,6 +1906,69 @@ export interface ConstructConfigOverride {
   anchorHigh?: string
 }
 
+/** Item shape the LLM is asked to write. */
+export type MeasurementMode = 'behavioural' | 'trait' | 'capability' | 'situational' | 'open'
+
+/** Intended consumer of the items. */
+export type UseContext = 'development' | 'selection' | 'research' | 'open'
+
+/** Reading-level and contextualisation target. `level` is structured; `description` is free-text. */
+export interface Audience {
+  level?: 'entry' | 'mid' | 'senior' | 'executive' | 'mixed' | 'open'
+  description?: string
+}
+
+/** Verdict and reason for an exemplar item shown to the LLM. */
+export interface PresetExemplar {
+  stem: string
+  verdict: 'good' | 'bad'
+  reason: string
+}
+
+/** Snapshot of playbook content resolved at run kickoff. Recorded on the run for reproducibility. */
+export interface PlaybookSnapshot {
+  rubric?: string
+  exemplars?: PresetExemplar[]
+  critiqueEmphasis?: string
+  sdTolerance?: 'low' | 'moderate' | 'high'
+  difficultyMix?: { easy?: number; moderate?: number; hard?: number }
+  critiqueStrictness?: 'lenient' | 'standard' | 'strict'
+  sourcePresetId?: string
+  sourcePresetName?: string
+  modifiedFromPreset?: boolean
+}
+
+/** A playbook template for the AI item generator. */
+export interface GenerationPreset {
+  id: string
+  name: string
+  description?: string
+  measurementMode: MeasurementMode
+  measurementModeDescription?: string
+  audience: Audience
+  useContext: UseContext
+  useContextDescription?: string
+  responseFormatId?: string
+  responseFormatRationale?: string
+  rubric?: string
+  exemplars: PresetExemplar[]
+  critiqueEmphasis?: string
+  sdTolerance?: 'low' | 'moderate' | 'high'
+  difficultyMix?: { easy?: number; moderate?: number; hard?: number }
+  critiqueStrictness: 'lenient' | 'standard' | 'strict'
+  pipelineDefaults: {
+    enableItemCritique?: boolean
+    enableLeakageGuard?: boolean
+    enableDifficultyTargeting?: boolean
+    enableSyntheticValidation?: boolean
+  }
+  recommendedTargetPerConstruct: number
+  createdAt: string
+  updatedAt: string
+  deletedAt?: string
+  createdBy?: string
+}
+
 export interface GenerationRunConfig {
   constructIds: string[]
   targetItemsPerConstruct: number
@@ -1920,6 +1983,19 @@ export interface GenerationRunConfig {
   enableLeakageGuard?: boolean
   enableDifficultyTargeting?: boolean
   enableSyntheticValidation?: boolean
+
+  // Steering inputs added in the refactor. All optional for back-compat;
+  // absence falls back to the implicit behavioural-Likert defaults.
+  presetId?: string
+  measurementMode?: MeasurementMode
+  measurementModeDescription?: string
+  audience?: Audience
+  useContext?: UseContext
+  useContextDescription?: string
+
+  // Resolved-at-run-time snapshot of playbook content. Captured before the
+  // pipeline starts so the run is reproducible regardless of later preset edits.
+  playbookSnapshot?: PlaybookSnapshot
 }
 
 /** An AI-GENIE item generation run record. */

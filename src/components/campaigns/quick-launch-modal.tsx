@@ -149,7 +149,12 @@ interface QuickLaunchModalProps {
   creatorEmail?: string;
 }
 
-type WizardStep = 1 | 2 | 3 | 4 | 5;
+type StepId =
+  | "campaign"
+  | "assessment"
+  | "capabilities"
+  | "notifications"
+  | "invite";
 
 type ItemSelectionRule = {
   minConstructs: number;
@@ -186,7 +191,7 @@ export function QuickLaunchModal({
   initialAssessmentId,
   creatorEmail,
 }: QuickLaunchModalProps) {
-  const [step, setStep] = useState<WizardStep>(1);
+  const [stepId, setStepId] = useState<StepId>("campaign");
   const [state, setState] = useState<WizardState>({
     title: "",
     clientId: forcedClientId ?? null,
@@ -236,12 +241,6 @@ export function QuickLaunchModal({
     ? successHrefPrefix.slice(0, -1)
     : successHrefPrefix;
 
-  // Quick launch is always 4 steps so the shape doesn't reshuffle partway
-  // through. Step 3 (Capabilities) renders an empty-state hint when the
-  // selected assessment doesn't expose customisation.
-  const capabilitiesStep = 3;
-  const notificationsStep = 4;
-  const inviteStep = 5;
   const capabilityMode: "factor" | "construct" =
     selectedAssessment?.scoringLevel === "construct" ? "construct" : "factor";
   const hasCapabilities =
@@ -253,8 +252,28 @@ export function QuickLaunchModal({
       ? selectedAssessment.minCustomConstructs != null
       : selectedAssessment?.minCustomFactors != null;
 
+  // Hide the Capabilities step entirely for assessments that don't expose
+  // customisation. Before an assessment has been picked we keep it visible so
+  // the indicator doesn't grow once the user makes a selection.
+  const includeCapabilitiesStep = !selectedAssessment || supportsCustomisation;
+
+  const wizardSteps: ActionWizardStep[] = [
+    { id: "campaign", label: "Campaign" },
+    { id: "assessment", label: "Assessment" },
+    ...(includeCapabilitiesStep
+      ? [{ id: "capabilities", label: "Capabilities" }]
+      : []),
+    { id: "notifications", label: "Notifications" },
+    { id: "invite", label: "Invite" },
+  ];
+
+  const currentStepIndex = Math.max(
+    0,
+    wizardSteps.findIndex((s) => s.id === stepId),
+  );
+
   function reset() {
-    setStep(1);
+    setStepId("campaign");
     setState({
       title: "",
       clientId: forcedClientId ?? null,
@@ -288,19 +307,19 @@ export function QuickLaunchModal({
   }
 
   function canAdvance(): boolean {
-    if (step === 1) {
+    if (stepId === "campaign") {
       return campaignTitle.length > 0 && !scheduleError;
     }
-    if (step === 2) {
+    if (stepId === "assessment") {
       return !!state.selectedAssessmentId;
     }
-    if (step === capabilitiesStep) {
+    if (stepId === "capabilities") {
       return (
         state.selectedCapabilityIds === null ||
         state.selectedCapabilityIds.length > 0
       );
     }
-    if (step === notificationsStep) {
+    if (stepId === "notifications") {
       // No required fields — disabled is a valid choice.
       return true;
     }
@@ -358,11 +377,11 @@ export function QuickLaunchModal({
   async function handleNext() {
     if (!canAdvance()) return;
 
-    // Block the transition out of step 2 until capabilities have loaded, so
-    // step 3 renders the Capabilities panel directly instead of flashing the
-    // Invite panel while the fetch resolves.
+    // Block the transition out of the Assessment step until capabilities have
+    // loaded, so the next step renders the Capabilities panel directly (or
+    // skips to Notifications) instead of flashing while the fetch resolves.
     if (
-      step === 2 &&
+      stepId === "assessment" &&
       state.selectedAssessmentId &&
       state.assessmentFactors.length === 0 &&
       state.assessmentConstructs.length === 0
@@ -373,14 +392,20 @@ export function QuickLaunchModal({
       );
     }
 
-    setSlideDirection("left");
-    setStep((currentStep) => Math.min(currentStep + 1, 5) as WizardStep);
+    const idx = wizardSteps.findIndex((s) => s.id === stepId);
+    const next = wizardSteps[idx + 1];
+    if (next) {
+      setSlideDirection("left");
+      setStepId(next.id as StepId);
+    }
   }
 
   function handleBack() {
-    if (step > 1) {
+    const idx = wizardSteps.findIndex((s) => s.id === stepId);
+    const prev = wizardSteps[idx - 1];
+    if (prev) {
       setSlideDirection("right");
-      setStep((currentStep) => (currentStep - 1) as WizardStep);
+      setStepId(prev.id as StepId);
     }
   }
 
@@ -565,14 +590,6 @@ export function QuickLaunchModal({
     }
   }
 
-  const wizardSteps: ActionWizardStep[] = [
-    { id: "campaign", label: "Campaign" },
-    { id: "assessment", label: "Assessment" },
-    { id: "capabilities", label: "Capabilities" },
-    { id: "notifications", label: "Notifications" },
-    { id: "invite", label: "Invite" },
-  ];
-
   return (
     <ActionDialog
       open={open}
@@ -583,7 +600,7 @@ export function QuickLaunchModal({
     >
       <ActionWizard
         steps={wizardSteps}
-        currentStepIndex={step - 1}
+        currentStepIndex={currentStepIndex}
         onBack={handleBack}
         onNext={handleNext}
         onComplete={handleLaunch}
@@ -595,7 +612,7 @@ export function QuickLaunchModal({
         submittingLabel="Launching..."
         slideDirection={slideDirection}
       >
-          {step === 1 && (
+          {stepId === "campaign" && (
             <div className="space-y-4">
               {forcedClientId && selectedClient && (
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
@@ -712,7 +729,7 @@ export function QuickLaunchModal({
             </div>
           )}
 
-          {step === 2 && (
+          {stepId === "assessment" && (
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
                 <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
@@ -834,7 +851,7 @@ export function QuickLaunchModal({
             </div>
           )}
 
-          {step === capabilitiesStep && (
+          {stepId === "capabilities" && (
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
                 <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
@@ -848,7 +865,13 @@ export function QuickLaunchModal({
                 <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                   Loading capabilities...
                 </div>
-              ) : hasCapabilities && supportsCustomisation ? (
+              ) : !hasCapabilities ? (
+                <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                  No capabilities are configured for this assessment yet.
+                  Participants will complete it as authored — click Next to
+                  continue.
+                </div>
+              ) : (
                 <>
                   <p className="text-sm text-muted-foreground">
                     By default, participants complete the full assessment. Toggle
@@ -876,17 +899,11 @@ export function QuickLaunchModal({
                     />
                   )}
                 </>
-              ) : (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                  This assessment doesn&apos;t support customisation.
-                  Participants will complete it as authored — click Next to
-                  continue.
-                </div>
               )}
             </div>
           )}
 
-          {step === notificationsStep && (
+          {stepId === "notifications" && (
             <NotificationsStep
               value={state.notifications}
               onChange={(next) =>
@@ -895,7 +912,7 @@ export function QuickLaunchModal({
             />
           )}
 
-          {step === inviteStep && (
+          {stepId === "invite" && (
             <div className="space-y-4">
               <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
                 <div className="font-medium">{campaignTitle || "Untitled campaign"}</div>
