@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { BookMarked, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { getGenerationRuns } from "@/app/actions/generation";
@@ -15,12 +15,20 @@ export default async function GeneratePage() {
         title="Item Generator"
         description="Generate psychometric items for your constructs using AI. Review and accept items into your library."
       >
-        <Link href="/generate/new">
-          <Button>
-            <Plus className="size-4" />
-            New Generation
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/generate/presets">
+            <Button variant="outline">
+              <BookMarked className="size-4" />
+              Playbooks
+            </Button>
+          </Link>
+          <Link href="/generate/new">
+            <Button>
+              <Plus className="size-4" />
+              New Generation
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       <GenerationRunsTable runs={runs} />
