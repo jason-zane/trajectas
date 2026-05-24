@@ -212,6 +212,12 @@
 
 [data-surface="marketing"] .tj-nav-ctas { display: flex; gap: 12px; align-items: center; }
 
+[data-surface="marketing"] .tj-nav-signin {
+  font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
+  opacity: .82; padding: 8px 14px; white-space: nowrap;
+}
+[data-surface="marketing"] .tj-nav-signin:hover { opacity: 1; }
+
 @media (max-width: 1080px) {
   [data-surface="marketing"] .tj-nav { padding: 14px 32px; gap: 16px; }
   [data-surface="marketing"] .tj-nav-links a { padding: 8px 10px; font-size: 13px; }
@@ -224,11 +230,6 @@
   [data-surface="marketing"] .tj-nav-signin { padding: 6px 10px; font-size: 13px; }
   [data-surface="marketing"] .tj-nav-ctas { gap: 8px; }
 }
-[data-surface="marketing"] .tj-nav-signin {
-  font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
-  opacity: .82; padding: 8px 14px; white-space: nowrap;
-}
-[data-surface="marketing"] .tj-nav-signin:hover { opacity: 1; }
 
 /* ============================================================
    HERO
