@@ -18,10 +18,17 @@ export function ComparisonEmptyState({
   basePath,
   savedComparisons,
   searchSource,
+  onAddEntry,
 }: {
   basePath: string
   savedComparisons: SavedComparisonSummary[]
   searchSource: AddPickerSource
+  /**
+   * Called when the user picks a participant from the empty-state search.
+   * Lifted up to the workspace so adding doesn't require a hard navigation
+   * — keeps state consistent and avoids competing with the URL-sync effect.
+   */
+  onAddEntry: (campaignParticipantId: string) => void
 }) {
   const router = useRouter()
   const [showAdd, setShowAdd] = useState(false)
@@ -62,8 +69,7 @@ export function ComparisonEmptyState({
           onClose={() => setShowAdd(false)}
           onAdd={(o) => {
             setShowAdd(false)
-            const entries = JSON.stringify([{ campaignParticipantId: o.id }])
-            router.push(`${basePath}?entries=${encodeURIComponent(entries)}`)
+            onAddEntry(o.id)
           }}
           searchSource={searchSource}
         />

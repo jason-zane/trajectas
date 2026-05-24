@@ -95,6 +95,7 @@ export default async function ClientComparePage({
         />
       </div>
       <ComparisonWorkspace
+        key={saved?.id ?? 'new'}
         initial={{
           request: effectiveRequest,
           result,

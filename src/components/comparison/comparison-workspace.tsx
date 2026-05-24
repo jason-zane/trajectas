@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ComparisonSelectionBar } from './comparison-selection-bar'
 import { ComparisonMatrix } from './comparison-matrix'
@@ -69,21 +69,12 @@ export function ComparisonWorkspace({
   const [popover, setPopover] = useState<{ entryId: string; cpId: string } | null>(null)
   const [deltaMode, setDeltaMode] = useState<boolean>(initial.deltaMode ?? false)
 
-  // When the parent server component re-renders with new `initial` props
-  // (saved comparison loaded, navigated to ?entries=…, etc.), Next App
-  // Router keeps this Client Component mounted, so local state would
-  // otherwise stick to the first render's values. Resync on identity
-  // change of `initial`.
-  const initialRef = useRef(initial)
-  useEffect(() => {
-    if (initialRef.current !== initial) {
-      initialRef.current = initial
-      setRequest(initial.request)
-      setResult(initial.result)
-      setEligible(initial.eligible)
-      setDeltaMode(initial.deltaMode ?? false)
-    }
-  }, [initial])
+  // NOTE: We deliberately do NOT resync local state when `initial` changes.
+  // The page wrappers pass a React `key` to this component (derived from
+  // ?saved=… and the entries signature) so meaningful URL transitions
+  // remount us instead. The previous identity-based useEffect created a
+  // render loop because every URL writeback below produced a fresh
+  // `initial` object reference on the next server render.
 
   const longitudinal = useMemo(() => isLongitudinal(result.rows), [result.rows])
 
@@ -215,6 +206,7 @@ export function ComparisonWorkspace({
             basePath={basePath}
             savedComparisons={initial.savedList ?? []}
             searchSource={searchSource}
+            onAddEntry={addEntry}
           />
         ) : (
           <ComparisonMatrix
