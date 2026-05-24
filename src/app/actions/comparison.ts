@@ -130,24 +130,82 @@ export async function getSessionOptionsForRow(
 // Search server actions used by add-participant-dialog
 // ---------------------------------------------------------------------------
 
-export type ParticipantSearchHit = { id: string; name: string; email: string }
+export type ParticipantSearchHit = {
+  /** campaign_participant.id — the unit Compare operates on */
+  id: string
+  name: string
+  email: string
+  campaignId: string
+  campaignTitle: string
+  /** Number of participant_sessions for this campaign_participant */
+  sessionCount: number
+  /** Number of those that are completed */
+  completedSessionCount: number
+  /** Latest started_at or completed_at across the participant_sessions (ISO) */
+  latestActivityAt: string | null
+}
+
+type EmbeddedCampaign = { id: string; title: string } | { id: string; title: string }[] | null
+type EmbeddedSession = { status: string; started_at: string | null; completed_at: string | null }
 
 type SearchRow = {
   id: string
   email: string
   first_name: string | null
   last_name: string | null
+  campaign: EmbeddedCampaign
+  sessions: EmbeddedSession[] | null
 }
 
-function rowToHit(row: SearchRow): ParticipantSearchHit {
+function unwrapCampaign(c: EmbeddedCampaign): { id: string; title: string } | null {
+  if (!c) return null
+  return Array.isArray(c) ? (c[0] ?? null) : c
+}
+
+function rowToHit(row: SearchRow): ParticipantSearchHit | null {
   const name = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim()
-  return { id: row.id, email: row.email, name: name || row.email }
+  const campaign = unwrapCampaign(row.campaign)
+  if (!campaign) return null
+  const sessions = row.sessions ?? []
+  const completed = sessions.filter((s) => s.status === 'completed').length
+  const latestActivityAt = sessions
+    .map((s) => s.completed_at ?? s.started_at)
+    .filter((d): d is string => !!d)
+    .sort()
+    .reverse()[0] ?? null
+  return {
+    id: row.id,
+    email: row.email,
+    name: name || row.email,
+    campaignId: campaign.id,
+    campaignTitle: campaign.title,
+    sessionCount: sessions.length,
+    completedSessionCount: completed,
+    latestActivityAt,
+  }
 }
 
 function escapeOrPattern(value: string): string {
   // Supabase `or()` filter uses commas to separate clauses; the value also
   // can't contain unescaped percent signs we don't want.
   return value.replace(/[,%]/g, '')
+}
+
+const PICKER_SELECT =
+  'id, email, first_name, last_name, campaign:campaigns!inner(id, title), sessions:participant_sessions(status, started_at, completed_at)'
+
+const PICKER_LIMIT = 50
+
+function sortHits(hits: ParticipantSearchHit[]): ParticipantSearchHit[] {
+  // Most-recently-active first; participants who haven't started yet at the end.
+  return hits.sort((a, b) => {
+    if (!a.latestActivityAt && !b.latestActivityAt) {
+      return a.name.localeCompare(b.name)
+    }
+    if (!a.latestActivityAt) return 1
+    if (!b.latestActivityAt) return -1
+    return b.latestActivityAt.localeCompare(a.latestActivityAt)
+  })
 }
 
 export async function searchCampaignParticipants(
@@ -159,9 +217,9 @@ export async function searchCampaignParticipants(
   const supabase = await createClient()
   let q = supabase
     .from('campaign_participants')
-    .select('id, email, first_name, last_name')
+    .select(PICKER_SELECT)
     .eq('campaign_id', campaignId)
-    .limit(20)
+    .limit(PICKER_LIMIT)
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
     q = q.or(
@@ -170,7 +228,10 @@ export async function searchCampaignParticipants(
   }
   const { data, error } = await q
   if (error) throw error
-  return (data ?? []).map((r) => rowToHit(r as SearchRow))
+  const hits = ((data ?? []) as unknown as SearchRow[])
+    .map(rowToHit)
+    .filter((h): h is ParticipantSearchHit => h !== null)
+  return sortHits(hits)
 }
 
 export async function searchAllParticipants(
@@ -181,8 +242,8 @@ export async function searchAllParticipants(
   const supabase = await createClient()
   let q = supabase
     .from('campaign_participants')
-    .select('id, email, first_name, last_name')
-    .limit(20)
+    .select(PICKER_SELECT)
+    .limit(PICKER_LIMIT)
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
     q = q.or(
@@ -191,13 +252,14 @@ export async function searchAllParticipants(
   }
   const { data, error } = await q
   if (error) throw error
-  // Deduplicate by email — caller may have multiple campaign_participants rows
-  // for the same person across campaigns.
-  const byEmail = new Map<string, ParticipantSearchHit>()
-  for (const row of (data ?? []) as SearchRow[]) {
-    if (!byEmail.has(row.email)) byEmail.set(row.email, rowToHit(row))
-  }
-  return [...byEmail.values()]
+  // No dedupe — the same person can be a campaign_participant in multiple
+  // campaigns, and surfacing each row lets users compare a person across
+  // campaigns. Each row carries its own campaign context so they read as
+  // distinct in the picker.
+  const hits = ((data ?? []) as unknown as SearchRow[])
+    .map(rowToHit)
+    .filter((h): h is ParticipantSearchHit => h !== null)
+  return sortHits(hits)
 }
 
 // ---------------------------------------------------------------------------

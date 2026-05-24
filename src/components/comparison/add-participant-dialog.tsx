@@ -1,8 +1,21 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { Building2, Calendar, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { cn } from '@/lib/utils'
+import { getInitials } from '@/lib/comparison/display'
 
-export type AddPickerOption = { id: string; name: string; email: string }
+export type AddPickerOption = {
+  id: string
+  name: string
+  email: string
+  campaignId?: string
+  campaignTitle?: string
+  sessionCount?: number
+  completedSessionCount?: number
+  latestActivityAt?: string | null
+}
 export type AddPickerSource = (query: string) => Promise<AddPickerOption[]>
 
 export function AddParticipantDialog({
@@ -18,13 +31,17 @@ export function AddParticipantDialog({
 }) {
   const [query, setQuery] = useState('')
   const [options, setOptions] = useState<AddPickerOption[]>([])
+  const [hasLoaded, setHasLoaded] = useState(false)
 
   useEffect(() => {
     if (!open) return
     let cancelled = false
     const id = setTimeout(async () => {
       const opts = await searchSource(query)
-      if (!cancelled) setOptions(opts)
+      if (!cancelled) {
+        setOptions(opts)
+        setHasLoaded(true)
+      }
     }, 150)
     return () => {
       cancelled = true
@@ -38,45 +55,132 @@ export function AddParticipantDialog({
       role="dialog"
       aria-modal="true"
       aria-label="Add participant"
-      className="fixed inset-0 z-30 flex items-start justify-center bg-black/30 p-12"
+      className="fixed inset-0 z-30 flex items-start justify-center bg-black/40 p-8 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-lg border border-border bg-card p-4 shadow-xl"
+        className="mt-16 w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold">Add participant</h3>
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+          <div className="flex flex-col">
+            <p className="text-overline text-primary">Add</p>
+            <h3 className="text-sm font-semibold">Pick a participant</h3>
+          </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             Close
           </Button>
         </div>
-        <input
-          autoFocus
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name or email"
-          className="w-full rounded-md border border-input px-3 py-2 text-sm bg-background"
-        />
-        <ul className="mt-3 max-h-80 overflow-auto text-sm">
+        <div className="border-b border-border px-5 py-3">
+          <input
+            autoFocus
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by name or email…"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            One row per campaign — pick the version of this person you want to compare.
+          </p>
+        </div>
+        <ul className="max-h-96 overflow-auto p-2 text-sm">
+          {!hasLoaded && options.length === 0 && (
+            <li className="px-3 py-6 text-center text-xs text-muted-foreground">
+              Searching…
+            </li>
+          )}
+          {hasLoaded && options.length === 0 && (
+            <li className="px-3 py-6 text-center text-xs text-muted-foreground">
+              No matching participants.
+            </li>
+          )}
           {options.map((o) => (
             <li key={o.id}>
-              <button
-                type="button"
-                className="w-full text-left rounded px-3 py-2 hover:bg-muted"
+              <PickerRow
+                option={o}
                 onClick={() => {
                   onAdd(o)
                   onClose()
                 }}
-              >
-                <div className="font-medium">{o.name}</div>
-                <div className="opacity-70 text-xs">{o.email}</div>
-              </button>
+              />
             </li>
           ))}
         </ul>
       </div>
     </div>
+  )
+}
+
+function PickerRow({
+  option,
+  onClick,
+}: {
+  option: AddPickerOption
+  onClick: () => void
+}) {
+  const dateLabel = option.latestActivityAt
+    ? new Date(option.latestActivityAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : null
+  const sessionLabel = (() => {
+    if (option.sessionCount === undefined) return null
+    if (option.sessionCount === 0) return 'No sessions yet'
+    if ((option.completedSessionCount ?? 0) === option.sessionCount) {
+      return `${option.sessionCount} session${option.sessionCount === 1 ? '' : 's'}`
+    }
+    return `${option.completedSessionCount ?? 0}/${option.sessionCount} completed`
+  })()
+  const fullyComplete =
+    option.sessionCount !== undefined &&
+    option.sessionCount > 0 &&
+    option.completedSessionCount === option.sessionCount
+  return (
+    <button
+      type="button"
+      className={cn(
+        'group flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors',
+        'hover:bg-muted focus-visible:bg-muted focus-visible:outline-none',
+      )}
+      onClick={onClick}
+    >
+      <Avatar size="sm" className="mt-0.5 size-8">
+        <AvatarFallback className="text-[10px] font-semibold">
+          {getInitials(option.name, option.email)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-medium">{option.name}</span>
+          {dateLabel && (
+            <span className="shrink-0 text-[10.5px] tabular-nums text-muted-foreground">
+              {dateLabel}
+            </span>
+          )}
+        </div>
+        <div className="truncate text-[11px] text-muted-foreground">{option.email}</div>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
+          {option.campaignTitle && (
+            <span className="inline-flex items-center gap-1">
+              <Building2 className="size-3" />
+              <span className="max-w-[180px] truncate">{option.campaignTitle}</span>
+            </span>
+          )}
+          {sessionLabel && (
+            <span className="inline-flex items-center gap-1">
+              {fullyComplete ? (
+                <CheckCircle2 className="size-3 text-emerald-600 dark:text-emerald-400" />
+              ) : (
+                <Calendar className="size-3" />
+              )}
+              {sessionLabel}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
   )
 }

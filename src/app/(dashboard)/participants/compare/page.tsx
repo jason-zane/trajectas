@@ -2,7 +2,6 @@ import { ComparisonWorkspace } from '@/components/comparison/comparison-workspac
 import {
   getComparisonMatrix,
   getEligibleAssessmentsForParticipants,
-  searchAllParticipants,
 } from '@/app/actions/comparison'
 import {
   getSavedComparison,
@@ -107,7 +106,7 @@ export default async function ComparePage({
         basePath={BASE_PATH}
         partnerBandScheme={null}
         platformBandScheme={platformBandScheme}
-        searchSource={searchAllParticipants}
+        pickerScope={{ kind: 'all' }}
         currentUserId={actor?.id ?? null}
       />
     </div>
