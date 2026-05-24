@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ComparisonSelectionBar } from './comparison-selection-bar'
 import { ComparisonMatrix } from './comparison-matrix'
@@ -68,6 +68,22 @@ export function ComparisonWorkspace({
   const [showAdd, setShowAdd] = useState(false)
   const [popover, setPopover] = useState<{ entryId: string; cpId: string } | null>(null)
   const [deltaMode, setDeltaMode] = useState<boolean>(initial.deltaMode ?? false)
+
+  // When the parent server component re-renders with new `initial` props
+  // (saved comparison loaded, navigated to ?entries=…, etc.), Next App
+  // Router keeps this Client Component mounted, so local state would
+  // otherwise stick to the first render's values. Resync on identity
+  // change of `initial`.
+  const initialRef = useRef(initial)
+  useEffect(() => {
+    if (initialRef.current !== initial) {
+      initialRef.current = initial
+      setRequest(initial.request)
+      setResult(initial.result)
+      setEligible(initial.eligible)
+      setDeltaMode(initial.deltaMode ?? false)
+    }
+  }, [initial])
 
   const longitudinal = useMemo(() => isLongitudinal(result.rows), [result.rows])
 
