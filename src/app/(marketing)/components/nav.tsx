@@ -31,7 +31,7 @@ export function Nav() {
           className="tj-btn tj-btn-primary"
           style={{ padding: "10px 18px", fontSize: 13 }}
         >
-          Book a call →
+          Book a call
         </a>
       </div>
     </header>

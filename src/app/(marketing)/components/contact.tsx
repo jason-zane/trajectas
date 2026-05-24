@@ -47,7 +47,7 @@ export function Contact() {
                   href="mailto:hello@trajectas.com?subject=Discovery%20call"
                   className="tj-btn tj-btn-ghost tj-contact-email"
                 >
-                  hello@trajectas.com →
+                  hello@trajectas.com
                 </a>
               </div>
             </li>
