@@ -15,7 +15,6 @@ import { cancellableFetch, isAbortError } from "@/lib/net/cancellable-fetch";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion,
@@ -36,6 +35,7 @@ import { getModelSelectionBootstrap } from "@/app/actions/model-config";
 import { listGenerationPresets } from "@/app/actions/generation-presets";
 import type { GenerationPreset, GenerationRunConfig } from "@/types/database";
 import { ConfiguratorCanvas } from "./configurator-canvas";
+import { ConstructPicker } from "./construct-picker";
 import type { ConstructDraftInput, ConstructDraftState, ConstructDraftField, PreflightResult, ConstructPairResult, ConstructSnapshot, ConstructChange } from "@/types/generation";
 import type { OpenRouterModel } from "@/types/generation";
 
@@ -267,116 +267,6 @@ function StepIndicator({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Step 1: Select Constructs
-// ---------------------------------------------------------------------------
-
-function Step1SelectConstructs({
-  constructs,
-  selectedIds,
-  onToggle,
-  onNext,
-}: {
-  constructs: Construct[] | null;
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-  onNext: () => void;
-}) {
-  // Group by dimensionName
-  const grouped = React.useMemo(() => {
-    if (!constructs) return new Map<string, Construct[]>();
-    const map = new Map<string, Construct[]>();
-    for (const c of constructs) {
-      const key = c.dimensionName ?? "Other";
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(c);
-    }
-    return map;
-  }, [constructs]);
-
-  const isLoading = constructs === null;
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold">Select Constructs</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Choose the constructs you want to generate items for. At least one construct is required.
-        </p>
-      </div>
-
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground text-sm py-8 justify-center">
-          <Loader2 className="size-4 animate-spin" />
-          Loading constructs...
-        </div>
-      ) : grouped.size === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No active constructs found. Create and activate constructs in the Library first.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6 max-h-[520px] overflow-y-auto pr-1">
-          {Array.from(grouped.entries()).map(([dimension, items]) => (
-            <div key={dimension}>
-              <p className="text-overline text-muted-foreground mb-2">{dimension}</p>
-              <div className="grid gap-2">
-                {items.map((construct) => {
-                  const isSelected = selectedIds.includes(construct.id);
-                  return (
-                    <label
-                      key={construct.id}
-                      className={[
-                        "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-                        isSelected
-                          ? "border-primary/50 bg-primary/5"
-                          : "border-border hover:border-primary/30 hover:bg-muted/50",
-                      ].join(" ")}
-                    >
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => onToggle(construct.id)}
-                        className="mt-0.5"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold">{construct.name}</span>
-                          <Badge variant="outline" className="text-caption">
-                            {construct.existingItemCount}{" "}
-                            {construct.existingItemCount === 1 ? "item" : "items"}
-                          </Badge>
-                        </div>
-                        {construct.definition && (
-                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                            {construct.definition}
-                          </p>
-                        )}
-                      </div>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between pt-2">
-        <span className="text-sm text-muted-foreground">
-          {selectedIds.length === 0
-            ? "No constructs selected"
-            : `${selectedIds.length} construct${selectedIds.length !== 1 ? "s" : ""} selected`}
-        </span>
-        <Button onClick={onNext} disabled={selectedIds.length === 0}>
-          Next: Check Readiness
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
     </div>
   );
 }
@@ -1378,6 +1268,10 @@ export default function NewGenerationPage() {
     });
   }
 
+  function setSelectedConstructIds(ids: string[]) {
+    setConfig((prev) => ({ ...prev, selectedConstructIds: ids }));
+  }
+
   const patchConstructDraft = useCallback(
     (constructId: string, field: ConstructDraftField, value: string) => {
       setConstructDrafts((prev) => ({
@@ -1466,10 +1360,11 @@ export default function NewGenerationPage() {
         {/* Right: Step content */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           {step === 1 && (
-            <Step1SelectConstructs
+            <ConstructPicker
               constructs={constructs}
               selectedIds={config.selectedConstructIds}
               onToggle={toggleConstruct}
+              onBulkSet={setSelectedConstructIds}
               onNext={() => goToStep(2)}
             />
           )}
