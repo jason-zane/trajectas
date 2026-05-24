@@ -30,7 +30,11 @@ import {
 import { throwActionError } from '@/lib/security/action-errors'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
 import { computeAttemptOrdinals } from '@/lib/comparison/session-resolution'
-import { computeDeltas } from '@/lib/trajectory/rollup'
+import {
+  computeDeltas,
+  computeTrajectorySummary,
+  emptyTrajectorySummary,
+} from '@/lib/trajectory/rollup'
 import type {
   TrajectoryAssessmentRef,
   TrajectoryLevel,
@@ -116,6 +120,7 @@ export async function getPersonTrajectory(
     linkedParticipants,
     assessmentsTouched,
     series,
+    summary: computeTrajectorySummary(series),
   }
 }
 
@@ -654,5 +659,6 @@ function emptyResult(identity: PersonIdentity, level: TrajectoryLevel): Trajecto
     linkedParticipants: [],
     assessmentsTouched: [],
     series: [],
+    summary: emptyTrajectorySummary(),
   }
 }
