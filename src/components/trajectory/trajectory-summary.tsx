@@ -26,7 +26,7 @@ export function TrajectorySummaryPanel({
       <p className="text-base leading-relaxed text-foreground">
         <span className="font-semibold">{firstName}</span>
         {' has completed '}
-        <NumWord n={summary.sessionCount} suffix="completed session" />
+        <NumWord n={summary.sessionCount} suffix="session" />
         {summary.assessmentCount > 1 && (
           <>
             {' across '}

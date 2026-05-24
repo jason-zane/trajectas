@@ -110,25 +110,43 @@ export function TrajectoryWorkspace({
     })()
   }, [initialUrl.drillEntityIds, ensureLevel])
 
-  // Write state changes back to the URL (debounced via replace, no scroll).
+  const overviewResult = resultsByLevel.dimension ?? initialResult
+
+  // Write state changes back to the URL. Preserves any unrelated query
+  // params (e.g. `?id=` on the standalone trajectory page) by starting
+  // from the current searchParams and only rewriting our own keys.
   useEffect(() => {
-    const next = encodeTrajectoryParams({
+    const currentAssessmentIds = overviewResult.assessmentsTouched.map((a) => a.assessmentId)
+    const allSelectedAgainstCurrent =
+      selectedAssessmentIds.length === currentAssessmentIds.length &&
+      currentAssessmentIds.every((id) => selectedAssessmentIds.includes(id))
+
+    const trajectory = encodeTrajectoryParams({
       drillEntityIds: drillStack.map((f) => f.entityId),
       mode,
       matrix: showMatrix,
-      assessmentIds:
-        selectedAssessmentIds.length === initialResult.assessmentsTouched.length
-          ? null
-          : selectedAssessmentIds,
+      assessmentIds: allSelectedAgainstCurrent ? null : selectedAssessmentIds,
     })
+
+    const next = new URLSearchParams(searchParams.toString())
+    for (const key of ['drill', 'mode', 'matrix', 'assessments']) next.delete(key)
+    for (const [k, v] of trajectory) next.set(k, v)
+
     const nextQs = next.toString()
     const currentQs = searchParams.toString()
     if (nextQs === currentQs) return
     const url = nextQs.length > 0 ? `${pathname}?${nextQs}` : pathname
     router.replace(url, { scroll: false })
-  }, [drillStack, mode, showMatrix, selectedAssessmentIds, initialResult.assessmentsTouched.length, pathname, router, searchParams])
-
-  const overviewResult = resultsByLevel.dimension ?? initialResult
+  }, [
+    drillStack,
+    mode,
+    showMatrix,
+    selectedAssessmentIds,
+    overviewResult.assessmentsTouched,
+    pathname,
+    router,
+    searchParams,
+  ])
 
   const refetchOverview = () => {
     startTransition(async () => {

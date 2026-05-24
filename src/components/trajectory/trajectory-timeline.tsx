@@ -422,21 +422,18 @@ function SeriesPath({
   onMouseLeave: () => void
   onClick?: () => void
 }) {
-  // Build polyline segments, breaking on nulls
-  const segments: string[] = []
-  let current: string[] = []
+  // Build one polyline through every non-null point for this series.
+  // Different sessions score different subsets of dimensions, so nulls
+  // are the norm at ticks where this dimension wasn't measured — we
+  // bridge them visually so the dimension's arc reads as one trajectory.
+  // A series with <2 non-null points renders only as a dot (no segment).
+  const linePoints: string[] = []
   for (let i = 0; i < prepared.displayValues.length; i++) {
     const v = prepared.displayValues[i]
-    if (v === null) {
-      if (current.length > 0) {
-        segments.push(current.join(' L '))
-        current = []
-      }
-      continue
-    }
-    current.push(`${geometry.xForTick(i).toFixed(2)},${geometry.yScale(v).toFixed(2)}`)
+    if (v === null) continue
+    linePoints.push(`${geometry.xForTick(i).toFixed(2)},${geometry.yScale(v).toFixed(2)}`)
   }
-  if (current.length > 0) segments.push(current.join(' L '))
+  const segments: string[] = linePoints.length >= 2 ? [linePoints.join(' L ')] : []
 
   return (
     <g
@@ -560,11 +557,44 @@ function EndLabels({
 }
 
 function XAxis({ geometry }: { geometry: ChartGeometry }) {
-  // Show date labels at first, last, and ~every nth in between to avoid clutter
+  // Show date labels at first, last, and ~every nth in between to avoid clutter.
+  // Then drop any whose position is within minLabelGap of an already-shown
+  // label, so close-together sessions don't render labels on top of each other.
   const n = geometry.ticks.length
   const stride = n <= 6 ? 1 : Math.ceil(n / 5)
-  const showAt = new Set<number>([0, n - 1])
-  for (let i = stride; i < n - 1; i += stride) showAt.add(i)
+  const candidates = new Set<number>([0, n - 1])
+  for (let i = stride; i < n - 1; i += stride) candidates.add(i)
+
+  // Pick a format that fits the actual span — for tight ranges show day+month
+  // so e.g. May 24, May 25, May 26 don't all collapse to "May 26".
+  const spanDays =
+    n >= 2
+      ? (geometry.ticks[n - 1].date - geometry.ticks[0].date) / (1000 * 60 * 60 * 24)
+      : 0
+  const format = spanDays < 60 ? formatDateDayMonth : formatDateShort
+
+  // Resolve overlaps: walk left-to-right, drop labels closer than this gap
+  // (in viewBox units) to the previously-kept label.
+  const minLabelGap = 60
+  const shownIndices: number[] = []
+  let lastShownX = -Infinity
+  for (let i = 0; i < n; i++) {
+    if (!candidates.has(i)) continue
+    const x = geometry.xForTick(i)
+    // Always keep the first and last; for middle ones, enforce gap
+    const isEdge = i === 0 || i === n - 1
+    if (isEdge || x - lastShownX >= minLabelGap) {
+      shownIndices.push(i)
+      lastShownX = x
+    }
+  }
+  // Edge case: if first and last are too close (very short total span), drop the first
+  if (shownIndices.length === 2 && shownIndices[1] - shownIndices[0] >= 1) {
+    const x0 = geometry.xForTick(shownIndices[0])
+    const x1 = geometry.xForTick(shownIndices[1])
+    if (x1 - x0 < minLabelGap) shownIndices.shift()
+  }
+  const showAt = new Set<number>(shownIndices)
 
   return (
     <g>
@@ -588,7 +618,7 @@ function XAxis({ geometry }: { geometry: ChartGeometry }) {
                 textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}
                 className="fill-muted-foreground text-[10px] tabular-nums"
               >
-                {formatDateShort(new Date(tick.date))}
+                {format(new Date(tick.date))}
               </text>
             )}
           </g>
@@ -700,6 +730,10 @@ function formatValue(v: number): string {
 
 function formatDateShort(d: Date): string {
   return d.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })
+}
+
+function formatDateDayMonth(d: Date): string {
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
 }
 
 function formatDateLong(d: Date): string {
