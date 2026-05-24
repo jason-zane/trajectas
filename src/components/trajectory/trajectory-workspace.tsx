@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { Table2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getPersonTrajectory } from '@/app/actions/trajectory-data'
+import { computeTrajectorySummary } from '@/lib/trajectory/rollup'
 import { TrajectoryPersonHeader } from './trajectory-person-header'
 import { TrajectorySummaryPanel } from './trajectory-summary'
 import { TrajectoryTimeline, type TimelineMode } from './trajectory-timeline'
@@ -55,18 +56,30 @@ export function TrajectoryWorkspace({
     })
   }
 
-  // Filter series down to the selected assessments
+  // Compare by set, not count — after a refetch the assessment list can
+  // change shape while selection length happens to match.
+  const allAssessmentsSelected = useMemo(() => {
+    if (selectedAssessmentIds.length !== result.assessmentsTouched.length) return false
+    const sel = new Set(selectedAssessmentIds)
+    return result.assessmentsTouched.every((a) => sel.has(a.assessmentId))
+  }, [selectedAssessmentIds, result.assessmentsTouched])
+
   const filteredSeries = useMemo<TrajectorySeries[]>(() => {
-    if (selectedAssessmentIds.length === result.assessmentsTouched.length) {
-      return result.series
-    }
+    if (allAssessmentsSelected) return result.series
     return result.series
       .map((s) => ({
         ...s,
         points: s.points.filter((p) => selectedAssessmentIds.includes(p.assessmentId)),
       }))
       .filter((s) => s.points.length > 0)
-  }, [result.series, result.assessmentsTouched.length, selectedAssessmentIds])
+  }, [result.series, selectedAssessmentIds, allAssessmentsSelected])
+
+  // Summary must reflect the visible data; recompute client-side when the
+  // filter is narrowed so the editorial lede can't drift from the chart.
+  const filteredSummary = useMemo(
+    () => (allAssessmentsSelected ? result.summary : computeTrajectorySummary(filteredSeries)),
+    [allAssessmentsSelected, result.summary, filteredSeries],
+  )
 
   const seriesById = useMemo(
     () => new Map(filteredSeries.map((s) => [s.entityId, s])),
@@ -126,7 +139,7 @@ export function TrajectoryWorkspace({
         <>
           <TrajectorySummaryPanel
             displayName={result.displayName}
-            summary={result.summary}
+            summary={filteredSummary}
           />
 
           {result.assessmentsTouched.length > 1 && (
@@ -151,7 +164,7 @@ export function TrajectoryWorkspace({
           )}
 
           <TrajectoryMoversStrip
-            summary={result.summary}
+            summary={filteredSummary}
             seriesById={seriesById}
             onSelect={(entityId) => setDrillEntityId(entityId)}
           />

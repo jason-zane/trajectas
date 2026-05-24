@@ -18,7 +18,12 @@ export function TrajectoryMoversStrip({
   seriesById: Map<string, TrajectorySeries>
   onSelect: (entityId: string) => void
 }) {
-  const movers = summary.topMovers.slice(0, 6)
+  // Drop movers whose series isn't in the current view — without this a
+  // mover could be rendered for a dimension that isn't present in
+  // seriesById (e.g. mid-refetch state), and clicking it would no-op.
+  const movers = summary.topMovers
+    .filter((m) => seriesById.has(m.entityId))
+    .slice(0, 6)
   if (movers.length === 0) return null
 
   return (
