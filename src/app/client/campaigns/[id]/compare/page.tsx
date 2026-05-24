@@ -6,8 +6,13 @@ import {
   searchCampaignParticipants,
 } from '@/app/actions/comparison'
 import { getCampaignById } from '@/app/actions/campaigns'
+import {
+  getSavedComparison,
+  listSavedComparisons,
+} from '@/app/actions/saved-comparisons'
 import { getPlatformBandScheme } from '@/app/actions/platform-settings'
 import { requireClientCampaignOwnership } from '@/lib/auth/resolve-client-org'
+import { resolveSessionActor } from '@/lib/auth/actor'
 import {
   decodeDeltaParam,
   decodeEntriesParam,
@@ -28,6 +33,7 @@ export default async function ClientCompareCampaignPage({
     levels?: string
     delta?: string
     ids?: string
+    saved?: string
   }>
 }) {
   const { id: campaignId } = await params
@@ -36,18 +42,28 @@ export default async function ClientCompareCampaignPage({
   if (!campaign) redirect('/client/campaigns')
   await requireClientCampaignOwnership(campaign.clientId, `/client/campaigns/${campaignId}/compare`)
 
+  const saved = sp.saved ? await getSavedComparison(sp.saved) : null
+
   const initialEntryIds = sp.ids ? sp.ids.split(',').filter(Boolean) : []
   const decoded = decodeEntriesParam(sp.entries)
   const entries: EntryRequest[] = decoded.length
     ? decoded
-    : initialEntryIds.map((id) => ({ campaignParticipantId: id }))
-  const assessmentIds = sp.assessments ? sp.assessments.split(',').filter(Boolean) : []
-  const visibleLevels = decodeLevelsParam(sp.levels)
-  const deltaMode = decodeDeltaParam(sp.delta)
+    : initialEntryIds.length
+      ? initialEntryIds.map((id) => ({ campaignParticipantId: id }))
+      : (saved?.entries ?? [])
+  const assessmentIds = sp.assessments
+    ? sp.assessments.split(',').filter(Boolean)
+    : (saved?.assessmentIds ?? [])
+  const visibleLevels = sp.levels
+    ? decodeLevelsParam(sp.levels)
+    : (saved?.visibleLevels ?? decodeLevelsParam(undefined))
+  const deltaMode = sp.delta !== undefined ? decodeDeltaParam(sp.delta) : (saved?.deltaMode ?? false)
 
-  const eligible = await getEligibleAssessmentsForParticipants(
-    entries.map((e) => e.campaignParticipantId),
-  )
+  const [eligible, savedList, actor] = await Promise.all([
+    getEligibleAssessmentsForParticipants(entries.map((e) => e.campaignParticipantId)),
+    listSavedComparisons(),
+    resolveSessionActor(),
+  ])
 
   const effectiveRequest: ComparisonRequest = {
     entries,
@@ -78,17 +94,26 @@ export default async function ClientCompareCampaignPage({
     <div className="space-y-4 max-w-[1600px]">
       <div className="px-4 pt-4">
         <PageHeader
-          eyebrow="Insights · Campaign"
-          title={longitudinal && personName ? personName : campaign.title}
+          eyebrow={saved ? `Insights · ${saved.shareScope === 'team' ? 'Shared' : 'Private'}` : 'Insights · Campaign'}
+          title={saved?.name ?? (longitudinal && personName ? personName : campaign.title)}
           description={subject}
         />
       </div>
       <ComparisonWorkspace
-        initial={{ request: effectiveRequest, result, eligible, deltaMode }}
+        initial={{
+          request: effectiveRequest,
+          result,
+          eligible,
+          deltaMode,
+          saved,
+          savedList,
+        }}
+        basePath={`/client/campaigns/${campaignId}/compare`}
         campaignSlug={campaign.slug}
         partnerBandScheme={null}
         platformBandScheme={platformBandScheme}
         searchSource={searchSource}
+        currentUserId={actor?.id ?? null}
       />
     </div>
   )

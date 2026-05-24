@@ -4,7 +4,12 @@ import {
   getEligibleAssessmentsForParticipants,
   searchAllParticipants,
 } from '@/app/actions/comparison'
+import {
+  getSavedComparison,
+  listSavedComparisons,
+} from '@/app/actions/saved-comparisons'
 import { getPlatformBandScheme } from '@/app/actions/platform-settings'
+import { resolveSessionActor } from '@/lib/auth/actor'
 import {
   decodeDeltaParam,
   decodeEntriesParam,
@@ -13,6 +18,8 @@ import {
 import { isLongitudinal } from '@/lib/comparison/display'
 import { PageHeader } from '@/components/page-header'
 import type { ComparisonRequest, EntryRequest } from '@/lib/comparison/types'
+
+const BASE_PATH = '/participants/compare'
 
 export default async function ComparePage({
   searchParams,
@@ -23,22 +30,36 @@ export default async function ComparePage({
     levels?: string
     delta?: string
     ids?: string
+    saved?: string
   }>
 }) {
   const sp = await searchParams
+
+  // If `saved` is supplied, load the saved comparison and use it as the
+  // primary source. URL params still take precedence so the user can
+  // tweak a loaded comparison without re-saving.
+  const saved = sp.saved ? await getSavedComparison(sp.saved) : null
 
   const initialEntryIds = sp.ids ? sp.ids.split(',').filter(Boolean) : []
   const decoded = decodeEntriesParam(sp.entries)
   const entries: EntryRequest[] = decoded.length
     ? decoded
-    : initialEntryIds.map((id) => ({ campaignParticipantId: id }))
-  const assessmentIds = sp.assessments ? sp.assessments.split(',').filter(Boolean) : []
-  const visibleLevels = decodeLevelsParam(sp.levels)
-  const deltaMode = decodeDeltaParam(sp.delta)
+    : initialEntryIds.length
+      ? initialEntryIds.map((id) => ({ campaignParticipantId: id }))
+      : (saved?.entries ?? [])
+  const assessmentIds = sp.assessments
+    ? sp.assessments.split(',').filter(Boolean)
+    : (saved?.assessmentIds ?? [])
+  const visibleLevels = sp.levels
+    ? decodeLevelsParam(sp.levels)
+    : (saved?.visibleLevels ?? decodeLevelsParam(undefined))
+  const deltaMode = sp.delta !== undefined ? decodeDeltaParam(sp.delta) : (saved?.deltaMode ?? false)
 
-  const eligible = await getEligibleAssessmentsForParticipants(
-    entries.map((e) => e.campaignParticipantId),
-  )
+  const [eligible, savedList, actor] = await Promise.all([
+    getEligibleAssessmentsForParticipants(entries.map((e) => e.campaignParticipantId)),
+    listSavedComparisons(),
+    resolveSessionActor(),
+  ])
 
   const effectiveRequest: ComparisonRequest = {
     entries,
@@ -57,7 +78,7 @@ export default async function ComparePage({
   const aCount = effectiveRequest.assessmentIds.length
   const aLabel = `${aCount} assessment${aCount === 1 ? '' : 's'}`
   const subject = (() => {
-    if (result.rows.length === 0) return 'Pick participants to begin.'
+    if (result.rows.length === 0) return 'Pick a participant to start a new comparison, or open a saved one.'
     if (longitudinal && personName) {
       return `${result.rows.length} sessions across ${aLabel}`
     }
@@ -69,16 +90,25 @@ export default async function ComparePage({
     <div className="space-y-4 max-w-[1600px]">
       <div className="px-4 pt-4">
         <PageHeader
-          eyebrow="Insights"
-          title={longitudinal && personName ? personName : 'Compare'}
+          eyebrow={saved ? `Insights · ${saved.shareScope === 'team' ? 'Shared' : 'Private'}` : 'Insights'}
+          title={saved?.name ?? (longitudinal && personName ? personName : 'Compare')}
           description={subject}
         />
       </div>
       <ComparisonWorkspace
-        initial={{ request: effectiveRequest, result, eligible, deltaMode }}
+        initial={{
+          request: effectiveRequest,
+          result,
+          eligible,
+          deltaMode,
+          saved,
+          savedList,
+        }}
+        basePath={BASE_PATH}
         partnerBandScheme={null}
         platformBandScheme={platformBandScheme}
         searchSource={searchAllParticipants}
+        currentUserId={actor?.id ?? null}
       />
     </div>
   )

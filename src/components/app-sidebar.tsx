@@ -29,6 +29,7 @@ import {
   Mail,
   Tag,
   TrendingUp,
+  Scale,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -105,6 +106,12 @@ const adminNav: NavSection[] = [
       { title: "Report Templates", href: "/report-templates", icon: LayoutTemplate },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { title: "Compare", href: "/participants/compare", icon: Scale },
       { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
     ],
   },
@@ -164,6 +171,12 @@ const clientNav: NavSection[] = [
       { title: "Assessments", href: "/assessments", icon: ClipboardList },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { title: "Compare", href: "/participants/compare", icon: Scale },
     ],
   },
 ];

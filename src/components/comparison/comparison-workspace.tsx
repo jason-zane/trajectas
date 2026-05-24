@@ -1,10 +1,16 @@
 'use client'
-import { useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ComparisonSelectionBar } from './comparison-selection-bar'
 import { ComparisonMatrix } from './comparison-matrix'
 import { AddParticipantDialog, type AddPickerSource } from './add-participant-dialog'
 import { ComparisonRowSessionPopover } from './comparison-row-session-popover'
+import { ComparisonEmptyState } from './comparison-empty-state'
+import { ComparisonSaveMenu } from './comparison-save-menu'
+import type {
+  SavedComparison,
+  SavedComparisonSummary,
+} from '@/lib/comparison/saved-types'
 import { buildCellStyleResolver } from '@/lib/comparison/resolve-bands'
 import {
   getComparisonMatrix,
@@ -27,11 +33,15 @@ type Props = {
     result: ComparisonResult
     eligible: EligibleAssessment[]
     deltaMode?: boolean
+    saved?: SavedComparison | null
+    savedList?: SavedComparisonSummary[]
   }
+  basePath: string
   campaignSlug?: string
   partnerBandScheme: BandScheme | null
   platformBandScheme: BandScheme | null
   searchSource: AddPickerSource
+  currentUserId?: string | null
 }
 
 function encodeEntries(entries: EntryRequest[]): string {
@@ -40,10 +50,12 @@ function encodeEntries(entries: EntryRequest[]): string {
 
 export function ComparisonWorkspace({
   initial,
+  basePath,
   campaignSlug,
   partnerBandScheme,
   platformBandScheme,
   searchSource,
+  currentUserId,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -56,6 +68,22 @@ export function ComparisonWorkspace({
   const [showAdd, setShowAdd] = useState(false)
   const [popover, setPopover] = useState<{ entryId: string; cpId: string } | null>(null)
   const [deltaMode, setDeltaMode] = useState<boolean>(initial.deltaMode ?? false)
+
+  // When the parent server component re-renders with new `initial` props
+  // (saved comparison loaded, navigated to ?entries=…, etc.), Next App
+  // Router keeps this Client Component mounted, so local state would
+  // otherwise stick to the first render's values. Resync on identity
+  // change of `initial`.
+  const initialRef = useRef(initial)
+  useEffect(() => {
+    if (initialRef.current !== initial) {
+      initialRef.current = initial
+      setRequest(initial.request)
+      setResult(initial.result)
+      setEligible(initial.eligible)
+      setDeltaMode(initial.deltaMode ?? false)
+    }
+  }, [initial])
 
   const longitudinal = useMemo(() => isLongitudinal(result.rows), [result.rows])
 
@@ -141,30 +169,53 @@ export function ComparisonWorkspace({
     update({ ...request, entries: newEntries })
   }
 
+  const savedSummary = initial.saved
+    ? {
+        id: initial.saved.id,
+        name: initial.saved.name,
+        shareScope: initial.saved.shareScope,
+        isOwn: currentUserId ? initial.saved.ownerId === currentUserId : false,
+      }
+    : null
+
   return (
     <div className="space-y-4">
-      <ComparisonSelectionBar
-        rows={result.rows}
-        request={request}
-        visibleLevels={visibleLevels}
-        campaignSlug={campaignSlug}
-        eligibleAssessments={eligible}
-        deltaMode={deltaMode}
-        longitudinal={longitudinal}
-        onRemoveEntry={removeEntry}
-        onAddEntryClick={() => setShowAdd(true)}
-        onToggleAssessment={toggleAssessment}
-        onToggleLevel={toggleLevel}
-        onToggleDelta={() => setDeltaMode((v) => !v)}
-      />
+      {request.entries.length > 0 && (
+        <ComparisonSelectionBar
+          rows={result.rows}
+          request={request}
+          visibleLevels={visibleLevels}
+          campaignSlug={campaignSlug}
+          eligibleAssessments={eligible}
+          deltaMode={deltaMode}
+          longitudinal={longitudinal}
+          onRemoveEntry={removeEntry}
+          onAddEntryClick={() => setShowAdd(true)}
+          onToggleAssessment={toggleAssessment}
+          onToggleLevel={toggleLevel}
+          onToggleDelta={() => setDeltaMode((v) => !v)}
+          saveSlot={
+            <ComparisonSaveMenu
+              entries={request.entries}
+              assessmentIds={request.assessmentIds}
+              visibleLevels={visibleLevels}
+              deltaMode={deltaMode}
+              saved={savedSummary}
+              basePath={basePath}
+            />
+          }
+        />
+      )}
       {pending && (
         <div className="px-4 text-xs text-muted-foreground">Updating…</div>
       )}
       <div className="px-4">
         {result.rows.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center text-sm text-muted-foreground">
-            No participants selected — add one to start.
-          </div>
+          <ComparisonEmptyState
+            basePath={basePath}
+            savedComparisons={initial.savedList ?? []}
+            searchSource={searchSource}
+          />
         ) : (
           <ComparisonMatrix
             data={result}
