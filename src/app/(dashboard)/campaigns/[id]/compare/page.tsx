@@ -3,7 +3,6 @@ import { ComparisonWorkspace } from '@/components/comparison/comparison-workspac
 import {
   getComparisonMatrix,
   getEligibleAssessmentsForParticipants,
-  searchCampaignParticipants,
 } from '@/app/actions/comparison'
 import { getCampaignById } from '@/app/actions/campaigns'
 import {
@@ -75,8 +74,6 @@ export default async function CompareCampaignPage({
   const result = await getComparisonMatrix(effectiveRequest)
   const platformBandScheme = await getPlatformBandScheme()
 
-  const searchSource = (query: string) => searchCampaignParticipants(campaignId, query)
-
   const longitudinal = isLongitudinal(result.rows)
   const personName = result.rows[0]?.participantName ?? null
   const aCount = effectiveRequest.assessmentIds.length
@@ -110,7 +107,7 @@ export default async function CompareCampaignPage({
         campaignSlug={campaign.slug}
         partnerBandScheme={null}
         platformBandScheme={platformBandScheme}
-        searchSource={searchSource}
+        pickerScope={{ kind: 'campaign', campaignId }}
         currentUserId={actor?.id ?? null}
       />
     </div>

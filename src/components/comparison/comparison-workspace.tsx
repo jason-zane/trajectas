@@ -15,8 +15,21 @@ import { buildCellStyleResolver } from '@/lib/comparison/resolve-bands'
 import {
   getComparisonMatrix,
   getEligibleAssessmentsForParticipants,
+  searchAllParticipants,
+  searchCampaignParticipants,
   type EligibleAssessment,
 } from '@/app/actions/comparison'
+
+/**
+ * Picker scope is captured as serializable data, not a closure. We can't
+ * pass a non-`use server` function from a Server Component to this Client
+ * Component (Next.js throws "Functions cannot be passed directly to Client
+ * Components"). The closure that the dialog actually consumes is built
+ * inside this component so it lives entirely on the client.
+ */
+export type PickerScope =
+  | { kind: 'all' }
+  | { kind: 'campaign'; campaignId: string }
 import type { BandScheme } from '@/lib/reports/band-scheme'
 import { DEFAULT_VISIBLE_LEVELS } from '@/lib/comparison/url-params'
 import { isLongitudinal } from '@/lib/comparison/display'
@@ -40,7 +53,7 @@ type Props = {
   campaignSlug?: string
   partnerBandScheme: BandScheme | null
   platformBandScheme: BandScheme | null
-  searchSource: AddPickerSource
+  pickerScope: PickerScope
   currentUserId?: string | null
 }
 
@@ -63,9 +76,16 @@ export function ComparisonWorkspace({
   campaignSlug,
   partnerBandScheme,
   platformBandScheme,
-  searchSource,
+  pickerScope,
   currentUserId,
 }: Props) {
+  const searchSource: AddPickerSource = useMemo(
+    () =>
+      pickerScope.kind === 'campaign'
+        ? (query) => searchCampaignParticipants(pickerScope.campaignId, query)
+        : (query) => searchAllParticipants(query),
+    [pickerScope],
+  )
   const router = useRouter()
   const pathname = usePathname()
   const params = useSearchParams()
