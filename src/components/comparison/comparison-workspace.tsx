@@ -13,6 +13,7 @@ import {
 } from '@/app/actions/comparison'
 import type { BandScheme } from '@/lib/reports/band-scheme'
 import { DEFAULT_VISIBLE_LEVELS } from '@/lib/comparison/url-params'
+import { isLongitudinal } from '@/lib/comparison/display'
 import type {
   ColumnLevel,
   ComparisonRequest,
@@ -25,6 +26,7 @@ type Props = {
     request: ComparisonRequest
     result: ComparisonResult
     eligible: EligibleAssessment[]
+    deltaMode?: boolean
   }
   campaignSlug?: string
   partnerBandScheme: BandScheme | null
@@ -53,6 +55,9 @@ export function ComparisonWorkspace({
   const [eligible, setEligible] = useState<EligibleAssessment[]>(initial.eligible)
   const [showAdd, setShowAdd] = useState(false)
   const [popover, setPopover] = useState<{ entryId: string; cpId: string } | null>(null)
+  const [deltaMode, setDeltaMode] = useState<boolean>(initial.deltaMode ?? false)
+
+  const longitudinal = useMemo(() => isLongitudinal(result.rows), [result.rows])
 
   const getCellStyle: (score: number | null) => CSSProperties = useMemo(
     () =>
@@ -70,12 +75,14 @@ export function ComparisonWorkspace({
     next.set('entries', encodeEntries(request.entries))
     next.set('assessments', request.assessmentIds.join(','))
     next.set('levels', visibleLevels.join(','))
+    if (deltaMode) next.set('delta', '1')
+    else next.delete('delta')
     next.delete('granularity')
     router.replace(`${pathname}?${next.toString()}`, { scroll: false })
     // We deliberately omit `params` to avoid an update loop when router.replace
     // changes the URL.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request, pathname, router])
+  }, [request, deltaMode, pathname, router])
 
   function refetch(nextRequest: ComparisonRequest) {
     startTransition(async () => {
@@ -142,15 +149,20 @@ export function ComparisonWorkspace({
         visibleLevels={visibleLevels}
         campaignSlug={campaignSlug}
         eligibleAssessments={eligible}
+        deltaMode={deltaMode}
+        longitudinal={longitudinal}
         onRemoveEntry={removeEntry}
         onAddEntryClick={() => setShowAdd(true)}
         onToggleAssessment={toggleAssessment}
         onToggleLevel={toggleLevel}
+        onToggleDelta={() => setDeltaMode((v) => !v)}
       />
-      {pending && <div className="text-xs opacity-60 px-4">Updating…</div>}
+      {pending && (
+        <div className="px-4 text-xs text-muted-foreground">Updating…</div>
+      )}
       <div className="px-4">
         {result.rows.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-12 text-center text-sm opacity-70">
+          <div className="rounded-xl border border-dashed border-border bg-muted/20 p-12 text-center text-sm text-muted-foreground">
             No participants selected — add one to start.
           </div>
         ) : (
@@ -158,6 +170,8 @@ export function ComparisonWorkspace({
             data={result}
             visibleLevels={visibleLevels}
             getCellStyle={getCellStyle}
+            deltaMode={deltaMode}
+            longitudinal={longitudinal}
             onChangeRowSession={(entryId) => {
               const row = result.rows.find((r) => r.entryId === entryId)
               if (!row) return
