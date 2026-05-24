@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,8 +25,6 @@ interface SessionViewProps {
   backLabel: string;
   reportBasePath: string;
   settingsHref?: string;
-  /** Optional element rendered top-right of the header — typically a SessionHeaderActions dropdown. */
-  actions?: ReactNode;
 }
 
 function formatDuration(minutes: number | null | undefined): string {
@@ -56,7 +53,6 @@ export function SessionView({
   backLabel,
   reportBasePath,
   settingsHref,
-  actions,
 }: SessionViewProps) {
   const showProcessingBanner =
     session.processingStatus === "scoring" ||
@@ -78,32 +74,29 @@ export function SessionView({
         {backLabel}
       </Link>
 
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <div className="space-y-4">
-          <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold,theme(colors.primary.DEFAULT))]">
-            {session.assessmentTitle}
-          </p>
-          <h1 className="font-sans text-3xl font-bold tracking-[-0.02em] text-foreground sm:text-4xl">
-            {session.participantName}
-          </h1>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-            <span>{session.participantEmail}</span>
-            <span aria-hidden>·</span>
-            <span>{session.campaignTitle}</span>
-            {session.clientName ? (
-              <>
-                <span aria-hidden>·</span>
-                <span>{session.clientName}</span>
-              </>
-            ) : null}
-            <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
-            <SessionStatusBadge status={session.status} />
-            {session.status === "completed" ? (
-              <SessionProcessingBadge status={session.processingStatus} />
-            ) : null}
-          </div>
+      <header className="space-y-4">
+        <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold,theme(colors.primary.DEFAULT))]">
+          {session.assessmentTitle}
+        </p>
+        <h1 className="font-sans text-3xl font-bold tracking-[-0.02em] text-foreground sm:text-4xl">
+          {session.participantName}
+        </h1>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
+          <span>{session.participantEmail}</span>
+          <span aria-hidden>·</span>
+          <span>{session.campaignTitle}</span>
+          {session.clientName ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>{session.clientName}</span>
+            </>
+          ) : null}
+          <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
+          <SessionStatusBadge status={session.status} />
+          {session.status === "completed" ? (
+            <SessionProcessingBadge status={session.processingStatus} />
+          ) : null}
         </div>
-        {actions ? <div className="shrink-0">{actions}</div> : null}
       </header>
 
       {showProcessingBanner ? (
