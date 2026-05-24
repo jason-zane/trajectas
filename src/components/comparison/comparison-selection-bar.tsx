@@ -26,6 +26,7 @@ export function ComparisonSelectionBar({
   eligibleAssessments,
   deltaMode,
   longitudinal,
+  saveSlot,
   onRemoveEntry,
   onAddEntryClick,
   onToggleAssessment,
@@ -39,6 +40,7 @@ export function ComparisonSelectionBar({
   eligibleAssessments: EligibleAssessment[]
   deltaMode: boolean
   longitudinal: boolean
+  saveSlot?: React.ReactNode
   onRemoveEntry: (entryId: string) => void
   onAddEntryClick: () => void
   onToggleAssessment: (assessmentId: string) => void
@@ -112,6 +114,7 @@ export function ComparisonSelectionBar({
             )}
             Δ vs mean
           </button>
+          {saveSlot}
           <ComparisonExportButton
             request={request}
             campaignSlug={campaignSlug}
