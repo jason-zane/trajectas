@@ -48,6 +48,15 @@ function encodeEntries(entries: EntryRequest[]): string {
   return encodeURIComponent(JSON.stringify(entries))
 }
 
+function requestSignature(req: ComparisonRequest, delta: boolean): string {
+  return JSON.stringify({
+    e: req.entries,
+    a: req.assessmentIds,
+    l: req.visibleLevels ?? [],
+    d: delta,
+  })
+}
+
 export function ComparisonWorkspace({
   initial,
   basePath,
@@ -69,20 +78,35 @@ export function ComparisonWorkspace({
   const [popover, setPopover] = useState<{ entryId: string; cpId: string } | null>(null)
   const [deltaMode, setDeltaMode] = useState<boolean>(initial.deltaMode ?? false)
 
-  // When the parent server component re-renders with new `initial` props
-  // (saved comparison loaded, navigated to ?entries=…, etc.), Next App
-  // Router keeps this Client Component mounted, so local state would
-  // otherwise stick to the first render's values. Resync on identity
-  // change of `initial`.
-  const initialRef = useRef(initial)
+  // Resync local state when `initial` props meaningfully differ from local
+  // state. This handles back/forward navigation and loading a saved
+  // comparison via ?saved=… while the workspace is already mounted.
+  //
+  // We compare by *content signature*, not object identity. The previous
+  // identity check created a render storm because every URL writeback
+  // produced a fresh `initial` reference on the next server render, which
+  // looked like a change-to-resync and queued more URL writebacks.
+  //
+  // When the local state already matches the URL (the common case after a
+  // workspace-initiated change), the signatures match and we skip the
+  // setters entirely.
+  const lastSyncedSig = useRef(requestSignature(initial.request, initial.deltaMode ?? false))
   useEffect(() => {
-    if (initialRef.current !== initial) {
-      initialRef.current = initial
+    const incomingSig = requestSignature(initial.request, initial.deltaMode ?? false)
+    const localSig = requestSignature(request, deltaMode)
+    if (incomingSig !== localSig && incomingSig !== lastSyncedSig.current) {
+      lastSyncedSig.current = incomingSig
       setRequest(initial.request)
       setResult(initial.result)
       setEligible(initial.eligible)
       setDeltaMode(initial.deltaMode ?? false)
+    } else {
+      lastSyncedSig.current = incomingSig
     }
+    // We only depend on `initial`; `request`/`deltaMode` reads are intentionally
+    // current-render snapshots, not effect deps, to avoid retriggering on every
+    // local change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial])
 
   const longitudinal = useMemo(() => isLongitudinal(result.rows), [result.rows])
@@ -215,6 +239,7 @@ export function ComparisonWorkspace({
             basePath={basePath}
             savedComparisons={initial.savedList ?? []}
             searchSource={searchSource}
+            onAddEntry={addEntry}
           />
         ) : (
           <ComparisonMatrix

@@ -500,6 +500,7 @@ export function CampaignParticipantManager({
         defaultSort={{ id: "displayName", desc: false }}
         pageSize={20}
         enableRowSelection
+        getRowId={(row) => row.id}
         bulkActions={bulkActions}
         rowHref={(row) =>
           row.latestSessionId
