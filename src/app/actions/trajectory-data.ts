@@ -425,14 +425,36 @@ async function loadTaxonomyForLevel(
     }
 
     if (level === 'construct') {
+      // Resolve construct → factor via factor_constructs so the drill from
+      // factor to construct can filter by parentId === factorId. Falls back
+      // to the dimension as parent if a construct has no factor mapping.
+      const { data: fcRows, error: fcErr } = await db
+        .from('factor_constructs')
+        .select('construct_id, factor_id, factors(id, name)')
+        .in('construct_id', [...constructIds])
+      if (fcErr) {
+        throwActionError('getPersonTrajectory', 'Unable to load factor_constructs.', fcErr)
+      }
+      const factorParentByConstruct = new Map<string, { id: string; name: string }>()
+      for (const row of (fcRows ?? []) as FactorConstructLite[]) {
+        const f = unwrap(row.factors)
+        if (f && !factorParentByConstruct.has(String(row.construct_id))) {
+          factorParentByConstruct.set(String(row.construct_id), {
+            id: String(f.id),
+            name: String(f.name),
+          })
+        }
+      }
+
       for (const id of constructIds) {
-        const parent = parentDimensionByEntity.get(id) ?? null
+        const factorParent = factorParentByConstruct.get(id)
+        const dimParent = factorParent ? null : (parentDimensionByEntity.get(id) ?? null)
         entitiesByLevel.set(id, {
           id,
           name: constructNameById.get(id) ?? id,
           level: 'construct',
-          parentId: parent?.id ?? null,
-          parentName: parent?.name ?? null,
+          parentId: factorParent?.id ?? dimParent?.id ?? null,
+          parentName: factorParent?.name ?? dimParent?.name ?? null,
         })
       }
     }
@@ -479,6 +501,11 @@ type AssessmentConstructLite = {
   construct_id: string
   dimension_id: string | null
   dimensions: { id: string; name: string } | { id: string; name: string }[] | null
+}
+type FactorConstructLite = {
+  construct_id: string
+  factor_id: string | null
+  factors: { id: string; name: string } | { id: string; name: string }[] | null
 }
 
 function unwrap<T>(v: T | T[] | null | undefined): T | null {
