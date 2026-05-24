@@ -93,6 +93,7 @@ describe('computeTrajectorySummary', () => {
       level: 'dimension',
       parentId: null,
       parentName: null,
+      additionalParentIds: [],
       points: pts.map((p) =>
         point({
           sessionId: p.sessionId,
@@ -166,6 +167,7 @@ describe('computeTrajectorySummary', () => {
       entityName: 'a factor',
       level: 'factor',
       parentId: null,
+      additionalParentIds: [],
       parentName: null,
       points: [
         point({ sessionId: 's1', completedAt: '2024-03-01T00:00:00Z', scaledScore: 30 }),
