@@ -1,14 +1,41 @@
-import type { ConstructForGeneration } from '@/types/generation'
+import type {
+  Audience,
+  ConstructForGeneration,
+  MeasurementMode,
+  PlaybookSnapshot,
+  UseContext,
+} from '@/types/generation'
+import {
+  renderAudienceBlock,
+  renderMeasurementModeBlock,
+  renderPlaybookBlock,
+  renderUseContextBlock,
+} from './steering'
 
-export function buildItemGenerationPrompt(params: {
-  construct:        ConstructForGeneration
-  batchSize:        number
+export interface BuildItemGenerationPromptInput {
+  construct: ConstructForGeneration
+  batchSize: number
   responseFormatDescription: string
-  previousItems:    string[]
-  previousFacets?:  string[]
+  previousItems: string[]
+  previousFacets?: string[]
   difficultySteering?: string
-  contrastConstructs?: Array<Pick<ConstructForGeneration, "name" | "definition" | "description">>
-}): string {
+  contrastConstructs?: Array<
+    Pick<ConstructForGeneration, 'name' | 'definition' | 'description'>
+  >
+
+  // Steering inputs added in the refactor. Absence means fall back to the
+  // implicit behavioural-Likert defaults (current behaviour).
+  measurementMode?: MeasurementMode
+  measurementModeDescription?: string
+  audience?: Audience
+  useContext?: UseContext
+  useContextDescription?: string
+  playbook?: PlaybookSnapshot
+}
+
+export function buildItemGenerationPrompt(
+  params: BuildItemGenerationPromptInput,
+): string {
   const {
     construct,
     batchSize,
@@ -17,36 +44,71 @@ export function buildItemGenerationPrompt(params: {
     previousFacets = [],
     difficultySteering = '',
     contrastConstructs = [],
+    measurementMode,
+    measurementModeDescription,
+    audience,
+    useContext,
+    useContextDescription,
+    playbook,
   } = params
 
   const indicatorSection = [
-    construct.indicatorsLow  ? `Low scorers: ${construct.indicatorsLow}`  : null,
-    construct.indicatorsMid  ? `Mid scorers: ${construct.indicatorsMid}`  : null,
+    construct.indicatorsLow ? `Low scorers: ${construct.indicatorsLow}` : null,
+    construct.indicatorsMid ? `Mid scorers: ${construct.indicatorsMid}` : null,
     construct.indicatorsHigh ? `High scorers: ${construct.indicatorsHigh}` : null,
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 
-  const contrastSection = contrastConstructs.length > 0
-    ? `\n## Keep This Construct Distinct From:\n${contrastConstructs
-        .map((other) => `- ${other.name}${other.definition ? `: ${other.definition}` : other.description ? `: ${other.description}` : ''}`)
-        .join('\n')}`
-    : ''
+  const contrastSection =
+    contrastConstructs.length > 0
+      ? `\n## Keep This Construct Distinct From:\n${contrastConstructs
+          .map(
+            (other) =>
+              `- ${other.name}${
+                other.definition
+                  ? `: ${other.definition}`
+                  : other.description
+                    ? `: ${other.description}`
+                    : ''
+              }`,
+          )
+          .join('\n')}`
+      : ''
 
-  const previousSection = previousItems.length > 0
-    ? `\n## Existing or already-generated items for this construct (do NOT repeat, paraphrase, or make a near-neighbour of any of these):\n${previousItems.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
-    : ''
+  const previousSection =
+    previousItems.length > 0
+      ? `\n## Existing or already-generated items for this construct (do NOT repeat, paraphrase, or make a near-neighbour of any of these):\n${previousItems
+          .map((s, i) => `${i + 1}. ${s}`)
+          .join('\n')}`
+      : ''
 
-  const facetCoverageSection = previousFacets.length > 0
-    ? `\n## Facet Coverage\nPrevious batches covered these facets: ${previousFacets.join(', ')}.\nExplore different behavioural expressions of the construct that are not yet represented.`
-    : ''
+  const facetCoverageSection =
+    previousFacets.length > 0
+      ? `\n## Facet Coverage\nPrevious batches covered these facets: ${previousFacets.join(', ')}.\nExplore different behavioural expressions of the construct that are not yet represented.`
+      : ''
 
-  const parentFactorSection = construct.parentFactors && construct.parentFactors.length > 0
-    ? `\n## Criterion Linkage — Parent Factors\nThis construct sits beneath the following higher-order factor(s). Items should be behaviourally consistent with these factors while remaining specific to the construct.\n${construct.parentFactors.map((f) => {
-        const parts = [`- **${f.name}**`]
-        if (f.definition) parts.push(`  Definition: ${f.definition}`)
-        if (f.indicatorsHigh) parts.push(`  High-performer indicators: ${f.indicatorsHigh}`)
-        return parts.join('\n')
-      }).join('\n')}`
-    : ''
+  const parentFactorSection =
+    construct.parentFactors && construct.parentFactors.length > 0
+      ? `\n## Criterion Linkage — Parent Factors\nThis construct sits beneath the following higher-order factor(s). Items should be behaviourally consistent with these factors while remaining specific to the construct.\n${construct.parentFactors
+          .map((f) => {
+            const parts = [`- **${f.name}**`]
+            if (f.definition) parts.push(`  Definition: ${f.definition}`)
+            if (f.indicatorsHigh)
+              parts.push(`  High-performer indicators: ${f.indicatorsHigh}`)
+            return parts.join('\n')
+          })
+          .join('\n')}`
+      : ''
+
+  const steeringSection = [
+    renderMeasurementModeBlock(measurementMode, measurementModeDescription),
+    renderAudienceBlock(audience),
+    renderUseContextBlock(useContext, useContextDescription),
+    renderPlaybookBlock(playbook),
+  ]
+    .filter((s) => s.length > 0)
+    .join('\n\n')
 
   return `Generate ${batchSize} NEW psychometric items for the following construct.
 
@@ -57,7 +119,7 @@ ${indicatorSection ? `\nBehavioural Indicators:\n${indicatorSection}` : ''}
 ${contrastSection}
 ${parentFactorSection}
 
-## Response Format
+${steeringSection ? steeringSection + '\n\n' : ''}## Response Format
 ${responseFormatDescription}
 ${previousSection}
 ${facetCoverageSection}
@@ -80,26 +142,31 @@ Return a JSON array of exactly ${batchSize} objects:
 }
 
 export interface GeneratedItemRaw {
-  stem:           string
-  reverseScored:  boolean
-  rationale:      string
+  stem: string
+  reverseScored: boolean
+  rationale: string
   difficultyTier?: string
-  sdRisk?:        string
-  facet?:         string
+  sdRisk?: string
+  facet?: string
 }
 
-const VALID_DIFFICULTY_TIERS = new Set(['easy', 'moderate', 'hard', 'foundation', 'applied', 'demanding'])
+const VALID_DIFFICULTY_TIERS = new Set([
+  'easy',
+  'moderate',
+  'hard',
+  'foundation',
+  'applied',
+  'demanding',
+])
 const VALID_SD_RISKS = new Set(['low', 'moderate', 'high'])
 
 export function parseGeneratedItems(jsonContent: string): GeneratedItemRaw[] {
-  // Strip markdown fences if present
   const cleaned = jsonContent
     .replace(/^```(?:json)?\n?/m, '')
     .replace(/\n?```$/m, '')
     .trim()
 
   let parsed = JSON.parse(cleaned) as unknown
-  // Models sometimes wrap the array in an object like { "items": [...] }
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const obj = parsed as Record<string, unknown>
     const firstArray = Object.values(obj).find(Array.isArray)
@@ -107,30 +174,36 @@ export function parseGeneratedItems(jsonContent: string): GeneratedItemRaw[] {
   }
   if (!Array.isArray(parsed)) return []
 
-  return parsed.filter(
-    (item): item is GeneratedItemRaw =>
-      typeof item === 'object' &&
-      item !== null &&
-      typeof (item as Record<string, unknown>).stem === 'string' &&
-      typeof (item as Record<string, unknown>).reverseScored === 'boolean',
-  ).map(item => {
-    const raw = item as unknown as Record<string, unknown>
-    const difficultyTier = typeof raw.difficultyTier === 'string' && VALID_DIFFICULTY_TIERS.has(raw.difficultyTier)
-      ? raw.difficultyTier
-      : undefined
-    const sdRisk = typeof raw.sdRisk === 'string' && VALID_SD_RISKS.has(raw.sdRisk)
-      ? raw.sdRisk
-      : undefined
-    const facet = typeof raw.facet === 'string' && raw.facet.length > 0
-      ? raw.facet
-      : undefined
-    return {
-      stem:           item.stem,
-      reverseScored:  item.reverseScored,
-      rationale:      typeof item.rationale === 'string' ? item.rationale : '',
-      difficultyTier,
-      sdRisk,
-      facet,
-    }
-  })
+  return parsed
+    .filter(
+      (item): item is GeneratedItemRaw =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).stem === 'string' &&
+        typeof (item as Record<string, unknown>).reverseScored === 'boolean',
+    )
+    .map((item) => {
+      const raw = item as unknown as Record<string, unknown>
+      const difficultyTier =
+        typeof raw.difficultyTier === 'string' &&
+        VALID_DIFFICULTY_TIERS.has(raw.difficultyTier)
+          ? raw.difficultyTier
+          : undefined
+      const sdRisk =
+        typeof raw.sdRisk === 'string' && VALID_SD_RISKS.has(raw.sdRisk)
+          ? raw.sdRisk
+          : undefined
+      const facet =
+        typeof raw.facet === 'string' && raw.facet.length > 0
+          ? raw.facet
+          : undefined
+      return {
+        stem: item.stem,
+        reverseScored: item.reverseScored,
+        rationale: typeof item.rationale === 'string' ? item.rationale : '',
+        difficultyTier,
+        sdRisk,
+        facet,
+      }
+    })
 }
