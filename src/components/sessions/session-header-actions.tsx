@@ -6,6 +6,7 @@ import {
   Building2,
   ChevronDown,
   MoreHorizontal,
+  RotateCcw,
   Trash2,
   User,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { bulkDeleteParticipantSessions } from "@/app/actions/sessions";
+import { resetSessionProcessing } from "@/app/actions/admin-session-actions";
 
 interface SessionHeaderActionsProps {
   sessionId: string;
@@ -27,7 +29,7 @@ interface SessionHeaderActionsProps {
   participantHref: string;
   /** Where to navigate after a successful delete. Usually the back-link target. */
   postDeleteHref: string;
-  /** Whether to expose admin-only management actions (currently: Delete session). */
+  /** Whether to expose admin-only management actions (Reset processing, Delete session). */
   canManage?: boolean;
 }
 
@@ -39,15 +41,30 @@ export function SessionHeaderActions({
   canManage = false,
 }: SessionHeaderActionsProps) {
   const router = useRouter();
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isResetting, startReset] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
+
+  function handleReset() {
+    startReset(async () => {
+      const result = await resetSessionProcessing(sessionId);
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Processing state cleared");
+      setResetConfirmOpen(false);
+      router.refresh();
+    });
+  }
 
   function handleDelete() {
-    startTransition(async () => {
+    startDelete(async () => {
       try {
         await bulkDeleteParticipantSessions([sessionId]);
         toast.success("Session deleted");
-        setConfirmOpen(false);
+        setDeleteConfirmOpen(false);
         router.push(postDeleteHref);
         router.refresh();
       } catch (error) {
@@ -82,9 +99,13 @@ export function SessionHeaderActions({
           {canManage ? (
             <>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setResetConfirmOpen(true)}>
+                <RotateCcw className="size-4" />
+                Reset processing state
+              </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
-                onClick={() => setConfirmOpen(true)}
+                onClick={() => setDeleteConfirmOpen(true)}
               >
                 <Trash2 className="size-4" />
                 Delete session
@@ -95,18 +116,32 @@ export function SessionHeaderActions({
       </DropdownMenu>
 
       {canManage ? (
-        <ConfirmDialog
-          open={confirmOpen}
-          onOpenChange={setConfirmOpen}
-          title="Delete this session?"
-          description="The participant_session row, its responses, and any generated reports will be removed. This cannot be undone."
-          confirmLabel="Delete session"
-          cancelLabel="Cancel"
-          variant="destructive"
-          onConfirm={handleDelete}
-          loading={isPending}
-          loadingLabel="Deleting…"
-        />
+        <>
+          <ConfirmDialog
+            open={resetConfirmOpen}
+            onOpenChange={setResetConfirmOpen}
+            title="Reset session processing state?"
+            description="Clears processing_status, processing_error, and processed_at so a stuck scoring or report-generation run can be retried. Responses, position, and session status are not touched."
+            confirmLabel="Reset processing"
+            cancelLabel="Cancel"
+            variant="default"
+            onConfirm={handleReset}
+            loading={isResetting}
+            loadingLabel="Resetting…"
+          />
+          <ConfirmDialog
+            open={deleteConfirmOpen}
+            onOpenChange={setDeleteConfirmOpen}
+            title="Delete this session?"
+            description="The participant_session row, its responses, and any generated reports will be removed. This cannot be undone."
+            confirmLabel="Delete session"
+            cancelLabel="Cancel"
+            variant="destructive"
+            onConfirm={handleDelete}
+            loading={isDeleting}
+            loadingLabel="Deleting…"
+          />
+        </>
       ) : null}
     </>
   );
