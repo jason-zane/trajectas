@@ -84,6 +84,12 @@
 [data-surface="marketing"] .tj {
   background: var(--cream); color: var(--ink);
   position: relative;
+  /* Contain the cream-halo pseudo-elements (which use negative horizontal
+     insets like `inset: -120px -160px`) so they never push the document into
+     horizontal scroll on narrow viewports. `overflow-x: clip` is the right
+     primitive here — it doesn't create a scroll container, doesn't break
+     the fixed nav, and visually clips anything escaping the page width. */
+  overflow-x: clip;
 }
 /* Sections sit above the fixed particle canvas so opaque sections naturally
    cover the mesh and transparent ones let it bleed through. The nav is
@@ -206,6 +212,12 @@
 
 [data-surface="marketing"] .tj-nav-ctas { display: flex; gap: 12px; align-items: center; }
 
+[data-surface="marketing"] .tj-nav-signin {
+  font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
+  opacity: .82; padding: 8px 14px; white-space: nowrap;
+}
+[data-surface="marketing"] .tj-nav-signin:hover { opacity: 1; }
+
 @media (max-width: 1080px) {
   [data-surface="marketing"] .tj-nav { padding: 14px 32px; gap: 16px; }
   [data-surface="marketing"] .tj-nav-links a { padding: 8px 10px; font-size: 13px; }
@@ -218,11 +230,6 @@
   [data-surface="marketing"] .tj-nav-signin { padding: 6px 10px; font-size: 13px; }
   [data-surface="marketing"] .tj-nav-ctas { gap: 8px; }
 }
-[data-surface="marketing"] .tj-nav-signin {
-  font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
-  opacity: .82; padding: 8px 14px; white-space: nowrap;
-}
-[data-surface="marketing"] .tj-nav-signin:hover { opacity: 1; }
 
 /* ============================================================
    HERO
