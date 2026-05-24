@@ -25,6 +25,8 @@ import { DEFAULT_REPORT_THEME } from './presentation'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
+import { generateAndStoreReportPdf } from '@/lib/reports/pdf'
+import { after } from 'next/server'
 import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
@@ -406,6 +408,23 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     }
 
     if (template.autoRelease) {
+      // Kick off PDF generation in the background. The pdf.ts module hooks
+      // notifyConsultantsForSnapshot() onto the post-PDF success path, so the
+      // consultant email (with attach_pdf=true) fires once the PDF is ready.
+      // We also fire an immediate notify attempt — if attach_pdf=false on the
+      // campaign, this sends straight away without waiting for the PDF; the
+      // atomic claim in the module ensures only one email goes out.
+      after(async () => {
+        try {
+          await generateAndStoreReportPdf(snapshotId, {})
+        } catch (pdfError) {
+          console.error(
+            `[reports] Auto PDF generation failed for snapshot ${snapshotId}:`,
+            pdfError,
+          )
+        }
+      })
+
       try {
         await notifyConsultantsForSnapshot(snapshotId)
       } catch (notifyError) {
@@ -522,6 +541,23 @@ async function runCustomReport(
   }
 
     if (template.autoRelease) {
+      // Kick off PDF generation in the background. The pdf.ts module hooks
+      // notifyConsultantsForSnapshot() onto the post-PDF success path, so the
+      // consultant email (with attach_pdf=true) fires once the PDF is ready.
+      // We also fire an immediate notify attempt — if attach_pdf=false on the
+      // campaign, this sends straight away without waiting for the PDF; the
+      // atomic claim in the module ensures only one email goes out.
+      after(async () => {
+        try {
+          await generateAndStoreReportPdf(snapshotId, {})
+        } catch (pdfError) {
+          console.error(
+            `[reports] Auto PDF generation failed for snapshot ${snapshotId}:`,
+            pdfError,
+          )
+        }
+      })
+
       try {
         await notifyConsultantsForSnapshot(snapshotId)
       } catch (notifyError) {
