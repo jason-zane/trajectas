@@ -14,8 +14,9 @@ type Mode = 'value' | 'delta'
  * proportionally to the score (0–100). The bar inherits its colour from the
  * `style` resolver so the band scheme drives both number background and bar.
  *
- * `mode='delta'` displays the value as a signed delta vs `groupMean` instead
- * of the absolute score. Bar is suppressed in delta mode.
+ * `mode='delta'` overlays a signed delta-vs-`groupMean` indicator beside the
+ * absolute number, so the user keeps the score context while reading
+ * relative position. Bar is suppressed in delta mode to keep the cell tight.
  */
 export function ScoreCell({
   value,
@@ -44,12 +45,12 @@ export function ScoreCell({
         'text-center font-semibold text-[11px] min-w-[44px] px-1.5 py-1 border-b border-r border-border last:border-r-0 tabular-nums align-middle',
         isRollup && 'font-extrabold border-l-2 border-l-border/40',
       )}
-      style={mode === 'delta' ? undefined : style}
+      style={style}
     >
       {isEmpty ? (
         <span className="opacity-60">—</span>
       ) : mode === 'delta' ? (
-        <DeltaPill delta={delta} />
+        <ValueWithDelta value={value} delta={delta} />
       ) : (
         <div className="flex flex-col items-stretch gap-0.5">
           <span className="leading-tight text-center">{value}</span>
@@ -78,19 +79,44 @@ function MicroBar({ value, style }: { value: number; style?: CSSProperties }) {
   )
 }
 
-function DeltaPill({ delta }: { delta: number | null }) {
-  if (delta === null) return <span className="opacity-60">—</span>
+function ValueWithDelta({
+  value,
+  delta,
+}: {
+  value: number
+  delta: number | null
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5 leading-tight">
+      <span className="text-foreground">{value}</span>
+      <DeltaBadge delta={delta} />
+    </div>
+  )
+}
+
+function DeltaBadge({ delta }: { delta: number | null }) {
+  if (delta === null) {
+    return <span className="text-[9.5px] text-muted-foreground">—</span>
+  }
   if (delta === 0) {
-    return <span className="text-foreground/60">±0</span>
+    return (
+      <span className="inline-flex rounded-sm bg-card/85 px-1 text-[9.5px] text-muted-foreground tabular-nums">
+        ±0
+      </span>
+    )
   }
   const positive = delta > 0
+  // Render the delta inside a card-coloured chip so it stays legible on top
+  // of saturated band-coloured cells (e.g. dark green/red in the default
+  // red-amber-green palette). The chip's opacity lets a hint of the band
+  // colour show through without sacrificing text contrast.
   return (
     <span
       className={cn(
-        'inline-flex items-center justify-center rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums',
-        positive
-          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-          : 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
+        'inline-flex rounded-sm bg-card/85 px-1 text-[9.5px] font-semibold tabular-nums leading-none',
+        // Site palette: primary (emerald) for positive movement,
+        // destructive for negative. Matches the rest of the dashboard.
+        positive ? 'text-primary' : 'text-destructive',
       )}
     >
       {positive ? '+' : ''}

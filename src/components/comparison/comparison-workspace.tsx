@@ -223,7 +223,7 @@ export function ComparisonWorkspace({
     : null
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 min-w-0">
       {request.entries.length > 0 && (
         <ComparisonSelectionBar
           rows={result.rows}
@@ -253,7 +253,7 @@ export function ComparisonWorkspace({
       {pending && (
         <div className="px-4 text-xs text-muted-foreground">Updating…</div>
       )}
-      <div className="px-4">
+      <div className="px-4 min-w-0">
         {result.rows.length === 0 ? (
           <ComparisonEmptyState
             basePath={basePath}

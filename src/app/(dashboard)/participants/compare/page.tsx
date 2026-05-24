@@ -86,7 +86,7 @@ export default async function ComparePage({
   })()
 
   return (
-    <div className="space-y-4 max-w-[1600px]">
+    <div className="space-y-4 max-w-[1600px] min-w-0">
       <div className="px-4 pt-4">
         <PageHeader
           eyebrow={saved ? `Insights · ${saved.shareScope === 'team' ? 'Shared' : 'Private'}` : 'Insights'}
