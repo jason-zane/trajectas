@@ -26,3 +26,7 @@ export function decodeLevelsParam(s: string | null | undefined): ColumnLevel[] {
     .filter((p): p is ColumnLevel => (LEVEL_SET as Set<string>).has(p))
   return parsed.length > 0 ? parsed : [...DEFAULT_VISIBLE_LEVELS]
 }
+
+export function decodeDeltaParam(s: string | null | undefined): boolean {
+  return s === '1' || s === 'true'
+}

@@ -7,7 +7,13 @@ import {
 } from '@/app/actions/comparison'
 import { getCampaignById } from '@/app/actions/campaigns'
 import { getPlatformBandScheme } from '@/app/actions/platform-settings'
-import { decodeEntriesParam, decodeLevelsParam } from '@/lib/comparison/url-params'
+import {
+  decodeDeltaParam,
+  decodeEntriesParam,
+  decodeLevelsParam,
+} from '@/lib/comparison/url-params'
+import { isLongitudinal } from '@/lib/comparison/display'
+import { PageHeader } from '@/components/page-header'
 import type { ComparisonRequest, EntryRequest } from '@/lib/comparison/types'
 
 export default async function CompareCampaignPage({
@@ -19,6 +25,7 @@ export default async function CompareCampaignPage({
     entries?: string
     assessments?: string
     levels?: string
+    delta?: string
     ids?: string
   }>
 }) {
@@ -34,6 +41,7 @@ export default async function CompareCampaignPage({
     : initialEntryIds.map((id) => ({ campaignParticipantId: id }))
   const assessmentIds = sp.assessments ? sp.assessments.split(',').filter(Boolean) : []
   const visibleLevels = decodeLevelsParam(sp.levels)
+  const deltaMode = decodeDeltaParam(sp.delta)
 
   const eligible = await getEligibleAssessmentsForParticipants(
     entries.map((e) => e.campaignParticipantId),
@@ -53,14 +61,28 @@ export default async function CompareCampaignPage({
 
   const searchSource = (query: string) => searchCampaignParticipants(campaignId, query)
 
+  const longitudinal = isLongitudinal(result.rows)
+  const personName = result.rows[0]?.participantName ?? null
+  const aCount = effectiveRequest.assessmentIds.length
+  const aLabel = `${aCount} assessment${aCount === 1 ? '' : 's'}`
+  const subject =
+    result.rows.length === 0
+      ? `Pick participants in ${campaign.title} to begin.`
+      : longitudinal && personName
+        ? `${result.rows.length} sessions across ${aLabel} · ${campaign.title}`
+        : `${result.rows.length} ${result.rows.length === 1 ? 'participant' : 'participants'} across ${aLabel} · ${campaign.title}`
+
   return (
-    <div className="space-y-4 max-w-7xl">
-      <header className="px-4 pt-4">
-        <p className="text-xs uppercase tracking-widest opacity-60">Compare</p>
-        <h1 className="text-xl font-semibold">{campaign.title}</h1>
-      </header>
+    <div className="space-y-4 max-w-[1600px]">
+      <div className="px-4 pt-4">
+        <PageHeader
+          eyebrow="Insights · Campaign"
+          title={longitudinal && personName ? personName : campaign.title}
+          description={subject}
+        />
+      </div>
       <ComparisonWorkspace
-        initial={{ request: effectiveRequest, result, eligible }}
+        initial={{ request: effectiveRequest, result, eligible, deltaMode }}
         campaignSlug={campaign.slug}
         partnerBandScheme={null}
         platformBandScheme={platformBandScheme}
