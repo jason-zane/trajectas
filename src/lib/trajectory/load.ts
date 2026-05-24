@@ -1,4 +1,5 @@
 import { getPersonTrajectory } from '@/app/actions/trajectory-data'
+import { emptyTrajectorySummary } from './rollup'
 import type { TrajectoryResult } from './types'
 
 /**
@@ -29,5 +30,6 @@ export function emptyTrajectoryResult(): TrajectoryResult {
     linkedParticipants: [],
     assessmentsTouched: [],
     series: [],
+    summary: emptyTrajectorySummary(),
   }
 }
