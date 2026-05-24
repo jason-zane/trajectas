@@ -861,9 +861,15 @@ export function QuickLaunchModal({
                 </div>
               </div>
 
-              {loadingCapabilities || !hasCapabilities ? (
+              {loadingCapabilities ? (
                 <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
                   Loading capabilities...
+                </div>
+              ) : !hasCapabilities ? (
+                <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                  No capabilities are configured for this assessment yet.
+                  Participants will complete it as authored — click Next to
+                  continue.
                 </div>
               ) : (
                 <>
