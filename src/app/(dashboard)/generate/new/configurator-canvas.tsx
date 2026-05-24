@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  ChevronRight,
   CircleSlash,
   Wand2,
 } from "lucide-react"
@@ -819,7 +818,7 @@ function ScalePreview({
     <Card className="mt-3 bg-cream/40 border-dashed">
       <CardContent className="p-4">
         <p className="text-overline text-gold mb-2">Example item</p>
-        <p className="text-sm italic">"{example}"</p>
+        <p className="text-sm italic">&ldquo;{example}&rdquo;</p>
       </CardContent>
     </Card>
   )
@@ -880,7 +879,7 @@ function PipelineSection({
       />
       <Toggle
         label="Synthetic validation"
-        description="Simulate respondent data and estimate Cronbach's α across constructs."
+        description="Simulate respondent data and estimate Cronbach&rsquo;s α across constructs."
         checked={config.enableSyntheticValidation}
         onChange={(v) => onChange({ enableSyntheticValidation: v })}
       />
