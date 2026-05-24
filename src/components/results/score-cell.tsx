@@ -99,13 +99,21 @@ function DeltaBadge({ delta }: { delta: number | null }) {
     return <span className="text-[9.5px] text-muted-foreground">—</span>
   }
   if (delta === 0) {
-    return <span className="text-[9.5px] text-muted-foreground tabular-nums">±0</span>
+    return (
+      <span className="inline-flex rounded-sm bg-card/85 px-1 text-[9.5px] text-muted-foreground tabular-nums">
+        ±0
+      </span>
+    )
   }
   const positive = delta > 0
+  // Render the delta inside a card-coloured chip so it stays legible on top
+  // of saturated band-coloured cells (e.g. dark green/red in the default
+  // red-amber-green palette). The chip's opacity lets a hint of the band
+  // colour show through without sacrificing text contrast.
   return (
     <span
       className={cn(
-        'text-[9.5px] font-semibold tabular-nums leading-none',
+        'inline-flex rounded-sm bg-card/85 px-1 text-[9.5px] font-semibold tabular-nums leading-none',
         // Site palette: primary (emerald) for positive movement,
         // destructive for negative. Matches the rest of the dashboard.
         positive ? 'text-primary' : 'text-destructive',
