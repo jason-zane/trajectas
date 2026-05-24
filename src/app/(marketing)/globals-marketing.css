@@ -86,9 +86,9 @@
   position: relative;
 }
 /* Sections sit above the fixed particle canvas so opaque sections naturally
-   cover the mesh and transparent ones let it bleed through. */
+   cover the mesh and transparent ones let it bleed through. The nav is
+   positioned `fixed` separately below and creates its own stacking context. */
 [data-surface="marketing"] .tj > main > section,
-[data-surface="marketing"] .tj > .tj-nav,
 [data-surface="marketing"] .tj > .tj-footer {
   position: relative; z-index: 2;
 }
