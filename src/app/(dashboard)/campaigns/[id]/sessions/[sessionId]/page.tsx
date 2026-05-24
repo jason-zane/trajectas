@@ -39,6 +39,8 @@ export default async function CampaignSessionPage({
           participantHref={`/campaigns/${campaignId}/participants/${session.participantId}`}
           postDeleteHref={participantsHref}
           canManage
+          compareParticipantId={session.participantId}
+          comparePath={`/campaigns/${campaignId}/compare`}
         />
       }
     />

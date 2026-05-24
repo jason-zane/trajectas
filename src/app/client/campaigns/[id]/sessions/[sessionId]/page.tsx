@@ -38,6 +38,8 @@ export default async function ClientCampaignSessionPage({
           campaignHref={`/client/campaigns/${campaignId}/overview`}
           participantHref={`/client/campaigns/${campaignId}/participants/${session.participantId}`}
           postDeleteHref={participantsHref}
+          compareParticipantId={session.participantId}
+          comparePath={`/client/campaigns/${campaignId}/compare`}
         />
       }
     />

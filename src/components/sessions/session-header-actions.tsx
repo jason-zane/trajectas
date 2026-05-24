@@ -7,6 +7,7 @@ import {
   ChevronDown,
   MoreHorizontal,
   RotateCcw,
+  Scale,
   Trash2,
   User,
 } from "lucide-react";
@@ -31,6 +32,14 @@ interface SessionHeaderActionsProps {
   postDeleteHref: string;
   /** Whether to expose admin-only management actions (Reset processing, Delete session). */
   canManage?: boolean;
+  /**
+   * Compare-with entry: the campaign participant id of the current
+   * session's subject, and the portal-appropriate path to the Compare
+   * page. When both are supplied, a "Compare with…" item appears in
+   * the menu that routes to Compare with this participant pre-added.
+   */
+  compareParticipantId?: string;
+  comparePath?: string;
 }
 
 export function SessionHeaderActions({
@@ -39,6 +48,8 @@ export function SessionHeaderActions({
   participantHref,
   postDeleteHref,
   canManage = false,
+  compareParticipantId,
+  comparePath,
 }: SessionHeaderActionsProps) {
   const router = useRouter();
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
@@ -96,6 +107,19 @@ export function SessionHeaderActions({
             <User className="size-4" />
             Open participant
           </DropdownMenuItem>
+          {compareParticipantId && comparePath ? (
+            <DropdownMenuItem
+              onClick={() => {
+                const entries = encodeURIComponent(
+                  JSON.stringify([{ campaignParticipantId: compareParticipantId }]),
+                );
+                router.push(`${comparePath}?entries=${entries}`);
+              }}
+            >
+              <Scale className="size-4" />
+              Compare with…
+            </DropdownMenuItem>
+          ) : null}
           {canManage ? (
             <>
               <DropdownMenuSeparator />
