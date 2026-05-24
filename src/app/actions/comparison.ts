@@ -219,6 +219,7 @@ export async function searchCampaignParticipants(
     .from('campaign_participants')
     .select(PICKER_SELECT)
     .eq('campaign_id', campaignId)
+    .order('created_at', { ascending: false })
     .limit(PICKER_LIMIT)
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
@@ -243,6 +244,7 @@ export async function searchAllParticipants(
   let q = supabase
     .from('campaign_participants')
     .select(PICKER_SELECT)
+    .order('created_at', { ascending: false })
     .limit(PICKER_LIMIT)
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
