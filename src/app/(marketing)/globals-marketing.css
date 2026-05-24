@@ -160,6 +160,14 @@
 [data-surface="marketing"] .tj-section { padding: var(--pad-y) max(var(--pad-x), 24px); }
 [data-surface="marketing"] .tj-container { max-width: 1240px; margin: 0 auto; }
 [data-surface="marketing"] .tj-section-head { max-width: 760px; margin-bottom: 56px; }
+
+/* On phones the default 120px section padding eats too much vertical space —
+   trim it so the page scrolls in fewer screen-heights without feeling
+   cramped. */
+@media (max-width: 720px) {
+  [data-surface="marketing"] { --pad-y: 72px; --pad-x: 20px; }
+  [data-surface="marketing"] .tj-section-head { margin-bottom: 40px; }
+}
 [data-surface="marketing"] .tj-section-head.center { margin-left: auto; margin-right: auto; text-align: center; }
 [data-surface="marketing"] .tj-section-head.center > * { text-align: center; }
 [data-surface="marketing"] .tj-section-head.center .tj-eyebrow { justify-content: center; margin-left: auto; margin-right: auto; }
@@ -183,14 +191,9 @@
   flex: 0 0 auto; text-decoration: none; color: inherit;
   display: inline-flex; align-items: center; gap: 12px;
 }
-@media (max-width: 1080px) {
-  [data-surface="marketing"] .tj-nav { padding: 14px 32px; gap: 16px; }
-}
-@media (max-width: 720px) {
-  [data-surface="marketing"] .tj-nav { padding: 12px 20px; }
-  [data-surface="marketing"] .tj-nav-links { display: none; }
-}
 
+/* Base nav layouts — must come BEFORE the media-query overrides so the
+   `display: none` rules at narrow widths actually win. */
 [data-surface="marketing"] .tj-nav-links { display: flex; gap: 4px; align-items: center; }
 [data-surface="marketing"] .tj-nav-links a {
   font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
@@ -202,6 +205,18 @@
 [data-surface="marketing"] .tj-nav-links a:hover { opacity: 1; background: rgba(0,0,0,.04); }
 
 [data-surface="marketing"] .tj-nav-ctas { display: flex; gap: 12px; align-items: center; }
+
+@media (max-width: 1080px) {
+  [data-surface="marketing"] .tj-nav { padding: 14px 32px; gap: 16px; }
+  [data-surface="marketing"] .tj-nav-links a { padding: 8px 10px; font-size: 13px; }
+}
+@media (max-width: 880px) {
+  [data-surface="marketing"] .tj-nav-links { display: none; }
+  [data-surface="marketing"] .tj-nav-signin { display: none; }
+}
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-nav { padding: 12px 20px; gap: 12px; }
+}
 [data-surface="marketing"] .tj-nav-signin {
   font-size: 14px; font-weight: 500; color: var(--ink); text-decoration: none;
   opacity: .82; padding: 8px 14px; white-space: nowrap;
@@ -236,6 +251,21 @@
   color: var(--ink-mute); justify-content: center; flex-wrap: wrap;
 }
 [data-surface="marketing"] .tj-hero-meta-rule { flex: 0 0 24px; height: 1px; background: rgba(0,0,0,.14); }
+
+/* Mobile hero: trim the nav-clearance padding, tighten the meta line so it
+   doesn't try to flow three segments across a phone-narrow row. */
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-hero {
+    padding-top: 96px; padding-bottom: 40px;
+  }
+  [data-surface="marketing"] .tj-hero-ctas { gap: 10px; margin-top: 24px; }
+  [data-surface="marketing"] .tj-hero-ctas .tj-btn { width: 100%; justify-content: center; }
+  [data-surface="marketing"] .tj-hero-meta {
+    flex-direction: column; gap: 8px; margin-top: 28px;
+    font-size: 10px;
+  }
+  [data-surface="marketing"] .tj-hero-meta-rule { display: none; }
+}
 
 /* ============================================================
    PROBLEM ("Why now") — centred head + side-by-side dissolve
@@ -465,7 +495,20 @@
 @media (max-width: 720px) {
   [data-surface="marketing"] .tj-runner-bar-row { grid-template-columns: 1fr; gap: 4px; text-align: left; }
   [data-surface="marketing"] .tj-runner-bar-score { text-align: left; }
-  [data-surface="marketing"] .tj-runner-scale { grid-template-columns: repeat(2, 1fr); }
+  [data-surface="marketing"] .tj-runner-scale { grid-template-columns: repeat(1, 1fr); gap: 6px; }
+  [data-surface="marketing"] .tj-runner-card { padding: 24px 20px 20px; gap: 20px; }
+  [data-surface="marketing"] .tj-runner-meta { padding: 16px 20px 0; }
+  [data-surface="marketing"] .tj-runner-foot { padding: 16px 20px 20px; }
+  [data-surface="marketing"] .tj-runner-intro { padding: 36px 20px; }
+  [data-surface="marketing"] .tj-runner-intro-h { font-size: 28px; }
+  [data-surface="marketing"] .tj-runner-intro-p { font-size: 15px; }
+  [data-surface="marketing"] .tj-runner-stem { font-size: 22px; }
+  [data-surface="marketing"] .tj-runner-report { padding: 28px 20px; }
+  [data-surface="marketing"] .tj-runner-report-h { font-size: 26px; }
+  [data-surface="marketing"] .tj-runner-opt {
+    min-height: 52px; padding: 14px 12px; font-size: 14px;
+    flex-direction: row; justify-content: flex-start;
+  }
 }
 
 /* ============================================================
@@ -708,6 +751,18 @@
 }
 [data-surface="marketing"] .tj-cal-iframe iframe {
   width: 100% !important; border: 0; border-radius: 14px; background: transparent;
+}
+
+/* Mobile contact: pull the calendar card padding in and let the email CTA
+   span full width so it's easy to tap. */
+@media (max-width: 720px) {
+  [data-surface="marketing"] .tj-contact-grid { gap: 36px; }
+  [data-surface="marketing"] .tj-cal-card { padding: 18px; }
+  [data-surface="marketing"] .tj-cal-embed { padding: 14px; }
+  [data-surface="marketing"] .tj-cal-grid { padding: 12px; gap: 2px; }
+  [data-surface="marketing"] .tj-cal-day { font-size: 12px; }
+  [data-surface="marketing"] .tj-contact-paths > li { gap: 14px; }
+  [data-surface="marketing"] .tj-contact-email { width: 100%; justify-content: center; }
 }
 
 /* ============================================================
