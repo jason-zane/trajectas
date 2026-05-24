@@ -261,13 +261,19 @@ export async function createGenerationRun(config: GenerationRunConfig): Promise<
     throw new Error(issues.join(', ') || 'Invalid generation config')
   }
 
+  // Resolve preset → playbookSnapshot at run kickoff so historical runs are
+  // reproducible regardless of later preset edits. If a snapshot was already
+  // provided (e.g. user modified preset content in the configurator), respect
+  // it but mark it as modified.
+  const configWithSnapshot = await attachPlaybookSnapshot(parsed.data.config)
+
   const db = createAdminClient()
   const { data, error } = await db
     .from('generation_runs')
     .insert({
       status: 'configuring' as GenerationRunStatus,
       progress_pct: 0,
-      config: parsed.data.config,
+      config: configWithSnapshot,
       items_generated: 0,
     })
     .select('*')
@@ -282,12 +288,60 @@ export async function createGenerationRun(config: GenerationRunConfig): Promise<
     targetTable: 'generation_runs',
     targetId: data.id,
     metadata: {
-      constructCount: parsed.data.config.constructIds.length,
-      targetItemsPerConstruct: parsed.data.config.targetItemsPerConstruct,
-      responseFormatId: parsed.data.config.responseFormatId,
+      constructCount: configWithSnapshot.constructIds.length,
+      targetItemsPerConstruct: configWithSnapshot.targetItemsPerConstruct,
+      responseFormatId: configWithSnapshot.responseFormatId,
+      presetId: configWithSnapshot.presetId,
+      measurementMode: configWithSnapshot.measurementMode,
+      useContext: configWithSnapshot.useContext,
     },
   })
   return mapGenerationRunRow(data)
+}
+
+async function attachPlaybookSnapshot(
+  config: GenerationRunConfig,
+): Promise<GenerationRunConfig> {
+  if (!config.presetId) return config
+  // Lazy import to avoid circular dependency with generation-presets actions
+  const { getGenerationPreset } = await import('./generation-presets')
+  const preset = await getGenerationPreset(config.presetId)
+  if (!preset) {
+    // Preset was deleted or unavailable — leave snapshot as-is (caller may have
+    // supplied one) but clear the preset id so we don't claim a source we can't verify.
+    if (config.playbookSnapshot) return config
+    return { ...config, presetId: undefined }
+  }
+
+  // If the caller already attached a snapshot (e.g. user edited preset fields
+  // in the configurator), preserve it and mark as modified.
+  if (config.playbookSnapshot) {
+    return {
+      ...config,
+      playbookSnapshot: {
+        ...config.playbookSnapshot,
+        sourcePresetId: preset.id,
+        sourcePresetName: preset.name,
+        modifiedFromPreset: true,
+      },
+    }
+  }
+
+  // Otherwise materialise the snapshot from the preset.
+  return {
+    ...config,
+    playbookSnapshot: {
+      rubric: preset.rubric,
+      exemplars: preset.exemplars,
+      critiqueEmphasis: preset.critiqueEmphasis,
+      sdTolerance: preset.sdTolerance,
+      difficultyMix: preset.difficultyMix,
+      critiqueStrictness: preset.critiqueStrictness,
+      sourcePresetId: preset.id,
+      sourcePresetName: preset.name,
+      modifiedFromPreset: false,
+    },
+  }
 }
 
 /** Update run status/progress (called during pipeline execution). */

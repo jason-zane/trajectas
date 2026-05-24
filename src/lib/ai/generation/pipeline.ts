@@ -201,6 +201,12 @@ export async function runPipeline(
         previousFacets,
         difficultySteering,
         contrastConstructs,
+        measurementMode: config.measurementMode,
+        measurementModeDescription: config.measurementModeDescription,
+        audience: config.audience,
+        useContext: config.useContext,
+        useContextDescription: config.useContextDescription,
+        playbook: config.playbookSnapshot,
       })
 
       const response = await openRouterProvider.complete({
@@ -242,6 +248,12 @@ export async function runPipeline(
                 name: c.name,
                 definition: c.definition,
               })),
+              measurementMode: config.measurementMode,
+              measurementModeDescription: config.measurementModeDescription,
+              audience: config.audience,
+              useContext: config.useContext,
+              useContextDescription: config.useContextDescription,
+              playbook: config.playbookSnapshot,
             })
 
             const critiqueResponse = await openRouterProvider.complete({

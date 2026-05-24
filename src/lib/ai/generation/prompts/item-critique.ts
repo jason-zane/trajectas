@@ -1,4 +1,17 @@
+import type {
+  Audience,
+  MeasurementMode,
+  PlaybookSnapshot,
+  UseContext,
+} from '@/types/database'
 import type { GeneratedItemRaw } from './item-generation'
+import {
+  renderAudienceBlock,
+  renderCritiqueEmphasisBlock,
+  renderCritiqueStrictnessBlock,
+  renderMeasurementModeBlock,
+  renderUseContextBlock,
+} from './steering'
 
 export interface CritiqueInput {
   items: GeneratedItemRaw[]
@@ -9,6 +22,15 @@ export interface CritiqueInput {
   constructIndicatorsMid?: string
   constructIndicatorsHigh?: string
   contrastConstructs?: Array<{ name: string; definition?: string }>
+
+  // Steering — when provided, the critique judges against the same playbook
+  // the generation prompt was given.
+  measurementMode?: MeasurementMode
+  measurementModeDescription?: string
+  audience?: Audience
+  useContext?: UseContext
+  useContextDescription?: string
+  playbook?: PlaybookSnapshot
 }
 
 export interface CritiqueVerdict {
@@ -26,22 +48,41 @@ export function buildCritiquePrompt(input: CritiqueInput): string {
     input.constructIndicatorsLow ? `Low scorers: ${input.constructIndicatorsLow}` : null,
     input.constructIndicatorsMid ? `Mid scorers: ${input.constructIndicatorsMid}` : null,
     input.constructIndicatorsHigh ? `High scorers: ${input.constructIndicatorsHigh}` : null,
-  ].filter(Boolean).join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   const contrastSection = input.contrastConstructs?.length
-    ? `\n## Contrast Constructs (items should NOT fit these):\n${input.contrastConstructs.map((c) => `- ${c.name}${c.definition ? `: ${c.definition}` : ''}`).join('\n')}`
+    ? `\n## Contrast Constructs (items should NOT fit these):\n${input.contrastConstructs
+        .map((c) => `- ${c.name}${c.definition ? `: ${c.definition}` : ''}`)
+        .join('\n')}`
     : ''
 
   const itemsSection = input.items
-    .map((item, i) => `${i + 1}. "${item.stem}" (${item.reverseScored ? 'reverse-scored' : 'positively-scored'})`)
+    .map(
+      (item, i) =>
+        `${i + 1}. "${item.stem}" (${
+          item.reverseScored ? 'reverse-scored' : 'positively-scored'
+        })`,
+    )
     .join('\n')
+
+  const steeringSection = [
+    renderMeasurementModeBlock(input.measurementMode, input.measurementModeDescription),
+    renderAudienceBlock(input.audience),
+    renderUseContextBlock(input.useContext, input.useContextDescription),
+    renderCritiqueEmphasisBlock(input.playbook),
+    renderCritiqueStrictnessBlock(input.playbook),
+  ]
+    .filter((s) => s.length > 0)
+    .join('\n\n')
 
   return `Review the following ${input.items.length} items for the construct described below. For each item, decide whether to keep, revise, or drop it.
 
 ${constructSection}
 ${contrastSection}
 
-## Items to Review
+${steeringSection ? steeringSection + '\n\n' : ''}## Items to Review
 
 ${itemsSection}
 
@@ -66,19 +107,27 @@ export function parseCritiqueResponse(jsonContent: string): CritiqueVerdict[] | 
     }
     if (!Array.isArray(parsed)) return null
 
-    return parsed.filter(
-      (item): item is CritiqueVerdict =>
-        typeof item === 'object' &&
-        item !== null &&
-        typeof (item as Record<string, unknown>).originalStem === 'string' &&
-        typeof (item as Record<string, unknown>).verdict === 'string' &&
-        VALID_VERDICTS.has((item as Record<string, unknown>).verdict as string),
-    ).map((item) => ({
-      originalStem: item.originalStem,
-      verdict: item.verdict,
-      ...(item.verdict === 'revise' && typeof item.revisedStem === 'string' ? { revisedStem: item.revisedStem } : {}),
-      ...(item.reason && typeof item.reason === 'string' ? { reason: item.reason } : {}),
-    }))
+    return parsed
+      .filter(
+        (item): item is CritiqueVerdict =>
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as Record<string, unknown>).originalStem === 'string' &&
+          typeof (item as Record<string, unknown>).verdict === 'string' &&
+          VALID_VERDICTS.has(
+            (item as Record<string, unknown>).verdict as string,
+          ),
+      )
+      .map((item) => ({
+        originalStem: item.originalStem,
+        verdict: item.verdict,
+        ...(item.verdict === 'revise' && typeof item.revisedStem === 'string'
+          ? { revisedStem: item.revisedStem }
+          : {}),
+        ...(item.reason && typeof item.reason === 'string'
+          ? { reason: item.reason }
+          : {}),
+      }))
   } catch {
     return null
   }

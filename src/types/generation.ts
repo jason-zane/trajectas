@@ -6,11 +6,25 @@ import type {
   ConstructConfigOverride,
   GenerationRunConfig,
   GenerationRunStatus,
+  MeasurementMode,
+  UseContext,
+  Audience,
+  PresetExemplar,
+  PlaybookSnapshot,
+  GenerationPreset,
 } from './database'
 
 // Re-export for convenience
 export type { GenerationRunConfig, GenerationRunStatus }
 export type { ConstructConfigOverride }
+export type {
+  MeasurementMode,
+  UseContext,
+  Audience,
+  PresetExemplar,
+  PlaybookSnapshot,
+  GenerationPreset,
+}
 
 // ---------------------------------------------------------------------------
 // Pipeline types
