@@ -38,6 +38,8 @@ export default async function AdminSessionDetailPage({
           participantHref={participantHref}
           postDeleteHref={participantHref}
           canManage
+          compareParticipantId={session.participantId}
+          comparePath="/participants/compare"
         />
       }
     />
