@@ -40,9 +40,16 @@ export type TrajectorySeries = {
   entityId: string
   entityName: string
   level: TrajectoryLevel
-  /** Parent dimension/factor id, when known. Null for orphans. */
+  /** Primary parent id (dimension for factor entities, factor for construct entities). Null for orphans. */
   parentId: string | null
   parentName: string | null
+  /**
+   * Additional parent ids. Populated for constructs that map to multiple
+   * factors (factor_constructs is many-to-many). Drill filters should
+   * include this series under any factor that appears here, in addition
+   * to the primary parentId.
+   */
+  additionalParentIds: string[]
   points: TrajectoryPoint[]
   /** Consecutive pairwise deltas, plus first-to-latest as the last item. */
   deltas: TrajectoryDelta[]

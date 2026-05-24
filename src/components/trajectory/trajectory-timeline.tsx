@@ -83,11 +83,17 @@ export function TrajectoryTimeline({
   mode,
   onModeChange,
   onSeriesClick,
+  title = 'Trajectory',
+  showModeToggle = true,
+  heightPx = 360,
 }: {
   series: TrajectorySeries[]
   mode: TimelineMode
   onModeChange: (m: TimelineMode) => void
   onSeriesClick?: (entityId: string) => void
+  title?: string
+  showModeToggle?: boolean
+  heightPx?: number
 }) {
   const geometry = useMemo(() => buildGeometry(series, mode), [series, mode])
   const [hoverIdx, setHoverIdx] = useState<number | null>(null)
@@ -132,12 +138,14 @@ export function TrajectoryTimeline({
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between gap-4 px-4 pt-3">
-        <p className="text-overline text-[var(--gold)]">Trajectory</p>
-        <ModeToggle
-          mode={mode}
-          onChange={onModeChange}
-          disabled={onlyOneTick}
-        />
+        <p className="text-overline text-[var(--gold)]">{title}</p>
+        {showModeToggle && (
+          <ModeToggle
+            mode={mode}
+            onChange={onModeChange}
+            disabled={onlyOneTick}
+          />
+        )}
       </div>
 
       <div className="relative">
@@ -146,8 +154,9 @@ export function TrajectoryTimeline({
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
           preserveAspectRatio="none"
           role="img"
-          aria-label="Trajectory over time"
-          className="block w-full h-[360px]"
+          aria-label={`${title} over time`}
+          className="block w-full"
+          style={{ height: `${heightPx}px` }}
           onMouseMove={onMouseMove}
           onMouseLeave={onMouseLeave}
         >
