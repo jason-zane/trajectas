@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSessionDetail } from "@/app/actions/sessions";
 import { getCampaignSessionReportRows } from "@/app/actions/reports";
+import { SessionHeaderActions } from "@/components/sessions/session-header-actions";
 import { SessionView } from "@/components/results/session-view";
 
 export default async function PartnerSessionDetailPage({
@@ -17,15 +18,24 @@ export default async function PartnerSessionDetailPage({
   }
 
   const reportRows = await getCampaignSessionReportRows(sessionId);
+  const participantHref = `/partner/campaigns/${campaignId}/participants/${participantId}`;
 
   return (
     <SessionView
       session={session}
       reportRows={reportRows}
       canSeeResponses={false}
-      backHref={`/partner/campaigns/${campaignId}/participants/${participantId}`}
+      backHref={participantHref}
       backLabel="Back to participant"
       reportBasePath="/partner/reports"
+      actions={
+        <SessionHeaderActions
+          sessionId={sessionId}
+          campaignHref={`/partner/campaigns/${campaignId}/overview`}
+          participantHref={participantHref}
+          postDeleteHref={participantHref}
+        />
+      }
     />
   );
 }

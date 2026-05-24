@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { getSessionDetail } from '@/app/actions/sessions'
 import { getCampaignSessionReportRows } from '@/app/actions/reports'
+import { SessionHeaderActions } from '@/components/sessions/session-header-actions'
 import { SessionView } from '@/components/results/session-view'
 
 export default async function CampaignSessionPage({
@@ -20,16 +21,26 @@ export default async function CampaignSessionPage({
   }
 
   const reportRows = await getCampaignSessionReportRows(sessionId)
+  const participantsHref = `/campaigns/${campaignId}/participants`
 
   return (
     <SessionView
       session={session}
       reportRows={reportRows}
       canSeeResponses={true}
-      backHref={`/campaigns/${campaignId}/participants`}
+      backHref={participantsHref}
       backLabel="Back to participants"
       reportBasePath="/reports"
       settingsHref={`/campaigns/${campaignId}/settings`}
+      actions={
+        <SessionHeaderActions
+          sessionId={sessionId}
+          campaignHref={`/campaigns/${campaignId}/overview`}
+          participantHref={`/campaigns/${campaignId}/participants/${session.participantId}`}
+          postDeleteHref={participantsHref}
+          canManage
+        />
+      }
     />
   )
 }
