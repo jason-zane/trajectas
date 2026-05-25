@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { getSessionDetail } from '@/app/actions/sessions'
 import { getCampaignSessionReportRows } from '@/app/actions/reports'
+import { resolveAuthorizedScope } from '@/lib/auth/authorization'
 import { SessionHeaderActions } from '@/components/sessions/session-header-actions'
 import { SessionView } from '@/components/results/session-view'
 
@@ -20,7 +21,10 @@ export default async function CampaignSessionPage({
     redirect(`/campaigns/${session.campaignId}/sessions/${sessionId}`)
   }
 
-  const reportRows = await getCampaignSessionReportRows(sessionId)
+  const [reportRows, scope] = await Promise.all([
+    getCampaignSessionReportRows(sessionId),
+    resolveAuthorizedScope(),
+  ])
   const participantsHref = `/campaigns/${campaignId}/participants`
 
   return (
@@ -32,6 +36,7 @@ export default async function CampaignSessionPage({
       backLabel="Back to participants"
       reportBasePath="/reports"
       settingsHref={`/campaigns/${campaignId}/settings`}
+      isPlatformAdmin={scope.isPlatformAdmin}
       actions={
         <SessionHeaderActions
           sessionId={sessionId}

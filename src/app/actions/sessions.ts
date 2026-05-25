@@ -525,6 +525,137 @@ export async function getSessionSnapshots(sessionId: string): Promise<SessionDet
 // Bulk actions
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Platform-admin construct drill-down
+// ---------------------------------------------------------------------------
+
+export type ConstructDrilldownRow = {
+  constructId: string
+  constructName: string
+  /** Mean POMP across the construct's responded items. 0–100. */
+  scaledScore: number
+  /** Number of items in the construct that the participant responded to. */
+  itemCount: number
+}
+
+/**
+ * Per-construct scores beneath a single factor for one session. Platform-admin
+ * only. Used by the inline drill-down on the session-scores panel.
+ *
+ * Computation is independent of participant_scores (which is factor-level after
+ * the taxonomy unification): we recompute POMP per item, then mean per
+ * construct. Cheap because we only load one factor's items + their responses.
+ */
+export async function getConstructScoresForFactor(
+  sessionId: string,
+  factorId: string,
+): Promise<ConstructDrilldownRow[]> {
+  const scope = await resolveAuthorizedScope()
+  if (!scope.isPlatformAdmin && !scope.isLocalDevelopmentBypass) {
+    throw new Error('Unauthorized')
+  }
+
+  const db = createAdminClient()
+
+  // 1. Constructs under this factor + their names.
+  const { data: fcRows, error: fcErr } = await db
+    .from('factor_constructs')
+    .select('construct_id, constructs(name)')
+    .eq('factor_id', factorId)
+  if (fcErr) throw new Error(fcErr.message)
+  const constructName = new Map<string, string>()
+  for (const row of (fcRows ?? []) as Array<{
+    construct_id: string
+    constructs: { name: string } | { name: string }[] | null
+  }>) {
+    const c = Array.isArray(row.constructs) ? row.constructs[0] : row.constructs
+    if (c?.name) constructName.set(String(row.construct_id), String(c.name))
+  }
+  const constructIds = [...constructName.keys()]
+  if (constructIds.length === 0) return []
+
+  // 2. Items in those constructs + scale ranges via response_formats.config.
+  const { data: items, error: itemsErr } = await db
+    .from('items')
+    .select('id, construct_id, reverse_scored, response_formats(config)')
+    .in('construct_id', constructIds)
+  if (itemsErr) throw new Error(itemsErr.message)
+
+  type ItemMeta = {
+    constructId: string
+    reverseScored: boolean
+    minValue: number
+    maxValue: number
+  }
+  const itemMeta = new Map<string, ItemMeta>()
+  for (const row of (items ?? []) as Array<{
+    id: string
+    construct_id: string
+    reverse_scored: boolean | null
+    response_formats:
+      | { config: Record<string, unknown> | null }
+      | { config: Record<string, unknown> | null }[]
+      | null
+  }>) {
+    const rf = Array.isArray(row.response_formats)
+      ? row.response_formats[0]
+      : row.response_formats
+    const config = (rf?.config ?? {}) as Record<string, unknown>
+    const minValue = typeof config.min === 'number' ? config.min : 1
+    const maxValue = typeof config.max === 'number' ? config.max : 5
+    itemMeta.set(String(row.id), {
+      constructId: String(row.construct_id),
+      reverseScored: !!row.reverse_scored,
+      minValue,
+      maxValue,
+    })
+  }
+
+  // 3. Participant responses for this session.
+  const { data: responses, error: respErr } = await db
+    .from('participant_responses')
+    .select('item_id, response_value')
+    .eq('session_id', sessionId)
+    .in('item_id', [...itemMeta.keys()])
+  if (respErr) throw new Error(respErr.message)
+
+  // 4. Per-item POMP, grouped per construct, mean per group.
+  const sums = new Map<string, { sum: number; count: number }>()
+  for (const r of (responses ?? []) as Array<{
+    item_id: string
+    response_value: number | string | null
+  }>) {
+    const meta = itemMeta.get(String(r.item_id))
+    if (!meta || r.response_value == null) continue
+    const raw = Number(r.response_value)
+    if (!Number.isFinite(raw)) continue
+    const effective = meta.reverseScored
+      ? meta.maxValue - raw + meta.minValue
+      : raw
+    const range = meta.maxValue - meta.minValue
+    if (range <= 0) continue
+    const pomp = ((effective - meta.minValue) / range) * 100
+    const bucket = sums.get(meta.constructId) ?? { sum: 0, count: 0 }
+    bucket.sum += pomp
+    bucket.count += 1
+    sums.set(meta.constructId, bucket)
+  }
+
+  // 5. Shape output. Include constructs with zero responses so the admin can
+  //    see the structural picture even when a construct is empty.
+  const out: ConstructDrilldownRow[] = []
+  for (const [id, name] of constructName) {
+    const bucket = sums.get(id)
+    out.push({
+      constructId: id,
+      constructName: name,
+      scaledScore: bucket && bucket.count > 0 ? bucket.sum / bucket.count : 0,
+      itemCount: bucket?.count ?? 0,
+    })
+  }
+  return out.sort((a, b) => b.scaledScore - a.scaledScore)
+}
+
 export async function bulkDeleteParticipantSessions(ids: string[]): Promise<void> {
   if (ids.length === 0) return
   const parsed = bulkSessionIdsSchema.safeParse({ ids })
