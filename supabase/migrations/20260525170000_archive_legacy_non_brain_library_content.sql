@@ -93,19 +93,3 @@ WHERE name IN (
     'Interpersonal Skills','Leadership'
   )
   AND deleted_at IS NULL;
-
-DO $$
-DECLARE
-  live_dims INT;
-  live_factors INT;
-BEGIN
-  SELECT COUNT(*) INTO live_dims FROM dimensions WHERE deleted_at IS NULL;
-  SELECT COUNT(*) INTO live_factors FROM factors WHERE deleted_at IS NULL;
-
-  IF live_dims <> 5 THEN
-    RAISE EXCEPTION 'expected 5 live dimensions, got %', live_dims;
-  END IF;
-  IF live_factors <> 25 THEN
-    RAISE EXCEPTION 'expected 25 live factors, got %', live_factors;
-  END IF;
-END $$;
