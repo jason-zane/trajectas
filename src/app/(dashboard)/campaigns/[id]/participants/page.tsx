@@ -9,11 +9,13 @@ export default async function CampaignParticipantsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [campaign, sessions] = await Promise.all([
-    getCampaignById(id),
-    getCampaignSessions(id),
-  ]);
+  // Resolve the campaign first so we can render notFound() cleanly for
+  // missing or inaccessible IDs. getCampaignSessions throws on
+  // unauthorized access, so calling it in parallel would regress the
+  // 404 path to an exception.
+  const campaign = await getCampaignById(id);
   if (!campaign) notFound();
+  const sessions = await getCampaignSessions(id);
 
   return (
     <div className="space-y-6">
@@ -25,6 +27,7 @@ export default async function CampaignParticipantsPage({
         campaignId={campaign.id}
         participants={campaign.participants}
         sessions={sessions}
+        canDeleteSessions
       />
     </div>
   );

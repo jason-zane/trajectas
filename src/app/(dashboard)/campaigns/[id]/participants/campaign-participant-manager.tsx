@@ -52,10 +52,13 @@ export function CampaignParticipantManager({
   campaignId,
   participants,
   sessions,
+  canDeleteSessions = false,
 }: {
   campaignId: string;
   participants: CampaignParticipant[];
   sessions: CampaignSessionRow[];
+  /** Platform-admin only — see bulkDeleteParticipantSessions */
+  canDeleteSessions?: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -520,7 +523,11 @@ export function CampaignParticipantManager({
       </div>
 
       {view === "sessions" ? (
-        <CampaignSessionsTable campaignId={campaignId} sessions={sessions} />
+        <CampaignSessionsTable
+          campaignId={campaignId}
+          sessions={sessions}
+          canDelete={canDeleteSessions}
+        />
       ) : (
         <DataTable
           columns={columns}

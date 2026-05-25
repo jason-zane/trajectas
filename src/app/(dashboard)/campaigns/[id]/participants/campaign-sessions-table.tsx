@@ -37,9 +37,16 @@ function formatDate(value: string | null) {
 export function CampaignSessionsTable({
   campaignId,
   sessions,
+  canDelete = false,
 }: {
   campaignId: string;
   sessions: CampaignSessionRow[];
+  /**
+   * Whether to expose the destructive Delete-sessions bulk action.
+   * `bulkDeleteParticipantSessions` is platform-admin-only, so we hide
+   * the action on portals where it would always 401.
+   */
+  canDelete?: boolean;
 }) {
   const router = useRouter();
   const { href } = usePortal();
@@ -119,14 +126,18 @@ export function CampaignSessionsTable({
         router.push(href(`/campaigns/${campaignId}/compare?${qs.toString()}`));
       },
     },
-    {
-      label: "Delete sessions",
-      variant: "destructive",
-      icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
-      action: (ids) => {
-        setConfirmDelete(ids);
-      },
-    },
+    ...(canDelete
+      ? [
+          {
+            label: "Delete sessions",
+            variant: "destructive" as const,
+            icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
+            action: (ids: string[]) => {
+              setConfirmDelete(ids);
+            },
+          },
+        ]
+      : []),
   ];
 
   async function handleDelete() {

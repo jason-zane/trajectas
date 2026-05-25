@@ -2639,7 +2639,10 @@ export async function getCampaignSessions(
         'campaign_participants!inner(id, email, first_name, last_name, campaign_id)',
     )
     .eq('campaign_participants.campaign_id', campaignId)
-    .order('started_at', { ascending: true, nullsFirst: true })
+    // nullsFirst=false matches existing attempt-numbering elsewhere
+    // (src/app/actions/sessions.ts) — unstarted sessions get the highest
+    // attempt numbers, not 1, so attempt labels stay stable.
+    .order('started_at', { ascending: true, nullsFirst: false })
 
   if (error) {
     logActionError('getCampaignSessions', error)

@@ -12,11 +12,11 @@ export default async function ClientCampaignParticipantsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [campaign, sessions] = await Promise.all([
-    getCampaignById(id),
-    getCampaignSessions(id),
-  ]);
+  // Resolve the campaign first so we can render notFound() cleanly.
+  // getCampaignSessions throws on unauthorized access.
+  const campaign = await getCampaignById(id);
   if (!campaign) notFound();
+  const sessions = await getCampaignSessions(id);
 
   // Check quota status for all assessments linked to this campaign
   let quotaWarnings: {
