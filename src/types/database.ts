@@ -822,10 +822,6 @@ export interface Assessment {
   introContent?: AssessmentIntroContent | null
   /** Minimum number of factors a campaign must select when customising this assessment (NULL = no customisation). */
   minCustomFactors: number | null
-  /** Scoring level: 'factor' (traditional) or 'construct' (factors skipped). Defaults to 'factor'. */
-  scoringLevel: 'factor' | 'construct'
-  /** Minimum number of constructs a campaign must select when customising this assessment (NULL = no customisation). Only applies when scoringLevel = 'construct'. */
-  minCustomConstructs: number | null
   /** Optional content_sources.id — provenance label, not a tenant link. */
   sourceId?: string
   created_at: string

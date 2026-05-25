@@ -56,14 +56,6 @@ export async function scoreSessionCTT(
     return { error: sessionErr?.message ?? 'Session not found' }
   }
 
-  const { data: assessmentRow } = await db
-    .from('assessments')
-    .select('scoring_level')
-    .eq('id', session.assessment_id)
-    .single()
-
-  const scoringLevel = assessmentRow?.scoring_level ?? 'factor'
-
   // 2. Load all responses for this session
   const { data: responseRows, error: respErr } = await db
     .from('participant_responses')
@@ -150,53 +142,7 @@ export async function scoreSessionCTT(
     constructScores.set(constructId, totalWeight > 0 ? weightedSum / totalWeight : 0)
   }
 
-  // 6. Branch based on scoring level
-  if (scoringLevel === 'construct') {
-    // -----------------------------------------------------------------------
-    // Construct-level path: upsert construct scores directly
-    // -----------------------------------------------------------------------
-    const { data: assessmentConstructs } = await db
-      .from('assessment_constructs')
-      .select('construct_id')
-      .eq('assessment_id', session.assessment_id)
-
-    const assessmentConstructIds = new Set(
-      (assessmentConstructs ?? []).map((ac: { construct_id: string }) => ac.construct_id),
-    )
-
-    // Filter to constructs that are in this assessment and have scores
-    const scorableConstructIds = [...constructScores.keys()].filter((id) =>
-      assessmentConstructIds.has(id),
-    )
-
-    if (scorableConstructIds.length === 0) {
-      return { error: 'No construct scores could be calculated for this assessment' }
-    }
-
-    const scoreRows = scorableConstructIds.map((constructId) => ({
-      session_id: sessionId,
-      construct_id: constructId,
-      factor_id: null,
-      raw_score: constructScores.get(constructId)!,
-      scaled_score: constructScores.get(constructId)!,
-      scoring_method: 'ctt',
-      scoring_level: 'construct' as const,
-    }))
-
-    const { error: upsertErr } = await db
-      .from('participant_scores')
-      .upsert(scoreRows, { onConflict: 'session_id,construct_id' })
-
-    if (upsertErr) return { error: upsertErr.message }
-
-    await persistCompositeScore(db, sessionId, scoreRows.map((r) => r.scaled_score))
-
-    return { success: true, scoreCount: scoreRows.length }
-  }
-
-  // -------------------------------------------------------------------------
-  // Factor-level path (default): roll up construct scores → factor scores
-  // -------------------------------------------------------------------------
+  // 6. Roll up construct scores → factor scores
 
   // Load factor-construct links for the assessment's factors
   const { data: assessmentFactors } = await db
@@ -273,11 +219,9 @@ export async function scoreSessionCTT(
   const scoreRows = factorScores.map((fs) => ({
     session_id: sessionId,
     factor_id: fs.factorId,
-    construct_id: null,
     raw_score: fs.rawScore,
     scaled_score: fs.scaledScore,
     scoring_method: 'ctt',
-    scoring_level: 'factor' as const,
   }))
 
   const { error: upsertErr } = await db

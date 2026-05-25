@@ -14,30 +14,23 @@ export default async function PartnerAssessmentPresentationPage({
   const result = await getAssessmentWithFactors(id)
   if (!result) notFound()
 
-  const { assessment, factors, constructs, sections } = result
+  const { assessment, factors, sections } = result
   const existingBlocks =
     assessment.formatMode === "forced_choice"
       ? await getExistingBlocks(id)
       : []
 
   const factorIds = factors.map((f) => f.factorId)
-  const constructIds = constructs.map((c) => c.constructId)
 
   return (
     <PresentationEditor
       assessmentId={assessment.id}
       factorIds={factorIds}
-      constructIds={constructIds}
-      scoringLevel={assessment.scoringLevel}
       initialFormatMode={assessment.formatMode}
       initialFcBlockSize={(assessment.fcBlockSize as 3 | 4) ?? 3}
       existingSections={sections}
       existingBlocks={existingBlocks}
-      noFactors={
-        assessment.scoringLevel === "factor"
-          ? factorIds.length === 0
-          : constructIds.length === 0
-      }
+      noFactors={factorIds.length === 0}
       showFormatLink={false}
     />
   )

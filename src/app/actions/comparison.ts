@@ -284,7 +284,6 @@ type CampaignParticipantRow = {
 type AssessmentMetaRow = {
   id: string
   title: string
-  scoring_level: 'factor' | 'construct'
 }
 
 type FactorRow = {
@@ -299,12 +298,6 @@ type AssessmentFactorRow = {
   factors: FactorRow | FactorRow[] | null
 }
 
-type AssessmentConstructRow = {
-  construct_id: string
-  dimension_id: string | null
-  constructs: { id: string; name: string } | { id: string; name: string }[] | null
-  dimensions: { id: string; name: string } | { id: string; name: string }[] | null
-}
 
 type ParticipantScoreRow = {
   session_id: string
@@ -479,17 +472,13 @@ async function buildColumnGroups(
 ): Promise<ColumnGroup[]> {
   const { data: aRows, error: aErr } = await supabase
     .from('assessments')
-    .select('id, title, scoring_level')
+    .select('id, title')
     .in('id', assessmentIds)
   if (aErr) throw aErr
 
   const groups: ColumnGroup[] = []
   for (const a of (aRows ?? []) as AssessmentMetaRow[]) {
-    if (a.scoring_level === 'construct') {
-      groups.push(...(await constructLevelGroups(supabase, a)))
-    } else {
-      groups.push(...(await factorLevelGroups(supabase, a)))
-    }
+    groups.push(...(await factorLevelGroups(supabase, a)))
   }
   return groups
 }
@@ -535,68 +524,6 @@ async function factorLevelGroups(
         children: [],
       }
       orphan.children.push({ id: f.id, name: f.name, level: 'factor', parentId: orphan.dim.id })
-    }
-  }
-
-  const out: ColumnGroup[] = []
-  for (const bucket of byDim.values()) {
-    out.push({
-      assessmentId: assessment.id,
-      assessmentName: assessment.title,
-      rollup: bucket.dim,
-      children: bucket.children,
-    })
-  }
-  if (orphan) {
-    out.push({
-      assessmentId: assessment.id,
-      assessmentName: assessment.title,
-      rollup: orphan.dim,
-      children: orphan.children,
-    })
-  }
-  return out
-}
-
-async function constructLevelGroups(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  assessment: AssessmentMetaRow,
-): Promise<ColumnGroup[]> {
-  const { data, error } = await supabase
-    .from('assessment_constructs')
-    .select('construct_id, dimension_id, constructs(id, name), dimensions(id, name)')
-    .eq('assessment_id', assessment.id)
-  if (error) throw error
-
-  type DimBucket = { dim: Column; children: Column[] }
-  const byDim = new Map<string, DimBucket>()
-  let orphan: DimBucket | null = null
-
-  for (const row of (data ?? []) as unknown as AssessmentConstructRow[]) {
-    const c = unwrapEmbedded(row.constructs)
-    if (!c) continue
-    const dim = unwrapEmbedded(row.dimensions)
-
-    if (dim) {
-      const bucket =
-        byDim.get(dim.id) ??
-        {
-          dim: { id: dim.id, name: dim.name, level: 'dimension' as const, parentId: null },
-          children: [],
-        }
-      bucket.children.push({ id: c.id, name: c.name, level: 'construct', parentId: dim.id })
-      byDim.set(dim.id, bucket)
-    } else {
-      orphan ??= {
-        dim: {
-          id: `__assessment_${assessment.id}__rollup`,
-          name: assessment.title,
-          level: 'dimension',
-          parentId: null,
-        },
-        children: [],
-      }
-      orphan.children.push({ id: c.id, name: c.name, level: 'construct', parentId: orphan.dim.id })
     }
   }
 

@@ -4,6 +4,7 @@ import type {
   SessionDetailDimensionScore,
 } from "@/app/actions/sessions";
 import type { ParticipantSessionProcessingStatus } from "@/types/database";
+import { FactorScoreRow } from "./factor-score-row";
 
 interface SessionScoresPanelProps {
   scores: SessionDetailScore[];
@@ -12,6 +13,10 @@ interface SessionScoresPanelProps {
   sessionStatus: string;
   processingStatus: ParticipantSessionProcessingStatus;
   processingError?: string;
+  sessionId: string;
+  /** When true, each score row gets an expand-to-constructs drilldown.
+   *  Platform admins only — gated by the calling page. */
+  showConstructDrilldown?: boolean;
 }
 
 const UNGROUPED_KEY = "__ungrouped__";
@@ -88,6 +93,8 @@ export function SessionScoresPanel({
   sessionStatus,
   processingStatus,
   processingError,
+  sessionId,
+  showConstructDrilldown = false,
 }: SessionScoresPanelProps) {
   if (scores.length === 0) {
     const description =
@@ -140,29 +147,14 @@ export function SessionScoresPanel({
             </div>
           )}
           <div className="space-y-2">
-            {group.scores.map((score) => {
-              const pct = Math.max(0, Math.min(100, score.scaledScore));
-              const value = Math.round(score.scaledScore);
-              return (
-                <div
-                  key={score.entityId}
-                  className="flex items-center gap-4 py-1.5"
-                >
-                  <span className="w-52 shrink-0 truncate text-sm">
-                    {score.entityName}
-                  </span>
-                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums">
-                    {value}
-                  </span>
-                </div>
-              );
-            })}
+            {group.scores.map((score) => (
+              <FactorScoreRow
+                key={score.entityId}
+                score={score}
+                sessionId={sessionId}
+                enableDrilldown={showConstructDrilldown}
+              />
+            ))}
           </div>
         </div>
       ))}

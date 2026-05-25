@@ -43,8 +43,6 @@ export type CampaignDetail = Campaign & {
     assessmentTitle: string
     assessmentStatus: string
     minCustomFactors: number | null
-    minCustomConstructs: number | null
-    scoringLevel: 'factor' | 'construct'
   })[]
   participants: CampaignParticipant[]
   accessLinks: CampaignAccessLink[]
@@ -100,8 +98,6 @@ type EmbeddedAssessmentLookupRow = {
   title?: string | null
   status?: string | null
   min_custom_factors?: number | null
-  min_custom_constructs?: number | null
-  scoring_level?: 'factor' | 'construct' | null
 }
 
 type CampaignAssessmentLookupRow = Record<string, unknown> & {
@@ -264,7 +260,7 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
       db
         .from('campaign_assessments')
         .select(
-          '*, assessments(title, status, min_custom_factors, min_custom_constructs, scoring_level)',
+          '*, assessments(title, status, min_custom_factors)',
         )
         .eq('campaign_id', id)
         .is('deleted_at', null)
@@ -315,8 +311,6 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
       assessmentTitle: assessment?.title ?? 'Untitled',
       assessmentStatus: assessment?.status ?? 'draft',
       minCustomFactors: assessment?.min_custom_factors ?? null,
-      minCustomConstructs: assessment?.min_custom_constructs ?? null,
-      scoringLevel: assessment?.scoring_level ?? 'factor',
     }}),
     participants: (participantRows ?? []).map((r) => {
       const participantRow = r as CampaignParticipantLookupRow
@@ -546,24 +540,13 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
       }
 
       const sourceAssessmentIds = sourceAssessmentRows.map((assessment) => assessment.id)
-      const [{ data: factorSelections, error: factorSelectionsError }, { data: constructSelections, error: constructSelectionsError }] =
-        await Promise.all([
-          db
-            .from('campaign_assessment_factors')
-            .select('campaign_assessment_id, factor_id')
-            .in('campaign_assessment_id', sourceAssessmentIds),
-          db
-            .from('campaign_assessment_constructs')
-            .select('campaign_assessment_id, construct_id')
-            .in('campaign_assessment_id', sourceAssessmentIds),
-        ])
+      const { data: factorSelections, error: factorSelectionsError } = await db
+        .from('campaign_assessment_factors')
+        .select('campaign_assessment_id, factor_id')
+        .in('campaign_assessment_id', sourceAssessmentIds)
 
       if (factorSelectionsError) {
         throw factorSelectionsError
-      }
-
-      if (constructSelectionsError) {
-        throw constructSelectionsError
       }
 
       const factorInserts =
@@ -590,38 +573,6 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
 
         if (factorInsertError) {
           throw factorInsertError
-        }
-      }
-
-      const constructInserts =
-        constructSelections
-          ?.map((selection) => {
-            const duplicatedAssessmentId = duplicatedAssessmentIdBySourceId.get(
-              selection.campaign_assessment_id,
-            )
-            if (!duplicatedAssessmentId) {
-              return null
-            }
-
-            return {
-              campaign_assessment_id: duplicatedAssessmentId,
-              construct_id: selection.construct_id,
-            }
-          })
-          .filter(
-            (
-              selection,
-            ): selection is { campaign_assessment_id: string; construct_id: string } =>
-              selection != null,
-          ) ?? []
-
-      if (constructInserts.length > 0) {
-        const { error: constructInsertError } = await db
-          .from('campaign_assessment_constructs')
-          .insert(constructInserts)
-
-        if (constructInsertError) {
-          throw constructInsertError
         }
       }
     }
@@ -1887,9 +1838,7 @@ export type CampaignAssessmentOption = {
   totalItemCount: number
   formatLabel?: string
   estimatedDurationMinutes: number
-  scoringLevel: 'factor' | 'construct'
   minCustomFactors: number | null
-  minCustomConstructs: number | null
 }
 
 function getNestedCount(value: unknown) {
@@ -2359,11 +2308,8 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
       description,
       status,
       format_mode,
-      scoring_level,
       min_custom_factors,
-      min_custom_constructs,
       assessment_factors(count),
-      assessment_constructs(count),
       assessment_sections(
         id,
         response_formats(type),
@@ -2423,15 +2369,13 @@ export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]
       description: row.description ?? undefined,
       status: row.status,
       factorCount: getNestedCount(row.assessment_factors),
-      constructCount: getNestedCount(row.assessment_constructs),
+      constructCount: 0,
       sectionCount: sections.length,
       totalItemCount,
       formatLabel: getFormatLabel(formatTypes, row.format_mode),
       estimatedDurationMinutes:
         estimatedDurationSeconds > 0 ? Math.max(1, Math.ceil(estimatedDurationSeconds / 60)) : 0,
-      scoringLevel: (row.scoring_level ?? 'factor') as 'factor' | 'construct',
       minCustomFactors: row.min_custom_factors ?? null,
-      minCustomConstructs: row.min_custom_constructs ?? null,
     }
   })
 }

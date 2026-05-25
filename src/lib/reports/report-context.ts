@@ -51,15 +51,11 @@ export interface ReportContext {
 
   /** entityId → POMP 0–100. Includes dimension scores derived from child averages. */
   scores: ScoreMap
-  /** Whether the underlying assessment scores at construct or factor level. */
-  scoringLevel: 'factor' | 'construct'
 
   /** entityId → taxonomy row (factor / construct / dimension). */
   taxonomy: TaxonomyMap
-  /** dimensionId → child factor IDs (factor-scored assessments). */
+  /** dimensionId → child factor IDs. */
   dimensionChildFactors: Map<string, string[]>
-  /** dimensionId → child construct IDs (construct-scored assessments). */
-  dimensionChildConstructs: Map<string, string[]>
 
   /** Band scheme resolved via template → partner → platform → default cascade. */
   bandScheme: BandScheme
@@ -132,13 +128,12 @@ export async function buildReportContext(
     partnerId: template.partnerId ?? null,
   })
 
-  // Score map (factor or construct level)
+  // Score map (factor level)
   const scoreMap: ScoreMap = {}
   for (const row of (scoresResult.data ?? []) as Array<Record<string, unknown>>) {
-    const scoringLevel = row.scoring_level as string
-    const entityId = scoringLevel === 'construct' ? row.construct_id : row.factor_id
-    if (typeof entityId === 'string' && entityId) {
-      scoreMap[entityId] = row.scaled_score as number
+    const factorId = row.factor_id
+    if (typeof factorId === 'string' && factorId) {
+      scoreMap[factorId] = row.scaled_score as number
     }
   }
 
@@ -200,17 +195,6 @@ export async function buildReportContext(
     clientId,
   }
 
-  // Scoring level + assessment_constructs (for construct-level dimension rollups)
-  const { data: assessmentMeta } = await db
-    .from('assessments')
-    .select('scoring_level')
-    .eq('id', session.assessmentId)
-    .single()
-  const scoringLevel = ((assessmentMeta as Record<string, unknown> | null)?.scoring_level as
-    | 'factor'
-    | 'construct'
-    | undefined) ?? 'factor'
-
   // Taxonomy fetch — scored entities + caller's extras
   const extraEntityIds = opts.extraEntityIds ?? []
   const initialEntityIds = Array.from(new Set([...extraEntityIds, ...Object.keys(scoreMap)]))
@@ -233,46 +217,14 @@ export async function buildReportContext(
     for (const [id, entity] of extras) taxonomy.set(id, entity)
   }
 
-  const dimensionChildConstructs = new Map<string, string[]>()
-  if (scoringLevel === 'construct') {
-    const { data: acRows } = await db
-      .from('assessment_constructs')
-      .select('construct_id, dimension_id')
-      .eq('assessment_id', session.assessmentId)
-    for (const row of (acRows ?? []) as Array<Record<string, unknown>>) {
-      if (!row.dimension_id) continue
-      const dimId = String(row.dimension_id)
-      const list = dimensionChildConstructs.get(dimId) ?? []
-      list.push(String(row.construct_id))
-      dimensionChildConstructs.set(dimId, list)
-    }
-    const missingConstructDimIds = [...dimensionChildConstructs.keys()].filter(
-      (id) => !taxonomy.has(id),
-    )
-    if (missingConstructDimIds.length > 0) {
-      const extras = await fetchTaxonomy(db, missingConstructDimIds)
-      for (const [id, entity] of extras) taxonomy.set(id, entity)
-    }
-    // Average construct scores up to dimension scores
-    for (const [dimId, constructIds] of dimensionChildConstructs) {
-      if (scoreMap[dimId] !== undefined) continue
-      const childScores = constructIds
-        .map((cId) => scoreMap[cId])
-        .filter((s): s is number => s !== undefined)
-      if (childScores.length > 0) {
-        scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
-      }
-    }
-  } else {
-    // Average factor scores up to dimension scores
-    for (const [dimId, factorIds] of dimensionChildFactors) {
-      if (scoreMap[dimId] !== undefined) continue
-      const childScores = factorIds
-        .map((fId) => scoreMap[fId])
-        .filter((s): s is number => s !== undefined)
-      if (childScores.length > 0) {
-        scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
-      }
+  // Average factor scores up to dimension scores
+  for (const [dimId, factorIds] of dimensionChildFactors) {
+    if (scoreMap[dimId] !== undefined) continue
+    const childScores = factorIds
+      .map((fId) => scoreMap[fId])
+      .filter((s): s is number => s !== undefined)
+    if (childScores.length > 0) {
+      scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
     }
   }
 
@@ -281,10 +233,8 @@ export async function buildReportContext(
     template,
     session,
     scores: scoreMap,
-    scoringLevel,
     taxonomy,
     dimensionChildFactors,
-    dimensionChildConstructs,
     bandScheme,
     resolveBand: (score: number) => resolveBand(score, bandScheme),
     brandTheme,

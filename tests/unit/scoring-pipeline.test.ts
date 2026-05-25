@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  aggregateConstructsToDimensions,
   aggregateToConstructs,
   aggregateToDimensions,
   aggregateToFactors,
@@ -163,87 +162,4 @@ describe("scoring pipeline", () => {
     expect(dimensions[0]?.scores.pomp).toBeCloseTo(50, 0);
   });
 
-  describe("aggregateConstructsToDimensions (construct-level scoring)", () => {
-    it("rolls up constructs directly to dimensions with weighted POMP average", () => {
-      const items = new Map<string, ScoringItemMeta>([
-        ["item-1", createItem({ id: "item-1", constructId: "c-1", maxValue: 5, minValue: 1 })],
-        ["item-2", createItem({ id: "item-2", constructId: "c-2", maxValue: 5, minValue: 1 })],
-      ]);
-      const scored = scoreItems(
-        new Map<string, number>([
-          ["item-1", 5], // POMP 100
-          ["item-2", 1], // POMP 0
-        ]),
-        items
-      );
-      const constructs = aggregateToConstructs(scored, items);
-
-      const dims = aggregateConstructsToDimensions(
-        constructs,
-        [
-          { dimensionId: "d-1", constructId: "c-1", weight: 3 },
-          { dimensionId: "d-1", constructId: "c-2", weight: 1 },
-        ],
-        new Map([["d-1", "Dimension 1"]])
-      );
-
-      expect(dims).toHaveLength(1);
-      // Weighted: (100*3 + 0*1) / 4 = 75
-      expect(dims[0]?.scores.pomp).toBeCloseTo(75, 3);
-      expect(dims[0]?.dimensionName).toBe("Dimension 1");
-      expect(dims[0]?.constructScores).toHaveLength(2);
-    });
-
-    it("groups multiple constructs under one dimension via the existing.push branch", () => {
-      const items = new Map<string, ScoringItemMeta>([
-        ["item-1", createItem({ id: "item-1", constructId: "c-a" })],
-      ]);
-      const scored = scoreItems(new Map([["item-1", 3]]), items);
-      const constructs = aggregateToConstructs(scored, items);
-
-      const dims = aggregateConstructsToDimensions(constructs, [
-        { dimensionId: "d-1", constructId: "c-a", weight: 1 },
-        { dimensionId: "d-1", constructId: "c-missing", weight: 2 },
-      ]);
-
-      expect(dims).toHaveLength(1);
-      // The missing construct is skipped; only c-a contributes.
-      expect(dims[0]?.constructScores).toHaveLength(1);
-    });
-
-    it("skips dimensions where total weight is zero", () => {
-      const dims = aggregateConstructsToDimensions(
-        [],
-        [{ dimensionId: "d-1", constructId: "c-missing", weight: 1 }]
-      );
-      expect(dims).toEqual([]);
-    });
-  });
-
-  it("runScoringPipeline routes to construct-level when scoringLevel is 'construct'", () => {
-    const items = new Map<string, ScoringItemMeta>([
-      ["item-1", createItem({ id: "item-1", constructId: "c-1" })],
-    ]);
-
-    const output = runScoringPipeline(new Map([["item-1", 4]]), {
-      sessionId: "s-1",
-      assessmentId: "a-1",
-      scoringMethod: "ctt",
-      scoringLevel: "construct",
-      items,
-      factorConstructLinks: [],
-      factorDimensionLinks: [],
-      dimensionConstructLinks: [
-        { dimensionId: "d-1", constructId: "c-1", weight: 1 },
-      ],
-      constructNames: new Map([["c-1", "Construct 1"]]),
-      dimensionNames: new Map([["d-1", "Dimension 1"]]),
-    });
-
-    expect(output.factorScores).toEqual([]);
-    expect(output.dimensionScores).toHaveLength(1);
-    expect(output.dimensionScores[0]?.dimensionId).toBe("d-1");
-    // POMP for value 4 on a 1-5 Likert is 75
-    expect(output.dimensionScores[0]?.scores.pomp).toBeCloseTo(75, 3);
-  });
 });

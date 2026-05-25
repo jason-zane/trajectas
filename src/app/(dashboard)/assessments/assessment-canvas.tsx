@@ -3,57 +3,47 @@
 import { useDroppable } from "@dnd-kit/react"
 import { Layers, FileQuestion, Inbox, AlertTriangle } from "lucide-react"
 import { SortableFactorCard } from "./sortable-factor-card"
-import { SortableConstructCard } from "./sortable-construct-card"
-import type { BuilderFactor, BuilderConstruct } from "@/app/actions/assessments"
+import type { BuilderFactor } from "@/app/actions/assessments"
 import type { ConstructShortfall } from "@/app/actions/item-selection-rules"
 
 interface AssessmentCanvasProps {
-  mode?: "factor" | "construct"
   selectedFactors?: BuilderFactor[]
-  selectedConstructs?: BuilderConstruct[]
   onRemove: (id: string) => void
   ruleInfo?: {
     constructCount: number
     itemsPerConstruct: number | null
     shortfalls: ConstructShortfall[]
   } | null
-  /** Show deep links to the factors/constructs library editor on each card. */
+  /** Show deep links to the factors library editor on each card. */
   showLibraryLinks?: boolean
 }
 
 export function AssessmentCanvas({
-  mode = "factor",
   selectedFactors = [],
-  selectedConstructs = [],
   onRemove,
   ruleInfo,
   showLibraryLinks = true,
 }: AssessmentCanvasProps) {
   const { ref, isDropTarget } = useDroppable({ id: "assessment-canvas" })
 
-  const isConstructMode = mode === "construct"
-  const count = isConstructMode ? selectedConstructs.length : selectedFactors.length
-  const unitLabel = isConstructMode ? "construct" : "factor"
-  const unitLabelPlural = isConstructMode ? "constructs" : "factors"
-
-  const totalItems = isConstructMode
-    ? selectedConstructs.reduce((sum, c) => sum + c.itemCount, 0)
-    : selectedFactors.reduce((sum, f) => sum + f.itemCount, 0)
-  const totalConstructs = isConstructMode
-    ? selectedConstructs.length
-    : selectedFactors.reduce((sum, f) => sum + f.constructCount, 0)
+  const count = selectedFactors.length
+  const totalItems = selectedFactors.reduce((sum, f) => sum + f.itemCount, 0)
+  const totalConstructs = selectedFactors.reduce(
+    (sum, f) => sum + f.constructCount,
+    0,
+  )
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
-          Selected {isConstructMode ? "Constructs" : "Factors"}
+          Selected Factors
         </h3>
         {count > 0 && (
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Layers className="size-3.5" />
-              {count} {count === 1 ? unitLabel : unitLabelPlural}
+              {count} {count === 1 ? "factor" : "factors"}
             </span>
             <span className="inline-flex items-center gap-1">
               <FileQuestion className="size-3.5" />
@@ -79,34 +69,24 @@ export function AssessmentCanvas({
               <Inbox className="size-6 text-muted-foreground" />
             </div>
             <p className="mt-3 text-sm font-medium text-muted-foreground">
-              No {unitLabelPlural} selected
+              No factors selected
             </p>
             <p className="mt-1 text-xs text-muted-foreground/70 max-w-xs">
-              Drag {unitLabelPlural} from the library or click the + button to
-              add them to your assessment.
+              Drag factors from the library or click the + button to add them
+              to your assessment.
             </p>
           </div>
         ) : (
           <div className="space-y-2">
-            {isConstructMode
-              ? selectedConstructs.map((construct, index) => (
-                  <SortableConstructCard
-                    key={construct.id}
-                    construct={construct}
-                    index={index}
-                    onRemove={onRemove}
-                    showLibraryLink={showLibraryLinks}
-                  />
-                ))
-              : selectedFactors.map((factor, index) => (
-                  <SortableFactorCard
-                    key={factor.id}
-                    factor={factor}
-                    index={index}
-                    onRemove={onRemove}
-                    showLibraryLink={showLibraryLinks}
-                  />
-                ))}
+            {selectedFactors.map((factor, index) => (
+              <SortableFactorCard
+                key={factor.id}
+                factor={factor}
+                index={index}
+                onRemove={onRemove}
+                showLibraryLink={showLibraryLinks}
+              />
+            ))}
           </div>
         )}
       </div>
@@ -114,9 +94,7 @@ export function AssessmentCanvas({
       {count > 0 && (
         <div className="space-y-2">
           <div className="rounded-lg bg-muted/40 px-4 py-2.5 text-xs text-muted-foreground">
-            {isConstructMode
-              ? `${count} constructs`
-              : `${count} factors covering ${totalConstructs} constructs`}
+            {count} factors covering {totalConstructs} constructs
             {ruleInfo?.itemsPerConstruct != null ? (
               <>
                 {" "}

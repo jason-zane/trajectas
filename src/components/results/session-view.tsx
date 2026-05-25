@@ -28,6 +28,8 @@ interface SessionViewProps {
   settingsHref?: string;
   /** Optional element rendered top-right of the header — typically a SessionHeaderActions dropdown. */
   actions?: ReactNode;
+  /** Platform-admin only. Enables the per-factor construct drill-down on the scores tab. */
+  isPlatformAdmin?: boolean;
 }
 
 function formatDuration(minutes: number | null | undefined): string {
@@ -57,6 +59,7 @@ export function SessionView({
   reportBasePath,
   settingsHref,
   actions,
+  isPlatformAdmin = false,
 }: SessionViewProps) {
   const showProcessingBanner =
     session.processingStatus === "scoring" ||
@@ -185,6 +188,8 @@ export function SessionView({
             sessionStatus={session.status}
             processingStatus={session.processingStatus}
             processingError={session.processingError}
+            sessionId={session.id}
+            showConstructDrilldown={isPlatformAdmin}
           />
         </TabsContent>
 

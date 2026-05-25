@@ -543,7 +543,6 @@ export async function getAssessmentById(id: string): Promise<Assessment | null> 
 export async function getAssessmentWithFactors(id: string): Promise<{
   assessment: Assessment
   factors: AssessmentFactorLink[]
-  constructs: AssessmentConstructLink[]
   sections: ExistingSection[]
 } | null> {
   try {
@@ -558,9 +557,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select(
-      '*, assessment_factors(factor_id, weight, item_count), assessment_constructs(construct_id, dimension_id, weight, item_count)',
-    )
+    .select('*, assessment_factors(factor_id, weight, item_count)')
     .eq('id', id)
     .is('deleted_at', null)
     .single()
@@ -570,7 +567,6 @@ export async function getAssessmentWithFactors(id: string): Promise<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = data as any
 
-  // Load existing sections with item counts and format info
   const { data: sectionRows } = await db
     .from('assessment_sections')
     .select('*, response_formats(name, type), assessment_section_items(count)')
@@ -597,15 +593,6 @@ export async function getAssessmentWithFactors(id: string): Promise<{
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (ac: any) => ({
         factorId: ac.factor_id,
-        weight: Number(ac.weight),
-        itemCount: ac.item_count ?? 0,
-      })
-    ),
-    constructs: (r.assessment_constructs ?? []).map(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (ac: any) => ({
-        constructId: ac.construct_id,
-        dimensionId: ac.dimension_id ?? null,
         weight: Number(ac.weight),
         itemCount: ac.item_count ?? 0,
       })
@@ -761,20 +748,20 @@ export async function getConstructsForBuilder(): Promise<BuilderConstruct[]> {
   const constructIds = (constructs ?? []).map((c) => c.id)
   if (constructIds.length === 0) return []
 
-  // Load dimension links (via dimension_constructs). A construct may link to
-  // multiple dimensions; for display purposes take the first.
-  const { data: dcLinks } = await db
-    .from('dimension_constructs')
-    .select('construct_id, dimension_id, dimensions(id, name)')
+  // Find a dimension for each construct by walking factor_constructs → factors → dimension.
+  const { data: fcLinks } = await db
+    .from('factor_constructs')
+    .select('construct_id, factors(dimension_id, dimensions(id, name))')
     .in('construct_id', constructIds)
 
   const dimByConstruct = new Map<string, { id: string; name: string }>()
-  for (const link of dcLinks ?? []) {
-    if (!dimByConstruct.has(link.construct_id)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dim = (link as any).dimensions as { id: string; name: string } | null
-      if (dim) dimByConstruct.set(link.construct_id, dim)
-    }
+  for (const link of fcLinks ?? []) {
+    if (dimByConstruct.has(link.construct_id)) continue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const f = (link as any).factors
+    const dim = Array.isArray(f) ? f[0]?.dimensions : f?.dimensions
+    const dimRow = Array.isArray(dim) ? dim[0] : dim
+    if (dimRow?.id) dimByConstruct.set(link.construct_id, { id: dimRow.id, name: dimRow.name })
   }
 
   // Count active items per construct
@@ -829,7 +816,6 @@ export async function createAssessment(payload: Record<string, unknown>) {
   }
 
   const db = createAdminClient()
-  const scoringLevel = (payload.scoringLevel as string) ?? 'factor'
   const { data: assessment, error } = await db.from('assessments').insert({
     partner_id: partnerId,
     title: parsed.data.title,
@@ -840,14 +826,12 @@ export async function createAssessment(payload: Record<string, unknown>) {
     creation_mode: parsed.data.creationMode,
     format_mode: parsed.data.formatMode,
     fc_block_size: parsed.data.fcBlockSize ?? null,
-    scoring_level: scoringLevel,
     source_id: parsed.data.sourceId || null,
   }).select('id').single()
 
   if (error) return { error: { _form: [error.message] } }
 
-  // Insert factor junction records (factor-level scoring)
-  if (scoringLevel === 'factor' && parsed.data.factors.length > 0) {
+  if (parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
       assessment_id: assessment.id,
       factor_id: f.factorId,
@@ -858,27 +842,12 @@ export async function createAssessment(payload: Record<string, unknown>) {
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
-  // Insert construct junction records (construct-level scoring)
-  if (scoringLevel === 'construct' && parsed.data.constructs.length > 0) {
-    const links = parsed.data.constructs.map((c) => ({
-      assessment_id: assessment.id,
-      construct_id: c.constructId,
-      dimension_id: c.dimensionId ?? null,
-      weight: c.weight,
-      item_count: c.itemCount,
-    }))
-    const { error: linkError } = await db.from('assessment_constructs').insert(links)
-    if (linkError) return { error: { _form: [linkError.message] } }
-  }
-
   // Insert sections (traditional mode)
   const sections = (payload.sections ?? []) as SectionDraft[]
   if (sections.length > 0 && parsed.data.formatMode === 'traditional') {
     const factorIds = parsed.data.factors.map((f) => f.factorId)
-    const constructIds = parsed.data.constructs.map((c) => c.constructId)
     const sectionErr = await persistSections(db, assessment.id, sections, {
       factorIds,
-      constructIds: scoringLevel === 'construct' ? constructIds : [],
     })
     if (sectionErr) return { error: { _form: [sectionErr] } }
   }
@@ -933,7 +902,6 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     return { error: { _form: [formatTaxonomyLockedError(lockName)] } }
   }
 
-  const updatedScoringLevel = (payload.scoringLevel as string) ?? 'factor'
   const { error: updateErr } = await db
     .from('assessments')
     .update({
@@ -945,17 +913,15 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       creation_mode: parsed.data.creationMode,
       format_mode: parsed.data.formatMode,
       fc_block_size: parsed.data.fcBlockSize ?? null,
-      scoring_level: updatedScoringLevel,
       source_id: parsed.data.sourceId || null,
     })
     .eq('id', id)
 
   if (updateErr) return { error: { _form: [updateErr.message] } }
 
-  // Replace factor junction records (always delete, insert if factor-level)
   await db.from('assessment_factors').delete().eq('assessment_id', id)
 
-  if (updatedScoringLevel === 'factor' && parsed.data.factors.length > 0) {
+  if (parsed.data.factors.length > 0) {
     const links = parsed.data.factors.map((f) => ({
       assessment_id: id,
       factor_id: f.factorId,
@@ -963,21 +929,6 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
       item_count: f.itemCount,
     }))
     const { error: linkError } = await db.from('assessment_factors').insert(links)
-    if (linkError) return { error: { _form: [linkError.message] } }
-  }
-
-  // Replace construct junction records (always delete, insert if construct-level)
-  await db.from('assessment_constructs').delete().eq('assessment_id', id)
-
-  if (updatedScoringLevel === 'construct' && parsed.data.constructs.length > 0) {
-    const links = parsed.data.constructs.map((c) => ({
-      assessment_id: id,
-      construct_id: c.constructId,
-      dimension_id: c.dimensionId ?? null,
-      weight: c.weight,
-      item_count: c.itemCount,
-    }))
-    const { error: linkError } = await db.from('assessment_constructs').insert(links)
     if (linkError) return { error: { _form: [linkError.message] } }
   }
 
@@ -1034,10 +985,8 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     const sections = (payload.sections ?? []) as SectionDraft[]
     if (sections.length > 0) {
       const factorIds = parsed.data.factors.map((f) => f.factorId)
-      const constructIds = parsed.data.constructs.map((c) => c.constructId)
       const sectionErr = await persistSections(db, id, sections, {
         factorIds,
-        constructIds: updatedScoringLevel === 'construct' ? constructIds : [],
       })
       if (sectionErr) return { error: { _form: [sectionErr] } }
     }
@@ -1264,69 +1213,6 @@ export async function updateAssessmentCustomisation(
     targetTable: 'assessments',
     targetId: assessmentId,
     metadata: { minCustomFactors },
-  })
-  return { success: true }
-}
-
-/**
- * Update construct customisation settings for a construct-level assessment
- * (Zone 1 — immediate save). Pass `null` to disable customisation; pass a
- * number to set the minimum.
- */
-export async function updateAssessmentConstructCustomisation(
-  assessmentId: string,
-  minCustomConstructs: number | null
-): Promise<{ success: true } | { error: string }> {
-  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
-  try {
-    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
-  } catch (error) {
-    if (error instanceof AuthorizationError) {
-      return { error: error.message }
-    }
-    throw error
-  }
-
-  if (!scope) {
-    return { error: 'Unable to resolve assessment scope.' }
-  }
-
-  const db = createAdminClient()
-
-  if (minCustomConstructs !== null) {
-    const lockName = await getAssessmentCustomReportLockName(db, assessmentId)
-    if (lockName) return { error: formatTaxonomyLockedError(lockName) }
-
-    const { count } = await db
-      .from('assessment_constructs')
-      .select('*', { count: 'exact', head: true })
-      .eq('assessment_id', assessmentId)
-
-    if (minCustomConstructs < 1) {
-      return { error: 'Minimum must be at least 1' }
-    }
-    if (count !== null && minCustomConstructs > count) {
-      return { error: `Minimum cannot exceed the ${count} constructs in this assessment` }
-    }
-  }
-
-  const { error } = await db
-    .from('assessments')
-    .update({ min_custom_constructs: minCustomConstructs })
-    .eq('id', assessmentId)
-
-  if (error) {
-    logActionError('updateAssessmentConstructCustomisation', error)
-    return { error: 'Unable to update customisation settings.' }
-  }
-
-  revalidateAssessmentPaths()
-  await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
-    eventType: 'assessment.customisation.updated',
-    targetTable: 'assessments',
-    targetId: assessmentId,
-    metadata: { minCustomConstructs },
   })
   return { success: true }
 }
@@ -1738,18 +1624,13 @@ export async function updateAssessmentMeta(
 }
 
 /**
- * Replace the factor or construct selection on an assessment. Does NOT touch
- * sections or fc_blocks — those are owned by the Presentation tab and may need
- * to be regenerated after composition changes.
+ * Replace the factor selection on an assessment. Does NOT touch sections or
+ * fc_blocks — those are owned by the Presentation tab and may need to be
+ * regenerated after composition changes.
  */
 export async function updateAssessmentComposition(
   assessmentId: string,
-  payload:
-    | { scoringLevel: 'factor'; factors: Array<{ factorId: string; weight?: number }> }
-    | {
-        scoringLevel: 'construct'
-        constructs: Array<{ constructId: string; dimensionId?: string | null; weight?: number }>
-      },
+  payload: { factors: Array<{ factorId: string; weight?: number }> },
 ): Promise<ActionResult> {
   let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
   try {
@@ -1760,7 +1641,6 @@ export async function updateAssessmentComposition(
   }
   if (!scope) return { error: 'Unable to resolve assessment scope.' }
 
-  // Guard: cannot restructure an assessment that already has participant responses.
   const db = createAdminClient()
   const responseCheck = await assertNoParticipantResponses(db, assessmentId)
   if (responseCheck) return { error: responseCheck }
@@ -1768,36 +1648,18 @@ export async function updateAssessmentComposition(
   const lockName = await getAssessmentCustomReportLockName(db, assessmentId)
   if (lockName) return { error: formatTaxonomyLockedError(lockName) }
 
-  if (payload.scoringLevel === 'factor') {
-    await db.from('assessment_factors').delete().eq('assessment_id', assessmentId)
-    if (payload.factors.length > 0) {
-      const rows = payload.factors.map((f) => ({
-        assessment_id: assessmentId,
-        factor_id: f.factorId,
-        weight: f.weight ?? 1,
-        item_count: 0,
-      }))
-      const { error } = await db.from('assessment_factors').insert(rows)
-      if (error) {
-        logActionError('updateAssessmentComposition.factors', error)
-        return { error: 'Unable to save factor selection.' }
-      }
-    }
-  } else {
-    await db.from('assessment_constructs').delete().eq('assessment_id', assessmentId)
-    if (payload.constructs.length > 0) {
-      const rows = payload.constructs.map((c) => ({
-        assessment_id: assessmentId,
-        construct_id: c.constructId,
-        dimension_id: c.dimensionId ?? null,
-        weight: c.weight ?? 1,
-        item_count: 0,
-      }))
-      const { error } = await db.from('assessment_constructs').insert(rows)
-      if (error) {
-        logActionError('updateAssessmentComposition.constructs', error)
-        return { error: 'Unable to save construct selection.' }
-      }
+  await db.from('assessment_factors').delete().eq('assessment_id', assessmentId)
+  if (payload.factors.length > 0) {
+    const rows = payload.factors.map((f) => ({
+      assessment_id: assessmentId,
+      factor_id: f.factorId,
+      weight: f.weight ?? 1,
+      item_count: 0,
+    }))
+    const { error } = await db.from('assessment_factors').insert(rows)
+    if (error) {
+      logActionError('updateAssessmentComposition.factors', error)
+      return { error: 'Unable to save factor selection.' }
     }
   }
 
@@ -1807,7 +1669,7 @@ export async function updateAssessmentComposition(
     eventType: 'assessment.composition.updated',
     targetTable: 'assessments',
     targetId: assessmentId,
-    metadata: { scoringLevel: payload.scoringLevel },
+    metadata: { factorCount: payload.factors.length },
   })
   return { success: true }
 }
@@ -1839,32 +1701,11 @@ export async function updateAssessmentPresentation(
   const responseCheck = await assertNoParticipantResponses(db, assessmentId)
   if (responseCheck) return { error: responseCheck }
 
-  // Read current scoring level + composition once so persistSections can scope items.
-  const { data: assessmentRow, error: assessmentReadErr } = await db
-    .from('assessments')
-    .select('scoring_level')
-    .eq('id', assessmentId)
-    .single()
-  if (assessmentReadErr || !assessmentRow) {
-    return { error: 'Assessment not found.' }
-  }
-  const scoringLevel = assessmentRow.scoring_level as 'factor' | 'construct'
-
-  let factorIds: string[] = []
-  let constructIds: string[] = []
-  if (scoringLevel === 'factor') {
-    const { data } = await db
-      .from('assessment_factors')
-      .select('factor_id')
-      .eq('assessment_id', assessmentId)
-    factorIds = ((data ?? []) as { factor_id: string }[]).map((r) => r.factor_id)
-  } else {
-    const { data } = await db
-      .from('assessment_constructs')
-      .select('construct_id')
-      .eq('assessment_id', assessmentId)
-    constructIds = ((data ?? []) as { construct_id: string }[]).map((r) => r.construct_id)
-  }
+  const { data: af } = await db
+    .from('assessment_factors')
+    .select('factor_id')
+    .eq('assessment_id', assessmentId)
+  const factorIds = ((af ?? []) as { factor_id: string }[]).map((r) => r.factor_id)
 
   // Update top-level fields
   const { error: updErr } = await db
@@ -1897,7 +1738,6 @@ export async function updateAssessmentPresentation(
     if (sections.length > 0) {
       const err = await persistSections(db, assessmentId, sections, {
         factorIds,
-        constructIds: scoringLevel === 'construct' ? constructIds : [],
       })
       if (err) return { error: err }
     }
@@ -1928,7 +1768,6 @@ export async function updateAssessmentPresentation(
 export async function createAssessmentDraft(payload: {
   title: string
   description?: string
-  scoringLevel: 'factor' | 'construct'
   sourceId?: string
 }): Promise<{ success: true; id: string } | { error: string }> {
   let scope = null as Awaited<ReturnType<typeof requireAssessmentBuilderScope>> | null
@@ -1960,7 +1799,6 @@ export async function createAssessmentDraft(payload: {
       scoring_method: 'ctt',
       creation_mode: 'manual',
       format_mode: 'traditional',
-      scoring_level: payload.scoringLevel,
       source_id: payload.sourceId || null,
     })
     .select('id')

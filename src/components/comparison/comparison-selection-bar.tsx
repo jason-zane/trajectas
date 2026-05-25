@@ -15,7 +15,6 @@ import type { EligibleAssessment } from '@/app/actions/comparison'
 const LEVEL_LABEL: Record<ColumnLevel, string> = {
   dimension: 'Dimensions',
   factor: 'Factors',
-  construct: 'Constructs',
 }
 
 export function ComparisonSelectionBar({

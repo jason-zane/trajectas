@@ -13,7 +13,7 @@ const Body = z.object({
     }),
   ),
   assessmentIds: z.array(z.string().uuid()),
-  visibleLevels: z.array(z.enum(['dimension', 'factor', 'construct'])).optional(),
+  visibleLevels: z.array(z.enum(['dimension', 'factor'])).optional(),
   campaignSlug: z.string().min(1).optional(),
 })
 

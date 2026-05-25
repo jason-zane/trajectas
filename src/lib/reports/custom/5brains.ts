@@ -98,12 +98,14 @@ function mean(values: number[]): number {
 }
 
 function buildFiveBrainsData(ctx: ReportContext): FiveBrainsReportData {
-  // Collect brain → capability rows from the taxonomy + score map.
-  const dimensions: Array<{ id: string; entity: TaxonomyEntity; constructIds: string[] }> = []
-  for (const [dimId, constructIds] of ctx.dimensionChildConstructs) {
+  // Each "brain" is a dimension; each "capability" is a child factor
+  // (post-taxonomy-unification, the 1:1 wrapper factor for what was previously
+  // a construct).
+  const dimensions: Array<{ id: string; entity: TaxonomyEntity; factorIds: string[] }> = []
+  for (const [dimId, factorIds] of ctx.dimensionChildFactors) {
     const entity = ctx.taxonomy.get(dimId)
     if (!entity || entity._taxonomy_level !== 'dimension') continue
-    dimensions.push({ id: dimId, entity, constructIds })
+    dimensions.push({ id: dimId, entity, factorIds })
   }
 
   const brains: FiveBrainsBrain[] = dimensions
@@ -112,18 +114,18 @@ function buildFiveBrainsData(ctx: ReportContext): FiveBrainsReportData {
       const presentation = BRAIN_PRESENTATION[slug]
       if (!presentation) return null
 
-      const capabilities: FiveBrainsCapability[] = dim.constructIds
-        .map((cid) => {
-          const cEntity = ctx.taxonomy.get(cid)
-          if (!cEntity || cEntity._taxonomy_level !== 'construct') return null
-          const rawScore = ctx.scores[cid]
+      const capabilities: FiveBrainsCapability[] = dim.factorIds
+        .map((fid) => {
+          const fEntity = ctx.taxonomy.get(fid)
+          if (!fEntity || fEntity._taxonomy_level !== 'factor') return null
+          const rawScore = ctx.scores[fid]
           const score = typeof rawScore === 'number' ? Math.round(rawScore) : 0
           return {
-            id: cid,
-            name: getString(cEntity, 'name'),
-            definition: getString(cEntity, 'definition'),
-            anchorLow: getString(cEntity, 'anchor_low'),
-            anchorHigh: getString(cEntity, 'anchor_high'),
+            id: fid,
+            name: getString(fEntity, 'name'),
+            definition: getString(fEntity, 'definition'),
+            anchorLow: getString(fEntity, 'anchor_low'),
+            anchorHigh: getString(fEntity, 'anchor_high'),
             score,
             bandLabel: ctx.resolveBand(score).bandLabel,
           }

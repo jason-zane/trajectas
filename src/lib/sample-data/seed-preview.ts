@@ -79,10 +79,10 @@ export async function seedAssessmentPreview(
 ): Promise<SeedResult> {
   await ensurePreviewSampleClient(db)
 
-  // 1) Load the assessment so we know its title and scoring_level.
+  // 1) Load the assessment so we know its title.
   const assessment = await db
     .from('assessments')
-    .select('id, title, scoring_level')
+    .select('id, title')
     .eq('id', assessmentId)
     .is('deleted_at', null)
     .maybeSingle()
@@ -91,10 +91,7 @@ export async function seedAssessmentPreview(
     throw new Error(`seedAssessmentPreview: assessment ${assessmentId} not found`)
   }
 
-  const { title, scoring_level: scoringLevel } = assessment.data as {
-    title: string
-    scoring_level: 'factor' | 'construct'
-  }
+  const { title } = assessment.data as { title: string }
 
   // 2) Upsert campaign (natural key: client_id + slug).
   const campaignSlug = `preview-${assessmentId}`
@@ -179,13 +176,10 @@ export async function seedAssessmentPreview(
     sessionId = ins.data.id
   }
 
-  // 5) Clear + reinsert scores. The enum scoring_level is (factor|construct);
-  //    dimensions are aggregated at render time and don't get persisted here.
+  // 5) Clear + reinsert factor-level scores.
   await db.from('participant_scores').delete().eq('session_id', sessionId)
 
-  const scoreCount = scoringLevel === 'construct'
-    ? await seedConstructScores(db, sessionId!, assessmentId)
-    : await seedFactorScores(db, sessionId!, assessmentId)
+  const scoreCount = await seedFactorScores(db, sessionId!, assessmentId)
 
   return {
     campaignId: campaignId!,
@@ -193,34 +187,6 @@ export async function seedAssessmentPreview(
     sessionId: sessionId!,
     scoreCount,
   }
-}
-
-async function seedConstructScores(
-  db: DB,
-  sessionId: string,
-  assessmentId: string,
-): Promise<number> {
-  const { data, error } = await db
-    .from('assessment_constructs')
-    .select('construct_id')
-    .eq('assessment_id', assessmentId)
-  if (error) throw new Error(`seedConstructScores: ${error.message}`)
-  const rows = (data ?? []).map((r: { construct_id: string }) => {
-    const score = synthScore(r.construct_id)
-    return {
-      session_id: sessionId,
-      construct_id: r.construct_id,
-      factor_id: null,
-      scoring_level: 'construct' as const,
-      scoring_method: SAMPLE_SCORING_METHOD,
-      raw_score: score,
-      scaled_score: score,
-    }
-  })
-  if (rows.length === 0) return 0
-  const ins = await db.from('participant_scores').insert(rows)
-  if (ins.error) throw new Error(`seedConstructScores/insert: ${ins.error.message}`)
-  return rows.length
 }
 
 async function seedFactorScores(
@@ -266,8 +232,6 @@ async function seedFactorScores(
     return {
       session_id: sessionId,
       factor_id: factorId,
-      construct_id: null,
-      scoring_level: 'factor' as const,
       scoring_method: SAMPLE_SCORING_METHOD,
       raw_score: score,
       scaled_score: score,

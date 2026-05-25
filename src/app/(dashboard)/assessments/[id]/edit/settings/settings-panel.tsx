@@ -21,55 +21,33 @@ import {
   deleteAssessment,
   restoreAssessment,
   updateAssessmentCustomisation,
-  updateAssessmentConstructCustomisation,
 } from "@/app/actions/assessments"
 
 interface SettingsPanelProps {
   assessmentId: string
-  scoringLevel: "factor" | "construct"
   selectedFactorCount: number
-  selectedConstructCount: number
   initialMinCustomFactors: number | null
-  initialMinCustomConstructs: number | null
   /** Where to send the user after deleting (default: /assessments). */
   listPath?: string
 }
 
 export function SettingsPanel({
   assessmentId,
-  scoringLevel,
   selectedFactorCount,
-  selectedConstructCount,
   initialMinCustomFactors,
-  initialMinCustomConstructs,
   listPath = "/assessments",
 }: SettingsPanelProps) {
   const router = useRouter()
 
-  const isConstruct = scoringLevel === "construct"
-  const noun = isConstruct ? "construct" : "factor"
-  const Noun = isConstruct ? "Construct" : "Factor"
-  const selectedCount = isConstruct ? selectedConstructCount : selectedFactorCount
-
-  const [enabled, setEnabled] = useState(
-    isConstruct
-      ? initialMinCustomConstructs != null
-      : initialMinCustomFactors != null,
-  )
-  const [minValue, setMinValue] = useState<number>(
-    isConstruct
-      ? initialMinCustomConstructs ?? 1
-      : initialMinCustomFactors ?? 1,
-  )
+  const [enabled, setEnabled] = useState(initialMinCustomFactors != null)
+  const [minValue, setMinValue] = useState<number>(initialMinCustomFactors ?? 1)
   const [saving, setSaving] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
   async function persist(value: number | null) {
     setSaving(true)
-    const result = isConstruct
-      ? await updateAssessmentConstructCustomisation(assessmentId, value)
-      : await updateAssessmentCustomisation(assessmentId, value)
+    const result = await updateAssessmentCustomisation(assessmentId, value)
     setSaving(false)
     if ("error" in result) {
       toast.error(result.error)
@@ -80,7 +58,7 @@ export function SettingsPanel({
 
   async function handleToggle(next: boolean) {
     setEnabled(next)
-    const initial = Math.max(1, Math.floor(selectedCount / 2) || 1)
+    const initial = Math.max(1, Math.floor(selectedFactorCount / 2) || 1)
     const valueToSave = next ? initial : null
     if (next) setMinValue(initial)
     const ok = await persist(valueToSave)
@@ -88,9 +66,7 @@ export function SettingsPanel({
       setEnabled(!next)
     } else {
       toast.success(
-        next
-          ? `${Noun} customisation enabled`
-          : `${Noun} customisation disabled`,
+        next ? "Factor customisation enabled" : "Factor customisation disabled",
       )
     }
   }
@@ -98,7 +74,7 @@ export function SettingsPanel({
   async function handleMinBlur() {
     if (!enabled) return
     const ok = await persist(minValue)
-    if (ok) toast.success(`Minimum ${noun}s updated`)
+    if (ok) toast.success("Minimum factors updated")
   }
 
   async function handleDelete() {
@@ -143,19 +119,19 @@ export function SettingsPanel({
           </div>
           <CardDescription>
             Control whether the campaign administrators who use this assessment
-            can pick a subset of {noun}s instead of all of them.
+            can pick a subset of factors instead of all of them.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="customisation-toggle" className="text-sm font-medium">
-                Allow partners to customise {noun}s
+                Allow partners to customise factors
               </Label>
               <p className="text-xs text-muted-foreground">
                 {enabled
-                  ? `Partners can select a subset of ${noun}s for each campaign.`
-                  : `Partners must use all ${noun}s in this assessment.`}
+                  ? "Partners can select a subset of factors for each campaign."
+                  : "Partners must use all factors in this assessment."}
               </p>
             </div>
             <Switch
@@ -170,13 +146,13 @@ export function SettingsPanel({
             <>
               <Separator />
               <div className="space-y-2">
-                <Label htmlFor="min-entities">Minimum {noun}s</Label>
+                <Label htmlFor="min-entities">Minimum factors</Label>
                 <div className="flex items-center gap-3">
                   <Input
                     id="min-entities"
                     type="number"
                     min={1}
-                    max={selectedCount || 1}
+                    max={selectedFactorCount || 1}
                     value={minValue}
                     onChange={(e) => {
                       const val = parseInt(e.target.value, 10)
@@ -187,17 +163,16 @@ export function SettingsPanel({
                     disabled={saving}
                   />
                   <span className="text-sm text-muted-foreground">
-                    of {selectedCount} {noun}
-                    {selectedCount !== 1 ? "s" : ""}
+                    of {selectedFactorCount} factor
+                    {selectedFactorCount !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
                   <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Partners must select at least this many {noun}s when
+                    Partners must select at least this many factors when
                     customising the assessment for a campaign. Set to the total
-                    {" "}
-                    {noun} count to prevent any removal.
+                    factor count to prevent any removal.
                   </p>
                 </div>
               </div>

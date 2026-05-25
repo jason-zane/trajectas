@@ -207,33 +207,12 @@ async function loadSessionSummary(db: any, sessionId: string): Promise<SessionSu
   // join scores → entity → dimension and take the mean per dimension.
   const dimensions: Array<{ name: string; score: number }> = []
   if (assessmentId) {
-    const [{ data: scoreRows }, { data: acRows }] = await Promise.all([
-      db
-        .from('participant_scores')
-        .select(
-          'factor_id, construct_id, scoring_level, scaled_score, factors(dimension_id, dimensions(name)), constructs(name)',
-        )
-        .eq('session_id', sessionId),
-      db
-        .from('assessment_constructs')
-        .select('construct_id, dimension_id, dimensions(name)')
-        .eq('assessment_id', assessmentId),
-    ])
-
-    const constructToDim = new Map<string, { id: string; name: string }>()
-    for (const row of (acRows ?? []) as Array<{
-      construct_id: string
-      dimension_id: string
-      dimensions: { name: string } | { name: string }[] | null
-    }>) {
-      const dim = Array.isArray(row.dimensions) ? row.dimensions[0] : row.dimensions
-      if (row.construct_id && row.dimension_id && dim?.name) {
-        constructToDim.set(String(row.construct_id), {
-          id: String(row.dimension_id),
-          name: String(dim.name),
-        })
-      }
-    }
+    const { data: scoreRows } = await db
+      .from('participant_scores')
+      .select(
+        'factor_id, scaled_score, factors(dimension_id, dimensions(name))',
+      )
+      .eq('session_id', sessionId)
 
     type FactorEmbed = {
       dimension_id?: string | null
@@ -241,26 +220,16 @@ async function loadSessionSummary(db: any, sessionId: string): Promise<SessionSu
     }
     type ScoreRow = {
       factor_id?: string | null
-      construct_id?: string | null
-      scoring_level?: string | null
       scaled_score: number | string
       factors?: FactorEmbed | FactorEmbed[] | null
     }
     const buckets = new Map<string, { name: string; sum: number; count: number }>()
     for (const s of (scoreRows ?? []) as ScoreRow[]) {
       const score = Number(s.scaled_score)
-      let dimId: string | undefined
-      let dimName: string | undefined
-      if (s.scoring_level === 'construct' && s.construct_id) {
-        const lookup = constructToDim.get(String(s.construct_id))
-        dimId = lookup?.id
-        dimName = lookup?.name
-      } else {
-        const factor = pickEmbedded(s.factors)
-        if (factor?.dimension_id) dimId = String(factor.dimension_id)
-        const dim = pickEmbedded(factor?.dimensions)
-        if (dim?.name) dimName = String(dim.name)
-      }
+      const factor = pickEmbedded(s.factors)
+      const dimId = factor?.dimension_id ? String(factor.dimension_id) : undefined
+      const dim = pickEmbedded(factor?.dimensions)
+      const dimName = dim?.name ? String(dim.name) : undefined
       if (!dimId || !dimName) continue
       const existing = buckets.get(dimId)
       if (existing) {

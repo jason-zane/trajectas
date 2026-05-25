@@ -101,7 +101,6 @@ function DisplayLevelSelect({
               getSelectLabel(selectedValue, [
                 { value: 'dimension', label: 'Dimension' },
                 { value: 'factor', label: 'Factor' },
-                { value: 'construct', label: 'Construct' },
               ])
             }
           </SelectValue>
@@ -109,7 +108,6 @@ function DisplayLevelSelect({
         <SelectContent>
           <SelectItem value="dimension">Dimension</SelectItem>
           <SelectItem value="factor">Factor</SelectItem>
-          <SelectItem value="construct">Construct</SelectItem>
         </SelectContent>
       </Select>
     </Field>

@@ -1746,7 +1746,6 @@ export async function getEntityOptions(): Promise<EntityOption[]> {
 export interface PreviewAssessmentOption {
   id: string
   title: string
-  scoringLevel: 'factor' | 'construct'
 }
 
 export async function listAssessmentsForPreview(): Promise<PreviewAssessmentOption[]> {
@@ -1756,16 +1755,15 @@ export async function listAssessmentsForPreview(): Promise<PreviewAssessmentOpti
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select('id, title, scoring_level, status')
+    .select('id, title, status')
     .is('deleted_at', null)
     .in('status', ['active', 'draft'])
     .order('title', { ascending: true })
   if (error) throwActionError('listAssessmentsForPreview', 'Unable to load assessments.', error)
 
-  return ((data ?? []) as Array<{ id: string; title: string; scoring_level: 'factor' | 'construct' }>).map((row) => ({
+  return ((data ?? []) as Array<{ id: string; title: string }>).map((row) => ({
     id: row.id,
     title: row.title,
-    scoringLevel: row.scoring_level,
   }))
 }
 
