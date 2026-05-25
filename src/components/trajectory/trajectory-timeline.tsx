@@ -162,7 +162,12 @@ export function TrajectoryTimeline({
         )}
       </div>
 
-      <div className="relative">
+      {/*
+        onMouseLeave lives on the wrapper, not the SVG itself, so moving
+        the cursor from the chart into an overflowing tooltip doesn't drop
+        hoverIdx (which would close the tooltip mid-scroll).
+      */}
+      <div className="relative" onMouseLeave={onMouseLeave}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
@@ -172,7 +177,6 @@ export function TrajectoryTimeline({
           className="block w-full"
           style={{ height: `${heightPx}px` }}
           onMouseMove={onMouseMove}
-          onMouseLeave={onMouseLeave}
         >
           <defs>
             {/* Soft top→bottom card wash so lines pop without competing */}
@@ -756,7 +760,7 @@ function HoverTooltip({
 
   return (
     <div
-      className="pointer-events-none absolute z-10 max-w-[240px] max-h-[88%] overflow-y-auto rounded-lg border border-border bg-popover/95 backdrop-blur-sm shadow-lg p-2.5"
+      className="absolute z-10 max-w-[240px] max-h-[88%] overflow-y-auto rounded-lg border border-border bg-popover/95 backdrop-blur-sm shadow-lg p-2.5"
       style={{
         top: '8px',
         left: leftPct !== undefined ? `${leftPct}%` : undefined,
@@ -807,7 +811,7 @@ function SeriesTooltip({
     <div
       className={cn(
         prepared.colourClass,
-        'pointer-events-none absolute z-10 top-2 left-2 max-w-[280px] max-h-[88%] overflow-y-auto',
+        'absolute z-10 top-2 left-2 max-w-[280px] max-h-[88%] overflow-y-auto',
         'rounded-lg border border-border bg-popover/95 backdrop-blur-sm shadow-lg p-2.5',
       )}
     >
