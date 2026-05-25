@@ -1,6 +1,6 @@
-export type ColumnLevel = 'dimension' | 'factor' | 'construct'
+export type ColumnLevel = 'dimension' | 'factor'
 
-export const ALL_LEVELS: readonly ColumnLevel[] = ['dimension', 'factor', 'construct'] as const
+export const ALL_LEVELS: readonly ColumnLevel[] = ['dimension', 'factor'] as const
 
 export type EntryRequest = {
   campaignParticipantId: string

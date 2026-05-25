@@ -11,7 +11,7 @@ import { POST } from '@/app/api/comparison/export/route'
 const VALID_BODY = {
   entries: [{ campaignParticipantId: '11111111-1111-4111-8111-111111111111' }],
   assessmentIds: ['22222222-2222-4222-8222-222222222222'],
-  visibleLevels: ['dimension', 'factor', 'construct'] as const,
+  visibleLevels: ['dimension', 'factor'] as const,
 }
 
 const EMPTY_RESULT = { columns: [], rows: [] }
