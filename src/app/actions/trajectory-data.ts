@@ -487,11 +487,6 @@ type FactorRow = {
   dimension_id: string | null
   dimensions: { id: string; name: string } | { id: string; name: string }[] | null
 }
-type AssessmentConstructLite = {
-  construct_id: string
-  dimension_id: string | null
-  dimensions: { id: string; name: string } | { id: string; name: string }[] | null
-}
 type FactorConstructLite = {
   construct_id: string
   factor_id: string | null

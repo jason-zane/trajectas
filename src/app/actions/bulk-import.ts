@@ -852,7 +852,7 @@ async function importConstructs(table: ParsedTable) {
   const db = createAdminClient()
   const [
     { data: factors, error: factorsError },
-    { data: dimensions, error: dimensionsError },
+    { error: dimensionsError },
     { data: existingRows, error: existingError },
     { data: constructSourcesRaw },
   ] = await Promise.all([
