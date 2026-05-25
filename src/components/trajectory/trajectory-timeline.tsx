@@ -26,8 +26,14 @@ import type { TrajectorySeries } from '@/lib/trajectory/types'
  */
 
 const VIEW_W = 1000
-const VIEW_H = 460
+const VIEW_H = 540
 const PADDING = { top: 18, right: 132, bottom: 32, left: 44 }
+/**
+ * Fraction of the inner plot width to leave empty at each x-axis edge.
+ * Without this, the first and last session dots sit flush against the
+ * y-axis / right edge, which reads as visual crowding.
+ */
+const X_INSET_RATIO = 0.055
 const INNER_W = VIEW_W - PADDING.left - PADDING.right
 const INNER_H = VIEW_H - PADDING.top - PADDING.bottom
 
@@ -93,7 +99,7 @@ export function TrajectoryTimeline({
   onSeriesClick,
   title = 'Trajectory',
   showModeToggle = true,
-  heightPx = 460,
+  heightPx = 540,
 }: {
   series: TrajectorySeries[]
   mode: TimelineMode
@@ -156,7 +162,12 @@ export function TrajectoryTimeline({
         )}
       </div>
 
-      <div className="relative">
+      {/*
+        onMouseLeave lives on the wrapper, not the SVG itself, so moving
+        the cursor from the chart into an overflowing tooltip doesn't drop
+        hoverIdx (which would close the tooltip mid-scroll).
+      */}
+      <div className="relative" onMouseLeave={onMouseLeave}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
@@ -166,7 +177,6 @@ export function TrajectoryTimeline({
           className="block w-full"
           style={{ height: `${heightPx}px` }}
           onMouseMove={onMouseMove}
-          onMouseLeave={onMouseLeave}
         >
           <defs>
             {/* Soft top→bottom card wash so lines pop without competing */}
@@ -252,13 +262,17 @@ export function TrajectoryTimeline({
           )}
         </svg>
 
-        {hoverIdx !== null && (
-          <HoverTooltip
-            geometry={geometry}
-            tickIndex={hoverIdx}
-            mode={mode}
-          />
-        )}
+        {/*
+          When a series is being highlighted (line or end-label hover),
+          its own per-session tooltip takes precedence over the
+          all-dims-at-this-tick tooltip — the user is asking about ONE
+          line, not "what was happening at this moment".
+        */}
+        {activeId !== null ? (
+          <SeriesTooltip geometry={geometry} entityId={activeId} mode={mode} />
+        ) : hoverIdx !== null ? (
+          <HoverTooltip geometry={geometry} tickIndex={hoverIdx} mode={mode} />
+        ) : null}
       </div>
     </div>
   )
@@ -297,12 +311,13 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
   })
 
   // 2. X scale — ordinal. Sessions are equally spaced regardless of date
-  // gap. Linear-time spacing crowded same-day sessions on top of each other
-  // and made widely-spaced ones drift to the edges; ordinal gives every
-  // session the same visual weight, which is what people compare.
+  // gap. A small inset on each end keeps the first/last dots off the axis
+  // edges, which otherwise looks visually crowded.
+  const inset = INNER_W * X_INSET_RATIO
+  const usableW = INNER_W - inset * 2
   const xForTick = (i: number) => {
     if (ticks.length === 1) return PADDING.left + INNER_W / 2
-    return PADDING.left + (i / (ticks.length - 1)) * INNER_W
+    return PADDING.left + inset + (i / (ticks.length - 1)) * usableW
   }
 
   // 3. Per-series value array aligned to ticks
@@ -461,7 +476,10 @@ function SeriesPath({
     if (v === null) continue
     linePoints.push(`${geometry.xForTick(i).toFixed(2)},${geometry.yScale(v).toFixed(2)}`)
   }
-  const segments: string[] = linePoints.length >= 2 ? [linePoints.join(' L ')] : []
+  // SVG <polyline> expects space-separated coord pairs ("x1,y1 x2,y2 …"). An
+  // earlier revision joined with " L " — SVG <path> lineTo command syntax —
+  // which polyline silently ignores, so dots were rendered without lines.
+  const segments: string[] = linePoints.length >= 2 ? [linePoints.join(' ')] : []
 
   return (
     <g
@@ -742,14 +760,14 @@ function HoverTooltip({
 
   return (
     <div
-      className="pointer-events-none absolute z-10 max-w-[220px] rounded-lg border border-border bg-popover/95 backdrop-blur-sm shadow-lg p-2.5"
+      className="absolute z-10 max-w-[240px] max-h-[88%] overflow-y-auto rounded-lg border border-border bg-popover/95 backdrop-blur-sm shadow-lg p-2.5"
       style={{
         top: '8px',
         left: leftPct !== undefined ? `${leftPct}%` : undefined,
         right: rightPct !== undefined ? `${rightPct}%` : undefined,
       }}
     >
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5 sticky top-0 bg-popover/95 backdrop-blur-sm pb-1 -mt-0.5">
         {formatDateLong(new Date(tick.date))}
       </p>
       <div className="space-y-0.5">
@@ -764,6 +782,69 @@ function HoverTooltip({
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Per-series tooltip shown when a single line is being highlighted (via line
+ * or end-label hover). Lists that series' value at each session — the user's
+ * mental question is "how has THIS thing moved over time", not "what was
+ * happening across everything at one moment".
+ *
+ * Pinned to the top-left of the chart so it doesn't clash with the mode
+ * toggle in the top-right; max-height + overflow-y keeps it from overflowing
+ * the chart bounds even with many sessions.
+ */
+function SeriesTooltip({
+  geometry,
+  entityId,
+  mode,
+}: {
+  geometry: ChartGeometry
+  entityId: string
+  mode: TimelineMode
+}) {
+  const prepared = geometry.prepared.find((p) => p.entityId === entityId)
+  if (!prepared) return null
+  return (
+    <div
+      className={cn(
+        prepared.colourClass,
+        'absolute z-10 top-2 left-2 max-w-[280px] max-h-[88%] overflow-y-auto',
+        'rounded-lg border border-border bg-popover/95 backdrop-blur-sm shadow-lg p-2.5',
+      )}
+    >
+      <div className="flex items-center gap-2 mb-1.5 sticky top-0 bg-popover/95 backdrop-blur-sm pb-1 -mt-0.5">
+        <span
+          aria-hidden
+          className="inline-block size-2 rounded-full"
+          style={{ backgroundColor: 'currentColor' }}
+        />
+        <p className="text-sm font-semibold leading-tight truncate text-foreground" title={prepared.entityName}>
+          {prepared.entityName}
+        </p>
+      </div>
+      <ul className="space-y-1">
+        {geometry.ticks.map((tick, i) => {
+          const v = prepared.displayValues[i]
+          return (
+            <li
+              key={tick.key}
+              className="flex items-center justify-between gap-3 text-[11px]"
+            >
+              <span className="text-muted-foreground tabular-nums">
+                S{i + 1} · {formatDateDayMonth(new Date(tick.date))}
+              </span>
+              <span className="tabular-nums font-medium text-foreground">
+                {v === null
+                  ? '—'
+                  : (mode === 'change' && v > 0 ? '+' : '') + formatValue(v)}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
