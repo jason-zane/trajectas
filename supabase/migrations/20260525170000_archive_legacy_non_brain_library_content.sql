@@ -28,13 +28,21 @@ CREATE TABLE IF NOT EXISTS _legacy_library_backup (
 
 INSERT INTO _legacy_library_backup (source_table, row_data)
 SELECT 'dimensions', to_jsonb(d) FROM dimensions d
-WHERE d.name NOT IN ('BlueBrain','GreenBrain','OrangeBrain','PinkBrain','RedBrain');
+WHERE d.name IN (
+  'Composure','Connection','Curiosity','Drive','Influence','Integrity',
+  'AI Capability','Cognitive Ability','Emotional Intelligence',
+  'Interpersonal Skills','Leadership'
+);
 
 INSERT INTO _legacy_library_backup (source_table, row_data)
 SELECT 'factors', to_jsonb(f) FROM factors f
 WHERE f.dimension_id IN (
   SELECT id FROM dimensions
-  WHERE name NOT IN ('BlueBrain','GreenBrain','OrangeBrain','PinkBrain','RedBrain')
+  WHERE name IN (
+    'Composure','Connection','Curiosity','Drive','Influence','Integrity',
+    'AI Capability','Cognitive Ability','Emotional Intelligence',
+    'Interpersonal Skills','Leadership'
+  )
 );
 
 INSERT INTO _legacy_library_backup (source_table, row_data)
@@ -42,7 +50,11 @@ SELECT 'factor_constructs', to_jsonb(fc) FROM factor_constructs fc
 WHERE fc.factor_id IN (
   SELECT id FROM factors WHERE dimension_id IN (
     SELECT id FROM dimensions
-    WHERE name NOT IN ('BlueBrain','GreenBrain','OrangeBrain','PinkBrain','RedBrain')
+    WHERE name IN (
+    'Composure','Connection','Curiosity','Drive','Influence','Integrity',
+    'AI Capability','Cognitive Ability','Emotional Intelligence',
+    'Interpersonal Skills','Leadership'
+  )
   )
 );
 
@@ -51,7 +63,11 @@ SELECT 'participant_scores', to_jsonb(ps) FROM participant_scores ps
 WHERE ps.factor_id IN (
   SELECT id FROM factors WHERE dimension_id IN (
     SELECT id FROM dimensions
-    WHERE name NOT IN ('BlueBrain','GreenBrain','OrangeBrain','PinkBrain','RedBrain')
+    WHERE name IN (
+    'Composure','Connection','Curiosity','Drive','Influence','Integrity',
+    'AI Capability','Cognitive Ability','Emotional Intelligence',
+    'Interpersonal Skills','Leadership'
+  )
   )
 );
 
@@ -60,14 +76,22 @@ SET deleted_at = COALESCE(deleted_at, now()),
     is_active = false
 WHERE dimension_id IN (
   SELECT id FROM dimensions
-  WHERE name NOT IN ('BlueBrain','GreenBrain','OrangeBrain','PinkBrain','RedBrain')
+  WHERE name IN (
+    'Composure','Connection','Curiosity','Drive','Influence','Integrity',
+    'AI Capability','Cognitive Ability','Emotional Intelligence',
+    'Interpersonal Skills','Leadership'
+  )
 )
 AND deleted_at IS NULL;
 
 UPDATE dimensions
 SET deleted_at = COALESCE(deleted_at, now()),
     is_active = false
-WHERE name NOT IN ('BlueBrain','GreenBrain','OrangeBrain','PinkBrain','RedBrain')
+WHERE name IN (
+    'Composure','Connection','Curiosity','Drive','Influence','Integrity',
+    'AI Capability','Cognitive Ability','Emotional Intelligence',
+    'Interpersonal Skills','Leadership'
+  )
   AND deleted_at IS NULL;
 
 DO $$
