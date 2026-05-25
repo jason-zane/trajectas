@@ -1756,6 +1756,71 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
         }
       }
 
+      // Auto-wrap orphan constructs: any staged construct without a factor
+      // parent gets a 1:1 composition-locked factor mirroring it. The factor
+      // becomes the parent through factor_constructs below. Part of the
+      // taxonomy unification — every construct must reach dimensions via a
+      // factor going forward.
+      const orphanConstructs = stagedConstructs.filter(
+        (construct) => !resolvedConstructFactorRefs.get(construct.slug),
+      )
+
+      if (orphanConstructs.length > 0) {
+        const autoWrapInserts = orphanConstructs.map((construct) => {
+          const dimMatch = resolvedConstructDimensionRefs.get(construct.slug)
+          const dimensionId = dimMatch
+            ? dimMatch.source === 'existing'
+              ? dimMatch.key
+              : (stagedDimensionIdBySlug.get(dimMatch.key) ?? null)
+            : null
+          return {
+            name: construct.name,
+            slug: construct.slug,
+            description: construct.description ?? null,
+            definition: construct.definition ?? null,
+            dimension_id: dimensionId,
+            is_active: construct.isActive ?? true,
+            is_match_eligible: true,
+            indicators_low: construct.indicatorsLow ?? null,
+            indicators_mid: construct.indicatorsMid ?? null,
+            indicators_high: construct.indicatorsHigh ?? null,
+            anchor_low: construct.anchorLow ?? null,
+            anchor_high: construct.anchorHigh ?? null,
+            strength_commentary: construct.strengthCommentary ?? null,
+            development_suggestion: construct.developmentSuggestion ?? null,
+            source_id: resolveSourceId(construct.sourceRef),
+            composition_locked: true,
+          }
+        })
+
+        const { data: autoWrapData, error: autoWrapErr } = await db
+          .from('factors')
+          .insert(autoWrapInserts)
+          .select('id, slug')
+
+        if (autoWrapErr || !autoWrapData) {
+          throw new Error(
+            autoWrapErr?.message ??
+              'Failed to auto-wrap orphan constructs as factors. Slug may collide with an existing factor — rename and retry.',
+          )
+        }
+
+        autoWrapData.forEach((row) => {
+          const factorId = String(row.id)
+          const factorSlug = String(row.slug)
+          stagedFactorIdBySlug.set(factorSlug, factorId)
+          rollbackState.insertedFactorIds.push(factorId)
+          const constructId = stagedConstructIdBySlug.get(factorSlug)
+          if (constructId) {
+            factorConstructLinks.set(`${factorId}:${constructId}`, {
+              factorId,
+              constructId,
+              weight: 1,
+            })
+          }
+        })
+      }
+
       if (factorConstructLinks.size > 0) {
         const affectedFactorIds = Array.from(
           new Set(Array.from(factorConstructLinks.values()).map((link) => link.factorId))
