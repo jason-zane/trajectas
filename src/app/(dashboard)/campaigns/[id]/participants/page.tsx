@@ -1,4 +1,4 @@
-import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignById, getCampaignSessions } from "@/app/actions/campaigns";
 import { notFound } from "next/navigation";
 import { CampaignParticipantManager } from "./campaign-participant-manager";
 import { CampaignAccessLinks } from "../settings/campaign-access-links";
@@ -9,7 +9,10 @@ export default async function CampaignParticipantsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaignById(id);
+  const [campaign, sessions] = await Promise.all([
+    getCampaignById(id),
+    getCampaignSessions(id),
+  ]);
   if (!campaign) notFound();
 
   return (
@@ -21,6 +24,7 @@ export default async function CampaignParticipantsPage({
       <CampaignParticipantManager
         campaignId={campaign.id}
         participants={campaign.participants}
+        sessions={sessions}
       />
     </div>
   );

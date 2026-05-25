@@ -1,5 +1,5 @@
 import { AlertTriangle } from "lucide-react";
-import { getCampaignById } from "@/app/actions/campaigns";
+import { getCampaignById, getCampaignSessions } from "@/app/actions/campaigns";
 import { checkQuotaAvailability } from "@/app/actions/client-entitlements";
 import { notFound } from "next/navigation";
 import { CampaignParticipantManager } from "@/app/(dashboard)/campaigns/[id]/participants/campaign-participant-manager";
@@ -12,7 +12,10 @@ export default async function ClientCampaignParticipantsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = await getCampaignById(id);
+  const [campaign, sessions] = await Promise.all([
+    getCampaignById(id),
+    getCampaignSessions(id),
+  ]);
   if (!campaign) notFound();
 
   // Check quota status for all assessments linked to this campaign
@@ -65,6 +68,7 @@ export default async function ClientCampaignParticipantsPage({
       <CampaignParticipantManager
         campaignId={campaign.id}
         participants={campaign.participants}
+        sessions={sessions}
       />
     </div>
   );

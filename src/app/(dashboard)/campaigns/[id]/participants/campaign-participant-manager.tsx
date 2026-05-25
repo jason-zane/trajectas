@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import { FileBarChart, GitCompare, Link2, Mail, Plus, Trash2, Upload } from "lucide-react";
 import { usePortal } from "@/components/portal-context";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CampaignSessionsTable } from "./campaign-sessions-table";
+import type { CampaignSessionRow } from "@/app/actions/campaigns";
 
 import {
   bulkInviteParticipants,
@@ -48,11 +51,15 @@ function getDisplayName(participant: CampaignParticipant) {
 export function CampaignParticipantManager({
   campaignId,
   participants,
+  sessions,
 }: {
   campaignId: string;
   participants: CampaignParticipant[];
+  sessions: CampaignSessionRow[];
 }) {
   const router = useRouter();
+  const params = useSearchParams();
+  const view = params.get("view") === "participants" ? "participants" : "sessions";
   const { href } = usePortal();
   const [showInvite, setShowInvite] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
@@ -474,13 +481,33 @@ export function CampaignParticipantManager({
     },
   ];
 
+  function handleViewChange(next: string | null) {
+    if (!next) return;
+    const qs = new URLSearchParams(params);
+    if (next === "sessions") qs.delete("view");
+    else qs.set("view", next);
+    const tail = qs.toString();
+    router.push(href(`/campaigns/${campaignId}/participants${tail ? `?${tail}` : ""}`));
+  }
+
+  const countLabel =
+    view === "sessions"
+      ? `${sessions.length} session${sessions.length === 1 ? "" : "s"}`
+      : `${participants.length} ${participants.length === 1 ? "participant" : "participants"}`;
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">
-          {participants.length} {participants.length === 1 ? "participant" : "participants"}
-        </h3>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <Tabs value={view} onValueChange={handleViewChange}>
+          <TabsList>
+            <TabsTrigger value="sessions">Sessions</TabsTrigger>
+            <TabsTrigger value="participants">Participants</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex items-center gap-2">
+          <span className="hidden text-xs text-muted-foreground sm:inline">
+            {countLabel}
+          </span>
           <Button size="sm" variant="outline" onClick={() => setShowBulk(true)}>
             <Upload className="size-4" />
             Bulk Import
@@ -492,22 +519,26 @@ export function CampaignParticipantManager({
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={rows}
-        searchableColumns={["displayName", "email"]}
-        searchPlaceholder="Search participants"
-        defaultSort={{ id: "displayName", desc: false }}
-        pageSize={20}
-        enableRowSelection
-        getRowId={(row) => row.id}
-        bulkActions={bulkActions}
-        rowHref={(row) =>
-          row.latestSessionId
-            ? `/campaigns/${campaignId}/sessions/${row.latestSessionId}`
-            : undefined
-        }
-      />
+      {view === "sessions" ? (
+        <CampaignSessionsTable campaignId={campaignId} sessions={sessions} />
+      ) : (
+        <DataTable
+          columns={columns}
+          data={rows}
+          searchableColumns={["displayName", "email"]}
+          searchPlaceholder="Search participants"
+          defaultSort={{ id: "displayName", desc: false }}
+          pageSize={20}
+          enableRowSelection
+          getRowId={(row) => row.id}
+          bulkActions={bulkActions}
+          rowHref={(row) =>
+            row.latestSessionId
+              ? `/campaigns/${campaignId}/sessions/${row.latestSessionId}`
+              : undefined
+          }
+        />
+      )}
 
       <ActionDialog
         open={showInvite}
