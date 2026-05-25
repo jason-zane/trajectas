@@ -148,6 +148,9 @@ function MoverRow({
         tabIndex={0}
         onClick={() => onToggle(mover.entityId)}
         onKeyDown={(e) => {
+          // Only react to keys pressed on the row itself, not bubbled from
+          // nested controls like the ↳ drill button.
+          if (e.target !== e.currentTarget) return
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
             onToggle(mover.entityId)
