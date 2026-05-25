@@ -301,8 +301,7 @@ type AssessmentFactorRow = {
 
 type ParticipantScoreRow = {
   session_id: string
-  factor_id: string | null
-  construct_id: string | null
+  factor_id: string
   scaled_score: number | string | null
 }
 
@@ -448,19 +447,18 @@ async function loadParticipantScores(
 ): Promise<Map<string, Map<string, number>>> {
   const { data, error } = await supabase
     .from('participant_scores')
-    .select('session_id, factor_id, construct_id, scaled_score')
+    .select('session_id, factor_id, scaled_score')
     .in('session_id', sessionIds)
   if (error) throw error
 
   const out = new Map<string, Map<string, number>>()
   for (const row of (data ?? []) as ParticipantScoreRow[]) {
-    const key = row.factor_id ?? row.construct_id
-    if (!key || row.scaled_score === null) continue
+    if (!row.factor_id || row.scaled_score === null) continue
     const value =
       typeof row.scaled_score === 'number' ? row.scaled_score : Number(row.scaled_score)
     if (!Number.isFinite(value)) continue
     const sessionMap = out.get(row.session_id) ?? new Map<string, number>()
-    sessionMap.set(key, Math.round(value))
+    sessionMap.set(row.factor_id, Math.round(value))
     out.set(row.session_id, sessionMap)
   }
   return out
