@@ -892,7 +892,7 @@ export async function getConstructsForGeneration(): Promise<
   const [constructsResult, itemCountResult] = await Promise.all([
     db
       .from('constructs')
-      .select('*, factor_constructs(factors(dimensions(id, name))), dimension_constructs(dimensions(id, name))')
+      .select('*, factor_constructs(factors(dimensions(id, name)))')
       .is('deleted_at', null)
       .eq('is_active', true)
       .order('name', { ascending: true }),
@@ -917,29 +917,15 @@ export async function getConstructsForGeneration(): Promise<
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = row as any
 
-    // Resolve the first linked dimension. Prefer direct dimension_constructs links
-    // (the canonical path for factor-less instruments like TPI); fall back to the
-    // factor_constructs → factors → dimensions chain.
     let dimensionId: string | undefined
     let dimensionName: string | undefined
-    const dcRows = r.dimension_constructs ?? []
-    for (const dc of dcRows) {
-      const dim = dc.dimensions
+    const fcRows = r.factor_constructs ?? []
+    for (const fc of fcRows) {
+      const dim = fc.factors?.dimensions
       if (dim) {
         dimensionId = dim.id
         dimensionName = dim.name
         break
-      }
-    }
-    if (!dimensionId) {
-      const fcRows = r.factor_constructs ?? []
-      for (const fc of fcRows) {
-        const dim = fc.factors?.dimensions
-        if (dim) {
-          dimensionId = dim.id
-          dimensionName = dim.name
-          break
-        }
       }
     }
 
