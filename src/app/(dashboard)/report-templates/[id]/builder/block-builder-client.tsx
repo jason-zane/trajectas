@@ -90,7 +90,6 @@ const reportTypeOptions = [
 const reportDisplayLevelOptions = [
   { value: 'dimension', label: 'Dimension' },
   { value: 'factor', label: 'Factor' },
-  { value: 'construct', label: 'Construct' },
 ] as const
 
 const personReferenceOptions = [
@@ -945,7 +944,6 @@ function InlineTemplateSettingsPanel({
                 <SelectContent>
                   <SelectItem value="dimension">Dimension</SelectItem>
                   <SelectItem value="factor">Factor</SelectItem>
-                  <SelectItem value="construct">Construct</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
