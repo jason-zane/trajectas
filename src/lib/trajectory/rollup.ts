@@ -72,8 +72,13 @@ export function deltaMagnitude(deltaScaled: number | null): DeltaMagnitude {
   return 'large'
 }
 
-/** Movement smaller than this on the scaled scale is treated as noise. */
-export const STABLE_THRESHOLD = 3
+/**
+ * Movement smaller than this on the scaled scale is treated as noise.
+ * Used by both the editorial summary partition (topMovers vs stable) and the
+ * "Within noise" rule in the movers list. Tuned to match the noise band
+ * visualised behind the magnitude bars.
+ */
+export const STABLE_THRESHOLD = 5
 
 function moverFromSeries(series: TrajectorySeries): TrajectoryMover | null {
   const points = series.points
@@ -135,7 +140,12 @@ export function computeTrajectorySummary(
         m.deltaScaled !== null &&
         Math.abs(m.deltaScaled) < STABLE_THRESHOLD,
     )
-    .sort((a, b) => a.entityName.localeCompare(b.entityName))
+    // Sort by |Δ| desc so the combined topMovers→stable list reads
+    // continuously from biggest to smallest movement.
+    .sort(
+      (a, b) =>
+        Math.abs(b.deltaScaled ?? 0) - Math.abs(a.deltaScaled ?? 0),
+    )
 
   return {
     sessionCount: sessionIds.size,

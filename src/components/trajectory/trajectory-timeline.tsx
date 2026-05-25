@@ -18,7 +18,7 @@ import type { TrajectorySeries } from '@/lib/trajectory/types'
  * ranked tooltip listing every entity's value at the hovered moment.
  *
  * Two modes:
- *   - 'absolute'  — y = scaledScore as-is, 0–100 with auto padding
+ *   - 'absolute'  — y = scaledScore as-is, locked to 0–100 (POMP scale)
  *   - 'change'    — y = scaled − first, symmetric around 0
  *
  * SVG is rendered in a fixed viewBox; the wrapping div is full width
@@ -30,6 +30,14 @@ const VIEW_H = 360
 const PADDING = { top: 18, right: 132, bottom: 32, left: 44 }
 const INNER_W = VIEW_W - PADDING.left - PADDING.right
 const INNER_H = VIEW_H - PADDING.top - PADDING.bottom
+
+/**
+ * Typical scoring range for POMP-scaled scores. Drawn as a subtle gold band
+ * in absolute mode so middle-of-bell scores visually settle into an "expected"
+ * zone. Echoes the 5Brains report's continuum-bar treatment. Ambient context
+ * only — unlabelled.
+ */
+const TYPICAL_RANGE = { low: 30, high: 70 } as const
 
 /**
  * Per-line colour. `text-*` so SVG can use `currentColor` for stroke/fill
@@ -176,6 +184,19 @@ export function TrajectoryTimeline({
             fill={`url(#${gradientId})`}
             className="dark:opacity-30"
           />
+
+          {/* Typical-range band — absolute mode only; ambient gold wash 30–70 */}
+          {mode === 'absolute' && (
+            <rect
+              x={PADDING.left}
+              y={geometry.yScale(TYPICAL_RANGE.high)}
+              width={INNER_W}
+              height={geometry.yScale(TYPICAL_RANGE.low) - geometry.yScale(TYPICAL_RANGE.high)}
+              fill="var(--gold)"
+              opacity={0.09}
+              className="dark:opacity-[0.14]"
+            />
+          )}
 
           <YAxis geometry={geometry} mode={mode} />
           <XAxis geometry={geometry} />
@@ -332,12 +353,9 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
 
   let yDomain: [number, number]
   if (mode === 'absolute') {
-    // Anchor to 0-100 but tighten if data sits narrowly
-    const min = allValues.length ? Math.min(...allValues) : 0
-    const max = allValues.length ? Math.max(...allValues) : 100
-    const lo = Math.max(0, Math.floor((min - 5) / 5) * 5)
-    const hi = Math.min(100, Math.ceil((max + 5) / 5) * 5)
-    yDomain = lo === hi ? [Math.max(0, lo - 5), Math.min(100, hi + 5)] : [lo, hi]
+    // Locked to the full POMP scale. Auto-tightening hid where scores sat
+    // relative to "high" vs "low" and made the typical-range band useless.
+    yDomain = [0, 100]
   } else {
     // Symmetric around 0
     const max = allValues.length ? Math.max(...allValues.map(Math.abs)) : 1
