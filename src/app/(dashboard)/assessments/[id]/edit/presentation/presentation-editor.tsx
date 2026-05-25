@@ -16,8 +16,6 @@ import type { ForcedChoiceBlockDraft } from "@/lib/forced-choice-generator"
 interface PresentationEditorProps {
   assessmentId: string
   factorIds: string[]
-  constructIds: string[]
-  scoringLevel: "factor" | "construct"
   initialFormatMode: FormatMode
   initialFcBlockSize: 3 | 4
   existingSections: ExistingSection[]
@@ -32,7 +30,6 @@ const SAVE_DEBOUNCE_MS = 1500
 export function PresentationEditor({
   assessmentId,
   factorIds,
-  constructIds,
   initialFormatMode,
   initialFcBlockSize,
   existingSections,
@@ -137,7 +134,6 @@ export function PresentationEditor({
       </div>
       <SectionConfigurator
         factorIds={factorIds}
-        constructIds={constructIds}
         sections={sections}
         onSectionsChange={setSections}
         existingSections={existingSections}

@@ -242,7 +242,6 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     attemptResult,
     snapshotResult,
     scoresResult,
-    assessmentConstructsResult,
   ] = await Promise.allSettled([
     db
       .from('assessments')
@@ -285,25 +284,15 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       .from('participant_scores')
       .select(`
         factor_id,
-        construct_id,
-        scoring_level,
         raw_score,
         scaled_score,
         percentile,
         confidence_interval_lower,
         confidence_interval_upper,
         scoring_method,
-        factors(name, dimension_id, dimensions(id, name)),
-        constructs(name)
+        factors(name, dimension_id, dimensions(id, name))
       `)
       .eq('session_id', sessionId),
-    // assessment_constructs gives us the construct → dimension mapping for
-    // construct-level scoring (dimension_id lives on the join, not on
-    // constructs itself).
-    db
-      .from('assessment_constructs')
-      .select('construct_id, dimension_id, dimensions(id, name)')
-      .eq('assessment_id', session.assessment_id),
   ])
 
   const assessmentRecord =
@@ -378,34 +367,10 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
         })()
       : (logSessionDetailError('score lookup', scoresResult.reason), [])
 
-  // Build construct_id → dimension lookup from assessment_constructs.
-  const constructDimensionMap = new Map<
-    string,
-    { dimensionId: string; dimensionName?: string }
-  >()
-  if (assessmentConstructsResult.status === 'fulfilled' && !assessmentConstructsResult.value.error) {
-    const acRows = (assessmentConstructsResult.value.data ?? []) as AssessmentConstructLookupRow[]
-    for (const row of acRows) {
-      if (!row.construct_id || !row.dimension_id) continue
-      const dim = getEmbeddedRecord(row.dimensions)
-      constructDimensionMap.set(String(row.construct_id), {
-        dimensionId: String(row.dimension_id),
-        dimensionName: dim?.name ? String(dim.name) : undefined,
-      })
-    }
-  } else if (assessmentConstructsResult.status === 'rejected') {
-    logSessionDetailError('assessment_constructs lookup', assessmentConstructsResult.reason)
-  } else if (assessmentConstructsResult.value.error) {
-    logSessionDetailError('assessment_constructs lookup', assessmentConstructsResult.value.error)
-  }
-
   const scores: SessionDetailScore[] = scoreRows
     .map((s): SessionDetailScore | null => {
-      const scoringLevel: 'factor' | 'construct' =
-        s.scoring_level === 'construct' ? 'construct' : 'factor'
-
       const common = {
-        scoringLevel,
+        scoringLevel: 'factor' as const,
         rawScore: Number(s.raw_score ?? 0),
         scaledScore: Number(s.scaled_score ?? 0),
         percentile: s.percentile != null ? Number(s.percentile) : undefined,
@@ -417,21 +382,6 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
         itemsUsed: 0,
       }
 
-      if (scoringLevel === 'construct') {
-        const constructId = s.construct_id ? String(s.construct_id) : null
-        if (!constructId) return null
-        const construct = getEmbeddedRecord(s.constructs)
-        const dim = constructDimensionMap.get(constructId)
-        return {
-          ...common,
-          entityId: constructId,
-          entityName: String(construct?.name ?? 'Unnamed construct'),
-          dimensionId: dim?.dimensionId,
-          dimensionName: dim?.dimensionName,
-        }
-      }
-
-      // factor-level
       const factorId = s.factor_id ? String(s.factor_id) : null
       if (!factorId) return null
       const factor = getEmbeddedRecord(s.factors)

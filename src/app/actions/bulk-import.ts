@@ -871,7 +871,6 @@ async function importConstructs(table: ParsedTable) {
   const errors: BulkImportError[] = []
   const constructInserts = []
   const factorLinks: { factorId: string; constructIndex: number }[] = []
-  const dimensionLinks: { dimensionId: string; constructIndex: number }[] = []
 
   for (const [index, row] of table.rows.entries()) {
     try {
@@ -879,11 +878,6 @@ async function importConstructs(table: ParsedTable) {
         (factors ?? []) as LookupOption[],
         row.factor,
         'Factor'
-      )
-      const parentDimensionId = lookupByNameOrSlug(
-        (dimensions ?? []) as LookupOption[],
-        row.dimension,
-        'Dimension'
       )
       const candidate = {
         name: row.name,
@@ -915,12 +909,6 @@ async function importConstructs(table: ParsedTable) {
       )
       if (parentFactorId) {
         factorLinks.push({ factorId: parentFactorId, constructIndex: constructInserts.length - 1 })
-      }
-      if (parentDimensionId) {
-        dimensionLinks.push({
-          dimensionId: parentDimensionId,
-          constructIndex: constructInserts.length - 1,
-        })
       }
       existingSlugs.add(parsed.slug)
     } catch (error) {
@@ -981,45 +969,6 @@ async function importConstructs(table: ParsedTable) {
     }
   }
 
-  if (dimensionLinks.length > 0) {
-    const dimensionIds = Array.from(new Set(dimensionLinks.map((link) => link.dimensionId)))
-    const { data: existingDimensionLinks, error: dimensionLinkLoadError } = await db
-      .from('dimension_constructs')
-      .select('dimension_id, display_order')
-      .in('dimension_id', dimensionIds)
-      .order('display_order', { ascending: true })
-
-    if (dimensionLinkLoadError) {
-      throw new Error(dimensionLinkLoadError.message)
-    }
-
-    const dimensionOrderMap = new Map<string, number>()
-    for (const dimensionId of dimensionIds) {
-      const maxOrder = (existingDimensionLinks ?? [])
-        .filter((row) => String(row.dimension_id) === dimensionId)
-        .reduce((currentMax, row) => Math.max(currentMax, Number(row.display_order ?? 0)), 0)
-      dimensionOrderMap.set(dimensionId, maxOrder)
-    }
-
-    const dimensionLinkRows = dimensionLinks.map((link) => {
-      const nextOrder = (dimensionOrderMap.get(link.dimensionId) ?? 0) + 1
-      dimensionOrderMap.set(link.dimensionId, nextOrder)
-      return {
-        dimension_id: link.dimensionId,
-        construct_id: insertedRows[link.constructIndex]?.id,
-        weight: 1,
-        display_order: nextOrder,
-      }
-    })
-
-    const { error: insertDimensionLinkError } = await db
-      .from('dimension_constructs')
-      .insert(dimensionLinkRows)
-    if (insertDimensionLinkError) {
-      throw new Error(insertDimensionLinkError.message)
-    }
-  }
-
   revalidatePath('/constructs')
   revalidatePath('/factors')
   revalidatePath('/dimensions')
@@ -1032,7 +981,6 @@ async function importConstructs(table: ParsedTable) {
     metadata: {
       importedCount: insertedRows.length,
       linkedFactorCount: factorLinks.length,
-      linkedDimensionCount: dimensionLinks.length,
     },
   })
 
@@ -1183,7 +1131,6 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
 
   const rollback = async (state: {
     factorLinkFactorIds: string[]
-    dimensionLinkDimensionIds: string[]
     insertedItemIds: string[]
     insertedConstructIds: string[]
     insertedFactorIds: string[]
@@ -1191,13 +1138,6 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
   }) => {
     if (state.factorLinkFactorIds.length > 0) {
       const { error } = await db.from('factor_constructs').delete().in('factor_id', state.factorLinkFactorIds)
-      if (error) logActionError('rollback', error)
-    }
-    if (state.dimensionLinkDimensionIds.length > 0) {
-      const { error } = await db
-        .from('dimension_constructs')
-        .delete()
-        .in('dimension_id', state.dimensionLinkDimensionIds)
       if (error) logActionError('rollback', error)
     }
     if (state.insertedItemIds.length > 0) {
@@ -1605,7 +1545,6 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
 
     const rollbackState = {
       factorLinkFactorIds: [] as string[],
-      dimensionLinkDimensionIds: [] as string[],
       insertedItemIds: [] as string[],
       insertedConstructIds: [] as string[],
       insertedFactorIds: [] as string[],
@@ -1860,66 +1799,6 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
         }
 
         rollbackState.factorLinkFactorIds = affectedFactorIds
-      }
-
-      const dimensionConstructLinks = new Map<string, { dimensionId: string; constructId: string }>()
-
-      for (const construct of stagedConstructs) {
-        const constructId = stagedConstructIdBySlug.get(construct.slug)
-        const dimensionMatch = resolvedConstructDimensionRefs.get(construct.slug)
-        if (!constructId || !dimensionMatch) continue
-
-        const dimensionId =
-          dimensionMatch.source === 'existing'
-            ? dimensionMatch.key
-            : stagedDimensionIdBySlug.get(dimensionMatch.key)
-
-        if (!dimensionId) {
-          throw new Error(`Dimension link for construct "${construct.name}" could not be resolved.`)
-        }
-
-        dimensionConstructLinks.set(`${dimensionId}:${constructId}`, { dimensionId, constructId })
-      }
-
-      if (dimensionConstructLinks.size > 0) {
-        const affectedDimensionIds = Array.from(
-          new Set(Array.from(dimensionConstructLinks.values()).map((link) => link.dimensionId))
-        )
-        const { data: existingDimensionLinks, error: existingDimensionLinksError } = await db
-          .from('dimension_constructs')
-          .select('dimension_id, display_order')
-          .in('dimension_id', affectedDimensionIds)
-          .order('display_order', { ascending: true })
-
-        if (existingDimensionLinksError) {
-          throw new Error(existingDimensionLinksError.message)
-        }
-
-        const dimensionOrderMap = new Map<string, number>()
-        for (const dimensionId of affectedDimensionIds) {
-          const maxOrder = (existingDimensionLinks ?? [])
-            .filter((row) => String(row.dimension_id) === dimensionId)
-            .reduce((currentMax, row) => Math.max(currentMax, Number(row.display_order ?? 0)), 0)
-          dimensionOrderMap.set(dimensionId, maxOrder)
-        }
-
-        const dimensionLinkRows = Array.from(dimensionConstructLinks.values()).map((link) => {
-          const nextOrder = (dimensionOrderMap.get(link.dimensionId) ?? 0) + 1
-          dimensionOrderMap.set(link.dimensionId, nextOrder)
-          return {
-            dimension_id: link.dimensionId,
-            construct_id: link.constructId,
-            weight: 1,
-            display_order: nextOrder,
-          }
-        })
-
-        const { error } = await db.from('dimension_constructs').insert(dimensionLinkRows)
-        if (error) {
-          throw new Error(error.message)
-        }
-
-        rollbackState.dimensionLinkDimensionIds = affectedDimensionIds
       }
 
       if (stagedItems.length > 0) {

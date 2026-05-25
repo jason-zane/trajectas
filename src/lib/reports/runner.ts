@@ -125,13 +125,12 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       partnerId: template.partnerId ?? null,
     })
 
-    // Build score map: entityId → scaledScore (factor_id or construct_id)
+    // Build score map: factorId → scaledScore
     const scoreMap: ScoreMap = {}
     for (const row of scoresResult.data ?? []) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const r = row as any
-      const entityId = r.scoring_level === 'construct' ? r.construct_id : r.factor_id
-      if (entityId) scoreMap[entityId] = r.scaled_score
+      if (r.factor_id) scoreMap[r.factor_id] = r.scaled_score
     }
 
     // Session + participant name for person reference
@@ -212,67 +211,14 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       }
     }
 
-    // Determine scoring level for this assessment
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const assessmentId = (sessionRow as any).assessment_id
-    const { data: assessmentMeta } = await db
-      .from('assessments')
-      .select('scoring_level')
-      .eq('id', assessmentId)
-      .single()
-    const scoringLevel: string = (assessmentMeta as Record<string, unknown>)?.scoring_level as string ?? 'factor'
-
-    // Build dimension → child construct IDs map for construct-level assessments
-    const dimensionChildConstructs = new Map<string, string[]>()
-
-    if (scoringLevel === 'construct') {
-      const { data: acRows } = await db
-        .from('assessment_constructs')
-        .select('construct_id, dimension_id')
-        .eq('assessment_id', assessmentId)
-
-      for (const row of acRows ?? []) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const r = row as any
-        if (!r.dimension_id) continue
-        const dimId = String(r.dimension_id)
-        const list = dimensionChildConstructs.get(dimId) ?? []
-        list.push(String(r.construct_id))
-        dimensionChildConstructs.set(dimId, list)
-      }
-
-      // Fetch any dimensions referenced by assessment_constructs but not in taxonomyMap
-      const missingConstructDimIds = [...dimensionChildConstructs.keys()].filter(
-        (id) => !taxonomyMap.has(id),
-      )
-      if (missingConstructDimIds.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const extraDims = await fetchTaxonomyEntities(db as any, missingConstructDimIds)
-        for (const [id, entity] of extraDims) {
-          taxonomyMap.set(id, entity)
-        }
-      }
-
-      // Compute dimension scores from construct scores
-      for (const [dimId, constructIds] of dimensionChildConstructs) {
-        if (scoreMap[dimId] !== undefined) continue
-        const childScores = constructIds
-          .map((cId) => scoreMap[cId])
-          .filter((s): s is number => s !== undefined)
-        if (childScores.length > 0) {
-          scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
-        }
-      }
-    } else {
-      // Compute dimension scores as average of child factor scores
-      for (const [dimId, factorIds] of dimensionChildFactors) {
-        if (scoreMap[dimId] !== undefined) continue
-        const childScores = factorIds
-          .map((fId) => scoreMap[fId])
-          .filter((s): s is number => s !== undefined)
-        if (childScores.length > 0) {
-          scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
-        }
+    // Compute dimension scores as average of child factor scores
+    for (const [dimId, factorIds] of dimensionChildFactors) {
+      if (scoreMap[dimId] !== undefined) continue
+      const childScores = factorIds
+        .map((fId) => scoreMap[fId])
+        .filter((s): s is number => s !== undefined)
+      if (childScores.length > 0) {
+        scoreMap[dimId] = childScores.reduce((a, b) => a + b, 0) / childScores.length
       }
     }
 
@@ -339,8 +285,6 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         sessionData,
         snapshot.narrativeMode === 'ai_enhanced',
         dimensionChildFactors,
-        dimensionChildConstructs,
-        scoringLevel,
         scheme,
       )
 
@@ -695,8 +639,6 @@ async function resolveBlockData(
   session: SessionData,
   aiEnhance: boolean,
   dimensionChildFactors: Map<string, string[]>,
-  dimensionChildConstructs: Map<string, string[]>,
-  scoringLevel: string,
   scheme: BandScheme,
 ): Promise<Record<string, unknown>> {
   if (block.type === 'norm_comparison') {
@@ -791,9 +733,7 @@ async function resolveBlockData(
       // Resolve nested child scores when showNestedScores is on and entity is a dimension
       let nestedScores: Record<string, unknown>[] | undefined
       if (config.showNestedScores && entity._taxonomy_level === 'dimension') {
-        const childIds = scoringLevel === 'construct'
-          ? (dimensionChildConstructs.get(entityId) ?? [])
-          : (dimensionChildFactors.get(entityId) ?? [])
+        const childIds = dimensionChildFactors.get(entityId) ?? []
         nestedScores = []
         for (const childId of childIds) {
           const childEntity = taxonomyMap.get(childId)
@@ -851,11 +791,9 @@ async function resolveBlockData(
 
     if (entities.length === 0) return { _empty: true, reason: 'no scored entities found' }
 
-    // Derive nestedLabel for the construct-level case when the user hasn't
-    // changed the legacy default. Honors any explicit override.
     const isLegacyNestedLabel = !config.nestedLabel || config.nestedLabel === 'Factors'
     const effectiveConfig = isLegacyNestedLabel
-      ? { ...config, nestedLabel: scoringLevel === 'construct' ? 'Constructs' : 'Factors' }
+      ? { ...config, nestedLabel: 'Factors' }
       : config
     return { palette: scheme.palette, entities, config: effectiveConfig }
   }
@@ -869,14 +807,6 @@ async function resolveBlockData(
       let parentName = ''
       if (entity?._taxonomy_level === 'factor' && entity?.dimension_id) {
         parentName = taxonomyMap.get(String(entity.dimension_id))?.name ?? ''
-      } else if (scoringLevel === 'construct' && entity?._taxonomy_level === 'construct') {
-        // For construct-level scoring, find parent dimension from dimensionChildConstructs
-        for (const [dimId, constructIds] of dimensionChildConstructs) {
-          if (constructIds.includes(entityId)) {
-            parentName = taxonomyMap.get(dimId)?.name ?? ''
-            break
-          }
-        }
       }
       return {
         entityId,

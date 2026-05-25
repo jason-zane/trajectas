@@ -45,61 +45,6 @@ describe('ensurePreviewSampleClient', () => {
   })
 })
 
-describe('seedAssessmentPreview (construct-level)', () => {
-  it('creates campaign/participant/session and one score row per construct', async () => {
-    const constructIds = [
-      'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-      'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-    ]
-    const mock = makeMockDb({
-      clients: { maybeSingle: { data: { id: PREVIEW_SAMPLE_CLIENT_ID } } },
-      assessments: {
-        maybeSingle: {
-          data: { id: 'assess-1', title: 'Test', scoring_level: 'construct' },
-        },
-      },
-      campaigns: {
-        maybeSingle: { data: null },
-        single: { data: { id: 'camp-1' } },
-      },
-      campaign_participants: {
-        maybeSingle: { data: null },
-        single: { data: { id: 'part-1' } },
-      },
-      participant_sessions: {
-        maybeSingle: { data: null },
-        single: { data: { id: 'sess-1' } },
-      },
-      assessment_constructs: {
-        data: constructIds.map((construct_id) => ({ construct_id })),
-      },
-      participant_scores: { data: null },
-    })
-
-    const result = await seedAssessmentPreview(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      mock.db as any,
-      'assess-1',
-    )
-
-    expect(result.sessionId).toBe('sess-1')
-    expect(result.scoreCount).toBe(2)
-
-    const scoreInsert = mock.insertCalls.find((c) => c.table === 'participant_scores')
-    expect(scoreInsert).toBeDefined()
-    const rows = scoreInsert!.rows as Array<Record<string, unknown>>
-    expect(rows).toHaveLength(2)
-    expect(rows[0].scoring_level).toBe('construct')
-    expect(rows[0].session_id).toBe('sess-1')
-    expect(rows[0].construct_id).toBe(constructIds[0])
-    expect(rows[0].scaled_score).toBe(synthScore(constructIds[0]))
-    expect(rows[1].scaled_score).toBe(synthScore(constructIds[1]))
-
-    // Session delete was called before the insert (clear-and-reinsert)
-    expect(mock.deleteCalls.some((c) => c.table === 'participant_scores')).toBe(true)
-  })
-})
-
 describe('seedAssessmentPreview (factor-level)', () => {
   it('writes one score row per factor using weighted mean of child constructs', async () => {
     const factorId = 'fffffff1-fff1-fff1-fff1-ffffffffffff'
@@ -146,7 +91,6 @@ describe('seedAssessmentPreview (factor-level)', () => {
     const rows = scoreInsert!.rows as Array<Record<string, unknown>>
     expect(rows).toHaveLength(1)
     expect(rows[0].factor_id).toBe(factorId)
-    expect(rows[0].scoring_level).toBe('factor')
 
     const expected = weightedMean([
       { value: synthScore(constructA), weight: 1 },
@@ -184,19 +128,18 @@ describe('seedAssessmentPreview (factor-level)', () => {
 
 describe('seedAssessmentPreview idempotency', () => {
   it('reuses existing campaign/participant/session on second run and re-writes scores', async () => {
-    const constructId = 'cccccccc-cccc-cccc-cccc-cccccccccccc'
+    const factorId = 'fffffff2-fff2-fff2-fff2-ffffffffffff'
     const mock = makeMockDb({
       clients: { maybeSingle: { data: { id: PREVIEW_SAMPLE_CLIENT_ID } } },
       assessments: {
-        maybeSingle: {
-          data: { id: 'assess-idem', title: 'Idempotent', scoring_level: 'construct' },
-        },
+        maybeSingle: { data: { id: 'assess-idem', title: 'Idempotent' } },
       },
       // Pre-existing rows are found on the second run
       campaigns: { maybeSingle: { data: { id: 'existing-camp' } } },
       campaign_participants: { maybeSingle: { data: { id: 'existing-part' } } },
       participant_sessions: { maybeSingle: { data: { id: 'existing-sess' } } },
-      assessment_constructs: { data: [{ construct_id: constructId }] },
+      assessment_factors: { data: [{ factor_id: factorId }] },
+      factor_constructs: { data: [] },
       participant_scores: { data: null },
     })
 

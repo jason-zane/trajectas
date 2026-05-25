@@ -96,16 +96,6 @@ export function OverviewForm({
     [assessmentId, sourceId],
   )
 
-  const scoringLevelLabel = assessment.scoringLevel === "construct"
-    ? "Construct-level"
-    : "Factor-level"
-
-  const scoringLevelDescription = useMemo(() => {
-    return assessment.scoringLevel === "construct"
-      ? "Scores aggregate directly from constructs into dimensions. Factors are skipped."
-      : "Standard hierarchy: items → constructs → factors → dimensions."
-  }, [assessment.scoringLevel])
-
   return (
     <div className="space-y-6">
       <Card>
@@ -189,21 +179,6 @@ export function OverviewForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Lock className="size-3.5 text-muted-foreground" />
-                  <p className="text-sm font-medium">Scoring level</p>
-                </div>
-                <p className="text-sm text-foreground">{scoringLevelLabel}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {scoringLevelDescription}
-                </p>
-              </div>
-            </div>
-          </div>
-
           <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
             <div className="flex items-start gap-2">
               <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />

@@ -54,113 +54,30 @@ export async function loadPreviewEntitiesForAssessment(
 ): Promise<PreviewEntity[]> {
   const { data: assessment } = await db
     .from('assessments')
-    .select('id, scoring_level')
+    .select('id')
     .eq('id', assessmentId)
     .is('deleted_at', null)
     .maybeSingle()
   if (!assessment) return []
-
-  const scoringLevel = (assessment as { scoring_level: 'factor' | 'construct' }).scoring_level
 
   const sessionId = await getPreviewSessionId(db, assessmentId)
   const scoreByEntity = new Map<string, number>()
   if (sessionId) {
     const { data: scores } = await db
       .from('participant_scores')
-      .select('factor_id, construct_id, scaled_score')
+      .select('factor_id, scaled_score')
       .eq('session_id', sessionId)
     for (const row of (scores ?? []) as Array<{
       factor_id: string | null
-      construct_id: string | null
       scaled_score: number
     }>) {
-      const entityId = row.factor_id ?? row.construct_id
-      if (entityId) scoreByEntity.set(entityId, Number(row.scaled_score))
+      if (row.factor_id) scoreByEntity.set(row.factor_id, Number(row.scaled_score))
     }
   }
 
   const scoreFor = (id: string): number => scoreByEntity.get(id) ?? synthScore(id)
 
-  if (scoringLevel === 'construct') {
-    return loadConstructLevelEntities(db, assessmentId, scoreFor)
-  }
   return loadFactorLevelEntities(db, assessmentId, scoreFor)
-}
-
-async function loadConstructLevelEntities(
-  db: DB,
-  assessmentId: string,
-  scoreFor: (id: string) => number,
-): Promise<PreviewEntity[]> {
-  // Source dimension assignment from assessment_constructs (assessment-scoped,
-  // matches the report runner), not the global dimension_constructs library —
-  // otherwise the preview and the rendered report can drift if an assessment
-  // overrides the library mapping.
-  const { data: ac } = await db
-    .from('assessment_constructs')
-    .select('construct_id, dimension_id, weight, constructs(id, name, definition, description, indicators_low, indicators_mid, indicators_high, strength_commentary, development_suggestion, anchor_low, anchor_high)')
-    .eq('assessment_id', assessmentId)
-
-  type AcRow = {
-    construct_id: string
-    dimension_id: string | null
-    weight: number | string | null
-    constructs: Record<string, unknown> | null
-  }
-  const acRows = (ac ?? []) as unknown as AcRow[]
-  const constructRows = acRows
-    .map((r) => r.constructs)
-    .filter((c): c is Record<string, unknown> => !!c)
-
-  type DcLink = { dimension_id: string; construct_id: string; weight: number }
-  const dcLinks: DcLink[] = acRows
-    .filter((r): r is AcRow & { dimension_id: string } => !!r.dimension_id)
-    .map((r) => ({
-      dimension_id: r.dimension_id,
-      construct_id: r.construct_id,
-      weight: r.weight == null ? 1 : Number(r.weight),
-    }))
-
-  const linksByDimension = new Map<string, DcLink[]>()
-  for (const link of dcLinks) {
-    const list = linksByDimension.get(link.dimension_id) ?? []
-    list.push(link)
-    linksByDimension.set(link.dimension_id, list)
-  }
-
-  const dimensionIds = Array.from(linksByDimension.keys())
-  const { data: dimensions } = dimensionIds.length === 0
-    ? { data: [] as Array<Record<string, unknown>> }
-    : await db
-        .from('dimensions')
-        .select('id, name, definition, description, indicators_low, indicators_mid, indicators_high, strength_commentary, development_suggestion, anchor_low, anchor_high')
-        .in('id', dimensionIds)
-
-  const constructScores = new Map<string, number>()
-  for (const c of constructRows as Array<{ id: string }>) {
-    constructScores.set(c.id, scoreFor(c.id))
-  }
-
-  const dimensionEntities: PreviewEntity[] = (dimensions ?? []).map((d) => {
-    const links = linksByDimension.get(String(d.id)) ?? []
-    const pomp = weightedMean(
-      links.map((l) => ({
-        value: constructScores.get(l.construct_id) ?? synthScore(l.construct_id),
-        weight: Number(l.weight),
-      })),
-    )
-    return mapToPreviewEntity(d, 'dimension', undefined, pomp)
-  })
-
-  const parentByConstruct = new Map<string, string>()
-  for (const l of dcLinks) parentByConstruct.set(l.construct_id, l.dimension_id)
-
-  const constructEntities: PreviewEntity[] = constructRows.map((c) => {
-    const id = String(c.id)
-    return mapToPreviewEntity(c, 'construct', parentByConstruct.get(id), constructScores.get(id)!)
-  })
-
-  return [...dimensionEntities, ...constructEntities]
 }
 
 async function loadFactorLevelEntities(
