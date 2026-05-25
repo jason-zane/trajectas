@@ -298,12 +298,6 @@ type AssessmentFactorRow = {
   factors: FactorRow | FactorRow[] | null
 }
 
-type AssessmentConstructRow = {
-  construct_id: string
-  dimension_id: string | null
-  constructs: { id: string; name: string } | { id: string; name: string }[] | null
-  dimensions: { id: string; name: string } | { id: string; name: string }[] | null
-}
 
 type ParticipantScoreRow = {
   session_id: string

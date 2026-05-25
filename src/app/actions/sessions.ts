@@ -141,12 +141,6 @@ type SessionScoreLookupRow = {
   constructs?: EmbeddedConstructRecord | EmbeddedConstructRecord[] | null
 }
 
-type AssessmentConstructLookupRow = {
-  construct_id?: string | null
-  dimension_id?: string | null
-  dimensions?: EmbeddedDimensionRecord | EmbeddedDimensionRecord[] | null
-}
-
 type SnapshotLookupRow = {
   id?: string | null
   template_id?: string | null
