@@ -482,3 +482,146 @@ export async function saveConstructDraftToLibrary(
 
   return { success: true, updatedFields, savedValues }
 }
+
+/**
+ * Create a new factor that mirrors a single construct (1:1) and links them.
+ *
+ * Used by the "Duplicate as parent factor" affordance on the construct edit
+ * page. Part of the taxonomy unification (Phase 1) — every measurable construct
+ * must have a parent factor so customer-facing surfaces only ever deal with
+ * factors. The new factor is created with `composition_locked = true` so the
+ * 1:1 relationship can't drift unless an admin explicitly unlocks.
+ *
+ * The dimension for the new factor comes from `options.dimensionId` if given,
+ * otherwise inferred from the construct's existing dimension links — but only
+ * if exactly one candidate exists. Ambiguous cases return an error so the
+ * caller can prompt the user to choose.
+ */
+export async function duplicateConstructAsFactor(
+  constructId: string,
+  options?: { dimensionId?: string; nameOverride?: string; slugOverride?: string },
+): Promise<{ success: true; factorId: string; factorSlug: string } | { error: string }> {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+
+  // 1. Load construct + its dimension links (via factor parents and direct).
+  const { data: construct, error: loadErr } = await db
+    .from('constructs')
+    .select(
+      `id, name, slug, description, definition,
+       indicators_low, indicators_mid, indicators_high,
+       anchor_low, anchor_high,
+       strength_commentary, development_suggestion,
+       source_id, is_active,
+       factor_constructs(factors(dimension_id)),
+       dimension_constructs(dimension_id)`,
+    )
+    .eq('id', constructId)
+    .is('deleted_at', null)
+    .single()
+
+  if (loadErr || !construct) {
+    return { error: loadErr?.message ?? 'Construct not found' }
+  }
+
+  // 2. Resolve dimensionId.
+  let dimensionId: string | null = options?.dimensionId ?? null
+  if (!dimensionId) {
+    const candidates = new Set<string>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const fc of ((construct as any).factor_constructs ?? []) as Array<{
+      factors: { dimension_id: string | null } | null
+    }>) {
+      if (fc.factors?.dimension_id) candidates.add(fc.factors.dimension_id)
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    for (const dc of ((construct as any).dimension_constructs ?? []) as Array<{
+      dimension_id: string
+    }>) {
+      candidates.add(dc.dimension_id)
+    }
+    if (candidates.size === 1) {
+      dimensionId = [...candidates][0]
+    } else if (candidates.size === 0) {
+      return {
+        error:
+          'Construct has no dimension link. Choose a dimension before duplicating to a factor.',
+      }
+    } else {
+      return {
+        error:
+          'Construct links to multiple dimensions. Specify which dimension the new factor should sit under.',
+      }
+    }
+  }
+
+  // 3. Build factor row. Name/slug optionally overridden so the admin can
+  //    disambiguate when a same-named factor already exists.
+  const name = options?.nameOverride?.trim() || construct.name
+  const slug = options?.slugOverride?.trim() || construct.slug
+  const newFactorId = crypto.randomUUID()
+
+  // 4. Atomic factor + construct-link insert via existing RPC.
+  const { data: factorId, error: rpcErr } = await db.rpc('upsert_factor_with_constructs', {
+    p_factor_id: newFactorId,
+    p_factor: {
+      name,
+      slug,
+      description: construct.description ?? null,
+      definition: construct.definition ?? null,
+      dimension_id: dimensionId,
+      is_active: construct.is_active ?? true,
+      is_match_eligible: true,
+      client_id: null,
+      indicators_low: construct.indicators_low ?? null,
+      indicators_mid: construct.indicators_mid ?? null,
+      indicators_high: construct.indicators_high ?? null,
+    },
+    p_construct_links: [
+      { construct_id: constructId, weight: 1.0, display_order: 1 },
+    ],
+  })
+
+  if (rpcErr) {
+    return { error: rpcErr.message }
+  }
+
+  const resolvedFactorId = (factorId ?? newFactorId) as string
+
+  // 5. Mirror the columns the RPC doesn't know about, plus set the lock.
+  const { error: extrasErr } = await db
+    .from('factors')
+    .update({
+      anchor_low: construct.anchor_low ?? null,
+      anchor_high: construct.anchor_high ?? null,
+      strength_commentary: construct.strength_commentary ?? null,
+      development_suggestion: construct.development_suggestion ?? null,
+      source_id: construct.source_id ?? null,
+      composition_locked: true,
+    })
+    .eq('id', resolvedFactorId)
+  if (extrasErr) {
+    return { error: extrasErr.message }
+  }
+
+  // 6. Audit + revalidate.
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.duplicated_from_construct',
+    targetTable: 'factors',
+    targetId: resolvedFactorId,
+    metadata: {
+      slug,
+      constructId,
+      constructSlug: construct.slug,
+      dimensionId,
+      lockedOnCreate: true,
+    },
+  })
+
+  revalidatePath('/factors')
+  revalidatePath('/constructs')
+  revalidatePath(`/constructs/${construct.slug}/edit`)
+
+  return { success: true, factorId: resolvedFactorId, factorSlug: slug }
+}

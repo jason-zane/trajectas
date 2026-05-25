@@ -41,6 +41,7 @@ import {
   deleteFactor,
   restoreFactor,
   updateFactorField,
+  setFactorCompositionLocked,
 } from "@/app/actions/factors"
 import type { SelectOption, LinkedAssessment } from "@/app/actions/factors"
 
@@ -83,6 +84,7 @@ interface FactorFormProps {
     anchorLow?: string
     anchorHigh?: string
     sourceId?: string
+    compositionLocked?: boolean
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
@@ -107,6 +109,10 @@ export function FactorForm({
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
   const [isMatchEligible, setIsMatchEligible] = useState(initialData?.isMatchEligible ?? true)
   const [clientId, setClientId] = useState(initialData?.clientId ?? "")
+  const [compositionLocked, setCompositionLocked] = useState(
+    initialData?.compositionLocked ?? false,
+  )
+  const [showUnlockConfirm, setShowUnlockConfirm] = useState(false)
   const [linkedConstructs, setLinkedConstructs] = useState<LinkedConstruct[]>(
     initialData?.linkedConstructs ?? []
   )
@@ -730,6 +736,13 @@ export function FactorForm({
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {compositionLocked && (
+                    <div className="rounded-lg border border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/20 p-3 text-xs">
+                      <strong>Composition locked.</strong> Saving changes to the
+                      construct set or weights will be rejected. Unlock in
+                      Settings before editing the composition.
+                    </div>
+                  )}
                   {unlinkedConstructs.length > 0 && (
                     <div className="space-y-2">
                       <Label>Add existing construct</Label>
@@ -940,6 +953,35 @@ export function FactorForm({
                     name="isMatchEligible"
                     value={isMatchEligible ? "true" : "false"}
                   />
+                  {mode === "edit" && factorId && (
+                    <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <Label>Composition Locked</Label>
+                        <p className="text-xs text-muted-foreground">
+                          When on, constructs cannot be added, removed, or
+                          reweighted on this factor. Protects score comparability
+                          for past respondents. Unlock with care.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={compositionLocked}
+                        onCheckedChange={async (next) => {
+                          if (!next) {
+                            setShowUnlockConfirm(true)
+                            return
+                          }
+                          setCompositionLocked(true)
+                          const result = await setFactorCompositionLocked(factorId, true)
+                          if ("error" in result) {
+                            toast.error(result.error)
+                            setCompositionLocked(false)
+                          } else {
+                            toast.success("Composition locked.")
+                          }
+                        }}
+                      />
+                    </div>
+                  )}
                 </SettingsTab>
               </CardContent>
             </Card>
@@ -974,6 +1016,27 @@ export function FactorForm({
         cancelLabel="Stay"
         variant="destructive"
         onConfirm={confirmNavigation}
+      />
+
+      <ConfirmDialog
+        open={showUnlockConfirm}
+        onOpenChange={setShowUnlockConfirm}
+        title="Unlock composition?"
+        description="Adding or removing constructs after this factor has been used in assessments may break score comparability for past respondents. Existing scores remain valid against the prior composition, but future scores will reflect the new one. Proceed?"
+        confirmLabel="Unlock"
+        cancelLabel="Keep locked"
+        variant="destructive"
+        onConfirm={async () => {
+          if (!factorId) return
+          setCompositionLocked(false)
+          const result = await setFactorCompositionLocked(factorId, false)
+          if ("error" in result) {
+            toast.error(result.error)
+            setCompositionLocked(true)
+          } else {
+            toast.success("Composition unlocked.")
+          }
+        }}
       />
     </div>
   )
