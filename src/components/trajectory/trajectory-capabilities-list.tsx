@@ -14,11 +14,17 @@ import type { TrajectorySeries } from '@/lib/trajectory/types'
  */
 export function TrajectoryCapabilitiesList({
   series,
-  onSelect,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
 }: {
   /** Factor-level series. Already filtered to the parent dimension if applicable. */
   series: TrajectorySeries[]
-  onSelect: (entityId: string) => void
+  selectedIds: ReadonlySet<string>
+  onToggle: (entityId: string) => void
+  onSelectAll: () => void
+  onClearAll: () => void
 }) {
   const rows = buildRows(series)
   if (rows.length === 0) return null
@@ -32,14 +38,27 @@ export function TrajectoryCapabilitiesList({
 
   const movers = rows.filter((r) => r.aboveNoise)
   const stable = rows.filter((r) => !r.aboveNoise)
+  const selectedCount = selectedIds.size
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-3 pb-3 border-b border-border">
-        <p className="text-overline text-[var(--gold)]">Biggest movers</p>
-        <p className="text-caption text-muted-foreground">
-          {rows.length} {rows.length === 1 ? 'capability' : 'capabilities'} · ranked by |Δ| · click a row to drill in
-        </p>
+        <div className="flex items-baseline gap-3">
+          <p className="text-overline text-[var(--gold)]">Biggest movers</p>
+          <p className="text-caption text-muted-foreground tabular-nums">
+            {selectedCount} of {rows.length} on chart
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-caption text-muted-foreground">
+          <span className="hidden sm:inline">Click to toggle chart visibility</span>
+          <button
+            type="button"
+            onClick={selectedCount === rows.length ? onClearAll : onSelectAll}
+            className="rounded-full border border-border px-2.5 py-0.5 text-[11px] hover:bg-muted transition-colors"
+          >
+            {selectedCount === rows.length ? 'Hide all' : 'Show all'}
+          </button>
+        </div>
       </header>
 
       <ul>
@@ -49,13 +68,12 @@ export function TrajectoryCapabilitiesList({
             row={r}
             barScale={barScale}
             noiseHalfPct={noiseHalfPct}
-            onSelect={onSelect}
+            selected={selectedIds.has(r.entityId)}
+            onToggle={onToggle}
           />
         ))}
 
-        {stable.length > 0 && (
-          <NoiseDivider hasMovers={movers.length > 0} />
-        )}
+        {stable.length > 0 && <NoiseDivider hasMovers={movers.length > 0} />}
 
         {stable.map((r) => (
           <CapabilityRow
@@ -64,7 +82,8 @@ export function TrajectoryCapabilitiesList({
             barScale={barScale}
             noiseHalfPct={noiseHalfPct}
             muted
-            onSelect={onSelect}
+            selected={selectedIds.has(r.entityId)}
+            onToggle={onToggle}
           />
         ))}
       </ul>
@@ -109,30 +128,42 @@ function CapabilityRow({
   barScale,
   noiseHalfPct,
   muted,
-  onSelect,
+  selected,
+  onToggle,
 }: {
   row: Row
   barScale: number
   noiseHalfPct: number
   muted?: boolean
-  onSelect: (entityId: string) => void
+  selected: boolean
+  onToggle: (entityId: string) => void
 }) {
   const positive = (row.delta ?? 0) >= 0
+  const dimmed = !selected
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => onSelect(row.entityId)}
-        aria-label={describeRow(row, { muted })}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onToggle(row.entityId)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle(row.entityId)
+          }
+        }}
+        aria-pressed={selected}
+        aria-label={describeRow(row, { muted, selected })}
         className={cn(
-          'group relative w-full text-left',
+          'group relative w-full text-left cursor-pointer',
           'grid items-center gap-x-4',
-          'grid-cols-[1.4fr_0.55fr_1.7fr_0.85fr]',
+          'grid-cols-[18px_1.3fr_0.55fr_1.7fr_0.85fr]',
           'px-4 py-3 border-b border-border last:border-b-0',
           'transition-colors duration-200',
           'hover:bg-[var(--cream)] dark:hover:bg-muted/40',
           'focus:outline-none focus-visible:bg-[var(--cream)] dark:focus-visible:bg-muted/40',
           muted && 'opacity-60 hover:opacity-100',
+          dimmed && 'opacity-50 hover:opacity-90',
         )}
       >
         <span
@@ -140,10 +171,15 @@ function CapabilityRow({
           className="absolute inset-y-0 left-0 w-0.5 bg-[var(--gold)] origin-top scale-y-0 transition-transform duration-200 group-hover:scale-y-100"
         />
 
+        <Checkbox checked={selected} />
+
         <div className="flex items-center gap-2.5 min-w-0">
           <span
             aria-hidden
-            className="inline-block size-2.5 rounded-full shrink-0 bg-foreground/70"
+            className={cn(
+              'inline-block size-2.5 rounded-full shrink-0 transition-colors',
+              selected ? 'bg-foreground/70' : 'border border-foreground/40 bg-transparent',
+            )}
           />
           <div className="min-w-0 flex flex-col gap-1">
             <p className="text-sm font-semibold leading-tight truncate" title={row.entityName}>
@@ -169,9 +205,36 @@ function CapabilityRow({
           positive={positive}
         />
 
-        <Sparkline points={row.points} positive={positive} muted={muted} />
-      </button>
+        <Sparkline points={row.points} positive={positive} muted={muted || dimmed} />
+      </div>
     </li>
+  )
+}
+
+function Checkbox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'inline-grid place-items-center size-[14px] rounded-[3px] border-[1.5px] transition-colors',
+        checked
+          ? 'bg-foreground border-foreground text-card'
+          : 'bg-card border-foreground/30',
+      )}
+    >
+      {checked && (
+        <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden>
+          <polyline
+            points="2,5 4.5,7.5 8,3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </span>
   )
 }
 
@@ -330,7 +393,10 @@ function Sparkline({
  * this label carries the full meaning: capability name, parent dimension,
  * latest score, direction and size of change, and noise-floor status.
  */
-function describeRow(row: Row, opts: { muted?: boolean }): string {
+function describeRow(
+  row: Row,
+  opts: { muted?: boolean; selected: boolean },
+): string {
   const parts: string[] = [row.entityName]
   if (row.parentName) parts.push(`part of ${row.parentName}`)
   if (row.latest !== null) parts.push(`latest ${Math.round(row.latest)}`)
@@ -345,7 +411,7 @@ function describeRow(row: Row, opts: { muted?: boolean }): string {
     }
     if (opts.muted) parts.push('within noise')
   }
-  parts.push('click to drill in')
+  parts.push(opts.selected ? 'showing on chart, click to hide' : 'hidden from chart, click to show')
   return parts.join(', ')
 }
 

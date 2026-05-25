@@ -26,7 +26,7 @@ import type { TrajectorySeries } from '@/lib/trajectory/types'
  */
 
 const VIEW_W = 1000
-const VIEW_H = 360
+const VIEW_H = 460
 const PADDING = { top: 18, right: 132, bottom: 32, left: 44 }
 const INNER_W = VIEW_W - PADDING.left - PADDING.right
 const INNER_H = VIEW_H - PADDING.top - PADDING.bottom
@@ -93,7 +93,7 @@ export function TrajectoryTimeline({
   onSeriesClick,
   title = 'Trajectory',
   showModeToggle = true,
-  heightPx = 360,
+  heightPx = 460,
 }: {
   series: TrajectorySeries[]
   mode: TimelineMode
@@ -230,7 +230,12 @@ export function TrajectoryTimeline({
           ))}
 
           {/* End-of-line labels */}
-          <EndLabels geometry={geometry} activeId={activeId} />
+          <EndLabels
+            geometry={geometry}
+            activeId={activeId}
+            onHoverSeries={setActiveId}
+            onClickSeries={onSeriesClick}
+          />
 
           {/* Hover guideline */}
           {hoverIdx !== null && (
@@ -291,14 +296,13 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
     for (const sid of tick.sessionIds) tickIndexBySession.set(sid, i)
   })
 
-  // 2. X scale — linear time, evenly distribute to inner box
-  const tMin = ticks[0]?.date ?? 0
-  const tMax = ticks[ticks.length - 1]?.date ?? 1
+  // 2. X scale — ordinal. Sessions are equally spaced regardless of date
+  // gap. Linear-time spacing crowded same-day sessions on top of each other
+  // and made widely-spaced ones drift to the edges; ordinal gives every
+  // session the same visual weight, which is what people compare.
   const xForTick = (i: number) => {
     if (ticks.length === 1) return PADDING.left + INNER_W / 2
-    const t = ticks[i]?.date ?? tMin
-    const span = Math.max(1, tMax - tMin)
-    return PADDING.left + ((t - tMin) / span) * INNER_W
+    return PADDING.left + (i / (ticks.length - 1)) * INNER_W
   }
 
   // 3. Per-series value array aligned to ticks
@@ -369,10 +373,16 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
     return PADDING.top + INNER_H - ((v - lo) / span) * INNER_H
   }
 
-  // Y axis tick marks — 5 evenly spaced
+  // Y axis tick marks — finer ticks in absolute mode (every 10, full POMP
+  // scale) so the range reads more legibly; symmetric 5-tick scheme in
+  // change mode where the data is centered.
   const yTicks: number[] = []
-  for (let i = 0; i <= 4; i++) {
-    yTicks.push(yDomain[0] + ((yDomain[1] - yDomain[0]) * i) / 4)
+  if (mode === 'absolute') {
+    for (let v = 0; v <= 100; v += 10) yTicks.push(v)
+  } else {
+    for (let i = 0; i <= 4; i++) {
+      yTicks.push(yDomain[0] + ((yDomain[1] - yDomain[0]) * i) / 4)
+    }
   }
 
   return { ticks, prepared, xForTick, yScale, yDomain, yTicks }
@@ -511,9 +521,13 @@ function SeriesPath({
 function EndLabels({
   geometry,
   activeId,
+  onHoverSeries,
+  onClickSeries,
 }: {
   geometry: ChartGeometry
   activeId: string | null
+  onHoverSeries: (id: string | null) => void
+  onClickSeries?: (id: string) => void
 }) {
   // Build candidate label positions, then resolve vertical overlaps with a
   // simple greedy nudge from top to bottom.
@@ -556,9 +570,12 @@ function EndLabels({
             key={item.entityId}
             x={xLabel}
             y={item.y + 3.5}
+            onMouseEnter={() => onHoverSeries(item.entityId)}
+            onMouseLeave={() => onHoverSeries(null)}
+            onClick={onClickSeries ? () => onClickSeries(item.entityId) : undefined}
             className={cn(
               item.colourClass,
-              'text-[10px] font-medium transition-opacity duration-200',
+              'text-[10px] font-medium transition-opacity duration-200 cursor-pointer',
               dimmed ? 'opacity-20' : 'opacity-100',
             )}
             fill="currentColor"
@@ -616,6 +633,15 @@ function XAxis({ geometry }: { geometry: ChartGeometry }) {
 
   return (
     <g>
+      {/* Visible horizontal x-axis baseline */}
+      <line
+        x1={PADDING.left}
+        x2={VIEW_W - PADDING.right}
+        y1={VIEW_H - PADDING.bottom}
+        y2={VIEW_H - PADDING.bottom}
+        className="stroke-border"
+        strokeWidth={1}
+      />
       {geometry.ticks.map((tick, i) => {
         const x = geometry.xForTick(i)
         const isAnchor = showAt.has(i)
@@ -647,8 +673,18 @@ function XAxis({ geometry }: { geometry: ChartGeometry }) {
 }
 
 function YAxis({ geometry, mode }: { geometry: ChartGeometry; mode: TimelineMode }) {
+  const innerHeight = VIEW_H - PADDING.top - PADDING.bottom
   return (
     <g>
+      {/* Visible vertical y-axis line on the left edge */}
+      <line
+        x1={PADDING.left}
+        x2={PADDING.left}
+        y1={PADDING.top}
+        y2={PADDING.top + innerHeight}
+        className="stroke-border"
+        strokeWidth={1}
+      />
       {geometry.yTicks.map((v, i) => {
         const y = geometry.yScale(v)
         return (
