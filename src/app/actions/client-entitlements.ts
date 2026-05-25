@@ -145,9 +145,7 @@ export type ClientAssessmentLibrarySummary = {
   estimatedDurationMinutes: number
   campaignCount: number
   updatedAt?: string
-  scoringLevel: 'factor' | 'construct'
   minCustomFactors: number | null
-  minCustomConstructs: number | null
 }
 
 export type ClientAssessmentLibrarySection = {
@@ -187,13 +185,12 @@ export async function getClientAssessmentLibrary(
     assessmentResult,
     sectionResult,
     factorLinkResult,
-    directConstructResult,
     campaignLinkResult,
   ] = await Promise.all([
     db
       .from('assessments')
       .select(
-        'id, title, description, status, format_mode, scoring_level, min_custom_factors, min_custom_constructs, updated_at, assessment_factors(count)'
+        'id, title, description, status, format_mode, min_custom_factors, updated_at, assessment_factors(count)'
       )
       .in('id', assessmentIds)
       .is('deleted_at', null)
@@ -205,12 +202,6 @@ export async function getClientAssessmentLibrary(
     db
       .from('assessment_factors')
       .select('assessment_id, factor_id')
-      .in('assessment_id', assessmentIds),
-    // Some assessments attach constructs directly (no factor layer); include
-    // those so the construct count reflects both paths.
-    db
-      .from('assessment_constructs')
-      .select('assessment_id, construct_id')
       .in('assessment_id', assessmentIds),
     db
       .from('campaign_assessments')
@@ -241,14 +232,6 @@ export async function getClientAssessmentLibrary(
       'getClientAssessmentLibrary.factors',
       'Unable to load assessment factors.',
       factorLinkResult.error
-    )
-  }
-
-  if (directConstructResult.error) {
-    throwActionError(
-      'getClientAssessmentLibrary.directConstructs',
-      'Unable to load assessment constructs.',
-      directConstructResult.error
     )
   }
 
@@ -325,11 +308,6 @@ export async function getClientAssessmentLibrary(
       }
     }
   }
-  for (const row of directConstructResult.data ?? []) {
-    const set = constructSetByAssessment.get(String(row.assessment_id))
-    if (set) set.add(String(row.construct_id))
-  }
-
   const constructCountByAssessment = new Map<string, number>()
   for (const [assessmentId, set] of constructSetByAssessment) {
     constructCountByAssessment.set(assessmentId, set.size)
@@ -377,12 +355,8 @@ export async function getClientAssessmentLibrary(
         ),
         campaignCount: campaignCountByAssessment.get(String(row.id)) ?? 0,
         updatedAt: row.updated_at ? String(row.updated_at) : undefined,
-        scoringLevel: ((row as { scoring_level?: string | null }).scoring_level ??
-          'factor') as 'factor' | 'construct',
         minCustomFactors:
           (row as { min_custom_factors?: number | null }).min_custom_factors ?? null,
-        minCustomConstructs:
-          (row as { min_custom_constructs?: number | null }).min_custom_constructs ?? null,
       },
     ]
   })
@@ -410,13 +384,12 @@ export async function getClientAssessmentLibraryDetail(
     assessmentResult,
     sectionResult,
     factorsByDimension,
-    directConstructResult,
     campaignLinkResult,
   ] = await Promise.all([
     db
       .from('assessments')
       .select(
-        'id, title, description, status, format_mode, scoring_level, min_custom_factors, min_custom_constructs, updated_at, assessment_factors(count)'
+        'id, title, description, status, format_mode, min_custom_factors, updated_at, assessment_factors(count)'
       )
       .eq('id', assessmentId)
       .is('deleted_at', null)
@@ -429,10 +402,6 @@ export async function getClientAssessmentLibraryDetail(
       .eq('assessment_id', assessmentId)
       .order('display_order', { ascending: true }),
     getFactorsForAssessment(assessmentId),
-    db
-      .from('assessment_constructs')
-      .select('construct_id')
-      .eq('assessment_id', assessmentId),
     db
       .from('campaign_assessments')
       .select('campaign_id, campaigns!inner(client_id, deleted_at)', {
@@ -457,14 +426,6 @@ export async function getClientAssessmentLibraryDetail(
       'getClientAssessmentLibraryDetail.sections',
       'Unable to load assessment sections.',
       sectionResult.error
-    )
-  }
-
-  if (directConstructResult.error) {
-    throwActionError(
-      'getClientAssessmentLibraryDetail.directConstructs',
-      'Unable to load assessment constructs.',
-      directConstructResult.error
     )
   }
 
@@ -513,18 +474,11 @@ export async function getClientAssessmentLibraryDetail(
         ? null
         : Math.max(0, assignment.quotaLimit - assignment.quotaUsed),
     factorCount: getNestedCount(assessmentResult.data.assessment_factors),
-    constructCount: (() => {
-      const factorTotal = factorsByDimension.reduce(
-        (sum, dim) =>
-          sum + dim.factors.reduce((f, factor) => f + factor.constructCount, 0),
-        0
-      )
-      // Fall back to direct-link constructs when the assessment doesn't use
-      // the factor layer (some assessments attach constructs directly).
-      return factorTotal > 0
-        ? factorTotal
-        : directConstructResult.data?.length ?? 0
-    })(),
+    constructCount: factorsByDimension.reduce(
+      (sum, dim) =>
+        sum + dim.factors.reduce((f, factor) => f + factor.constructCount, 0),
+      0
+    ),
     sectionCount: sections.length,
     totalItemCount: sections.reduce((sum, section) => sum + section.itemCount, 0),
     campaignCount: campaignLinkResult.count ?? 0,
@@ -537,14 +491,9 @@ export async function getClientAssessmentLibraryDetail(
       sections.reduce((sum, s) => sum + s.itemCount, 0),
       sections.map((s) => s.timeLimitSeconds),
     ),
-    scoringLevel: ((assessmentResult.data as { scoring_level?: string | null })
-      .scoring_level ?? 'factor') as 'factor' | 'construct',
     minCustomFactors:
       (assessmentResult.data as { min_custom_factors?: number | null })
         .min_custom_factors ?? null,
-    minCustomConstructs:
-      (assessmentResult.data as { min_custom_constructs?: number | null })
-        .min_custom_constructs ?? null,
   }
 }
 

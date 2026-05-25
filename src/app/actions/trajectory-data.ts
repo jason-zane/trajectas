@@ -276,7 +276,6 @@ async function loadAllSessionsForCps(
 type AssessmentRow = {
   id: string
   title: string
-  scoring_level: 'factor' | 'construct'
 }
 
 async function loadAssessments(
@@ -286,7 +285,7 @@ async function loadAssessments(
   if (assessmentIds.length === 0) return []
   const { data, error } = await db
     .from('assessments')
-    .select('id, title, scoring_level')
+    .select('id, title')
     .in('id', assessmentIds)
   if (error) throwActionError('getPersonTrajectory', 'Unable to load assessments.', error)
   return (data ?? []) as AssessmentRow[]
@@ -295,7 +294,6 @@ async function loadAssessments(
 type ScoreRow = {
   session_id: string
   factor_id: string | null
-  construct_id: string | null
   scaled_score: number | string | null
   raw_score: number | string | null
   percentile: number | string | null
@@ -313,7 +311,7 @@ async function loadScores(
   if (sessionIds.length === 0) return new Map()
   const { data, error } = await db
     .from('participant_scores')
-    .select('session_id, factor_id, construct_id, scaled_score, raw_score, percentile')
+    .select('session_id, factor_id, scaled_score, raw_score, percentile')
     .in('session_id', sessionIds)
   if (error) throwActionError('getPersonTrajectory', 'Unable to load scores.', error)
 
@@ -359,7 +357,6 @@ async function loadTaxonomyForLevel(
   for (const [, rows] of scoresBySession) {
     for (const r of rows) {
       if (r.factor_id) factorIds.add(r.factor_id)
-      if (r.construct_id) constructIds.add(r.construct_id)
     }
   }
 
@@ -410,21 +407,6 @@ async function loadTaxonomyForLevel(
     const constructNameById = new Map(
       ((constructRows ?? []) as { id: string; name: string }[]).map((r) => [String(r.id), String(r.name)]),
     )
-
-    // Map construct → dimension via assessment_constructs.
-    const { data: acRows, error: acErr } = await db
-      .from('assessment_constructs')
-      .select('construct_id, dimension_id, dimensions(id, name)')
-      .in('construct_id', [...constructIds])
-    if (acErr) {
-      throwActionError('getPersonTrajectory', 'Unable to load assessment_constructs.', acErr)
-    }
-    for (const row of (acRows ?? []) as AssessmentConstructLite[]) {
-      const dim = unwrap(row.dimensions)
-      if (dim && !parentDimensionByEntity.has(String(row.construct_id))) {
-        parentDimensionByEntity.set(String(row.construct_id), { id: dim.id, name: dim.name })
-      }
-    }
 
     if (level === 'construct') {
       // Resolve construct → factor via factor_constructs. The relation is
@@ -570,19 +552,9 @@ function buildSeries(input: BuildSeriesInput): TrajectorySeries[] {
     }
 
     if (input.level === 'construct') {
-      // Only construct-scored sessions contribute native construct scores.
-      if (assessment.scoring_level !== 'construct') continue
-      for (const s of scores) {
-        if (!s.construct_id) continue
-        const taxonomy = input.taxonomy.entitiesByLevel.get(s.construct_id)
-        if (!taxonomy) continue
-        addPoint(pointsByEntity, s.construct_id, {
-          ...basePoint,
-          ...numericTriple(s),
-        })
-      }
+      // Construct-level scoring is gone; nothing to do.
+      continue
     } else if (input.level === 'factor') {
-      if (assessment.scoring_level !== 'factor') continue
       for (const s of scores) {
         if (!s.factor_id) continue
         const taxonomy = input.taxonomy.entitiesByLevel.get(s.factor_id)
@@ -593,14 +565,13 @@ function buildSeries(input: BuildSeriesInput): TrajectorySeries[] {
         })
       }
     } else {
-      // dimension: roll up either factors or constructs to their parent dimension
-      // for this session.
+      // dimension: roll up factor scores to their parent dimension for this session.
       const childrenByDimension = new Map<
         string,
         { score: number | null; weight: number }[]
       >()
       for (const s of scores) {
-        const childId = assessment.scoring_level === 'factor' ? s.factor_id : s.construct_id
+        const childId = s.factor_id
         if (!childId) continue
         const parent = input.taxonomy.parentDimensionByEntity.get(childId)
         if (!parent) continue

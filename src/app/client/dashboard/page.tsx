@@ -64,9 +64,7 @@ export default async function ClientDashboardPage() {
       totalItemCount: a.totalItemCount ?? 0,
       formatLabel: a.formatMode ?? undefined,
       estimatedDurationMinutes: a.estimatedDurationMinutes ?? 0,
-      scoringLevel: a.scoringLevel,
       minCustomFactors: a.minCustomFactors,
-      minCustomConstructs: a.minCustomConstructs,
     }),
   );
 

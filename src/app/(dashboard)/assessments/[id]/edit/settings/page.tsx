@@ -11,16 +11,13 @@ export default async function AssessmentSettingsPage({
   const result = await getAssessmentWithFactors(id)
   if (!result) notFound()
 
-  const { assessment, factors, constructs } = result
+  const { assessment, factors } = result
 
   return (
     <SettingsPanel
       assessmentId={assessment.id}
-      scoringLevel={assessment.scoringLevel}
       selectedFactorCount={factors.length}
-      selectedConstructCount={constructs.length}
       initialMinCustomFactors={assessment.minCustomFactors ?? null}
-      initialMinCustomConstructs={assessment.minCustomConstructs ?? null}
     />
   )
 }

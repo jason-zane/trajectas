@@ -33,20 +33,13 @@ import {
 } from "@/app/actions/campaigns";
 import { getFactorsForAssessment } from "@/app/actions/factor-selection";
 import { saveFactorSelection } from "@/app/actions/factor-selection";
-import {
-  getConstructsForAssessment,
-  saveConstructSelection,
-} from "@/app/actions/construct-selection";
 import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
 import { FileText, Link2, Mail, Plus, Rocket } from "lucide-react";
 import {
   CapabilitySelectionStep,
 } from "./capability-selection-step";
 import { NotificationsStep, type NotificationsStepValue } from "./notifications-step";
-import {
-  type FactorAssessmentData,
-  type ConstructAssessmentData,
-} from "./capability-selection-step";
+import { type FactorAssessmentData } from "./capability-selection-step";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -171,7 +164,6 @@ interface WizardState {
   selectedAssessmentId: string | null;
   selectedCapabilityIds: string[] | null;
   assessmentFactors: FactorAssessmentData;
-  assessmentConstructs: ConstructAssessmentData;
   itemSelectionRules: ItemSelectionRule[];
   inviteMode: "single" | "csv" | "link";
   inviteSingleEmail: string;
@@ -201,7 +193,6 @@ export function QuickLaunchModal({
     selectedAssessmentId: initialAssessmentId ?? null,
     selectedCapabilityIds: null,
     assessmentFactors: [],
-    assessmentConstructs: [],
     itemSelectionRules: [],
     inviteMode: "link",
     inviteSingleEmail: "",
@@ -241,16 +232,8 @@ export function QuickLaunchModal({
     ? successHrefPrefix.slice(0, -1)
     : successHrefPrefix;
 
-  const capabilityMode: "factor" | "construct" =
-    selectedAssessment?.scoringLevel === "construct" ? "construct" : "factor";
-  const hasCapabilities =
-    capabilityMode === "factor"
-      ? state.assessmentFactors.length > 0
-      : state.assessmentConstructs.length > 0;
-  const supportsCustomisation =
-    selectedAssessment?.scoringLevel === "construct"
-      ? selectedAssessment.minCustomConstructs != null
-      : selectedAssessment?.minCustomFactors != null;
+  const hasCapabilities = state.assessmentFactors.length > 0;
+  const supportsCustomisation = selectedAssessment?.minCustomFactors != null;
 
   // Hide the Capabilities step entirely for assessments that don't expose
   // customisation. Before an assessment has been picked we keep it visible so
@@ -283,7 +266,6 @@ export function QuickLaunchModal({
       selectedAssessmentId: initialAssessmentId ?? null,
       selectedCapabilityIds: null,
       assessmentFactors: [],
-      assessmentConstructs: [],
       itemSelectionRules: [],
       inviteMode: "link",
       inviteSingleEmail: "",
@@ -333,24 +315,16 @@ export function QuickLaunchModal({
     return csvValidInviteCount > 0;
   }
 
-  async function fetchCapabilitiesForAssessment(
-    assessmentId: string,
-    mode: "factor" | "construct",
-  ) {
+  async function fetchCapabilitiesForAssessment(assessmentId: string) {
     setLoadingCapabilities(true);
     try {
       const [capabilities, rules] = await Promise.all([
-        mode === "construct"
-          ? getConstructsForAssessment(assessmentId)
-          : getFactorsForAssessment(assessmentId),
+        getFactorsForAssessment(assessmentId),
         getItemSelectionRulesForEstimate(),
       ]);
       setState((s) => ({
         ...s,
-        assessmentFactors:
-          mode === "factor" ? (capabilities as FactorAssessmentData) : [],
-        assessmentConstructs:
-          mode === "construct" ? (capabilities as ConstructAssessmentData) : [],
+        assessmentFactors: capabilities as FactorAssessmentData,
         itemSelectionRules: rules,
         selectedCapabilityIds: null,
       }));
@@ -360,18 +334,14 @@ export function QuickLaunchModal({
   }
 
   function selectAssessment(assessmentId: string) {
-    const picked = assessments.find((a) => a.id === assessmentId);
-    const mode: "factor" | "construct" =
-      picked?.scoringLevel === "construct" ? "construct" : "factor";
     setState((currentState) => ({
       ...currentState,
       selectedAssessmentId: assessmentId,
       selectedCapabilityIds: null,
       assessmentFactors: [],
-      assessmentConstructs: [],
       itemSelectionRules: [],
     }));
-    void fetchCapabilitiesForAssessment(assessmentId, mode);
+    void fetchCapabilitiesForAssessment(assessmentId);
   }
 
   async function handleNext() {
@@ -383,13 +353,9 @@ export function QuickLaunchModal({
     if (
       stepId === "assessment" &&
       state.selectedAssessmentId &&
-      state.assessmentFactors.length === 0 &&
-      state.assessmentConstructs.length === 0
+      state.assessmentFactors.length === 0
     ) {
-      await fetchCapabilitiesForAssessment(
-        state.selectedAssessmentId,
-        capabilityMode,
-      );
+      await fetchCapabilitiesForAssessment(state.selectedAssessmentId);
     }
 
     const idx = wizardSteps.findIndex((s) => s.id === stepId);
@@ -469,11 +435,7 @@ export function QuickLaunchModal({
         const { getCampaignAssessmentId } = await import("@/app/actions/campaigns");
         const caId = await getCampaignAssessmentId(campaignId, state.selectedAssessmentId);
         if (caId) {
-          if (capabilityMode === "construct") {
-            await saveConstructSelection(caId, state.selectedCapabilityIds);
-          } else {
-            await saveFactorSelection(caId, state.selectedCapabilityIds);
-          }
+          await saveFactorSelection(caId, state.selectedCapabilityIds);
         }
       }
 
@@ -792,19 +754,10 @@ export function QuickLaunchModal({
                                 </p>
                               )}
                               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                {assessment.scoringLevel === "construct"
-                                  ? assessment.constructCount > 0 && (
-                                      <span>
-                                        {assessment.constructCount}{" "}
-                                        {assessment.constructCount === 1
-                                          ? "construct"
-                                          : "constructs"}
-                                      </span>
-                                    )
-                                  : assessment.factorCount > 0 && (
-                                      <span>
-                                        {assessment.factorCount}{" "}
-                                        {assessment.factorCount === 1
+                                {assessment.factorCount > 0 && (
+                                  <span>
+                                    {assessment.factorCount}{" "}
+                                    {assessment.factorCount === 1
                                           ? "factor"
                                           : "factors"}
                                       </span>
@@ -877,27 +830,15 @@ export function QuickLaunchModal({
                     By default, participants complete the full assessment. Toggle
                     custom selection to limit which capabilities are measured.
                   </p>
-                  {capabilityMode === "construct" ? (
-                    <CapabilitySelectionStep
-                      mode="construct"
-                      assessmentConstructs={state.assessmentConstructs}
-                      selectedIds={state.selectedCapabilityIds}
-                      onSelectionChange={(ids) =>
-                        setState((s) => ({ ...s, selectedCapabilityIds: ids }))
-                      }
-                      itemSelectionRules={state.itemSelectionRules}
-                    />
-                  ) : (
-                    <CapabilitySelectionStep
-                      mode="factor"
-                      assessmentFactors={state.assessmentFactors}
-                      selectedIds={state.selectedCapabilityIds}
-                      onSelectionChange={(ids) =>
-                        setState((s) => ({ ...s, selectedCapabilityIds: ids }))
-                      }
-                      itemSelectionRules={state.itemSelectionRules}
-                    />
-                  )}
+                  <CapabilitySelectionStep
+                    mode="factor"
+                    assessmentFactors={state.assessmentFactors}
+                    selectedIds={state.selectedCapabilityIds}
+                    onSelectionChange={(ids) =>
+                      setState((s) => ({ ...s, selectedCapabilityIds: ids }))
+                    }
+                    itemSelectionRules={state.itemSelectionRules}
+                  />
                 </>
               )}
             </div>
