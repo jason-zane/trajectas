@@ -4,6 +4,7 @@ import {
   defaultUrlState,
   encodeTrajectoryParams,
   encodeTrajectoryParamsAsQuery,
+  type TrajectoryUrlState,
 } from '@/lib/trajectory/url-params'
 
 describe('decodeTrajectoryParams', () => {
@@ -41,6 +42,26 @@ describe('decodeTrajectoryParams', () => {
       decodeTrajectoryParams(new URLSearchParams('drill=a,,b,')).drillEntityIds,
     ).toEqual(['a', 'b'])
   })
+
+  it('parses viewLevel=factor; everything else is dimension', () => {
+    expect(decodeTrajectoryParams(new URLSearchParams('level=factor')).viewLevel).toBe('factor')
+    expect(decodeTrajectoryParams(new URLSearchParams('level=dimension')).viewLevel).toBe('dimension')
+    expect(decodeTrajectoryParams(new URLSearchParams('level=construct')).viewLevel).toBe('dimension')
+    expect(decodeTrajectoryParams(new URLSearchParams('')).viewLevel).toBe('dimension')
+  })
+
+  it('parses parentFilter', () => {
+    expect(decodeTrajectoryParams(new URLSearchParams('parent=dim123')).parentFilter).toBe('dim123')
+    expect(decodeTrajectoryParams(new URLSearchParams('')).parentFilter).toBeNull()
+    expect(decodeTrajectoryParams(new URLSearchParams('parent=')).parentFilter).toBeNull()
+  })
+
+  it('parses selectedEntityIds', () => {
+    expect(
+      decodeTrajectoryParams(new URLSearchParams('selected=a,b,c')).selectedEntityIds,
+    ).toEqual(['a', 'b', 'c'])
+    expect(decodeTrajectoryParams(new URLSearchParams('')).selectedEntityIds).toBeNull()
+  })
 })
 
 describe('encodeTrajectoryParams', () => {
@@ -51,6 +72,7 @@ describe('encodeTrajectoryParams', () => {
 
   it('encodes drill, mode=change, matrix=1, assessments', () => {
     const out = encodeTrajectoryParams({
+      ...defaultUrlState(),
       drillEntityIds: ['d1', 'f1'],
       mode: 'change',
       matrix: true,
@@ -63,10 +85,26 @@ describe('encodeTrajectoryParams', () => {
     expect(s).toContain('assessments=a1%2Ca2')
   })
 
+  it('encodes viewLevel=factor + parent + selected', () => {
+    const out = encodeTrajectoryParams({
+      ...defaultUrlState(),
+      viewLevel: 'factor',
+      parentFilter: 'dim1',
+      selectedEntityIds: ['f1', 'f2'],
+    })
+    const s = out.toString()
+    expect(s).toContain('level=factor')
+    expect(s).toContain('parent=dim1')
+    expect(s).toContain('selected=f1%2Cf2')
+  })
+
   it('roundtrips a non-default state through decode→encode→decode', () => {
-    const state = {
+    const state: TrajectoryUrlState = {
+      viewLevel: 'factor',
+      parentFilter: 'pinkbrain',
+      selectedEntityIds: ['cap1', 'cap2'],
       drillEntityIds: ['x', 'y'],
-      mode: 'change' as const,
+      mode: 'change',
       matrix: true,
       assessmentIds: ['z'],
     }
@@ -74,12 +112,10 @@ describe('encodeTrajectoryParams', () => {
     expect(re).toEqual(state)
   })
 
-  it('omits empty assessmentIds (treated equivalently to null)', () => {
+  it('omits empty selectedEntityIds (treated equivalently to null)', () => {
     const out = encodeTrajectoryParams({
-      drillEntityIds: [],
-      mode: 'absolute',
-      matrix: false,
-      assessmentIds: [],
+      ...defaultUrlState(),
+      selectedEntityIds: [],
     })
     expect(out.toString()).toBe('')
   })
@@ -93,10 +129,8 @@ describe('encodeTrajectoryParamsAsQuery', () => {
   it('prefixes ? when non-empty', () => {
     expect(
       encodeTrajectoryParamsAsQuery({
+        ...defaultUrlState(),
         drillEntityIds: ['a'],
-        mode: 'absolute',
-        matrix: false,
-        assessmentIds: null,
       }),
     ).toBe('?drill=a')
   })
