@@ -13,27 +13,35 @@ import type {
  *
  * Every dimension is shown — sorted by |Δ| descending — so the eye reads
  * magnitude top-to-bottom. A hatched ±STABLE_THRESHOLD band sits behind
- * every magnitude bar so deltas inside the noise floor are visually
- * distinguishable from real movement. Stable dimensions sit below a
- * "Within noise" rule and fade until hovered.
+ * every magnitude bar so deltas inside the noise floor read as noise.
+ * Stable dimensions sit below a "Within noise" rule and fade until hovered.
  *
- * The biggest mover row gets a soft gold-tinted wash and a one-line
- * editorial subtitle. Click any row to drill into that dimension.
+ * Row click toggles whether the dimension's line appears on the chart.
+ * A small ↳ button on the right drills into that dimension's capabilities.
  */
 export function TrajectoryMoversStrip({
   summary,
   seriesById,
-  onSelect,
+  selectedIds,
+  onToggle,
+  onDrill,
+  onSelectAll,
+  onClearAll,
 }: {
   summary: TrajectorySummary
   seriesById: Map<string, TrajectorySeries>
-  onSelect: (entityId: string) => void
+  /** Entities whose chart line is currently shown. */
+  selectedIds: ReadonlySet<string>
+  /** Toggle whether this entity's line shows on the chart. */
+  onToggle: (entityId: string) => void
+  /** Drill+flip into this entity's children. Optional — present for dimensions. */
+  onDrill?: (entityId: string) => void
+  onSelectAll: () => void
+  onClearAll: () => void
 }) {
-  if (summary.topMovers.length === 0 && summary.stable.length === 0) return null
+  const totalRows = summary.topMovers.length + summary.stable.length
+  if (totalRows === 0) return null
 
-  // Bar scale: the biggest mover extends ~45% of half-width so the delta
-  // label sits beyond without crowding. Floor on STABLE_THRESHOLD * 2 so the
-  // noise band still reads when every delta is small.
   const maxAbsDelta = Math.max(
     ...summary.topMovers.map((m) => Math.abs(m.deltaScaled ?? 0)),
     ...summary.stable.map((m) => Math.abs(m.deltaScaled ?? 0)),
@@ -41,14 +49,29 @@ export function TrajectoryMoversStrip({
   )
   const barScale = 45 / maxAbsDelta
   const noiseHalfPct = STABLE_THRESHOLD * barScale
+  const selectedCount = selectedIds.size
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-3 pb-3 border-b border-border">
-        <p className="text-overline text-[var(--gold)]">Biggest movers</p>
-        <p className="text-caption text-muted-foreground">
-          Ranked by |Δ| · grey band marks ±{STABLE_THRESHOLD} noise floor · click a row to drill in
-        </p>
+        <div className="flex items-baseline gap-3">
+          <p className="text-overline text-[var(--gold)]">Biggest movers</p>
+          <p className="text-caption text-muted-foreground tabular-nums">
+            {selectedCount} of {totalRows} on chart
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-caption text-muted-foreground">
+          <span className="hidden sm:inline">
+            Click to toggle · ↳ to drill in
+          </span>
+          <button
+            type="button"
+            onClick={selectedCount === totalRows ? onClearAll : onSelectAll}
+            className="rounded-full border border-border px-2.5 py-0.5 text-[11px] hover:bg-muted transition-colors"
+          >
+            {selectedCount === totalRows ? 'Hide all' : 'Show all'}
+          </button>
+        </div>
       </header>
 
       <ul>
@@ -60,7 +83,9 @@ export function TrajectoryMoversStrip({
             barScale={barScale}
             noiseHalfPct={noiseHalfPct}
             featured={i === 0}
-            onSelect={onSelect}
+            selected={selectedIds.has(m.entityId)}
+            onToggle={onToggle}
+            onDrill={onDrill}
           />
         ))}
 
@@ -76,7 +101,9 @@ export function TrajectoryMoversStrip({
             barScale={barScale}
             noiseHalfPct={noiseHalfPct}
             muted
-            onSelect={onSelect}
+            selected={selectedIds.has(m.entityId)}
+            onToggle={onToggle}
+            onDrill={onDrill}
           />
         ))}
       </ul>
@@ -91,7 +118,9 @@ function MoverRow({
   noiseHalfPct,
   featured,
   muted,
-  onSelect,
+  selected,
+  onToggle,
+  onDrill,
 }: {
   mover: TrajectoryMover
   series: TrajectorySeries | undefined
@@ -99,28 +128,47 @@ function MoverRow({
   noiseHalfPct: number
   featured?: boolean
   muted?: boolean
-  onSelect: (entityId: string) => void
+  selected: boolean
+  onToggle: (entityId: string) => void
+  onDrill?: (entityId: string) => void
 }) {
   const delta = mover.deltaScaled
   const positive = (delta ?? 0) >= 0
   const subtitle = featured ? editorialSubtitle(mover) : null
+  const dimmed = !selected
+  // Grid columns: checkbox · name · latest · bar · spark · (drill chevron when present)
+  const gridCols = onDrill
+    ? 'grid-cols-[18px_1.3fr_0.55fr_1.7fr_0.85fr_22px]'
+    : 'grid-cols-[18px_1.3fr_0.55fr_1.7fr_0.85fr]'
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => onSelect(mover.entityId)}
-        aria-label={describeMover(mover, { muted })}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onToggle(mover.entityId)}
+        onKeyDown={(e) => {
+          // Only react to keys pressed on the row itself, not bubbled from
+          // nested controls like the ↳ drill button.
+          if (e.target !== e.currentTarget) return
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle(mover.entityId)
+          }
+        }}
+        aria-pressed={selected}
+        aria-label={describeMover(mover, { muted, selected })}
         className={cn(
-          'group relative w-full text-left',
-          'grid items-center gap-x-4 gap-y-1',
-          'grid-cols-[1.4fr_0.55fr_1.7fr_0.85fr]',
+          'group relative w-full text-left cursor-pointer',
+          'grid items-center gap-x-4',
+          gridCols,
           'px-4 py-3.5 border-b border-border last:border-b-0',
           'transition-colors duration-200',
           'hover:bg-[var(--cream)] dark:hover:bg-muted/40',
           'focus:outline-none focus-visible:bg-[var(--cream)] dark:focus-visible:bg-muted/40',
-          featured && 'bg-[linear-gradient(90deg,rgba(201,169,98,0.07),transparent_60%)]',
+          featured && selected && 'bg-[linear-gradient(90deg,rgba(201,169,98,0.07),transparent_60%)]',
           muted && 'opacity-60 hover:opacity-100',
+          dimmed && 'opacity-50 hover:opacity-90',
         )}
       >
         <span
@@ -128,10 +176,15 @@ function MoverRow({
           className="absolute inset-y-0 left-0 w-0.5 bg-[var(--gold)] origin-top scale-y-0 transition-transform duration-200 group-hover:scale-y-100"
         />
 
+        <Checkbox checked={selected} />
+
         <div className="flex items-center gap-2.5 min-w-0">
           <span
             aria-hidden
-            className="inline-block size-2.5 rounded-full shrink-0 bg-foreground/70"
+            className={cn(
+              'inline-block size-2.5 rounded-full shrink-0 transition-colors',
+              selected ? 'bg-foreground/70' : 'border border-foreground/40 bg-transparent',
+            )}
           />
           <div className="min-w-0">
             <p className="text-sm font-semibold leading-tight truncate" title={mover.entityName}>
@@ -162,10 +215,51 @@ function MoverRow({
         <Sparkline
           points={series?.points.map((p) => p.scaledScore) ?? []}
           positive={positive}
-          muted={muted}
+          muted={muted || dimmed}
         />
-      </button>
+
+        {onDrill && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onDrill(mover.entityId)
+            }}
+            aria-label={`Drill into ${mover.entityName} capabilities`}
+            className="size-5 rounded grid place-items-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors text-sm font-bold"
+          >
+            ↳
+          </button>
+        )}
+      </div>
     </li>
+  )
+}
+
+function Checkbox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'inline-grid place-items-center size-[14px] rounded-[3px] border-[1.5px] transition-colors',
+        checked
+          ? 'bg-foreground border-foreground text-card'
+          : 'bg-card border-foreground/30',
+      )}
+    >
+      {checked && (
+        <svg viewBox="0 0 10 10" width="10" height="10" aria-hidden>
+          <polyline
+            points="2,5 4.5,7.5 8,3"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </span>
   )
 }
 
@@ -333,7 +427,10 @@ function Sparkline({
  * full meaning: name, latest score, direction and size of change, and
  * noise-floor status.
  */
-function describeMover(mover: TrajectoryMover, opts: { muted?: boolean }): string {
+function describeMover(
+  mover: TrajectoryMover,
+  opts: { muted?: boolean; selected: boolean },
+): string {
   const parts: string[] = [mover.entityName]
   if (mover.latestScaled !== null) {
     parts.push(`latest ${Math.round(mover.latestScaled)}`)
@@ -349,7 +446,7 @@ function describeMover(mover: TrajectoryMover, opts: { muted?: boolean }): strin
     }
     if (opts.muted) parts.push('within noise')
   }
-  parts.push('click to drill in')
+  parts.push(opts.selected ? 'showing on chart, click to hide' : 'hidden from chart, click to show')
   return parts.join(', ')
 }
 

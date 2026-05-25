@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
-import { Table2 } from 'lucide-react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { getPersonTrajectory } from '@/app/actions/trajectory-data'
@@ -13,7 +12,6 @@ import { TrajectoryMoversStrip } from './trajectory-movers'
 import { TrajectoryCapabilitiesList } from './trajectory-capabilities-list'
 import { TrajectoryLevelToggle } from './trajectory-level-toggle'
 import { TrajectoryDrillView, type DrillFrame } from './trajectory-drill-view'
-import { TrajectoryMatrix } from './trajectory-matrix'
 import { TrajectoryLinkedRecordsDrawer } from './trajectory-linked-records-drawer'
 import {
   decodeTrajectoryParams,
@@ -73,8 +71,16 @@ export function TrajectoryWorkspace({
   const [drillStack, setDrillStack] = useState<DrillFrame[]>([])
   const [viewLevel, setViewLevel] = useState<TrajectoryViewLevel>(initialUrl.viewLevel)
   const [parentFilter, setParentFilter] = useState<string | null>(initialUrl.parentFilter)
+  // null = use default for this view (all dims / top-N caps). A concrete set
+  // means the user has explicitly composed a comparison and we honour it.
+  const [selectedDimIds, setSelectedDimIds] = useState<Set<string> | null>(null)
+  // Scoped to a parent context — switching parent filters invalidates the
+  // previous selection (its ids may not even exist in the new child set).
+  const [selectedCaps, setSelectedCaps] = useState<{
+    parent: string | null
+    ids: Set<string>
+  } | null>(null)
   const [mode, setMode] = useState<TimelineMode>(initialUrl.mode)
-  const [showMatrix, setShowMatrix] = useState<boolean>(initialUrl.matrix)
   const [selectedAssessmentIds, setSelectedAssessmentIds] = useState<string[]>(
     initialUrl.assessmentIds ?? initialResult.assessmentsTouched.map((a) => a.assessmentId),
   )
@@ -145,7 +151,7 @@ export function TrajectoryWorkspace({
       selectedEntityIds: null,
       drillEntityIds: drillStack.map((f) => f.entityId),
       mode,
-      matrix: showMatrix,
+      matrix: false,
       assessmentIds: allSelectedAgainstCurrent ? null : selectedAssessmentIds,
     })
 
@@ -165,7 +171,6 @@ export function TrajectoryWorkspace({
     parentFilter,
     drillStack,
     mode,
-    showMatrix,
     selectedAssessmentIds,
     overviewResult.assessmentsTouched,
     pathname,
@@ -274,21 +279,51 @@ export function TrajectoryWorkspace({
     )
   }, [filteredFactorSeries, effectiveParentFilter])
 
+  // ---------------------------------------------------------------------
+  // Selection — which series are currently plotted on the chart
+  // ---------------------------------------------------------------------
+
   /**
-   * Factor series to plot on the chart in the Capabilities view. When a
-   * parent filter is active we plot all of that dimension's children (small
-   * set). Without a parent filter we plot only the top-N movers so the chart
-   * stays readable; the list below carries the full picture.
+   * Default selection in the Dimensions view: every dimension is on.
+   * With only ~5 dimensions there's no readability cost to showing them all.
    */
-  const capabilityChartSeries = useMemo<TrajectorySeries[]>(() => {
-    if (effectiveParentFilter) return capabilityListSeries
-    const ranked = [...capabilityListSeries].sort((a, b) => {
-      const da = absDeltaScaled(a)
-      const db = absDeltaScaled(b)
-      return db - da
-    })
-    return ranked.slice(0, CAPABILITIES_CHART_TOP_N)
+  const defaultSelectedDimIds = useMemo(
+    () => new Set(filteredOverviewSeries.map((s) => s.entityId)),
+    [filteredOverviewSeries],
+  )
+
+  /**
+   * Default selection in the Capabilities view depends on the parent filter:
+   *  - parent filter active → all of that dimension's children (small set)
+   *  - no filter → top-N movers by |Δ|, so the chart isn't a tangle of lines
+   */
+  const defaultSelectedCapIds = useMemo<Set<string>>(() => {
+    if (capabilityListSeries.length === 0) return new Set()
+    if (effectiveParentFilter) return new Set(capabilityListSeries.map((s) => s.entityId))
+    const ranked = [...capabilityListSeries].sort(
+      (a, b) => absDeltaScaled(b) - absDeltaScaled(a),
+    )
+    return new Set(ranked.slice(0, CAPABILITIES_CHART_TOP_N).map((s) => s.entityId))
   }, [capabilityListSeries, effectiveParentFilter])
+
+  const effectiveSelectedDimIds = selectedDimIds ?? defaultSelectedDimIds
+  // Honour the user's explicit selection only when it's scoped to the
+  // current parent context. Switching brains drops to the default selection
+  // for the new context automatically, with no effect needed.
+  const effectiveSelectedCapIds: ReadonlySet<string> =
+    selectedCaps && selectedCaps.parent === effectiveParentFilter
+      ? selectedCaps.ids
+      : defaultSelectedCapIds
+
+  const dimensionsChartSeries = useMemo(
+    () => filteredOverviewSeries.filter((s) => effectiveSelectedDimIds.has(s.entityId)),
+    [filteredOverviewSeries, effectiveSelectedDimIds],
+  )
+
+  const capabilityChartSeries = useMemo(
+    () => capabilityListSeries.filter((s) => effectiveSelectedCapIds.has(s.entityId)),
+    [capabilityListSeries, effectiveSelectedCapIds],
+  )
 
   const factorResultLoading = viewLevel === 'factor' && !resultsByLevel.factor
 
@@ -379,14 +414,51 @@ export function TrajectoryWorkspace({
     if (next !== 'factor') setParentFilter(null)
   }, [])
 
-  /** Click target on a Capabilities row: deep-drill into that factor (existing stack flow). */
-  const onCapabilityClick = useCallback(
+  // Toggle helpers — null means "use default", any other set means the user
+  // has explicitly composed a comparison. Materialise the default once on
+  // first toggle so the user is operating on a real Set going forward.
+  const onToggleDim = useCallback(
     (entityId: string) => {
-      const s = capabilityListSeries.find((x) => x.entityId === entityId)
-      if (!s) return
-      drillInto('factor', entityId, s.entityName)
+      setSelectedDimIds((prev) => {
+        const base = new Set(prev ?? defaultSelectedDimIds)
+        if (base.has(entityId)) base.delete(entityId)
+        else base.add(entityId)
+        return base
+      })
     },
-    [capabilityListSeries, drillInto],
+    [defaultSelectedDimIds],
+  )
+
+  const onToggleCap = useCallback(
+    (entityId: string) => {
+      setSelectedCaps((prev) => {
+        const seed =
+          prev && prev.parent === effectiveParentFilter ? prev.ids : defaultSelectedCapIds
+        const next = new Set(seed)
+        if (next.has(entityId)) next.delete(entityId)
+        else next.add(entityId)
+        return { parent: effectiveParentFilter, ids: next }
+      })
+    },
+    [defaultSelectedCapIds, effectiveParentFilter],
+  )
+
+  const onSelectAllDims = useCallback(() => {
+    setSelectedDimIds(new Set(filteredOverviewSeries.map((s) => s.entityId)))
+  }, [filteredOverviewSeries])
+
+  const onClearAllDims = useCallback(() => setSelectedDimIds(new Set()), [])
+
+  const onSelectAllCaps = useCallback(() => {
+    setSelectedCaps({
+      parent: effectiveParentFilter,
+      ids: new Set(capabilityListSeries.map((s) => s.entityId)),
+    })
+  }, [capabilityListSeries, effectiveParentFilter])
+
+  const onClearAllCaps = useCallback(
+    () => setSelectedCaps({ parent: effectiveParentFilter, ids: new Set() }),
+    [effectiveParentFilter],
   )
 
   const hasMultipleSessions = filteredOverviewSeries.some((s) => s.points.length >= 2)
@@ -402,22 +474,6 @@ export function TrajectoryWorkspace({
           result={overviewResult}
           onOpenLinkedRecords={() => setDrawerOpen(true)}
         />
-        {hasAnyData && !isDrilled && (
-          <button
-            type="button"
-            onClick={() => setShowMatrix((v) => !v)}
-            aria-pressed={showMatrix}
-            className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors',
-              showMatrix
-                ? 'border-foreground/30 bg-foreground/5 text-foreground'
-                : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted',
-            )}
-          >
-            <Table2 className="size-3.5" />
-            Matrix
-          </button>
-        )}
       </div>
 
       <TrajectoryLinkedRecordsDrawer
@@ -478,20 +534,18 @@ export function TrajectoryWorkspace({
               capabilityCount={capabilityCount}
               onChange={onLevelChange}
             />
-            {viewLevel === 'factor' && parentDimensionName && (
-              <ParentFilterChip
-                name={parentDimensionName}
-                onClear={() => setParentFilter(null)}
-              />
-            )}
           </div>
 
           {viewLevel === 'dimension' ? (
             <DimensionsView
               hasMultipleSessions={hasMultipleSessions}
-              series={filteredOverviewSeries}
+              chartSeries={dimensionsChartSeries}
               summary={filteredSummary}
               seriesById={overviewSeriesById}
+              selectedIds={effectiveSelectedDimIds}
+              onToggle={onToggleDim}
+              onSelectAll={onSelectAllDims}
+              onClearAll={onClearAllDims}
               mode={mode}
               onModeChange={setMode}
               onDrillFlip={onDimensionDrillFlip}
@@ -500,20 +554,18 @@ export function TrajectoryWorkspace({
             <CapabilitiesView
               chartSeries={capabilityChartSeries}
               listSeries={capabilityListSeries}
+              selectedIds={effectiveSelectedCapIds}
+              onToggle={onToggleCap}
+              onSelectAll={onSelectAllCaps}
+              onClearAll={onClearAllCaps}
               mode={mode}
               onModeChange={setMode}
-              onCapabilityClick={onCapabilityClick}
               loading={factorResultLoading}
-              chartCapped={
-                !effectiveParentFilter &&
-                capabilityListSeries.length > CAPABILITIES_CHART_TOP_N
-              }
+              parentDimensionName={parentDimensionName}
+              onClearParentFilter={() => setParentFilter(null)}
             />
           )}
 
-          {showMatrix && viewLevel === 'dimension' && (
-            <TrajectoryMatrix series={filteredOverviewSeries} />
-          )}
         </>
       )}
     </div>
@@ -522,40 +574,54 @@ export function TrajectoryWorkspace({
 
 function DimensionsView({
   hasMultipleSessions,
-  series,
+  chartSeries,
   summary,
   seriesById,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
   mode,
   onModeChange,
   onDrillFlip,
 }: {
   hasMultipleSessions: boolean
-  series: TrajectorySeries[]
+  chartSeries: TrajectorySeries[]
   summary: ReturnType<typeof computeTrajectorySummary>
   seriesById: Map<string, TrajectorySeries>
+  selectedIds: ReadonlySet<string>
+  onToggle: (entityId: string) => void
+  onSelectAll: () => void
+  onClearAll: () => void
   mode: TimelineMode
   onModeChange: (m: TimelineMode) => void
   onDrillFlip: (dimensionId: string) => void
 }) {
+  const chartReady = hasMultipleSessions && chartSeries.length > 0
   return (
     <>
-      {hasMultipleSessions ? (
+      {chartReady ? (
         <TrajectoryTimeline
-          series={series}
+          series={chartSeries}
           mode={mode}
           onModeChange={onModeChange}
-          onSeriesClick={onDrillFlip}
         />
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-          Snapshot view — trajectory becomes meaningful with 2+ completed sessions per dimension.
+          {hasMultipleSessions
+            ? 'No dimensions selected — tick a row to plot it on the chart.'
+            : 'Snapshot view — trajectory becomes meaningful with 2+ completed sessions per dimension.'}
         </div>
       )}
 
       <TrajectoryMoversStrip
         summary={summary}
         seriesById={seriesById}
-        onSelect={onDrillFlip}
+        selectedIds={selectedIds}
+        onToggle={onToggle}
+        onDrill={onDrillFlip}
+        onSelectAll={onSelectAll}
+        onClearAll={onClearAll}
       />
     </>
   )
@@ -564,19 +630,27 @@ function DimensionsView({
 function CapabilitiesView({
   chartSeries,
   listSeries,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
   mode,
   onModeChange,
-  onCapabilityClick,
   loading,
-  chartCapped,
+  parentDimensionName,
+  onClearParentFilter,
 }: {
   chartSeries: TrajectorySeries[]
   listSeries: TrajectorySeries[]
+  selectedIds: ReadonlySet<string>
+  onToggle: (entityId: string) => void
+  onSelectAll: () => void
+  onClearAll: () => void
   mode: TimelineMode
   onModeChange: (m: TimelineMode) => void
-  onCapabilityClick: (entityId: string) => void
   loading: boolean
-  chartCapped: boolean
+  parentDimensionName: string | null
+  onClearParentFilter: () => void
 }) {
   if (loading && listSeries.length === 0) {
     return (
@@ -597,43 +671,55 @@ function CapabilitiesView({
 
   return (
     <>
+      {parentDimensionName && (
+        <ParentBreadcrumb name={parentDimensionName} onBack={onClearParentFilter} />
+      )}
+
       {chartReady ? (
-        <div className="space-y-2">
-          <TrajectoryTimeline
-            series={chartSeries}
-            mode={mode}
-            onModeChange={onModeChange}
-            title={chartCapped ? `Trajectory · top ${CAPABILITIES_CHART_TOP_N} movers` : 'Trajectory'}
-          />
-          {chartCapped && (
-            <p className="px-1 text-caption text-muted-foreground">
-              Showing the top {CAPABILITIES_CHART_TOP_N} capabilities by |Δ|. The list below carries the full set.
-            </p>
-          )}
-        </div>
+        <TrajectoryTimeline
+          series={chartSeries}
+          mode={mode}
+          onModeChange={onModeChange}
+        />
       ) : (
         <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-          Snapshot view — trajectory becomes meaningful with 2+ completed sessions per capability.
+          {selectedIds.size === 0
+            ? 'No capabilities selected — tick rows to plot them.'
+            : 'Snapshot view — trajectory becomes meaningful with 2+ completed sessions per capability.'}
         </div>
       )}
 
-      <TrajectoryCapabilitiesList series={listSeries} onSelect={onCapabilityClick} />
+      <TrajectoryCapabilitiesList
+        series={listSeries}
+        selectedIds={selectedIds}
+        onToggle={onToggle}
+        onSelectAll={onSelectAll}
+        onClearAll={onClearAll}
+      />
     </>
   )
 }
 
-function ParentFilterChip({ name, onClear }: { name: string; onClear: () => void }) {
+/**
+ * Prominent header rendered above the Capabilities view when a parent
+ * dimension filter is active. Says exactly which brain you're inside and
+ * gives an obvious way back to the full list — the old subtle pill chip
+ * was too easy to miss.
+ */
+function ParentBreadcrumb({ name, onBack }: { name: string; onBack: () => void }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-2.5 py-1 text-xs">
-      <span className="text-muted-foreground">Filtered to</span>
-      <span className="font-semibold">{name}</span>
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-[linear-gradient(90deg,rgba(201,169,98,0.08),transparent_60%)] px-4 py-3">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="text-overline text-[var(--gold)]">Viewing inside</span>
+        <span className="font-semibold text-base truncate" title={name}>{name}</span>
+      </div>
       <button
         type="button"
-        onClick={onClear}
-        className="text-muted-foreground hover:text-foreground transition-colors"
-        aria-label="Clear parent filter"
+        onClick={onBack}
+        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs hover:bg-muted transition-colors"
       >
-        ✕
+        <span aria-hidden>←</span>
+        Back to all capabilities
       </button>
     </div>
   )
