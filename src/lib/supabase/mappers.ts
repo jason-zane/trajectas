@@ -97,6 +97,7 @@ export function mapFactorRow(row: any): Factor {
     developmentSuggestion: row.development_suggestion ?? undefined,
     strengthCommentary: row.strength_commentary ?? undefined,
     sourceId: row.source_id ?? undefined,
+    compositionLocked: row.composition_locked ?? false,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,

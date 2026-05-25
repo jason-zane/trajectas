@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Brain, FileQuestion, ArrowRight, Plus, Wand2 } from "lucide-react"
+import { Brain, FileQuestion, ArrowRight, Plus, Wand2, Copy } from "lucide-react"
 import { toast } from "sonner"
 import { SourcePicker } from "@/components/source-picker"
 import { Button } from "@/components/ui/button"
@@ -42,11 +42,21 @@ import { useAutoSave } from "@/hooks/use-auto-save"
 import { AutoSaveIndicator } from "@/components/auto-save-indicator"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   createConstruct,
   updateConstruct,
   deleteConstruct,
   restoreConstruct,
   updateConstructField,
+  duplicateConstructAsFactor,
+  getCandidateDimensionsForConstruct,
 } from "@/app/actions/constructs"
 import type { ConstructWithRelationships, SelectOption } from "@/app/actions/constructs"
 import { DimensionConstructLinker } from "@/components/dimension-construct-linker"
@@ -113,6 +123,13 @@ export function ConstructForm({
   const [saveState, setSaveState] = useState<SaveButtonState>("idle")
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [duplicateOpen, setDuplicateOpen] = useState(false)
+  const [duplicateName, setDuplicateName] = useState("")
+  const [duplicating, setDuplicating] = useState(false)
+  const [candidateDimensions, setCandidateDimensions] = useState<
+    Array<{ id: string; name: string }>
+  >([])
+  const [duplicateDimensionId, setDuplicateDimensionId] = useState<string>("")
 
   const pending = saveState === "saving"
 
@@ -250,6 +267,33 @@ export function ConstructForm({
         router.replace(`/constructs/${result.slug}/edit`, { scroll: false })
       }
     }
+  }
+
+  async function openDuplicateDialog() {
+    if (!construct) return
+    setDuplicateName(construct.name)
+    setDuplicateDimensionId("")
+    setDuplicateOpen(true)
+    const dims = await getCandidateDimensionsForConstruct(construct.id)
+    setCandidateDimensions(dims)
+    if (dims.length === 1) setDuplicateDimensionId(dims[0].id)
+  }
+
+  async function handleDuplicateAsFactor() {
+    if (!construct) return
+    setDuplicating(true)
+    const result = await duplicateConstructAsFactor(construct.id, {
+      nameOverride: duplicateName.trim() || undefined,
+      dimensionId: duplicateDimensionId || undefined,
+    })
+    setDuplicating(false)
+    if ("error" in result) {
+      toast.error(result.error)
+      return
+    }
+    setDuplicateOpen(false)
+    toast.success("Parent factor created — composition locked.")
+    router.push(`/factors/${result.factorSlug}/edit`)
   }
 
   async function handleDelete() {
@@ -675,16 +719,29 @@ export function ConstructForm({
           <TabsContent value="relationships">
             <Card className="border-l-[3px] border-l-competency-accent">
               <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Brain className="size-4 text-competency-accent" />
-                  <div>
-                    <CardTitle>Parent Factors</CardTitle>
-                    <CardDescription>
-                      {mode === "create"
-                        ? "Optionally assign this construct to a factor."
-                        : "Factors that include this construct in their measurement model."}
-                    </CardDescription>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Brain className="size-4 text-competency-accent" />
+                    <div>
+                      <CardTitle>Parent Factors</CardTitle>
+                      <CardDescription>
+                        {mode === "create"
+                          ? "Optionally assign this construct to a factor."
+                          : "Factors that include this construct in their measurement model."}
+                      </CardDescription>
+                    </div>
                   </div>
+                  {mode === "edit" && construct && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={openDuplicateDialog}
+                    >
+                      <Copy className="size-4" />
+                      Duplicate as parent factor
+                    </Button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
@@ -836,6 +893,93 @@ export function ConstructForm({
         variant="destructive"
         onConfirm={confirmNavigation}
       />
+
+      <Dialog open={duplicateOpen} onOpenChange={setDuplicateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicate as parent factor</DialogTitle>
+            <DialogDescription>
+              Creates a new factor that mirrors this construct and links them
+              1:1. The factor is created with its composition locked, so no
+              other constructs can be added without explicitly unlocking it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="duplicate-factor-name">Factor name</Label>
+              <Input
+                id="duplicate-factor-name"
+                value={duplicateName}
+                onChange={(e) => setDuplicateName(e.target.value)}
+                placeholder={construct?.name ?? ""}
+                disabled={duplicating}
+              />
+              <p className="text-xs text-muted-foreground">
+                Defaults to the construct&apos;s name. Slug is auto-suffixed
+                if a same-named factor already exists.
+              </p>
+            </div>
+
+            {candidateDimensions.length > 1 && (
+              <div className="space-y-2">
+                <Label>Dimension</Label>
+                <Select
+                  value={duplicateDimensionId}
+                  onValueChange={(v) => v != null && setDuplicateDimensionId(v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a dimension...">
+                      {(value: string) =>
+                        candidateDimensions.find((d) => d.id === value)?.name ?? value
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {candidateDimensions.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  This construct links to multiple dimensions. Pick which one
+                  the new factor should sit under.
+                </p>
+              </div>
+            )}
+
+            {candidateDimensions.length === 0 && construct && (
+              <p className="rounded-md border border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/20 p-2 text-xs">
+                This construct isn&apos;t linked to any dimension yet. Add a
+                dimension link first.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDuplicateOpen(false)}
+              disabled={duplicating}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleDuplicateAsFactor}
+              disabled={
+                duplicating ||
+                !duplicateName.trim() ||
+                candidateDimensions.length === 0 ||
+                (candidateDimensions.length > 1 && !duplicateDimensionId)
+              }
+            >
+              {duplicating ? "Creating..." : "Create factor"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

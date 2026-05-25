@@ -276,6 +276,37 @@ export async function updateFactor(id: string, formData: FormData) {
 
   const db = createAdminClient()
 
+  // Composition lock enforcement: if the factor is locked, refuse changes that
+  // alter the construct set (add/remove/reweight). Non-composition edits to
+  // the same construct list still pass.
+  const { data: existing, error: existingErr } = await db
+    .from('factors')
+    .select('composition_locked, factor_constructs(construct_id, weight)')
+    .eq('id', id)
+    .single()
+  if (existingErr) return { error: { _form: [existingErr.message] } }
+  if (existing?.composition_locked) {
+    const incoming = parsed.data.constructs
+      .map((c) => `${c.constructId}:${Number(c.weight)}`)
+      .sort()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const current = ((existing.factor_constructs ?? []) as any[])
+      .map((fc) => `${fc.construct_id}:${Number(fc.weight)}`)
+      .sort()
+    const differs =
+      incoming.length !== current.length ||
+      incoming.some((v, i) => v !== current[i])
+    if (differs) {
+      return {
+        error: {
+          _form: [
+            'This factor is composition-locked. Unlock it in Settings before changing its constructs or weights.',
+          ],
+        },
+      }
+    }
+  }
+
   // Atomic upsert via RPC
   const { error: rpcErr } = await db.rpc('upsert_factor_with_constructs', {
     p_factor_id: id,
@@ -450,6 +481,34 @@ export async function toggleFactorActive(id: string, isActive: boolean) {
     targetTable: 'factors',
     targetId: id,
     metadata: { isActive },
+  })
+  return { success: true }
+}
+
+/**
+ * Set the composition lock on a factor. When locked, server actions that add,
+ * remove, or reweight the factor's constructs reject the operation. Unlocking
+ * a factor that already has participant scores against it can break score
+ * comparability over time — the UI warns the admin before unlocking.
+ */
+export async function setFactorCompositionLocked(id: string, locked: boolean) {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+  const { error } = await db
+    .from('factors')
+    .update({ composition_locked: locked })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/factors')
+  revalidatePath(`/factors`)
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'factor.composition_lock_toggled',
+    targetTable: 'factors',
+    targetId: id,
+    metadata: { locked },
   })
   return { success: true }
 }

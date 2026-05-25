@@ -528,6 +528,8 @@ export interface Factor {
   strengthCommentary?: string
   /** Optional content_sources.id — provenance label, not a tenant link. */
   sourceId?: string
+  /** When true, the set of constructs linked to this factor is frozen. Defaults to false. */
+  compositionLocked?: boolean
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
