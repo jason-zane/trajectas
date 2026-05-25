@@ -484,6 +484,50 @@ export async function saveConstructDraftToLibrary(
 }
 
 /**
+ * Candidate dimensions a construct can be wrapped under, derived from its
+ * existing relationships. Used by the duplicate-as-factor dialog to populate a
+ * picker when the construct has more than one possible parent dimension.
+ */
+export async function getCandidateDimensionsForConstruct(
+  constructId: string,
+): Promise<Array<{ id: string; name: string }>> {
+  await requireAdminScope()
+  const db = createAdminClient()
+  const { data: construct, error } = await db
+    .from('constructs')
+    .select(
+      `id,
+       factor_constructs(factors(dimension_id, dimensions(id, name))),
+       dimension_constructs(dimension_id, dimensions(id, name))`,
+    )
+    .eq('id', constructId)
+    .is('deleted_at', null)
+    .single()
+  if (error || !construct) return []
+
+  const seen = new Map<string, string>()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const fc of ((construct as any).factor_constructs ?? []) as Array<{
+    factors:
+      | { dimension_id: string | null; dimensions: { id: string; name: string } | null }
+      | null
+  }>) {
+    const dim = fc.factors?.dimensions
+    if (dim?.id) seen.set(dim.id, dim.name)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const dc of ((construct as any).dimension_constructs ?? []) as Array<{
+    dimension_id: string
+    dimensions: { id: string; name: string } | null
+  }>) {
+    if (dc.dimensions?.id) seen.set(dc.dimensions.id, dc.dimensions.name)
+  }
+  return [...seen.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/**
  * Create a new factor that mirrors a single construct (1:1) and links them.
  *
  * Used by the "Duplicate as parent factor" affordance on the construct edit
@@ -556,9 +600,24 @@ export async function duplicateConstructAsFactor(
   }
 
   // 3. Build factor row. Name/slug optionally overridden so the admin can
-  //    disambiguate when a same-named factor already exists.
+  //    disambiguate when a same-named factor already exists. The slug is
+  //    suffix-incremented until unique against the live factors table to avoid
+  //    DB constraint errors on insert.
   const name = options?.nameOverride?.trim() || construct.name
-  const slug = options?.slugOverride?.trim() || construct.slug
+  const requestedSlug = options?.slugOverride?.trim() || construct.slug
+  let slug = requestedSlug
+  let slugSuffix = 1
+  while (true) {
+    const { data: existing, error: slugErr } = await db
+      .from('factors')
+      .select('id')
+      .eq('slug', slug)
+      .maybeSingle()
+    if (slugErr) return { error: slugErr.message }
+    if (!existing) break
+    slugSuffix += 1
+    slug = `${requestedSlug}-${slugSuffix}`
+  }
   const newFactorId = crypto.randomUUID()
 
   // 4. Atomic factor + construct-link insert via existing RPC.

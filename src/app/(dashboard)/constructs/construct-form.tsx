@@ -56,6 +56,7 @@ import {
   restoreConstruct,
   updateConstructField,
   duplicateConstructAsFactor,
+  getCandidateDimensionsForConstruct,
 } from "@/app/actions/constructs"
 import type { ConstructWithRelationships, SelectOption } from "@/app/actions/constructs"
 import { DimensionConstructLinker } from "@/components/dimension-construct-linker"
@@ -125,6 +126,10 @@ export function ConstructForm({
   const [duplicateOpen, setDuplicateOpen] = useState(false)
   const [duplicateName, setDuplicateName] = useState("")
   const [duplicating, setDuplicating] = useState(false)
+  const [candidateDimensions, setCandidateDimensions] = useState<
+    Array<{ id: string; name: string }>
+  >([])
+  const [duplicateDimensionId, setDuplicateDimensionId] = useState<string>("")
 
   const pending = saveState === "saving"
 
@@ -264,9 +269,14 @@ export function ConstructForm({
     }
   }
 
-  function openDuplicateDialog() {
-    setDuplicateName(construct?.name ?? "")
+  async function openDuplicateDialog() {
+    if (!construct) return
+    setDuplicateName(construct.name)
+    setDuplicateDimensionId("")
     setDuplicateOpen(true)
+    const dims = await getCandidateDimensionsForConstruct(construct.id)
+    setCandidateDimensions(dims)
+    if (dims.length === 1) setDuplicateDimensionId(dims[0].id)
   }
 
   async function handleDuplicateAsFactor() {
@@ -274,6 +284,7 @@ export function ConstructForm({
     setDuplicating(true)
     const result = await duplicateConstructAsFactor(construct.id, {
       nameOverride: duplicateName.trim() || undefined,
+      dimensionId: duplicateDimensionId || undefined,
     })
     setDuplicating(false)
     if ("error" in result) {
@@ -893,18 +904,57 @@ export function ConstructForm({
               other constructs can be added without explicitly unlocking it.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label htmlFor="duplicate-factor-name">Factor name</Label>
-            <Input
-              id="duplicate-factor-name"
-              value={duplicateName}
-              onChange={(e) => setDuplicateName(e.target.value)}
-              placeholder={construct?.name ?? ""}
-              disabled={duplicating}
-            />
-            <p className="text-xs text-muted-foreground">
-              Defaults to the construct&apos;s name. Override if a same-named factor already exists.
-            </p>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="duplicate-factor-name">Factor name</Label>
+              <Input
+                id="duplicate-factor-name"
+                value={duplicateName}
+                onChange={(e) => setDuplicateName(e.target.value)}
+                placeholder={construct?.name ?? ""}
+                disabled={duplicating}
+              />
+              <p className="text-xs text-muted-foreground">
+                Defaults to the construct&apos;s name. Slug is auto-suffixed
+                if a same-named factor already exists.
+              </p>
+            </div>
+
+            {candidateDimensions.length > 1 && (
+              <div className="space-y-2">
+                <Label>Dimension</Label>
+                <Select
+                  value={duplicateDimensionId}
+                  onValueChange={(v) => v != null && setDuplicateDimensionId(v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Choose a dimension...">
+                      {(value: string) =>
+                        candidateDimensions.find((d) => d.id === value)?.name ?? value
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {candidateDimensions.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  This construct links to multiple dimensions. Pick which one
+                  the new factor should sit under.
+                </p>
+              </div>
+            )}
+
+            {candidateDimensions.length === 0 && construct && (
+              <p className="rounded-md border border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/20 p-2 text-xs">
+                This construct isn&apos;t linked to any dimension yet. Add a
+                dimension link first.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -918,7 +968,12 @@ export function ConstructForm({
             <Button
               type="button"
               onClick={handleDuplicateAsFactor}
-              disabled={duplicating || !duplicateName.trim()}
+              disabled={
+                duplicating ||
+                !duplicateName.trim() ||
+                candidateDimensions.length === 0 ||
+                (candidateDimensions.length > 1 && !duplicateDimensionId)
+              }
             >
               {duplicating ? "Creating..." : "Create factor"}
             </Button>
