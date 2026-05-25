@@ -1,8 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { cn } from '@/lib/utils'
 import { getPersonTrajectory } from '@/app/actions/trajectory-data'
 import { computeTrajectorySummary } from '@/lib/trajectory/rollup'
 import { TrajectoryPersonHeader } from './trajectory-person-header'
@@ -11,7 +10,6 @@ import { TrajectoryTimeline, type TimelineMode } from './trajectory-timeline'
 import { TrajectoryMoversStrip } from './trajectory-movers'
 import { TrajectoryCapabilitiesList } from './trajectory-capabilities-list'
 import { TrajectoryLevelToggle } from './trajectory-level-toggle'
-import { TrajectoryDrillView, type DrillFrame } from './trajectory-drill-view'
 import { TrajectoryLinkedRecordsDrawer } from './trajectory-linked-records-drawer'
 import {
   decodeTrajectoryParams,
@@ -26,26 +24,18 @@ import type {
 
 /**
  * In the Capabilities view, plotting every factor as a line would be illegible
- * (an assessment can have 20+). We cap the chart to the N biggest movers by
- * |Δ| so the picture stays readable; the list below shows the full set.
+ * (an assessment can have 20+). The chart default selection is the top N by |Δ|;
+ * the list below carries the full set.
  */
 const CAPABILITIES_CHART_TOP_N = 8
-
-const CHILD_OF_LEVEL: Record<TrajectoryLevel, TrajectoryLevel | null> = {
-  dimension: 'factor',
-  factor: 'construct',
-  construct: null,
-}
 
 /**
  * Top-level Trajectory workspace.
  *
- * Overview: editorial summary + hero timeline + movers strip (+ optional matrix).
- * Drill: stack-based; each frame loads its level on demand and caches the result
- * in workspace state. Breadcrumb lets the user pop to any prior depth.
- *
- * URL state encodes the drill chain, timeline mode, matrix toggle, and the
- * assessment filter so views are shareable across reloads.
+ * Two surfaces — Dimensions and Capabilities — switchable via a single
+ * level toggle. The drill-stack overlay was removed because it dropped the
+ * user onto a different-looking page; everything important happens on the
+ * two main lists now, with a "↳ drill+flip" shortcut on each dimension row.
  */
 export function TrajectoryWorkspace({
   campaignParticipantId,
@@ -68,7 +58,6 @@ export function TrajectoryWorkspace({
     Partial<Record<TrajectoryLevel, TrajectoryResult>>
   >({ dimension: initialResult })
 
-  const [drillStack, setDrillStack] = useState<DrillFrame[]>([])
   const [viewLevel, setViewLevel] = useState<TrajectoryViewLevel>(initialUrl.viewLevel)
   const [parentFilter, setParentFilter] = useState<string | null>(initialUrl.parentFilter)
   // null = use default for this view (all dims / top-N caps). A concrete set
@@ -85,7 +74,7 @@ export function TrajectoryWorkspace({
     initialUrl.assessmentIds ?? initialResult.assessmentsTouched.map((a) => a.assessmentId),
   )
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [pending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   const ensureLevel = useCallback(
     async (level: TrajectoryLevel): Promise<TrajectoryResult> => {
@@ -97,42 +86,6 @@ export function TrajectoryWorkspace({
     },
     [campaignParticipantId, resultsByLevel],
   )
-
-  // Rehydrate drill stack from URL once we know level results are loadable.
-  // Walks the entity-id chain: at each step we ensure the level for that
-  // entity is loaded so we can resolve the entity name.
-  const rehydratedRef = useRef(false)
-  useEffect(() => {
-    if (rehydratedRef.current) return
-    if (initialUrl.drillEntityIds.length === 0) {
-      rehydratedRef.current = true
-      return
-    }
-    rehydratedRef.current = true
-    void (async () => {
-      const frames: DrillFrame[] = []
-      // Drill chain origin depends on the active top-level view: from the
-      // Dimensions view the chain starts at dimension; from Capabilities the
-      // chain starts at factor (capability drills push factor frames). Without
-      // this, a shared link with both level=factor and drill=… would look up
-      // a factor id in dimension series and lose the drill stack.
-      let level: TrajectoryLevel =
-        initialUrl.viewLevel === 'factor' ? 'factor' : 'dimension'
-      for (const entityId of initialUrl.drillEntityIds) {
-        const r = await ensureLevel(level)
-        const s = r.series.find((x) => x.entityId === entityId)
-        if (!s) break
-        frames.push({ level, entityId, entityName: s.entityName })
-        const nextLevel: TrajectoryLevel | null = CHILD_OF_LEVEL[level]
-        if (!nextLevel) break
-        level = nextLevel
-      }
-      if (frames.length > 0) {
-        await ensureLevel(level) // ensure children of deepest frame are loadable
-        setDrillStack(frames)
-      }
-    })()
-  }, [initialUrl.drillEntityIds, initialUrl.viewLevel, ensureLevel])
 
   const overviewResult = resultsByLevel.dimension ?? initialResult
 
@@ -149,7 +102,7 @@ export function TrajectoryWorkspace({
       viewLevel,
       parentFilter,
       selectedEntityIds: null,
-      drillEntityIds: drillStack.map((f) => f.entityId),
+      drillEntityIds: [],
       mode,
       matrix: false,
       assessmentIds: allSelectedAgainstCurrent ? null : selectedAssessmentIds,
@@ -169,7 +122,6 @@ export function TrajectoryWorkspace({
   }, [
     viewLevel,
     parentFilter,
-    drillStack,
     mode,
     selectedAssessmentIds,
     overviewResult.assessmentsTouched,
@@ -327,74 +279,12 @@ export function TrajectoryWorkspace({
 
   const factorResultLoading = viewLevel === 'factor' && !resultsByLevel.factor
 
-  // Drill rendering — same filter applies inside the drill, so share links
-  // with assessments=... still narrow the focused entity and its children.
-  const topFrame = drillStack[drillStack.length - 1] ?? null
-  const focusedSeries: TrajectorySeries | null = useMemo(() => {
-    if (!topFrame) return null
-    const r = resultsByLevel[topFrame.level]
-    if (!r) return null
-    const raw = r.series.find((s) => s.entityId === topFrame.entityId) ?? null
-    if (!raw) return null
-    const [filtered] = filterSeries([raw])
-    return filtered ?? null
-  }, [resultsByLevel, topFrame, filterSeries])
-
-  const childLevel = topFrame ? CHILD_OF_LEVEL[topFrame.level] : null
-  const childSeries: TrajectorySeries[] = useMemo(() => {
-    if (!topFrame || !childLevel) return []
-    const r = resultsByLevel[childLevel]
-    if (!r) return []
-    const matched = r.series.filter(
-      (s) =>
-        s.parentId === topFrame.entityId ||
-        (s.additionalParentIds ?? []).includes(topFrame.entityId),
-    )
-    return filterSeries(matched)
-  }, [resultsByLevel, topFrame, childLevel, filterSeries])
-
-  const childrenLoading = !!childLevel && !resultsByLevel[childLevel]
-
-  // Push a drill frame, fetching the target level (and the child level for
-  // its decomposition) if not cached.
-  const drillInto = useCallback(
-    (level: TrajectoryLevel, entityId: string, entityName: string) => {
-      startTransition(async () => {
-        await ensureLevel(level)
-        const next = CHILD_OF_LEVEL[level]
-        if (next) {
-          // Fire-and-await for the child level too so the drill view renders
-          // children without a perceptible second spinner.
-          await ensureLevel(next)
-        }
-        setDrillStack((prev) => [...prev, { level, entityId, entityName }])
-      })
-    },
-    [ensureLevel],
-  )
-
-  const popDrillTo = useCallback((depth: number) => {
-    setDrillStack((prev) => prev.slice(0, depth))
-  }, [])
-
-  const onChildClick = useCallback(
-    (childEntityId: string) => {
-      if (!topFrame || !childLevel) return
-      const r = resultsByLevel[childLevel]
-      if (!r) return
-      const s = r.series.find((x) => x.entityId === childEntityId)
-      if (!s) return
-      drillInto(childLevel, childEntityId, s.entityName)
-    },
-    [topFrame, childLevel, resultsByLevel, drillInto],
-  )
-
   /**
-   * "Drill + flip" from a dimension row in the Dimensions view: switches to
-   * the Capabilities view and pre-filters it to that dimension's children.
-   * Cheaper than the drill stack — no separate breadcrumb, just a level flip
-   * — and matches the way users naturally read the list ("Pink moved most —
-   * show me what's inside Pink").
+   * "Drill + flip" from a dimension row: switches to the Capabilities view
+   * and pre-filters it to that dimension's children. The old drill-stack
+   * overlay (TrajectoryDrillView) was removed because dropping the user onto
+   * a different-looking surface broke their orientation; everything stays
+   * on the same two lists now.
    */
   const onDimensionDrillFlip = useCallback(
     (dimensionId: string) => {
@@ -463,7 +353,6 @@ export function TrajectoryWorkspace({
 
   const hasMultipleSessions = filteredOverviewSeries.some((s) => s.points.length >= 2)
   const hasAnyData = filteredOverviewSeries.length > 0
-  const isDrilled = drillStack.length > 0
   const dimensionCount = filteredOverviewSeries.length
   const capabilityCount = filteredFactorSeries.length
 
@@ -488,30 +377,6 @@ export function TrajectoryWorkspace({
           linkedCount={overviewResult.linkedParticipants.length}
           hasAnyTouched={overviewResult.assessmentsTouched.length > 0}
         />
-      ) : isDrilled && focusedSeries ? (
-        <TrajectoryDrillView
-          stack={drillStack}
-          focusedSeries={focusedSeries}
-          childSeries={childSeries}
-          childrenLoading={childrenLoading}
-          mode={mode}
-          onModeChange={setMode}
-          onPopTo={popDrillTo}
-          onChildClick={onChildClick}
-        />
-      ) : isDrilled && !focusedSeries ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-          {pending ? 'Loading…' : 'That entity is no longer available at this level. Returning to overview.'}
-          {!pending && (
-            <button
-              type="button"
-              className="ml-2 underline underline-offset-2 text-foreground"
-              onClick={() => popDrillTo(0)}
-            >
-              Go back
-            </button>
-          )}
-        </div>
       ) : (
         <>
           <TrajectorySummaryPanel
