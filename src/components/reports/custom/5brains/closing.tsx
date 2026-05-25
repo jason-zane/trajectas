@@ -3,7 +3,7 @@ import { A4Page, ClientLogoSlot, Eyebrow, FiveBrains, FootMeta, Wordmark } from 
 
 export function ClosingPage({ data }: { data: FiveBrainsReportData }) {
   const { brains, participant, generatedAt, primaryLogoUrl, secondaryLogoUrl } = data
-  const dateLabel = new Date(generatedAt).toLocaleDateString('en-GB', {
+  const dateLabel = new Date(generatedAt).toLocaleDateString('en-AU', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',

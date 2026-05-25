@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     url: buildPublicUrl("/"),
     siteName: PUBLIC_SITE_NAME,
     type: "website",
-    locale: "en_GB",
+    locale: "en_AU",
   },
   twitter: {
     card: "summary_large_image",
@@ -71,8 +71,8 @@ const homeStructuredData = [
         "@type": "ContactPoint",
         contactType: "sales",
         email: "hello@trajectas.com",
-        availableLanguage: ["en-GB", "en"],
-        areaServed: ["APAC", "EU", "UK", "NA"],
+        availableLanguage: ["en-AU", "en"],
+        areaServed: ["AU", "APAC", "EU", "UK", "NA"],
       },
     ],
   },
@@ -83,7 +83,7 @@ const homeStructuredData = [
     alternateName: PUBLIC_SITE_TAGLINE,
     url: buildPublicUrl("/"),
     description,
-    inLanguage: "en-GB",
+    inLanguage: "en-AU",
     publisher: {
       "@type": "Organization",
       name: PUBLIC_SITE_NAME,
@@ -100,7 +100,7 @@ const homeStructuredData = [
       name: PUBLIC_SITE_NAME,
       url: buildPublicUrl("/"),
     },
-    areaServed: ["APAC", "EU", "UK", "North America"],
+    areaServed: ["AU", "APAC", "EU", "UK", "North America"],
     description:
       "Bespoke psychometric instruments built around your organisation's capabilities, calibrated to the roles and outcomes you actually care about.",
     audience: {
@@ -113,7 +113,7 @@ const homeStructuredData = [
       availability: "https://schema.org/InStock",
       priceSpecification: {
         "@type": "PriceSpecification",
-        priceCurrency: "GBP",
+        priceCurrency: "AUD",
         description: "Engagement-based pricing — discussed during discovery.",
       },
     },
