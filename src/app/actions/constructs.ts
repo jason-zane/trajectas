@@ -65,7 +65,7 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
       .order('name', { ascending: true }),
     db
       .from('constructs')
-      .select('*, factor_constructs(factors(dimensions(name))), dimension_constructs(dimensions(name))')
+      .select('*, factor_constructs(factors(dimensions(name)))')
       .is('deleted_at', null)
       .order('name', { ascending: true }),
   ])
@@ -93,16 +93,10 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const r = row as any
     const fcRows = r.factor_constructs ?? []
-    const dcRows = r.dimension_constructs ?? []
 
-    // Collect dimension names from both paths: via factor chain and direct dimension links
     const dimNames = new Set<string>()
     for (const fc of fcRows) {
       const dimName = fc.factors?.dimensions?.name
-      if (dimName) dimNames.add(dimName)
-    }
-    for (const dc of dcRows) {
-      const dimName = dc.dimensions?.name
       if (dimName) dimNames.add(dimName)
     }
 
@@ -497,8 +491,7 @@ export async function getCandidateDimensionsForConstruct(
     .from('constructs')
     .select(
       `id,
-       factor_constructs(factors(dimension_id, dimensions(id, name))),
-       dimension_constructs(dimension_id, dimensions(id, name))`,
+       factor_constructs(factors(dimension_id, dimensions(id, name)))`,
     )
     .eq('id', constructId)
     .is('deleted_at', null)
@@ -514,13 +507,6 @@ export async function getCandidateDimensionsForConstruct(
   }>) {
     const dim = fc.factors?.dimensions
     if (dim?.id) seen.set(dim.id, dim.name)
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const dc of ((construct as any).dimension_constructs ?? []) as Array<{
-    dimension_id: string
-    dimensions: { id: string; name: string } | null
-  }>) {
-    if (dc.dimensions?.id) seen.set(dc.dimensions.id, dc.dimensions.name)
   }
   return [...seen.entries()]
     .map(([id, name]) => ({ id, name }))
@@ -557,8 +543,7 @@ export async function duplicateConstructAsFactor(
        anchor_low, anchor_high,
        strength_commentary, development_suggestion,
        source_id, is_active,
-       factor_constructs(factors(dimension_id)),
-       dimension_constructs(dimension_id)`,
+       factor_constructs(factors(dimension_id))`,
     )
     .eq('id', constructId)
     .is('deleted_at', null)
@@ -577,12 +562,6 @@ export async function duplicateConstructAsFactor(
       factors: { dimension_id: string | null } | null
     }>) {
       if (fc.factors?.dimension_id) candidates.add(fc.factors.dimension_id)
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    for (const dc of ((construct as any).dimension_constructs ?? []) as Array<{
-      dimension_id: string
-    }>) {
-      candidates.add(dc.dimension_id)
     }
     if (candidates.size === 1) {
       dimensionId = [...candidates][0]
