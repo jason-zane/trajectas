@@ -110,6 +110,7 @@ function MoverRow({
       <button
         type="button"
         onClick={() => onSelect(mover.entityId)}
+        aria-label={describeMover(mover, { muted })}
         className={cn(
           'group relative w-full text-left',
           'grid items-center gap-x-4 gap-y-1',
@@ -323,6 +324,33 @@ function Sparkline({
       </svg>
     </div>
   )
+}
+
+/**
+ * Screen-reader text for a row button. Every visual element inside the row
+ * is aria-hidden (the magnitude bar, sparkline arrow, and delta number all
+ * duplicate one another for sighted users), so this label has to carry the
+ * full meaning: name, latest score, direction and size of change, and
+ * noise-floor status.
+ */
+function describeMover(mover: TrajectoryMover, opts: { muted?: boolean }): string {
+  const parts: string[] = [mover.entityName]
+  if (mover.latestScaled !== null) {
+    parts.push(`latest ${Math.round(mover.latestScaled)}`)
+  }
+  const v = mover.deltaScaled
+  if (v !== null) {
+    if (v === 0) {
+      parts.push('unchanged from first session')
+    } else {
+      const rounded = Math.round(Math.abs(v) * 10) / 10
+      const magnitude = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+      parts.push(`${v > 0 ? 'up' : 'down'} ${magnitude} from first session`)
+    }
+    if (opts.muted) parts.push('within noise')
+  }
+  parts.push('click to drill in')
+  return parts.join(', ')
 }
 
 function formatDelta(v: number): string {
