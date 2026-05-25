@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     url: buildPublicUrl("/psychometric-assessment"),
     siteName: PUBLIC_SITE_NAME,
     type: "article",
-    locale: "en_GB",
+    locale: "en_AU",
   },
   twitter: {
     card: "summary_large_image",

@@ -12,7 +12,7 @@ import { WheelChart } from './charts'
 export function CoverPage({ data }: { data: FiveBrainsReportData }) {
   const { participant, brains, compositeScore, generatedAt, primaryLogoUrl, secondaryLogoUrl } =
     data
-  const dateLabel = new Date(generatedAt).toLocaleDateString('en-GB', {
+  const dateLabel = new Date(generatedAt).toLocaleDateString('en-AU', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
