@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { cn } from '@/lib/utils'
 import { getPersonTrajectory } from '@/app/actions/trajectory-data'
 import { computeTrajectorySummary } from '@/lib/trajectory/rollup'
 import { TrajectoryPersonHeader } from './trajectory-person-header'
