@@ -415,5 +415,8 @@ function describeRow(
 
 function formatDelta(v: number): string {
   const r = Math.round(v)
-  return `${r >= 0 ? '+' : ''}${r}`
+  // When a tiny non-zero delta rounds to 0, drop the sign — "+0" reads as
+  // a positive move and miscolours sub-noise drift the wrong way.
+  if (r === 0) return '0'
+  return `${r > 0 ? '+' : ''}${r}`
 }

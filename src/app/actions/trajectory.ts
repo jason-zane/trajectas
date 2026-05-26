@@ -301,6 +301,16 @@ export async function getTrajectoryLandingData(
     .is('deleted_at', null)
     .gte('completed_at', thirtyDaysAgo)
 
+  // Separate query for distinct person_keys with completed sessions. We
+  // can't lift it off the recent-list window because that's capped — any
+  // scope with more distinct completed people than the window would have
+  // an undercounted "active people" KPI.
+  let personKeysReq = db
+    .from('campaign_participants')
+    .select('person_key, campaigns!inner(client_id)')
+    .not('completed_at', 'is', null)
+    .is('deleted_at', null)
+
   let recentReq = db
     .from('campaign_participants')
     .select(`
@@ -320,12 +330,14 @@ export async function getTrajectoryLandingData(
   if (!scope.isPlatformAdmin) {
     sessionsCompletedReq = sessionsCompletedReq.in('campaigns.client_id', scope.clientIds)
     sessionsRecentReq = sessionsRecentReq.in('campaigns.client_id', scope.clientIds)
+    personKeysReq = personKeysReq.in('campaigns.client_id', scope.clientIds)
     recentReq = recentReq.in('campaigns.client_id', scope.clientIds)
   }
 
-  const [sessionsCompletedRes, sessionsRecentRes, recentRes] = await Promise.all([
+  const [sessionsCompletedRes, sessionsRecentRes, personKeysRes, recentRes] = await Promise.all([
     sessionsCompletedReq,
     sessionsRecentReq,
+    personKeysReq,
     recentReq,
   ])
 
@@ -333,19 +345,26 @@ export async function getTrajectoryLandingData(
     throwActionError('getTrajectoryLandingData', 'Unable to load trajectory stats.', sessionsCompletedRes.error)
   if (sessionsRecentRes.error)
     throwActionError('getTrajectoryLandingData', 'Unable to load trajectory stats.', sessionsRecentRes.error)
+  if (personKeysRes.error)
+    throwActionError('getTrajectoryLandingData', 'Unable to load trajectory stats.', personKeysRes.error)
   if (recentRes.error)
     throwActionError('getTrajectoryLandingData', 'Unable to load recent activity.', recentRes.error)
 
-  // Dedupe to one row per person_key, preserving recency order.
+  // Distinct person_keys with ≥1 completed session, across the FULL scope.
+  const personKeysWithSession = new Set<string>()
+  for (const row of personKeysRes.data ?? []) {
+    personKeysWithSession.add(String(row.person_key))
+  }
+  const peopleTracked = personKeysWithSession.size
+
+  // Dedupe the recent list to one row per person_key, preserving recency order.
   const seen = new Set<string>()
   const recent: PersonSearchResult[] = []
-  const personKeysWithSession = new Set<string>()
   for (const row of recentRes.data ?? []) {
     const personKey = String(row.person_key)
-    personKeysWithSession.add(personKey)
     if (seen.has(personKey)) continue
     seen.add(personKey)
-    if (recent.length >= recentLimit) continue
+    if (recent.length >= recentLimit) break
     const c = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns
     recent.push({
       campaignParticipantId: String(row.id),
@@ -361,13 +380,6 @@ export async function getTrajectoryLandingData(
       lastActivityAt: row.completed_at ? String(row.completed_at) : null,
     })
   }
-
-  // peopleTracked counts distinct person_keys with ≥1 completed session.
-  // The overfetched window covers up to 50 distinct keys; for typical client
-  // sizes (<200 active people) this is exact. We label the stat "active people"
-  // since it represents recently-engaged distinct individuals — an underestimate
-  // is acceptable for a header KPI.
-  const peopleTracked = personKeysWithSession.size
 
   return {
     stats: {
