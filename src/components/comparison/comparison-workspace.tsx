@@ -174,8 +174,14 @@ export function ComparisonWorkspace({
     refetch(req)
   }
 
-  function addEntry(cpId: string) {
-    update({ ...request, entries: [...request.entries, { campaignParticipantId: cpId }] })
+  function addEntries(cpIds: string[]) {
+    if (cpIds.length === 0) return
+    const existing = new Set(request.entries.map((e) => e.campaignParticipantId))
+    const additions = cpIds
+      .filter((id) => !existing.has(id))
+      .map((id) => ({ campaignParticipantId: id }))
+    if (additions.length === 0) return
+    update({ ...request, entries: [...request.entries, ...additions] })
   }
 
   function removeEntry(entryId: string) {
@@ -266,7 +272,7 @@ export function ComparisonWorkspace({
             basePath={basePath}
             savedComparisons={initial.savedList ?? []}
             searchSource={searchSource}
-            onAddEntry={addEntry}
+            onAddEntries={addEntries}
           />
         ) : (
           <ComparisonMatrix
@@ -284,12 +290,14 @@ export function ComparisonWorkspace({
         )}
       </div>
 
-      <AddParticipantDialog
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onAdd={(o) => addEntry(o.id)}
-        searchSource={searchSource}
-      />
+      {showAdd && (
+        <AddParticipantDialog
+          open
+          onClose={() => setShowAdd(false)}
+          onAdd={(opts) => addEntries(opts.map((o) => o.id))}
+          searchSource={searchSource}
+        />
+      )}
 
       {popover && (
         <ComparisonRowSessionPopover

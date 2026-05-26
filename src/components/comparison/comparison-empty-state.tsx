@@ -18,17 +18,17 @@ export function ComparisonEmptyState({
   basePath,
   savedComparisons,
   searchSource,
-  onAddEntry,
+  onAddEntries,
 }: {
   basePath: string
   savedComparisons: SavedComparisonSummary[]
   searchSource: AddPickerSource
   /**
-   * Called when the user picks a participant from the empty-state search.
-   * Lifted up to the workspace so adding doesn't require a hard navigation
-   * — keeps state consistent and avoids competing with the URL-sync effect.
+   * Called when the user commits one or more participants from the
+   * empty-state picker. Batched as an array so the workspace can update
+   * its request once instead of N times.
    */
-  onAddEntry: (campaignParticipantId: string) => void
+  onAddEntries: (campaignParticipantIds: string[]) => void
 }) {
   const router = useRouter()
   const [showAdd, setShowAdd] = useState(false)
@@ -64,15 +64,17 @@ export function ComparisonEmptyState({
           </kbd>
         </button>
 
-        <AddParticipantDialog
-          open={showAdd}
-          onClose={() => setShowAdd(false)}
-          onAdd={(o) => {
-            setShowAdd(false)
-            onAddEntry(o.id)
-          }}
-          searchSource={searchSource}
-        />
+        {showAdd && (
+          <AddParticipantDialog
+            open
+            onClose={() => setShowAdd(false)}
+            onAdd={(opts) => {
+              setShowAdd(false)
+              onAddEntries(opts.map((o) => o.id))
+            }}
+            searchSource={searchSource}
+          />
+        )}
       </section>
 
       <section className="rounded-2xl border border-border bg-muted/15 p-6">
