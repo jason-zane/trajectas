@@ -174,8 +174,14 @@ export function ComparisonWorkspace({
     refetch(req)
   }
 
-  function addEntry(cpId: string) {
-    update({ ...request, entries: [...request.entries, { campaignParticipantId: cpId }] })
+  function addEntries(cpIds: string[]) {
+    if (cpIds.length === 0) return
+    const existing = new Set(request.entries.map((e) => e.campaignParticipantId))
+    const additions = cpIds
+      .filter((id) => !existing.has(id))
+      .map((id) => ({ campaignParticipantId: id }))
+    if (additions.length === 0) return
+    update({ ...request, entries: [...request.entries, ...additions] })
   }
 
   function removeEntry(entryId: string) {
@@ -253,13 +259,20 @@ export function ComparisonWorkspace({
       {pending && (
         <div className="px-4 text-xs text-muted-foreground">Updating…</div>
       )}
-      <div className="px-4 min-w-0">
+      {/*
+       * grid-cols-[minmax(0,1fr)] is the bulletproof way to stop a wide
+       * child from forcing its parent wider. `min-w-0` on a block child
+       * is a no-op; the matrix table only honours its overflow-x-auto
+       * if the grid track is explicitly width-capped to "no wider than
+       * the parent's available space".
+       */}
+      <div className="px-4 grid grid-cols-[minmax(0,1fr)]">
         {result.rows.length === 0 ? (
           <ComparisonEmptyState
             basePath={basePath}
             savedComparisons={initial.savedList ?? []}
             searchSource={searchSource}
-            onAddEntry={addEntry}
+            onAddEntries={addEntries}
           />
         ) : (
           <ComparisonMatrix
@@ -277,12 +290,14 @@ export function ComparisonWorkspace({
         )}
       </div>
 
-      <AddParticipantDialog
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        onAdd={(o) => addEntry(o.id)}
-        searchSource={searchSource}
-      />
+      {showAdd && (
+        <AddParticipantDialog
+          open
+          onClose={() => setShowAdd(false)}
+          onAdd={(opts) => addEntries(opts.map((o) => o.id))}
+          searchSource={searchSource}
+        />
+      )}
 
       {popover && (
         <ComparisonRowSessionPopover
