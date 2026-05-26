@@ -253,7 +253,14 @@ export function ComparisonWorkspace({
       {pending && (
         <div className="px-4 text-xs text-muted-foreground">Updating…</div>
       )}
-      <div className="px-4 min-w-0">
+      {/*
+       * grid-cols-[minmax(0,1fr)] is the bulletproof way to stop a wide
+       * child from forcing its parent wider. `min-w-0` on a block child
+       * is a no-op; the matrix table only honours its overflow-x-auto
+       * if the grid track is explicitly width-capped to "no wider than
+       * the parent's available space".
+       */}
+      <div className="px-4 grid grid-cols-[minmax(0,1fr)]">
         {result.rows.length === 0 ? (
           <ComparisonEmptyState
             basePath={basePath}
