@@ -87,9 +87,9 @@ function NumWord({ n, suffix }: { n: number; suffix: string }) {
 
 function DeltaTag({ value }: { value: number | null }) {
   if (value === null) return <span className="text-muted-foreground">—</span>
-  const rounded = Math.round(value * 10) / 10
+  const rounded = Math.round(value)
   const positive = rounded >= 0
-  const label = `${positive ? '+' : ''}${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}`
+  const label = `${positive ? '+' : ''}${rounded}`
   return (
     <span
       className={

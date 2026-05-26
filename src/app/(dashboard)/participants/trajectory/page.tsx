@@ -1,11 +1,12 @@
-import { TrajectoryPersonPicker } from '@/components/trajectory/trajectory-person-picker'
+import { TrajectoryLanding } from '@/components/trajectory/trajectory-landing'
 import { TrajectoryWorkspace } from '@/components/trajectory/trajectory-workspace'
+import { getTrajectoryLandingData } from '@/app/actions/trajectory'
 import { loadTrajectoryForParticipant } from '@/lib/trajectory/load'
 
 /**
  * Standalone Trajectory page — Shape B (admin tree).
- * Renders the person picker by default; with `?id=<cpId>`, renders the
- * full trajectory workspace for that person.
+ * Renders the landing surface (stats + recents + search) by default; with
+ * `?id=<cpId>`, renders the full trajectory workspace for that person.
  */
 export default async function AdminTrajectoryPage({
   searchParams,
@@ -24,7 +25,7 @@ export default async function AdminTrajectoryPage({
         <p className="text-sm text-muted-foreground mt-1">
           {id
             ? 'A single person’s scoring across every assessment they’ve completed within the client.'
-            : 'Search for a participant to view their full assessment history over time.'}
+            : 'Pick someone you’ve seen recently — or search by name or email.'}
         </p>
       </header>
 
@@ -34,7 +35,10 @@ export default async function AdminTrajectoryPage({
           initialResult={await loadTrajectoryForParticipant(id, 'admin-trajectory-page')}
         />
       ) : (
-        <TrajectoryPersonPicker basePath="/participants/trajectory" />
+        <TrajectoryLanding
+          basePath="/participants/trajectory"
+          initial={await getTrajectoryLandingData()}
+        />
       )}
     </div>
   )

@@ -405,9 +405,7 @@ function describeRow(
     if (v === 0) {
       parts.push('unchanged from first session')
     } else {
-      const rounded = Math.round(Math.abs(v) * 10) / 10
-      const magnitude = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
-      parts.push(`${v > 0 ? 'up' : 'down'} ${magnitude} from first session`)
+      parts.push(`${v > 0 ? 'up' : 'down'} ${Math.round(Math.abs(v))} from first session`)
     }
     if (opts.muted) parts.push('within noise')
   }
@@ -416,7 +414,6 @@ function describeRow(
 }
 
 function formatDelta(v: number): string {
-  const r = Math.round(v * 10) / 10
-  const sign = r >= 0 ? '+' : ''
-  return `${sign}${Number.isInteger(r) ? r : r.toFixed(1)}`
+  const r = Math.round(v)
+  return `${r >= 0 ? '+' : ''}${r}`
 }
