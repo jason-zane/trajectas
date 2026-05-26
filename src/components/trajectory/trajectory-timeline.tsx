@@ -853,14 +853,14 @@ function SeriesTooltip({
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
+// Scaled scores are shown as whole numbers throughout — sub-point precision
+// is noise from a measurement standpoint and makes the chart feel cluttered.
 function formatTick(v: number): string {
-  const rounded = Math.round(v * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  return String(Math.round(v))
 }
 
 function formatValue(v: number): string {
-  const r = Math.round(v * 10) / 10
-  return Number.isInteger(r) ? String(r) : r.toFixed(1)
+  return String(Math.round(v))
 }
 
 function formatDateShort(d: Date): string {

@@ -87,9 +87,15 @@ function NumWord({ n, suffix }: { n: number; suffix: string }) {
 
 function DeltaTag({ value }: { value: number | null }) {
   if (value === null) return <span className="text-muted-foreground">—</span>
-  const rounded = Math.round(value * 10) / 10
-  const positive = rounded >= 0
-  const label = `${positive ? '+' : ''}${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}`
+  const rounded = Math.round(value)
+  // Direction is taken from the raw value so a small negative delta (e.g.
+  // -0.4) that rounds to 0 still colours / signs correctly. When rounded
+  // to exactly 0 we drop the sign and render a neutral tone — it's
+  // effectively no change at the display precision.
+  if (rounded === 0) {
+    return <span className="tabular-nums font-semibold text-muted-foreground">0</span>
+  }
+  const positive = value > 0
   return (
     <span
       className={
@@ -98,7 +104,7 @@ function DeltaTag({ value }: { value: number | null }) {
           : 'tabular-nums font-semibold text-rose-700 dark:text-rose-400'
       }
     >
-      {label}
+      {positive ? '+' : ''}{rounded}
     </span>
   )
 }
