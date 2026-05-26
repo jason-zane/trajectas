@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import { FileBarChart, GitCompare, Link2, Mail, Plus, Trash2, Upload } from "lucide-react";
+import { ChevronRight, GitCompare, Link2, Mail, Plus, Trash2, Upload } from "lucide-react";
 import { usePortal } from "@/components/portal-context";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CampaignSessionsTable } from "./campaign-sessions-table";
@@ -322,12 +321,6 @@ export function CampaignParticipantManager({
   const rows = participants.map((participant) => ({
     ...participant,
     displayName: getDisplayName(participant),
-    /** Pick the most recent participant_session ID (if any) */
-    latestSessionId: participant.participantSessions
-      ?.slice()
-      .reverse()
-      .find((s) => s.status === "completed" || s.status === "in_progress")?.id
-      ?? participant.participantSessions?.[participant.participantSessions.length - 1]?.id,
   }));
 
   type Row = (typeof rows)[number];
@@ -425,30 +418,6 @@ export function CampaignParticipantManager({
         ),
     },
     {
-      id: "viewResults",
-      enableSorting: false,
-      header: () => <span className="text-xs text-muted-foreground">Results</span>,
-      cell: ({ row }) => {
-        const canView = ["in_progress", "completed"].includes(row.original.status) && row.original.latestSessionId;
-        if (canView) {
-          return (
-            <Link href={`/campaigns/${campaignId}/sessions/${row.original.latestSessionId}`}>
-              <Button size="sm" variant="ghost">
-                <FileBarChart className="size-4" />
-                View Results
-              </Button>
-            </Link>
-          );
-        }
-        return (
-          <Button size="sm" variant="ghost" disabled className="opacity-50">
-            <FileBarChart className="size-4" />
-            View Results
-          </Button>
-        );
-      },
-    },
-    {
       id: "actions",
       enableSorting: false,
       cell: ({ row }) => (
@@ -480,6 +449,20 @@ export function CampaignParticipantManager({
             <Trash2 className="size-4" />
           </Button>
         </DataTableRowActions>
+      ),
+    },
+    {
+      id: "open",
+      enableSorting: false,
+      header: () => null,
+      cell: () => (
+        // Pure visual affordance — the whole row is the navigation target.
+        // The row's own hover state (bg-[var(--cream)]) gives the strong cue;
+        // this chevron just confirms "yes, this row opens something".
+        <ChevronRight
+          aria-hidden
+          className="size-4 text-muted-foreground/70"
+        />
       ),
     },
   ];
@@ -539,11 +522,7 @@ export function CampaignParticipantManager({
           enableRowSelection
           getRowId={(row) => row.id}
           bulkActions={bulkActions}
-          rowHref={(row) =>
-            row.latestSessionId
-              ? `/campaigns/${campaignId}/sessions/${row.latestSessionId}`
-              : undefined
-          }
+          rowHref={(row) => href(`/campaigns/${campaignId}/participants/${row.id}`)}
         />
       )}
 

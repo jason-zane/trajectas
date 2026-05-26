@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { GitCompare, Trash2 } from "lucide-react";
+import { ChevronRight, GitCompare, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import type { CampaignSessionRow } from "@/app/actions/campaigns";
@@ -60,7 +61,17 @@ export function CampaignSessionsTable({
         <DataTableColumnHeader column={column} title="Participant" />
       ),
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
+        // The avatar+name is a secondary link to the participant detail page
+        // (next/link → matches the row-click ignore selector, so it doesn't
+        // trigger the parent row's session navigation). The row itself still
+        // opens the session — this gives users a way to "jump to the person"
+        // without leaving the Sessions tab.
+        <Link
+          href={href(
+            `/campaigns/${campaignId}/participants/${row.original.campaignParticipantId}`,
+          )}
+          className="-mx-1 -my-0.5 inline-flex items-center gap-3 rounded px-1 py-0.5 hover:bg-foreground/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        >
           <Avatar className="size-8">
             <AvatarFallback className="text-[10px] font-semibold">
               {getInitials(row.original.participantName, row.original.participantEmail)}
@@ -74,7 +85,7 @@ export function CampaignSessionsTable({
               {row.original.participantEmail}
             </p>
           </div>
-        </div>
+        </Link>
       ),
     },
     {
@@ -110,6 +121,19 @@ export function CampaignSessionsTable({
         <span className="text-xs text-muted-foreground tabular-nums">
           {formatDate(row.original.completedAt ?? row.original.startedAt)}
         </span>
+      ),
+    },
+    {
+      id: "open",
+      enableSorting: false,
+      header: () => null,
+      cell: () => (
+        // Visual affordance — the row click opens the session. Matches the
+        // chevron on the Participants tab so both tables read the same way.
+        <ChevronRight
+          aria-hidden
+          className="size-4 text-muted-foreground/70"
+        />
       ),
     },
   ];
