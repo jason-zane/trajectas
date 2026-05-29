@@ -13,5 +13,6 @@ export default async function CreateCampaignPage() {
 
   const clients = (data ?? []).map(mapClientRow);
 
-  return <CampaignForm mode="create" clients={clients} />;
+  // 360 campaign type is offered only in the admin dashboard (test-bed scope).
+  return <CampaignForm mode="create" clients={clients} allowLeadership360 />;
 }

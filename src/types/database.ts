@@ -60,6 +60,28 @@ export type AssessmentStatus = 'draft' | 'active' | 'archived'
 /** Lifecycle status of a campaign. */
 export type CampaignStatus = 'draft' | 'active' | 'paused' | 'closed' | 'archived'
 
+/** Campaign kind — distinguishes a single self-assessment from a leadership 360. */
+export type CampaignKind = 'self' | 'leadership_360'
+
+/** Relationship of a 360 rater to the subject being rated. */
+export type RaterRelationship =
+  | 'self'
+  | 'manager'
+  | 'peer'
+  | 'direct_report'
+  | 'other'
+
+/** Lifecycle status of a 360 rater, from nomination through completion. */
+export type RaterStatus =
+  | 'nominated'
+  | 'approved'
+  | 'declined'
+  | 'invited'
+  | 'in_progress'
+  | 'completed'
+  | 'withdrawn'
+  | 'expired'
+
 /** Progress status of a participant within a campaign. */
 export type CampaignParticipantStatus =
   | 'invited'
@@ -1619,6 +1641,8 @@ export interface Campaign {
   description?: string
   /** Lifecycle status. */
   status: CampaignStatus
+  /** Campaign kind — self-assessment (default) or leadership 360 (multi-rater). */
+  kind: CampaignKind
   /** Owning client (optional). */
   clientId?: string
   /** Owning partner (optional). */
@@ -1641,6 +1665,51 @@ export interface Campaign {
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
   deletedAt?: string
+}
+
+/**
+ * A 360 rater of a subject within a leadership_360 campaign. Distinct from
+ * campaign_participants: the subject is a participant; their raters are these.
+ */
+export interface CampaignRater {
+  id: string
+  campaignId: string
+  /** The campaign_participant being rated. */
+  subjectParticipantId: string
+  relationship: RaterRelationship
+  name?: string
+  email: string
+  /** Magic-link token for anonymous survey access (never exposed to the subject). */
+  accessToken: string
+  /** The runner session this rater fills out, once started. */
+  sessionId?: string
+  status: RaterStatus
+  nominatedBy?: string
+  approvedBy?: string
+  nominatedAt: string
+  approvedAt?: string
+  invitedAt?: string
+  startedAt?: string
+  completedAt?: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Immutable aggregate snapshot produced when a 360 campaign closes.
+ * Aggregate-only — never per-rater rows. One per campaign.
+ */
+export interface Campaign360Snapshot {
+  id: string
+  campaignId: string
+  subjectParticipantId: string
+  /** Per-category means, self-vs-others gaps, Johari quadrants, suppression flags. */
+  data: Record<string, unknown>
+  raterCount: number
+  /** e.g. {"manager":1,"peer":4,"direct_report":5}. */
+  raterCountByCategory: Record<string, number>
+  generatedAt: string
+  generatedBy?: string
 }
 
 /**

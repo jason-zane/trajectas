@@ -75,6 +75,14 @@ const columns: ColumnDef<CampaignWithMeta>[] = [
         className="min-w-0"
       >
         <p className="truncate font-semibold text-foreground hover:text-primary">
+          {row.original.kind === "leadership_360" && (
+            <Badge
+              variant="outline"
+              className="mr-2 border-primary/40 align-middle text-[10px] text-primary"
+            >
+              360
+            </Badge>
+          )}
           {row.original.title}
         </p>
       </DataTableRowLink>
