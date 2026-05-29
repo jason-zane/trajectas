@@ -3,7 +3,8 @@
 import { useState, useCallback } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Brain, FileQuestion, ArrowRight, Plus, Wand2, Copy } from "lucide-react"
+import { Brain, FileQuestion, ArrowRight, Plus, Wand2, Copy, Sparkles } from "lucide-react"
+import { ObserverVariantReviewDialog } from "@/components/items/observer-variant-review-dialog"
 import { toast } from "sonner"
 import { SourcePicker } from "@/components/source-picker"
 import { Button } from "@/components/ui/button"
@@ -124,6 +125,7 @@ export function ConstructForm({
 
   const parentFactors = construct?.parentFactors ?? []
   const linkedItems = construct?.linkedItems ?? []
+  const [observerOpen, setObserverOpen] = useState(false)
 
   // Auto-save hooks (edit mode only)
   const descAutoSave = useAutoSave({
@@ -606,6 +608,17 @@ export function ConstructForm({
                   </div>
                   {mode === "edit" && construct?.slug && (
                     <div className="flex items-center gap-2">
+                      {linkedItems.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setObserverOpen(true)}
+                        >
+                          <Sparkles className="size-4 text-gold" />
+                          Observer wording (360)
+                        </Button>
+                      )}
                       <Link href={`/generate/new?constructId=${construct.id}`}>
                         <Button type="button" variant="outline" size="sm">
                           <Wand2 className="size-4" />
@@ -943,6 +956,13 @@ export function ConstructForm({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ObserverVariantReviewDialog
+        open={observerOpen}
+        onOpenChange={setObserverOpen}
+        itemIds={linkedItems.map((item) => item.id)}
+        onCommitted={() => router.refresh()}
+      />
     </div>
   )
 }

@@ -28,6 +28,13 @@ interface LibrarySelectionToolbarProps {
   onClearSelection: () => void
   onConfirmDelete: () => void
   onSetStatus?: (status: string) => void
+  /** Generic extra bulk actions (e.g. "Generate observer variants"), rendered above Delete. */
+  extraActions?: Array<{
+    label: string
+    icon?: React.ReactNode
+    onClick: () => void
+    disabled?: boolean
+  }>
 }
 
 export function LibrarySelectionToolbar({
@@ -46,6 +53,7 @@ export function LibrarySelectionToolbar({
   onClearSelection,
   onConfirmDelete,
   onSetStatus,
+  extraActions,
 }: LibrarySelectionToolbarProps) {
   const hasVisibleRows = visibleCount > 0
 
@@ -106,6 +114,21 @@ export function LibrarySelectionToolbar({
                       <Archive className="size-4 text-muted-foreground" />
                       Set archived
                     </DropdownMenuItem>
+                  </>
+                )}
+                {extraActions && extraActions.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {extraActions.map((action) => (
+                      <DropdownMenuItem
+                        key={action.label}
+                        onClick={action.onClick}
+                        disabled={action.disabled || selectedCount === 0}
+                      >
+                        {action.icon}
+                        {action.label}
+                      </DropdownMenuItem>
+                    ))}
                   </>
                 )}
                 <DropdownMenuSeparator />

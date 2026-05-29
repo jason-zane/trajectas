@@ -125,6 +125,7 @@ export async function createItem(formData: FormData) {
     constructId: purpose === 'construct' ? (formData.get('constructId') as string) : undefined,
     responseFormatId: formData.get('responseFormatId') as string,
     stem: formData.get('stem') as string,
+    stemObserver: purpose === 'construct' ? ((formData.get('stemObserver') as string) || undefined) : undefined,
     reverseScored: purpose === 'construct' ? formData.get('reverseScored') === 'true' : false,
     weight: purpose === 'construct' ? Number(formData.get('weight') ?? 1.0) : 1.0,
     status: (formData.get('status') as string) || 'draft',
@@ -148,6 +149,7 @@ export async function createItem(formData: FormData) {
       construct_id: parsed.data.constructId ?? null,
       response_format_id: parsed.data.responseFormatId,
       stem: parsed.data.stem,
+      stem_observer: parsed.data.stemObserver?.trim() || null,
       reverse_scored: parsed.data.reverseScored,
       weight: parsed.data.weight,
       status: parsed.data.status,
@@ -207,6 +209,7 @@ export async function updateItem(id: string, formData: FormData) {
     constructId: purpose === 'construct' ? (formData.get('constructId') as string) : undefined,
     responseFormatId: formData.get('responseFormatId') as string,
     stem: formData.get('stem') as string,
+    stemObserver: purpose === 'construct' ? ((formData.get('stemObserver') as string) || undefined) : undefined,
     reverseScored: purpose === 'construct' ? formData.get('reverseScored') === 'true' : false,
     weight: purpose === 'construct' ? Number(formData.get('weight') ?? 1.0) : 1.0,
     status: (formData.get('status') as string) || 'draft',
@@ -230,6 +233,7 @@ export async function updateItem(id: string, formData: FormData) {
       construct_id: parsed.data.constructId ?? null,
       response_format_id: parsed.data.responseFormatId,
       stem: parsed.data.stem,
+      stem_observer: parsed.data.stemObserver?.trim() || null,
       reverse_scored: parsed.data.reverseScored,
       weight: parsed.data.weight,
       status: parsed.data.status,
@@ -464,7 +468,7 @@ export async function getItemParameters(itemId: string) {
   }
 }
 
-const ALLOWED_ITEM_FIELDS = ['stem'] as const
+const ALLOWED_ITEM_FIELDS = ['stem', 'stem_observer'] as const
 type AllowedItemField = (typeof ALLOWED_ITEM_FIELDS)[number]
 
 export async function updateItemField(id: string, field: string, value: string) {
@@ -473,10 +477,15 @@ export async function updateItemField(id: string, field: string, value: string) 
     return { error: `Field "${field}" is not allowed` }
   }
 
+  // The optional observer stem clears to NULL when emptied (its CHECK forbids
+  // an empty string). Required fields like `stem` keep their own constraints.
+  const writeValue =
+    field === 'stem_observer' && value.trim() === '' ? null : value
+
   const db = createAdminClient()
   const { error } = await db
     .from('items')
-    .update({ [field]: value })
+    .update({ [field]: writeValue })
     .eq('id', id)
 
   if (error) return { error: error.message }

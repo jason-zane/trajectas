@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Dna, Settings2, ArrowLeftRight, Weight, Shield, AlertTriangle, Eye, BarChart3, ListOrdered, Plus, Trash2, Gauge } from "lucide-react";
+import { Dna, Settings2, ArrowLeftRight, Weight, Shield, AlertTriangle, Eye, BarChart3, ListOrdered, Plus, Trash2, Gauge, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,6 +72,7 @@ interface ItemFormProps {
     constructId?: string;
     responseFormatId: string;
     stem: string;
+    stemObserver?: string;
     reverseScored: boolean;
     weight: number;
     status: string;
@@ -101,6 +102,7 @@ export function ItemForm({
     initialData?.responseFormatId ?? ""
   );
   const [stem, setStem] = useState(initialData?.stem ?? "");
+  const [stemObserver, setStemObserver] = useState(initialData?.stemObserver ?? "");
   const [reverseScored, setReverseScored] = useState(
     initialData?.reverseScored ?? false
   );
@@ -148,6 +150,13 @@ export function ItemForm({
   const stemAutoSave = useAutoSave({
     initialValue: initialData?.stem ?? "",
     onSave: (val) => updateItemField(itemId!, "stem", val),
+    enabled: mode === "edit" && !!itemId,
+  });
+
+  // ── Auto-save for the observer (360) stem (edit mode, construct items only) ──
+  const stemObserverAutoSave = useAutoSave({
+    initialValue: initialData?.stemObserver ?? "",
+    onSave: (val) => updateItemField(itemId!, "stem_observer", val),
     enabled: mode === "edit" && !!itemId,
   });
 
@@ -202,9 +211,12 @@ export function ItemForm({
   }, []);
 
   async function handleSubmit(formData: FormData) {
-    // In edit mode, sync the auto-saved stem value into the form data
+    // In edit mode, sync the auto-saved stem values into the form data
     if (mode === "edit") {
       formData.set("stem", stemAutoSave.value);
+      formData.set("stemObserver", stemObserverAutoSave.value);
+    } else {
+      formData.set("stemObserver", stemObserver);
     }
 
     if (returnTo) {
@@ -392,6 +404,71 @@ export function ItemForm({
                   )}
                 </CardContent>
               </Card>
+
+              {isConstructItem && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <Sparkles className="size-4 text-gold" />
+                          Observer wording (360)
+                        </CardTitle>
+                        <CardDescription>
+                          Third-person phrasing shown to raters in a 360 (e.g.
+                          &ldquo;This leader communicates clearly&rdquo;). Leave
+                          blank if this item isn&apos;t used for 360.
+                        </CardDescription>
+                      </div>
+                      <Badge
+                        variant={
+                          (mode === "edit"
+                            ? stemObserverAutoSave.value
+                            : stemObserver
+                          ).trim()
+                            ? "default"
+                            : "outline"
+                        }
+                      >
+                        {(mode === "edit"
+                          ? stemObserverAutoSave.value
+                          : stemObserver
+                        ).trim()
+                          ? "360-ready"
+                          : "Self only"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {mode === "edit" ? (
+                      <>
+                        <Textarea
+                          id="stemObserver"
+                          name="stemObserver"
+                          placeholder="e.g. This leader finds it easy to see situations from other people's perspectives, even when they disagree."
+                          value={stemObserverAutoSave.value}
+                          onChange={stemObserverAutoSave.handleChange}
+                          onBlur={stemObserverAutoSave.handleBlur}
+                          className="min-h-20 resize-y"
+                        />
+                        <AutoSaveIndicator
+                          status={stemObserverAutoSave.status}
+                          onRetry={stemObserverAutoSave.retry}
+                        />
+                      </>
+                    ) : (
+                      <Textarea
+                        id="stemObserver"
+                        name="stemObserver"
+                        placeholder="e.g. This leader finds it easy to see situations from other people's perspectives, even when they disagree."
+                        value={stemObserver}
+                        onChange={(e) => setStemObserver(e.target.value)}
+                        className="min-h-20 resize-y"
+                      />
+                    )}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="border-l-[3px] border-l-item-accent">
                 <CardHeader>

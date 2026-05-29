@@ -23,6 +23,47 @@ import type {
   ConstructForGeneration,
 } from '@/types/generation'
 import type { ProgressCallback } from '@/lib/ai/generation/types'
+import { getModelForTask } from '@/lib/ai/model-config'
+import { openRouterProvider } from '@/lib/ai/providers/openrouter'
+import {
+  buildObserverPerspectivePrompt,
+  parseObserverVariants,
+} from '@/lib/ai/generation/prompts/observer-perspective'
+
+/**
+ * Generate observer (360) stems for finalised candidate items, keyed by their
+ * array index. Run AFTER the pipeline so the self stems are settled (the
+ * critique stage can revise stems), avoiding self/observer drift. Best-effort:
+ * any failure returns an empty map and generation proceeds without observer
+ * wording (it can be backfilled later from the item library).
+ */
+async function generateObserverStemsForCandidates(
+  items: { stem: string; constructName?: string }[],
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>()
+  if (items.length === 0) return result
+  try {
+    const inputs = items.map((it, i) => ({
+      id: String(i),
+      stem: it.stem,
+      constructName: it.constructName,
+    }))
+    const task = await getModelForTask('item_generation')
+    const response = await openRouterProvider.complete({
+      model: task.modelId,
+      prompt: buildObserverPerspectivePrompt(inputs),
+      temperature: 0.3,
+      responseFormat: 'json',
+    })
+    const validIds = new Set(inputs.map((i) => i.id))
+    for (const v of parseObserverVariants(response.content, validIds)) {
+      result.set(Number(v.id), v.stemObserver)
+    }
+  } catch {
+    // best-effort — swallow and proceed without observer stems
+  }
+  return result
+}
 
 
 export type GenerationRunWithConstructNames = GenerationRun & {
@@ -458,12 +499,24 @@ export async function startGenerationRun(
         { responseFormatDescription },
       )
 
+      // Derive observer (360) wording once self stems are final.
+      const constructNameById = new Map(
+        constructs.map((c) => [c.id, c.name]),
+      )
+      const observerStems = await generateObserverStemsForCandidates(
+        scoredItems.map((item: ScoredCandidateItem) => ({
+          stem: item.stem,
+          constructName: constructNameById.get(item.constructId),
+        })),
+      )
+
       // Bulk insert scored items
       const { error: insertError } = await db.from('generated_items').insert(
-        scoredItems.map((item: ScoredCandidateItem) => ({
+        scoredItems.map((item: ScoredCandidateItem, idx: number) => ({
           generation_run_id: runId,
           construct_id:      item.constructId,
           stem:              item.stem,
+          stem_observer:     observerStems.get(idx) ?? null,
           reverse_scored:    item.reverseScored,
           rationale:         item.rationale ?? null,
           embedding:         item.embedding,
@@ -628,6 +681,7 @@ export async function acceptGeneratedItems(
         construct_id: item.constructId,
         response_format_id: responseFormatId,
         stem: item.stem,
+        stem_observer: item.stemObserver ?? null,
         reverse_scored: item.reverseScored,
         weight: 1.0,
         status: 'draft',
