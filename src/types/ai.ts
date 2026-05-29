@@ -104,26 +104,85 @@ export interface FactorRanking {
   cumulativeValue: number
 }
 
+/** Seniority level a brief / factor applies to. */
+export type AssessmentLevel =
+  | 'ic'
+  | 'first_line_manager'
+  | 'mid_manager'
+  | 'senior_leader'
+  | 'executive'
+
+/** The decision being made — the coarse stored outcome category. */
+export type AssessmentOutcome = 'selection' | 'development' | 'team_composition'
+
+/**
+ * Structured brief extracted from a role description by the Architect.
+ * Produced by the `brief_extraction` AI task; consumed by the matcher.
+ */
+export interface Brief {
+  /** Best inference of the role title; may be empty if genuinely unclear. */
+  roleTitle: string
+  /** Inferred seniority level. */
+  level: AssessmentLevel
+  /** Job family (e.g. "sales", "engineering"); may be empty. */
+  function: string
+  /** Coarse stored outcome category used for factor eligibility filtering. */
+  outcome: AssessmentOutcome
+  /** The user's stated decision verbatim (e.g. "succession planning") — feeds matcher reasoning. */
+  outcomeIntent: string
+  /** 3–7 concise responsibility bullets drawn from the source. */
+  responsibilities: string[]
+  /** Contextual signals (e.g. "fast-growth startup", "regulated industry"). */
+  contextSignals: string[]
+  /** Domain/technical skills explicitly mentioned. */
+  technicalRequirements: string[]
+  /** How well the input supported a useful brief. */
+  confidence: 'high' | 'medium' | 'low'
+}
+
+/** A single factor in the pool the matcher evaluates and ranks. */
+export interface MatchingFactor {
+  /** UUID of the factor. */
+  id: string
+  /** Factor display name. */
+  name: string
+  /** Prose describing what the factor measures (definition, falling back to description). */
+  definition: string
+  /** Eligibility: outcomes this factor suits. Empty = applies to all. */
+  applicableOutcomes?: string[]
+  /** Eligibility: levels this factor suits. Empty = applies to all. */
+  applicableLevels?: string[]
+}
+
+/**
+ * Where the matching brief is sourced from. Both paths feed the same ranking
+ * stage; they differ only in how the "what matters for this role" signal is
+ * derived.
+ * - `diagnostic` — measured organisational reality (org-diagnostic flow)
+ * - `brief`      — stated intent extracted from a role description (Architect)
+ */
+export type MatchingSource =
+  | {
+      kind: 'diagnostic'
+      /** UUID of the client being matched. */
+      clientId: string
+      /** Aggregated diagnostic data keyed by dimension ID (weighted means). */
+      diagnosticData: Record<string, number>
+    }
+  | {
+      kind: 'brief'
+      /** Structured brief extracted from a role description. */
+      brief: Brief
+    }
+
 /**
  * Input data assembled for a matching run and sent to the AI layer.
  */
 export interface MatchingInput {
-  /** UUID of the client being matched. */
-  clientId: string
-  /**
-   * Aggregated diagnostic data keyed by dimension ID.
-   * Values are typically weighted means from the diagnostic session.
-   */
-  diagnosticData: Record<string, number>
-  /** The pool of competencies the AI should evaluate and rank. */
-  availableFactors: Array<{
-    /** UUID of the competency. */
-    id: string
-    /** Competency display name. */
-    name: string
-    /** Rich description of what the competency measures. */
-    description: string
-  }>
+  /** The source of the matching signal (diagnostic scores or a role brief). */
+  source: MatchingSource
+  /** The pool of factors the AI should evaluate and rank. */
+  availableFactors: MatchingFactor[]
 }
 
 /**

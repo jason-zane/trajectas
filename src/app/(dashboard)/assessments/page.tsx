@@ -7,11 +7,12 @@ import { getAssessments } from "@/app/actions/assessments";
 import { getItemSelectionRules } from "@/app/actions/item-selection-rules";
 import { RulesEditor } from "./rules-editor";
 import { AssessmentsDataTable } from "./assessments-data-table";
+import { ArchitectLauncher } from "@/components/architect/architect-launcher";
 
 export default async function AssessmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; new?: string }>;
 }) {
   const [assessments, rules, { tab }] = await Promise.all([
     getAssessments(),
@@ -26,12 +27,15 @@ export default async function AssessmentsPage({
         title="Assessments"
         description="Build and manage psychometric assessments from your factor library."
       >
-        <Link href="/assessments/create">
-          <Button>
-            <Plus className="size-4" />
-            Build Assessment
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ArchitectLauncher />
+          <Link href="/assessments/create">
+            <Button>
+              <Plus className="size-4" />
+              Build Assessment
+            </Button>
+          </Link>
+        </div>
       </PageHeader>
 
       <Tabs defaultValue={tab ?? "assessments"}>

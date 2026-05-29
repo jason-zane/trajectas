@@ -46,8 +46,15 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
   competency_matching: {
     label: "Competency Matching",
     description:
-      "Ranks competencies based on diagnostic evidence from the client.",
+      "Ranks factors by relevance — from client diagnostic evidence or an Architect role brief.",
     icon: Sparkles,
+    glowColor: "var(--primary)",
+  },
+  brief_extraction: {
+    label: "Brief Extraction",
+    description:
+      "Reads a pasted or uploaded role description and extracts a structured brief for the Assessment Architect.",
+    icon: FileText,
     glowColor: "var(--primary)",
   },
   ranking_explanation: {
@@ -130,6 +137,7 @@ export const PURPOSE_ORDER: AIPromptPurpose[] = [
   "item_critique",
   "synthetic_respondent",
   "embedding",
+  "brief_extraction",
   "competency_matching",
   "ranking_explanation",
   "diagnostic_analysis",

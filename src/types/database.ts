@@ -195,6 +195,7 @@ export type AIPromptPurpose =
   | 'report_development_advice'
   | 'item_critique'
   | 'synthetic_respondent'
+  | 'brief_extraction'
 
 /** Report assessment type. */
 export type ReportType = 'self_report' | '360'
@@ -552,6 +553,12 @@ export interface Factor {
   sourceId?: string
   /** When true, the set of constructs linked to this factor is frozen. Defaults to false. */
   compositionLocked?: boolean
+  /** Architect eligibility: decision types this factor suits (selection|development|team_composition). Empty = applies to all. */
+  applicableOutcomes?: string[]
+  /** Architect eligibility: seniority levels this factor suits (ic|first_line_manager|mid_manager|senior_leader|executive). Empty = applies to all. */
+  applicableLevels?: string[]
+  /** Architect eligibility: free-tag job functions this factor suits. Empty = applies to all. */
+  applicableFunctions?: string[]
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */

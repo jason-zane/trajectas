@@ -8,10 +8,10 @@
  * results can be correlated with the exact prompt that produced them.
  */
 
-import type { MatchingInput, FactorRanking } from '@/types/ai'
+import type { Brief, MatchingInput, MatchingSource, FactorRanking } from '@/types/ai'
 
 /** Current version of the matching prompt template. */
-export const PROMPT_VERSION = 1
+export const PROMPT_VERSION = 2
 
 /**
  * Build the complete prompt pair for a competency-matching request.
@@ -25,23 +25,50 @@ export function buildMatchingPrompt(input: MatchingInput): {
 }
 
 function buildUserPrompt(input: MatchingInput): string {
-  const dimensions = Object.entries(input.diagnosticData)
-    .map(([dimensionId, score]) => `- ${dimensionId}: ${score}`)
+  const factors = input.availableFactors
+    .map((f) => `- **${f.name}** (${f.id})\n  ${f.definition}`)
     .join('\n')
 
-  const competencies = input.availableFactors
-    .map((c) => `- **${c.name}** (${c.id})\n  ${c.description}`)
-    .join('\n')
+  return `${buildSignal(input.source)}
 
-  return `## Diagnostic dimension scores
+## Available factors
 
-${dimensions}
+${factors}
 
-## Available competencies
+Analyse the signal above, then rank the factors by relevance. Return your answer as JSON following the schema described in the system prompt.`
+}
 
-${competencies}
+/** Render the source signal — either diagnostic scores or a role brief. */
+function buildSignal(source: MatchingSource): string {
+  if (source.kind === 'diagnostic') {
+    const dimensions = Object.entries(source.diagnosticData)
+      .map(([dimensionId, score]) => `- ${dimensionId}: ${score}`)
+      .join('\n')
+    return `## Diagnostic dimension scores\n\n${dimensions}`
+  }
+  return buildBriefSignal(source.brief)
+}
 
-Analyse the diagnostic profile above, then rank the competencies by relevance. Return your answer as JSON following the schema described in the system prompt.`
+function buildBriefSignal(brief: Brief): string {
+  const list = (items: string[]) =>
+    items.length ? items.map((i) => `- ${i}`).join('\n') : '- (none stated)'
+
+  return `## Role brief
+
+- **Role title:** ${brief.roleTitle || '(unspecified)'}
+- **Level:** ${brief.level}
+- **Function:** ${brief.function || '(unspecified)'}
+- **Decision (outcome):** ${brief.outcome}
+- **Stated intent:** ${brief.outcomeIntent || brief.outcome}
+
+### Responsibilities
+${list(brief.responsibilities)}
+
+### Context signals
+${list(brief.contextSignals)}
+
+### Technical requirements
+${list(brief.technicalRequirements)}`
 }
 
 /**
