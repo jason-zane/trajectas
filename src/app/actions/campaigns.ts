@@ -267,8 +267,11 @@ async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
         .order('display_order', { ascending: true }),
       db
         .from('campaign_participants')
+        // Exclude 360 rater taking-rows — they are managed in the Raters tab,
+        // not shown as normal participants.
         .select('*, participant_sessions(id, status)')
         .eq('campaign_id', id)
+        .is('campaign_rater_id', null)
         .is('deleted_at', null)
         .order('created_at', { ascending: false }),
       db

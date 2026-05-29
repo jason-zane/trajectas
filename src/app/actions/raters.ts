@@ -9,10 +9,21 @@ import { logActionError } from '@/lib/security/action-errors'
 import { mapCampaignRaterRow, mapCampaignParticipantRow } from '@/lib/supabase/mappers'
 import type { CampaignParticipant, CampaignRater } from '@/types/database'
 
+/** A rater plus the live progress of their linked observer-survey participant. */
+export interface RaterWithProgress extends CampaignRater {
+  /** Access token for the rater's observer survey (once invited). */
+  takingToken?: string
+  /**
+   * Display status: the rater lifecycle status, upgraded to in_progress /
+   * completed from the linked participant once they start the survey.
+   */
+  effectiveStatus: string
+}
+
 /** The subject is the single campaign_participant of a 360 campaign; raters rate them. */
 export interface Campaign360Setup {
   subject: CampaignParticipant | null
-  raters: CampaignRater[]
+  raters: RaterWithProgress[]
 }
 
 const addRaterSchema = z.object({
@@ -39,25 +50,53 @@ export async function getCampaign360Setup(
   await require360Admin(campaignId)
   const db = createAdminClient()
 
-  // The subject is the campaign's single participant (one-subject 360).
+  // The subject is the campaign's single NON-rater participant (one-subject 360).
+  // Rater taking-rows also live in campaign_participants, so exclude them here.
   const { data: participants } = await db
     .from('campaign_participants')
     .select('*')
     .eq('campaign_id', campaignId)
+    .is('campaign_rater_id', null)
     .order('created_at', { ascending: true })
     .limit(1)
 
-  const { data: raters, error } = await db
-    .from('campaign_raters')
-    .select('*')
-    .eq('campaign_id', campaignId)
-    .order('created_at', { ascending: true })
+  const [{ data: raters, error }, { data: raterParticipants }] = await Promise.all([
+    db
+      .from('campaign_raters')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .order('created_at', { ascending: true }),
+    // The linked observer-survey participant rows carry the live taking status.
+    db
+      .from('campaign_participants')
+      .select('campaign_rater_id, access_token, status')
+      .eq('campaign_id', campaignId)
+      .not('campaign_rater_id', 'is', null),
+  ])
 
   if (error) throw new Error(error.message)
 
+  const linkByRater = new Map(
+    (raterParticipants ?? []).map((p) => [
+      p.campaign_rater_id as string,
+      { token: p.access_token as string, status: p.status as string },
+    ]),
+  )
+
+  const augmented: RaterWithProgress[] = (raters ?? []).map((row) => {
+    const rater = mapCampaignRaterRow(row)
+    const link = linkByRater.get(rater.id)
+    // Upgrade the displayed status from the linked participant once they've
+    // started (in_progress) or finished (completed).
+    let effectiveStatus = rater.status
+    if (link?.status === 'completed') effectiveStatus = 'completed'
+    else if (link?.status === 'in_progress') effectiveStatus = 'in_progress'
+    return { ...rater, takingToken: link?.token, effectiveStatus }
+  })
+
   return {
     subject: participants?.[0] ? mapCampaignParticipantRow(participants[0]) : null,
-    raters: (raters ?? []).map(mapCampaignRaterRow),
+    raters: augmented,
   }
 }
 
@@ -174,9 +213,52 @@ export async function removeRater(campaignId: string, raterId: string) {
 export async function markApprovedRatersInvited(campaignId: string) {
   const access = await require360Admin(campaignId)
   const db = createAdminClient()
+  const now = new Date().toISOString()
+
+  // Approved raters that don't yet have an observer-survey participant row.
+  const { data: approved, error: approvedErr } = await db
+    .from('campaign_raters')
+    .select('id, email')
+    .eq('campaign_id', campaignId)
+    .eq('status', 'approved')
+  if (approvedErr) {
+    logActionError('markApprovedRatersInvited.select', approvedErr)
+    return { error: 'Unable to mark raters invited.' }
+  }
+  if (!approved || approved.length === 0) {
+    return { success: true as const, count: 0 }
+  }
+
+  const { data: existing } = await db
+    .from('campaign_participants')
+    .select('campaign_rater_id')
+    .eq('campaign_id', campaignId)
+    .in('campaign_rater_id', approved.map((r) => r.id))
+  const hasParticipant = new Set(
+    (existing ?? []).map((p) => p.campaign_rater_id as string),
+  )
+
+  const toCreate = approved.filter((r) => !hasParticipant.has(r.id))
+  if (toCreate.length > 0) {
+    // Create one observer-survey participant per rater (access_token defaulted).
+    const { error: insertErr } = await db.from('campaign_participants').insert(
+      toCreate.map((r) => ({
+        campaign_id: campaignId,
+        email: r.email,
+        campaign_rater_id: r.id,
+        status: 'invited',
+        invited_at: now,
+      })),
+    )
+    if (insertErr) {
+      logActionError('markApprovedRatersInvited.insert', insertErr)
+      return { error: 'Unable to create rater survey access.' }
+    }
+  }
+
   const { data, error } = await db
     .from('campaign_raters')
-    .update({ status: 'invited', invited_at: new Date().toISOString() })
+    .update({ status: 'invited', invited_at: now })
     .eq('campaign_id', campaignId)
     .eq('status', 'approved')
     .select('id')
@@ -184,6 +266,7 @@ export async function markApprovedRatersInvited(campaignId: string) {
     logActionError('markApprovedRatersInvited', error)
     return { error: 'Unable to mark raters invited.' }
   }
+
   await logAuditEvent({
     actorProfileId: access.scope.actor?.id ?? null,
     eventType: 'campaign.raters.invited',

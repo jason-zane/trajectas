@@ -114,6 +114,7 @@ type SectionOptionRow = {
 type SectionItemRow = {
   id: string
   stem: string
+  stem_observer: string | null
   construct_id: string | null
   purpose: string | null
   difficulty: 'easy' | 'medium' | 'hard' | null
@@ -406,6 +407,7 @@ export async function getSessionState(token: string, sessionId: string) {
     campaignAssessmentResult,
     assessmentFactorsResult,
     responsesResult,
+    participantRaterResult,
   ] =
     await Promise.all([
       db
@@ -417,7 +419,7 @@ export async function getSessionState(token: string, sessionId: string) {
             id,
             item_id,
             display_order,
-            items(id, stem, construct_id, purpose, difficulty, reverse_scored, item_options(id, label, value, display_order))
+            items(id, stem, stem_observer, construct_id, purpose, difficulty, reverse_scored, item_options(id, label, value, display_order))
           )
         `)
         .eq('assessment_id', session.assessment_id)
@@ -436,6 +438,15 @@ export async function getSessionState(token: string, sessionId: string) {
         .from('participant_responses')
         .select('item_id, response_value, response_data')
         .eq('session_id', sessionId),
+      // Is this a 360 rater (observer) session? If the owning participant links
+      // to a campaign_rater, serve the observer-worded stems.
+      session.campaign_participant_id
+        ? db
+            .from('campaign_participants')
+            .select('campaign_rater_id')
+            .eq('id', session.campaign_participant_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
     ])
 
   const { data: sectionRows, error: sectionRowsError } = sectionResult
@@ -446,6 +457,12 @@ export async function getSessionState(token: string, sessionId: string) {
 
   const campaignAssessment = campaignAssessmentResult.data
   const assessmentFactorIds = assessmentFactorsResult.data
+  // 360 rater sessions render the observer-worded stem; everyone else (subject /
+  // self participants) gets the first-person stem.
+  const isObserverSession = Boolean(
+    (participantRaterResult.data as { campaign_rater_id?: string | null } | null)
+      ?.campaign_rater_id,
+  )
 
   // -------------------------------------------------------------------------
   // Resolve allowed construct IDs based on campaign selection
@@ -582,9 +599,13 @@ export async function getSessionState(token: string, sessionId: string) {
               sortOrder: o.display_order,
             }))
 
+          const selfStem = si.items?.stem ?? ''
           return {
             id: si.items?.id ?? si.item_id,
-            stem: si.items?.stem ?? '',
+            // Observer (rater) sessions show the third-person variant when present.
+            stem: isObserverSession
+              ? (si.items?.stem_observer ?? selfStem)
+              : selfStem,
             displayOrder: si.display_order,
             options: itemOptions.length > 0 ? itemOptions : fallbackOptions,
           }
@@ -1344,6 +1365,42 @@ export async function submitSession(
       ok: false,
       error: 'submit_failed',
       message: 'Unable to submit this assessment right now',
+    }
+  }
+
+  // 360 raters take the observer survey but are never individually scored or
+  // reported (their responses feed the subject's aggregate snapshot). Complete
+  // the session and stop — do not trigger report generation.
+  const { data: raterParticipant } = await db
+    .from('campaign_participants')
+    .select('campaign_rater_id')
+    .eq('id', access.participantId)
+    .maybeSingle()
+  if (raterParticipant?.campaign_rater_id) {
+    if (session.status !== 'completed') {
+      const nowTs = new Date().toISOString()
+      await db
+        .from('participant_sessions')
+        .update({
+          status: 'completed',
+          completed_at: nowTs,
+          processing_status: 'ready',
+          processing_error: null,
+          processed_at: nowTs,
+        })
+        .eq('id', sessionId)
+        .eq('campaign_participant_id', access.participantId)
+      // Mark the rater's participant row completed so the Raters tab reflects it.
+      await db
+        .from('campaign_participants')
+        .update({ status: 'completed', completed_at: nowTs })
+        .eq('id', access.participantId)
+    }
+    return {
+      ok: true,
+      outcome: 'completed_no_report',
+      sessionId,
+      processingStatus: 'ready',
     }
   }
 
