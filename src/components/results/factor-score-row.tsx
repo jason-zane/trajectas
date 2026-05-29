@@ -49,7 +49,7 @@ export function FactorScoreRow({
 
   return (
     <div>
-      <div className="flex items-center gap-4 py-1.5">
+      <div className="flex items-center gap-4 py-1">
         {enableDrilldown ? (
           <button
             type="button"

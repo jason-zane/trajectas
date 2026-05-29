@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocalTime } from "@/components/local-time";
 import { SessionScoresPanel } from "./session-scores-panel";
 import { SessionResponsesPanel } from "./session-responses-panel";
@@ -171,16 +170,11 @@ export function SessionView({
         />
       </div>
 
-      <Tabs defaultValue="scores">
-        <TabsList>
-          <TabsTrigger value="scores">Scores</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-          {canSeeResponses ? (
-            <TabsTrigger value="responses">Responses</TabsTrigger>
-          ) : null}
-        </TabsList>
-
-        <TabsContent value="scores" className="mt-6">
+      <div className="space-y-12">
+        <section className="space-y-5">
+          <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Scores
+          </h2>
           <SessionScoresPanel
             scores={session.scores}
             dimensionScores={session.dimensionScores}
@@ -191,23 +185,34 @@ export function SessionView({
             sessionId={session.id}
             showConstructDrilldown={isPlatformAdmin}
           />
-        </TabsContent>
+        </section>
 
-        <TabsContent value="reports" className="mt-6">
+        <section className="space-y-5">
+          <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Reports
+          </h2>
           <CampaignSessionReportsPanel
             sessionId={session.id}
             initialRows={reportRows}
             reportBasePath={reportBasePath}
             settingsHref={settingsHref}
           />
-        </TabsContent>
+        </section>
 
         {canSeeResponses ? (
-          <TabsContent value="responses" className="mt-6">
-            <SessionResponsesPanel sessionId={session.id} />
-          </TabsContent>
+          <details className="group rounded-xl border border-border bg-card">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 [&::-webkit-details-marker]:hidden">
+              <span className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                Responses
+              </span>
+              <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="border-t border-border px-5 py-5">
+              <SessionResponsesPanel sessionId={session.id} />
+            </div>
+          </details>
         ) : null}
-      </Tabs>
+      </div>
     </div>
   );
 }

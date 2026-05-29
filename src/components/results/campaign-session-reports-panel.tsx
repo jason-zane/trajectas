@@ -152,7 +152,7 @@ export function CampaignSessionReportsPanel({
             <TableRow>
               <TableHead>Template name</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="w-48">Action</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -183,9 +183,9 @@ export function CampaignSessionReportsPanel({
                     {getReportStatusLabel(row.status)}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="text-right">
                   {row.snapshotId && isReportViewable(row.status) ? (
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
                       <Button
                         variant="outline"
                         size="sm"
