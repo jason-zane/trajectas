@@ -154,7 +154,6 @@ const partnerNav: NavSection[] = [
     label: "Assessments",
     items: [
       { title: "Assessments", href: "/assessments", icon: ClipboardList },
-      { title: "Architect", href: "/assessments?new=architect", icon: Wand2 },
       { title: "Report Templates", href: "/report-templates", icon: LayoutTemplate },
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
