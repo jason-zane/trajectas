@@ -176,9 +176,13 @@ export function CampaignRatersManager({
         return;
       }
       const n = "count" in res && typeof res.count === "number" ? res.count : 0;
+      const emailed =
+        "emailsSent" in res && typeof res.emailsSent === "number"
+          ? res.emailsSent
+          : 0;
       toast.success(
         n > 0
-          ? `Invited ${n} ${n === 1 ? "rater" : "raters"}`
+          ? `Invited ${n} ${n === 1 ? "rater" : "raters"} (${emailed} ${emailed === 1 ? "email" : "emails"} sent)`
           : "No approved raters to invite",
       );
       router.refresh();

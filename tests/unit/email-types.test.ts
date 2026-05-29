@@ -8,8 +8,8 @@ import {
 } from '@/lib/email/types'
 
 describe('EMAIL_TYPES', () => {
-  it('defines exactly 7 email types', () => {
-    expect(EMAIL_TYPES).toHaveLength(7)
+  it('defines exactly 8 email types', () => {
+    expect(EMAIL_TYPES).toHaveLength(8)
   })
 
   it('includes all required types', () => {
@@ -17,6 +17,7 @@ describe('EMAIL_TYPES', () => {
     expect(EMAIL_TYPES).toContain('staff_invite')
     expect(EMAIL_TYPES).toContain('assessment_invite')
     expect(EMAIL_TYPES).toContain('assessment_reminder')
+    expect(EMAIL_TYPES).toContain('rater_invite')
     expect(EMAIL_TYPES).toContain('report_ready')
     expect(EMAIL_TYPES).toContain('welcome')
     expect(EMAIL_TYPES).toContain('admin_notification')
