@@ -45,14 +45,31 @@ describe("aggregateThreeSixty — anonymity suppression", () => {
 })
 
 describe("aggregateThreeSixty — gap + quadrants", () => {
-  it("computes self − othersMean across all individual observers", () => {
+  it("excludes below-threshold anonymous raters from othersMean (anonymity)", () => {
+    // manager (named) + 1 peer (suppressed): othersMean must be the manager
+    // alone, so the lone peer's score can't be recovered from the aggregate.
     const agg = aggregateThreeSixty(
       [self(80), obs("manager", 60), obs("peer", 40)],
       [F],
     )
     const f = agg.factors[0]
-    expect(f.othersMean).toBeCloseTo(50)
-    expect(f.gap).toBeCloseTo(30)
+    expect(f.othersMean).toBeCloseTo(60)
+    expect(f.gap).toBeCloseTo(20)
+  })
+
+  it("includes an anonymous category in othersMean once it meets threshold", () => {
+    const agg = aggregateThreeSixty(
+      [
+        self(80),
+        obs("manager", 60),
+        obs("peer", 30),
+        obs("peer", 30),
+        obs("peer", 30),
+      ],
+      [F],
+    )
+    // manager 60 + three peers at 30 → (60+30+30+30)/4 = 37.5
+    expect(agg.factors[0].othersMean).toBeCloseTo(37.5)
   })
 
   it("flags a blind spot when self is high but others are low", () => {

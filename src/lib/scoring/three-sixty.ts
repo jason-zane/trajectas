@@ -153,9 +153,16 @@ export function aggregateThreeSixty(
       }
     })
 
-    // othersMean uses all individual observer scores (not mean-of-means) so a
-    // thin category doesn't distort the overall comparison.
-    const allObserverScores = observerSessions
+    // Anonymity-safe "others" pool: the named manager plus any anonymous
+    // category that MEETS the threshold. Below-threshold anonymous raters are
+    // excluded entirely — otherwise, since the manager mean is emitted, a lone
+    // suppressed peer's score would be recoverable as (2*othersMean - manager).
+    const eligibleObservers = observerSessions.filter((s) => {
+      if (s.category === 'manager') return true
+      if (!ANON_CATEGORIES.includes(s.category)) return true
+      return (raterCountByCategory[s.category] ?? 0) >= opts.anonymityThreshold
+    })
+    const allObserverScores = eligibleObservers
       .map((s) => s.factorScores[factorId])
       .filter((v): v is number => typeof v === 'number')
     const othersMean = mean(allObserverScores)

@@ -49,10 +49,12 @@ export async function generateCampaign360Snapshot(
   const subject = subjectRows?.[0]
   if (!subject) return { error: 'Set the subject before generating results.' }
 
-  // All participants in the campaign, with their rater relationship (if any).
+  // All participants in the campaign, with their rater relationship + lifecycle
+  // status (so declined/withdrawn raters are excluded — declining propagates
+  // 'withdrawn' to the participant row).
   const { data: participantRows } = await db
     .from('campaign_participants')
-    .select('id, campaign_rater_id, campaign_raters(relationship)')
+    .select('id, status, campaign_rater_id, campaign_raters(relationship, status)')
     .eq('campaign_id', campaignId)
 
   // Completed sessions for those participants.
@@ -67,15 +69,21 @@ export async function generateCampaign360Snapshot(
   }
 
   // Map participant → category (self for the subject; relationship for raters).
+  // Skip withdrawn/declined participants so they don't feed the aggregate even
+  // if they had already completed before being removed.
   const categoryByParticipant = new Map<string, RaterCategory>()
   for (const p of participantRows ?? []) {
+    if (p.status === 'withdrawn' || p.status === 'expired') continue
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rel = (p as any).campaign_raters?.relationship as
-      | RaterCategory
-      | undefined
+    const rater = (p as any).campaign_raters as
+      | { relationship?: RaterCategory; status?: string }
+      | null
+    if (rater && (rater.status === 'declined' || rater.status === 'withdrawn')) {
+      continue
+    }
     categoryByParticipant.set(
       p.id as string,
-      p.campaign_rater_id ? (rel ?? 'other') : 'self',
+      p.campaign_rater_id ? (rater?.relationship ?? 'other') : 'self',
     )
   }
 
