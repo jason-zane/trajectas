@@ -186,6 +186,22 @@ export async function updateRaterStatus(
     logActionError('updateRaterStatus', error)
     return { error: 'Unable to update rater.' }
   }
+
+  // Declining/withdrawing a rater must revoke their survey access. The runner
+  // authorizes from campaign_participants.status (blocking withdrawn/expired),
+  // so propagate to the linked observer-survey participant row — otherwise a
+  // declined rater could still submit via a previously-shared link.
+  if (status === 'declined' || status === 'withdrawn') {
+    const { error: revokeErr } = await db
+      .from('campaign_participants')
+      .update({ status: 'withdrawn' })
+      .eq('campaign_id', campaignId)
+      .eq('campaign_rater_id', raterId)
+    if (revokeErr) {
+      logActionError('updateRaterStatus.revokeAccess', revokeErr)
+    }
+  }
+
   revalidatePath(`/campaigns/${campaignId}/raters`)
   return { success: true as const }
 }
