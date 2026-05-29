@@ -20,6 +20,7 @@ import type {
   DIFResult,
   Partner,
   Campaign,
+  CampaignRater,
   CampaignAssessment,
   CampaignParticipant,
   CampaignAccessLink,
@@ -655,6 +656,30 @@ export function mapCampaignRow(row: any): Campaign {
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapCampaignRaterRow(row: any): CampaignRater {
+  return {
+    id: row.id,
+    campaignId: row.campaign_id,
+    subjectParticipantId: row.subject_participant_id,
+    relationship: row.relationship,
+    name: row.name ?? undefined,
+    email: row.email,
+    accessToken: row.access_token,
+    sessionId: row.session_id ?? undefined,
+    status: row.status,
+    nominatedBy: row.nominated_by ?? undefined,
+    approvedBy: row.approved_by ?? undefined,
+    nominatedAt: row.nominated_at,
+    approvedAt: row.approved_at ?? undefined,
+    invitedAt: row.invited_at ?? undefined,
+    startedAt: row.started_at ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
   }
 }
 
