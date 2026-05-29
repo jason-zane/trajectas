@@ -17,7 +17,14 @@ export default async function CampaignRatersPage({
     redirect(`/campaigns/${id}/participants`);
   }
 
-  const setup = await getCampaign360Setup(id);
+  // 360 management is platform-admin only (test-bed). getCampaign360Setup throws
+  // for non-admins; redirect them to the overview rather than surface an error.
+  let setup;
+  try {
+    setup = await getCampaign360Setup(id);
+  } catch {
+    redirect(`/campaigns/${id}/overview`);
+  }
 
   return (
     <CampaignRatersManager

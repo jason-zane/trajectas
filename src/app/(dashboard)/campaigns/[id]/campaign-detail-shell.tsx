@@ -66,6 +66,12 @@ export function CampaignDetailShell({
     if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
       return false;
     }
+    // 360 rater management is an admin-only test-bed surface — the route only
+    // exists under the dashboard. Hide it in client/partner portals (no route
+    // there, and the loader requires platform admin).
+    if (tab.segment === "raters" && portal !== "admin") {
+      return false;
+    }
     return true;
   });
 
