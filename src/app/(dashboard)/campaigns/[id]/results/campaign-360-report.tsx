@@ -182,7 +182,8 @@ export function Campaign360Report({
                   <TableHead className="text-right">Manager</TableHead>
                   <TableHead className="text-right">Peers</TableHead>
                   <TableHead className="text-right">Reports</TableHead>
-                  <TableHead className="text-right">Others avg</TableHead>
+                  <TableHead className="text-right">Other</TableHead>
+                  <TableHead className="text-right">Observers</TableHead>
                   <TableHead className="text-right">Gap</TableHead>
                   <TableHead>Insight</TableHead>
                 </TableRow>
@@ -204,6 +205,9 @@ export function Campaign360Report({
                       </TableCell>
                       <TableCell className="text-right">
                         {categoryCell(f.categories, "direct_report")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {categoryCell(f.categories, "other")}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {fmt(f.othersMean)}
