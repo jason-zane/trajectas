@@ -642,6 +642,7 @@ export function mapCampaignRow(row: any): Campaign {
     slug: row.slug,
     description: row.description ?? undefined,
     status: row.status,
+    kind: row.kind ?? 'self',
     clientId: row.client_id ?? undefined,
     partnerId: row.partner_id ?? undefined,
     createdBy: row.created_by ?? undefined,

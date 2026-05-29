@@ -27,8 +27,9 @@ import {
   updateCampaignField,
   addAssessmentToCampaign,
 } from "@/app/actions/campaigns"
-import type { Campaign } from "@/types/database"
+import type { Campaign, CampaignKind } from "@/types/database"
 import type { Client } from "@/types/database"
+import { User, Users } from "lucide-react"
 
 function slugify(text: string): string {
   return text
@@ -49,6 +50,8 @@ interface CampaignFormProps {
   routePrefix?: string
   /** Optional assessment to attach immediately after create. */
   initialAssessmentId?: string
+  /** Whether the 360 campaign type is offered (admin test-bed only). */
+  allowLeadership360?: boolean
 }
 
 export function CampaignForm({
@@ -58,6 +61,7 @@ export function CampaignForm({
   defaultClientId,
   routePrefix = "",
   initialAssessmentId,
+  allowLeadership360 = false,
 }: CampaignFormProps) {
   const router = useRouter()
 
@@ -74,6 +78,7 @@ export function CampaignForm({
   const [closesAt, setClosesAt] = useState(
     campaign?.closesAt ? campaign.closesAt.slice(0, 16) : "",
   )
+  const [kind, setKind] = useState<CampaignKind>(campaign?.kind ?? "self")
 
   // --- Create-mode-only local state for description ---
   const [createDescription, setCreateDescription] = useState(
@@ -125,6 +130,7 @@ export function CampaignForm({
       allowResume: true,
       showProgress: true,
       randomizeAssessmentOrder: false,
+      kind: mode === "create" ? kind : undefined,
     }
 
     const result =
@@ -207,6 +213,64 @@ export function CampaignForm({
               : "Edit campaign details."
           }
         />
+
+        {mode === "create" && allowLeadership360 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Campaign Type</CardTitle>
+              <CardDescription>
+                A self-assessment collects one response per participant. A 360
+                collects observer ratings of a subject from their manager,
+                peers, and direct reports.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      value: "self" as const,
+                      icon: User,
+                      title: "Self-Assessment",
+                      blurb: "Each participant takes their own assessment.",
+                    },
+                    {
+                      value: "leadership_360" as const,
+                      icon: Users,
+                      title: "360 Feedback",
+                      blurb:
+                        "One subject is rated by self plus observers, for development.",
+                    },
+                  ]
+                ).map((opt) => {
+                  const Icon = opt.icon
+                  const selected = kind === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setKind(opt.value)}
+                      aria-pressed={selected}
+                      className={`flex flex-col items-start gap-1.5 rounded-lg border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                        selected
+                          ? "border-primary bg-primary/5"
+                          : "border-input hover:bg-cream"
+                      }`}
+                    >
+                      <Icon
+                        className={`size-5 ${selected ? "text-primary" : "text-muted-foreground"}`}
+                      />
+                      <span className="font-semibold">{opt.title}</span>
+                      <span className="text-caption text-muted-foreground">
+                        {opt.blurb}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

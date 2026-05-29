@@ -89,6 +89,11 @@ export function CampaignDetailShell({
             campaignId={campaign.id}
             isFavorite={isFavorite}
           />
+          {campaign.kind === "leadership_360" && (
+            <Badge variant="outline" className="border-primary/40 text-primary">
+              360
+            </Badge>
+          )}
           <Badge
             variant={statusVariant[campaign.status] ?? "secondary"}
             className={statusClassName[campaign.status]}

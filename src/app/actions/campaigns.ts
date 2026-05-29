@@ -364,6 +364,7 @@ export async function createCampaign(payload: Record<string, unknown>) {
       slug: parsed.data.slug,
       description: parsed.data.description ?? null,
       status: parsed.data.status,
+      kind: parsed.data.kind,
       client_id: clientId,
       partner_id: partnerId,
       opens_at: parsed.data.opensAt || null,
