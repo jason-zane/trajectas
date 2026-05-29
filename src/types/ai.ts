@@ -152,6 +152,8 @@ export interface MatchingFactor {
   applicableOutcomes?: string[]
   /** Eligibility: levels this factor suits. Empty = applies to all. */
   applicableLevels?: string[]
+  /** Soft signal: job functions this factor suits. Informs ranking, not eligibility. */
+  applicableFunctions?: string[]
 }
 
 /**

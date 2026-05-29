@@ -98,6 +98,9 @@ export function mapFactorRow(row: any): Factor {
     strengthCommentary: row.strength_commentary ?? undefined,
     sourceId: row.source_id ?? undefined,
     compositionLocked: row.composition_locked ?? false,
+    applicableOutcomes: row.applicable_outcomes ?? [],
+    applicableLevels: row.applicable_levels ?? [],
+    applicableFunctions: row.applicable_functions ?? [],
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -316,6 +319,9 @@ export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at
     development_suggestion: c.developmentSuggestion ?? null,
     strength_commentary: c.strengthCommentary ?? null,
     source_id: c.sourceId ?? null,
+    applicable_outcomes: c.applicableOutcomes ?? [],
+    applicable_levels: c.applicableLevels ?? [],
+    applicable_functions: c.applicableFunctions ?? [],
   }
 }
 

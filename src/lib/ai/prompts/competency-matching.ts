@@ -26,7 +26,12 @@ export function buildMatchingPrompt(input: MatchingInput): {
 
 function buildUserPrompt(input: MatchingInput): string {
   const factors = input.availableFactors
-    .map((f) => `- **${f.name}** (${f.id})\n  ${f.definition}`)
+    .map((f) => {
+      const fns = f.applicableFunctions?.length
+        ? ` _(suited to functions: ${f.applicableFunctions.join(', ')})_`
+        : ''
+      return `- **${f.name}** (${f.id})${fns}\n  ${f.definition}`
+    })
     .join('\n')
 
   return `${buildSignal(input.source)}
