@@ -137,12 +137,19 @@ export function aggregateThreeSixty(
       .filter((v): v is number => typeof v === 'number')
     const self = mean(selfScores)
 
-    const categories: CategoryAggregate[] = observerCategories.map((category) => {
-      const inCategory = observerSessions.filter((s) => s.category === category)
-      const scores = inCategory
+    // Per-factor scored responses for a category — anonymity is judged on the
+    // people who actually answered THIS factor, not the category's headcount.
+    // (A category with 3 raters but only 1 response for this factor would
+    // otherwise expose that individual.)
+    const scoresForCategory = (category: RaterCategory) =>
+      observerSessions
+        .filter((s) => s.category === category)
         .map((s) => s.factorScores[factorId])
         .filter((v): v is number => typeof v === 'number')
-      const n = inCategory.length
+
+    const categories: CategoryAggregate[] = observerCategories.map((category) => {
+      const scores = scoresForCategory(category)
+      const n = scores.length
       const mustProtect = ANON_CATEGORIES.includes(category)
       const suppressed = mustProtect && n < opts.anonymityThreshold
       return {
@@ -154,17 +161,17 @@ export function aggregateThreeSixty(
     })
 
     // Anonymity-safe "others" pool: the named manager plus any anonymous
-    // category that MEETS the threshold. Below-threshold anonymous raters are
-    // excluded entirely — otherwise, since the manager mean is emitted, a lone
-    // suppressed peer's score would be recoverable as (2*othersMean - manager).
-    const eligibleObservers = observerSessions.filter((s) => {
-      if (s.category === 'manager') return true
-      if (!ANON_CATEGORIES.includes(s.category)) return true
-      return (raterCountByCategory[s.category] ?? 0) >= opts.anonymityThreshold
-    })
-    const allObserverScores = eligibleObservers
-      .map((s) => s.factorScores[factorId])
-      .filter((v): v is number => typeof v === 'number')
+    // category whose per-factor responses MEET the threshold. Below-threshold
+    // anonymous responses are excluded entirely — otherwise, since the manager
+    // mean is emitted, a lone peer's score would be recoverable as
+    // (2*othersMean - manager).
+    const allObserverScores: number[] = []
+    for (const category of observerCategories) {
+      const scores = scoresForCategory(category)
+      const mustProtect = ANON_CATEGORIES.includes(category)
+      if (mustProtect && scores.length < opts.anonymityThreshold) continue
+      allObserverScores.push(...scores)
+    }
     const othersMean = mean(allObserverScores)
 
     const gap = self !== null && othersMean !== null ? self - othersMean : null
