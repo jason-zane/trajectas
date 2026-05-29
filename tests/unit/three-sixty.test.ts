@@ -44,6 +44,23 @@ describe("aggregateThreeSixty — anonymity suppression", () => {
   })
 })
 
+describe("aggregateThreeSixty — per-factor anonymity", () => {
+  it("suppresses a category that meets headcount but lacks 3 scores for the factor", () => {
+    // 3 peers, but only 2 answered this factor → must still be suppressed.
+    const peerNoScore: SessionScore = { category: "peer", factorScores: {} }
+    const agg = aggregateThreeSixty(
+      [self(70), obs("peer", 50), obs("peer", 50), peerNoScore],
+      [F],
+    )
+    const peer = agg.factors[0].categories.find((c) => c.category === "peer")!
+    expect(peer.n).toBe(2)
+    expect(peer.suppressed).toBe(true)
+    expect(peer.mean).toBeNull()
+    // and those 2 sub-threshold scores must not leak via othersMean
+    expect(agg.factors[0].othersMean).toBeNull()
+  })
+})
+
 describe("aggregateThreeSixty — gap + quadrants", () => {
   it("excludes below-threshold anonymous raters from othersMean (anonymity)", () => {
     // manager (named) + 1 peer (suppressed): othersMean must be the manager

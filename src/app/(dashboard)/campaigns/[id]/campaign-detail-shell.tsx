@@ -24,6 +24,10 @@ const allTabs = (showAssessmentsAlert: boolean, kind: string) => [
   kind === "leadership_360"
     ? { label: "Subject & Raters", segment: "raters" }
     : { label: "Participants", segment: "participants" },
+  // 360 results report (admin only — gated in the filter below).
+  ...(kind === "leadership_360"
+    ? [{ label: "Results", segment: "results" }]
+    : []),
   { label: "Experience", segment: "experience" },
   { label: "Branding", segment: "branding" },
   { label: "Settings", segment: "settings" },
@@ -69,7 +73,7 @@ export function CampaignDetailShell({
     // 360 rater management is an admin-only test-bed surface — the route only
     // exists under the dashboard. Hide it in client/partner portals (no route
     // there, and the loader requires platform admin).
-    if (tab.segment === "raters" && portal !== "admin") {
+    if ((tab.segment === "raters" || tab.segment === "results") && portal !== "admin") {
       return false;
     }
     return true;
