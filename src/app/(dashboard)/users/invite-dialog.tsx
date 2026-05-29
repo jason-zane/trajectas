@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import { createStaffInviteAction } from "@/app/actions/staff-users";
+import { createStaffInviteAction, revokeInviteById } from "@/app/actions/staff-users";
+import { resendInvite } from "@/app/actions/user-management";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -212,7 +213,7 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
     setResult(undefined);
   }
 
-  function handleSubmit() {
+  function buildFormData() {
     const formData = new FormData();
     formData.set("email", email.trim());
     formData.set("tenantType", tenantType);
@@ -222,25 +223,71 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
       formData.set("tenantId", tenantId);
     }
 
-    startTransition(async () => {
-      const nextResult = await createStaffInviteAction(undefined, formData);
-      setResult(nextResult);
+    return formData;
+  }
 
-      if (!nextResult) {
-        toast.error("Failed to create invite.");
-        return;
-      }
+  function handleCreateResult(nextResult: InviteActionResult) {
+    setResult(nextResult);
 
-      if (nextResult.error) {
+    if (!nextResult) {
+      toast.error("Failed to create invite.");
+      return;
+    }
+
+    if (nextResult.error) {
+      // A duplicate keeps the dialog open so the inline resolution banner
+      // (resend / revoke & send) can be acted on; other errors just toast.
+      if (!nextResult.duplicate) {
         toast.error(nextResult.error);
+      }
+      return;
+    }
+
+    toast.success(`Invite email sent to ${email.trim()}.`);
+
+    setOpen(false);
+    resetForm();
+    router.refresh();
+  }
+
+  function handleSubmit() {
+    const formData = buildFormData();
+    startTransition(async () => {
+      handleCreateResult(await createStaffInviteAction(undefined, formData));
+    });
+  }
+
+  function handleResendExisting() {
+    const inviteId = result?.duplicate?.inviteId;
+    if (!inviteId) return;
+
+    startTransition(async () => {
+      const outcome = await resendInvite(inviteId);
+      if ("error" in outcome) {
+        toast.error(outcome.error);
         return;
       }
 
-      toast.success(`Invite email sent to ${email.trim()}.`);
-
+      toast.success(`Invite email resent to ${email.trim()}.`);
       setOpen(false);
       resetForm();
       router.refresh();
+    });
+  }
+
+  function handleRevokeAndSend() {
+    const inviteId = result?.duplicate?.inviteId;
+    if (!inviteId) return;
+
+    const formData = buildFormData();
+    startTransition(async () => {
+      const revoked = await revokeInviteById(inviteId);
+      if ("error" in revoked) {
+        toast.error(revoked.error);
+        return;
+      }
+
+      handleCreateResult(await createStaffInviteAction(undefined, formData));
     });
   }
 
@@ -370,7 +417,34 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
           {result?.fields?.tenantType?.[0] ? (
             <p className="text-sm text-destructive">{result.fields.tenantType[0]}</p>
           ) : null}
-          {result?.error ? (
+          {result?.duplicate ? (
+            <div className="space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-3">
+              <p className="text-sm text-foreground">
+                {result.error ??
+                  "An active invite already exists for this person with this role."}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResendExisting}
+                  disabled={isPending}
+                >
+                  Resend existing invite
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleRevokeAndSend}
+                  disabled={isPending}
+                >
+                  Revoke & send new
+                </Button>
+              </div>
+            </div>
+          ) : result?.error ? (
             <p className="text-sm text-destructive">{result.error}</p>
           ) : null}
         </ActionDialogBody>

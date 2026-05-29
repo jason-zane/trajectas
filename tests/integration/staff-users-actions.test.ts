@@ -65,6 +65,37 @@ describe("staff user actions", () => {
     });
   });
 
+  it("threads the duplicate invite id through on an active-scope collision", async () => {
+    auth.requireAdminScope.mockResolvedValueOnce({
+      actor: { id: "actor-1" },
+    });
+    staffAuth.createStaffInvite.mockResolvedValueOnce({
+      error: {
+        _form: [
+          "An active invite already exists for this person with this role. Resend it or revoke it before sending a new one.",
+        ],
+      },
+      duplicate: { inviteId: "invite-existing" },
+    });
+
+    const formData = new FormData();
+    formData.set("email", "person@example.com");
+    formData.set("tenantType", "platform");
+    formData.set("role", "platform_admin");
+
+    await expect(createStaffInviteAction(undefined, formData)).resolves.toEqual({
+      fields: {
+        _form: [
+          "An active invite already exists for this person with this role. Resend it or revoke it before sending a new one.",
+        ],
+      },
+      error:
+        "An active invite already exists for this person with this role. Resend it or revoke it before sending a new one.",
+      duplicate: { inviteId: "invite-existing" },
+    });
+    expect(inviteEmail.sendStaffInviteEmail).not.toHaveBeenCalled();
+  });
+
   it("returns a copyable invite link on success", async () => {
     auth.requireAdminScope.mockResolvedValueOnce({
       actor: { id: "actor-1" },

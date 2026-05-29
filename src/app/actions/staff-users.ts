@@ -17,6 +17,8 @@ type InviteFormState =
       error?: string
       fields?: Record<string, string[]>
       inviteLink?: string
+      /** Set when the invite collided with an existing active invite. */
+      duplicate?: { inviteId: string }
     }
   | undefined
 
@@ -45,6 +47,7 @@ export async function createStaffInviteAction(
     return {
       fields: result.error,
       error: result.error._form?.[0],
+      duplicate: result.duplicate,
     }
   }
 
