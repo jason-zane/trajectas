@@ -19,10 +19,19 @@ export type ArchitectPick = {
   availableItems: number
 }
 
+/** A factor in the eligible pool — for the "add factor" control in the picks UI. */
+export type ArchitectEligibleFactor = {
+  factorId: string
+  factorName: string
+  availableItems: number
+}
+
 export type ArchitectMatchResult = {
   picks: ArchitectPick[]
   summary: string
   recommendedCount: { minimum: number; optimal: number; maximum: number }
   /** Count of eligible factors considered (after outcome/level filtering). */
   consideredCount: number
+  /** Full eligible pool (incl. unranked) so the user can add a factor the matcher missed. */
+  eligibleFactors: ArchitectEligibleFactor[]
 }

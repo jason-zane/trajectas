@@ -1,24 +1,34 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, Wand2, AlertTriangle } from "lucide-react";
+import { Sparkles, Wand2, AlertTriangle, Upload, Loader2 } from "lucide-react";
 
 import {
   ActionDialog,
   ActionWizard,
   type ActionWizardStep,
 } from "@/components/action-dialog";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   extractBrief,
+  extractRoleText,
   runArchitectMatch,
   createArchitectAssessment,
 } from "@/app/actions/architect";
@@ -66,6 +76,8 @@ type Pick = {
   relevanceScore: number;
   reasoning: string;
   availableItems: number;
+  /** Items to include from this factor's pool (0..availableItems). */
+  itemCount: number;
   included: boolean;
 };
 
@@ -93,6 +105,8 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
   const [busy, setBusy] = useState(false);
 
   const [rawText, setRawText] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [chipId, setChipId] = useState<string>("selection");
   const [brief, setBrief] = useState<Brief | null>(null);
   const [match, setMatch] = useState<ArchitectMatchResult | null>(null);
@@ -104,7 +118,9 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
   const currentStepIndex = Math.max(0, WIZARD_STEPS.findIndex((s) => s.id === stepId));
 
   const includedPicks = picks.filter((p) => p.included);
-  const totalItems = includedPicks.reduce((sum, p) => sum + p.availableItems, 0);
+  const totalItems = includedPicks.reduce((sum, p) => sum + p.itemCount, 0);
+  const pickedIds = new Set(picks.map((p) => p.factorId));
+  const addableFactors = (match?.eligibleFactors ?? []).filter((f) => !pickedIds.has(f.factorId));
   const estMinutes = Math.max(1, Math.round((totalItems * ARCHITECT_SECONDS_PER_ITEM) / 60));
 
   function reset() {
@@ -122,6 +138,29 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
   function handleOpenChange(next: boolean) {
     if (!next) reset();
     onOpenChange(next);
+  }
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const result = await extractRoleText(fd);
+      if ("error" in result) {
+        toast.error("Couldn't read that file", { description: result.error });
+        return;
+      }
+      if (!result.text) {
+        toast.error("No text found in that file", { description: "Try pasting the text instead." });
+        return;
+      }
+      setRawText((prev) => (prev.trim() ? `${prev.trim()}\n\n${result.text}` : result.text));
+      toast.success(`Loaded "${file.name}"`);
+    } catch {
+      toast.error("Upload failed", { description: "Try pasting the text instead." });
+    } finally {
+      setUploading(false);
+    }
   }
 
   function canAdvance(): boolean {
@@ -172,6 +211,7 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
         setPicks(
           result.picks.map((p, i) => ({
             ...p,
+            itemCount: p.availableItems,
             included: i < (result.recommendedCount.optimal || result.picks.length),
           })),
         );
@@ -202,7 +242,7 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
       const result = await createArchitectAssessment({
         title: title.trim(),
         description: description.trim() || undefined,
-        picks: includedPicks.map((p) => ({ factorId: p.factorId, itemCount: p.availableItems, weight: 1 })),
+        picks: includedPicks.map((p) => ({ factorId: p.factorId, itemCount: p.itemCount, weight: 1 })),
       });
       if ("error" in result && result.error) {
         throw new Error(errorMessage(result.error, "Unable to create the assessment."));
@@ -221,6 +261,34 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
 
   function togglePick(factorId: string) {
     setPicks((prev) => prev.map((p) => (p.factorId === factorId ? { ...p, included: !p.included } : p)));
+  }
+
+  function setItemCount(factorId: string, count: number) {
+    setPicks((prev) =>
+      prev.map((p) =>
+        p.factorId === factorId
+          ? { ...p, itemCount: Math.max(0, Math.min(p.availableItems, count)) }
+          : p,
+      ),
+    );
+  }
+
+  function addFactor(factorId: string) {
+    const f = match?.eligibleFactors.find((e) => e.factorId === factorId);
+    if (!f || picks.some((p) => p.factorId === factorId)) return;
+    setPicks((prev) => [
+      ...prev,
+      {
+        factorId: f.factorId,
+        factorName: f.factorName,
+        rank: prev.length + 1,
+        relevanceScore: 0,
+        reasoning: "Added manually.",
+        availableItems: f.availableItems,
+        itemCount: f.availableItems,
+        included: true,
+      },
+    ]);
   }
 
   return (
@@ -249,7 +317,30 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
         {stepId === "brief" && (
           <div className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="arch-text">Role description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="arch-text">Role description</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt,application/pdf,text/plain"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleUpload(file);
+                    e.target.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
+                  {uploading ? "Reading…" : "Upload PDF / DOCX"}
+                </Button>
+              </div>
               <Textarea
                 id="arch-text"
                 placeholder="Paste a position description, or describe the role in your own words — responsibilities, seniority, function, context…"
@@ -259,7 +350,7 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                 autoFocus
               />
               <p className="text-xs text-muted-foreground">
-                Paste or type for now — file upload (PDF/DOCX) is coming soon.
+                Paste, type, or upload a PDF/DOCX/TXT. Uploaded text is appended above so you can edit it.
               </p>
             </div>
 
@@ -368,12 +459,45 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                             </Badge>
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{p.reasoning}</p>
-                          <p className="mt-1.5 text-[11px] text-muted-foreground/80">
-                            {p.availableItems} items
-                          </p>
+                          {p.included ? (
+                            <div className="mt-2 flex items-center gap-3">
+                              <Slider
+                                value={[p.itemCount]}
+                                min={0}
+                                max={p.availableItems}
+                                step={1}
+                                onValueChange={(v) =>
+                                  setItemCount(p.factorId, Array.isArray(v) ? (v[0] ?? 0) : v)
+                                }
+                                className="max-w-[160px]"
+                              />
+                              <span className="whitespace-nowrap text-[11px] text-muted-foreground/80">
+                                {p.itemCount} / {p.availableItems} items
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="mt-1.5 text-[11px] text-muted-foreground/80">
+                              {p.availableItems} items available
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
+
+                    {addableFactors.length > 0 && (
+                      <Select value="" onValueChange={(v) => v && addFactor(v)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="+ Add another factor…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {addableFactors.map((f) => (
+                            <SelectItem key={f.factorId} value={f.factorId}>
+                              {f.factorName}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 )}
               </>

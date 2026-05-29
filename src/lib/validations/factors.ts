@@ -37,6 +37,16 @@ export const factorSchema = z.object({
   developmentSuggestion: z.string().max(4000).optional(),
   strengthCommentary: z.string().max(4000).optional(),
   sourceId: z.string().uuid().optional().or(z.literal('')),
+  // Architect eligibility tags. Empty arrays mean "applies to all".
+  applicableOutcomes: z
+    .array(z.enum(['selection', 'development', 'team_composition']))
+    .optional()
+    .default([]),
+  applicableLevels: z
+    .array(z.enum(['ic', 'first_line_manager', 'mid_manager', 'senior_leader', 'executive']))
+    .optional()
+    .default([]),
+  applicableFunctions: z.array(z.string().max(60)).optional().default([]),
 })
 
 export type FactorInput = z.infer<typeof factorSchema>

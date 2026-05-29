@@ -10,6 +10,17 @@ import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
 import type { Factor } from '@/types/database'
 
+/** Parse a JSON-encoded string array from FormData; returns [] on anything unexpected. */
+function parseStringArray(value: FormDataEntryValue | null): string[] {
+  if (typeof value !== 'string' || value.length === 0) return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 export type FactorWithMeta = Factor & {
   dimensionName?: string
   clientName?: string
@@ -174,6 +185,9 @@ export async function createFactor(formData: FormData) {
     developmentSuggestion: (formData.get('developmentSuggestion') as string) || undefined,
     strengthCommentary: (formData.get('strengthCommentary') as string) || undefined,
     sourceId: (formData.get('sourceId') as string) || undefined,
+    applicableOutcomes: parseStringArray(formData.get('applicableOutcomes')),
+    applicableLevels: parseStringArray(formData.get('applicableLevels')),
+    applicableFunctions: parseStringArray(formData.get('applicableFunctions')),
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -218,6 +232,9 @@ export async function createFactor(formData: FormData) {
       development_suggestion: parsed.data.developmentSuggestion ?? null,
       strength_commentary: parsed.data.strengthCommentary ?? null,
       source_id: parsed.data.sourceId || null,
+      applicable_outcomes: parsed.data.applicableOutcomes,
+      applicable_levels: parsed.data.applicableLevels,
+      applicable_functions: parsed.data.applicableFunctions,
     })
     .eq('id', (factorId ?? newId) as string)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }
@@ -267,6 +284,9 @@ export async function updateFactor(id: string, formData: FormData) {
     developmentSuggestion: (formData.get('developmentSuggestion') as string) || undefined,
     strengthCommentary: (formData.get('strengthCommentary') as string) || undefined,
     sourceId: (formData.get('sourceId') as string) || undefined,
+    applicableOutcomes: parseStringArray(formData.get('applicableOutcomes')),
+    applicableLevels: parseStringArray(formData.get('applicableLevels')),
+    applicableFunctions: parseStringArray(formData.get('applicableFunctions')),
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -341,6 +361,9 @@ export async function updateFactor(id: string, formData: FormData) {
       development_suggestion: parsed.data.developmentSuggestion ?? null,
       strength_commentary: parsed.data.strengthCommentary ?? null,
       source_id: parsed.data.sourceId || null,
+      applicable_outcomes: parsed.data.applicableOutcomes,
+      applicable_levels: parsed.data.applicableLevels,
+      applicable_functions: parsed.data.applicableFunctions,
     })
     .eq('id', id)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }

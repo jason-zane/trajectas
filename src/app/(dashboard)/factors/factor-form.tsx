@@ -34,6 +34,7 @@ import { SettingsTab } from "@/app/(dashboard)/_shared/settings-tab"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { useAutoSave } from "@/hooks/use-auto-save"
 import { AutoSaveIndicator } from "@/components/auto-save-indicator"
+import { cn } from "@/lib/utils"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   createFactor,
@@ -60,6 +61,20 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "")
 }
 
+const OUTCOME_OPTIONS = [
+  { value: "selection", label: "Selection" },
+  { value: "development", label: "Development" },
+  { value: "team_composition", label: "Team composition" },
+] as const
+
+const LEVEL_OPTIONS = [
+  { value: "ic", label: "IC" },
+  { value: "first_line_manager", label: "First-line mgr" },
+  { value: "mid_manager", label: "Mid manager" },
+  { value: "senior_leader", label: "Senior leader" },
+  { value: "executive", label: "Executive" },
+] as const
+
 interface FactorFormProps {
   dimensions: SelectOption[]
   availableConstructs: SelectOption[]
@@ -85,6 +100,9 @@ interface FactorFormProps {
     anchorHigh?: string
     sourceId?: string
     compositionLocked?: boolean
+    applicableOutcomes?: string[]
+    applicableLevels?: string[]
+    applicableFunctions?: string[]
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
@@ -108,6 +126,9 @@ export function FactorForm({
   const [dimensionId, setDimensionId] = useState(initialData?.dimensionId ?? "")
   const [isActive, setIsActive] = useState(initialData?.isActive ?? true)
   const [isMatchEligible, setIsMatchEligible] = useState(initialData?.isMatchEligible ?? true)
+  const [applicableOutcomes, setApplicableOutcomes] = useState<string[]>(initialData?.applicableOutcomes ?? [])
+  const [applicableLevels, setApplicableLevels] = useState<string[]>(initialData?.applicableLevels ?? [])
+  const [applicableFunctions, setApplicableFunctions] = useState<string[]>(initialData?.applicableFunctions ?? [])
   const [clientId, setClientId] = useState(initialData?.clientId ?? "")
   const [compositionLocked, setCompositionLocked] = useState(
     initialData?.compositionLocked ?? false,
@@ -209,6 +230,11 @@ export function FactorForm({
     dimensionId: initialData?.dimensionId ?? "",
     isActive: initialData?.isActive ?? true,
     isMatchEligible: initialData?.isMatchEligible ?? true,
+    applicability: JSON.stringify({
+      outcomes: initialData?.applicableOutcomes ?? [],
+      levels: initialData?.applicableLevels ?? [],
+      functions: initialData?.applicableFunctions ?? [],
+    }),
     clientId: initialData?.clientId ?? "",
     linkedConstructs: JSON.stringify(
       (initialData?.linkedConstructs ?? []).map((c) => ({
@@ -226,6 +252,11 @@ export function FactorForm({
         dimensionId !== savedStructural.dimensionId ||
         isActive !== savedStructural.isActive ||
         isMatchEligible !== savedStructural.isMatchEligible ||
+        JSON.stringify({
+          outcomes: applicableOutcomes,
+          levels: applicableLevels,
+          functions: applicableFunctions,
+        }) !== savedStructural.applicability ||
         clientId !== savedStructural.clientId ||
         JSON.stringify(
           linkedConstructs.map((c) => ({
@@ -328,6 +359,11 @@ export function FactorForm({
         dimensionId,
         isActive,
         isMatchEligible,
+        applicability: JSON.stringify({
+          outcomes: applicableOutcomes,
+          levels: applicableLevels,
+          functions: applicableFunctions,
+        }),
         clientId,
         linkedConstructs: JSON.stringify(
           linkedConstructs.map((c) => ({
@@ -953,6 +989,93 @@ export function FactorForm({
                     name="isMatchEligible"
                     value={isMatchEligible ? "true" : "false"}
                   />
+
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <div className="space-y-0.5">
+                      <Label>Architect applicability</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Which roles this factor suits. The Assessment Architect uses these to filter
+                        the factor pool before ranking. Leave a row empty to mean &ldquo;applies to all&rdquo;.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Decisions (outcomes)</span>
+                      <div className="flex flex-wrap gap-2">
+                        {OUTCOME_OPTIONS.map((opt) => {
+                          const on = applicableOutcomes.includes(opt.value)
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                setApplicableOutcomes((prev) =>
+                                  on ? prev.filter((v) => v !== opt.value) : [...prev, opt.value],
+                                )
+                              }
+                              className={cn(
+                                "rounded-full border px-3 py-1 text-xs transition-colors",
+                                on
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : "border-border text-muted-foreground hover:bg-muted/40",
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Levels</span>
+                      <div className="flex flex-wrap gap-2">
+                        {LEVEL_OPTIONS.map((opt) => {
+                          const on = applicableLevels.includes(opt.value)
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                setApplicableLevels((prev) =>
+                                  on ? prev.filter((v) => v !== opt.value) : [...prev, opt.value],
+                                )
+                              }
+                              className={cn(
+                                "rounded-full border px-3 py-1 text-xs transition-colors",
+                                on
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : "border-border text-muted-foreground hover:bg-muted/40",
+                              )}
+                            >
+                              {opt.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Functions <span className="font-normal">(comma-separated, optional)</span>
+                      </span>
+                      <Input
+                        defaultValue={applicableFunctions.join(", ")}
+                        placeholder="e.g. sales, engineering, operations"
+                        onChange={(e) =>
+                          setApplicableFunctions(
+                            e.target.value
+                              .split(",")
+                              .map((s) => s.trim().toLowerCase())
+                              .filter(Boolean),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                  <input type="hidden" name="applicableOutcomes" value={JSON.stringify(applicableOutcomes)} />
+                  <input type="hidden" name="applicableLevels" value={JSON.stringify(applicableLevels)} />
+                  <input type="hidden" name="applicableFunctions" value={JSON.stringify(applicableFunctions)} />
                   {mode === "edit" && factorId && (
                     <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
                       <div className="space-y-0.5">
