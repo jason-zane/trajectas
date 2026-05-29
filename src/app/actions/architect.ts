@@ -99,7 +99,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
   // Eligible factor pool: match-eligible, active, not deleted.
   const { data: factorRows, error } = await db
     .from('factors')
-    .select('id, name, definition, description, applicable_outcomes, applicable_levels')
+    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions')
     .eq('is_active', true)
     .eq('is_match_eligible', true)
     .is('deleted_at', null)
@@ -126,6 +126,8 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     name: f.name as string,
     // Feed definition; fall back to description (definition is the populated field).
     definition: ((f.definition as string) || (f.description as string) || '').trim(),
+    // Soft ranking signal — the matcher weighs function fit; it is not a hard filter.
+    applicableFunctions: (f.applicable_functions ?? []) as string[],
   }))
 
   // Item counts per factor (factor_constructs -> items), for the picks counters.
