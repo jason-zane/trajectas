@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { UserPlus, Trash2, Check, X } from "lucide-react";
+import { UserPlus, Trash2, Check, X, Send, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -30,10 +30,11 @@ import {
   addRater,
   updateRaterStatus,
   removeRater,
+  markApprovedRatersInvited,
+  type RaterWithProgress,
 } from "@/app/actions/raters";
 import type {
   CampaignParticipant,
-  CampaignRater,
   RaterRelationship,
 } from "@/types/database";
 
@@ -76,7 +77,7 @@ export function CampaignRatersManager({
 }: {
   campaignId: string;
   subject: CampaignParticipant | null;
-  raters: CampaignRater[];
+  raters: RaterWithProgress[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -166,12 +167,40 @@ export function CampaignRatersManager({
     });
   }
 
+  function handleInviteApproved() {
+    startTransition(async () => {
+      const res = await markApprovedRatersInvited(campaignId);
+      if ("error" in res && res.error) {
+        toast.error(res.error);
+        return;
+      }
+      const n = "count" in res && typeof res.count === "number" ? res.count : 0;
+      toast.success(
+        n > 0
+          ? `Invited ${n} ${n === 1 ? "rater" : "raters"}`
+          : "No approved raters to invite",
+      );
+      router.refresh();
+    });
+  }
+
+  async function copyLink(token: string) {
+    const url = `${window.location.origin}/assess/${token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Survey link copied");
+    } catch {
+      toast.error("Could not copy link");
+    }
+  }
+
   // Readiness: count active (non-declined/withdrawn) raters per category.
   const active = raters.filter(
     (r) => r.status !== "declined" && r.status !== "withdrawn",
   );
   const countBy = (rel: RaterRelationship) =>
     active.filter((r) => r.relationship === rel).length;
+  const approvedCount = raters.filter((r) => r.status === "approved").length;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -286,6 +315,17 @@ export function CampaignRatersManager({
                     </Badge>
                   );
                 })}
+                {approvedCount > 0 && (
+                  <Button
+                    size="sm"
+                    className="ml-auto"
+                    disabled={pending}
+                    onClick={handleInviteApproved}
+                  >
+                    <Send className="size-4" />
+                    Invite {approvedCount} approved
+                  </Button>
+                )}
               </div>
 
               {/* Add rater */}
@@ -362,12 +402,23 @@ export function CampaignRatersManager({
                         )}
                       </div>
                       <Badge
-                        variant={STATUS_VARIANT[r.status] ?? "secondary"}
+                        variant={STATUS_VARIANT[r.effectiveStatus] ?? "secondary"}
                         className="shrink-0"
                       >
-                        {r.status.replace(/_/g, " ")}
+                        {r.effectiveStatus.replace(/_/g, " ")}
                       </Badge>
                       <div className="flex shrink-0 gap-1">
+                        {r.takingToken && (
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Copy survey link"
+                            disabled={pending}
+                            onClick={() => copyLink(r.takingToken!)}
+                          >
+                            <Link2 className="size-3.5 text-primary" />
+                          </Button>
+                        )}
                         {r.status !== "approved" && (
                           <Button
                             variant="ghost"

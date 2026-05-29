@@ -451,6 +451,8 @@ export async function getRecentClientCampaigns(clientId: string): Promise<
   const { data, error } = await db
     .from('campaigns')
     .select('id, title, status, campaign_participants(count)')
+    // Exclude 360 rater taking-rows from the participant count.
+    .is('campaign_participants.campaign_rater_id', null)
     .eq('client_id', clientId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
