@@ -341,6 +341,13 @@ export async function createCampaign(payload: Record<string, unknown>) {
   const scope = await resolveAuthorizedScope()
   const clientId = parsed.data.clientId || null
 
+  // 360 is an admin-only test-bed feature for now. Enforce server-side — the
+  // UI only offers the type to admins, but the action uses the admin client
+  // (RLS won't reject), so a non-admin could otherwise POST kind directly.
+  if (parsed.data.kind === 'leadership_360' && !scope.isPlatformAdmin) {
+    return { error: { kind: ['360 campaigns are not available for your account'] } }
+  }
+
   if (!scope.isPlatformAdmin) {
     if (!clientId) {
       return { error: { clientId: ['Campaigns must belong to a client context'] } }
