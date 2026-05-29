@@ -115,38 +115,38 @@ export function SessionScoresPanel({
   const groups = groupScores(scores, dimensionScores);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {compositeScore != null && (
-        <div className="flex items-baseline justify-between gap-4 rounded-xl border border-border bg-card p-5">
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
-              Overall score
-            </p>
-            <p className="text-sm text-muted-foreground">
+        <div className="flex items-center justify-between gap-6 rounded-lg border border-border bg-card px-5 py-3.5">
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Overall
+            </span>
+            <span className="text-caption text-muted-foreground">
               Mean of {scores.length} {scores.length === 1 ? "score" : "scores"}
-            </p>
+            </span>
           </div>
-          <p className="text-4xl font-semibold tabular-nums tracking-tight">
+          <span className="text-3xl font-bold tabular-nums tracking-tight">
             {Math.round(compositeScore)}
-          </p>
+          </span>
         </div>
       )}
 
       {groups.map((group) => (
-        <div key={group.key} className="space-y-3">
+        <div key={group.key} className="space-y-2">
           {group.label != null && (
-            <div className="flex items-baseline justify-between gap-4 border-b border-border pb-2">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+            <div className="flex items-baseline justify-between gap-4 border-b border-border pb-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-foreground">
                 {group.label}
               </h3>
               {group.groupScore != null && (
-                <span className="text-base font-semibold tabular-nums text-foreground">
+                <span className="text-sm font-semibold tabular-nums text-foreground">
                   {Math.round(group.groupScore)}
                 </span>
               )}
             </div>
           )}
-          <div className="space-y-2">
+          <div className="space-y-0.5">
             {group.scores.map((score) => (
               <FactorScoreRow
                 key={score.entityId}
