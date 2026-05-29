@@ -12,6 +12,7 @@ import {
   Shield,
   AlertTriangle,
   Eye,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,8 @@ import {
   bulkUpdateItemStatus,
   type ItemWithMeta,
 } from "@/app/actions/items"
+import { useRouter } from "next/navigation"
+import { ObserverVariantReviewDialog } from "@/components/items/observer-variant-review-dialog"
 
 type ItemHealthInfo = { status: "healthy" | "review" | "action"; discrimination: number | null }
 
@@ -106,7 +109,10 @@ const allFormats: { value: ActiveResponseFormatType | "all"; label: string }[] =
 ]
 
 export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; healthMap?: Record<string, ItemHealthInfo> }) {
+  const router = useRouter()
   const hasHealthData = Object.keys(healthMap).length > 0
+  const [observerDialogOpen, setObserverDialogOpen] = useState(false)
+  const [observerItemIds, setObserverItemIds] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState<ItemStatus | "all">("all")
   const [formatFilter, setFormatFilter] = useState<ActiveResponseFormatType | "all">(
@@ -261,6 +267,20 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
     })
   }
 
+  // Only construct items can carry observer wording.
+  const selectedConstructItemIds = selectedIds.filter((id) =>
+    items.some((it) => it.id === id && it.purpose === "construct"),
+  )
+
+  function handleGenerateObserver() {
+    if (selectedConstructItemIds.length === 0) {
+      toast.error("Select one or more construct items first.")
+      return
+    }
+    setObserverItemIds(selectedConstructItemIds)
+    setObserverDialogOpen(true)
+  }
+
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader
@@ -361,6 +381,14 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
                 onClearSelection={clearSelection}
                 onConfirmDelete={handleBulkDelete}
                 onSetStatus={handleBulkStatusChange}
+                extraActions={[
+                  {
+                    label: "Generate observer wording (360)",
+                    icon: <Sparkles className="size-4 text-gold" />,
+                    onClick: handleGenerateObserver,
+                    disabled: selectedConstructItemIds.length === 0,
+                  },
+                ]}
               />
             </div>
             {/* Purpose filter pills */}
@@ -573,6 +601,16 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
           </p>
         </>
       )}
+
+      <ObserverVariantReviewDialog
+        open={observerDialogOpen}
+        onOpenChange={setObserverDialogOpen}
+        itemIds={observerItemIds}
+        onCommitted={() => {
+          setSelectedIds([])
+          router.refresh()
+        }}
+      />
     </div>
   )
 }

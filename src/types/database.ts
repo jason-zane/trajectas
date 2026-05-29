@@ -642,8 +642,14 @@ export interface Item {
   constructId?: string
   /** Response format governing how the item is presented. */
   responseFormatId: string
-  /** The question / stimulus text presented to the participant. */
+  /** The question / stimulus text presented to the participant (first person — self perspective). */
   stem: string
+  /**
+   * Observer/rater-perspective phrasing (third person), e.g. "This leader
+   * communicates clearly". Rendered to raters in a 360; self sessions use `stem`.
+   * NULL ⇒ no observer variant yet, so the item is not 360-eligible.
+   */
+  stemObserver?: string
   /** Whether scoring is reversed for this item. */
   reverseScored: boolean
   /**
@@ -2047,6 +2053,8 @@ export interface GeneratedItem {
   generationRunId: string
   constructId: string
   stem: string
+  /** Observer-perspective phrasing produced by dual-mode generation; copied to items.stem_observer on accept. */
+  stemObserver?: string
   reverseScored: boolean
   rationale?: string
   embedding: number[]

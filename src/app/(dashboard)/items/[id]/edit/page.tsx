@@ -44,6 +44,7 @@ export default async function EditItemPage({
         constructId: item.constructId,
         responseFormatId: item.responseFormatId,
         stem: item.stem,
+        stemObserver: item.stemObserver,
         reverseScored: item.reverseScored,
         weight: item.weight,
         status: item.status,

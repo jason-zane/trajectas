@@ -10,6 +10,7 @@ export const itemSchema = z.object({
   constructId: postgresUuid('Construct is required').optional(),
   responseFormatId: postgresUuid('Response format is required'),
   stem: z.string().min(1, 'Item stem is required').max(4000),
+  stemObserver: z.string().max(4000).optional().or(z.literal('')),
   reverseScored: z
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
