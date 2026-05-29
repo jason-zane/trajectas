@@ -135,6 +135,27 @@ const ASSESSMENT_REMINDER = doc(
   button('Continue Assessment', 'assessmentUrl'),
 )
 
+const RATER_INVITE = doc(
+  heading(2, [text('Feedback request for '), variable('subjectName', 'a colleague')]),
+  paragraph([text('Hi '), variable('raterName', 'there'), text(',')]),
+  paragraph([
+    text('You have been asked to give 360-degree feedback on '),
+    bold('{{subjectName}}'),
+    text(' as their '),
+    variable('relationshipLabel', 'colleague'),
+    text('. Your input helps them understand their leadership strengths and development areas.'),
+  ]),
+  paragraph([
+    text('Your responses are confidential. They are combined with other raters and shown only as group averages — '),
+    bold('{{subjectName}}'),
+    text(' will never see your individual answers.'),
+  ]),
+  spacer(8),
+  button('Give Feedback', 'assessmentUrl'),
+  spacer(8),
+  paragraph([text('If you have any questions, reply to this email.')]),
+)
+
 const REPORT_READY = doc(
   heading(2, [text('Your Report is Ready')]),
   paragraph([
@@ -181,6 +202,7 @@ export const DEFAULT_TEMPLATES: Record<EmailType, Record<string, unknown>> = {
   staff_invite: STAFF_INVITE,
   assessment_invite: ASSESSMENT_INVITE,
   assessment_reminder: ASSESSMENT_REMINDER,
+  rater_invite: RATER_INVITE,
   report_ready: REPORT_READY,
   welcome: WELCOME,
   admin_notification: ADMIN_NOTIFICATION,

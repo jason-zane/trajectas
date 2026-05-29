@@ -16,6 +16,7 @@ export const EMAIL_TYPES = [
   'staff_invite',
   'assessment_invite',
   'assessment_reminder',
+  'rater_invite',
   'report_ready',
   'welcome',
   'admin_notification',
@@ -38,6 +39,7 @@ export const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
   staff_invite: 'Staff Invitation',
   assessment_invite: 'Assessment Invitation',
   assessment_reminder: 'Assessment Reminder',
+  rater_invite: '360 Rater Invitation',
   report_ready: 'Report Ready',
   welcome: 'Welcome',
   admin_notification: 'Admin Notification',
@@ -49,7 +51,7 @@ export const EMAIL_TYPE_LABELS: Record<EmailType, string> = {
 
 export const EMAIL_TYPE_CATEGORIES: Record<string, EmailType[]> = {
   Authentication: ['magic_link', 'welcome'],
-  Campaigns: ['assessment_invite', 'assessment_reminder', 'report_ready'],
+  Campaigns: ['assessment_invite', 'assessment_reminder', 'rater_invite', 'report_ready'],
   Platform: ['staff_invite', 'admin_notification'],
 }
 
@@ -73,6 +75,13 @@ export const MERGE_VARIABLES: Record<EmailType, readonly string[]> = {
     'assessmentUrl',
     'brandName',
     'daysRemaining',
+  ],
+  rater_invite: [
+    'raterName',
+    'subjectName',
+    'relationshipLabel',
+    'assessmentUrl',
+    'brandName',
   ],
   report_ready: ['recipientName', 'campaignTitle', 'reportUrl', 'brandName'],
   welcome: ['userName', 'brandName', 'loginUrl'],
@@ -107,6 +116,13 @@ export const SAMPLE_VARIABLES: Record<EmailType, Record<string, string | number>
     assessmentUrl: 'https://assess.trajectas.com/start?token=sample-token-def456',
     brandName: 'Trajectas',
     daysRemaining: 3,
+  },
+  rater_invite: {
+    raterName: 'Jordan',
+    subjectName: 'Sam Rivera',
+    relationshipLabel: 'peer',
+    assessmentUrl: 'https://assess.trajectas.com/start?token=sample-token-ghi789',
+    brandName: 'Trajectas',
   },
   report_ready: {
     recipientName: 'Sam Rivera',

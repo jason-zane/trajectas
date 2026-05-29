@@ -7,7 +7,15 @@ import { requireCampaignAccess } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError } from '@/lib/security/action-errors'
 import { mapCampaignRaterRow, mapCampaignParticipantRow } from '@/lib/supabase/mappers'
+import { requireAppUrl } from '@/lib/hosts'
 import type { CampaignParticipant, CampaignRater } from '@/types/database'
+
+const RELATIONSHIP_EMAIL_LABEL: Record<string, string> = {
+  manager: 'manager',
+  peer: 'peer',
+  direct_report: 'direct report',
+  other: 'colleague',
+}
 
 /** A rater plus the live progress of their linked observer-survey participant. */
 export interface RaterWithProgress extends CampaignRater {
@@ -234,7 +242,7 @@ export async function markApprovedRatersInvited(campaignId: string) {
   // Approved raters that don't yet have an observer-survey participant row.
   const { data: approved, error: approvedErr } = await db
     .from('campaign_raters')
-    .select('id, email')
+    .select('id, email, name, relationship')
     .eq('campaign_id', campaignId)
     .eq('status', 'approved')
   if (approvedErr) {
@@ -290,6 +298,103 @@ export async function markApprovedRatersInvited(campaignId: string) {
     targetId: campaignId,
     metadata: { count: data?.length ?? 0 },
   })
+
+  // Send each rater their invitation email (best-effort — a send failure must
+  // not roll back the invite; the admin can still copy the link from the table).
+  const emailResult = await sendRaterInviteEmails(
+    db,
+    campaignId,
+    approved.map((r) => ({
+      id: r.id as string,
+      name: (r.name as string | null) ?? null,
+      relationship: r.relationship as string,
+    })),
+  )
+
   revalidatePath(`/campaigns/${campaignId}/raters`)
-  return { success: true as const, count: data?.length ?? 0 }
+  return {
+    success: true as const,
+    count: data?.length ?? 0,
+    emailsSent: emailResult.sent,
+  }
+}
+
+/**
+ * Email approved raters their observer-survey link. Resolves each rater's linked
+ * participant token + the subject's name, then sends the `rater_invite` template.
+ * Best-effort per recipient.
+ */
+async function sendRaterInviteEmails(
+  db: ReturnType<typeof createAdminClient>,
+  campaignId: string,
+  raters: { id: string; name: string | null; relationship: string }[],
+): Promise<{ sent: number }> {
+  if (raters.length === 0) return { sent: 0 }
+
+  const [{ data: campaign }, { data: subjectRows }, { data: raterParticipants }] =
+    await Promise.all([
+      db
+        .from('campaigns')
+        .select('title, client_id, partner_id')
+        .eq('id', campaignId)
+        .single(),
+      db
+        .from('campaign_participants')
+        .select('first_name, last_name, email')
+        .eq('campaign_id', campaignId)
+        .is('campaign_rater_id', null)
+        .order('created_at', { ascending: true })
+        .limit(1),
+      db
+        .from('campaign_participants')
+        .select('campaign_rater_id, email, access_token')
+        .eq('campaign_id', campaignId)
+        .in(
+          'campaign_rater_id',
+          raters.map((r) => r.id),
+        ),
+    ])
+
+  const subject = subjectRows?.[0]
+  const subjectName = subject
+    ? [subject.first_name, subject.last_name].filter(Boolean).join(' ') ||
+      'your colleague'
+    : 'your colleague'
+
+  const tokenByRater = new Map(
+    (raterParticipants ?? []).map((p) => [
+      p.campaign_rater_id as string,
+      { token: p.access_token as string, email: p.email as string },
+    ]),
+  )
+
+  const assessBaseUrl = requireAppUrl('public')
+  const { sendEmail } = await import('@/lib/email/send')
+
+  let sent = 0
+  for (const rater of raters) {
+    const link = tokenByRater.get(rater.id)
+    if (!link) continue
+    try {
+      await sendEmail({
+        type: 'rater_invite',
+        to: link.email,
+        variables: {
+          raterName: rater.name ?? '',
+          subjectName,
+          relationshipLabel:
+            RELATIONSHIP_EMAIL_LABEL[rater.relationship] ?? 'colleague',
+          assessmentUrl: `${assessBaseUrl}/assess/${link.token}`,
+          brandName: 'Trajectas',
+        },
+        scopeCampaignId: campaignId,
+        scopeClientId: campaign?.client_id ?? undefined,
+        scopePartnerId: campaign?.partner_id ?? undefined,
+      })
+      sent += 1
+    } catch (err) {
+      logActionError('sendRaterInviteEmails', err)
+    }
+  }
+  return { sent }
 }
