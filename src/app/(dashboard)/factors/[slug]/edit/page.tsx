@@ -50,6 +50,9 @@ export default async function EditFactorPage({
         developmentSuggestion: factor.developmentSuggestion,
         sourceId: factor.sourceId,
         compositionLocked: factor.compositionLocked,
+        applicableOutcomes: factor.applicableOutcomes,
+        applicableLevels: factor.applicableLevels,
+        applicableFunctions: factor.applicableFunctions,
         linkedConstructs: factor.linkedConstructs,
         linkedAssessments: factor.linkedAssessments,
       }}

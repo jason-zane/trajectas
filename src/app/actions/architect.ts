@@ -9,10 +9,9 @@
  *   2. runArchitectMatch    — Brief -> ranked, eligibility-filtered factors
  *   3. createArchitectAssessment — chosen factors -> draft assessment
  *
- * v1 takes pasted/typed role text only; file ingestion (PDF/DOCX) is a
- * fast-follow that slots in ahead of extractBrief by producing `rawText`.
- * Architect runs are not persisted to matching_runs for v1 — the durable
- * artifact is the created assessment.
+ * Role text can be pasted/typed or extracted from an uploaded PDF/DOCX/TXT
+ * (extractRoleText). Architect runs are not persisted to matching_runs for
+ * v1 — the durable artifact is the created assessment.
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -24,6 +23,45 @@ import { createAssessment } from '@/app/actions/assessments'
 import { extractBriefSchema, runArchitectMatchSchema, createArchitectAssessmentSchema } from '@/lib/validations/architect'
 import type { Brief, MatchingFactor } from '@/types/ai'
 import type { ArchitectPick, ArchitectMatchResult } from '@/types/architect'
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10 MB
+
+// ---------------------------------------------------------------------------
+// Stage 0 — file ingestion (PDF / DOCX / TXT -> text)
+// ---------------------------------------------------------------------------
+
+export async function extractRoleText(
+  formData: FormData,
+): Promise<{ text: string } | { error: string }> {
+  await requireAdminScope()
+  const file = formData.get('file')
+  if (!(file instanceof File) || file.size === 0) return { error: 'No file provided.' }
+  if (file.size > MAX_UPLOAD_BYTES) return { error: 'File too large (max 10 MB).' }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  const name = file.name.toLowerCase()
+
+  try {
+    if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+      const { extractText, getDocumentProxy } = await import('unpdf')
+      const pdf = await getDocumentProxy(new Uint8Array(buffer))
+      const { text } = await extractText(pdf, { mergePages: true })
+      const joined = Array.isArray(text) ? text.join('\n') : text
+      return { text: joined.trim() }
+    }
+    if (name.endsWith('.docx') || file.type.includes('wordprocessingml')) {
+      const mammoth = await import('mammoth')
+      const { value } = await mammoth.extractRawText({ buffer })
+      return { text: value.trim() }
+    }
+    if (name.endsWith('.txt') || file.type.startsWith('text/')) {
+      return { text: buffer.toString('utf8').trim() }
+    }
+    return { error: 'Unsupported file. Upload a PDF, DOCX, or TXT — or paste the text.' }
+  } catch {
+    return { error: 'Could not read that file. Try pasting the text instead.' }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Stage 1 — brief extraction
@@ -61,7 +99,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
   // Eligible factor pool: match-eligible, active, not deleted.
   const { data: factorRows, error } = await db
     .from('factors')
-    .select('id, name, definition, description, applicable_outcomes, applicable_levels')
+    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions')
     .eq('is_active', true)
     .eq('is_match_eligible', true)
     .is('deleted_at', null)
@@ -80,7 +118,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
   })
 
   if (eligible.length === 0) {
-    return { picks: [], summary: 'No eligible factors matched this brief.', recommendedCount: { minimum: 0, optimal: 0, maximum: 0 }, consideredCount: 0 }
+    return { picks: [], summary: 'No eligible factors matched this brief.', recommendedCount: { minimum: 0, optimal: 0, maximum: 0 }, consideredCount: 0, eligibleFactors: [] }
   }
 
   const availableFactors: MatchingFactor[] = eligible.map((f) => ({
@@ -88,6 +126,8 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     name: f.name as string,
     // Feed definition; fall back to description (definition is the populated field).
     definition: ((f.definition as string) || (f.description as string) || '').trim(),
+    // Soft ranking signal — the matcher weighs function fit; it is not a hard filter.
+    applicableFunctions: (f.applicable_functions ?? []) as string[],
   }))
 
   // Item counts per factor (factor_constructs -> items), for the picks counters.
@@ -109,11 +149,18 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     availableItems: itemCountByFactor.get(r.factorId) ?? 0,
   }))
 
+  const eligibleFactors = eligible.map((f) => ({
+    factorId: f.id as string,
+    factorName: f.name as string,
+    availableItems: itemCountByFactor.get(f.id as string) ?? 0,
+  }))
+
   return {
     picks,
     summary: output.summary,
     recommendedCount: output.recommendedCount,
     consideredCount: eligible.length,
+    eligibleFactors,
   }
 }
 
