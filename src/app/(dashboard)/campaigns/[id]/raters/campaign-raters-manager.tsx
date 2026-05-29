@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { UserPlus, Trash2, Check, X, Send, Link2 } from "lucide-react";
+import { UserPlus, Trash2, Check, X, Send, Link2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +33,7 @@ import {
   markApprovedRatersInvited,
   type RaterWithProgress,
 } from "@/app/actions/raters";
+import { generateCampaign360Snapshot } from "@/app/actions/three-sixty";
 import type {
   CampaignParticipant,
   RaterRelationship,
@@ -194,6 +195,20 @@ export function CampaignRatersManager({
     }
   }
 
+  function handleGenerateResults() {
+    startTransition(async () => {
+      const res = await generateCampaign360Snapshot(campaignId);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        `360 results generated — ${res.raterCount ?? 0} raters, ${res.factorCount ?? 0} factors`,
+      );
+      router.refresh();
+    });
+  }
+
   // Readiness: count active (non-declined/withdrawn) raters per category.
   const active = raters.filter(
     (r) => r.status !== "declined" && r.status !== "withdrawn",
@@ -201,6 +216,9 @@ export function CampaignRatersManager({
   const countBy = (rel: RaterRelationship) =>
     active.filter((r) => r.relationship === rel).length;
   const approvedCount = raters.filter((r) => r.status === "approved").length;
+  const completedRaters = raters.filter(
+    (r) => r.effectiveStatus === "completed",
+  ).length;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -459,6 +477,35 @@ export function CampaignRatersManager({
           )}
         </CardContent>
       </Card>
+
+      {/* Results */}
+      {subject && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Results</CardTitle>
+            <CardDescription>
+              Generate the aggregate 360 profile — per-category means with the
+              N≥{ANON_THRESHOLD} anonymity rule, self-vs-others gaps, and
+              blind-spot / hidden-strength quadrants. Re-run any time as more
+              raters complete.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-3">
+            <p className="text-caption text-muted-foreground">
+              {completedRaters} of {active.length}{" "}
+              {active.length === 1 ? "rater has" : "raters have"} completed.
+            </p>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={handleGenerateResults}
+            >
+              <BarChart3 className="size-4" />
+              Generate 360 results
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
