@@ -50,6 +50,7 @@ export function ObserverVariantReviewDialog({
   const [phase, setPhase] = useState<Phase>("idle")
   const [rows, setRows] = useState<Row[]>([])
   const [failedCount, setFailedCount] = useState(0)
+  const [omittedCount, setOmittedCount] = useState(0)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [isSaving, startSaving] = useTransition()
 
@@ -80,6 +81,7 @@ export function ObserverVariantReviewDialog({
           })),
         )
         setFailedCount(res.failedIds.length)
+        setOmittedCount(res.omittedForLimit)
         setPhase("ready")
       })
       .catch(() => {
@@ -146,6 +148,7 @@ export function ObserverVariantReviewDialog({
           })),
         )
         setFailedCount(res.failedIds.length)
+        setOmittedCount(res.omittedForLimit)
         setPhase("ready")
       })
       .catch(() => {
@@ -184,6 +187,15 @@ export function ObserverVariantReviewDialog({
 
         {phase === "ready" && (
           <>
+            {omittedCount > 0 && (
+              <Alert variant="warning">
+                <AlertDescription>
+                  Your selection exceeded the per-run limit — {omittedCount}{" "}
+                  {omittedCount === 1 ? "item was" : "items were"} not included
+                  here. Save these, then run the action again on the rest.
+                </AlertDescription>
+              </Alert>
+            )}
             {failedCount > 0 && (
               <Alert variant="warning">
                 <AlertDescription>

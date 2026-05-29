@@ -27,10 +27,13 @@ export interface GenerateObserverDraftsResult {
   drafts: ObserverDraft[]
   /** Item ids the model failed to produce a usable variant for. */
   failedIds: string[]
+  /** How many selected items were dropped because the selection exceeded MAX_BATCH. */
+  omittedForLimit: number
   error?: string
 }
 
-const MAX_BATCH = 60
+/** Max items per draft call — keeps the single LLM prompt a sane size. */
+export const MAX_OBSERVER_BATCH = 60
 
 /**
  * Generate observer-perspective drafts for the given construct items. Pure draft
@@ -42,13 +45,16 @@ export async function generateObserverDrafts(
 ): Promise<GenerateObserverDraftsResult> {
   await requireAdminScope()
 
-  const ids = Array.from(new Set(itemIds)).slice(0, MAX_BATCH)
-  if (ids.length === 0) return { drafts: [], failedIds: [] }
+  const uniqueIds = Array.from(new Set(itemIds))
+  const ids = uniqueIds.slice(0, MAX_OBSERVER_BATCH)
+  const omittedForLimit = uniqueIds.length - ids.length
+  if (ids.length === 0) return { drafts: [], failedIds: [], omittedForLimit }
 
   if (!(await openRouterProvider.isAvailable())) {
     return {
       drafts: [],
       failedIds: ids,
+      omittedForLimit,
       error: 'AI generation is not configured (missing OpenRouter API key).',
     }
   }
@@ -60,7 +66,8 @@ export async function generateObserverDrafts(
     .in('id', ids)
     .is('deleted_at', null)
 
-  if (error) return { drafts: [], failedIds: ids, error: error.message }
+  if (error)
+    return { drafts: [], failedIds: ids, omittedForLimit, error: error.message }
 
   // Only construct items get observer wording — validity items (attention
   // checks etc.) have no construct and no 360 meaning.
@@ -70,6 +77,7 @@ export async function generateObserverDrafts(
     return {
       drafts: [],
       failedIds: ids,
+      omittedForLimit,
       error: 'None of the selected items are construct items.',
     }
   }
@@ -99,6 +107,7 @@ export async function generateObserverDrafts(
     return {
       drafts: [],
       failedIds: ids,
+      omittedForLimit,
       error: 'The AI request failed. Please try again.',
     }
   }
@@ -126,7 +135,7 @@ export async function generateObserverDrafts(
     })
   }
 
-  return { drafts, failedIds }
+  return { drafts, failedIds, omittedForLimit }
 }
 
 export interface ObserverVariantUpdate {
