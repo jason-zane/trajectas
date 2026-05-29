@@ -138,6 +138,13 @@ export type CreateStaffInviteResult =
     }
   | {
       error: InviteFieldErrors;
+      /**
+       * Present when the insert collided with the active-scope unique index
+       * (idx_user_invites_active_scope): an unaccepted, unrevoked invite for
+       * the same email + tenant + role already exists. Carries that invite's
+       * id so callers can offer resend / revoke instead of a dead-end error.
+       */
+      duplicate?: { inviteId: string };
     };
 
 interface InviteSummary {
@@ -430,6 +437,34 @@ export async function createStaffInvite(
     .single();
 
   if (error || !data) {
+    // Unique-violation on the active-scope index means an unaccepted,
+    // unrevoked invite already exists for this email + tenant + role.
+    // Surface a friendly message plus the existing invite id so the caller
+    // can offer resend / revoke rather than echoing the raw Postgres error.
+    if (error?.code === "23505") {
+      let lookup = db
+        .from("user_invites")
+        .select("id")
+        .eq("email", parsed.data.email)
+        .eq("tenant_type", parsed.data.tenantType)
+        .eq("role", parsed.data.role)
+        .is("accepted_at", null)
+        .is("revoked_at", null);
+      lookup = parsed.data.tenantId
+        ? lookup.eq("tenant_id", parsed.data.tenantId)
+        : lookup.is("tenant_id", null);
+      const { data: existing } = await lookup.maybeSingle();
+
+      return {
+        error: {
+          _form: [
+            "An active invite already exists for this person with this role. Resend it or revoke it before sending a new one.",
+          ],
+        },
+        ...(existing?.id ? { duplicate: { inviteId: String(existing.id) } } : {}),
+      };
+    }
+
     return { error: { _form: [error?.message ?? "Failed to create invite."] } };
   }
 
