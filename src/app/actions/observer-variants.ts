@@ -33,7 +33,7 @@ export interface GenerateObserverDraftsResult {
 }
 
 /** Max items per draft call — keeps the single LLM prompt a sane size. */
-export const MAX_OBSERVER_BATCH = 60
+const MAX_OBSERVER_BATCH = 60
 
 /**
  * Generate observer-perspective drafts for the given construct items. Pure draft
