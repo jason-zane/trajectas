@@ -173,6 +173,18 @@ export function SessionView({
       <div className="space-y-12">
         <section className="space-y-5">
           <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Reports
+          </h2>
+          <CampaignSessionReportsPanel
+            sessionId={session.id}
+            initialRows={reportRows}
+            reportBasePath={reportBasePath}
+            settingsHref={settingsHref}
+          />
+        </section>
+
+        <section className="space-y-5">
+          <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Scores
           </h2>
           <SessionScoresPanel
@@ -184,18 +196,6 @@ export function SessionView({
             processingError={session.processingError}
             sessionId={session.id}
             showConstructDrilldown={isPlatformAdmin}
-          />
-        </section>
-
-        <section className="space-y-5">
-          <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Reports
-          </h2>
-          <CampaignSessionReportsPanel
-            sessionId={session.id}
-            initialRows={reportRows}
-            reportBasePath={reportBasePath}
-            settingsHref={settingsHref}
           />
         </section>
 
