@@ -8,7 +8,7 @@ import { RouteTabs } from "@/components/route-tabs";
 import { usePortal } from "@/components/portal-context";
 import type { CampaignHeader } from "@/app/actions/campaigns";
 
-const allTabs = (showAssessmentsAlert: boolean) => [
+const allTabs = (showAssessmentsAlert: boolean, kind: string) => [
   { label: "Overview", segment: "overview" },
   {
     label: "Assessments",
@@ -20,7 +20,10 @@ const allTabs = (showAssessmentsAlert: boolean) => [
       </>
     ) : undefined,
   },
-  { label: "Participants", segment: "participants" },
+  // A 360 manages one subject + their raters; a self campaign manages participants.
+  kind === "leadership_360"
+    ? { label: "Subject & Raters", segment: "raters" }
+    : { label: "Participants", segment: "participants" },
   { label: "Experience", segment: "experience" },
   { label: "Branding", segment: "branding" },
   { label: "Settings", segment: "settings" },
@@ -59,8 +62,14 @@ export function CampaignDetailShell({
   const { portal, href } = usePortal();
 
   const showAssessmentsAlert = campaign.assessmentCount === 0;
-  const tabs = allTabs(showAssessmentsAlert).filter((tab) => {
+  const tabs = allTabs(showAssessmentsAlert, campaign.kind).filter((tab) => {
     if (tab.segment === "branding" && portal === "client" && !canCustomizeBranding) {
+      return false;
+    }
+    // 360 rater management is an admin-only test-bed surface — the route only
+    // exists under the dashboard. Hide it in client/partner portals (no route
+    // there, and the loader requires platform admin).
+    if (tab.segment === "raters" && portal !== "admin") {
       return false;
     }
     return true;
