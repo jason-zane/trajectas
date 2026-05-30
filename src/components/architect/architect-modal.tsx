@@ -192,8 +192,8 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
         // The user's chip selection is authoritative for the stored outcome.
         setBrief({ ...extracted, outcome: chip.outcome, outcomeIntent: chip.intent });
         if (!title) setTitle(suggestTitle(extracted.roleTitle, chip.label));
-      } catch (error) {
-        toast.error("Couldn't read the role", { description: errorMessage(error, "Try adding more detail.") });
+      } catch {
+        toast.error("Couldn't read the role", { description: "Check the role description and try again." });
         goTo("brief", "right");
       } finally {
         setBusy(false);
@@ -215,8 +215,8 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
             included: i < (result.recommendedCount.optimal || result.picks.length),
           })),
         );
-      } catch (error) {
-        toast.error("Matching failed", { description: errorMessage(error, "Please try again.") });
+      } catch {
+        toast.error("Matching failed", { description: "Please try again in a moment." });
         goTo("review", "right");
       } finally {
         setBusy(false);

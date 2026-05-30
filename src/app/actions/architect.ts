@@ -25,6 +25,7 @@ import type { Brief, MatchingFactor } from '@/types/ai'
 import type { ArchitectPick, ArchitectMatchResult } from '@/types/architect'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10 MB
+const MAX_BRIEF_CHARS = 40000 // truncate over-long role text before extraction (~10k tokens)
 
 // ---------------------------------------------------------------------------
 // Stage 0 — file ingestion (PDF / DOCX / TXT -> text)
@@ -72,9 +73,11 @@ export async function extractBrief(input: {
   outcomeIntent: string
 }): Promise<Brief> {
   await requireAdminScope()
-  const parsed = extractBriefSchema.safeParse(input)
+  // Truncate over-long input (long CVs/JDs) so it's trimmed, not rejected.
+  const rawText = (input.rawText ?? '').slice(0, MAX_BRIEF_CHARS)
+  const parsed = extractBriefSchema.safeParse({ rawText, outcomeIntent: input.outcomeIntent })
   if (!parsed.success) {
-    throw new Error('Please provide a longer role description.')
+    throw new Error('Add a bit more detail about the role before continuing.')
   }
   try {
     return await runBriefExtraction(parsed.data)
