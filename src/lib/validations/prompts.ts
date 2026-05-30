@@ -16,6 +16,8 @@ const aiPromptPurpose = z.enum([
   'report_development_advice',
   'item_critique',
   'synthetic_respondent',
+  'brief_extraction',
+  'architect_overview',
 ])
 
 export const getPromptVersionsSchema = z.object({
