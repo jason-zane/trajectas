@@ -19,8 +19,9 @@ import { requireAdminScope } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 import { runBriefExtraction } from '@/lib/ai/brief-extraction'
 import { runMatching } from '@/lib/ai/matching/engine'
+import { runArchitectOverview } from '@/lib/ai/architect-overview'
 import { createAssessment } from '@/app/actions/assessments'
-import { extractBriefSchema, runArchitectMatchSchema, createArchitectAssessmentSchema } from '@/lib/validations/architect'
+import { extractBriefSchema, runArchitectMatchSchema, createArchitectAssessmentSchema, summariseSelectionSchema } from '@/lib/validations/architect'
 import type { Brief, MatchingFactor } from '@/types/ai'
 import type { ArchitectPick, ArchitectMatchResult } from '@/types/architect'
 
@@ -102,7 +103,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
   // Eligible factor pool: match-eligible, active, not deleted.
   const { data: factorRows, error } = await db
     .from('factors')
-    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions')
+    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions, dimension_id, dimensions(name)')
     .eq('is_active', true)
     .eq('is_match_eligible', true)
     .is('deleted_at', null)
@@ -143,19 +144,33 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     throwActionError('runArchitectMatch.match', 'The matcher could not rank factors for this brief.', error)
   }
 
-  const picks: ArchitectPick[] = output.rankings.map((r) => ({
-    factorId: r.factorId,
-    factorName: r.factorName,
-    rank: r.rank,
-    relevanceScore: r.relevanceScore,
-    reasoning: r.reasoning,
-    availableItems: itemCountByFactor.get(r.factorId) ?? 0,
-  }))
+  const dimNameOf = (row: Record<string, unknown>): string | null => {
+    const d = row.dimensions
+    if (Array.isArray(d)) return (d[0] as { name?: string } | undefined)?.name ?? null
+    return (d as { name?: string } | null)?.name ?? null
+  }
+  const eligibleById = new Map(eligible.map((f) => [f.id as string, f as Record<string, unknown>]))
+
+  const picks: ArchitectPick[] = output.rankings.map((r) => {
+    const f = eligibleById.get(r.factorId)
+    return {
+      factorId: r.factorId,
+      factorName: r.factorName,
+      rank: r.rank,
+      relevanceScore: r.relevanceScore,
+      reasoning: r.reasoning,
+      availableItems: itemCountByFactor.get(r.factorId) ?? 0,
+      dimensionId: (f?.dimension_id as string | null) ?? null,
+      dimensionName: f ? dimNameOf(f) : null,
+    }
+  })
 
   const eligibleFactors = eligible.map((f) => ({
     factorId: f.id as string,
     factorName: f.name as string,
     availableItems: itemCountByFactor.get(f.id as string) ?? 0,
+    dimensionId: (f.dimension_id as string | null) ?? null,
+    dimensionName: dimNameOf(f as Record<string, unknown>),
   }))
 
   return {
@@ -164,6 +179,30 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     recommendedCount: output.recommendedCount,
     consideredCount: eligible.length,
     eligibleFactors,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Coverage overview — short AI summary of what the selection reveals
+// ---------------------------------------------------------------------------
+
+export async function summariseArchitectSelection(input: {
+  brief: Brief
+  included: { factorName: string; dimensionName: string | null; rank: number }[]
+  excluded: { factorName: string; dimensionName: string | null; rank: number }[]
+}): Promise<{ summary: string } | { error: string }> {
+  await requireAdminScope()
+  const parsed = summariseSelectionSchema.safeParse(input)
+  if (!parsed.success) return { error: 'Invalid selection.' }
+  try {
+    const summary = await runArchitectOverview({
+      brief: parsed.data.brief as Brief,
+      included: parsed.data.included,
+      excluded: parsed.data.excluded,
+    })
+    return { summary }
+  } catch {
+    return { error: 'Could not generate a summary.' }
   }
 }
 

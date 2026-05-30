@@ -25,6 +25,18 @@ export const runArchitectMatchSchema = z.object({
   brief: briefSchema,
 })
 
+const overviewFactorSchema = z.object({
+  factorName: z.string().max(200),
+  dimensionName: z.string().max(200).nullable(),
+  rank: z.coerce.number().int(),
+})
+
+export const summariseSelectionSchema = z.object({
+  brief: briefSchema,
+  included: z.array(overviewFactorSchema).max(50),
+  excluded: z.array(overviewFactorSchema).max(20),
+})
+
 export const createArchitectAssessmentSchema = z.object({
   title: z.string().min(1, 'Name the assessment').max(300),
   description: z.string().max(4000).optional(),

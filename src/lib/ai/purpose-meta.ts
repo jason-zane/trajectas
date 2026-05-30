@@ -57,6 +57,13 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: FileText,
     glowColor: "var(--primary)",
   },
+  architect_overview: {
+    label: "Architect Overview",
+    description:
+      "Summarises what a chosen competency set will (and won't) reveal for a role, on the Architect review step.",
+    icon: Layers,
+    glowColor: "var(--primary)",
+  },
   ranking_explanation: {
     label: "Ranking Explanation",
     description:
@@ -138,6 +145,7 @@ export const PURPOSE_ORDER: AIPromptPurpose[] = [
   "synthetic_respondent",
   "embedding",
   "brief_extraction",
+  "architect_overview",
   "competency_matching",
   "ranking_explanation",
   "diagnostic_analysis",

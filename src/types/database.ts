@@ -196,6 +196,7 @@ export type AIPromptPurpose =
   | 'item_critique'
   | 'synthetic_respondent'
   | 'brief_extraction'
+  | 'architect_overview'
 
 /** Report assessment type. */
 export type ReportType = 'self_report' | '360'

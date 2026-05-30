@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, Wand2, AlertTriangle, Upload, Loader2 } from "lucide-react";
+import { Sparkles, Wand2, AlertTriangle, Upload, Loader2, Clock, Layers, Plus } from "lucide-react";
 
 import {
   ActionDialog,
@@ -31,9 +31,13 @@ import {
   extractRoleText,
   runArchitectMatch,
   createArchitectAssessment,
+  summariseArchitectSelection,
 } from "@/app/actions/architect";
-import { ARCHITECT_SECONDS_PER_ITEM, type ArchitectMatchResult } from "@/types/architect";
+import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
+import { type ArchitectMatchResult } from "@/types/architect";
 import type { AssessmentLevel, AssessmentOutcome, Brief } from "@/types/ai";
+import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration";
+import { itemsPerCompetency, fitCountToTime, type ItemRule } from "@/lib/architect/sizing";
 
 // User-facing decision chips. `outcome` is the coarse stored category used for
 // eligibility filtering; `intent` is the literal phrasing fed to the matcher's
@@ -76,8 +80,8 @@ type Pick = {
   relevanceScore: number;
   reasoning: string;
   availableItems: number;
-  /** Items to include from this factor's pool (0..availableItems). */
-  itemCount: number;
+  dimensionId: string | null;
+  dimensionName: string | null;
   included: boolean;
 };
 
@@ -111,6 +115,10 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [match, setMatch] = useState<ArchitectMatchResult | null>(null);
   const [picks, setPicks] = useState<Pick[]>([]);
+  const [rules, setRules] = useState<ItemRule[]>([]);
+  const [targetMinutes, setTargetMinutes] = useState(15);
+  const [coverageSummary, setCoverageSummary] = useState<string | null>(null);
+  const [summarising, setSummarising] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
 
@@ -118,10 +126,43 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
   const currentStepIndex = Math.max(0, WIZARD_STEPS.findIndex((s) => s.id === stepId));
 
   const includedPicks = picks.filter((p) => p.included);
-  const totalItems = includedPicks.reduce((sum, p) => sum + p.itemCount, 0);
+  // Items per competency come from the platform's selection rules, by count — live.
+  const perCompetency = itemsPerCompetency(includedPicks.length, rules);
+  const itemsFor = (p: Pick) => Math.min(perCompetency, p.availableItems);
+  const totalItems = includedPicks.reduce((sum, p) => sum + itemsFor(p), 0);
+  const estMinutes = estimateAssessmentDurationMinutes(totalItems);
   const pickedIds = new Set(picks.map((p) => p.factorId));
   const addableFactors = (match?.eligibleFactors ?? []).filter((f) => !pickedIds.has(f.factorId));
-  const estMinutes = Math.max(1, Math.round((totalItems * ARCHITECT_SECONDS_PER_ITEM) / 60));
+
+  // Length-slider ceiling: all competencies at full rule items.
+  const maxTargetMinutes = useMemo(() => {
+    const all = picks.map((p) => p.availableItems);
+    const per = itemsPerCompetency(all.length, rules);
+    const items = all.reduce((s, a) => s + Math.min(per, a), 0);
+    return Math.max(5, estimateAssessmentDurationMinutes(items));
+  }, [picks, rules]);
+
+  // Computed coverage: what dimensions we're measuring, gaps, and what to add next.
+  const coverage = useMemo(() => {
+    const incl = picks.filter((p) => p.included);
+    const byDim = new Map<string, number>();
+    for (const p of incl) {
+      const d = p.dimensionName ?? "Other";
+      byDim.set(d, (byDim.get(d) ?? 0) + 1);
+    }
+    const measuring = [...byDim.entries()]
+      .map(([dim, n]) => ({ dim, n }))
+      .sort((a, b) => b.n - a.n);
+    const includedDims = new Set(measuring.map((m) => m.dim));
+    const allDims = new Set<string>();
+    for (const f of match?.eligibleFactors ?? []) allDims.add(f.dimensionName ?? "Other");
+    const gaps = [...allDims].filter((d) => !includedDims.has(d));
+    const couldAdd = picks
+      .filter((p) => !p.included)
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, 3);
+    return { measuring, gaps, couldAdd };
+  }, [picks, match]);
 
   function reset() {
     setStepId("brief");
@@ -131,6 +172,9 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
     setBrief(null);
     setMatch(null);
     setPicks([]);
+    setTargetMinutes(15);
+    setCoverageSummary(null);
+    setSummarising(false);
     setTitle("");
     setDescription("");
   }
@@ -206,15 +250,20 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
       goTo("picks");
       setBusy(true);
       try {
-        const result = await runArchitectMatch({ brief });
+        const [result, fetchedRules] = await Promise.all([
+          runArchitectMatch({ brief }),
+          getItemSelectionRulesForEstimate(),
+        ]);
         setMatch(result);
-        setPicks(
-          result.picks.map((p, i) => ({
-            ...p,
-            itemCount: p.availableItems,
-            included: i < (result.recommendedCount.optimal || result.picks.length),
-          })),
-        );
+        setRules(fetchedRules);
+        const optimal = result.recommendedCount.optimal || result.picks.length;
+        const nextPicks: Pick[] = result.picks.map((p, i) => ({ ...p, included: i < optimal }));
+        setPicks(nextPicks);
+        // Start the length lever at the recommended selection's duration.
+        const inclItems = nextPicks.filter((p) => p.included).map((p) => p.availableItems);
+        const per = itemsPerCompetency(inclItems.length, fetchedRules);
+        const items = inclItems.reduce((s, a) => s + Math.min(per, a), 0);
+        setTargetMinutes(Math.max(5, estimateAssessmentDurationMinutes(items)));
       } catch {
         toast.error("Matching failed", { description: "Please try again in a moment." });
         goTo("review", "right");
@@ -226,7 +275,41 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
 
     if (stepId === "picks") {
       goTo("name");
+      void generateCoverageSummary();
+      return;
     }
+  }
+
+  async function generateCoverageSummary() {
+    if (!brief) return;
+    setSummarising(true);
+    setCoverageSummary(null);
+    try {
+      const included = includedPicks.map((p) => ({
+        factorName: p.factorName,
+        dimensionName: p.dimensionName,
+        rank: p.rank,
+      }));
+      const excluded = coverage.couldAdd.map((p) => ({
+        factorName: p.factorName,
+        dimensionName: p.dimensionName,
+        rank: p.rank,
+      }));
+      const result = await summariseArchitectSelection({ brief, included, excluded });
+      if ("summary" in result) setCoverageSummary(result.summary);
+    } catch {
+      // Non-blocking — the computed coverage panel still stands on its own.
+    } finally {
+      setSummarising(false);
+    }
+  }
+
+  function applyTargetMinutes(target: number) {
+    setTargetMinutes(target);
+    const ranked = [...picks].sort((a, b) => a.rank - b.rank);
+    const n = fitCountToTime(ranked.map((p) => p.availableItems), target, rules);
+    const includeIds = new Set(ranked.slice(0, n).map((p) => p.factorId));
+    setPicks((prev) => prev.map((p) => ({ ...p, included: includeIds.has(p.factorId) })));
   }
 
   function handleBack() {
@@ -242,7 +325,7 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
       const result = await createArchitectAssessment({
         title: title.trim(),
         description: description.trim() || undefined,
-        picks: includedPicks.map((p) => ({ factorId: p.factorId, itemCount: p.itemCount, weight: 1 })),
+        picks: includedPicks.map((p) => ({ factorId: p.factorId, itemCount: itemsFor(p), weight: 1 })),
       });
       if ("error" in result && result.error) {
         throw new Error(errorMessage(result.error, "Unable to create the assessment."));
@@ -263,16 +346,6 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
     setPicks((prev) => prev.map((p) => (p.factorId === factorId ? { ...p, included: !p.included } : p)));
   }
 
-  function setItemCount(factorId: string, count: number) {
-    setPicks((prev) =>
-      prev.map((p) =>
-        p.factorId === factorId
-          ? { ...p, itemCount: Math.max(0, Math.min(p.availableItems, count)) }
-          : p,
-      ),
-    );
-  }
-
   function addFactor(factorId: string) {
     const f = match?.eligibleFactors.find((e) => e.factorId === factorId);
     if (!f || picks.some((p) => p.factorId === factorId)) return;
@@ -285,7 +358,8 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
         relevanceScore: 0,
         reasoning: "Added manually.",
         availableItems: f.availableItems,
-        itemCount: f.availableItems,
+        dimensionId: f.dimensionId,
+        dimensionName: f.dimensionName,
         included: true,
       },
     ]);
@@ -432,6 +506,34 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                   </div>
                 </div>
 
+                {picks.length > 0 && (
+                  <div className="rounded-lg border border-border bg-muted/20 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Clock className="size-4 text-primary" />
+                        Target length
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        ~{targetMinutes} min · auto-selects competencies
+                      </span>
+                    </div>
+                    <Slider
+                      value={[Math.min(targetMinutes, maxTargetMinutes)]}
+                      min={3}
+                      max={maxTargetMinutes}
+                      step={1}
+                      onValueChange={(v) =>
+                        applyTargetMinutes(Array.isArray(v) ? (v[0] ?? targetMinutes) : v)
+                      }
+                      className="mt-3"
+                    />
+                    <p className="mt-1.5 text-[11px] text-muted-foreground/80">
+                      Items per competency follow your selection rules ({perCompetency} each now) and
+                      shrink as you add more, so the time estimate stays honest. Toggle any below to fine-tune.
+                    </p>
+                  </div>
+                )}
+
                 {picks.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
                     No factors matched this brief. Go back and add more detail or pick a different decision.
@@ -452,34 +554,21 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                           className="mt-1"
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h4 className="truncate font-medium">{p.factorName}</h4>
+                            {p.dimensionName && (
+                              <Badge variant="secondary" className="shrink-0 text-[10px]">
+                                {p.dimensionName}
+                              </Badge>
+                            )}
                             <Badge variant="outline" className="shrink-0 text-[10px]">
                               {Math.round(p.relevanceScore)}% match
                             </Badge>
                           </div>
                           <p className="mt-1 text-xs text-muted-foreground">{p.reasoning}</p>
-                          {p.included ? (
-                            <div className="mt-2 flex items-center gap-3">
-                              <Slider
-                                value={[p.itemCount]}
-                                min={0}
-                                max={p.availableItems}
-                                step={1}
-                                onValueChange={(v) =>
-                                  setItemCount(p.factorId, Array.isArray(v) ? (v[0] ?? 0) : v)
-                                }
-                                className="max-w-[160px]"
-                              />
-                              <span className="whitespace-nowrap text-[11px] text-muted-foreground/80">
-                                {p.itemCount} / {p.availableItems} items
-                              </span>
-                            </div>
-                          ) : (
-                            <p className="mt-1.5 text-[11px] text-muted-foreground/80">
-                              {p.availableItems} items available
-                            </p>
-                          )}
+                          <p className="mt-1.5 text-[11px] text-muted-foreground/80">
+                            {p.included ? `${itemsFor(p)} items` : `${p.availableItems} available`}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -500,6 +589,8 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                     )}
                   </div>
                 )}
+
+                {picks.length > 0 && <CoveragePanel coverage={coverage} onInclude={togglePick} />}
               </>
             )}
           </div>
@@ -512,6 +603,30 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                 <Sparkles className="size-4 text-primary" />
                 {includedPicks.length} factors · {totalItems} items · ~{estMinutes} min
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+                <Layers className="size-3.5" />
+                What this assessment gives you
+              </div>
+              {summarising ? (
+                <div className="space-y-1.5">
+                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-3.5 w-5/6" />
+                  <Skeleton className="h-3.5 w-2/3" />
+                </div>
+              ) : coverageSummary ? (
+                <p className="text-sm text-muted-foreground">{coverageSummary}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Measuring {includedPicks.length}{" "}
+                  {includedPicks.length === 1 ? "competency" : "competencies"} across{" "}
+                  {coverage.measuring.length}{" "}
+                  {coverage.measuring.length === 1 ? "area" : "areas"}
+                  {coverage.gaps.length > 0 ? `; not covering ${coverage.gaps.join(", ")}.` : "."}
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="arch-title">
@@ -572,6 +687,62 @@ function BulletBlock({ title, items }: { title: string; items: string[] }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function CoveragePanel({
+  coverage,
+  onInclude,
+}: {
+  coverage: {
+    measuring: { dim: string; n: number }[];
+    gaps: string[];
+    couldAdd: Array<{ factorId: string; factorName: string; rank: number; dimensionName: string | null }>;
+  };
+  onInclude: (factorId: string) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-muted/10 p-4">
+      <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-muted-foreground">
+        <Layers className="size-3.5" /> Coverage
+      </div>
+
+      {coverage.measuring.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {coverage.measuring.map((m) => (
+            <Badge key={m.dim} variant="secondary" className="text-[10px]">
+              {m.dim} · {m.n}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">No competencies selected yet.</p>
+      )}
+
+      {coverage.gaps.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">Not measuring:</span> {coverage.gaps.join(", ")}
+        </p>
+      )}
+
+      {coverage.couldAdd.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Could add</div>
+          {coverage.couldAdd.map((p) => (
+            <div key={p.factorId} className="flex items-center justify-between gap-2">
+              <span className="min-w-0 truncate text-xs text-muted-foreground">
+                {p.factorName}
+                {p.dimensionName ? ` · ${p.dimensionName}` : ""}{" "}
+                <span className="text-muted-foreground/60">(#{p.rank})</span>
+              </span>
+              <Button type="button" variant="ghost" size="xs" onClick={() => onInclude(p.factorId)}>
+                <Plus className="size-3" /> Add
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
