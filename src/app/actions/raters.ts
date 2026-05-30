@@ -94,11 +94,13 @@ export async function getCampaign360Setup(
   const augmented: RaterWithProgress[] = (raters ?? []).map((row) => {
     const rater = mapCampaignRaterRow(row)
     const link = linkByRater.get(rater.id)
-    // Upgrade the displayed status from the linked participant once they've
-    // started (in_progress) or finished (completed).
+    // Reflect the linked participant's live state: started (in_progress),
+    // finished (completed), or token expired — so the UI doesn't offer a
+    // reminder / link that the runtime would reject.
     let effectiveStatus = rater.status
     if (link?.status === 'completed') effectiveStatus = 'completed'
     else if (link?.status === 'in_progress') effectiveStatus = 'in_progress'
+    else if (link?.status === 'expired') effectiveStatus = 'expired'
     return { ...rater, takingToken: link?.token, effectiveStatus }
   })
 
@@ -317,6 +319,125 @@ export async function markApprovedRatersInvited(campaignId: string) {
     count: data?.length ?? 0,
     emailsSent: emailResult.sent,
   }
+}
+
+export interface SendRemindersResult {
+  sent: number
+  error?: string
+}
+
+/**
+ * Send a reminder email to the given raters (manual nudge from the Subject &
+ * Raters tab). Only raters who have been invited and haven't completed/withdrawn
+ * are reminded; their last_reminded_at is stamped. Best-effort per recipient.
+ */
+export async function sendRaterReminders(
+  campaignId: string,
+  raterIds: string[],
+): Promise<SendRemindersResult> {
+  const access = await require360Admin(campaignId)
+  const db = createAdminClient()
+  const ids = Array.from(new Set(raterIds))
+  if (ids.length === 0) return { sent: 0 }
+
+  const [{ data: campaign }, { data: subjectRows }, { data: raterRows }, { data: parts }] =
+    await Promise.all([
+      db
+        .from('campaigns')
+        .select('title, client_id, partner_id')
+        .eq('id', campaignId)
+        .single(),
+      db
+        .from('campaign_participants')
+        .select('first_name, last_name')
+        .eq('campaign_id', campaignId)
+        .is('campaign_rater_id', null)
+        .order('created_at', { ascending: true })
+        .limit(1),
+      db
+        .from('campaign_raters')
+        .select('id, name')
+        .eq('campaign_id', campaignId)
+        .in('id', ids),
+      db
+        .from('campaign_participants')
+        .select('campaign_rater_id, email, access_token, status')
+        .eq('campaign_id', campaignId)
+        .in('campaign_rater_id', ids),
+    ])
+
+  const subject = subjectRows?.[0]
+  const subjectName = subject
+    ? [subject.first_name, subject.last_name].filter(Boolean).join(' ') ||
+      'your colleague'
+    : 'your colleague'
+  const nameByRater = new Map(
+    (raterRows ?? []).map((r) => [r.id as string, (r.name as string | null) ?? '']),
+  )
+  const linkByRater = new Map(
+    (parts ?? []).map((p) => [
+      p.campaign_rater_id as string,
+      {
+        token: p.access_token as string,
+        email: p.email as string,
+        status: p.status as string,
+      },
+    ]),
+  )
+
+  const assessBaseUrl = requireAppUrl('public')
+  const { sendEmail } = await import('@/lib/email/send')
+
+  const remindedIds: string[] = []
+  for (const id of ids) {
+    const link = linkByRater.get(id)
+    // Only nudge people who can still respond — completed, withdrawn, and
+    // expired tokens are rejected by the assessment runtime, so a reminder
+    // would point them at an unusable link.
+    if (
+      !link ||
+      link.status === 'completed' ||
+      link.status === 'withdrawn' ||
+      link.status === 'expired'
+    ) {
+      continue
+    }
+    try {
+      await sendEmail({
+        type: 'rater_reminder',
+        to: link.email,
+        variables: {
+          raterName: nameByRater.get(id) ?? '',
+          subjectName,
+          assessmentUrl: `${assessBaseUrl}/assess/${link.token}`,
+          brandName: 'Trajectas',
+        },
+        scopeCampaignId: campaignId,
+        scopeClientId: campaign?.client_id ?? undefined,
+        scopePartnerId: campaign?.partner_id ?? undefined,
+      })
+      remindedIds.push(id)
+    } catch (err) {
+      logActionError('sendRaterReminders', err)
+    }
+  }
+
+  if (remindedIds.length > 0) {
+    await db
+      .from('campaign_raters')
+      .update({ last_reminded_at: new Date().toISOString() })
+      .in('id', remindedIds)
+    await logAuditEvent({
+      actorProfileId: access.scope.actor?.id ?? null,
+      eventType: 'campaign.raters.reminded',
+      targetTable: 'campaign_raters',
+      targetId: campaignId,
+      metadata: { count: remindedIds.length },
+    })
+  }
+
+  revalidatePath(`/campaigns/${campaignId}/raters`)
+  return { sent: remindedIds.length }
 }
 
 /**
