@@ -82,7 +82,7 @@ export async function runMatching(
   }
 }
 
-/** Parse JSON from AI response, stripping markdown fences if present. */
+/** Parse JSON from AI response, tolerating fences and prose/reasoning wrappers. */
 function parseJsonResponse(content: string): unknown {
   let cleaned = content.trim()
   const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/)
@@ -93,6 +93,17 @@ function parseJsonResponse(content: string): unknown {
   try {
     return JSON.parse(cleaned)
   } catch (error) {
+    // Fallback: some models (esp. reasoning models) prepend a <think> block or
+    // prose around the JSON. Extract the outermost { ... } object and retry.
+    const start = cleaned.indexOf('{')
+    const end = cleaned.lastIndexOf('}')
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(cleaned.slice(start, end + 1))
+      } catch {
+        // fall through to the error below
+      }
+    }
     throw new ResponseParseError(
       `Content is not valid JSON: ${cleaned.slice(0, 200)}...`,
       error,
