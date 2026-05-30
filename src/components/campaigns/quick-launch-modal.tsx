@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -34,7 +36,18 @@ import {
 import { getFactorsForAssessment } from "@/app/actions/factor-selection";
 import { saveFactorSelection } from "@/app/actions/factor-selection";
 import { getItemSelectionRulesForEstimate } from "@/app/actions/item-selection-rules";
-import { FileText, Link2, Mail, Plus, Rocket } from "lucide-react";
+import { addRater, markApprovedRatersInvited } from "@/app/actions/raters";
+import {
+  FileText,
+  Link2,
+  Mail,
+  Plus,
+  Rocket,
+  User,
+  Users,
+  Trash2,
+} from "lucide-react";
+import type { RaterRelationship } from "@/types/database";
 import {
   CapabilitySelectionStep,
 } from "./capability-selection-step";
@@ -42,6 +55,27 @@ import { NotificationsStep, type NotificationsStepValue } from "./notifications-
 import { type FactorAssessmentData } from "./capability-selection-step";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** A rater being collected in the wizard (not yet persisted). */
+interface RaterDraft {
+  relationship: RaterRelationship;
+  name: string;
+  email: string;
+}
+
+const OBSERVER_RELATIONSHIPS: { value: RaterRelationship; label: string }[] = [
+  { value: "manager", label: "Manager" },
+  { value: "peer", label: "Peer" },
+  { value: "direct_report", label: "Direct report" },
+  { value: "other", label: "Other" },
+];
+
+const RELATIONSHIP_LABELS: Record<string, string> = {
+  manager: "Manager",
+  peer: "Peer",
+  direct_report: "Direct report",
+  other: "Other",
+};
 
 function generateSlug(title: string): string {
   const base = title
@@ -140,14 +174,21 @@ interface QuickLaunchModalProps {
   initialAssessmentId?: string;
   /** Email of the user opening the wizard — prefilled into the notifications step recipient list. */
   creatorEmail?: string;
+  /** Whether the 360 campaign type is offered (admin test-bed only). */
+  allowLeadership360?: boolean;
 }
 
 type StepId =
+  | "type"
   | "campaign"
   | "assessment"
   | "capabilities"
   | "notifications"
-  | "invite";
+  | "invite"
+  | "subject"
+  | "raters";
+
+type CampaignKind = "self" | "leadership_360";
 
 type ItemSelectionRule = {
   minConstructs: number;
@@ -156,6 +197,7 @@ type ItemSelectionRule = {
 };
 
 interface WizardState {
+  campaignKind: CampaignKind;
   title: string;
   clientId: string | null;
   opensAt: string;
@@ -171,6 +213,15 @@ interface WizardState {
   inviteSingleLastName: string;
   inviteCsv: string;
   notifications: NotificationsStepValue;
+  // 360-only
+  subjectFirstName: string;
+  subjectLastName: string;
+  subjectEmail: string;
+  raters: RaterDraft[];
+  raterRelationship: RaterRelationship;
+  raterName: string;
+  raterEmail: string;
+  sendInvitesNow: boolean;
 }
 
 export function QuickLaunchModal({
@@ -182,9 +233,13 @@ export function QuickLaunchModal({
   successHrefPrefix = "/campaigns",
   initialAssessmentId,
   creatorEmail,
+  allowLeadership360 = false,
 }: QuickLaunchModalProps) {
-  const [stepId, setStepId] = useState<StepId>("campaign");
+  const [stepId, setStepId] = useState<StepId>(
+    allowLeadership360 ? "type" : "campaign",
+  );
   const [state, setState] = useState<WizardState>({
+    campaignKind: "self",
     title: "",
     clientId: forcedClientId ?? null,
     opensAt: "",
@@ -205,6 +260,14 @@ export function QuickLaunchModal({
       includeSummary: true,
       attachPdf: true,
     },
+    subjectFirstName: "",
+    subjectLastName: "",
+    subjectEmail: "",
+    raters: [],
+    raterRelationship: "peer",
+    raterName: "",
+    raterEmail: "",
+    sendInvitesNow: true,
   });
   const [isLaunching, setIsLaunching] = useState(false);
   const [loadingCapabilities, setLoadingCapabilities] = useState(false);
@@ -240,14 +303,31 @@ export function QuickLaunchModal({
   // the indicator doesn't grow once the user makes a selection.
   const includeCapabilitiesStep = !selectedAssessment || supportsCustomisation;
 
+  const is360 = state.campaignKind === "leadership_360";
+  const subjectEmailError =
+    state.subjectEmail.trim().length > 0 && !isValidEmail(state.subjectEmail)
+      ? "Enter a valid email address."
+      : null;
+  const raterEmailError =
+    state.raterEmail.trim().length > 0 && !isValidEmail(state.raterEmail)
+      ? "Enter a valid email address."
+      : null;
+
   const wizardSteps: ActionWizardStep[] = [
+    ...(allowLeadership360 ? [{ id: "type", label: "Type" }] : []),
     { id: "campaign", label: "Campaign" },
     { id: "assessment", label: "Assessment" },
     ...(includeCapabilitiesStep
       ? [{ id: "capabilities", label: "Capabilities" }]
       : []),
     { id: "notifications", label: "Notifications" },
-    { id: "invite", label: "Invite" },
+    // A 360 collects a subject + raters; a self campaign invites participants.
+    ...(is360
+      ? [
+          { id: "subject", label: "Subject" },
+          { id: "raters", label: "Raters" },
+        ]
+      : [{ id: "invite", label: "Invite" }]),
   ];
 
   const currentStepIndex = Math.max(
@@ -256,8 +336,9 @@ export function QuickLaunchModal({
   );
 
   function reset() {
-    setStepId("campaign");
+    setStepId(allowLeadership360 ? "type" : "campaign");
     setState({
+      campaignKind: "self",
       title: "",
       clientId: forcedClientId ?? null,
       opensAt: "",
@@ -278,6 +359,14 @@ export function QuickLaunchModal({
         includeSummary: true,
         attachPdf: true,
       },
+      subjectFirstName: "",
+      subjectLastName: "",
+      subjectEmail: "",
+      raters: [],
+      raterRelationship: "peer",
+      raterName: "",
+      raterEmail: "",
+      sendInvitesNow: true,
     });
   }
 
@@ -289,6 +378,9 @@ export function QuickLaunchModal({
   }
 
   function canAdvance(): boolean {
+    if (stepId === "type") {
+      return true; // a kind is always selected (defaults to self)
+    }
     if (stepId === "campaign") {
       return campaignTitle.length > 0 && !scheduleError;
     }
@@ -305,7 +397,14 @@ export function QuickLaunchModal({
       // No required fields — disabled is a valid choice.
       return true;
     }
-    // Invite step
+    if (stepId === "subject") {
+      return state.subjectEmail.trim().length > 0 && !subjectEmailError;
+    }
+    if (stepId === "raters") {
+      // Raters are optional in the wizard — more can be added on the tab.
+      return true;
+    }
+    // Invite step (self campaigns)
     if (state.inviteMode === "link") {
       return true;
     }
@@ -342,6 +441,35 @@ export function QuickLaunchModal({
       itemSelectionRules: [],
     }));
     void fetchCapabilitiesForAssessment(assessmentId);
+  }
+
+  function addRaterDraft() {
+    const email = state.raterEmail.trim().toLowerCase();
+    if (!isValidEmail(email)) return;
+    if (email === state.subjectEmail.trim().toLowerCase()) {
+      toast.error("The subject can't be one of their own raters.");
+      return;
+    }
+    if (state.raters.some((r) => r.email.toLowerCase() === email)) {
+      toast.error("That rater has already been added.");
+      return;
+    }
+    setState((s) => ({
+      ...s,
+      raters: [
+        ...s.raters,
+        { relationship: s.raterRelationship, name: s.raterName.trim(), email },
+      ],
+      raterName: "",
+      raterEmail: "",
+    }));
+  }
+
+  function removeRaterDraft(index: number) {
+    setState((s) => ({
+      ...s,
+      raters: s.raters.filter((_, i) => i !== index),
+    }));
   }
 
   async function handleNext() {
@@ -392,6 +520,7 @@ export function QuickLaunchModal({
         opensAt: toIsoDateTime(state.opensAt),
         closesAt: toIsoDateTime(state.closesAt),
         status: "draft",
+        kind: state.campaignKind,
         allowResume: true,
         showProgress: true,
         randomizeAssessmentOrder: false,
@@ -442,7 +571,66 @@ export function QuickLaunchModal({
       let successDetail = "";
       let successDescription: string | undefined;
 
-      if (state.inviteMode === "single") {
+      // ── 360 branch: set the subject + raters, then (optionally) invite ──────
+      if (is360) {
+        // The subject is a normal participant who takes the self version. This
+        // also emails them their assessment link.
+        const subjectResult = await inviteParticipant(campaignId, {
+          email: state.subjectEmail.trim(),
+          firstName: state.subjectFirstName.trim() || undefined,
+          lastName: state.subjectLastName.trim() || undefined,
+        });
+        if ("error" in subjectResult && subjectResult.error) {
+          throw new Error(getErrorMessage(subjectResult.error));
+        }
+        // If the subject's own assessment email didn't send, the leader has no
+        // link — warn the admin (they can copy it from the Subject & Raters tab).
+        const subjectEmailFailed =
+          "emailSent" in subjectResult && subjectResult.emailSent === false;
+
+        let ratersAdded = 0;
+        for (const rater of state.raters) {
+          const addResult = await addRater(campaignId, {
+            relationship: rater.relationship,
+            name: rater.name.trim() || undefined,
+            email: rater.email.trim(),
+          });
+          if ("error" in addResult && addResult.error) {
+            throw new Error(getErrorMessage(addResult.error));
+          }
+          ratersAdded += 1;
+        }
+
+        let invitedCount = 0;
+        if (state.sendInvitesNow && ratersAdded > 0) {
+          const inviteResult = await markApprovedRatersInvited(campaignId);
+          if ("error" in inviteResult && inviteResult.error) {
+            throw new Error(inviteResult.error);
+          }
+          invitedCount =
+            "emailsSent" in inviteResult &&
+            typeof inviteResult.emailsSent === "number"
+              ? inviteResult.emailsSent
+              : 0;
+        }
+
+        successDetail =
+          ratersAdded === 0
+            ? "subject set — add raters next"
+            : state.sendInvitesNow
+              ? `${pluralize(invitedCount, "rater")} invited`
+              : `${pluralize(ratersAdded, "rater")} added`;
+        const notes: string[] = [];
+        if (subjectEmailFailed) {
+          notes.push(
+            "The subject's invite email didn't send — copy their link from the Subject & Raters tab.",
+          );
+        }
+        if (ratersAdded > 0 && !state.sendInvitesNow) {
+          notes.push("Send rater invitations from the Subject & Raters tab.");
+        }
+        if (notes.length > 0) successDescription = notes.join(" ");
+      } else if (state.inviteMode === "single") {
         const inviteResult = await inviteParticipant(campaignId, {
           email: state.inviteSingleEmail.trim(),
           firstName: state.inviteSingleFirstName.trim() || undefined,
@@ -461,9 +649,7 @@ export function QuickLaunchModal({
             inviteResult.emailError ??
             "Invite email failed. You can resend it from the participants page.";
         }
-      }
-
-      if (state.inviteMode === "csv") {
+      } else if (state.inviteMode === "csv") {
         const bulkResult = await bulkInviteParticipants(campaignId, csvInviteRows);
 
         if ("error" in bulkResult && bulkResult.error) {
@@ -490,9 +676,7 @@ export function QuickLaunchModal({
         if (notes.length > 0) {
           successDescription = notes.join(" · ");
         }
-      }
-
-      if (state.inviteMode === "link") {
+      } else if (state.inviteMode === "link") {
         const linkResult = await createAccessLink(campaignId, {
           label: campaignTitle,
         });
@@ -526,7 +710,13 @@ export function QuickLaunchModal({
       toast.success(`Campaign "${campaignTitle}" launched — ${successDetail}`, {
         description: successDescription,
       });
-      router.push(`${successBaseHref}/${campaignId}`);
+      // 360 campaigns land on the Subject & Raters tab to manage feedback;
+      // self campaigns land on the campaign overview.
+      router.push(
+        is360
+          ? `${successBaseHref}/${campaignId}/raters`
+          : `${successBaseHref}/${campaignId}`,
+      );
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to complete quick launch.";
@@ -574,6 +764,63 @@ export function QuickLaunchModal({
         submittingLabel="Launching..."
         slideDirection={slideDirection}
       >
+          {stepId === "type" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                What kind of campaign is this?
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    {
+                      value: "self" as const,
+                      icon: User,
+                      title: "Individual Assessment",
+                      blurb: "Each participant takes their own assessment.",
+                    },
+                    {
+                      value: "leadership_360" as const,
+                      icon: Users,
+                      title: "360 Feedback",
+                      blurb:
+                        "One subject rated by self plus observers, for development.",
+                    },
+                  ]
+                ).map((opt) => {
+                  const Icon = opt.icon;
+                  const selected = state.campaignKind === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() =>
+                        setState((s) => ({ ...s, campaignKind: opt.value }))
+                      }
+                      aria-pressed={selected}
+                      className={cn(
+                        "flex flex-col items-start gap-1.5 rounded-lg border p-4 text-left transition-colors",
+                        selected
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/40",
+                      )}
+                    >
+                      <Icon
+                        className={cn(
+                          "size-5",
+                          selected ? "text-primary" : "text-muted-foreground",
+                        )}
+                      />
+                      <span className="text-sm font-semibold">{opt.title}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {opt.blurb}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {stepId === "campaign" && (
             <div className="space-y-4">
               {forcedClientId && selectedClient && (
@@ -1039,6 +1286,170 @@ export function QuickLaunchModal({
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {stepId === "subject" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Who is being assessed? This leader takes the self version; their
+                raters give observer feedback.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="ql-subject-first">First name</Label>
+                  <Input
+                    id="ql-subject-first"
+                    placeholder="Jane"
+                    value={state.subjectFirstName}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, subjectFirstName: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ql-subject-last">Last name</Label>
+                  <Input
+                    id="ql-subject-last"
+                    placeholder="Doe"
+                    value={state.subjectLastName}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, subjectLastName: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="ql-subject-email">
+                    Email <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="ql-subject-email"
+                    type="email"
+                    placeholder="leader@company.com"
+                    value={state.subjectEmail}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, subjectEmail: e.target.value }))
+                    }
+                  />
+                  {subjectEmailError && (
+                    <p className="text-xs text-destructive">{subjectEmailError}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {stepId === "raters" && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Add the subject&apos;s manager, peers, and direct reports. You can
+                always add more later. Peer and direct-report scores show only when
+                at least 3 people in a group respond.
+              </p>
+
+              <div className="grid gap-2 sm:grid-cols-[9rem_1fr_1fr_auto] sm:items-end">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Relationship</Label>
+                  <Select
+                    value={state.raterRelationship}
+                    onValueChange={(v) =>
+                      setState((s) => ({
+                        ...s,
+                        raterRelationship: (v as RaterRelationship) ?? "peer",
+                      }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OBSERVER_RELATIONSHIPS.map((rel) => (
+                        <SelectItem key={rel.value} value={rel.value}>
+                          {rel.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Name</Label>
+                  <Input
+                    placeholder="Optional"
+                    value={state.raterName}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, raterName: e.target.value }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="rater@company.com"
+                    value={state.raterEmail}
+                    onChange={(e) =>
+                      setState((s) => ({ ...s, raterEmail: e.target.value }))
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addRaterDraft();
+                      }
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addRaterDraft}
+                  disabled={!isValidEmail(state.raterEmail) || !!raterEmailError}
+                >
+                  <Plus className="size-4" />
+                  Add
+                </Button>
+              </div>
+              {raterEmailError && (
+                <p className="text-xs text-destructive">{raterEmailError}</p>
+              )}
+
+              {state.raters.length > 0 && (
+                <div className="divide-y rounded-lg border">
+                  {state.raters.map((r, i) => (
+                    <div key={`${r.email}-${i}`} className="flex items-center gap-3 p-2.5">
+                      <Badge variant="outline" className="shrink-0">
+                        {RELATIONSHIP_LABELS[r.relationship] ?? r.relationship}
+                      </Badge>
+                      <span className="min-w-0 flex-1 truncate text-sm">
+                        {r.name ? `${r.name} · ` : ""}
+                        {r.email}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label="Remove rater"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() => removeRaterDraft(i)}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <label className="flex items-center justify-between rounded-lg border border-border p-3">
+                <span className="text-sm">
+                  Email invitations now
+                  <span className="block text-xs text-muted-foreground">
+                    Otherwise send them later from the Subject &amp; Raters tab.
+                  </span>
+                </span>
+                <Switch
+                  checked={state.sendInvitesNow}
+                  onCheckedChange={(v) =>
+                    setState((s) => ({ ...s, sendInvitesNow: v === true }))
+                  }
+                />
+              </label>
             </div>
           )}
       </ActionWizard>
