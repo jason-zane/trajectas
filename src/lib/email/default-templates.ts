@@ -156,6 +156,22 @@ const RATER_INVITE = doc(
   paragraph([text('If you have any questions, reply to this email.')]),
 )
 
+const RATER_REMINDER = doc(
+  heading(2, [text('A quick reminder')]),
+  paragraph([text('Hi '), variable('raterName', 'there'), text(',')]),
+  paragraph([
+    text('Your 360 feedback for '),
+    bold('{{subjectName}}'),
+    text(' is still open. It only takes a few minutes, and your input makes a real difference to their development. Your responses stay confidential and are shown only as group averages.'),
+  ]),
+  spacer(8),
+  button('Give Feedback', 'assessmentUrl'),
+  spacer(8),
+  paragraph([
+    text('If you have already completed it, thank you — please ignore this message.'),
+  ]),
+)
+
 const REPORT_READY = doc(
   heading(2, [text('Your Report is Ready')]),
   paragraph([
@@ -203,6 +219,7 @@ export const DEFAULT_TEMPLATES: Record<EmailType, Record<string, unknown>> = {
   assessment_invite: ASSESSMENT_INVITE,
   assessment_reminder: ASSESSMENT_REMINDER,
   rater_invite: RATER_INVITE,
+  rater_reminder: RATER_REMINDER,
   report_ready: REPORT_READY,
   welcome: WELCOME,
   admin_notification: ADMIN_NOTIFICATION,

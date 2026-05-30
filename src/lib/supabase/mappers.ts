@@ -684,6 +684,7 @@ export function mapCampaignRaterRow(row: any): CampaignRater {
     invitedAt: row.invited_at ?? undefined,
     startedAt: row.started_at ?? undefined,
     completedAt: row.completed_at ?? undefined,
+    lastRemindedAt: row.last_reminded_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }

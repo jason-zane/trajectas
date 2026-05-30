@@ -3,7 +3,16 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { UserPlus, Trash2, Check, X, Send, Link2, BarChart3 } from "lucide-react";
+import {
+  UserPlus,
+  Trash2,
+  Check,
+  X,
+  Send,
+  Link2,
+  BarChart3,
+  Bell,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,6 +40,7 @@ import {
   updateRaterStatus,
   removeRater,
   markApprovedRatersInvited,
+  sendRaterReminders,
   type RaterWithProgress,
 } from "@/app/actions/raters";
 import { generateCampaign360Snapshot } from "@/app/actions/three-sixty";
@@ -224,6 +234,29 @@ export function CampaignRatersManager({
     (r) => r.effectiveStatus === "completed",
   ).length;
 
+  // Outstanding = invited (or in progress) but not yet completed, and reachable.
+  const isOutstanding = (r: RaterWithProgress) =>
+    !!r.takingToken &&
+    (r.effectiveStatus === "invited" || r.effectiveStatus === "in_progress");
+  const outstanding = raters.filter(isOutstanding);
+
+  function handleRemind(raterIds: string[]) {
+    if (raterIds.length === 0) return;
+    startTransition(async () => {
+      const res = await sendRaterReminders(campaignId, raterIds);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(
+        res.sent > 0
+          ? `Reminder sent to ${res.sent} ${res.sent === 1 ? "rater" : "raters"}`
+          : "No outstanding raters to remind",
+      );
+      router.refresh();
+    });
+  }
+
   return (
     <div className="space-y-6 max-w-3xl">
       <PageHeader
@@ -347,17 +380,29 @@ export function CampaignRatersManager({
                     </Badge>
                   );
                 })}
-                {approvedCount > 0 && (
-                  <Button
-                    size="sm"
-                    className="ml-auto"
-                    disabled={pending}
-                    onClick={handleInviteApproved}
-                  >
-                    <Send className="size-4" />
-                    Invite {approvedCount} approved
-                  </Button>
-                )}
+                <div className="ml-auto flex items-center gap-2">
+                  {outstanding.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending}
+                      onClick={() => handleRemind(outstanding.map((r) => r.id))}
+                    >
+                      <Bell className="size-4" />
+                      Remind {outstanding.length} outstanding
+                    </Button>
+                  )}
+                  {approvedCount > 0 && (
+                    <Button
+                      size="sm"
+                      disabled={pending}
+                      onClick={handleInviteApproved}
+                    >
+                      <Send className="size-4" />
+                      Invite {approvedCount} approved
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Add rater */}
@@ -440,6 +485,22 @@ export function CampaignRatersManager({
                         {r.effectiveStatus.replace(/_/g, " ")}
                       </Badge>
                       <div className="flex shrink-0 gap-1">
+                        {isOutstanding(r) && (
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Send reminder"
+                            title={
+                              r.lastRemindedAt
+                                ? `Last reminded ${new Date(r.lastRemindedAt).toLocaleDateString()}`
+                                : "Send a reminder"
+                            }
+                            disabled={pending}
+                            onClick={() => handleRemind([r.id])}
+                          >
+                            <Bell className="size-3.5 text-primary" />
+                          </Button>
+                        )}
                         {r.takingToken && (
                           <Button
                             variant="ghost"

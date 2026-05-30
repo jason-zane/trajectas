@@ -1691,6 +1691,8 @@ export interface CampaignRater {
   invitedAt?: string
   startedAt?: string
   completedAt?: string
+  /** When a reminder email was last sent to this rater. */
+  lastRemindedAt?: string
   created_at: string
   updated_at?: string
 }
