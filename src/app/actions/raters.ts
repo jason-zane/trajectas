@@ -94,11 +94,13 @@ export async function getCampaign360Setup(
   const augmented: RaterWithProgress[] = (raters ?? []).map((row) => {
     const rater = mapCampaignRaterRow(row)
     const link = linkByRater.get(rater.id)
-    // Upgrade the displayed status from the linked participant once they've
-    // started (in_progress) or finished (completed).
+    // Reflect the linked participant's live state: started (in_progress),
+    // finished (completed), or token expired — so the UI doesn't offer a
+    // reminder / link that the runtime would reject.
     let effectiveStatus = rater.status
     if (link?.status === 'completed') effectiveStatus = 'completed'
     else if (link?.status === 'in_progress') effectiveStatus = 'in_progress'
+    else if (link?.status === 'expired') effectiveStatus = 'expired'
     return { ...rater, takingToken: link?.token, effectiveStatus }
   })
 
@@ -389,8 +391,15 @@ export async function sendRaterReminders(
   const remindedIds: string[] = []
   for (const id of ids) {
     const link = linkByRater.get(id)
-    // Only nudge people who can still respond.
-    if (!link || link.status === 'completed' || link.status === 'withdrawn') {
+    // Only nudge people who can still respond — completed, withdrawn, and
+    // expired tokens are rejected by the assessment runtime, so a reminder
+    // would point them at an unusable link.
+    if (
+      !link ||
+      link.status === 'completed' ||
+      link.status === 'withdrawn' ||
+      link.status === 'expired'
+    ) {
       continue
     }
     try {
