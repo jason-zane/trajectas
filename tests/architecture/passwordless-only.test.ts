@@ -24,8 +24,16 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const SRC = join(ROOT, "src");
+const SELF = fileURLToPath(import.meta.url);
+const ROOT = resolve(dirname(SELF), "..", "..");
+
+// Scan production code AND the test tree. Test fixtures previously used
+// `admin.createUser({ password })` + `signInWithPassword` to set up RLS tests,
+// which both violated the OTP-only model and (since migration 20260521130000
+// NULLs encrypted_password) silently broke those tests. Scanning tests/ keeps
+// that from coming back. This file is excluded from the scan because it
+// necessarily contains the banned patterns as regex definitions.
+const SCAN_ROOTS = [join(ROOT, "src"), join(ROOT, "tests")];
 
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs"]);
 
@@ -73,22 +81,25 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe("passwordless-only auth", () => {
-  it("contains no calls to Supabase password APIs in src/", () => {
+  it("contains no calls to Supabase password APIs in src/ or tests/", () => {
     const violations: Array<{ file: string; line: number; pattern: string; rationale: string }> = [];
 
-    for (const file of walk(SRC)) {
-      const text = readFileSync(file, "utf8");
-      const lines = text.split("\n");
+    for (const root of SCAN_ROOTS) {
+      for (const file of walk(root)) {
+        if (file === SELF) continue;
+        const text = readFileSync(file, "utf8");
+        const lines = text.split("\n");
 
-      for (const { regex, rationale } of BANNED_PATTERNS) {
-        for (let i = 0; i < lines.length; i++) {
-          if (regex.test(lines[i])) {
-            violations.push({
-              file: file.replace(`${ROOT}/`, ""),
-              line: i + 1,
-              pattern: regex.source,
-              rationale,
-            });
+        for (const { regex, rationale } of BANNED_PATTERNS) {
+          for (let i = 0; i < lines.length; i++) {
+            if (regex.test(lines[i])) {
+              violations.push({
+                file: file.replace(`${ROOT}/`, ""),
+                line: i + 1,
+                pattern: regex.source,
+                rationale,
+              });
+            }
           }
         }
       }

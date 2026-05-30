@@ -16,48 +16,14 @@
  *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import {
+  canRun,
+  createAdminClient,
+  createTestUser,
+} from "./_helpers/rls-fixture";
 
-// ---------------------------------------------------------------------------
-// Environment — load from .env.local if variables are not already present
-// ---------------------------------------------------------------------------
-
-function loadEnvFile() {
-  try {
-    const envPath = resolve(__dirname, "../../.env.local");
-    const content = readFileSync(envPath, "utf-8");
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("#")) continue;
-      const eqIdx = trimmed.indexOf("=");
-      if (eqIdx === -1) continue;
-      const key = trimmed.slice(0, eqIdx);
-      const value = trimmed.slice(eqIdx + 1);
-      if (!process.env[key]) {
-        process.env[key] = value;
-      }
-    }
-  } catch {
-    // .env.local not present — rely on process.env
-  }
-}
-
-loadEnvFile();
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const canRun = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY);
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const TEST_PASSWORD = "test-rls-isolation-pw-123!";
 const ts = Date.now();
 
 /** Build a deterministic, collision-safe email address for a test actor. */
@@ -70,65 +36,13 @@ function testSlug(label: string) {
   return `rls-${label}-${ts}`;
 }
 
-/**
- * Create a Supabase auth user, its profile, and return an authenticated client.
- * The admin client is used for all privileged setup; the returned client uses
- * the anon key and signs in with the user's credentials.
- */
-async function createTestUser(
-  admin: SupabaseClient,
-  opts: {
-    email: string;
-    role: "platform_admin" | "partner_admin" | "org_admin" | "consultant";
-    partnerId?: string;
-    clientId?: string;
-  },
-): Promise<{ userId: string; client: SupabaseClient }> {
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email: opts.email,
-    password: TEST_PASSWORD,
-    email_confirm: true,
-  });
-  if (createErr || !created.user) {
-    throw new Error(`Failed to create auth user ${opts.email}: ${createErr?.message}`);
-  }
-
-  const userId = created.user.id;
-
-  // Insert profile row via admin client (bypasses RLS)
-  const { error: profileErr } = await admin.from("profiles").insert({
-    id: userId,
-    email: opts.email,
-    role: opts.role,
-    partner_id: opts.partnerId ?? null,
-    client_id: opts.clientId ?? null,
-    first_name: "Test",
-    last_name: opts.role,
-  });
-  if (profileErr) {
-    throw new Error(`Failed to create profile for ${opts.email}: ${profileErr.message}`);
-  }
-
-  // Sign in with the anon key to get an RLS-scoped client
-  const userClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!);
-  const { error: signInErr } = await userClient.auth.signInWithPassword({
-    email: opts.email,
-    password: TEST_PASSWORD,
-  });
-  if (signInErr) {
-    throw new Error(`Failed to sign in as ${opts.email}: ${signInErr.message}`);
-  }
-
-  return { userId, client: userClient };
-}
-
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
 
 describe.skipIf(!canRun)("tenant isolation (RLS)", () => {
   // Admin client for setup / teardown (service role bypasses RLS)
-  const adminDb = canRun ? createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!) : (null as never);
+  const adminDb = createAdminClient();
 
   // Authenticated clients per actor
   let platformAdminDb: SupabaseClient;
