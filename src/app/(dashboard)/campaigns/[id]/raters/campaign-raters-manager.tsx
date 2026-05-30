@@ -254,7 +254,17 @@ export function CampaignRatersManager({
                   {subject.email}
                 </p>
               </div>
-              <Badge variant="secondary">{subject.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="Copy the subject's self-assessment link"
+                  onClick={() => copyLink(subject.accessToken)}
+                >
+                  <Link2 className="size-3.5 text-primary" />
+                </Button>
+                <Badge variant="secondary">{subject.status}</Badge>
+              </div>
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">

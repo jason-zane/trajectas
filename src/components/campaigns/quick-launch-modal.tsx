@@ -583,6 +583,10 @@ export function QuickLaunchModal({
         if ("error" in subjectResult && subjectResult.error) {
           throw new Error(getErrorMessage(subjectResult.error));
         }
+        // If the subject's own assessment email didn't send, the leader has no
+        // link — warn the admin (they can copy it from the Subject & Raters tab).
+        const subjectEmailFailed =
+          "emailSent" in subjectResult && subjectResult.emailSent === false;
 
         let ratersAdded = 0;
         for (const rater of state.raters) {
@@ -616,9 +620,16 @@ export function QuickLaunchModal({
             : state.sendInvitesNow
               ? `${pluralize(invitedCount, "rater")} invited`
               : `${pluralize(ratersAdded, "rater")} added`;
-        if (ratersAdded > 0 && !state.sendInvitesNow) {
-          successDescription = "Send invitations from the Subject & Raters tab.";
+        const notes: string[] = [];
+        if (subjectEmailFailed) {
+          notes.push(
+            "The subject's invite email didn't send — copy their link from the Subject & Raters tab.",
+          );
         }
+        if (ratersAdded > 0 && !state.sendInvitesNow) {
+          notes.push("Send rater invitations from the Subject & Raters tab.");
+        }
+        if (notes.length > 0) successDescription = notes.join(" ");
       } else if (state.inviteMode === "single") {
         const inviteResult = await inviteParticipant(campaignId, {
           email: state.inviteSingleEmail.trim(),
