@@ -15,7 +15,9 @@ export const briefSchema = z.object({
 })
 
 export const extractBriefSchema = z.object({
-  rawText: z.string().min(20, 'Add a bit more detail about the role.').max(20000),
+  // Upper bound is generous; extractBrief truncates over-long input before
+  // validating, so a long CV/JD is trimmed rather than rejected.
+  rawText: z.string().min(20, 'Add a bit more detail about the role.').max(60000),
   outcomeIntent: z.string().min(1).max(300),
 })
 
