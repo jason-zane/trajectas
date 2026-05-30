@@ -5,9 +5,6 @@
  * functions — value/type exports live here so both server and client import.
  */
 
-/** Default seconds per item used for the wizard's time estimate. */
-export const ARCHITECT_SECONDS_PER_ITEM = 20
-
 export type ArchitectPick = {
   factorId: string
   factorName: string
@@ -17,6 +14,9 @@ export type ArchitectPick = {
   reasoning: string
   /** Items available in this factor's pool (upper bound for itemCount). */
   availableItems: number
+  /** Parent dimension (for coverage grouping); null if unassigned. */
+  dimensionId: string | null
+  dimensionName: string | null
 }
 
 /** A factor in the eligible pool — for the "add factor" control in the picks UI. */
@@ -24,6 +24,8 @@ export type ArchitectEligibleFactor = {
   factorId: string
   factorName: string
   availableItems: number
+  dimensionId: string | null
+  dimensionName: string | null
 }
 
 export type ArchitectMatchResult = {
