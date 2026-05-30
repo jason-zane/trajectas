@@ -28,6 +28,7 @@ export default async function CampaignsPage() {
             assessments={assessments}
             clients={clients.map((c) => ({ id: c.id, name: c.name }))}
             creatorEmail={actor?.email}
+            allowLeadership360
           />
           <Link href="/campaigns/create">
             <Button variant="outline">

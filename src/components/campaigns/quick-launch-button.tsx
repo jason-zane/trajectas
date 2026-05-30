@@ -12,6 +12,8 @@ interface QuickLaunchButtonProps {
   forcedClientId?: string;
   successHrefPrefix?: string;
   creatorEmail?: string;
+  /** Whether the 360 campaign type is offered (admin dashboard only). */
+  allowLeadership360?: boolean;
 }
 
 export function QuickLaunchButton(props: QuickLaunchButtonProps) {
