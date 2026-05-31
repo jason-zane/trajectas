@@ -43,7 +43,16 @@ CREATE TYPE response_format_type AS ENUM (
     'likert',
     'forced_choice',
     'binary',
-    'free_text'
+    'free_text',
+    -- Declared here (in original add-order) so they are committed before later
+    -- migrations seed rows that use them. Migrations 00002 and 00005 still run
+    -- `ALTER TYPE ... ADD VALUE IF NOT EXISTS`, which is now a no-op. Postgres
+    -- forbids using a newly added enum value in the transaction that adds it
+    -- (SQLSTATE 55P04), which broke `supabase db reset` from scratch.
+    'ranking',
+    'sjt',
+    'cognitive',
+    'scale'
 );
 CREATE TYPE item_status AS ENUM (
     'draft',

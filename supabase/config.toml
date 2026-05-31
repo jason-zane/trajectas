@@ -10,7 +10,8 @@ max_rows = 1000
 [db]
 port = 54322
 shadow_port = 54320
-major_version = 15
+# Match production (Postgres 17). Was 15 — local/CI diverged from prod.
+major_version = 17
 
 [db.seed]
 enabled = true

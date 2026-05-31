@@ -34,4 +34,10 @@ GRANT EXECUTE ON FUNCTION public.auth_user_partner_admin_ids()    TO authenticat
 GRANT EXECUTE ON FUNCTION public.auth_user_role()                 TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_partner_admin()               TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_platform_admin()              TO authenticated;
-GRANT EXECUTE ON FUNCTION public.rls_auto_enable()                TO authenticated;
+DO $$
+BEGIN
+  -- rls_auto_enable() is not created by any repo migration; guard for fresh rebuilds.
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'rls_auto_enable' AND pronamespace = 'public'::regnamespace) THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.rls_auto_enable() TO authenticated';
+  END IF;
+END $$;

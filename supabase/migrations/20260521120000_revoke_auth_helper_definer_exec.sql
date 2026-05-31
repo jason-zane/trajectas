@@ -44,5 +44,11 @@ REVOKE EXECUTE ON FUNCTION public.is_partner_admin()
 REVOKE EXECUTE ON FUNCTION public.is_platform_admin()
     FROM anon, authenticated, public;
 
-REVOKE EXECUTE ON FUNCTION public.rls_auto_enable()
-    FROM anon, authenticated, public;
+-- rls_auto_enable() is not created by any repo migration (it exists only where
+-- it was added out-of-band), so guard the REVOKE for fresh rebuilds.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'rls_auto_enable' AND pronamespace = 'public'::regnamespace) THEN
+    EXECUTE 'REVOKE EXECUTE ON FUNCTION public.rls_auto_enable() FROM anon, authenticated, public';
+  END IF;
+END $$;
