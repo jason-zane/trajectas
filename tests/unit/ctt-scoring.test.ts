@@ -21,11 +21,13 @@ describe("calculateRawScore", () => {
     expect(r.percentage).toBeCloseTo(80, 10);
   });
 
-  it("applies reverse scoring (maxValue - value)", () => {
-    // reverse of 1 on a 1..5 item contributes 4.
-    const r = calculateRawScore([{ value: 1, maxValue: 5, reverseScored: true }]);
-    expect(r.rawScore).toBe(4);
-    expect(r.percentage).toBeCloseTo(80, 10);
+  it("reverse-scores against the item max (0-based: effective = maxValue - value)", () => {
+    // calculateRawScore assumes 0-based response values, so the lowest value
+    // reverses to the maximum and vice-versa. (The session scorer in
+    // ctt-session.ts adds the scale minimum for 1-based Likert items.)
+    expect(calculateRawScore([{ value: 0, maxValue: 5, reverseScored: true }]).rawScore).toBe(5);
+    expect(calculateRawScore([{ value: 5, maxValue: 5, reverseScored: true }]).rawScore).toBe(0);
+    expect(calculateRawScore([{ value: 2, maxValue: 5, reverseScored: true }]).rawScore).toBe(3);
   });
 
   it("returns zeros for an empty response set", () => {
@@ -64,8 +66,9 @@ describe("calculateWeightedScore", () => {
   });
 
   it("applies reverse scoring before weighting", () => {
-    const r = calculateWeightedScore([{ value: 1, maxValue: 5, weight: 3, reverseScored: true }]);
-    expect(r.rawScore).toBe(12); // 3 * (5 - 1)
+    // 0-based item: value 0 reverses to maxValue 5, then weighted by 3 = 15.
+    const r = calculateWeightedScore([{ value: 0, maxValue: 5, weight: 3, reverseScored: true }]);
+    expect(r.rawScore).toBe(15); // 3 * (5 - 0)
   });
 
   it("returns zeros for an empty response set", () => {
