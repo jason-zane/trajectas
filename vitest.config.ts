@@ -33,6 +33,11 @@ export default defineConfig({
         "src/lib/experience/flow-router.ts",
         "src/lib/scoring/pipeline.ts",
         "src/lib/scoring/transforms.ts",
+        // Psychometric engine — now covered by the IRT/CTT/item-stats suites.
+        "src/lib/scoring/irt/models.ts",
+        "src/lib/scoring/irt/estimation.ts",
+        "src/lib/scoring/ctt/scoring.ts",
+        "src/lib/scoring/item-statistics.ts",
         "src/lib/assess/access.ts",
         "src/lib/next-config/security.ts",
         "src/hooks/use-auto-save.ts",
