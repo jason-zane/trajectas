@@ -47,9 +47,10 @@ export interface CTTWeightedResponseItem extends CTTResponseItem {
 /**
  * Compute an unweighted raw score from a set of item responses.
  *
- * Reverse-scored items are automatically flipped before summation.
- * For a Likert item scored 1-5, reverse scoring maps
- * 1->5, 2->4, 3->3, 4->2, 5->1 (i.e. `maxValue - value`).
+ * Reverse-scored items are flipped before summation using `maxValue - value`,
+ * which assumes 0-based response values (e.g. a 0..4 scale maps 0->4 .. 4->0).
+ * For 1-based Likert scales the scale minimum must be added back; the session
+ * scorer (`ctt-session.ts`) does this via `maxValue - value + minValue`.
  *
  * @param responses - Array of item response objects.
  * @returns The raw score, max possible, and percentage.
