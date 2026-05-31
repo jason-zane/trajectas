@@ -80,6 +80,42 @@ jobs:
           path: coverage
           if-no-files-found: ignore
 
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: security
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase stack
+        run: npm run db:test:start
+
+      - name: Reset local Supabase database
+        run: npm run db:test:reset
+
+      # Runs tests/integration against the LOCAL stack. The runner maps the
+      # local Supabase env onto the NEXT_PUBLIC_* names the tests expect, and
+      # each file's isLocalSupabase guard keeps it from ever touching prod.
+      # These tests skip in the `quality` job (no Supabase env there); this is
+      # the job that gives them real signal.
+      - name: Run integration tests against local Supabase
+        run: npm run test:integration:local
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: npm run db:test:stop
+
   e2e-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 20
