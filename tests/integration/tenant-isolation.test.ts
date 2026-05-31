@@ -432,4 +432,80 @@ describe.skipIf(!canRun)("tenant isolation (RLS)", () => {
       expect(data ?? []).toHaveLength(0);
     });
   });
+
+  // SELECT isolation is covered above; these verify the WRITE side of RLS on
+  // campaign_participants — a wrong-tenant client admin must not be able to
+  // mutate another client's participants. Writes are platform-admin-only
+  // (campaign_participants_all_platform_admin), so the platform-admin case is
+  // the positive control proving these aren't vacuously passing.
+  describe("cross-tenant write denial (campaign_participants)", () => {
+    it("client B1 admin cannot INSERT a participant into client A1's campaign", async () => {
+      const intruderEmail = testEmail("intruder");
+      const { error } = await clientB1AdminDb.from("campaign_participants").insert({
+        campaign_id: ids.campaignA1C1,
+        email: intruderEmail,
+        first_name: "Mal",
+        last_name: "Lory",
+      });
+      // RLS WITH CHECK must reject the insert.
+      expect(error).not.toBeNull();
+
+      // And no such row may exist (verified with the privileged client).
+      const { data: leaked } = await adminDb
+        .from("campaign_participants")
+        .select("id")
+        .eq("email", intruderEmail);
+      expect(leaked ?? []).toHaveLength(0);
+    });
+
+    it("client B1 admin cannot UPDATE client A1's participant", async () => {
+      const { data: affected } = await clientB1AdminDb
+        .from("campaign_participants")
+        .update({ first_name: "Hacked" })
+        .eq("id", ids.participantA1)
+        .select("id");
+      // RLS USING filters the row out → zero rows updated.
+      expect(affected ?? []).toHaveLength(0);
+
+      // The row is untouched.
+      const { data: row } = await adminDb
+        .from("campaign_participants")
+        .select("first_name")
+        .eq("id", ids.participantA1)
+        .single();
+      expect(row?.first_name).toBe("Jane");
+    });
+
+    it("client B1 admin cannot DELETE client A1's participant", async () => {
+      const { data: deleted } = await clientB1AdminDb
+        .from("campaign_participants")
+        .delete()
+        .eq("id", ids.participantA1)
+        .select("id");
+      expect(deleted ?? []).toHaveLength(0);
+
+      // The row still exists.
+      const { data: still } = await adminDb
+        .from("campaign_participants")
+        .select("id")
+        .eq("id", ids.participantA1);
+      expect(still ?? []).toHaveLength(1);
+    });
+
+    it("platform admin CAN update the participant (positive control)", async () => {
+      const { data: affected } = await platformAdminDb
+        .from("campaign_participants")
+        .update({ last_name: "Updated" })
+        .eq("id", ids.participantA1)
+        .select("id");
+      expect(affected ?? []).toHaveLength(1);
+
+      const { data: row } = await adminDb
+        .from("campaign_participants")
+        .select("last_name")
+        .eq("id", ids.participantA1)
+        .single();
+      expect(row?.last_name).toBe("Updated");
+    });
+  });
 });
