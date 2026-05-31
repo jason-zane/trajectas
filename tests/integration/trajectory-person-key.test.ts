@@ -7,119 +7,34 @@
  *   - cross-client isolation (same email under two clients = two persons)
  *   - person_link_audit RLS
  *
- * Mirrors fixture patterns from tests/integration/tenant-isolation.test.ts
- * and tests/integration/org-diagnostic-rls.test.ts. If a third test ends up
- * using the same createTestUser helper, extract to tests/integration/_helpers.
+ * Shares the OTP fixture (createTestUser, host guard) with
+ * tests/integration/tenant-isolation.test.ts and org-diagnostic-rls.test.ts
+ * via tests/integration/_helpers/rls-fixture.ts.
  *
  * Requires a running Supabase instance with:
  *   NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY
  */
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import {
+  canRun,
+  createAdminClient,
+  createTestUser,
+} from './_helpers/rls-fixture'
 
-function loadEnvFile() {
-  try {
-    const envPath = resolve(__dirname, '../../.env.local')
-    const content = readFileSync(envPath, 'utf-8')
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-      const eqIdx = trimmed.indexOf('=')
-      if (eqIdx === -1) continue
-      const key = trimmed.slice(0, eqIdx)
-      const value = trimmed.slice(eqIdx + 1)
-      if (!process.env[key]) process.env[key] = value
-    }
-  } catch {
-    // .env.local not present — rely on process.env
-  }
-}
-
-loadEnvFile()
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-// Hard safety: refuse to run against a hosted Supabase URL. `.env.local`
-// points at production by default for the runtime app; if someone runs
-// `npm test` instead of `npm run test:integration:local`, these env vars
-// would otherwise allow the test to write rows to prod. Whitelist only
-// localhost / 127.0.0.1 / Docker internal hosts.
-const isLocalSupabase =
-  !!SUPABASE_URL &&
-  /^(https?:\/\/)?(127\.0\.0\.1|localhost|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(
-    SUPABASE_URL,
-  )
-const canRun =
-  Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY) &&
-  isLocalSupabase
-
-const TEST_PASSWORD = 'trajectory-personkey-pw-123!'
 const ts = Date.now()
 
 function testEmail(label: string) {
   return `traj-${label}-${ts}@test.local`
 }
 function testSlug(label: string) {
-  return `traj-${label}-${ts}`
-}
-
-async function createTestUser(
-  admin: SupabaseClient,
-  opts: {
-    email: string
-    role: 'platform_admin' | 'partner_admin' | 'org_admin' | 'consultant'
-    partnerId?: string
-    clientId?: string
-  },
-): Promise<{ userId: string; client: SupabaseClient }> {
-  const { data: created, error: createErr } = await admin.auth.admin.createUser({
-    email: opts.email,
-    password: TEST_PASSWORD,
-    email_confirm: true,
-  })
-  if (createErr || !created.user) {
-    throw new Error(
-      `Failed to create auth user ${opts.email}: ${createErr?.message}`,
-    )
-  }
-  const userId = created.user.id
-
-  const { error: profileErr } = await admin.from('profiles').insert({
-    id: userId,
-    email: opts.email,
-    role: opts.role,
-    partner_id: opts.partnerId ?? null,
-    client_id: opts.clientId ?? null,
-    first_name: 'Traj',
-    last_name: opts.role,
-  })
-  if (profileErr) {
-    throw new Error(
-      `Failed to create profile for ${opts.email}: ${profileErr.message}`,
-    )
-  }
-
-  const userClient = createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
-  const { error: signInErr } = await userClient.auth.signInWithPassword({
-    email: opts.email,
-    password: TEST_PASSWORD,
-  })
-  if (signInErr) {
-    throw new Error(`Failed to sign in as ${opts.email}: ${signInErr.message}`)
-  }
-
-  return { userId, client: userClient }
+  // campaigns_slug_format requires lowercase [a-z0-9-]; lowercase any label.
+  return `traj-${label}-${ts}`.toLowerCase()
 }
 
 describe.skipIf(!canRun)('trajectory person_key foundation', () => {
-  const admin: SupabaseClient = canRun
-    ? createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!)
-    : (null as never)
+  const admin = createAdminClient()
 
   const ids = {
     clientA: '',
@@ -166,7 +81,7 @@ describe.skipIf(!canRun)('trajectory person_key foundation', () => {
     ids.clientB = cB!.id
 
     // --- Campaigns ---
-    const { data: camA1 } = await admin
+    const { data: camA1, error: camA1Err } = await admin
       .from('campaigns')
       .insert({
         title: `Campaign A1 ${ts}`,
@@ -175,9 +90,10 @@ describe.skipIf(!canRun)('trajectory person_key foundation', () => {
       })
       .select('id')
       .single()
+    if (camA1Err) throw new Error(`campaign A1 insert failed: ${camA1Err.message}`)
     ids.campaignA1 = camA1!.id
 
-    const { data: camA2 } = await admin
+    const { data: camA2, error: camA2Err } = await admin
       .from('campaigns')
       .insert({
         title: `Campaign A2 ${ts}`,
@@ -186,9 +102,10 @@ describe.skipIf(!canRun)('trajectory person_key foundation', () => {
       })
       .select('id')
       .single()
+    if (camA2Err) throw new Error(`campaign A2 insert failed: ${camA2Err.message}`)
     ids.campaignA2 = camA2!.id
 
-    const { data: camB1 } = await admin
+    const { data: camB1, error: camB1Err } = await admin
       .from('campaigns')
       .insert({
         title: `Campaign B1 ${ts}`,
@@ -197,6 +114,7 @@ describe.skipIf(!canRun)('trajectory person_key foundation', () => {
       })
       .select('id')
       .single()
+    if (camB1Err) throw new Error(`campaign B1 insert failed: ${camB1Err.message}`)
     ids.campaignB1 = camB1!.id
 
     // --- Participants ---

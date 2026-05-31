@@ -6,43 +6,16 @@
  * tests/integration/org-diagnostic-rls.test.ts.
  */
 
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { canRun, createAdminClient } from './_helpers/rls-fixture'
 
-function loadEnvFile() {
-  try {
-    const envPath = resolve(__dirname, '../../.env.local')
-    const content = readFileSync(envPath, 'utf-8')
-    for (const line of content.split('\n')) {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) continue
-      const eqIdx = trimmed.indexOf('=')
-      if (eqIdx === -1) continue
-      const key = trimmed.slice(0, eqIdx)
-      const value = trimmed.slice(eqIdx + 1)
-      if (!process.env[key]) process.env[key] = value
-    }
-  } catch {
-    // .env.local not present — rely on process.env
-  }
-}
-
-loadEnvFile()
-
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const canRun = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY)
 const ts = Date.now()
 function testSlug(label: string) {
   return `lc-orgdiag-${label}-${ts}`
 }
 
 describe.skipIf(!canRun)('Org Diagnostic Lifecycle', () => {
-  const admin: SupabaseClient = canRun
-    ? createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!)
-    : (null as never)
+  const admin = createAdminClient()
 
   let clientId: string
   let partnerId: string
