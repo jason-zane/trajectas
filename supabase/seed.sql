@@ -110,9 +110,7 @@ insert into assessment_sections (
   instructions,
   display_order,
   item_ordering,
-  items_per_page,
   time_limit_seconds,
-  allow_back_nav,
   created_at,
   updated_at
 )
@@ -124,9 +122,7 @@ values (
   'Choose the response that best matches your typical behaviour.',
   0,
   'fixed',
-  1,
   600,
-  true,
   '2026-03-01T00:00:00Z',
   '2026-03-01T00:00:00Z'
 )
@@ -138,9 +134,7 @@ set
   instructions = excluded.instructions,
   display_order = excluded.display_order,
   item_ordering = excluded.item_ordering,
-  items_per_page = excluded.items_per_page,
   time_limit_seconds = excluded.time_limit_seconds,
-  allow_back_nav = excluded.allow_back_nav,
   updated_at = excluded.updated_at;
 
 insert into assessment_section_items (

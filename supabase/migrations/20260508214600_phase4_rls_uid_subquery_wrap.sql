@@ -127,11 +127,9 @@ CREATE POLICY "client_roles_select_client" ON public.client_roles
            FROM profiles
           WHERE (profiles.id = (select auth.uid())))) AND (c.deleted_at IS NULL))))));
 
-DROP POLICY "competency_categories_select_authenticated" ON public.competency_categories;
-CREATE POLICY "competency_categories_select_authenticated" ON public.competency_categories
-  AS PERMISSIVE FOR SELECT
-  TO public
-  USING (((select auth.uid()) IS NOT NULL));
+-- NOTE: competency_categories was dropped in migration 00005 (superseded by
+-- dimensions) and is unused. Its auto-generated policy refresh below was dead
+-- on a fresh rebuild (relation does not exist), so it is omitted here.
 
 DROP POLICY "construct_reliability_delete" ON public.construct_reliability;
 CREATE POLICY "construct_reliability_delete" ON public.construct_reliability
