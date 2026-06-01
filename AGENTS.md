@@ -122,6 +122,8 @@ const canRun = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY
 
 CI does not have `.env.local`, so the env vars are unset and tests skip. The guard is for local-developer safety.
 
+This is now **enforced**: `tests/architecture/integration-host-guard.test.ts` fails CI if an integration test opens a real Supabase client (imports `@supabase/supabase-js` or the rls-fixture) without the host guard. Relatedly, `tests/architecture/admin-actions-authz.test.ts` fails CI if a Server Action performs an admin-client (service-role, RLS-bypassing) **mutation** without an authorization gate — add a vetted entry to its ALLOWLIST only for genuine self-service/token exceptions.
+
 ## Migration & deploy flow
 
 The project uses a PR-then-merge model with CI gating on each PR. The order of operations for any DB-touching feature:
