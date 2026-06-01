@@ -28,10 +28,14 @@ export interface SystemHealth {
   email: "ok" | "error";
 }
 
-/** Most recent error events, newest first, optionally filtered by severity. */
+/**
+ * Most recent error events, newest first, optionally filtered by severity.
+ * Returns `null` if the feed itself fails to load, so the UI can distinguish a
+ * load failure from a genuinely empty list (rather than show a false all-clear).
+ */
 export async function getRecentErrors(
   opts: { severity?: ErrorSeverity; limit?: number } = {},
-): Promise<ErrorEventItem[]> {
+): Promise<ErrorEventItem[] | null> {
   const db = createAdminClient();
   let query = db
     .from("error_events")
@@ -40,7 +44,11 @@ export async function getRecentErrors(
     .limit(opts.limit ?? 100);
   if (opts.severity) query = query.eq("severity", opts.severity);
 
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) {
+    console.error("[dal.observability] getRecentErrors failed", error);
+    return null;
+  }
   return (data ?? []).map((row) => ({
     id: row.id,
     occurredAt: row.occurred_at,
@@ -54,8 +62,10 @@ export async function getRecentErrors(
 
 /**
  * Group recent errors by fingerprint (most frequent first) for an at-a-glance
- * view. Grouping is done in-process over a recent window — adequate for a
- * dashboard; a SQL rollup can replace it if volume grows.
+ * view. Counts are aggregated in-process over the most recent `windowLimit`
+ * events within the window (default 5000) — accurate for an admin dashboard at
+ * this app's volume; if the window is ever saturated, swap in a SQL rollup
+ * (RPC) for exact counts. Returns `null` on load failure.
  */
 interface ErrorRow {
   severity: string;
@@ -90,17 +100,21 @@ export function groupErrorRows(rows: ErrorRow[]): ErrorGroup[] {
 
 export async function getErrorSummary(
   sinceDays = 7,
-  windowLimit = 1000,
-): Promise<ErrorGroup[]> {
+  windowLimit = 5000,
+): Promise<ErrorGroup[] | null> {
   const db = createAdminClient();
   const since = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
-  const { data } = await db
+  const { data, error } = await db
     .from("error_events")
     .select("severity, source, message, fingerprint, occurred_at")
     .gte("occurred_at", since)
     .order("occurred_at", { ascending: false })
     .limit(windowLimit);
 
+  if (error) {
+    console.error("[dal.observability] getErrorSummary failed", error);
+    return null;
+  }
   return groupErrorRows((data ?? []) as ErrorRow[]);
 }
 

@@ -85,7 +85,11 @@ export default async function ObservabilityPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {summary.length > 0 ? (
+            {summary === null ? (
+              <p className="py-2 text-sm text-red-600 dark:text-red-400">
+                Couldn&apos;t load the error summary.
+              </p>
+            ) : summary.length > 0 ? (
               <ul className="divide-y divide-border">
                 {summary.slice(0, 20).map((group) => (
                   <li key={group.fingerprint} className="flex items-start justify-between gap-4 py-3">
@@ -120,7 +124,11 @@ export default async function ObservabilityPage() {
             <CardTitle>Recent errors</CardTitle>
           </CardHeader>
           <CardContent>
-            {recent.length > 0 ? (
+            {recent === null ? (
+              <p className="py-2 text-sm text-red-600 dark:text-red-400">
+                Couldn&apos;t load recent errors.
+              </p>
+            ) : recent.length > 0 ? (
               <ul className="divide-y divide-border">
                 {recent.map((event) => (
                   <li key={event.id} className="flex items-start justify-between gap-4 py-3">
