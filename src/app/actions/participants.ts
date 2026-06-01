@@ -17,7 +17,12 @@ import {
 } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
-import { getParticipantById } from '@/lib/dal/participants'
+import {
+  getParticipantById,
+  getParticipantSessions as dalGetParticipantSessions,
+  getParticipantActivity as dalGetParticipantActivity,
+  getParticipantResponses as dalGetParticipantResponses,
+} from '@/lib/dal/participants'
 import { postgresUuid } from '@/lib/validations/uuid'
 import {
   getParticipantsFiltersSchema,
@@ -364,61 +369,7 @@ export async function getParticipantSessions(participantId: string): Promise<Par
   }
 
   const db = await createClient()
-
-  const { data: sessionRows, error } = await db
-    .from('participant_sessions')
-    .select(`
-      id,
-      assessment_id,
-      status,
-      processing_status,
-      processing_error,
-      started_at,
-      completed_at,
-      processed_at,
-      assessments(title),
-      participant_scores(
-        factor_id,
-        raw_score,
-        scaled_score,
-        percentile,
-        scoring_method,
-        factors(name)
-      )
-    `)
-    .eq('campaign_participant_id', participantId)
-    .order('created_at', { ascending: true })
-
-  if (error) {
-    throwActionError(
-      'getParticipantSessions',
-      'Unable to load participant sessions.',
-      error
-    )
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sessions = (sessionRows ?? []).map((s: any) => ({
-    id: s.id,
-    assessmentId: s.assessment_id,
-    assessmentTitle: s.assessments?.title ?? 'Untitled',
-    status: s.status,
-    processingStatus: (s.processing_status ?? 'idle') as ParticipantSessionProcessingStatus,
-    processingError: s.processing_error ?? undefined,
-    startedAt: s.started_at ?? undefined,
-    completedAt: s.completed_at ?? undefined,
-    processedAt: s.processed_at ?? undefined,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    scores: (s.participant_scores ?? []).map((sc: any) => ({
-      factorId: sc.factor_id,
-      factorName: sc.factors?.name ?? sc.factor_id,
-      rawScore: Number(sc.raw_score),
-      scaledScore: Number(sc.scaled_score),
-      percentile: sc.percentile != null ? Number(sc.percentile) : undefined,
-      scoringMethod: sc.scoring_method,
-      itemsUsed: 0,
-    })),
-  }))
+  const sessions = await dalGetParticipantSessions(db, participantId)
 
   try {
     await logSupportSessionDataAccess({
@@ -453,74 +404,7 @@ export async function getParticipantActivity(participantId: string): Promise<Act
   }
 
   const db = await createClient()
-
-  // Get participant record
-  const { data: participant, error: participantError } = await db
-    .from('campaign_participants')
-    .select('invited_at, started_at, completed_at, campaigns(title)')
-    .eq('id', participantId)
-    .single()
-
-  if (participantError || !participant) return []
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const p = participant as any
-  const events: ActivityEvent[] = []
-
-  if (p.invited_at) {
-    events.push({
-      type: 'invited',
-      timestamp: p.invited_at,
-      label: 'Invited to campaign',
-      detail: p.campaigns?.title,
-    })
-  }
-
-  if (p.started_at) {
-    events.push({
-      type: 'started',
-      timestamp: p.started_at,
-      label: 'Started assessment',
-    })
-  }
-
-  // Get session-level events
-  const { data: sessions, error: sessionsError } = await db
-    .from('participant_sessions')
-    .select('id, started_at, completed_at, assessments(title)')
-    .eq('campaign_participant_id', participantId)
-    .order('started_at', { ascending: true })
-
-  if (sessionsError) throwActionError('getParticipantActivity', 'Unable to load participant sessions.', sessionsError)
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  for (const s of (sessions ?? []) as any[]) {
-    if (s.started_at) {
-      events.push({
-        type: 'session_started',
-        timestamp: s.started_at,
-        label: `Started ${s.assessments?.title ?? 'assessment'}`,
-      })
-    }
-    if (s.completed_at) {
-      events.push({
-        type: 'session_completed',
-        timestamp: s.completed_at,
-        label: `Completed ${s.assessments?.title ?? 'assessment'}`,
-      })
-    }
-  }
-
-  if (p.completed_at) {
-    events.push({
-      type: 'completed',
-      timestamp: p.completed_at,
-      label: 'Completed all assessments',
-    })
-  }
-
-  // Sort by timestamp ascending
-  events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+  const events = await dalGetParticipantActivity(db, participantId)
 
   try {
     await logSupportSessionDataAccess({
@@ -555,68 +439,7 @@ export async function getParticipantResponses(sessionId: string): Promise<Partic
   }
 
   const db = await createClient()
-
-  // Get session's assessment
-  const { data: session, error: sessionError } = await db
-    .from('participant_sessions')
-    .select('assessment_id')
-    .eq('id', sessionId)
-    .single()
-
-  if (sessionError || !session) return []
-
-  // Get sections with items
-  const { data: sections, error: sectionsError } = await db
-    .from('assessment_sections')
-    .select(`
-      id, title, display_order,
-      assessment_section_items(
-        item_id,
-        display_order,
-        items(id, stem)
-      )
-    `)
-    .eq('assessment_id', session.assessment_id)
-    .order('display_order', { ascending: true })
-
-  if (sectionsError) throwActionError('getParticipantResponses', 'Unable to load assessment sections.', sectionsError)
-
-  // Get all responses for this session
-  const { data: responses, error: responsesError } = await db
-    .from('participant_responses')
-    .select('item_id, response_value, response_time_ms')
-    .eq('session_id', sessionId)
-
-  if (responsesError) throwActionError('getParticipantResponses', 'Unable to load participant responses.', responsesError)
-
-  const responseMap = new Map<string, { value: number; timeMs?: number }>()
-  for (const r of responses ?? []) {
-    responseMap.set(r.item_id, {
-      value: Number(r.response_value),
-      timeMs: r.response_time_ms ?? undefined,
-    })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const groups = (sections ?? []).map((s: any) => ({
-    sectionId: s.id,
-    sectionTitle: s.title,
-    displayOrder: s.display_order,
-    items: (s.assessment_section_items ?? [])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .sort((a: any, b: any) => a.display_order - b.display_order)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((si: any) => {
-        const resp = responseMap.get(si.item_id ?? si.items?.id)
-        return {
-          itemId: si.items?.id ?? si.item_id,
-          stem: si.items?.stem ?? '',
-          responseValue: resp?.value,
-          responseTimeMs: resp?.timeMs,
-          displayOrder: si.display_order,
-        }
-      }),
-  }))
+  const groups = await dalGetParticipantResponses(db, sessionId)
 
   try {
     await logSupportSessionDataAccess({
