@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -22,29 +22,40 @@ const OPENS_REAL_DB = [
   /_helpers\/rls-fixture/,
 ];
 
-// The shared rls-fixture exports the guarded `canRun`; an inline guard uses
-// `isLocalSupabase`. Either satisfies the requirement.
-const HAS_GUARD = [/\bisLocalSupabase\b/, /_helpers\/rls-fixture/];
+// The guard must be APPLIED, not just defined: the suite gates execution on the
+// host check via `describe.skipIf(!canRun)` (canRun incorporates isLocalSupabase,
+// whether inline or from the shared rls-fixture) or `skipIf(!isLocalSupabase)`.
+const GUARD_APPLIED = /skipIf\(\s*!\s*(canRun|isLocalSupabase)\b/;
+
+function walkTestFiles(dir: string, out: string[] = []): string[] {
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) {
+      walkTestFiles(full, out);
+      continue;
+    }
+    if (entry.endsWith(".test.ts")) out.push(full);
+  }
+  return out;
+}
 
 describe("integration tests are guarded against running on production", () => {
-  it("every integration test that opens a real DB connection has the host guard", () => {
+  it("every integration test that opens a real DB connection applies the host guard", () => {
     const violations: string[] = [];
 
-    for (const entry of readdirSync(INTEGRATION_DIR)) {
-      if (!entry.endsWith(".test.ts")) continue;
-      const text = readFileSync(join(INTEGRATION_DIR, entry), "utf8");
+    for (const file of walkTestFiles(INTEGRATION_DIR)) {
+      const text = readFileSync(file, "utf8");
 
       const opensRealDb = OPENS_REAL_DB.some((re) => re.test(text));
       if (!opensRealDb) continue;
 
-      const hasGuard = HAS_GUARD.some((re) => re.test(text));
-      if (!hasGuard) violations.push(entry);
+      if (!GUARD_APPLIED.test(text)) violations.push(file.replace(`${ROOT}/`, ""));
     }
 
     if (violations.length > 0) {
       throw new Error(
-        `These integration tests open a real Supabase client but lack the local-host guard:\n` +
-          violations.map((v) => `  tests/integration/${v}`).join("\n") +
+        `These integration tests open a real Supabase client but do not apply the local-host guard:\n` +
+          violations.map((v) => `  ${v}`).join("\n") +
           `\n\nImport the shared fixture (tests/integration/_helpers/rls-fixture.ts) for the\n` +
           `guarded \`canRun\`, or add the isLocalSupabase check from AGENTS.md. Otherwise the\n` +
           `test can write to production when run via \`npm test\` (.env.local points at prod).`,

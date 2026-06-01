@@ -66,12 +66,19 @@ interface Fn {
   body: string;
 }
 
-/** Split a file into exported-async-function chunks (name + body to next export). */
+/**
+ * Split a file into exported-async-function chunks (name + body to next export).
+ * Matches both `export async function name` and
+ * `export const name = async (...) =>` (arrow Server Actions).
+ */
 function exportedAsyncFunctions(text: string): Fn[] {
-  const re = /export\s+async\s+function\s+(\w+)/g;
+  const re =
+    /export\s+(?:async\s+function\s+(\w+)|const\s+(\w+)\s*(?::[^=]+)?=\s*async\b)/g;
   const marks: Array<{ name: string; index: number }> = [];
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) marks.push({ name: m[1], index: m.index });
+  while ((m = re.exec(text)) !== null) {
+    marks.push({ name: m[1] ?? m[2], index: m.index });
+  }
 
   return marks.map((mark, i) => {
     const end = i + 1 < marks.length ? marks[i + 1].index : text.length;
@@ -91,8 +98,9 @@ describe("admin-client actions are authorization-gated", () => {
         if (!/createAdminClient\s*\(/.test(fn.body)) continue;
         // Only enforce on MUTATIONS — an admin-client write that isn't auth-gated
         // is a cross-tenant hole. Reads of reference/platform data are lower risk
-        // and use too many access patterns to statically enforce.
-        if (!/\.(insert|update|delete|upsert)\s*\(/.test(fn.body)) continue;
+        // and use too many access patterns to statically enforce. `.rpc(` is
+        // included since an action can write through a service-role RPC.
+        if (!/\.(insert|update|delete|upsert|rpc)\s*\(/.test(fn.body)) continue;
         const gated = AUTH_PATTERNS.some((re) => re.test(fn.body));
         if (gated) continue;
         if (ALLOWLIST.has(`${rel}#${fn.name}`)) continue;
