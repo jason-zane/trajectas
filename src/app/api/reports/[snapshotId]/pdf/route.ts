@@ -108,6 +108,18 @@ export async function GET(
   const storagePath = `reports/${snapshotId}.pdf`
   const db = createAdminClient()
 
+  // Populated for the privileged (admin/consultant) path; the actual audit
+  // event is written only once we know a real download is being served.
+  let auditContext:
+    | {
+        actorProfileId: string | null
+        clientId: string | null
+        partnerId: string | null
+        supportSessionId: string | null
+        participantId: string | null
+      }
+    | null = null
+
   // Two auth paths: admin scope OR participant access token
   if (participantToken) {
     // Validate participant has access to this specific snapshot
@@ -151,20 +163,14 @@ export async function GET(
     if ('error' in result) {
       return result.error
     }
-    // Audit privileged (admin/consultant) access to a participant's report.
-    // Logged via after() so it never blocks or breaks the download.
     const { access } = result
-    after(() =>
-      logAuditEvent({
-        actorProfileId: access.scope.actor?.id ?? null,
-        eventType: 'report.pdf_downloaded',
-        targetTable: 'report_snapshots',
-        targetId: snapshotId,
-        clientId: access.clientId,
-        partnerId: access.partnerId,
-        metadata: { participantId: access.participantId },
-      }).catch(() => {}),
-    )
+    auditContext = {
+      actorProfileId: access.scope.actor?.id ?? null,
+      clientId: access.clientId,
+      partnerId: access.partnerId,
+      supportSessionId: access.scope.supportSession?.id ?? null,
+      participantId: access.participantId,
+    }
   }
 
   const snapshot = await getSnapshotPdfState(snapshotId)
@@ -176,6 +182,25 @@ export async function GET(
     return Response.json(
       { error: 'PDF is only available for ready or released reports' },
       { status: 409 }
+    )
+  }
+
+  // Audit privileged access only now that a real download will be served (the
+  // report exists and is ready/released). Via after() so it never blocks the
+  // download; links to the active support session if the admin is impersonating.
+  if (auditContext) {
+    const ctx = auditContext
+    after(() =>
+      logAuditEvent({
+        actorProfileId: ctx.actorProfileId,
+        eventType: 'report.pdf_downloaded',
+        targetTable: 'report_snapshots',
+        targetId: snapshotId,
+        clientId: ctx.clientId,
+        partnerId: ctx.partnerId,
+        supportSessionId: ctx.supportSessionId,
+        metadata: { participantId: ctx.participantId },
+      }).catch(() => {}),
     )
   }
 
