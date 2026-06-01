@@ -9,6 +9,9 @@ import {
 } from '@/app/actions/reports'
 import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { after } from 'next/server'
+import { requireReportSnapshotAccess } from '@/lib/auth/authorization'
+import { logReportViewed } from '@/lib/auth/support-sessions'
 import { mapReportSnapshotRow } from '@/lib/supabase/mappers'
 import { SendReportButton } from '@/components/reports/send-report-button'
 import type { ResolvedBlockData } from '@/lib/reports/types'
@@ -64,6 +67,23 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
   if (!snapshot) notFound()
   if (!['ready', 'released'].includes(snapshot.status)) {
     notFound()
+  }
+
+  // Audit privileged in-app report views (the token/self-access path is the
+  // participant viewing their own report and is excluded). Via after() so it
+  // never blocks rendering; resolveAuthorizedScope is request-cached.
+  if (!hasTokenAccess) {
+    const access = await requireReportSnapshotAccess(snapshotId)
+    after(() =>
+      logReportViewed({
+        actorProfileId: access.scope.actor?.id ?? null,
+        snapshotId,
+        participantId: access.participantId,
+        partnerId: access.partnerId,
+        clientId: access.clientId,
+        supportSessionId: access.scope.supportSession?.id ?? null,
+      }).catch(() => {}),
+    )
   }
 
   const blocks = (snapshot.renderedData ?? []) as ResolvedBlockData[]
