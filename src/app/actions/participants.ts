@@ -17,6 +17,7 @@ import {
 } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
+import { getParticipantById } from '@/lib/dal/participants'
 import { postgresUuid } from '@/lib/validations/uuid'
 import {
   getParticipantsFiltersSchema,
@@ -325,31 +326,10 @@ export async function getParticipant(id: string): Promise<ParticipantDetail | nu
     throw error
   }
 
-  // Access already verified by requireParticipantAccess above; use the admin
-  // client for the read so we don't re-apply RLS (which can block legitimate
-  // platform-admin sessions and the local-dev bypass).
-  const db = createAdminClient()
-
-  const { data: row, error } = await db
-    .from('campaign_participants')
-    .select(`
-      *,
-      campaigns(title, slug, client_id, clients(name))
-    `)
-    .eq('id', id)
-    .is('deleted_at', null)
-    .single()
-
-  if (error || !row) return null
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r = row as any
-  const participant = {
-    ...mapCampaignParticipantRow(r),
-    campaignTitle: r.campaigns?.title ?? 'Unknown',
-    campaignSlug: r.campaigns?.slug ?? '',
-    clientName: r.campaigns?.clients?.name ?? undefined,
-  }
+  // Access verified above; the DAL read uses the admin client so platform-admin
+  // / support sessions aren't blocked by RLS.
+  const participant = await getParticipantById(id)
+  if (!participant) return null
 
   try {
     await logSupportSessionDataAccess({
