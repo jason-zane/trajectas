@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportError } from '@/lib/observability/report-error'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
 import { launchReportPdfBrowser } from '@/lib/reports/pdf-browser'
 import { createReportPdfToken } from '@/lib/reports/pdf-token'
@@ -309,10 +310,12 @@ export async function generateAndStoreReportPdf(
     try {
       await notifyConsultantsForSnapshot(snapshotId)
     } catch (notifyError) {
-      console.error(
-        `[notifications] Post-PDF consultant notify failed for snapshot ${snapshotId}:`,
-        notifyError,
-      )
+      await reportError(notifyError, {
+        source: 'notifications.consultant',
+        severity: 'error',
+        alert: true,
+        context: { snapshotId, phase: 'post-pdf' },
+      })
     }
 
     return {

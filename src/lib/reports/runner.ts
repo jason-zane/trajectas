@@ -25,7 +25,8 @@ import { DEFAULT_REPORT_THEME } from './presentation'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
-import { generateAndStoreReportPdf } from '@/lib/reports/pdf'
+import { generatePdfWithResilience } from '@/lib/reports/pdf-resilience'
+import { reportError } from '@/lib/observability/report-error'
 import { after } from 'next/server'
 import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
@@ -358,24 +359,18 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       // We also fire an immediate notify attempt — if attach_pdf=false on the
       // campaign, this sends straight away without waiting for the PDF; the
       // atomic claim in the module ensures only one email goes out.
-      after(async () => {
-        try {
-          await generateAndStoreReportPdf(snapshotId, {})
-        } catch (pdfError) {
-          console.error(
-            `[reports] Auto PDF generation failed for snapshot ${snapshotId}:`,
-            pdfError,
-          )
-        }
-      })
+      // Background PDF generation with bounded retry + alerting on failure.
+      after(() => generatePdfWithResilience(snapshotId))
 
       try {
         await notifyConsultantsForSnapshot(snapshotId)
       } catch (notifyError) {
-        console.error(
-          `[notifications] Consultant notify failed for snapshot ${snapshotId}:`,
-          notifyError,
-        )
+        await reportError(notifyError, {
+          source: 'notifications.consultant',
+          severity: 'error',
+          alert: true,
+          context: { snapshotId },
+        })
       }
     }
 
@@ -491,24 +486,18 @@ async function runCustomReport(
       // We also fire an immediate notify attempt — if attach_pdf=false on the
       // campaign, this sends straight away without waiting for the PDF; the
       // atomic claim in the module ensures only one email goes out.
-      after(async () => {
-        try {
-          await generateAndStoreReportPdf(snapshotId, {})
-        } catch (pdfError) {
-          console.error(
-            `[reports] Auto PDF generation failed for snapshot ${snapshotId}:`,
-            pdfError,
-          )
-        }
-      })
+      // Background PDF generation with bounded retry + alerting on failure.
+      after(() => generatePdfWithResilience(snapshotId))
 
       try {
         await notifyConsultantsForSnapshot(snapshotId)
       } catch (notifyError) {
-        console.error(
-          `[notifications] Consultant notify failed for snapshot ${snapshotId}:`,
-          notifyError,
-        )
+        await reportError(notifyError, {
+          source: 'notifications.consultant',
+          severity: 'error',
+          alert: true,
+          context: { snapshotId },
+        })
       }
     }
 }

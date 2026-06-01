@@ -14,6 +14,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportError } from '@/lib/observability/report-error'
 import { sendHtmlEmail } from '@/lib/email/provider'
 import { downloadSnapshotPdfBase64 } from '@/app/actions/reports'
 import { getEffectiveBrand } from '@/app/actions/brand'
@@ -153,14 +154,19 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
       attachments,
     })
   } catch (sendError) {
+    // Release the idempotency claim so the notification can be retried, then
+    // alert — this is the most likely failure point (email send) and was
+    // previously swallowed into the logs.
     await db
       .from('report_snapshots')
       .update({ consultant_notified_at: null })
       .eq('id', snapshotId)
-    console.error(
-      `[notifications] Consultant notification failed for snapshot ${snapshotId}:`,
-      sendError,
-    )
+    await reportError(sendError, {
+      source: 'notifications.consultant',
+      severity: 'error',
+      alert: true,
+      context: { snapshotId, phase: 'send' },
+    })
   }
 }
 
