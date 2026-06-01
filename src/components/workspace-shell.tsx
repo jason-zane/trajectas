@@ -13,57 +13,8 @@ import { SupportSessionBanner } from "@/components/support-session-banner";
 import { LazyCommandPalette } from "@/components/lazy-command-palette";
 import { generateDashboardCSS } from "@/lib/brand/tokens";
 import { logSupportSessionPageView } from "@/app/actions/enter-portal";
-import { getCachedPlatformBrand } from "@/app/actions/brand";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { getSidebarIdentity } from "@/lib/dal/workspace";
 import { type WorkspaceBootstrap } from "@/lib/auth/types";
-
-async function resolveSidebarIdentity(bootstrap: WorkspaceBootstrap) {
-  const platformBrand = await getCachedPlatformBrand();
-  const platformName = platformBrand?.config.name ?? "Trajectas";
-  const platformLogomarkUrl = platformBrand?.config.logomarkUrl ?? null;
-  const empty = {
-    tenantName: null,
-    tenantLogomarkUrl: null,
-    platformName,
-    platformLogomarkUrl,
-  };
-
-  if (bootstrap.portal === "admin") return empty;
-
-  const selected =
-    bootstrap.workspaceContextOptions.find((o) => o.selected) ??
-    bootstrap.workspaceContextOptions[0];
-
-  if (!selected?.tenantId || !selected?.tenantType) return empty;
-
-  const db = createAdminClient();
-  const [{ data: tenant }, { data: tenantBrand }] = await Promise.all([
-    db
-      .from(selected.tenantType === "partner" ? "partners" : "clients")
-      .select("name")
-      .eq("id", selected.tenantId)
-      .maybeSingle(),
-    db
-      .from("brand_configs")
-      .select("config")
-      .eq("owner_type", selected.tenantType)
-      .eq("owner_id", selected.tenantId)
-      .is("deleted_at", null)
-      .maybeSingle(),
-  ]);
-
-  const brandConfig = tenantBrand?.config as
-    | { logomarkUrl?: string }
-    | null
-    | undefined;
-
-  return {
-    tenantName: (tenant?.name as string | undefined) ?? selected.label,
-    tenantLogomarkUrl: brandConfig?.logomarkUrl ?? null,
-    platformName,
-    platformLogomarkUrl,
-  };
-}
 
 interface WorkspaceShellProps {
   children: React.ReactNode;
@@ -86,7 +37,7 @@ export async function WorkspaceShell({
   } = bootstrap;
 
   const dashboardCSS = generateDashboardCSS(brandConfig);
-  const identity = await resolveSidebarIdentity(bootstrap);
+  const identity = await getSidebarIdentity(bootstrap);
 
   if (supportSessionInfo && actor) {
     const headerStore = await headers();

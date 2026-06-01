@@ -8,6 +8,7 @@ import { UserActivityCard } from "@/components/users/user-activity-card";
 import { Badge } from "@/components/ui/badge";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserDetail } from "@/app/actions/user-management";
+import { getUserActivity } from "@/lib/dal/audit";
 import { UserDetailClient } from "./user-detail-client";
 
 type TenantOption = {
@@ -32,7 +33,7 @@ export default async function UserDetailPage({
   const { id } = await params;
   const db = createAdminClient();
 
-  const [user, partnersResult, clientsResult, deletionStateResult] = await Promise.all([
+  const [user, partnersResult, clientsResult, deletionStateResult, activity] = await Promise.all([
     getUserDetail(id),
     db
       .from("partners")
@@ -51,6 +52,7 @@ export default async function UserDetailPage({
       .select("scheduled_deletion_at")
       .eq("id", id)
       .single(),
+    getUserActivity(id, 10),
   ]);
 
   if (!user) {
@@ -117,7 +119,7 @@ export default async function UserDetailPage({
 
       <UserDetailClient user={user} partners={partners} clients={clients} />
 
-      <UserActivityCard profileId={user.id} limit={10} />
+      <UserActivityCard events={activity} />
     </div>
   );
 }
