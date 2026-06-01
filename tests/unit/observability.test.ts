@@ -69,10 +69,23 @@ describe("sendOpsAlert", () => {
     expect(sendHtmlEmail).toHaveBeenCalledTimes(1);
   });
 
-  it("does not throw when the email send fails", async () => {
+  it("returns false (and does not throw) when the email send fails", async () => {
     sendHtmlEmail.mockRejectedValueOnce(new Error("resend down"));
     await expect(
       sendOpsAlert({ subject: "a", body: "b", fingerprint: "fp-throw" }),
-    ).resolves.toBeUndefined();
+    ).resolves.toBe(false);
+  });
+
+  it("returns false when Resend resolves with an error object", async () => {
+    sendHtmlEmail.mockResolvedValueOnce({ data: null, error: { message: "bad" } });
+    await expect(
+      sendOpsAlert({ subject: "a", body: "b", fingerprint: "fp-resend-err" }),
+    ).resolves.toBe(false);
+  });
+
+  it("returns true when the email is accepted", async () => {
+    await expect(
+      sendOpsAlert({ subject: "a", body: "b", fingerprint: "fp-ok" }),
+    ).resolves.toBe(true);
   });
 });

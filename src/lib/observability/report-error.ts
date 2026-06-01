@@ -57,26 +57,29 @@ export async function reportError(
   //    Log the original error (preserving the stack in the console) + context.
   console.error(`[${opts.source}]`, error, context)
 
-  // 2. Ops alert (best-effort, throttled inside sendOpsAlert).
+  // 2. Ops alert (best-effort, throttled inside sendOpsAlert). `alerted`
+  //    reflects whether an alert was ACTUALLY dispatched (not just requested) —
+  //    sendOpsAlert no-ops without config and when throttled.
   const shouldAlert = opts.alert ?? severity === 'fatal'
-  if (shouldAlert) {
-    await sendOpsAlert({
-      subject: `${severity}: ${opts.source}`,
-      body: [
-        message,
-        stack ?? '',
-        Object.keys(context).length ? JSON.stringify(context, null, 2) : '',
-      ]
-        .filter(Boolean)
-        .join('\n\n'),
-      fingerprint,
-    })
-  }
+  const alerted = shouldAlert
+    ? await sendOpsAlert({
+        subject: `${severity}: ${opts.source}`,
+        body: [
+          message,
+          stack ?? '',
+          Object.keys(context).length ? JSON.stringify(context, null, 2) : '',
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+        fingerprint,
+      })
+    : false
 
-  // 3. Persist (best-effort; swallow any failure).
+  // 3. Persist (best-effort; never throw). The Supabase client returns the
+  //    error rather than throwing, so check it explicitly.
   try {
     const db = createAdminClient()
-    await db.from('error_events').insert({
+    const { error: insertError } = await db.from('error_events').insert({
       severity,
       source: opts.source,
       message,
@@ -85,8 +88,11 @@ export async function reportError(
       context,
       actor_profile_id: opts.actorProfileId ?? null,
       request_id: opts.requestId ?? null,
-      alerted: shouldAlert,
+      alerted,
     })
+    if (insertError) {
+      console.error('[report-error] failed to persist error_event', insertError)
+    }
   } catch (dbErr) {
     console.error('[report-error] failed to persist error_event', dbErr)
   }

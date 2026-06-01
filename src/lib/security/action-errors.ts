@@ -1,25 +1,23 @@
+import { after } from "next/server";
+
 import { reportError } from "@/lib/observability/report-error";
 
 /**
  * Log a handled server-side error.
  *
- * Delegates to reportError(), which structured-logs to the console AND
- * best-effort persists to error_events so failures survive Vercel's log window.
- * Persistence is fire-and-forget here (this helper is synchronous and called
- * widely); critical async paths should `await reportError(...)` directly for a
- * guaranteed write.
+ * Delegates to reportError(), which structured-logs to the console AND persists
+ * to error_events so failures survive Vercel's log window. The persistence is
+ * scheduled via `after()` so it completes after the response flushes rather
+ * than being cut short by the serverless function returning. Outside a request
+ * scope (scripts/build) it falls back to a best-effort fire-and-forget.
  */
 export function logActionError(context: string, error: unknown) {
+  const persist = () =>
+    reportError(error, { source: context, severity: "error", alert: false });
   try {
-    void reportError(error, {
-      source: context,
-      severity: "error",
-      alert: false,
-    }).catch(() => {});
+    after(persist);
   } catch {
-    // reportError should never throw synchronously, but logging must never
-    // break the caller — fall back to a plain console log.
-    console.error(`[${context}]`, error);
+    void persist().catch(() => {});
   }
 }
 
