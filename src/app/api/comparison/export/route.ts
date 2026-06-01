@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { z } from 'zod'
 import { getComparisonMatrix } from '@/app/actions/comparison'
 import { buildComparisonCsv } from '@/lib/comparison/build-csv'
+import { resolveAuthorizedScope } from '@/lib/auth/authorization'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 
 export const maxDuration = 60
 
@@ -44,6 +46,28 @@ export async function POST(req: Request): Promise<Response> {
   const filename = parsed.data.campaignSlug
     ? `trajectas-comparison-${parsed.data.campaignSlug}-${todayUtcYyyymmdd()}.csv`
     : `trajectas-comparison-participants-${todayUtcYyyymmdd()}.csv`
+
+  // Audit the PII export (participant comparison data). Best-effort via after()
+  // so it never blocks or breaks the download. getComparisonMatrix already
+  // authorised the caller, so resolveAuthorizedScope() (request-cached) resolves
+  // the actor cheaply.
+  after(async () => {
+    try {
+      const scope = await resolveAuthorizedScope()
+      await logAuditEvent({
+        actorProfileId: scope.actor?.id ?? null,
+        eventType: 'comparison.exported',
+        targetTable: 'campaign_participants',
+        metadata: {
+          participantCount: parsed.data.entries.length,
+          assessmentIds: parsed.data.assessmentIds,
+          campaignSlug: parsed.data.campaignSlug ?? null,
+        },
+      })
+    } catch {
+      // audit is best-effort
+    }
+  })
 
   return new Response(csv, {
     headers: {

@@ -6,6 +6,13 @@ vi.mock('@/app/actions/comparison', () => ({
   getComparisonMatrix: (req: unknown) => getComparisonMatrix(req),
 }))
 
+// The route schedules an audit log via after(); in a real route handler this
+// runs in a request scope, but a direct unit call has none — no-op it.
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('next/server')>()
+  return { ...actual, after: vi.fn() }
+})
+
 import { POST } from '@/app/api/comparison/export/route'
 
 const VALID_BODY = {

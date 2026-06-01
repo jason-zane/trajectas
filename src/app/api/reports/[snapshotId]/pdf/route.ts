@@ -13,6 +13,7 @@ import {
   queueReportPdfGeneration,
 } from '@/lib/reports/pdf'
 import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import {
   parseOptionalJsonRequestWithLimit,
   RequestBodyTooLargeError,
@@ -24,20 +25,23 @@ export const maxDuration = 60
 const REPORTS_BUCKET = 'reports'
 const MAX_PDF_POST_BODY_BYTES = 8 * 1024
 
-async function requirePdfAccess(snapshotId: string) {
+type PdfAccess = Awaited<ReturnType<typeof requireReportSnapshotAccess>>
+
+async function requirePdfAccess(
+  snapshotId: string,
+): Promise<{ error: Response } | { access: PdfAccess }> {
   try {
-    await requireReportSnapshotAccess(snapshotId)
+    const access = await requireReportSnapshotAccess(snapshotId)
+    return { access }
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
+      return { error: Response.json({ error: 'Authentication required' }, { status: 401 }) }
     }
     if (error instanceof AuthorizationError) {
-      return Response.json({ error: error.message }, { status: 403 })
+      return { error: Response.json({ error: error.message }, { status: 403 }) }
     }
     throw error
   }
-
-  return null
 }
 
 async function respondWithStoredPdf(storagePath: string, filename: string) {
@@ -104,6 +108,18 @@ export async function GET(
   const storagePath = `reports/${snapshotId}.pdf`
   const db = createAdminClient()
 
+  // Populated for the privileged (admin/consultant) path; the actual audit
+  // event is written only once we know a real download is being served.
+  let auditContext:
+    | {
+        actorProfileId: string | null
+        clientId: string | null
+        partnerId: string | null
+        supportSessionId: string | null
+        participantId: string | null
+      }
+    | null = null
+
   // Two auth paths: admin scope OR participant access token
   if (participantToken) {
     // Validate participant has access to this specific snapshot
@@ -143,9 +159,17 @@ export async function GET(
       return tokenError
     }
   } else {
-    const authError = await requirePdfAccess(snapshotId)
-    if (authError) {
-      return authError
+    const result = await requirePdfAccess(snapshotId)
+    if ('error' in result) {
+      return result.error
+    }
+    const { access } = result
+    auditContext = {
+      actorProfileId: access.scope.actor?.id ?? null,
+      clientId: access.clientId,
+      partnerId: access.partnerId,
+      supportSessionId: access.scope.supportSession?.id ?? null,
+      participantId: access.participantId,
     }
   }
 
@@ -158,6 +182,25 @@ export async function GET(
     return Response.json(
       { error: 'PDF is only available for ready or released reports' },
       { status: 409 }
+    )
+  }
+
+  // Audit privileged access only now that a real download will be served (the
+  // report exists and is ready/released). Via after() so it never blocks the
+  // download; links to the active support session if the admin is impersonating.
+  if (auditContext) {
+    const ctx = auditContext
+    after(() =>
+      logAuditEvent({
+        actorProfileId: ctx.actorProfileId,
+        eventType: 'report.pdf_downloaded',
+        targetTable: 'report_snapshots',
+        targetId: snapshotId,
+        clientId: ctx.clientId,
+        partnerId: ctx.partnerId,
+        supportSessionId: ctx.supportSessionId,
+        metadata: { participantId: ctx.participantId },
+      }).catch(() => {}),
     )
   }
 
@@ -220,9 +263,9 @@ export async function POST(
       return tokenError
     }
   } else {
-    const authError = await requirePdfAccess(snapshotId)
-    if (authError) {
-      return authError
+    const result = await requirePdfAccess(snapshotId)
+    if ('error' in result) {
+      return result.error
     }
   }
 
