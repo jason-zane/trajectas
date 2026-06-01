@@ -1,8 +1,11 @@
+import { mapCampaignParticipantRow } from "@/lib/supabase/mappers";
 import type { ParticipantSessionProcessingStatus } from "@/types/database";
 import type {
   ActivityEvent,
   ParticipantResponseGroup,
   ParticipantSession,
+  ParticipantWithMeta,
+  UniqueParticipant,
 } from "@/app/actions/participants";
 
 /**
@@ -135,4 +138,86 @@ export function groupResponses(
         };
       }),
   }));
+}
+
+/**
+ * Map campaign_participants rows (with `campaigns` + nested `participant_sessions`)
+ * to ParticipantWithMeta DTOs, deriving session counts and last-activity.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapParticipantWithMetaRows(rows: any[]): ParticipantWithMeta[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (rows ?? []).map((row: any) => {
+    const sessions = row.participant_sessions ?? [];
+    const completedSessions = sessions.filter(
+      (s: { status: string }) => s.status === "completed",
+    );
+
+    // Determine last activity from participant timestamps.
+    const timestamps = [row.invited_at, row.started_at, row.completed_at].filter(
+      Boolean,
+    );
+
+    return {
+      ...mapCampaignParticipantRow(row),
+      campaignTitle: row.campaigns?.title ?? "Unknown",
+      campaignSlug: row.campaigns?.slug ?? "",
+      sessionCount: sessions.length,
+      completedSessionCount: completedSessions.length,
+      lastActivity:
+        timestamps.length > 0 ? timestamps.sort().reverse()[0] : row.created_at,
+    };
+  });
+}
+
+/**
+ * Collapse campaign_participants rows to one entry per email (the most recent,
+ * since callers fetch ordered by created_at desc), counting rows per email, then
+ * apply offset/perPage pagination over the unique set.
+ */
+export function dedupeUniqueParticipants(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[],
+  { offset, perPage }: { offset: number; perPage: number },
+): { data: UniqueParticipant[]; total: number } {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byEmail = new Map<string, { latest: any; count: number }>();
+  for (const row of rows ?? []) {
+    const email = String(row.email).toLowerCase();
+    const existing = byEmail.get(email);
+    if (!existing) {
+      byEmail.set(email, { latest: row, count: 1 });
+    } else {
+      existing.count++;
+      // rows are ordered by created_at desc, so first seen is most recent
+    }
+  }
+
+  const allUnique = Array.from(byEmail.values());
+  const total = allUnique.length;
+  const pageSlice = allUnique.slice(offset, offset + perPage);
+
+  const data: UniqueParticipant[] = pageSlice.map(({ latest, count }) => {
+    const mapped = mapCampaignParticipantRow(latest);
+    const timestamps = [
+      latest.invited_at,
+      latest.started_at,
+      latest.completed_at,
+    ].filter(Boolean);
+
+    return {
+      id: mapped.id,
+      email: mapped.email,
+      firstName: mapped.firstName,
+      lastName: mapped.lastName,
+      sessionCount: count,
+      latestStatus: mapped.status,
+      lastActivity:
+        timestamps.length > 0
+          ? (timestamps.sort().reverse()[0] ?? undefined)
+          : (latest.created_at ?? undefined),
+    };
+  });
+
+  return { data, total };
 }

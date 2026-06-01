@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildActivityEvents,
+  dedupeUniqueParticipants,
   groupResponses,
+  mapParticipantWithMetaRows,
   mapSessionRows,
 } from "@/lib/dal/participants-mappers";
 
@@ -196,5 +198,124 @@ describe("groupResponses", () => {
   it("returns [] for nullish sections", () => {
     // @ts-expect-error exercising the nullish guard
     expect(groupResponses(null, null)).toEqual([]);
+  });
+});
+
+describe("mapParticipantWithMetaRows", () => {
+  it("derives session counts, campaign context, and last activity", () => {
+    const [p] = mapParticipantWithMetaRows([
+      {
+        id: "p1",
+        email: "a@b.com",
+        status: "in_progress",
+        invited_at: "2026-01-01T00:00:00Z",
+        started_at: "2026-01-03T00:00:00Z",
+        completed_at: null,
+        created_at: "2025-12-31T00:00:00Z",
+        campaigns: { title: "Cohort", slug: "cohort" },
+        participant_sessions: [
+          { id: "s1", status: "completed" },
+          { id: "s2", status: "in_progress" },
+        ],
+      },
+    ]);
+
+    expect(p).toMatchObject({
+      id: "p1",
+      campaignTitle: "Cohort",
+      campaignSlug: "cohort",
+      sessionCount: 2,
+      completedSessionCount: 1,
+    });
+    // latest of invited/started/completed timestamps
+    expect(p.lastActivity).toBe("2026-01-03T00:00:00Z");
+  });
+
+  it("falls back to created_at for last activity and Unknown campaign", () => {
+    const [p] = mapParticipantWithMetaRows([
+      {
+        id: "p2",
+        email: "c@d.com",
+        status: "invited",
+        created_at: "2026-02-01T00:00:00Z",
+        // no campaign relation, no sessions, no activity timestamps
+      },
+    ]);
+    expect(p.campaignTitle).toBe("Unknown");
+    expect(p.campaignSlug).toBe("");
+    expect(p.sessionCount).toBe(0);
+    expect(p.completedSessionCount).toBe(0);
+    expect(p.lastActivity).toBe("2026-02-01T00:00:00Z");
+  });
+
+  it("returns [] for nullish input", () => {
+    // @ts-expect-error exercising the nullish guard
+    expect(mapParticipantWithMetaRows(null)).toEqual([]);
+  });
+});
+
+describe("dedupeUniqueParticipants", () => {
+  const rows = [
+    // newest-first ordering (as the query returns)
+    {
+      id: "r1",
+      email: "Alice@Example.com",
+      status: "completed",
+      created_at: "2026-03-03T00:00:00Z",
+      completed_at: "2026-03-03T00:00:00Z",
+    },
+    {
+      id: "r2",
+      email: "alice@example.com",
+      status: "in_progress",
+      created_at: "2026-03-01T00:00:00Z",
+    },
+    {
+      id: "r3",
+      email: "bob@example.com",
+      status: "invited",
+      created_at: "2026-02-20T00:00:00Z",
+      invited_at: "2026-02-20T00:00:00Z",
+    },
+  ];
+
+  it("collapses case-insensitively by email, keeping the most recent record", () => {
+    const { data, total } = dedupeUniqueParticipants(rows, {
+      offset: 0,
+      perPage: 50,
+    });
+    expect(total).toBe(2);
+    const alice = data.find(
+      (d) => d.email.toLowerCase() === "alice@example.com",
+    );
+    expect(alice).toMatchObject({
+      id: "r1",
+      sessionCount: 2,
+      latestStatus: "completed",
+      lastActivity: "2026-03-03T00:00:00Z",
+    });
+    const bob = data.find((d) => d.email === "bob@example.com");
+    expect(bob).toMatchObject({
+      id: "r3",
+      sessionCount: 1,
+      latestStatus: "invited",
+    });
+  });
+
+  it("paginates over the unique set, not the raw rows", () => {
+    const page1 = dedupeUniqueParticipants(rows, { offset: 0, perPage: 1 });
+    expect(page1.total).toBe(2);
+    expect(page1.data).toHaveLength(1);
+    const page2 = dedupeUniqueParticipants(rows, { offset: 1, perPage: 1 });
+    expect(page2.data).toHaveLength(1);
+    expect(page1.data[0].id).not.toBe(page2.data[0].id);
+  });
+
+  it("returns empty for nullish rows", () => {
+    // @ts-expect-error exercising the nullish guard
+    expect(dedupeUniqueParticipants(null, { offset: 0, perPage: 10 })).toEqual({
+      data: [],
+      total: 0,
+    });
   });
 });

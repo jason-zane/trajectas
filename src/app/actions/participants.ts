@@ -15,10 +15,11 @@ import {
 import {
   logSupportSessionDataAccess,
 } from '@/lib/auth/support-sessions'
-import { logActionError, throwActionError } from '@/lib/security/action-errors'
-import { mapCampaignParticipantRow } from '@/lib/supabase/mappers'
+import { logActionError } from '@/lib/security/action-errors'
 import {
   getParticipantById,
+  listParticipants as dalListParticipants,
+  listUniqueParticipants as dalListUniqueParticipants,
   getParticipantSessions as dalGetParticipantSessions,
   getParticipantActivity as dalGetParticipantActivity,
   getParticipantResponses as dalGetParticipantResponses,
@@ -110,14 +111,6 @@ export type ParticipantResponseGroup = {
   }[]
 }
 
-type UniqueParticipantLookupRow = Record<string, unknown> & {
-  email: string
-  invited_at?: string | null
-  started_at?: string | null
-  completed_at?: string | null
-  created_at?: string | null
-}
-
 // ---------------------------------------------------------------------------
 // List
 // ---------------------------------------------------------------------------
@@ -155,65 +148,13 @@ export async function getParticipants(filters?: {
     }
   }
 
-  // Build query — inner join + deleted_at filter excludes participants whose
-  // campaign has been soft-deleted (those rows would 404 on detail since
-  // requireCampaignAccess rejects deleted campaigns).
-  let query = db
-    .from('campaign_participants')
-    .select(`
-      *,
-      campaigns!inner(title, slug, deleted_at),
-      participant_sessions(id, status)
-    `, { count: 'exact' })
-    .is('deleted_at', null)
-    .is('campaigns.deleted_at', null)
-
-  if (filters?.status) {
-    query = query.eq('status', filters.status)
-  }
-  if (scopedCampaignIds?.length === 1) {
-    query = query.eq('campaign_id', scopedCampaignIds[0])
-  } else if (scopedCampaignIds && scopedCampaignIds.length > 1) {
-    query = query.in('campaign_id', scopedCampaignIds)
-  }
-  if (filters?.search) {
-    query = query.or(`email.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%`)
-  }
-
-  query = query.order('created_at', { ascending: false })
-    .range(offset, offset + perPage - 1)
-
-  const { data: rows, error, count } = await query
-
-  if (error) {
-    throwActionError('getParticipants', 'Unable to load participants.', error)
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const participants: ParticipantWithMeta[] = (rows ?? []).map((row: any) => {
-    const sessions = row.participant_sessions ?? []
-    const completedSessions = sessions.filter((s: { status: string }) => s.status === 'completed')
-
-    // Determine last activity from participant timestamps
-    const timestamps = [
-      row.invited_at,
-      row.started_at,
-      row.completed_at,
-    ].filter(Boolean)
-
-    return {
-      ...mapCampaignParticipantRow(row),
-      campaignTitle: row.campaigns?.title ?? 'Unknown',
-      campaignSlug: row.campaigns?.slug ?? '',
-      sessionCount: sessions.length,
-      completedSessionCount: completedSessions.length,
-      lastActivity: timestamps.length > 0
-        ? timestamps.sort().reverse()[0]
-        : row.created_at,
-    }
+  return dalListParticipants(db, {
+    scopedCampaignIds,
+    status: filters?.status,
+    search: filters?.search,
+    offset,
+    perPage,
   })
-
-  return { data: participants, total: count ?? 0 }
 }
 
 export async function getUniqueParticipants(filters?: {
@@ -238,81 +179,13 @@ export async function getUniqueParticipants(filters?: {
     }
   }
 
-  // Use RPC or raw query to group by email with proper pagination.
-  // Supabase JS client doesn't support GROUP BY, so we use two queries:
-  // 1) Get all matching rows (scoped)
-  // 2) Deduplicate in JS (acceptable because campaign_participants is bounded per-scope)
-
-  // Inner join + deleted_at filter excludes participants whose campaign has
-  // been soft-deleted; those rows would 404 on the detail page.
-  let query = db
-    .from('campaign_participants')
-    .select('*, campaigns!inner(deleted_at)', { count: 'exact' })
-    .is('deleted_at', null)
-    .is('campaigns.deleted_at', null)
-    .order('created_at', { ascending: false })
-
-  if (scopedCampaignIds && scopedCampaignIds.length === 1) {
-    query = query.eq('campaign_id', scopedCampaignIds[0])
-  } else if (scopedCampaignIds && scopedCampaignIds.length > 1) {
-    query = query.in('campaign_id', scopedCampaignIds)
-  }
-
-  if (filters?.status) {
-    query = query.eq('status', filters.status)
-  }
-  if (filters?.search) {
-    query = query.or(
-      `email.ilike.%${filters.search}%,first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%`
-    )
-  }
-
-  const { data: rows, error } = await query
-
-  if (error) {
-    throwActionError('getUniqueParticipants', 'Unable to load participants.', error)
-  }
-
-  // Group by email — keep the most recent record per email
-  const byEmail = new Map<string, { latest: UniqueParticipantLookupRow; count: number }>()
-  for (const row of rows ?? []) {
-    const participantRow = row as UniqueParticipantLookupRow
-    const email = participantRow.email.toLowerCase()
-    const existing = byEmail.get(email)
-    if (!existing) {
-      byEmail.set(email, { latest: participantRow, count: 1 })
-    } else {
-      existing.count++
-      // rows are ordered by created_at desc, so first seen is most recent
-    }
-  }
-
-  const allUnique = Array.from(byEmail.values())
-  const total = allUnique.length
-  const pageSlice = allUnique.slice(offset, offset + perPage)
-
-  const data: UniqueParticipant[] = pageSlice.map(({ latest, count }) => {
-    const mapped = mapCampaignParticipantRow(latest)
-    const timestamps = [
-      latest.invited_at,
-      latest.started_at,
-      latest.completed_at,
-    ].filter(Boolean)
-
-    return {
-      id: mapped.id,
-      email: mapped.email,
-      firstName: mapped.firstName,
-      lastName: mapped.lastName,
-      sessionCount: count,
-      latestStatus: mapped.status,
-      lastActivity: timestamps.length > 0
-        ? (timestamps.sort().reverse()[0] ?? undefined)
-        : (latest.created_at ?? undefined),
-    }
+  return dalListUniqueParticipants(db, {
+    scopedCampaignIds,
+    status: filters?.status,
+    search: filters?.search,
+    offset,
+    perPage,
   })
-
-  return { data, total }
 }
 
 // ---------------------------------------------------------------------------
