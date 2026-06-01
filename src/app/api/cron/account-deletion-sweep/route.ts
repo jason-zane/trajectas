@@ -23,6 +23,7 @@
 
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { reportError } from '@/lib/observability/report-error'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -55,7 +56,12 @@ export async function GET(request: Request): Promise<Response> {
     .limit(MAX_DELETIONS_PER_RUN)
 
   if (queryError) {
-    console.error('[cron:account-deletion-sweep] query failed:', queryError)
+    await reportError(queryError, {
+      source: 'cron.account-deletion',
+      severity: 'fatal',
+      alert: true,
+      context: { phase: 'query' },
+    })
     return NextResponse.json({ ok: false, error: queryError.message }, { status: 500 })
   }
 
@@ -92,6 +98,20 @@ export async function GET(request: Request): Promise<Response> {
       )
       errors.push({ profileId: profile.id, message })
     }
+  }
+
+  if (errors.length > 0) {
+    await reportError(
+      new Error(
+        `account-deletion sweep: ${errors.length}/${ripe.length} deletions failed`,
+      ),
+      {
+        source: 'cron.account-deletion',
+        severity: 'error',
+        alert: true,
+        context: { swept, failed: errors.length, errors },
+      },
+    )
   }
 
   return NextResponse.json({ ok: true, swept, errors: errors.length, errorDetails: errors })
