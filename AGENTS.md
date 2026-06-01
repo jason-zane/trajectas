@@ -28,6 +28,18 @@ about to `git checkout -b`, switch to a worktree.
 ## UI/UX Standards
 Read `docs/ui-standards.md` before building any UI component or page.
 
+## Data Access Layer
+
+Database access is being centralised into `src/lib/dal/` (server-only modules
+that own the query, return DTOs, and keep the persistence schema out of the UI).
+It is incremental — not every query lives there yet — but new code should follow
+the pattern. See `src/lib/dal/README.md`.
+
+Hard rule (enforced by `tests/architecture/no-db-in-components.test.ts`):
+**reusable components in `src/components/**` must NOT import `createAdminClient`
+or `@/lib/supabase/server`.** They receive data as props or call a DAL function.
+Pages (`src/app/**/page.tsx`) may fetch, preferably via the DAL.
+
 ## Behavioral Rules
 - If uncertain or if multiple interpretations exist, surface it — don't pick silently
 - If a simpler approach exists, push back
