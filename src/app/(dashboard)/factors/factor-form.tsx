@@ -79,6 +79,7 @@ interface FactorFormProps {
   dimensions: SelectOption[]
   availableConstructs: SelectOption[]
   clients: SelectOption[]
+  categories?: { id: string; name: string; definition: string }[]
   contentSources?: import("@/types/database").ContentSource[]
   mode: "create" | "edit"
   factorId?: string
@@ -103,6 +104,8 @@ interface FactorFormProps {
     applicableOutcomes?: string[]
     applicableLevels?: string[]
     applicableFunctions?: string[]
+    primaryCategoryId?: string
+    secondaryCategoryId?: string
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
@@ -112,6 +115,7 @@ export function FactorForm({
   dimensions,
   availableConstructs,
   clients,
+  categories = [],
   contentSources = [],
   mode,
   factorId,
@@ -129,6 +133,8 @@ export function FactorForm({
   const [applicableOutcomes, setApplicableOutcomes] = useState<string[]>(initialData?.applicableOutcomes ?? [])
   const [applicableLevels, setApplicableLevels] = useState<string[]>(initialData?.applicableLevels ?? [])
   const [applicableFunctions, setApplicableFunctions] = useState<string[]>(initialData?.applicableFunctions ?? [])
+  const [primaryCategoryId, setPrimaryCategoryId] = useState<string>(initialData?.primaryCategoryId ?? "")
+  const [secondaryCategoryId, setSecondaryCategoryId] = useState<string>(initialData?.secondaryCategoryId ?? "")
   const [clientId, setClientId] = useState(initialData?.clientId ?? "")
   const [compositionLocked, setCompositionLocked] = useState(
     initialData?.compositionLocked ?? false,
@@ -235,6 +241,10 @@ export function FactorForm({
       levels: initialData?.applicableLevels ?? [],
       functions: initialData?.applicableFunctions ?? [],
     }),
+    categories: JSON.stringify({
+      primary: initialData?.primaryCategoryId ?? "",
+      secondary: initialData?.secondaryCategoryId ?? "",
+    }),
     clientId: initialData?.clientId ?? "",
     linkedConstructs: JSON.stringify(
       (initialData?.linkedConstructs ?? []).map((c) => ({
@@ -257,6 +267,10 @@ export function FactorForm({
           levels: applicableLevels,
           functions: applicableFunctions,
         }) !== savedStructural.applicability ||
+        JSON.stringify({
+          primary: primaryCategoryId,
+          secondary: secondaryCategoryId,
+        }) !== savedStructural.categories ||
         clientId !== savedStructural.clientId ||
         JSON.stringify(
           linkedConstructs.map((c) => ({
@@ -363,6 +377,10 @@ export function FactorForm({
           outcomes: applicableOutcomes,
           levels: applicableLevels,
           functions: applicableFunctions,
+        }),
+        categories: JSON.stringify({
+          primary: primaryCategoryId,
+          secondary: secondaryCategoryId,
         }),
         clientId,
         linkedConstructs: JSON.stringify(
@@ -989,6 +1007,65 @@ export function FactorForm({
                     name="isMatchEligible"
                     value={isMatchEligible ? "true" : "false"}
                   />
+
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <div className="space-y-0.5">
+                      <Label>Category</Label>
+                      <p className="text-xs text-muted-foreground">
+                        The high-level capability this factor measures. Drives whole-person coverage in the Architect.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">Primary</span>
+                        <Select value={primaryCategoryId} onValueChange={(v) => setPrimaryCategoryId(v ?? "")}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select…">
+                              {(value: string) => categories.find((c) => c.id === value)?.name ?? value}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Secondary <span className="font-normal">(optional)</span>
+                        </span>
+                        <Select value={secondaryCategoryId} onValueChange={(v) => setSecondaryCategoryId(v ?? "")}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="None">
+                              {(value: string) => categories.find((c) => c.id === value)?.name ?? "None"}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {secondaryCategoryId && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="xs"
+                            onClick={() => setSecondaryCategoryId("")}
+                          >
+                            Clear
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <input type="hidden" name="primaryCategoryId" value={primaryCategoryId} />
+                  <input type="hidden" name="secondaryCategoryId" value={secondaryCategoryId} />
 
                   <div className="rounded-lg border p-4 space-y-4">
                     <div className="space-y-0.5">

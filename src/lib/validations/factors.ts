@@ -47,6 +47,8 @@ export const factorSchema = z.object({
     .optional()
     .default([]),
   applicableFunctions: z.array(z.string().max(60)).optional().default([]),
+  primaryCategoryId: z.string().uuid().optional().or(z.literal('')),
+  secondaryCategoryId: z.string().uuid().optional().or(z.literal('')),
 })
 
 export type FactorInput = z.infer<typeof factorSchema>

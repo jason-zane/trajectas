@@ -27,7 +27,7 @@ export const runArchitectMatchSchema = z.object({
 
 const overviewFactorSchema = z.object({
   factorName: z.string().max(200),
-  dimensionName: z.string().max(200).nullable(),
+  categoryName: z.string().max(200).nullable(),
   rank: z.coerce.number().int(),
 })
 
