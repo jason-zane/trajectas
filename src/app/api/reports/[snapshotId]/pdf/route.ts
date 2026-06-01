@@ -13,6 +13,7 @@ import {
   queueReportPdfGeneration,
 } from '@/lib/reports/pdf'
 import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import {
   parseOptionalJsonRequestWithLimit,
   RequestBodyTooLargeError,
@@ -24,20 +25,23 @@ export const maxDuration = 60
 const REPORTS_BUCKET = 'reports'
 const MAX_PDF_POST_BODY_BYTES = 8 * 1024
 
-async function requirePdfAccess(snapshotId: string) {
+type PdfAccess = Awaited<ReturnType<typeof requireReportSnapshotAccess>>
+
+async function requirePdfAccess(
+  snapshotId: string,
+): Promise<{ error: Response } | { access: PdfAccess }> {
   try {
-    await requireReportSnapshotAccess(snapshotId)
+    const access = await requireReportSnapshotAccess(snapshotId)
+    return { access }
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {
-      return Response.json({ error: 'Authentication required' }, { status: 401 })
+      return { error: Response.json({ error: 'Authentication required' }, { status: 401 }) }
     }
     if (error instanceof AuthorizationError) {
-      return Response.json({ error: error.message }, { status: 403 })
+      return { error: Response.json({ error: error.message }, { status: 403 }) }
     }
     throw error
   }
-
-  return null
 }
 
 async function respondWithStoredPdf(storagePath: string, filename: string) {
@@ -143,10 +147,24 @@ export async function GET(
       return tokenError
     }
   } else {
-    const authError = await requirePdfAccess(snapshotId)
-    if (authError) {
-      return authError
+    const result = await requirePdfAccess(snapshotId)
+    if ('error' in result) {
+      return result.error
     }
+    // Audit privileged (admin/consultant) access to a participant's report.
+    // Logged via after() so it never blocks or breaks the download.
+    const { access } = result
+    after(() =>
+      logAuditEvent({
+        actorProfileId: access.scope.actor?.id ?? null,
+        eventType: 'report.pdf_downloaded',
+        targetTable: 'report_snapshots',
+        targetId: snapshotId,
+        clientId: access.clientId,
+        partnerId: access.partnerId,
+        metadata: { participantId: access.participantId },
+      }).catch(() => {}),
+    )
   }
 
   const snapshot = await getSnapshotPdfState(snapshotId)
@@ -220,9 +238,9 @@ export async function POST(
       return tokenError
     }
   } else {
-    const authError = await requirePdfAccess(snapshotId)
-    if (authError) {
-      return authError
+    const result = await requirePdfAccess(snapshotId)
+    if ('error' in result) {
+      return result.error
     }
   }
 
