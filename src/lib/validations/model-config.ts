@@ -17,6 +17,7 @@ export const aiPromptPurposeSchema = z.enum([
   'synthetic_respondent',
   'brief_extraction',
   'architect_overview',
+  'library_field_assist',
 ])
 
 export const modelIdSchema = z.string().min(1, 'Model ID is required').max(500)

@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { X, Dna, LayoutGrid, ClipboardList } from "lucide-react"
+import { X, Dna, LayoutGrid, ClipboardList, Sparkles, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,6 +45,7 @@ import {
   updateFactorField,
   setFactorCompositionLocked,
   promoteFactor,
+  draftFactorField,
 } from "@/app/actions/factors"
 import type { SelectOption, LinkedAssessment } from "@/app/actions/factors"
 import { factorReadiness } from "@/lib/library/factor-completeness"
@@ -144,9 +145,11 @@ export function FactorForm({
   const [primaryCategoryId, setPrimaryCategoryId] = useState<string>(initialData?.primaryCategoryId ?? "")
   const [secondaryCategoryId, setSecondaryCategoryId] = useState<string>(initialData?.secondaryCategoryId ?? "")
   const [overuseSignature, setOveruseSignature] = useState<string>(initialData?.overuseSignature ?? "")
-  const [contrastsWith, setContrastsWith] = useState<string[]>(initialData?.contrastsWith ?? [])
+  const [contrastsText, setContrastsText] = useState<string>((initialData?.contrastsWith ?? []).join(", "))
+  const contrastsWith = contrastsText.split(",").map((s) => s.trim()).filter(Boolean)
   const [theoreticalLineage, setTheoreticalLineage] = useState<string>(initialData?.theoreticalLineage ?? "")
   const [promoting, setPromoting] = useState(false)
+  const [draftingField, setDraftingField] = useState<string | null>(null)
   const [clientId, setClientId] = useState(initialData?.clientId ?? "")
   const [compositionLocked, setCompositionLocked] = useState(
     initialData?.compositionLocked ?? false,
@@ -463,6 +466,23 @@ export function FactorForm({
       tier === "match_ready" ? "Promoted to match-ready" : "Promoted to assessment-ready",
     )
     router.refresh()
+  }
+
+  async function handleDraft(
+    field: "overuse_signature" | "theoretical_lineage" | "contrasts_with",
+  ) {
+    if (!factorId) return
+    setDraftingField(field)
+    const result = await draftFactorField(factorId, field)
+    setDraftingField(null)
+    if ("error" in result) {
+      toast.error(result.error)
+      return
+    }
+    if (field === "overuse_signature") setOveruseSignature(result.text)
+    else if (field === "theoretical_lineage") setTheoreticalLineage(result.text)
+    else setContrastsText(result.text)
+    toast.success("Drafted with AI — review, edit, and save")
   }
 
   async function handleDelete() {
@@ -1232,7 +1252,25 @@ export function FactorForm({
                     </div>
 
                     <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">Overuse signature</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Overuse signature</span>
+                        {mode === "edit" && factorId && (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            disabled={draftingField !== null}
+                            onClick={() => handleDraft("overuse_signature")}
+                          >
+                            {draftingField === "overuse_signature" ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3" />
+                            )}
+                            Draft with AI
+                          </Button>
+                        )}
+                      </div>
                       <Textarea
                         value={overuseSignature}
                         onChange={(e) => setOveruseSignature(e.target.value)}
@@ -1242,7 +1280,25 @@ export function FactorForm({
                     </div>
 
                     <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">Theoretical lineage</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">Theoretical lineage</span>
+                        {mode === "edit" && factorId && (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            disabled={draftingField !== null}
+                            onClick={() => handleDraft("theoretical_lineage")}
+                          >
+                            {draftingField === "theoretical_lineage" ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3" />
+                            )}
+                            Draft with AI
+                          </Button>
+                        )}
+                      </div>
                       <Input
                         value={theoreticalLineage}
                         onChange={(e) => setTheoreticalLineage(e.target.value)}
@@ -1251,17 +1307,31 @@ export function FactorForm({
                     </div>
 
                     <div className="space-y-1.5">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Contrasts with <span className="font-normal">(factor slugs, comma-separated)</span>
-                      </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Contrasts with <span className="font-normal">(factor slugs, comma-separated)</span>
+                        </span>
+                        {mode === "edit" && factorId && (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="ghost"
+                            disabled={draftingField !== null}
+                            onClick={() => handleDraft("contrasts_with")}
+                          >
+                            {draftingField === "contrasts_with" ? (
+                              <Loader2 className="size-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3" />
+                            )}
+                            Suggest with AI
+                          </Button>
+                        )}
+                      </div>
                       <Input
-                        defaultValue={contrastsWith.join(", ")}
+                        value={contrastsText}
                         placeholder="e.g. curiosity, openness-to-learning"
-                        onChange={(e) =>
-                          setContrastsWith(
-                            e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                          )
-                        }
+                        onChange={(e) => setContrastsText(e.target.value)}
                       />
                     </div>
 
