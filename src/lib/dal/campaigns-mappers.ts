@@ -1,6 +1,7 @@
 import { mapCampaignRow } from "@/lib/supabase/mappers";
 import type {
   CampaignAssessmentOption,
+  CampaignConsultantSettings,
   CampaignSessionRow,
   CampaignWithMeta,
 } from "@/app/actions/campaigns";
@@ -196,4 +197,25 @@ export function mapActiveAssessmentRows(rows: any[]): CampaignAssessmentOption[]
       minCustomFactors: row.min_custom_factors ?? null,
     };
   });
+}
+
+/**
+ * Map a campaign's consultant-notification columns to a CampaignConsultantSettings
+ * DTO: coerces a possibly-null jsonb email array to strings and the flag columns
+ * to booleans.
+ */
+export function mapConsultantSettings(row: {
+  consultant_emails?: unknown;
+  consultant_notification_enabled?: unknown;
+  consultant_notification_include_summary?: unknown;
+  consultant_notification_attach_pdf?: unknown;
+}): CampaignConsultantSettings {
+  return {
+    emails: ((row.consultant_emails as string[] | null) ?? []).map((e) =>
+      String(e),
+    ),
+    enabled: Boolean(row.consultant_notification_enabled),
+    includeSummary: Boolean(row.consultant_notification_include_summary),
+    attachPdf: Boolean(row.consultant_notification_attach_pdf),
+  };
 }

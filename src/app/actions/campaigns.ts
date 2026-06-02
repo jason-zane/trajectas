@@ -8,6 +8,7 @@ import {
   listCampaigns,
   listActiveAssessments,
   getCampaignSessions as dalGetCampaignSessions,
+  getCampaignConsultantSettings as dalGetCampaignConsultantSettings,
 } from '@/lib/dal/campaigns'
 import {
   AuthorizationError,
@@ -2392,21 +2393,7 @@ export async function getCampaignConsultantSettings(
   campaignId: string,
 ): Promise<CampaignConsultantSettings | null> {
   await requireCampaignAccess(campaignId)
-  const db = createAdminClient()
-  const { data, error } = await db
-    .from('campaigns')
-    .select(
-      'consultant_emails, consultant_notification_enabled, consultant_notification_include_summary, consultant_notification_attach_pdf',
-    )
-    .eq('id', campaignId)
-    .maybeSingle()
-  if (error || !data) return null
-  return {
-    emails: ((data.consultant_emails as string[] | null) ?? []).map((e) => String(e)),
-    enabled: Boolean(data.consultant_notification_enabled),
-    includeSummary: Boolean(data.consultant_notification_include_summary),
-    attachPdf: Boolean(data.consultant_notification_attach_pdf),
-  }
+  return dalGetCampaignConsultantSettings(createAdminClient(), campaignId)
 }
 
 const CONSULTANT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

@@ -3,6 +3,7 @@ import {
   mapActiveAssessmentRows,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
+  mapConsultantSettings,
 } from "@/lib/dal/campaigns-mappers";
 
 const baseRow = {
@@ -216,5 +217,49 @@ describe("mapActiveAssessmentRows", () => {
   it("returns [] for nullish input", () => {
     // @ts-expect-error exercising the nullish guard
     expect(mapActiveAssessmentRows(null)).toEqual([]);
+  });
+});
+
+describe("mapConsultantSettings", () => {
+  it("coerces emails to strings and flags to booleans", () => {
+    expect(
+      mapConsultantSettings({
+        consultant_emails: ["a@x.com", "b@y.com"],
+        consultant_notification_enabled: true,
+        consultant_notification_include_summary: false,
+        consultant_notification_attach_pdf: true,
+      }),
+    ).toEqual({
+      emails: ["a@x.com", "b@y.com"],
+      enabled: true,
+      includeSummary: false,
+      attachPdf: true,
+    });
+  });
+
+  it("defaults null emails to [] and null/absent flags to false", () => {
+    expect(
+      mapConsultantSettings({
+        consultant_emails: null,
+        consultant_notification_enabled: null,
+      }),
+    ).toEqual({
+      emails: [],
+      enabled: false,
+      includeSummary: false,
+      attachPdf: false,
+    });
+  });
+
+  it("coerces truthy/falsy flag values via Boolean()", () => {
+    const out = mapConsultantSettings({
+      consultant_emails: [],
+      consultant_notification_enabled: 1,
+      consultant_notification_include_summary: 0,
+      consultant_notification_attach_pdf: "yes",
+    });
+    expect(out.enabled).toBe(true);
+    expect(out.includeSummary).toBe(false);
+    expect(out.attachPdf).toBe(true);
   });
 });
