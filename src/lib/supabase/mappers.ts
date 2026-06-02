@@ -105,6 +105,12 @@ export function mapFactorRow(row: any): Factor {
     applicableFunctions: row.applicable_functions ?? [],
     primaryCategoryId: row.primary_category_id ?? undefined,
     secondaryCategoryId: row.secondary_category_id ?? undefined,
+    readiness: row.readiness ?? undefined,
+    overuseSignature: row.overuse_signature ?? undefined,
+    contrastsWith: row.contrasts_with ?? [],
+    theoreticalLineage: row.theoretical_lineage ?? undefined,
+    reviewedBy: row.reviewed_by ?? undefined,
+    reviewedAt: row.reviewed_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
@@ -341,6 +347,9 @@ export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at
     applicable_functions: c.applicableFunctions ?? [],
     primary_category_id: c.primaryCategoryId ?? null,
     secondary_category_id: c.secondaryCategoryId ?? null,
+    overuse_signature: c.overuseSignature ?? null,
+    contrasts_with: c.contrastsWith ?? [],
+    theoretical_lineage: c.theoreticalLineage ?? null,
   }
 }
 

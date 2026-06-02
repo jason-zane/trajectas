@@ -7,6 +7,7 @@ import { X, Dna, LayoutGrid, ClipboardList } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { RichTextEditor } from "@/components/rich-text-editor"
 import { Slider } from "@/components/ui/slider"
@@ -43,8 +44,10 @@ import {
   restoreFactor,
   updateFactorField,
   setFactorCompositionLocked,
+  promoteFactor,
 } from "@/app/actions/factors"
 import type { SelectOption, LinkedAssessment } from "@/app/actions/factors"
+import { factorReadiness } from "@/lib/library/factor-completeness"
 
 interface LinkedConstruct {
   constructId: string
@@ -106,6 +109,11 @@ interface FactorFormProps {
     applicableFunctions?: string[]
     primaryCategoryId?: string
     secondaryCategoryId?: string
+    overuseSignature?: string
+    contrastsWith?: string[]
+    theoreticalLineage?: string
+    readiness?: "draft" | "assessment_ready" | "match_ready"
+    activeItemCount?: number
     linkedConstructs: { constructId: string; name: string; weight: number }[]
     linkedAssessments?: LinkedAssessment[]
   }
@@ -135,6 +143,10 @@ export function FactorForm({
   const [applicableFunctions, setApplicableFunctions] = useState<string[]>(initialData?.applicableFunctions ?? [])
   const [primaryCategoryId, setPrimaryCategoryId] = useState<string>(initialData?.primaryCategoryId ?? "")
   const [secondaryCategoryId, setSecondaryCategoryId] = useState<string>(initialData?.secondaryCategoryId ?? "")
+  const [overuseSignature, setOveruseSignature] = useState<string>(initialData?.overuseSignature ?? "")
+  const [contrastsWith, setContrastsWith] = useState<string[]>(initialData?.contrastsWith ?? [])
+  const [theoreticalLineage, setTheoreticalLineage] = useState<string>(initialData?.theoreticalLineage ?? "")
+  const [promoting, setPromoting] = useState(false)
   const [clientId, setClientId] = useState(initialData?.clientId ?? "")
   const [compositionLocked, setCompositionLocked] = useState(
     initialData?.compositionLocked ?? false,
@@ -245,6 +257,11 @@ export function FactorForm({
       primary: initialData?.primaryCategoryId ?? "",
       secondary: initialData?.secondaryCategoryId ?? "",
     }),
+    quality: JSON.stringify({
+      overuse: initialData?.overuseSignature ?? "",
+      contrasts: initialData?.contrastsWith ?? [],
+      lineage: initialData?.theoreticalLineage ?? "",
+    }),
     clientId: initialData?.clientId ?? "",
     linkedConstructs: JSON.stringify(
       (initialData?.linkedConstructs ?? []).map((c) => ({
@@ -271,6 +288,11 @@ export function FactorForm({
           primary: primaryCategoryId,
           secondary: secondaryCategoryId,
         }) !== savedStructural.categories ||
+        JSON.stringify({
+          overuse: overuseSignature,
+          contrasts: contrastsWith,
+          lineage: theoreticalLineage,
+        }) !== savedStructural.quality ||
         clientId !== savedStructural.clientId ||
         JSON.stringify(
           linkedConstructs.map((c) => ({
@@ -382,6 +404,11 @@ export function FactorForm({
           primary: primaryCategoryId,
           secondary: secondaryCategoryId,
         }),
+        quality: JSON.stringify({
+          overuse: overuseSignature,
+          contrasts: contrastsWith,
+          lineage: theoreticalLineage,
+        }),
         clientId,
         linkedConstructs: JSON.stringify(
           linkedConstructs.map((c) => ({
@@ -395,6 +422,47 @@ export function FactorForm({
       }
       setPending(false)
     }
+  }
+
+  // Readiness against the two-tier bar. Structural fields (category,
+  // applicability, overuse/contrasts/lineage) are live state; the long-form
+  // fields autosave individually, so the meter uses their saved values
+  // (exact on refresh) — the promote action re-checks server-side anyway.
+  const readinessStatus = factorReadiness({
+    primaryCategoryId,
+    definition: initialData?.definition,
+    description: initialData?.description,
+    indicatorsLow: initialData?.indicatorsLow,
+    indicatorsMid: initialData?.indicatorsMid,
+    indicatorsHigh: initialData?.indicatorsHigh,
+    anchorLow: initialData?.anchorLow,
+    anchorHigh: initialData?.anchorHigh,
+    applicableOutcomes,
+    applicableLevels,
+    overuseSignature,
+    contrastsWith,
+    theoreticalLineage,
+    constructCount: linkedConstructs.length,
+    activeItemCount: initialData?.activeItemCount ?? 0,
+  })
+
+  async function handlePromote(tier: "assessment_ready" | "match_ready") {
+    if (!factorId) return
+    if (isStructuralDirty) {
+      toast.error("Save your changes before promoting.")
+      return
+    }
+    setPromoting(true)
+    const result = await promoteFactor(factorId, tier)
+    setPromoting(false)
+    if ("error" in result) {
+      toast.error(result.error)
+      return
+    }
+    toast.success(
+      tier === "match_ready" ? "Promoted to match-ready" : "Promoted to assessment-ready",
+    )
+    router.refresh()
   }
 
   async function handleDelete() {
@@ -1153,6 +1221,101 @@ export function FactorForm({
                   <input type="hidden" name="applicableOutcomes" value={JSON.stringify(applicableOutcomes)} />
                   <input type="hidden" name="applicableLevels" value={JSON.stringify(applicableLevels)} />
                   <input type="hidden" name="applicableFunctions" value={JSON.stringify(applicableFunctions)} />
+
+                  <div className="rounded-lg border p-4 space-y-4">
+                    <div className="space-y-0.5">
+                      <Label>Library quality & readiness</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Richer metadata that hardens the factor and unlocks the AI matcher. Only
+                        match-ready factors are used by the Architect.
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Overuse signature</span>
+                      <Textarea
+                        value={overuseSignature}
+                        onChange={(e) => setOveruseSignature(e.target.value)}
+                        rows={2}
+                        placeholder="What this looks like when overused or misapplied — the derailer…"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">Theoretical lineage</span>
+                      <Input
+                        value={theoreticalLineage}
+                        onChange={(e) => setTheoreticalLineage(e.target.value)}
+                        placeholder="e.g. Big Five (Conscientiousness); Goleman 1995; Originated for Trajectas"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        Contrasts with <span className="font-normal">(factor slugs, comma-separated)</span>
+                      </span>
+                      <Input
+                        defaultValue={contrastsWith.join(", ")}
+                        placeholder="e.g. curiosity, openness-to-learning"
+                        onChange={(e) =>
+                          setContrastsWith(
+                            e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                          )
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2 rounded-md bg-muted/30 p-3">
+                      {[
+                        { label: "Assessment-ready", s: readinessStatus.assessment, tier: "assessment_ready" as const },
+                        { label: "Match-ready", s: readinessStatus.match, tier: "match_ready" as const },
+                      ].map(({ label, s, tier }) => (
+                        <div key={tier} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-medium">{label}</span>
+                            <span className="text-muted-foreground">
+                              {s.complete}/{s.total}{s.met ? " ✓" : ""}
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full bg-primary transition-all"
+                              style={{ width: `${Math.round((s.complete / s.total) * 100)}%` }}
+                            />
+                          </div>
+                          {!s.met && s.missing.length > 0 && (
+                            <p className="text-[11px] text-muted-foreground/80">Needs: {s.missing.join(", ")}</p>
+                          )}
+                          {mode === "edit" && factorId && (
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="outline"
+                              className="mt-1"
+                              disabled={
+                                !s.met ||
+                                promoting ||
+                                initialData?.readiness === tier ||
+                                (tier === "assessment_ready" && initialData?.readiness === "match_ready")
+                              }
+                              onClick={() => handlePromote(tier)}
+                            >
+                              {initialData?.readiness === tier
+                                ? `Already ${label.toLowerCase()}`
+                                : `Promote to ${label.toLowerCase()}`}
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      <p className="text-[11px] text-muted-foreground/70">
+                        Current: {initialData?.readiness ?? "draft"}
+                      </p>
+                    </div>
+                  </div>
+                  <input type="hidden" name="overuseSignature" value={overuseSignature} />
+                  <input type="hidden" name="contrastsWith" value={JSON.stringify(contrastsWith)} />
+                  <input type="hidden" name="theoreticalLineage" value={theoreticalLineage} />
+
                   {mode === "edit" && factorId && (
                     <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
                       <div className="space-y-0.5">
