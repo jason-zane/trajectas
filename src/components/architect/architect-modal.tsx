@@ -82,6 +82,9 @@ type Pick = {
   availableItems: number;
   dimensionId: string | null;
   dimensionName: string | null;
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryKey: string | null;
   included: boolean;
 };
 
@@ -142,21 +145,22 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
     return Math.max(5, estimateAssessmentDurationMinutes(items));
   }, [picks, rules]);
 
-  // Computed coverage: what dimensions we're measuring, gaps, and what to add next.
+  // Computed coverage: which high-level categories we're measuring, the gaps
+  // (against the full five-category set, so an uncovered category like "Leading"
+  // always surfaces), and what to add next.
   const coverage = useMemo(() => {
     const incl = picks.filter((p) => p.included);
-    const byDim = new Map<string, number>();
+    const byCat = new Map<string, number>();
     for (const p of incl) {
-      const d = p.dimensionName ?? "Other";
-      byDim.set(d, (byDim.get(d) ?? 0) + 1);
+      const c = p.categoryName ?? "Uncategorised";
+      byCat.set(c, (byCat.get(c) ?? 0) + 1);
     }
-    const measuring = [...byDim.entries()]
-      .map(([dim, n]) => ({ dim, n }))
+    const measuring = [...byCat.entries()]
+      .map(([cat, n]) => ({ cat, n }))
       .sort((a, b) => b.n - a.n);
-    const includedDims = new Set(measuring.map((m) => m.dim));
-    const allDims = new Set<string>();
-    for (const f of match?.eligibleFactors ?? []) allDims.add(f.dimensionName ?? "Other");
-    const gaps = [...allDims].filter((d) => !includedDims.has(d));
+    const coveredCats = new Set(measuring.map((m) => m.cat));
+    const allCats = (match?.categories ?? []).map((c) => c.name);
+    const gaps = allCats.filter((c) => !coveredCats.has(c));
     const couldAdd = picks
       .filter((p) => !p.included)
       .sort((a, b) => a.rank - b.rank)
@@ -287,12 +291,12 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
     try {
       const included = includedPicks.map((p) => ({
         factorName: p.factorName,
-        dimensionName: p.dimensionName,
+        categoryName: p.categoryName,
         rank: p.rank,
       }));
       const excluded = coverage.couldAdd.map((p) => ({
         factorName: p.factorName,
-        dimensionName: p.dimensionName,
+        categoryName: p.categoryName,
         rank: p.rank,
       }));
       const result = await summariseArchitectSelection({ brief, included, excluded });
@@ -360,6 +364,9 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
         availableItems: f.availableItems,
         dimensionId: f.dimensionId,
         dimensionName: f.dimensionName,
+        categoryId: f.categoryId,
+        categoryName: f.categoryName,
+        categoryKey: f.categoryKey,
         included: true,
       },
     ]);
@@ -556,9 +563,9 @@ export function ArchitectModal({ open, onOpenChange }: ArchitectModalProps) {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <h4 className="truncate font-medium">{p.factorName}</h4>
-                            {p.dimensionName && (
+                            {p.categoryName && (
                               <Badge variant="secondary" className="shrink-0 text-[10px]">
-                                {p.dimensionName}
+                                {p.categoryName}
                               </Badge>
                             )}
                             <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -696,9 +703,9 @@ function CoveragePanel({
   onInclude,
 }: {
   coverage: {
-    measuring: { dim: string; n: number }[];
+    measuring: { cat: string; n: number }[];
     gaps: string[];
-    couldAdd: Array<{ factorId: string; factorName: string; rank: number; dimensionName: string | null }>;
+    couldAdd: Array<{ factorId: string; factorName: string; rank: number; categoryName: string | null }>;
   };
   onInclude: (factorId: string) => void;
 }) {
@@ -711,8 +718,8 @@ function CoveragePanel({
       {coverage.measuring.length > 0 ? (
         <div className="flex flex-wrap gap-1.5">
           {coverage.measuring.map((m) => (
-            <Badge key={m.dim} variant="secondary" className="text-[10px]">
-              {m.dim} · {m.n}
+            <Badge key={m.cat} variant="secondary" className="text-[10px]">
+              {m.cat} · {m.n}
             </Badge>
           ))}
         </div>
@@ -733,7 +740,7 @@ function CoveragePanel({
             <div key={p.factorId} className="flex items-center justify-between gap-2">
               <span className="min-w-0 truncate text-xs text-muted-foreground">
                 {p.factorName}
-                {p.dimensionName ? ` · ${p.dimensionName}` : ""}{" "}
+                {p.categoryName ? ` · ${p.categoryName}` : ""}{" "}
                 <span className="text-muted-foreground/60">(#{p.rank})</span>
               </span>
               <Button type="button" variant="ghost" size="xs" onClick={() => onInclude(p.factorId)}>

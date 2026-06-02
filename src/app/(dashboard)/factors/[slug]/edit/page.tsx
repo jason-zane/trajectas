@@ -6,6 +6,7 @@ import {
   getClientsForFactorSelect,
 } from "@/app/actions/factors"
 import { getContentSources } from "@/app/actions/content-sources"
+import { getLibraryCategories } from "@/app/actions/categories"
 import { FactorForm } from "../../factor-form"
 
 export default async function EditFactorPage({
@@ -14,12 +15,13 @@ export default async function EditFactorPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const [factor, dimensions, constructs, clients, contentSources] = await Promise.all([
+  const [factor, dimensions, constructs, clients, contentSources, categories] = await Promise.all([
     getFactorBySlug(slug),
     getDimensionsForSelect(),
     getConstructsForSelect(),
     getClientsForFactorSelect(),
     getContentSources(),
+    getLibraryCategories(),
   ])
 
   if (!factor) notFound()
@@ -29,6 +31,7 @@ export default async function EditFactorPage({
       dimensions={dimensions}
       availableConstructs={constructs}
       clients={clients}
+      categories={categories}
       contentSources={contentSources}
       mode="edit"
       factorId={factor.id}
@@ -53,6 +56,8 @@ export default async function EditFactorPage({
         applicableOutcomes: factor.applicableOutcomes,
         applicableLevels: factor.applicableLevels,
         applicableFunctions: factor.applicableFunctions,
+        primaryCategoryId: factor.primaryCategoryId,
+        secondaryCategoryId: factor.secondaryCategoryId,
         linkedConstructs: factor.linkedConstructs,
         linkedAssessments: factor.linkedAssessments,
       }}

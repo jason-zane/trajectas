@@ -560,10 +560,25 @@ export interface Factor {
   applicableLevels?: string[]
   /** Architect eligibility: free-tag job functions this factor suits. Empty = applies to all. */
   applicableFunctions?: string[]
+  /** High-level category (above dimensions) — the primary "kind of capability" this factor measures. */
+  primaryCategoryId?: string
+  /** Optional secondary category for cross-category factors (display-only in coverage maths for v1). */
+  secondaryCategoryId?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
   deletedAt?: string
+}
+
+/** A high-level competency category (above dimensions) — classifies factors by kind of capability. */
+export interface LibraryCategory {
+  id: string
+  key: string
+  name: string
+  definition: string
+  decisionRule: string
+  displayOrder: number
+  colour?: string
 }
 
 /**
