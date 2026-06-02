@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { mapCampaignWithCountsRows } from "@/lib/dal/campaigns-mappers";
+import {
+  mapCampaignSessionRows,
+  mapCampaignWithCountsRows,
+} from "@/lib/dal/campaigns-mappers";
 
 const baseRow = {
   id: "c1",
@@ -48,5 +51,86 @@ describe("mapCampaignWithCountsRows", () => {
     // @ts-expect-error exercising the nullish guard
     expect(mapCampaignWithCountsRows(null)).toEqual([]);
     expect(mapCampaignWithCountsRows([])).toEqual([]);
+  });
+});
+
+describe("mapCampaignSessionRows", () => {
+  // Input is oldest-first by started_at (as the query returns it).
+  const rows = [
+    {
+      id: "s1",
+      status: "completed",
+      started_at: "2026-01-01T00:00:00Z",
+      completed_at: "2026-01-01T01:00:00Z",
+      assessment_id: "a1",
+      campaign_participant_id: "cp1",
+      assessments: { id: "a1", title: "Numerical" },
+      campaign_participants: {
+        id: "cp1",
+        email: "alice@example.com",
+        first_name: "Alice",
+        last_name: "Smith",
+      },
+    },
+    {
+      id: "s2",
+      status: "in_progress",
+      started_at: "2026-01-02T00:00:00Z",
+      completed_at: null,
+      assessment_id: "a1",
+      campaign_participant_id: "cp1",
+      // embedded relations returned as single-element arrays (PostgREST form)
+      assessments: [{ id: "a1", title: "Numerical" }],
+      campaign_participants: [
+        {
+          id: "cp1",
+          email: "alice@example.com",
+          first_name: "Alice",
+          last_name: "Smith",
+        },
+      ],
+    },
+  ];
+
+  it("numbers attempts chronologically per (participant, assessment)", () => {
+    const out = mapCampaignSessionRows(rows);
+    const byId = Object.fromEntries(out.map((r) => [r.id, r]));
+    expect(byId.s1.attemptNumber).toBe(1);
+    expect(byId.s2.attemptNumber).toBe(2);
+    expect(byId.s1.participantName).toBe("Alice Smith");
+    expect(byId.s1.assessmentTitle).toBe("Numerical");
+  });
+
+  it("sorts newest first by completed-or-started date", () => {
+    const out = mapCampaignSessionRows(rows);
+    // s2 started later (2026-01-02) than s1 completed (2026-01-01) → s2 first
+    expect(out.map((r) => r.id)).toEqual(["s2", "s1"]);
+  });
+
+  it("falls back name → email → Unknown, and unset titles", () => {
+    const out = mapCampaignSessionRows([
+      {
+        id: "x",
+        status: "completed",
+        started_at: null,
+        completed_at: null,
+        assessment_id: "a9",
+        campaign_participant_id: "cp9",
+        assessments: null,
+        campaign_participants: {
+          id: "cp9",
+          email: "bob@example.com",
+          first_name: null,
+          last_name: null,
+        },
+      },
+    ]);
+    expect(out[0].participantName).toBe("bob@example.com");
+    expect(out[0].assessmentTitle).toBe("Untitled assessment");
+  });
+
+  it("returns [] for nullish input", () => {
+    // @ts-expect-error exercising the nullish guard
+    expect(mapCampaignSessionRows(null)).toEqual([]);
   });
 });

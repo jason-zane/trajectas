@@ -2,9 +2,15 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { throwActionError } from "@/lib/security/action-errors";
-import type { CampaignWithMeta } from "@/app/actions/campaigns";
-import { mapCampaignWithCountsRows } from "@/lib/dal/campaigns-mappers";
+import { logActionError, throwActionError } from "@/lib/security/action-errors";
+import type {
+  CampaignSessionRow,
+  CampaignWithMeta,
+} from "@/app/actions/campaigns";
+import {
+  mapCampaignSessionRows,
+  mapCampaignWithCountsRows,
+} from "@/lib/dal/campaigns-mappers";
 
 /**
  * Data Access Layer for campaigns.
@@ -71,4 +77,33 @@ export async function listCampaigns(
   }
 
   return mapCampaignWithCountsRows(data ?? []);
+}
+
+/**
+ * Flat list of a campaign's participant_sessions (joined to their participant +
+ * assessment), newest first, with per-(participant, assessment) attempt numbers.
+ * On a query error this logs and returns [] (matching the original action).
+ */
+export async function getCampaignSessions(
+  db: DbClient,
+  campaignId: string,
+): Promise<CampaignSessionRow[]> {
+  const { data, error } = await db
+    .from("participant_sessions")
+    .select(
+      "id, status, started_at, completed_at, assessment_id, campaign_participant_id, " +
+        "assessments(id, title), " +
+        "campaign_participants!inner(id, email, first_name, last_name, campaign_id)",
+    )
+    .eq("campaign_participants.campaign_id", campaignId)
+    // nullsFirst=false matches attempt-numbering elsewhere (actions/sessions.ts):
+    // unstarted sessions get the highest attempt numbers, not 1, so labels stay stable.
+    .order("started_at", { ascending: true, nullsFirst: false });
+
+  if (error) {
+    logActionError("getCampaignSessions", error);
+    return [];
+  }
+
+  return mapCampaignSessionRows(data ?? []);
 }

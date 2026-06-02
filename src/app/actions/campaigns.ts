@@ -4,7 +4,10 @@ import { cache } from 'react'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { listCampaigns } from '@/lib/dal/campaigns'
+import {
+  listCampaigns,
+  getCampaignSessions as dalGetCampaignSessions,
+} from '@/lib/dal/campaigns'
 import {
   AuthorizationError,
   canAccessClient,
@@ -2584,25 +2587,6 @@ export type CampaignSessionRow = {
   attemptNumber: number
 }
 
-type CampaignSessionLookupRow = {
-  id: string
-  status: string
-  started_at: string | null
-  completed_at: string | null
-  assessment_id: string
-  campaign_participant_id: string
-  assessments?: { id: string; title: string | null } | { id: string; title: string | null }[] | null
-  campaign_participants?:
-    | { id: string; email: string; first_name: string | null; last_name: string | null }
-    | { id: string; email: string; first_name: string | null; last_name: string | null }[]
-    | null
-}
-
-function unwrap<T>(value: T | T[] | null | undefined): T | null {
-  if (!value) return null
-  return Array.isArray(value) ? (value[0] ?? null) : value
-}
-
 /**
  * Flat list of participant_sessions for a campaign, joined with the
  * campaign_participant they belong to. Powers the Sessions tab in
@@ -2614,54 +2598,7 @@ export async function getCampaignSessions(
 ): Promise<CampaignSessionRow[]> {
   await requireCampaignAccess(campaignId)
 
-  const db = createAdminClient()
-  const { data, error } = await db
-    .from('participant_sessions')
-    .select(
-      'id, status, started_at, completed_at, assessment_id, campaign_participant_id, ' +
-        'assessments(id, title), ' +
-        'campaign_participants!inner(id, email, first_name, last_name, campaign_id)',
-    )
-    .eq('campaign_participants.campaign_id', campaignId)
-    // nullsFirst=false matches existing attempt-numbering elsewhere
-    // (src/app/actions/sessions.ts) — unstarted sessions get the highest
-    // attempt numbers, not 1, so attempt labels stay stable.
-    .order('started_at', { ascending: true, nullsFirst: false })
-
-  if (error) {
-    logActionError('getCampaignSessions', error)
-    return []
-  }
-
-  // Compute attempt number per (cp, assessment) chronologically, then
-  // re-sort newest first for display.
-  const attemptCounter = new Map<string, number>()
-  const rows: CampaignSessionRow[] = ((data ?? []) as unknown as CampaignSessionLookupRow[])
-    .map((row) => {
-      const assessment = unwrap(row.assessments)
-      const cp = unwrap(row.campaign_participants)
-      const name = `${cp?.first_name ?? ''} ${cp?.last_name ?? ''}`.trim()
-      const key = `${row.campaign_participant_id}|${row.assessment_id}`
-      const attemptNumber = (attemptCounter.get(key) ?? 0) + 1
-      attemptCounter.set(key, attemptNumber)
-      return {
-        id: row.id,
-        campaignParticipantId: row.campaign_participant_id,
-        participantName: name || cp?.email || 'Unknown',
-        participantEmail: cp?.email ?? '',
-        assessmentId: row.assessment_id,
-        assessmentTitle: assessment?.title ?? 'Untitled assessment',
-        status: row.status,
-        startedAt: row.started_at,
-        completedAt: row.completed_at,
-        attemptNumber,
-      }
-    })
-
-  rows.sort((a, b) => {
-    const ad = a.completedAt ?? a.startedAt ?? ''
-    const bd = b.completedAt ?? b.startedAt ?? ''
-    return bd.localeCompare(ad)
-  })
-  return rows
+  // Access verified above; the DAL read uses the admin client (RLS would block
+  // the cross-participant join for some support sessions).
+  return dalGetCampaignSessions(createAdminClient(), campaignId)
 }
