@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  mapActiveAssessmentRows,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
 } from "@/lib/dal/campaigns-mappers";
@@ -132,5 +133,88 @@ describe("mapCampaignSessionRows", () => {
   it("returns [] for nullish input", () => {
     // @ts-expect-error exercising the nullish guard
     expect(mapCampaignSessionRows(null)).toEqual([]);
+  });
+});
+
+describe("mapActiveAssessmentRows", () => {
+  it("derives counts, format label, and estimated duration", () => {
+    const [a] = mapActiveAssessmentRows([
+      {
+        id: "a1",
+        title: "Cognitive Battery",
+        description: "desc",
+        status: "active",
+        format_mode: null,
+        min_custom_factors: 2,
+        assessment_factors: [{ count: 4 }],
+        assessment_sections: [
+          {
+            id: "sec1",
+            response_formats: { type: "likert" }, // 15s/item
+            assessment_section_items: [{ count: 10 }],
+          },
+          {
+            id: "sec2",
+            response_formats: [{ type: "sjt" }], // 30s/item, array form
+            assessment_section_items: [{ count: 2 }],
+          },
+        ],
+      },
+    ]);
+
+    expect(a).toMatchObject({
+      id: "a1",
+      title: "Cognitive Battery",
+      factorCount: 4,
+      constructCount: 0,
+      sectionCount: 2,
+      totalItemCount: 12,
+      formatLabel: "Mixed", // likert + sjt
+      minCustomFactors: 2,
+    });
+    // 10*15 + 2*30 = 210s → ceil(210/60) = 4 min
+    expect(a.estimatedDurationMinutes).toBe(4);
+  });
+
+  it("labels a single format and rounds tiny durations up to 1 minute", () => {
+    const [a] = mapActiveAssessmentRows([
+      {
+        id: "a2",
+        title: "Quick",
+        status: "draft",
+        assessment_sections: [
+          {
+            id: "s",
+            response_formats: { type: "binary" }, // 15s
+            assessment_section_items: [{ count: 1 }],
+          },
+        ],
+      },
+    ]);
+    expect(a.formatLabel).toBe("Binary");
+    expect(a.estimatedDurationMinutes).toBe(1); // 15s → ceil → 1
+  });
+
+  it("forced_choice format mode overrides the label", () => {
+    const [a] = mapActiveAssessmentRows([
+      { id: "a3", title: "FC", status: "active", format_mode: "forced_choice" },
+    ]);
+    expect(a.formatLabel).toBe("Forced-choice");
+    expect(a.sectionCount).toBe(0);
+    expect(a.totalItemCount).toBe(0);
+    expect(a.estimatedDurationMinutes).toBe(0);
+  });
+
+  it("defaults to Traditional when there are no sections", () => {
+    const [a] = mapActiveAssessmentRows([
+      { id: "a4", title: "Empty", status: "active" },
+    ]);
+    expect(a.formatLabel).toBe("Traditional");
+    expect(a.factorCount).toBe(0);
+  });
+
+  it("returns [] for nullish input", () => {
+    // @ts-expect-error exercising the nullish guard
+    expect(mapActiveAssessmentRows(null)).toEqual([]);
   });
 });

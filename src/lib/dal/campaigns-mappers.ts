@@ -1,5 +1,6 @@
 import { mapCampaignRow } from "@/lib/supabase/mappers";
 import type {
+  CampaignAssessmentOption,
   CampaignSessionRow,
   CampaignWithMeta,
 } from "@/app/actions/campaigns";
@@ -73,4 +74,126 @@ export function mapCampaignSessionRows(rows: any[]): CampaignSessionRow[] {
     return bd.localeCompare(ad);
   });
   return mapped;
+}
+
+/**
+ * Read a PostgREST aggregate (`relation(count)`) or an embedded array's length
+ * into a number. Returns 0 for anything unrecognized.
+ */
+function getNestedCount(value: unknown): number {
+  if (Array.isArray(value)) {
+    const first = value[0];
+    if (first && typeof first === "object" && "count" in first) {
+      const count = (first as { count?: number }).count;
+      return Number.isFinite(count) ? Number(count) : 0;
+    }
+    return value.length;
+  }
+  if (value && typeof value === "object" && "count" in value) {
+    const count = (value as { count?: number }).count;
+    return Number.isFinite(count) ? Number(count) : 0;
+  }
+  return 0;
+}
+
+/** Human-readable response-format label for an assessment's section format types. */
+function getFormatLabel(
+  formatTypes: string[],
+  formatMode?: string | null,
+): string {
+  const uniqueTypes = [...new Set(formatTypes.filter(Boolean))];
+  if (formatMode === "forced_choice") return "Forced-choice";
+  if (uniqueTypes.length === 0) return "Traditional";
+  if (uniqueTypes.length > 1) return "Mixed";
+
+  switch (uniqueTypes[0]) {
+    case "likert":
+      return "Likert";
+    case "binary":
+      return "Binary";
+    case "sjt":
+      return "SJT";
+    case "forced_choice":
+      return "Forced-choice";
+    case "free_text":
+      return "Free text";
+    default:
+      return uniqueTypes[0];
+  }
+}
+
+/** Estimated seconds to answer one item of the given response-format type. */
+function getSecondsPerItem(formatType: string): number {
+  switch (formatType) {
+    case "likert":
+    case "binary":
+      return 15;
+    case "sjt":
+    case "forced_choice":
+      return 30;
+    case "free_text":
+      return 60;
+    default:
+      return 20;
+  }
+}
+
+/**
+ * Map `assessments` rows (with nested factor/section/item aggregates +
+ * response_formats) to CampaignAssessmentOption DTOs, deriving section/item
+ * counts, a format label, and an estimated duration.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapActiveAssessmentRows(rows: any[]): CampaignAssessmentOption[] {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (rows ?? []).map((row: any) => {
+    const sections = Array.isArray(row.assessment_sections)
+      ? row.assessment_sections
+      : [];
+    const totalItemCount = sections.reduce(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (sum: number, section: any) =>
+        sum + getNestedCount(section.assessment_section_items),
+      0,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const formatTypes = sections.map((section: any) => {
+      const responseFormat = Array.isArray(section.response_formats)
+        ? section.response_formats[0]
+        : section.response_formats;
+      return String(responseFormat?.type ?? "");
+    });
+    const estimatedDurationSeconds = sections.reduce(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (sum: number, section: any) => {
+        const responseFormat = Array.isArray(section.response_formats)
+          ? section.response_formats[0]
+          : section.response_formats;
+        const formatType = String(responseFormat?.type ?? "");
+        return (
+          sum +
+          getNestedCount(section.assessment_section_items) *
+            getSecondsPerItem(formatType)
+        );
+      },
+      0,
+    );
+
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description ?? undefined,
+      status: row.status,
+      factorCount: getNestedCount(row.assessment_factors),
+      constructCount: 0,
+      sectionCount: sections.length,
+      totalItemCount,
+      formatLabel: getFormatLabel(formatTypes, row.format_mode),
+      estimatedDurationMinutes:
+        estimatedDurationSeconds > 0
+          ? Math.max(1, Math.ceil(estimatedDurationSeconds / 60))
+          : 0,
+      minCustomFactors: row.min_custom_factors ?? null,
+    };
+  });
 }
