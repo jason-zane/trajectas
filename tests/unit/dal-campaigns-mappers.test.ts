@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   mapActiveAssessmentRows,
+  mapCampaignHeader,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
   mapConsultantSettings,
@@ -261,5 +262,55 @@ describe("mapConsultantSettings", () => {
     expect(out.enabled).toBe(true);
     expect(out.includeSummary).toBe(false);
     expect(out.attachPdf).toBe(true);
+  });
+});
+
+describe("mapCampaignHeader", () => {
+  const baseRow = {
+    id: "c1",
+    title: "Q1",
+    slug: "q1",
+    status: "active",
+    allow_resume: true,
+    show_progress: true,
+    randomize_assessment_order: false,
+    created_at: "2026-01-01T00:00:00Z",
+  };
+
+  it("threads client name + branding flag + assessment count", () => {
+    const h = mapCampaignHeader(
+      { ...baseRow, clients: { name: "Acme", can_customize_branding: true } },
+      3,
+    );
+    expect(h).toMatchObject({
+      id: "c1",
+      clientName: "Acme",
+      clientCanCustomizeBranding: true,
+      assessmentCount: 3,
+    });
+  });
+
+  it("unwraps an array-form client relation", () => {
+    const h = mapCampaignHeader(
+      { ...baseRow, clients: [{ name: "Acme", can_customize_branding: false }] },
+      0,
+    );
+    expect(h.clientName).toBe("Acme");
+    expect(h.clientCanCustomizeBranding).toBe(false);
+  });
+
+  it("yields null branding + undefined name for a platform-owned campaign (no client)", () => {
+    const h = mapCampaignHeader({ ...baseRow, clients: null }, 1);
+    expect(h.clientName).toBeUndefined();
+    expect(h.clientCanCustomizeBranding).toBeNull();
+    expect(h.assessmentCount).toBe(1);
+  });
+
+  it("maps a null branding flag to null (not false)", () => {
+    const h = mapCampaignHeader(
+      { ...baseRow, clients: { name: "Acme", can_customize_branding: null } },
+      0,
+    );
+    expect(h.clientCanCustomizeBranding).toBeNull();
   });
 });
