@@ -8,9 +8,11 @@ import {
   listCampaigns,
   listActiveAssessments,
   getCampaignHeader as dalGetCampaignHeader,
+  getCampaignDetailParts as dalGetCampaignDetailParts,
   getCampaignSessions as dalGetCampaignSessions,
   getCampaignConsultantSettings as dalGetCampaignConsultantSettings,
 } from '@/lib/dal/campaigns'
+import { assembleCampaignDetail } from '@/lib/dal/campaigns-mappers'
 import {
   AuthorizationError,
   canAccessClient,
@@ -23,11 +25,7 @@ import {
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { requireAppUrl } from '@/lib/hosts'
-import {
-  mapCampaignAssessmentRow,
-  mapCampaignParticipantRow,
-  mapCampaignAccessLinkRow,
-} from '@/lib/supabase/mappers'
+import { mapCampaignAccessLinkRow } from '@/lib/supabase/mappers'
 import { getPrimaryActiveAccessLink } from '@/lib/campaign-access-links'
 import { campaignSchema, inviteParticipantSchema, accessLinkSchema } from '@/lib/validations/campaigns'
 import { checkQuotaAvailability } from '@/app/actions/client-entitlements'
@@ -100,31 +98,6 @@ export type BulkInviteEmailFailure = {
   error: string
 }
 
-type EmbeddedAssessmentLookupRow = {
-  title?: string | null
-  status?: string | null
-  min_custom_factors?: number | null
-}
-
-type CampaignAssessmentLookupRow = Record<string, unknown> & {
-  assessments?: EmbeddedAssessmentLookupRow | EmbeddedAssessmentLookupRow[] | null
-}
-
-type ParticipantSessionStatusLookupRow = {
-  id?: string | null
-  status?: string | null
-}
-
-type CampaignParticipantLookupRow = Record<string, unknown> & {
-  participant_sessions?: ParticipantSessionStatusLookupRow[] | null
-}
-
-function getEmbeddedLookupRow<T extends Record<string, unknown>>(
-  value: T | T[] | null | undefined
-) {
-  return Array.isArray(value) ? value[0] ?? null : value ?? null
-}
-
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
@@ -184,83 +157,16 @@ export const getCampaignHeader = cache(getCampaignHeaderImpl)
 async function getCampaignByIdImpl(id: string): Promise<CampaignDetail | null> {
   const db = await createClient()
 
-  // Kick off the header + three detail queries in a single parallel batch.
-  // getCampaignHeader is cache()-wrapped, so a preceding call from the layout
-  // is a free cache hit here. Detail queries only need the id, so they don't
-  // have to wait for the header to resolve.
-  const [header, assessmentResult, participantResult, linkResult] =
-    await Promise.all([
-      getCampaignHeader(id),
-      db
-        .from('campaign_assessments')
-        .select(
-          '*, assessments(title, status, min_custom_factors)',
-        )
-        .eq('campaign_id', id)
-        .is('deleted_at', null)
-        .order('display_order', { ascending: true }),
-      db
-        .from('campaign_participants')
-        // Exclude 360 rater taking-rows — they are managed in the Raters tab,
-        // not shown as normal participants.
-        .select('*, participant_sessions(id, status)')
-        .eq('campaign_id', id)
-        .is('campaign_rater_id', null)
-        .is('deleted_at', null)
-        .order('created_at', { ascending: false }),
-      db
-        .from('campaign_access_links')
-        .select('*')
-        .eq('campaign_id', id)
-        .order('created_at', { ascending: false }),
-    ])
+  // Kick off the header + the three detail queries in a single parallel batch.
+  // getCampaignHeader is cache()-wrapped (so a preceding layout call is a free
+  // hit) and carries the authorization; the detail queries only need the id.
+  const [header, parts] = await Promise.all([
+    getCampaignHeader(id),
+    dalGetCampaignDetailParts(db, id),
+  ])
 
-  if (!header) return null
-  if (assessmentResult.error) logActionError('getCampaignByIdImpl', assessmentResult.error)
-  if (participantResult.error) logActionError('getCampaignByIdImpl', participantResult.error)
-  if (linkResult.error) logActionError('getCampaignByIdImpl', linkResult.error)
-  if (assessmentResult.error || participantResult.error || linkResult.error) return null
-
-  const assessmentRows = assessmentResult.data
-  const participantRows = participantResult.data
-  const linkRows = linkResult.data
-
-  // Extract the Campaign scalars from the header; drop the header-only extras
-  // that aren't part of the CampaignDetail shape.
-  const {
-    clientCanCustomizeBranding,
-    assessmentCount,
-    clientName,
-    ...campaign
-  } = header
-  void clientCanCustomizeBranding
-  void assessmentCount
-
-  return {
-    ...campaign,
-    clientName,
-    assessments: (assessmentRows ?? []).map((r) => {
-      const assessmentRow = r as CampaignAssessmentLookupRow
-      const assessment = getEmbeddedLookupRow(assessmentRow.assessments)
-
-      return {
-      ...mapCampaignAssessmentRow(r),
-      assessmentTitle: assessment?.title ?? 'Untitled',
-      assessmentStatus: assessment?.status ?? 'draft',
-      minCustomFactors: assessment?.min_custom_factors ?? null,
-    }}),
-    participants: (participantRows ?? []).map((r) => {
-      const participantRow = r as CampaignParticipantLookupRow
-
-      return {
-      ...mapCampaignParticipantRow(r),
-      participantSessions: (participantRow.participant_sessions ?? []).map((s) => ({
-        id: s.id as string,
-        status: s.status as string,
-      })),
-    }}),
-    accessLinks: (linkRows ?? []).map(mapCampaignAccessLinkRow),
-  }
+  if (!header || !parts) return null
+  return assembleCampaignDetail(header, parts)
 }
 
 export const getCampaignById = cache(getCampaignByIdImpl)
