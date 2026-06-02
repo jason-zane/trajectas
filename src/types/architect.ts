@@ -5,7 +5,14 @@
  * functions — value/type exports live here so both server and client import.
  */
 
-export type ArchitectPick = {
+/** Primary high-level category fields shared by picks + eligible factors. */
+type WithCategory = {
+  categoryId: string | null
+  categoryName: string | null
+  categoryKey: string | null
+}
+
+export type ArchitectPick = WithCategory & {
   factorId: string
   factorName: string
   rank: number
@@ -14,13 +21,13 @@ export type ArchitectPick = {
   reasoning: string
   /** Items available in this factor's pool (upper bound for itemCount). */
   availableItems: number
-  /** Parent dimension (for coverage grouping); null if unassigned. */
+  /** Parent dimension (legacy grouping); null if unassigned. */
   dimensionId: string | null
   dimensionName: string | null
 }
 
 /** A factor in the eligible pool — for the "add factor" control in the picks UI. */
-export type ArchitectEligibleFactor = {
+export type ArchitectEligibleFactor = WithCategory & {
   factorId: string
   factorName: string
   availableItems: number
@@ -36,4 +43,6 @@ export type ArchitectMatchResult = {
   consideredCount: number
   /** Full eligible pool (incl. unranked) so the user can add a factor the matcher missed. */
   eligibleFactors: ArchitectEligibleFactor[]
+  /** All high-level categories (ordered) — so coverage can show uncovered ones too. */
+  categories: { key: string; name: string }[]
 }

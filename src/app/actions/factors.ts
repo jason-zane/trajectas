@@ -188,6 +188,8 @@ export async function createFactor(formData: FormData) {
     applicableOutcomes: parseStringArray(formData.get('applicableOutcomes')),
     applicableLevels: parseStringArray(formData.get('applicableLevels')),
     applicableFunctions: parseStringArray(formData.get('applicableFunctions')),
+    primaryCategoryId: (formData.get('primaryCategoryId') as string) || undefined,
+    secondaryCategoryId: (formData.get('secondaryCategoryId') as string) || undefined,
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -235,6 +237,8 @@ export async function createFactor(formData: FormData) {
       applicable_outcomes: parsed.data.applicableOutcomes,
       applicable_levels: parsed.data.applicableLevels,
       applicable_functions: parsed.data.applicableFunctions,
+      primary_category_id: parsed.data.primaryCategoryId || null,
+      secondary_category_id: parsed.data.secondaryCategoryId || null,
     })
     .eq('id', (factorId ?? newId) as string)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }
@@ -287,6 +291,8 @@ export async function updateFactor(id: string, formData: FormData) {
     applicableOutcomes: parseStringArray(formData.get('applicableOutcomes')),
     applicableLevels: parseStringArray(formData.get('applicableLevels')),
     applicableFunctions: parseStringArray(formData.get('applicableFunctions')),
+    primaryCategoryId: (formData.get('primaryCategoryId') as string) || undefined,
+    secondaryCategoryId: (formData.get('secondaryCategoryId') as string) || undefined,
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -364,6 +370,8 @@ export async function updateFactor(id: string, formData: FormData) {
       applicable_outcomes: parsed.data.applicableOutcomes,
       applicable_levels: parsed.data.applicableLevels,
       applicable_functions: parsed.data.applicableFunctions,
+      primary_category_id: parsed.data.primaryCategoryId || null,
+      secondary_category_id: parsed.data.secondaryCategoryId || null,
     })
     .eq('id', id)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }

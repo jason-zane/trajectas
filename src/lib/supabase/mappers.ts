@@ -2,6 +2,7 @@ import type {
   Assessment,
   Dimension,
   Factor,
+  LibraryCategory,
   Construct,
   FactorConstruct,
   Item,
@@ -102,9 +103,24 @@ export function mapFactorRow(row: any): Factor {
     applicableOutcomes: row.applicable_outcomes ?? [],
     applicableLevels: row.applicable_levels ?? [],
     applicableFunctions: row.applicable_functions ?? [],
+    primaryCategoryId: row.primary_category_id ?? undefined,
+    secondaryCategoryId: row.secondary_category_id ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapLibraryCategoryRow(row: any): LibraryCategory {
+  return {
+    id: row.id,
+    key: row.key,
+    name: row.name,
+    definition: row.definition,
+    decisionRule: row.decision_rule,
+    displayOrder: row.display_order,
+    colour: row.colour ?? undefined,
   }
 }
 
@@ -323,6 +339,8 @@ export function toFactorInsert(c: Omit<Factor, 'id' | 'created_at' | 'updated_at
     applicable_outcomes: c.applicableOutcomes ?? [],
     applicable_levels: c.applicableLevels ?? [],
     applicable_functions: c.applicableFunctions ?? [],
+    primary_category_id: c.primaryCategoryId ?? null,
+    secondary_category_id: c.secondaryCategoryId ?? null,
   }
 }
 

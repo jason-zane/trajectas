@@ -103,7 +103,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
   // Eligible factor pool: match-eligible, active, not deleted.
   const { data: factorRows, error } = await db
     .from('factors')
-    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions, dimension_id, dimensions(name)')
+    .select('id, name, definition, description, applicable_outcomes, applicable_levels, applicable_functions, dimension_id, dimensions(name), primary_category_id')
     .eq('is_active', true)
     .eq('is_match_eligible', true)
     .is('deleted_at', null)
@@ -122,7 +122,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
   })
 
   if (eligible.length === 0) {
-    return { picks: [], summary: 'No eligible factors matched this brief.', recommendedCount: { minimum: 0, optimal: 0, maximum: 0 }, consideredCount: 0, eligibleFactors: [] }
+    return { picks: [], summary: 'No eligible factors matched this brief.', recommendedCount: { minimum: 0, optimal: 0, maximum: 0 }, consideredCount: 0, eligibleFactors: [], categories: [] }
   }
 
   const availableFactors: MatchingFactor[] = eligible.map((f) => ({
@@ -149,6 +149,22 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     if (Array.isArray(d)) return (d[0] as { name?: string } | undefined)?.name ?? null
     return (d as { name?: string } | null)?.name ?? null
   }
+
+  // High-level categories — the whole-person coverage frame.
+  const { data: catRows } = await db
+    .from('library_categories')
+    .select('id, key, name')
+    .order('display_order', { ascending: true })
+  const catById = new Map(
+    (catRows ?? []).map((c) => [c.id as string, { key: c.key as string, name: c.name as string }]),
+  )
+  const categories = (catRows ?? []).map((c) => ({ key: c.key as string, name: c.name as string }))
+  const catOf = (f?: Record<string, unknown>) => {
+    const id = (f?.primary_category_id as string | null) ?? null
+    const cat = id ? catById.get(id) : undefined
+    return { categoryId: id, categoryName: cat?.name ?? null, categoryKey: cat?.key ?? null }
+  }
+
   const eligibleById = new Map(eligible.map((f) => [f.id as string, f as Record<string, unknown>]))
 
   const picks: ArchitectPick[] = output.rankings.map((r) => {
@@ -162,6 +178,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
       availableItems: itemCountByFactor.get(r.factorId) ?? 0,
       dimensionId: (f?.dimension_id as string | null) ?? null,
       dimensionName: f ? dimNameOf(f) : null,
+      ...catOf(f),
     }
   })
 
@@ -171,6 +188,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     availableItems: itemCountByFactor.get(f.id as string) ?? 0,
     dimensionId: (f.dimension_id as string | null) ?? null,
     dimensionName: dimNameOf(f as Record<string, unknown>),
+    ...catOf(f as Record<string, unknown>),
   }))
 
   return {
@@ -179,6 +197,7 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
     recommendedCount: output.recommendedCount,
     consideredCount: eligible.length,
     eligibleFactors,
+    categories,
   }
 }
 
@@ -188,8 +207,8 @@ export async function runArchitectMatch(input: { brief: Brief }): Promise<Archit
 
 export async function summariseArchitectSelection(input: {
   brief: Brief
-  included: { factorName: string; dimensionName: string | null; rank: number }[]
-  excluded: { factorName: string; dimensionName: string | null; rank: number }[]
+  included: { factorName: string; categoryName: string | null; rank: number }[]
+  excluded: { factorName: string; categoryName: string | null; rank: number }[]
 }): Promise<{ summary: string } | { error: string }> {
   await requireAdminScope()
   const parsed = summariseSelectionSchema.safeParse(input)

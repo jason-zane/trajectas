@@ -10,7 +10,7 @@ import { getModelForTask } from '@/lib/ai/model-config'
 
 export type OverviewFactor = {
   factorName: string
-  dimensionName: string | null
+  categoryName: string | null
   rank: number
 }
 
@@ -40,7 +40,7 @@ export async function runArchitectOverview(input: ArchitectOverviewInput): Promi
 function buildOverviewPrompt(input: ArchitectOverviewInput): string {
   const { brief } = input
   const line = (f: OverviewFactor) =>
-    `- ${f.factorName}${f.dimensionName ? ` (${f.dimensionName})` : ''}`
+    `- ${f.factorName}${f.categoryName ? ` (${f.categoryName})` : ''}`
   const included = input.included.length
     ? input.included.map(line).join('\n')
     : '- (none)'
