@@ -5,15 +5,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapCampaignParticipantRow } from "@/lib/supabase/mappers";
 import { throwActionError } from "@/lib/security/action-errors";
+import type { CampaignParticipantStatus } from "@/types/database";
 import type {
   ActivityEvent,
   ParticipantDetail,
   ParticipantResponseGroup,
   ParticipantSession,
+  ParticipantWithMeta,
+  UniqueParticipant,
 } from "@/app/actions/participants";
 import {
   buildActivityEvents,
+  dedupeUniqueParticipants,
   groupResponses,
+  mapParticipantWithMetaRows,
   mapSessionRows,
 } from "@/lib/dal/participants-mappers";
 
@@ -69,6 +74,119 @@ export async function getParticipantById(
     campaignSlug: r.campaigns?.slug ?? "",
     clientName: r.campaigns?.clients?.name ?? undefined,
   };
+}
+
+/** Filters for the participant list queries, with the campaign scope pre-resolved by the caller. */
+export type ParticipantListParams = {
+  /**
+   * Campaign ids the caller is authorized to see: `null` = unrestricted
+   * (platform admin); a non-empty array = scoped to those campaigns; an empty
+   * array = nothing visible (the list functions fail closed and return []).
+   */
+  scopedCampaignIds: string[] | null;
+  status?: CampaignParticipantStatus;
+  search?: string;
+  offset: number;
+  perPage: number;
+};
+
+/** Apply the campaign-scope + status + search filters shared by the two list queries. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyParticipantListFilters(query: any, params: ParticipantListParams) {
+  const { scopedCampaignIds, status, search } = params;
+  if (status) {
+    query = query.eq("status", status);
+  }
+  if (scopedCampaignIds && scopedCampaignIds.length === 1) {
+    query = query.eq("campaign_id", scopedCampaignIds[0]);
+  } else if (scopedCampaignIds && scopedCampaignIds.length > 1) {
+    query = query.in("campaign_id", scopedCampaignIds);
+  }
+  if (search) {
+    query = query.or(
+      `email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%`,
+    );
+  }
+  return query;
+}
+
+/**
+ * List participants (paginated) within the caller's resolved campaign scope,
+ * each enriched with session counts + last-activity. The inner join + deleted_at
+ * filters exclude participants whose campaign has been soft-deleted.
+ */
+export async function listParticipants(
+  db: DbClient,
+  params: ParticipantListParams,
+): Promise<{ data: ParticipantWithMeta[]; total: number }> {
+  // Fail closed: an empty (non-null) scope means "no campaigns visible".
+  if (params.scopedCampaignIds && params.scopedCampaignIds.length === 0) {
+    return { data: [], total: 0 };
+  }
+
+  let query = db
+    .from("campaign_participants")
+    .select(
+      `
+      *,
+      campaigns!inner(title, slug, deleted_at),
+      participant_sessions(id, status)
+    `,
+      { count: "exact" },
+    )
+    .is("deleted_at", null)
+    .is("campaigns.deleted_at", null);
+
+  query = applyParticipantListFilters(query, params)
+    .order("created_at", { ascending: false })
+    .range(params.offset, params.offset + params.perPage - 1);
+
+  const { data: rows, error, count } = await query;
+
+  if (error) {
+    throwActionError("getParticipants", "Unable to load participants.", error);
+  }
+
+  return { data: mapParticipantWithMetaRows(rows ?? []), total: count ?? 0 };
+}
+
+/**
+ * List unique participants by email within the caller's resolved campaign scope.
+ * Supabase JS has no GROUP BY, so all scoped rows are fetched (ordered newest
+ * first) and deduplicated + paginated in memory; bounded per-scope.
+ */
+export async function listUniqueParticipants(
+  db: DbClient,
+  params: ParticipantListParams,
+): Promise<{ data: UniqueParticipant[]; total: number }> {
+  // Fail closed: an empty (non-null) scope means "no campaigns visible".
+  if (params.scopedCampaignIds && params.scopedCampaignIds.length === 0) {
+    return { data: [], total: 0 };
+  }
+
+  let query = db
+    .from("campaign_participants")
+    .select("*, campaigns!inner(deleted_at)", { count: "exact" })
+    .is("deleted_at", null)
+    .is("campaigns.deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  query = applyParticipantListFilters(query, params);
+
+  const { data: rows, error } = await query;
+
+  if (error) {
+    throwActionError(
+      "getUniqueParticipants",
+      "Unable to load participants.",
+      error,
+    );
+  }
+
+  return dedupeUniqueParticipants(rows ?? [], {
+    offset: params.offset,
+    perPage: params.perPage,
+  });
 }
 
 /**
