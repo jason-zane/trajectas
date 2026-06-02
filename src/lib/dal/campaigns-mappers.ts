@@ -1,7 +1,13 @@
-import { mapCampaignRow } from "@/lib/supabase/mappers";
+import {
+  mapCampaignAccessLinkRow,
+  mapCampaignAssessmentRow,
+  mapCampaignParticipantRow,
+  mapCampaignRow,
+} from "@/lib/supabase/mappers";
 import type {
   CampaignAssessmentOption,
   CampaignConsultantSettings,
+  CampaignDetail,
   CampaignHeader,
   CampaignSessionRow,
   CampaignWithMeta,
@@ -243,5 +249,60 @@ export function mapCampaignHeader(
         ? (client.can_customize_branding ?? null)
         : null,
     assessmentCount,
+  };
+}
+
+/** Raw detail-row sets for a campaign, as fetched by getCampaignDetailParts. */
+export type CampaignDetailParts = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  assessmentRows: any[] | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  participantRows: any[] | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  linkRows: any[] | null;
+};
+
+/**
+ * Assemble a CampaignDetail DTO from a (separately-fetched, authorized) header
+ * and the campaign's assessment / participant / access-link rows. Strips the
+ * header-only extras and maps each nested collection.
+ */
+export function assembleCampaignDetail(
+  header: CampaignHeader,
+  parts: CampaignDetailParts,
+): CampaignDetail {
+  // Extract the Campaign scalars from the header; drop the header-only extras
+  // that aren't part of the CampaignDetail shape.
+  const { clientCanCustomizeBranding, assessmentCount, clientName, ...campaign } =
+    header;
+  void clientCanCustomizeBranding;
+  void assessmentCount;
+
+  return {
+    ...campaign,
+    clientName,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    assessments: (parts.assessmentRows ?? []).map((r: any) => {
+      const assessment = unwrap(r.assessments) as {
+        title?: string | null;
+        status?: string | null;
+        min_custom_factors?: number | null;
+      } | null;
+      return {
+        ...mapCampaignAssessmentRow(r),
+        assessmentTitle: assessment?.title ?? "Untitled",
+        assessmentStatus: assessment?.status ?? "draft",
+        minCustomFactors: assessment?.min_custom_factors ?? null,
+      };
+    }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    participants: (parts.participantRows ?? []).map((r: any) => ({
+      ...mapCampaignParticipantRow(r),
+      participantSessions: (r.participant_sessions ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (s: any) => ({ id: s.id as string, status: s.status as string }),
+      ),
+    })),
+    accessLinks: (parts.linkRows ?? []).map(mapCampaignAccessLinkRow),
   };
 }

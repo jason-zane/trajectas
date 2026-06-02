@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  assembleCampaignDetail,
   mapActiveAssessmentRows,
   mapCampaignHeader,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
   mapConsultantSettings,
 } from "@/lib/dal/campaigns-mappers";
+import type { CampaignHeader } from "@/app/actions/campaigns";
 
 const baseRow = {
   id: "c1",
@@ -312,5 +314,105 @@ describe("mapCampaignHeader", () => {
       0,
     );
     expect(h.clientCanCustomizeBranding).toBeNull();
+  });
+});
+
+describe("assembleCampaignDetail", () => {
+  const header: CampaignHeader = {
+    id: "c1",
+    title: "Q1",
+    slug: "q1",
+    status: "active",
+    kind: "self",
+    clientId: "client-1",
+    branding: {},
+    allowResume: true,
+    showProgress: true,
+    randomizeAssessmentOrder: false,
+    created_at: "2026-01-01T00:00:00Z",
+    // header-only extras that must be stripped
+    clientName: "Acme",
+    clientCanCustomizeBranding: true,
+    assessmentCount: 9,
+  };
+
+  it("strips header extras and maps nested collections", () => {
+    const detail = assembleCampaignDetail(header, {
+      assessmentRows: [
+        {
+          id: "ca1",
+          campaign_id: "c1",
+          assessment_id: "a1",
+          display_order: 0,
+          is_required: true,
+          created_at: "2026-01-01T00:00:00Z",
+          assessments: { title: "Numerical", status: "active", min_custom_factors: 3 },
+        },
+      ],
+      participantRows: [
+        {
+          id: "p1",
+          campaign_id: "c1",
+          email: "a@b.com",
+          participant_sessions: [
+            { id: "s1", status: "completed" },
+            { id: "s2", status: "in_progress" },
+          ],
+        },
+      ],
+      linkRows: [
+        { id: "l1", campaign_id: "c1", token: "tok", created_at: "2026-01-01T00:00:00Z" },
+      ],
+    });
+
+    // header-only fields are gone; clientName is kept
+    expect(detail).not.toHaveProperty("clientCanCustomizeBranding");
+    expect(detail).not.toHaveProperty("assessmentCount");
+    expect(detail.clientName).toBe("Acme");
+    expect(detail.id).toBe("c1");
+
+    expect(detail.assessments).toHaveLength(1);
+    expect(detail.assessments[0]).toMatchObject({
+      assessmentTitle: "Numerical",
+      assessmentStatus: "active",
+      minCustomFactors: 3,
+    });
+
+    expect(detail.participants).toHaveLength(1);
+    // participantSessions is attached at runtime (not in the declared type)
+    expect(
+      (detail.participants[0] as unknown as { participantSessions: unknown[] })
+        .participantSessions,
+    ).toEqual([
+      { id: "s1", status: "completed" },
+      { id: "s2", status: "in_progress" },
+    ]);
+
+    expect(detail.accessLinks).toHaveLength(1);
+  });
+
+  it("applies fallbacks and tolerates null/empty row sets", () => {
+    const detail = assembleCampaignDetail(header, {
+      assessmentRows: [
+        {
+          id: "ca2",
+          campaign_id: "c1",
+          assessment_id: "a2",
+          display_order: 0,
+          is_required: false,
+          created_at: "2026-01-01T00:00:00Z",
+          assessments: null, // missing embedded metadata
+        },
+      ],
+      participantRows: null,
+      linkRows: null,
+    });
+    expect(detail.assessments[0]).toMatchObject({
+      assessmentTitle: "Untitled",
+      assessmentStatus: "draft",
+      minCustomFactors: null,
+    });
+    expect(detail.participants).toEqual([]);
+    expect(detail.accessLinks).toEqual([]);
   });
 });

@@ -16,6 +16,7 @@ import {
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
   mapConsultantSettings,
+  type CampaignDetailParts,
 } from "@/lib/dal/campaigns-mappers";
 
 /**
@@ -226,4 +227,55 @@ export async function getCampaignHeader(
     campaignResult.data,
     assessmentCountResult.count ?? 0,
   );
+}
+
+/**
+ * Fetch the three detail-row sets for a campaign in parallel: ordered
+ * assessments (with embedded assessment metadata), non-deleted non-rater
+ * participants (with session id/status), and access links. Returns null if any
+ * query errors (each logged); the caller pairs this with getCampaignHeader and
+ * assembles via assembleCampaignDetail.
+ */
+export async function getCampaignDetailParts(
+  db: DbClient,
+  id: string,
+): Promise<CampaignDetailParts | null> {
+  const [assessmentResult, participantResult, linkResult] = await Promise.all([
+    db
+      .from("campaign_assessments")
+      .select("*, assessments(title, status, min_custom_factors)")
+      .eq("campaign_id", id)
+      .is("deleted_at", null)
+      .order("display_order", { ascending: true }),
+    db
+      .from("campaign_participants")
+      // Exclude 360 rater taking-rows — they are managed in the Raters tab,
+      // not shown as normal participants.
+      .select("*, participant_sessions(id, status)")
+      .eq("campaign_id", id)
+      .is("campaign_rater_id", null)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false }),
+    db
+      .from("campaign_access_links")
+      .select("*")
+      .eq("campaign_id", id)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  if (assessmentResult.error)
+    logActionError("getCampaignDetailParts", assessmentResult.error);
+  if (participantResult.error)
+    logActionError("getCampaignDetailParts", participantResult.error);
+  if (linkResult.error)
+    logActionError("getCampaignDetailParts", linkResult.error);
+  if (assessmentResult.error || participantResult.error || linkResult.error) {
+    return null;
+  }
+
+  return {
+    assessmentRows: assessmentResult.data,
+    participantRows: participantResult.data,
+    linkRows: linkResult.data,
+  };
 }
