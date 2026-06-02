@@ -197,6 +197,7 @@ export type AIPromptPurpose =
   | 'synthetic_respondent'
   | 'brief_extraction'
   | 'architect_overview'
+  | 'library_field_assist'
 
 /** Report assessment type. */
 export type ReportType = 'self_report' | '360'

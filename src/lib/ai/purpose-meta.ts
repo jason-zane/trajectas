@@ -64,6 +64,13 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: Layers,
     glowColor: "var(--primary)",
   },
+  library_field_assist: {
+    label: "Library Field Assist",
+    description:
+      "Drafts a single factor metadata field (overuse signature, lineage, contrasts) in the authoring UI.",
+    icon: Sparkles,
+    glowColor: "var(--primary)",
+  },
   ranking_explanation: {
     label: "Ranking Explanation",
     description:
@@ -146,6 +153,7 @@ export const PURPOSE_ORDER: AIPromptPurpose[] = [
   "embedding",
   "brief_extraction",
   "architect_overview",
+  "library_field_assist",
   "competency_matching",
   "ranking_explanation",
   "diagnostic_analysis",

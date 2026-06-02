@@ -9,6 +9,7 @@ import { throwActionError } from '@/lib/security/action-errors'
 import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
 import { factorReadiness } from '@/lib/library/factor-completeness'
+import { runFieldAssist, type AssistField } from '@/lib/ai/library-field-assist'
 import type { Factor } from '@/types/database'
 
 /** Parse a JSON-encoded string array from FormData; returns [] on anything unexpected. */
@@ -116,6 +117,62 @@ export async function getFactorBySlug(slug: string) {
         name: ac.assessments.title,
         status: ac.assessments.status,
       })) as LinkedAssessment[],
+  }
+}
+
+/**
+ * Draft one library metadata field for a factor with AI. Returns suggested text
+ * (for contrasts_with, a comma-separated slug list) for the admin to review/edit.
+ */
+export async function draftFactorField(
+  factorId: string,
+  field: AssistField,
+): Promise<{ text: string } | { error: string }> {
+  await requireAdminScope()
+  const db = await createClient()
+  const { data: f } = await db
+    .from('factors')
+    .select('name, definition, indicators_high, primary_category_id')
+    .eq('id', factorId)
+    .single()
+  if (!f) return { error: 'Factor not found.' }
+
+  let categoryName: string | null = null
+  if (f.primary_category_id) {
+    const { data: cat } = await db
+      .from('library_categories')
+      .select('name')
+      .eq('id', f.primary_category_id)
+      .single()
+    categoryName = cat?.name ?? null
+  }
+
+  let candidates: { slug: string; name: string }[] | undefined
+  if (field === 'contrasts_with') {
+    const { data: others } = await db
+      .from('factors')
+      .select('name, slug')
+      .neq('id', factorId)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('name', { ascending: true })
+    candidates = (others ?? []).map((o) => ({ slug: o.slug as string, name: o.name as string }))
+  }
+
+  try {
+    const text = await runFieldAssist({
+      field,
+      factor: {
+        name: f.name as string,
+        categoryName,
+        definition: f.definition as string | null,
+        indicatorsHigh: f.indicators_high as string | null,
+      },
+      candidates,
+    })
+    return { text }
+  } catch {
+    return { error: 'Could not draft that field. Try again in a moment.' }
   }
 }
 
