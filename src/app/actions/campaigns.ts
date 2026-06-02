@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { listCampaigns } from '@/lib/dal/campaigns'
 import {
   AuthorizationError,
   canAccessClient,
@@ -141,51 +142,23 @@ async function getClientPartnerId(clientId: string) {
 
 export async function getCampaigns(options?: { clientId?: string }): Promise<CampaignWithMeta[]> {
   const scope = await resolveAuthorizedScope()
-  const db = await createClient()
-
-  // Query the campaigns_with_counts view which inlines participant_count,
-  // completed_count, and assessment_count via correlated subqueries. This
-  // eliminates the previous sequential completed-count round-trip while
-  // preserving RLS (view is security_invoker=true).
-  let query = db
-    .from('campaigns_with_counts')
-    .select('*, clients(name)')
-    .is('deleted_at', null)
-    .order('created_at', { ascending: false })
 
   // Determine effective client filter:
   // 1. Explicit clientId takes priority (client portal pages pass this)
   // 2. On client surface without explicit clientId, derive from active context
   //    (defense-in-depth: prevents data leakage if caller forgets to pass clientId)
   // 3. On admin surface as platform admin, no filter (see all)
-  // 4. Non-admin users get scoped by accessible campaigns
+  // 4. Non-admin users get scoped by accessible campaigns (empty → nothing visible)
   const effectiveClientId = options?.clientId ??
     (scope.requestSurface === 'client' ? (scope.activeContext?.tenantId ?? null) : null)
 
-  if (effectiveClientId) {
-    query = query.eq('client_id', effectiveClientId)
-  } else if (!scope.isPlatformAdmin) {
-    const campaignIds = await getAccessibleCampaignIds(scope)
-    if (!campaignIds || campaignIds.length === 0) {
-      return []
-    }
-    query = query.in('id', campaignIds)
+  let scopedCampaignIds: string[] | null = null
+  if (!effectiveClientId && !scope.isPlatformAdmin) {
+    scopedCampaignIds = (await getAccessibleCampaignIds(scope)) ?? []
   }
 
-  const { data, error } = await query
-
-  if (error) {
-    throwActionError('getCampaigns', 'Unable to load campaigns.', error)
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (data ?? []).map((row: any) => ({
-    ...mapCampaignRow(row),
-    assessmentCount: row.assessment_count ?? 0,
-    participantCount: row.participant_count ?? 0,
-    completedCount: row.completed_count ?? 0,
-    clientName: row.clients?.name ?? undefined,
-  }))
+  const db = await createClient()
+  return listCampaigns(db, { effectiveClientId, scopedCampaignIds })
 }
 
 type CampaignHeaderLookupRow = Record<string, unknown> & {

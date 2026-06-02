@@ -41,6 +41,7 @@ export default defineConfig({
         "src/lib/assess/access.ts",
         // DAL pure row → DTO transforms (I/O-free; queries are integration-tested).
         "src/lib/dal/participants-mappers.ts",
+        "src/lib/dal/campaigns-mappers.ts",
         "src/lib/next-config/security.ts",
         "src/hooks/use-auto-save.ts",
         "src/components/animated-number.tsx",
