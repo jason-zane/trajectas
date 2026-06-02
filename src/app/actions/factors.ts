@@ -119,6 +119,64 @@ export async function getFactorBySlug(slug: string) {
   }
 }
 
+/** Recompute a factor's readiness and demote it if an edit dropped it below its tier. */
+async function reconcileFactorReadiness(
+  db: ReturnType<typeof createAdminClient>,
+  id: string,
+): Promise<void> {
+  const { data } = await db
+    .from('factors')
+    .select('*, factor_constructs(construct_id)')
+    .eq('id', id)
+    .single()
+  if (!data) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const f = data as any
+  const current: string = f.readiness ?? 'draft'
+  if (current === 'draft') return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constructIds = (f.factor_constructs ?? []).map((fc: any) => fc.construct_id).filter(Boolean)
+  let activeItemCount = 0
+  if (constructIds.length > 0) {
+    const { count } = await db
+      .from('items')
+      .select('id', { count: 'exact', head: true })
+      .in('construct_id', constructIds)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+    activeItemCount = count ?? 0
+  }
+  const r = factorReadiness({
+    primaryCategoryId: f.primary_category_id,
+    definition: f.definition,
+    description: f.description,
+    indicatorsLow: f.indicators_low,
+    indicatorsMid: f.indicators_mid,
+    indicatorsHigh: f.indicators_high,
+    anchorLow: f.anchor_low,
+    anchorHigh: f.anchor_high,
+    applicableOutcomes: f.applicable_outcomes ?? [],
+    applicableLevels: f.applicable_levels ?? [],
+    overuseSignature: f.overuse_signature,
+    contrastsWith: f.contrasts_with ?? [],
+    theoreticalLineage: f.theoretical_lineage,
+    constructCount: constructIds.length,
+    activeItemCount,
+  })
+  const rank = { draft: 0, assessment_ready: 1, match_ready: 2 } as const
+  const highest: keyof typeof rank = r.match.met
+    ? 'match_ready'
+    : r.assessment.met
+      ? 'assessment_ready'
+      : 'draft'
+  if (rank[highest] < rank[current as keyof typeof rank]) {
+    const update: Record<string, unknown> = { readiness: highest }
+    if (highest !== 'match_ready') update.is_match_eligible = false
+    await db.from('factors').update(update).eq('id', id)
+  }
+}
+
 /**
  * Promote a factor to a readiness tier, enforcing the completeness bar at the
  * server. The only promote path today; DB-level enforcement moves in when
@@ -475,6 +533,10 @@ export async function updateFactor(id: string, formData: FormData) {
     })
     .eq('id', id)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }
+
+  // Demote if an edit dropped the factor below its current readiness tier
+  // (e.g. clearing overuse_signature on a match-ready factor).
+  await reconcileFactorReadiness(db, id)
 
   revalidatePath('/factors')
   revalidatePath('/')

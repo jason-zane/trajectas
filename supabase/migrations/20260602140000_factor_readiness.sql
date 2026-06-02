@@ -35,10 +35,24 @@ COMMENT ON COLUMN factors.theoretical_lineage IS
 -- already clears the assessment-ready bar. It lacks the new match-ready fields,
 -- so it stays below match_ready until those are backfilled (next step). The
 -- Architect continues to run on is_match_eligible during the transition.
-UPDATE factors
+-- Use the FULL assessment-ready bar (mirrors assessmentReadyChecks) so a
+-- partially-complete imported factor is never silently promoted.
+UPDATE factors f
   SET readiness = 'assessment_ready'
-  WHERE deleted_at IS NULL
-    AND is_active
-    AND primary_category_id IS NOT NULL
-    AND coalesce(definition, '') <> ''
-    AND readiness = 'draft';
+  WHERE f.deleted_at IS NULL
+    AND f.is_active
+    AND f.primary_category_id IS NOT NULL
+    AND coalesce(f.definition, '')      <> ''
+    AND coalesce(f.description, '')      <> ''
+    AND coalesce(f.indicators_low, '')   <> ''
+    AND coalesce(f.indicators_mid, '')   <> ''
+    AND coalesce(f.indicators_high, '')  <> ''
+    AND coalesce(f.anchor_low, '')       <> ''
+    AND coalesce(f.anchor_high, '')      <> ''
+    AND f.readiness = 'draft'
+    AND EXISTS (SELECT 1 FROM factor_constructs fc WHERE fc.factor_id = f.id)
+    AND EXISTS (
+      SELECT 1 FROM factor_constructs fc
+      JOIN items i ON i.construct_id = fc.construct_id
+      WHERE fc.factor_id = f.id AND i.status = 'active' AND i.deleted_at IS NULL
+    );

@@ -685,6 +685,8 @@ export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
     .select('*, dimensions(name), factor_constructs(construct_id)')
     .eq('is_active', true)
     .is('deleted_at', null)
+    // Drafts haven't cleared the assessment-ready bar — keep them out of the builder.
+    .neq('readiness', 'draft')
     .order('name', { ascending: true })
 
   if (error) throw new Error(error.message)
