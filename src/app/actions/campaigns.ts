@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   listCampaigns,
   listActiveAssessments,
+  getCampaignHeader as dalGetCampaignHeader,
   getCampaignSessions as dalGetCampaignSessions,
   getCampaignConsultantSettings as dalGetCampaignConsultantSettings,
 } from '@/lib/dal/campaigns'
@@ -23,7 +24,6 @@ import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { requireAppUrl } from '@/lib/hosts'
 import {
-  mapCampaignRow,
   mapCampaignAssessmentRow,
   mapCampaignParticipantRow,
   mapCampaignAccessLinkRow,
@@ -166,13 +166,6 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
   return listCampaigns(db, { effectiveClientId, scopedCampaignIds })
 }
 
-type CampaignHeaderLookupRow = Record<string, unknown> & {
-  clients?:
-    | { name?: string | null; can_customize_branding?: boolean | null }
-    | { name?: string | null; can_customize_branding?: boolean | null }[]
-    | null
-}
-
 async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null> {
   try {
     await requireCampaignAccess(id)
@@ -183,44 +176,7 @@ async function getCampaignHeaderImpl(id: string): Promise<CampaignHeader | null>
     throw error
   }
 
-  const db = await createClient()
-
-  // Two indexed parallel queries: primary-key campaign lookup + head-only
-  // count on campaign_assessments. Deliberately not using campaigns_with_counts
-  // view here — correlated subqueries + RLS rewrites can dominate the plan
-  // for single-row reads, which made tab navigation slower than before.
-  const [campaignResult, assessmentCountResult] = await Promise.all([
-    db
-      .from('campaigns')
-      .select('*, clients(name, can_customize_branding)')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .single(),
-    db
-      .from('campaign_assessments')
-      .select('id', { count: 'exact', head: true })
-      .eq('campaign_id', id)
-      .is('deleted_at', null),
-  ])
-
-  if (campaignResult.error || !campaignResult.data) return null
-
-  if (assessmentCountResult.error) {
-    logActionError('getCampaignHeaderImpl', assessmentCountResult.error)
-  }
-
-  const row = campaignResult.data as CampaignHeaderLookupRow
-  const client = getEmbeddedLookupRow(row.clients)
-
-  return {
-    ...mapCampaignRow(row),
-    clientName: client?.name ?? undefined,
-    clientCanCustomizeBranding:
-      client && 'can_customize_branding' in client
-        ? client.can_customize_branding ?? null
-        : null,
-    assessmentCount: assessmentCountResult.count ?? 0,
-  }
+  return dalGetCampaignHeader(await createClient(), id)
 }
 
 export const getCampaignHeader = cache(getCampaignHeaderImpl)

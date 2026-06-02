@@ -6,11 +6,13 @@ import { logActionError, throwActionError } from "@/lib/security/action-errors";
 import type {
   CampaignAssessmentOption,
   CampaignConsultantSettings,
+  CampaignHeader,
   CampaignSessionRow,
   CampaignWithMeta,
 } from "@/app/actions/campaigns";
 import {
   mapActiveAssessmentRows,
+  mapCampaignHeader,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
   mapConsultantSettings,
@@ -187,4 +189,41 @@ export async function getCampaignConsultantSettings(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return mapConsultantSettings(data as any);
+}
+
+/**
+ * Fetch a campaign's header (campaign row + embedded client + assessment count),
+ * mapped to a CampaignHeader DTO. Returns null if the campaign is missing or
+ * soft-deleted. Two indexed parallel queries (primary-key lookup + head-only
+ * count) — deliberately not the campaigns_with_counts view, whose correlated
+ * subqueries + RLS rewrites dominate the plan for single-row reads.
+ */
+export async function getCampaignHeader(
+  db: DbClient,
+  id: string,
+): Promise<CampaignHeader | null> {
+  const [campaignResult, assessmentCountResult] = await Promise.all([
+    db
+      .from("campaigns")
+      .select("*, clients(name, can_customize_branding)")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .single(),
+    db
+      .from("campaign_assessments")
+      .select("id", { count: "exact", head: true })
+      .eq("campaign_id", id)
+      .is("deleted_at", null),
+  ]);
+
+  if (campaignResult.error || !campaignResult.data) return null;
+
+  if (assessmentCountResult.error) {
+    logActionError("getCampaignHeader", assessmentCountResult.error);
+  }
+
+  return mapCampaignHeader(
+    campaignResult.data,
+    assessmentCountResult.count ?? 0,
+  );
 }

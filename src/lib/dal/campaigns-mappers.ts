@@ -2,6 +2,7 @@ import { mapCampaignRow } from "@/lib/supabase/mappers";
 import type {
   CampaignAssessmentOption,
   CampaignConsultantSettings,
+  CampaignHeader,
   CampaignSessionRow,
   CampaignWithMeta,
 } from "@/app/actions/campaigns";
@@ -217,5 +218,30 @@ export function mapConsultantSettings(row: {
     enabled: Boolean(row.consultant_notification_enabled),
     includeSummary: Boolean(row.consultant_notification_include_summary),
     attachPdf: Boolean(row.consultant_notification_attach_pdf),
+  };
+}
+
+/**
+ * Map a campaign row (with embedded `clients(name, can_customize_branding)`) +
+ * a pre-counted assessment total to a CampaignHeader DTO.
+ */
+export function mapCampaignHeader(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  row: any,
+  assessmentCount: number,
+): CampaignHeader {
+  const client = unwrap(row.clients) as {
+    name?: string | null;
+    can_customize_branding?: boolean | null;
+  } | null;
+
+  return {
+    ...mapCampaignRow(row),
+    clientName: client?.name ?? undefined,
+    clientCanCustomizeBranding:
+      client && "can_customize_branding" in client
+        ? (client.can_customize_branding ?? null)
+        : null,
+    assessmentCount,
   };
 }
