@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { logActionError, throwActionError } from "@/lib/security/action-errors";
 import type {
   CampaignAssessmentOption,
+  CampaignConsultantSettings,
   CampaignSessionRow,
   CampaignWithMeta,
 } from "@/app/actions/campaigns";
@@ -12,6 +13,7 @@ import {
   mapActiveAssessmentRows,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
+  mapConsultantSettings,
 } from "@/lib/dal/campaigns-mappers";
 
 /**
@@ -162,4 +164,27 @@ export async function listActiveAssessments(
   }
 
   return mapActiveAssessmentRows(data ?? []);
+}
+
+/**
+ * Fetch a campaign's consultant-notification settings, mapped to a
+ * CampaignConsultantSettings DTO. Returns null if the campaign is missing or the
+ * query errors.
+ */
+export async function getCampaignConsultantSettings(
+  db: DbClient,
+  campaignId: string,
+): Promise<CampaignConsultantSettings | null> {
+  const { data, error } = await db
+    .from("campaigns")
+    .select(
+      "consultant_emails, consultant_notification_enabled, consultant_notification_include_summary, consultant_notification_attach_pdf",
+    )
+    .eq("id", campaignId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return mapConsultantSettings(data as any);
 }
