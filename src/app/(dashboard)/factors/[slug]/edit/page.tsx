@@ -58,6 +58,11 @@ export default async function EditFactorPage({
         applicableFunctions: factor.applicableFunctions,
         primaryCategoryId: factor.primaryCategoryId,
         secondaryCategoryId: factor.secondaryCategoryId,
+        overuseSignature: factor.overuseSignature,
+        contrastsWith: factor.contrastsWith,
+        theoreticalLineage: factor.theoreticalLineage,
+        readiness: factor.readiness,
+        activeItemCount: factor.activeItemCount,
         linkedConstructs: factor.linkedConstructs,
         linkedAssessments: factor.linkedAssessments,
       }}

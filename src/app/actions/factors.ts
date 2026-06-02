@@ -8,6 +8,7 @@ import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
 import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
+import { factorReadiness } from '@/lib/library/factor-completeness'
 import type { Factor } from '@/types/database'
 
 /** Parse a JSON-encoded string array from FormData; returns [] on anything unexpected. */
@@ -74,8 +75,26 @@ export async function getFactorBySlug(slug: string) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const r = data as any
+
+  // Active item count across the factor's constructs (for the readiness meter).
+  const constructIds = (r.factor_constructs ?? [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .map((fc: any) => fc.construct_id)
+    .filter(Boolean)
+  let activeItemCount = 0
+  if (constructIds.length > 0) {
+    const { count } = await db
+      .from('items')
+      .select('id', { count: 'exact', head: true })
+      .in('construct_id', constructIds)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+    activeItemCount = count ?? 0
+  }
+
   return {
     ...mapFactorRow(data),
+    activeItemCount,
     dimensionName: r.dimensions?.name ?? undefined,
     clientName: r.clients?.name ?? undefined,
     linkedConstructs: (r.factor_constructs ?? []).map(
@@ -98,6 +117,133 @@ export async function getFactorBySlug(slug: string) {
         status: ac.assessments.status,
       })) as LinkedAssessment[],
   }
+}
+
+/** Recompute a factor's readiness and demote it if an edit dropped it below its tier. */
+async function reconcileFactorReadiness(
+  db: ReturnType<typeof createAdminClient>,
+  id: string,
+): Promise<void> {
+  const { data } = await db
+    .from('factors')
+    .select('*, factor_constructs(construct_id)')
+    .eq('id', id)
+    .single()
+  if (!data) return
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const f = data as any
+  const current: string = f.readiness ?? 'draft'
+  if (current === 'draft') return
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constructIds = (f.factor_constructs ?? []).map((fc: any) => fc.construct_id).filter(Boolean)
+  let activeItemCount = 0
+  if (constructIds.length > 0) {
+    const { count } = await db
+      .from('items')
+      .select('id', { count: 'exact', head: true })
+      .in('construct_id', constructIds)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+    activeItemCount = count ?? 0
+  }
+  const r = factorReadiness({
+    primaryCategoryId: f.primary_category_id,
+    definition: f.definition,
+    description: f.description,
+    indicatorsLow: f.indicators_low,
+    indicatorsMid: f.indicators_mid,
+    indicatorsHigh: f.indicators_high,
+    anchorLow: f.anchor_low,
+    anchorHigh: f.anchor_high,
+    applicableOutcomes: f.applicable_outcomes ?? [],
+    applicableLevels: f.applicable_levels ?? [],
+    overuseSignature: f.overuse_signature,
+    contrastsWith: f.contrasts_with ?? [],
+    theoreticalLineage: f.theoretical_lineage,
+    constructCount: constructIds.length,
+    activeItemCount,
+  })
+  const rank = { draft: 0, assessment_ready: 1, match_ready: 2 } as const
+  const highest: keyof typeof rank = r.match.met
+    ? 'match_ready'
+    : r.assessment.met
+      ? 'assessment_ready'
+      : 'draft'
+  if (rank[highest] < rank[current as keyof typeof rank]) {
+    const update: Record<string, unknown> = { readiness: highest }
+    if (highest !== 'match_ready') update.is_match_eligible = false
+    await db.from('factors').update(update).eq('id', id)
+  }
+}
+
+/**
+ * Promote a factor to a readiness tier, enforcing the completeness bar at the
+ * server. The only promote path today; DB-level enforcement moves in when
+ * Phase 3 adds AI/bulk promotion.
+ */
+export async function promoteFactor(
+  id: string,
+  tier: 'assessment_ready' | 'match_ready',
+): Promise<{ success: true; readiness: string } | { error: string }> {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('factors')
+    .select('*, factor_constructs(construct_id)')
+    .eq('id', id)
+    .single()
+  if (error || !data) return { error: 'Factor not found.' }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const f = data as any
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const constructIds = (f.factor_constructs ?? []).map((fc: any) => fc.construct_id).filter(Boolean)
+  let activeItemCount = 0
+  if (constructIds.length > 0) {
+    const { count } = await db
+      .from('items')
+      .select('id', { count: 'exact', head: true })
+      .in('construct_id', constructIds)
+      .eq('status', 'active')
+      .is('deleted_at', null)
+    activeItemCount = count ?? 0
+  }
+
+  const status = factorReadiness({
+    primaryCategoryId: f.primary_category_id,
+    definition: f.definition,
+    description: f.description,
+    indicatorsLow: f.indicators_low,
+    indicatorsMid: f.indicators_mid,
+    indicatorsHigh: f.indicators_high,
+    anchorLow: f.anchor_low,
+    anchorHigh: f.anchor_high,
+    applicableOutcomes: f.applicable_outcomes ?? [],
+    applicableLevels: f.applicable_levels ?? [],
+    overuseSignature: f.overuse_signature,
+    contrastsWith: f.contrasts_with ?? [],
+    theoreticalLineage: f.theoretical_lineage,
+    constructCount: constructIds.length,
+    activeItemCount,
+  })[tier === 'match_ready' ? 'match' : 'assessment']
+
+  if (!status.met) {
+    const tierLabel = tier === 'match_ready' ? 'match-ready' : 'assessment-ready'
+    return { error: `Not ${tierLabel} yet. Missing: ${status.missing.join(', ')}.` }
+  }
+
+  const update: Record<string, unknown> = { readiness: tier }
+  if (tier === 'match_ready') {
+    update.is_match_eligible = true
+    update.reviewed_by = scope.actor?.id ?? null
+    update.reviewed_at = new Date().toISOString()
+  }
+  const { error: upErr } = await db.from('factors').update(update).eq('id', id)
+  if (upErr) return { error: upErr.message }
+
+  revalidatePath('/factors')
+  return { success: true, readiness: tier }
 }
 
 export async function getDimensionsForSelect(): Promise<SelectOption[]> {
@@ -190,6 +336,9 @@ export async function createFactor(formData: FormData) {
     applicableFunctions: parseStringArray(formData.get('applicableFunctions')),
     primaryCategoryId: (formData.get('primaryCategoryId') as string) || undefined,
     secondaryCategoryId: (formData.get('secondaryCategoryId') as string) || undefined,
+    overuseSignature: (formData.get('overuseSignature') as string) || undefined,
+    contrastsWith: parseStringArray(formData.get('contrastsWith')),
+    theoreticalLineage: (formData.get('theoreticalLineage') as string) || undefined,
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -239,6 +388,9 @@ export async function createFactor(formData: FormData) {
       applicable_functions: parsed.data.applicableFunctions,
       primary_category_id: parsed.data.primaryCategoryId || null,
       secondary_category_id: parsed.data.secondaryCategoryId || null,
+      overuse_signature: parsed.data.overuseSignature ?? null,
+      contrasts_with: parsed.data.contrastsWith,
+      theoretical_lineage: parsed.data.theoreticalLineage ?? null,
     })
     .eq('id', (factorId ?? newId) as string)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }
@@ -293,6 +445,9 @@ export async function updateFactor(id: string, formData: FormData) {
     applicableFunctions: parseStringArray(formData.get('applicableFunctions')),
     primaryCategoryId: (formData.get('primaryCategoryId') as string) || undefined,
     secondaryCategoryId: (formData.get('secondaryCategoryId') as string) || undefined,
+    overuseSignature: (formData.get('overuseSignature') as string) || undefined,
+    contrastsWith: parseStringArray(formData.get('contrastsWith')),
+    theoreticalLineage: (formData.get('theoreticalLineage') as string) || undefined,
   }
 
   const parsed = factorSchema.safeParse(raw)
@@ -372,9 +527,16 @@ export async function updateFactor(id: string, formData: FormData) {
       applicable_functions: parsed.data.applicableFunctions,
       primary_category_id: parsed.data.primaryCategoryId || null,
       secondary_category_id: parsed.data.secondaryCategoryId || null,
+      overuse_signature: parsed.data.overuseSignature ?? null,
+      contrasts_with: parsed.data.contrastsWith,
+      theoretical_lineage: parsed.data.theoreticalLineage ?? null,
     })
     .eq('id', id)
   if (extrasErr) return { error: { _form: [extrasErr.message] } }
+
+  // Demote if an edit dropped the factor below its current readiness tier
+  // (e.g. clearing overuse_signature on a match-ready factor).
+  await reconcileFactorReadiness(db, id)
 
   revalidatePath('/factors')
   revalidatePath('/')
