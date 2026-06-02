@@ -4,10 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { logActionError, throwActionError } from "@/lib/security/action-errors";
 import type {
+  CampaignAssessmentOption,
   CampaignSessionRow,
   CampaignWithMeta,
 } from "@/app/actions/campaigns";
 import {
+  mapActiveAssessmentRows,
   mapCampaignSessionRows,
   mapCampaignWithCountsRows,
 } from "@/lib/dal/campaigns-mappers";
@@ -106,4 +108,58 @@ export async function getCampaignSessions(
   }
 
   return mapCampaignSessionRows(data ?? []);
+}
+
+/**
+ * List active/draft assessments as campaign-builder options (with factor/section/
+ * item counts + a format label + estimated duration). Serves admin + partner
+ * portals; clients use the client assessment library instead.
+ *
+ * `partnerIds`: `null` = unrestricted (platform admin / local-dev bypass); a
+ * non-empty array = partner-owned + platform-owned (partner_id null) assessments.
+ * The caller handles the non-partner empty case before calling.
+ */
+export async function listActiveAssessments(
+  db: DbClient,
+  { partnerIds }: { partnerIds: string[] | null },
+): Promise<CampaignAssessmentOption[]> {
+  let query = db
+    .from("assessments")
+    .select(
+      `
+      id,
+      title,
+      description,
+      status,
+      format_mode,
+      min_custom_factors,
+      assessment_factors(count),
+      assessment_sections(
+        id,
+        response_formats(type),
+        assessment_section_items(count)
+      )
+    `,
+    )
+    .in("status", ["active", "draft"])
+    .is("deleted_at", null)
+    .order("title", { ascending: true });
+
+  if (partnerIds) {
+    query = query.or(
+      `partner_id.in.(${partnerIds.join(",")}),partner_id.is.null`,
+    );
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throwActionError(
+      "getActiveAssessments",
+      "Unable to load active assessments.",
+      error,
+    );
+  }
+
+  return mapActiveAssessmentRows(data ?? []);
 }
