@@ -49,6 +49,9 @@ export const factorSchema = z.object({
   applicableFunctions: z.array(z.string().max(60)).optional().default([]),
   primaryCategoryId: z.string().uuid().optional().or(z.literal('')),
   secondaryCategoryId: z.string().uuid().optional().or(z.literal('')),
+  overuseSignature: z.string().max(4000).optional(),
+  contrastsWith: z.array(z.string().max(120)).optional().default([]),
+  theoreticalLineage: z.string().max(500).optional(),
 }).refine(
   // A match-eligible factor must carry a primary category, so the Architect's
   // whole-person coverage is never polluted by "Uncategorised" factors.

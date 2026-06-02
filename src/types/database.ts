@@ -564,6 +564,16 @@ export interface Factor {
   primaryCategoryId?: string
   /** Optional secondary category for cross-category factors (display-only in coverage maths for v1). */
   secondaryCategoryId?: string
+  /** Two-tier quality gate: draft | assessment_ready | match_ready. */
+  readiness?: 'draft' | 'assessment_ready' | 'match_ready'
+  /** What this looks like when overused / the derailer. Required for match_ready. */
+  overuseSignature?: string
+  /** Factor slugs this is meant to be distinct from (nomological net). Required for match_ready. */
+  contrastsWith?: string[]
+  /** Where the construct comes from (framework / origin). Required for match_ready. */
+  theoreticalLineage?: string
+  reviewedBy?: string
+  reviewedAt?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */
