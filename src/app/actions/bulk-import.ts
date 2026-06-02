@@ -733,7 +733,10 @@ async function importFactors(table: ParsedTable) {
         definition: row.definition || undefined,
         dimensionId: dimensionId ?? undefined,
         isActive: parseBoolean(row.isActive, true),
-        isMatchEligible: parseBoolean(row.isMatchEligible, true),
+        // Ingested factors are NOT match-eligible by default — they earn it once
+        // categorised + reviewed (see the two-tier gate). Avoids uncategorised
+        // factors silently entering the Architect pool.
+        isMatchEligible: parseBoolean(row.isMatchEligible, false),
         clientId: clientId ?? undefined,
         constructs: parsedConstructLinks,
         indicatorsLow: row.indicatorsLow || undefined,
@@ -1304,7 +1307,8 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
           description: row.description || undefined,
           definition: row.definition || undefined,
           isActive: parseBoolean(row.isActive, true),
-          isMatchEligible: parseBoolean(row.isMatchEligible, true),
+          // Ingested factors are not match-eligible by default (earn it via the gate).
+          isMatchEligible: parseBoolean(row.isMatchEligible, false),
           indicatorsLow: row.indicatorsLow || undefined,
           indicatorsMid: row.indicatorsMid || undefined,
           indicatorsHigh: row.indicatorsHigh || undefined,
@@ -1719,7 +1723,8 @@ export async function importLibraryBundleRows(rawText: string): Promise<LibraryB
             definition: construct.definition ?? null,
             dimension_id: dimensionId,
             is_active: construct.isActive ?? true,
-            is_match_eligible: true,
+            // Ingested factors earn match-eligibility via the gate, not on import.
+            is_match_eligible: false,
             indicators_low: construct.indicatorsLow ?? null,
             indicators_mid: construct.indicatorsMid ?? null,
             indicators_high: construct.indicatorsHigh ?? null,
