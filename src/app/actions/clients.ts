@@ -16,6 +16,7 @@ import {
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import {
   createStaffInvite,
+  reissueInviteLink,
   revokeInvite,
   type InviteRole,
 } from '@/lib/auth/staff-auth'
@@ -667,7 +668,7 @@ export async function inviteUserToClient(
     return { error: formErrors?.[0] ?? 'Failed to create invite' }
   }
 
-  await sendStaffInviteEmail({
+  const { inviteLink } = await sendStaffInviteEmail({
     email: result.data.email,
     inviteToken: result.inviteToken,
     tenantType: result.data.tenantType,
@@ -675,7 +676,36 @@ export async function inviteUserToClient(
   })
 
   revalidatePath(`/clients`)
-  return { success: true as const }
+  return { success: true as const, inviteLink }
+}
+
+/**
+ * Mint a fresh shareable accept link for an existing pending client invite,
+ * for the "copy the link and send it myself" flow. Rotates the token, so any
+ * previously sent link for this invite stops working.
+ */
+export async function reissueClientInvite(
+  clientId: string,
+  inviteId: string
+): Promise<{ inviteLink: string } | { error: string }> {
+  let access
+  try {
+    access = await requireClientAccess(clientId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+    return { error: 'You do not have permission to manage invites for this client' }
+  }
+
+  return reissueInviteLink(inviteId, access.scope.actor?.id ?? null, {
+    tenantType: 'client',
+    tenantId: clientId,
+  })
 }
 
 export async function changeClientMemberRole(

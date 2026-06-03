@@ -4,11 +4,15 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
+import { ExternalLink, Link2, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { resendInvite, bulkDeleteUsers, bulkUpdateUserStatus, type UserListItem } from "@/app/actions/user-management";
-import { revokeInviteById, toggleUserActiveState } from "@/app/actions/staff-users";
+import {
+  reissueInviteLinkById,
+  revokeInviteById,
+  toggleUserActiveState,
+} from "@/app/actions/staff-users";
 import {
   DataTable,
   DataTableActionsMenu,
@@ -369,6 +373,29 @@ function UserRowActions({ user }: { user: UserTableRow }) {
     });
   }
 
+  function handleCopyLink() {
+    if (user.type !== "invite") {
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await reissueInviteLinkById(user.id);
+
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(result.inviteLink);
+        toast.success(`Invite link copied for ${user.email}`);
+      } catch {
+        toast.error("Couldn't copy the link — open the invite to copy it.");
+      }
+      router.refresh();
+    });
+  }
+
   function handleConfirm() {
     startTransition(async () => {
       if (user.type === "invite") {
@@ -407,6 +434,12 @@ function UserRowActions({ user }: { user: UserTableRow }) {
           <DropdownMenuItem onClick={handleResend} disabled={isPending}>
             <RefreshCw className="size-4" />
             Resend invite
+          </DropdownMenuItem>
+        ) : null}
+        {user.type === "invite" ? (
+          <DropdownMenuItem onClick={handleCopyLink} disabled={isPending}>
+            <Link2 className="size-4" />
+            Copy invite link
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuSeparator />

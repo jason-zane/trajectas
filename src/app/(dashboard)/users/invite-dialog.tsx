@@ -2,13 +2,14 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronsUpDown, Plus } from "lucide-react";
+import { Check, CheckCircle2, ChevronsUpDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { createStaffInviteAction, revokeInviteById } from "@/app/actions/staff-users";
 import { resendInvite } from "@/app/actions/user-management";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InviteLinkField } from "@/components/invite-link-field";
 import {
   Command,
   CommandEmpty,
@@ -244,9 +245,8 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
     }
 
     toast.success(`Invite email sent to ${email.trim()}.`);
-
-    setOpen(false);
-    resetForm();
+    // Keep the dialog open so the shareable link (carried on `result`) stays
+    // visible to copy — the fallback when the invite email is filtered.
     router.refresh();
   }
 
@@ -296,6 +296,10 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
     (tenantType === "platform" || tenantId.length > 0) &&
     !isPending;
 
+  // Present only after a successful send — switches the dialog to the
+  // "share the link" success state.
+  const sentLink = result?.inviteLink ?? null;
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>
@@ -311,6 +315,23 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
         description="Send a staff invite email. Invites expire in 7 days."
       >
         <ActionDialogBody className="space-y-5">
+          {sentLink ? (
+            <div className="space-y-4">
+              <div className="flex items-start gap-2 text-sm text-foreground">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                <span>Invite email sent to {email.trim()}.</span>
+              </div>
+              <div className="space-y-2">
+                <Label>Shareable invite link</Label>
+                <InviteLinkField link={sentLink} />
+                <p className="text-xs text-muted-foreground">
+                  If the email doesn&rsquo;t arrive, send this link directly. It
+                  expires in 7 days.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="space-y-2">
             <Label htmlFor="invite-email">Email</Label>
             <Input
@@ -447,14 +468,31 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
           ) : result?.error ? (
             <p className="text-sm text-destructive">{result.error}</p>
           ) : null}
+            </>
+          )}
         </ActionDialogBody>
         <ActionDialogFooter>
-          <Button variant="ghost" onClick={() => handleOpenChange(false)} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit}>
-            {isPending ? "Sending..." : "Send invite"}
-          </Button>
+          {sentLink ? (
+            <>
+              <Button variant="ghost" onClick={resetForm} disabled={isPending}>
+                Invite another
+              </Button>
+              <Button onClick={() => handleOpenChange(false)}>Done</Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => handleOpenChange(false)}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={!canSubmit}>
+                {isPending ? "Sending..." : "Send invite"}
+              </Button>
+            </>
+          )}
         </ActionDialogFooter>
       </ActionDialog>
     </>

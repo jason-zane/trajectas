@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import {
   createStaffInvite,
+  reissueInviteLink,
   revokeInvite,
   revokeMembership,
   setProfileActiveState,
@@ -97,6 +98,31 @@ export async function revokeInviteById(inviteId: string) {
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Failed to revoke invite.',
+    }
+  }
+}
+
+/**
+ * Mint a fresh shareable accept link for an existing pending invite (any
+ * scope), for the "copy the link and send it myself" flow. Rotates the token,
+ * so any previously sent link for this invite stops working. Does not email.
+ */
+export async function reissueInviteLinkById(
+  inviteId: string
+): Promise<{ inviteLink: string } | { error: string }> {
+  try {
+    const scope = await requireAdminScope()
+    const { inviteId: parsedInviteId } = inviteActionSchema.parse({ inviteId })
+
+    const result = await reissueInviteLink(parsedInviteId, scope.actor?.id ?? null)
+    if ('error' in result) return result
+
+    revalidatePath('/users')
+    revalidatePath(`/users/invite/${parsedInviteId}`)
+    return result
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : 'Failed to re-issue invite link.',
     }
   }
 }
