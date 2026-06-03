@@ -824,6 +824,7 @@ export async function resendInvite(inviteId: string): Promise<
   | {
       success: true;
       inviteLink: string;
+      emailDelivered: boolean;
     }
   | {
       error: string;
@@ -891,7 +892,7 @@ export async function resendInvite(inviteId: string): Promise<
     revalidatePath("/users");
     revalidatePath(`/users/invite/${parsedInviteId}`);
 
-    const { inviteLink } = await sendStaffInviteEmail({
+    const { inviteLink, emailDelivered } = await sendStaffInviteEmail({
       email: inviteRow.email,
       inviteToken: token,
       tenantType: inviteRow.tenant_type,
@@ -901,6 +902,7 @@ export async function resendInvite(inviteId: string): Promise<
     return {
       success: true,
       inviteLink,
+      emailDelivered,
     };
   } catch (error) {
     return {

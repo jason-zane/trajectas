@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, Plus, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Plus, Send } from "lucide-react";
 
 import {
   ActionDialog,
@@ -26,7 +26,9 @@ import { getSelectLabel } from "@/lib/select-display";
 
 type MembershipRole = "admin" | "member";
 
-type InviteResult = { error?: string; inviteLink?: string } | void;
+type InviteResult =
+  | { error?: string; inviteLink?: string; emailDelivered?: boolean }
+  | void;
 
 interface InviteMemberDialogProps {
   /** Descriptive workspace label, e.g. "client workspace" or "partner workspace". */
@@ -59,7 +61,11 @@ export function InviteMemberDialog({
   const [isInviting, startInvite] = useTransition();
   // When set, the invite was created and we show the shareable link instead of
   // the form so the admin can copy it (email is sent too, but may not arrive).
-  const [sent, setSent] = useState<{ email: string; link: string | null } | null>(null);
+  const [sent, setSent] = useState<{
+    email: string;
+    link: string | null;
+    delivered: boolean;
+  } | null>(null);
 
   function resetForm() {
     setEmail("");
@@ -90,8 +96,15 @@ export function InviteMemberDialog({
         return;
       }
 
-      toast.success(`Invite sent to ${trimmedEmail}`);
-      setSent({ email: trimmedEmail, link: result?.inviteLink ?? null });
+      const delivered = result?.emailDelivered !== false;
+      if (delivered) {
+        toast.success(`Invite sent to ${trimmedEmail}`);
+      } else {
+        toast.warning(
+          `Invite created, but the email couldn’t be sent — copy the link to share it.`
+        );
+      }
+      setSent({ email: trimmedEmail, link: result?.inviteLink ?? null, delivered });
       router.refresh();
     });
   }
@@ -107,10 +120,14 @@ export function InviteMemberDialog({
         open={open}
         onOpenChange={handleOpenChange}
         eyebrow={eyebrow}
-        title={sent ? "Invite sent" : "Invite team member"}
+        title={
+          sent ? (sent.delivered ? "Invite sent" : "Invite created") : "Invite team member"
+        }
         description={
           sent
-            ? `We emailed an invite to ${sent.email}. If it doesn't arrive, copy the link below and send it directly.`
+            ? sent.delivered
+              ? `We emailed an invite to ${sent.email}. If it doesn't arrive, copy the link below and send it directly.`
+              : `The invite for ${sent.email} was created, but we couldn't send the email. Copy the link below and send it directly.`
             : `Send an invite to join this ${scope}. The invite expires in 7 days.`
         }
       >
@@ -118,8 +135,16 @@ export function InviteMemberDialog({
           <>
             <ActionDialogBody className="space-y-4">
               <div className="flex items-start gap-2 text-sm text-foreground">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                <span>Invite email sent to {sent.email}.</span>
+                {sent.delivered ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                )}
+                <span>
+                  {sent.delivered
+                    ? `Invite email sent to ${sent.email}.`
+                    : `Couldn’t send the email to ${sent.email}. Share the link below instead.`}
+                </span>
               </div>
               {sent.link ? (
                 <div className="space-y-2">
