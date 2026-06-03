@@ -18,6 +18,8 @@ type InviteFormState =
       error?: string
       fields?: Record<string, string[]>
       inviteLink?: string
+      /** False when the invite was created but the email could not be sent. */
+      emailDelivered?: boolean
       /** Set when the invite collided with an existing active invite. */
       duplicate?: { inviteId: string }
     }
@@ -52,7 +54,7 @@ export async function createStaffInviteAction(
     }
   }
 
-  const { inviteLink } = await sendStaffInviteEmail({
+  const { inviteLink, emailDelivered } = await sendStaffInviteEmail({
     email: result.data.email,
     inviteToken: result.inviteToken,
     tenantType: result.data.tenantType,
@@ -62,8 +64,11 @@ export async function createStaffInviteAction(
   revalidatePath('/users')
 
   return {
-    success: `Invite email sent to ${result.data.email}.`,
+    success: emailDelivered
+      ? `Invite email sent to ${result.data.email}.`
+      : `Invite created for ${result.data.email}, but the email couldn’t be sent. Copy the link below to share it directly.`,
     inviteLink,
+    emailDelivered,
   }
 }
 

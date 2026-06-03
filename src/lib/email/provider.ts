@@ -34,7 +34,7 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
   const client = getResendClient()
   const from =
     options.from ?? process.env.EMAIL_FROM ?? 'Trajectas <noreply@mail.trajectas.com>'
-  return client.emails.send({
+  const { data, error } = await client.emails.send({
     from,
     to: options.to,
     subject: options.subject,
@@ -47,4 +47,18 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
       contentType: a.contentType,
     })),
   })
+
+  // The Resend SDK resolves with { data, error } and does NOT reject on
+  // API-level failures (unverified domain, suppressed recipient, rate limit,
+  // etc.). Left unchecked, those rejections are silently swallowed: the caller
+  // believes the email was sent. Surface them as thrown errors so they reach
+  // logs/observability and any caller's own error handling.
+  if (error) {
+    const recipients = Array.isArray(options.to) ? options.to.join(', ') : options.to
+    const message = `Resend rejected email to ${recipients}: ${error.name ?? 'error'} — ${error.message ?? 'unknown error'}`
+    console.error(`[email] ${message}`, error)
+    throw new Error(message)
+  }
+
+  return data
 }

@@ -376,7 +376,13 @@ function UserRowActions({ user }: { user: UserTableRow }) {
         return;
       }
 
-      toast.success(`Invite email resent to ${user.email}`);
+      if (result.emailDelivered) {
+        toast.success(`Invite email resent to ${user.email}`);
+      } else {
+        toast.warning(
+          `Couldn’t send the email — use Copy invite link to share it directly.`
+        );
+      }
       router.refresh();
     });
   }

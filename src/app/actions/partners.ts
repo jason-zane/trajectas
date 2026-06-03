@@ -573,7 +573,7 @@ export async function inviteUserToPartner(
     return { error: formErrors?.[0] ?? 'Failed to create invite' }
   }
 
-  const { inviteLink } = await sendStaffInviteEmail({
+  const { inviteLink, emailDelivered } = await sendStaffInviteEmail({
     email: result.data.email,
     inviteToken: result.inviteToken,
     tenantType: result.data.tenantType,
@@ -581,7 +581,7 @@ export async function inviteUserToPartner(
   })
 
   revalidatePath(`/partners`)
-  return { success: true as const, inviteLink }
+  return { success: true as const, inviteLink, emailDelivered }
 }
 
 /**

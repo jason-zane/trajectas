@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => {
   const sendEmail = vi.fn();
   const createInviteLink = vi.fn();
+  const reportError = vi.fn();
 
-  return { sendEmail, createInviteLink };
+  return { sendEmail, createInviteLink, reportError };
 });
 
 vi.mock("@/lib/email/send", () => ({
@@ -13,6 +14,10 @@ vi.mock("@/lib/email/send", () => ({
 
 vi.mock("@/lib/auth/staff-auth", () => ({
   createInviteLink: mocks.createInviteLink,
+}));
+
+vi.mock("@/lib/observability/report-error", () => ({
+  reportError: mocks.reportError,
 }));
 
 import { sendStaffInviteEmail } from "@/lib/auth/staff-invite-email";
@@ -72,6 +77,47 @@ describe("sendStaffInviteEmail", () => {
     expect(mocks.sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         scopeClientId: "client-uuid-123",
+      })
+    );
+  });
+
+  it("returns the link and emailDelivered=true when the send succeeds", async () => {
+    mocks.sendEmail.mockResolvedValueOnce(undefined);
+
+    const result = await sendStaffInviteEmail({
+      email: "invitee@example.com",
+      inviteToken: "token-1",
+      tenantType: "platform",
+    });
+
+    expect(result).toEqual({
+      inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
+      emailDelivered: true,
+    });
+    expect(mocks.reportError).not.toHaveBeenCalled();
+  });
+
+  it("reports the failure but still returns the link when the send fails", async () => {
+    mocks.sendEmail.mockRejectedValueOnce(new Error("Resend rejected email"));
+
+    const result = await sendStaffInviteEmail({
+      email: "invitee@example.com",
+      inviteToken: "token-1",
+      tenantType: "client",
+      tenantId: "client-uuid-123",
+    });
+
+    // The invite row already exists, so the admin can still share the link.
+    expect(result).toEqual({
+      inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
+      emailDelivered: false,
+    });
+    // The failure is surfaced to observability rather than swallowed.
+    expect(mocks.reportError).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({
+        source: "auth.staff-invite-email",
+        context: expect.objectContaining({ email: "invitee@example.com" }),
       })
     );
   });

@@ -31,7 +31,13 @@ export function InviteDetailClient({ invite }: InviteDetailClientProps) {
         return;
       }
 
-      toast.success(`Invite email resent to ${invite.email}`);
+      if (result.emailDelivered) {
+        toast.success(`Invite email resent to ${invite.email}`);
+      } else {
+        toast.warning(
+          `Couldn’t send the email — use Copy link to share the invite directly.`
+        );
+      }
       router.refresh();
     });
   }

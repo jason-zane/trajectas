@@ -111,6 +111,7 @@ describe("staff user actions", () => {
     });
     inviteEmail.sendStaffInviteEmail.mockResolvedValueOnce({
       inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
+      emailDelivered: true,
     });
 
     const formData = new FormData();
@@ -121,6 +122,38 @@ describe("staff user actions", () => {
     await expect(createStaffInviteAction(undefined, formData)).resolves.toEqual({
       success: "Invite email sent to person@example.com.",
       inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
+      emailDelivered: true,
     });
+  });
+
+  it("reports a created-but-undelivered invite when the email fails", async () => {
+    auth.requireAdminScope.mockResolvedValueOnce({
+      actor: { id: "actor-1" },
+    });
+    staffAuth.createStaffInvite.mockResolvedValueOnce({
+      data: {
+        id: "invite-1",
+        email: "person@example.com",
+        tenantType: "platform",
+        tenantId: null,
+      },
+      inviteToken: "token-1",
+    });
+    inviteEmail.sendStaffInviteEmail.mockResolvedValueOnce({
+      inviteLink: "https://trajectas.test/auth/accept?invite=token-1",
+      emailDelivered: false,
+    });
+
+    const formData = new FormData();
+    formData.set("email", "person@example.com");
+    formData.set("tenantType", "platform");
+    formData.set("role", "platform_admin");
+
+    const result = await createStaffInviteAction(undefined, formData);
+    expect(result?.emailDelivered).toBe(false);
+    expect(result?.inviteLink).toBe(
+      "https://trajectas.test/auth/accept?invite=token-1"
+    );
+    expect(result?.success).toMatch(/couldn’t be sent/i);
   });
 });

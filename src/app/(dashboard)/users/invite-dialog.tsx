@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, CheckCircle2, ChevronsUpDown, Plus } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, ChevronsUpDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { createStaffInviteAction, revokeInviteById } from "@/app/actions/staff-users";
@@ -244,7 +244,13 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
       return;
     }
 
-    toast.success(`Invite email sent to ${email.trim()}.`);
+    if (nextResult.emailDelivered === false) {
+      toast.warning(
+        `Invite created, but the email couldn’t be sent — copy the link to share it.`
+      );
+    } else {
+      toast.success(`Invite email sent to ${email.trim()}.`);
+    }
     // Keep the dialog open so the shareable link (carried on `result`) stays
     // visible to copy — the fallback when the invite email is filtered.
     router.refresh();
@@ -268,7 +274,13 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
         return;
       }
 
-      toast.success(`Invite email resent to ${email.trim()}.`);
+      if (outcome.emailDelivered) {
+        toast.success(`Invite email resent to ${email.trim()}.`);
+      } else {
+        toast.warning(
+          `Couldn’t send the email — use Copy invite link on the pending invite to share it.`
+        );
+      }
       setOpen(false);
       resetForm();
       router.refresh();
@@ -299,6 +311,7 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
   // Present only after a successful send — switches the dialog to the
   // "share the link" success state.
   const sentLink = result?.inviteLink ?? null;
+  const emailDelivered = result?.emailDelivered !== false;
 
   return (
     <>
@@ -318,8 +331,16 @@ export function InviteDialog({ partners, clients }: InviteDialogProps) {
           {sentLink ? (
             <div className="space-y-4">
               <div className="flex items-start gap-2 text-sm text-foreground">
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-                <span>Invite email sent to {email.trim()}.</span>
+                {emailDelivered ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                ) : (
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                )}
+                <span>
+                  {emailDelivered
+                    ? `Invite email sent to ${email.trim()}.`
+                    : `Couldn’t send the email to ${email.trim()}. Share the link below instead.`}
+                </span>
               </div>
               <div className="space-y-2">
                 <Label>Shareable invite link</Label>
