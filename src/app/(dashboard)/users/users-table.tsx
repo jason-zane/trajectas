@@ -4,11 +4,15 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
+import { ExternalLink, Link2, RefreshCw, RotateCcw, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { resendInvite, bulkDeleteUsers, bulkUpdateUserStatus, type UserListItem } from "@/app/actions/user-management";
-import { revokeInviteById, toggleUserActiveState } from "@/app/actions/staff-users";
+import {
+  reissueInviteLinkById,
+  revokeInviteById,
+  toggleUserActiveState,
+} from "@/app/actions/staff-users";
 import {
   DataTable,
   DataTableActionsMenu,
@@ -16,9 +20,16 @@ import {
   DataTableRowLink,
   type BulkAction,
 } from "@/components/data-table";
+import {
+  ActionDialog,
+  ActionDialogBody,
+  ActionDialogFooter,
+} from "@/components/action-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { InviteLinkField } from "@/components/invite-link-field";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -328,6 +339,7 @@ const columns: ColumnDef<UserTableRow>[] = [
 function UserRowActions({ user }: { user: UserTableRow }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const detailHref = user.type === "profile" ? `/users/${user.id}` : `/users/invite/${user.id}`;
   const actionLabel =
@@ -365,6 +377,28 @@ function UserRowActions({ user }: { user: UserTableRow }) {
       }
 
       toast.success(`Invite email resent to ${user.email}`);
+      router.refresh();
+    });
+  }
+
+  function handleCopyLink() {
+    if (user.type !== "invite") {
+      return;
+    }
+
+    // Fetch (and rotate) the link, then show it in a dialog. The actual
+    // clipboard write happens on a direct button click inside the dialog, so
+    // it keeps the transient user activation that Safari/Firefox require — and
+    // the admin always sees the new URL even if auto-copy is unavailable.
+    startTransition(async () => {
+      const result = await reissueInviteLinkById(user.id);
+
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+
+      setInviteLink(result.inviteLink);
       router.refresh();
     });
   }
@@ -409,6 +443,12 @@ function UserRowActions({ user }: { user: UserTableRow }) {
             Resend invite
           </DropdownMenuItem>
         ) : null}
+        {user.type === "invite" ? (
+          <DropdownMenuItem onClick={handleCopyLink} disabled={isPending}>
+            <Link2 className="size-4" />
+            Copy invite link
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => setOpen(true)}
@@ -433,6 +473,24 @@ function UserRowActions({ user }: { user: UserTableRow }) {
         onConfirm={handleConfirm}
         loading={isPending}
       />
+      <ActionDialog
+        open={inviteLink !== null}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setInviteLink(null);
+        }}
+        eyebrow="Invite"
+        title="Share invite link"
+        description={`Send this link to ${user.email} directly. It replaces any link previously sent for this invite and expires in 7 days.`}
+      >
+        <ActionDialogBody className="space-y-3">
+          {inviteLink ? <InviteLinkField link={inviteLink} /> : null}
+        </ActionDialogBody>
+        <ActionDialogFooter>
+          <Button type="button" onClick={() => setInviteLink(null)}>
+            Done
+          </Button>
+        </ActionDialogFooter>
+      </ActionDialog>
     </>
   );
 }

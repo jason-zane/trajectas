@@ -5,8 +5,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { X } from "lucide-react";
 
-import { revokePartnerInvite, type PartnerPendingInvite } from "@/app/actions/partners";
+import {
+  reissuePartnerInvite,
+  revokePartnerInvite,
+  type PartnerPendingInvite,
+} from "@/app/actions/partners";
 import { Button } from "@/components/ui/button";
+import { CopyInviteLinkButton } from "@/components/copy-invite-link-button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
@@ -91,7 +96,7 @@ export function PartnerPendingInvitesSection({
               <TableHead>Role</TableHead>
               <TableHead>Invited</TableHead>
               <TableHead>Expires</TableHead>
-              <TableHead className="w-[60px]" />
+              <TableHead className="w-[112px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -110,15 +115,23 @@ export function PartnerPendingInvitesSection({
                   {formatDate(invite.expiresAt)}
                 </TableCell>
                 <TableCell>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setRevokeTarget(invite)}
-                    aria-label="Revoke invite"
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <X />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    <CopyInviteLinkButton
+                      iconOnly
+                      email={invite.email}
+                      label="Copy invite link"
+                      getLink={() => reissuePartnerInvite(partnerId, invite.id)}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setRevokeTarget(invite)}
+                      aria-label="Revoke invite"
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <X />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

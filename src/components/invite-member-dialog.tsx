@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Send } from "lucide-react";
+import { CheckCircle2, Plus, Send } from "lucide-react";
 
 import {
   ActionDialog,
@@ -12,6 +12,7 @@ import {
 } from "@/components/action-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { InviteLinkField } from "@/components/invite-link-field";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -25,12 +26,15 @@ import { getSelectLabel } from "@/lib/select-display";
 
 type MembershipRole = "admin" | "member";
 
-type InviteResult = { error?: string } | void;
+type InviteResult = { error?: string; inviteLink?: string } | void;
 
 interface InviteMemberDialogProps {
   /** Descriptive workspace label, e.g. "client workspace" or "partner workspace". */
   scope: string;
-  /** Server action that sends the invite. Should return `{ error }` on failure. */
+  /**
+   * Server action that sends the invite. Returns `{ error }` on failure, or
+   * `{ inviteLink }` on success so the link can be copied and shared directly.
+   */
   onInvite: (params: { email: string; role: MembershipRole }) => Promise<InviteResult>;
   triggerLabel?: string;
   eyebrow?: string;
@@ -53,11 +57,15 @@ export function InviteMemberDialog({
   const [role, setRole] = useState<MembershipRole>("member");
   const [error, setError] = useState<string | null>(null);
   const [isInviting, startInvite] = useTransition();
+  // When set, the invite was created and we show the shareable link instead of
+  // the form so the admin can copy it (email is sent too, but may not arrive).
+  const [sent, setSent] = useState<{ email: string; link: string | null } | null>(null);
 
   function resetForm() {
     setEmail("");
     setRole("member");
     setError(null);
+    setSent(null);
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -83,8 +91,7 @@ export function InviteMemberDialog({
       }
 
       toast.success(`Invite sent to ${trimmedEmail}`);
-      setOpen(false);
-      resetForm();
+      setSent({ email: trimmedEmail, link: result?.inviteLink ?? null });
       router.refresh();
     });
   }
@@ -100,9 +107,39 @@ export function InviteMemberDialog({
         open={open}
         onOpenChange={handleOpenChange}
         eyebrow={eyebrow}
-        title="Invite team member"
-        description={`Send an invite to join this ${scope}. The invite expires in 7 days.`}
+        title={sent ? "Invite sent" : "Invite team member"}
+        description={
+          sent
+            ? `We emailed an invite to ${sent.email}. If it doesn't arrive, copy the link below and send it directly.`
+            : `Send an invite to join this ${scope}. The invite expires in 7 days.`
+        }
       >
+        {sent ? (
+          <>
+            <ActionDialogBody className="space-y-4">
+              <div className="flex items-start gap-2 text-sm text-foreground">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                <span>Invite email sent to {sent.email}.</span>
+              </div>
+              {sent.link ? (
+                <div className="space-y-2">
+                  <Label>Shareable invite link</Label>
+                  <InviteLinkField link={sent.link} />
+                  <p className="text-caption">
+                    Anyone with this link can accept the invite. It expires in 7 days.
+                  </p>
+                </div>
+              ) : null}
+            </ActionDialogBody>
+            <ActionDialogFooter>
+              <Button variant="ghost" onClick={() => setSent(null)} disabled={isInviting}>
+                Invite another
+              </Button>
+              <Button onClick={() => handleOpenChange(false)}>Done</Button>
+            </ActionDialogFooter>
+          </>
+        ) : (
+          <>
         <ActionDialogBody className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="invite-email">Email address</Label>
@@ -165,6 +202,8 @@ export function InviteMemberDialog({
             {isInviting ? "Sending..." : "Send invite"}
           </Button>
         </ActionDialogFooter>
+          </>
+        )}
       </ActionDialog>
     </>
   );

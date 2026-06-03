@@ -721,6 +721,75 @@ export function createInviteLink(token: string) {
   return url.toString();
 }
 
+/**
+ * Mint a fresh shareable accept link for an existing pending invite.
+ *
+ * Only the *hash* of an invite token is stored, so the original link is
+ * unrecoverable once issued. To hand someone a working link after the fact we
+ * rotate the token (new hash + reset 7-day expiry) and return the new link.
+ * Any previously distributed link for this invite stops working as a result.
+ *
+ * Unlike `resendInvite`, this does NOT send an email — it's for the "copy the
+ * link and share it myself" flow when email delivery is unreliable.
+ *
+ * `tenantScope`, when provided, asserts the invite belongs to the given
+ * workspace before rotating — defence-in-depth so a client/partner admin can
+ * only re-issue links for invites within their own tenant.
+ */
+export async function reissueInviteLink(
+  inviteId: string,
+  actorProfileId: string | null,
+  tenantScope?: { tenantType: InviteTenantType; tenantId: string | null }
+): Promise<{ inviteLink: string } | { error: string }> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("user_invites")
+    .select("id, email, tenant_type, tenant_id, role, accepted_at, revoked_at")
+    .eq("id", inviteId)
+    .maybeSingle();
+
+  if (error) return { error: error.message };
+  if (!data) return { error: "Invite not found." };
+  if (data.accepted_at) return { error: "This invite has already been accepted." };
+  if (data.revoked_at) return { error: "This invite has been revoked." };
+
+  const inviteTenantId = data.tenant_id ? String(data.tenant_id) : null;
+  if (
+    tenantScope &&
+    (data.tenant_type !== tenantScope.tenantType ||
+      inviteTenantId !== (tenantScope.tenantId ?? null))
+  ) {
+    return { error: "This invite does not belong to this workspace." };
+  }
+
+  const token = createInviteToken();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+
+  const { error: updateError } = await db
+    .from("user_invites")
+    .update({ invite_token_hash: hashInviteToken(token), expires_at: expiresAt })
+    .eq("id", inviteId);
+
+  if (updateError) return { error: updateError.message };
+
+  await logAuditEvent({
+    actorProfileId,
+    eventType: "staff_invite.link_reissued",
+    targetTable: "user_invites",
+    targetId: inviteId,
+    partnerId: data.tenant_type === "partner" ? inviteTenantId : null,
+    clientId: data.tenant_type === "client" ? inviteTenantId : null,
+    metadata: {
+      email: data.email,
+      tenantType: data.tenant_type,
+      role: data.role,
+      nextExpiresAt: expiresAt,
+    },
+  });
+
+  return { inviteLink: createInviteLink(token) };
+}
+
 export async function revokeInvite(
   inviteId: string,
   actorProfileId: string,

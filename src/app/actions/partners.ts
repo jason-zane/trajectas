@@ -14,6 +14,7 @@ import {
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import {
   createStaffInvite,
+  reissueInviteLink,
   revokeInvite,
   type InviteRole,
 } from '@/lib/auth/staff-auth'
@@ -572,7 +573,7 @@ export async function inviteUserToPartner(
     return { error: formErrors?.[0] ?? 'Failed to create invite' }
   }
 
-  await sendStaffInviteEmail({
+  const { inviteLink } = await sendStaffInviteEmail({
     email: result.data.email,
     inviteToken: result.inviteToken,
     tenantType: result.data.tenantType,
@@ -580,7 +581,36 @@ export async function inviteUserToPartner(
   })
 
   revalidatePath(`/partners`)
-  return { success: true as const }
+  return { success: true as const, inviteLink }
+}
+
+/**
+ * Mint a fresh shareable accept link for an existing pending partner invite,
+ * for the "copy the link and send it myself" flow. Rotates the token, so any
+ * previously sent link for this invite stops working.
+ */
+export async function reissuePartnerInvite(
+  partnerId: string,
+  inviteId: string
+): Promise<{ inviteLink: string } | { error: string }> {
+  let access
+  try {
+    access = await requirePartnerAccess(partnerId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  if (!access.scope.isPlatformAdmin && !access.scope.partnerAdminIds.includes(partnerId)) {
+    return { error: 'You do not have permission to manage invites for this partner' }
+  }
+
+  return reissueInviteLink(inviteId, access.scope.actor?.id ?? null, {
+    tenantType: 'partner',
+    tenantId: partnerId,
+  })
 }
 
 export async function changePartnerMemberRole(

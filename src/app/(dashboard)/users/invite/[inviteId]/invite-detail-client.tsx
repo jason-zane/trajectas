@@ -7,9 +7,10 @@ import { RefreshCw, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { CopyInviteLinkButton } from "@/components/copy-invite-link-button";
 import type { InviteDetail } from "@/app/actions/user-management";
 import { resendInvite } from "@/app/actions/user-management";
-import { revokeInviteById } from "@/app/actions/staff-users";
+import { reissueInviteLinkById, revokeInviteById } from "@/app/actions/staff-users";
 
 interface InviteDetailClientProps {
   invite: InviteDetail;
@@ -63,6 +64,13 @@ export function InviteDetailClient({ invite }: InviteDetailClientProps) {
         <RefreshCw className="size-4" />
         {isResending ? "Resending..." : "Resend Invite"}
       </Button>
+      {isPending ? (
+        <CopyInviteLinkButton
+          email={invite.email}
+          label="Copy link"
+          getLink={() => reissueInviteLinkById(invite.id)}
+        />
+      ) : null}
       <Button
         type="button"
         variant="outline"
