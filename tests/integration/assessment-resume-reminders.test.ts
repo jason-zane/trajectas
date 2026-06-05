@@ -181,7 +181,7 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
     expect((await sessionCount()).resume_reminder_count).toBe(2);
   });
 
-  it("releases the claim when a send fails so it retries next run", async () => {
+  it("consumes the tier at-most-once on send failure (no retry loop)", async () => {
     // Fresh, untouched session so earlier global sweeps haven't already nudged it.
     const participant = await ins("campaign_participants", {
       campaign_id: ids.campaign,
@@ -207,7 +207,9 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       return data!.resume_reminder_count as number;
     };
 
-    // A sender that always fails: every claimed row should be reverted.
+    // A sender that always fails: the claim is NOT reverted, so the tier is
+    // consumed and the session is not retried on the next run — a
+    // permanently-undeliverable recipient must not loop through the cron.
     const failing = (async () => {
       throw new Error("simulated delivery failure");
     }) as typeof sendEmail;
@@ -217,15 +219,77 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       sendFn: failing,
     });
     expect(failResult.errors).toBeGreaterThanOrEqual(1);
-    expect(await countFor()).toBe(0); // claim reverted → still eligible
+    expect(await countFor()).toBe(1); // claimed, not reverted
 
-    // A subsequent successful run nudges it and advances the counter.
+    // A subsequent run does not re-send tier 1 (counter stayed advanced).
     sent = [];
     await sweepResumeReminders({ now, client: admin, sendFn });
-    expect(sent.map((s) => s.to)).toContain(`arr-fail-${ts}@test.local`);
+    expect(sent.map((s) => s.to)).not.toContain(`arr-fail-${ts}@test.local`);
     expect(await countFor()).toBe(1);
 
     await admin.from("participant_sessions").delete().eq("id", session);
     await admin.from("campaign_participants").delete().eq("id", participant);
+  });
+
+  it("skips closed and soft-deleted campaigns", async () => {
+    // A closed campaign and a soft-deleted campaign, each with an idle session.
+    const closedCampaign = await ins("campaigns", {
+      title: `ARR Closed ${ts}`,
+      slug: slug("closed"),
+      client_id: ids.client,
+      closes_at: minutesAgo(60),
+    });
+    const deletedCampaign = await ins("campaigns", {
+      title: `ARR Deleted ${ts}`,
+      slug: slug("deleted"),
+      client_id: ids.client,
+      deleted_at: new Date(now.getTime() - 60_000).toISOString(),
+    });
+    const mk = async (campaignId: string, tag: string) => {
+      const p = await ins("campaign_participants", {
+        campaign_id: campaignId,
+        email: `arr-${tag}-${ts}@test.local`,
+        first_name: tag,
+      });
+      const s = await ins("participant_sessions", {
+        campaign_participant_id: p,
+        campaign_id: campaignId,
+        assessment_id: ids.assessment,
+        client_id: ids.client,
+        status: "in_progress",
+        started_at: minutesAgo(30),
+        last_activity_at: minutesAgo(6),
+      });
+      return { p, s };
+    };
+    const closed = await mk(closedCampaign, "closed");
+    const deleted = await mk(deletedCampaign, "deleted");
+
+    sent = [];
+    await sweepResumeReminders({ now, client: admin, sendFn });
+
+    // No emails to either; both sessions are claimed (retired), not left at 0.
+    const recipients = sent.map((s) => s.to);
+    expect(recipients).not.toContain(`arr-closed-${ts}@test.local`);
+    expect(recipients).not.toContain(`arr-deleted-${ts}@test.local`);
+
+    for (const id of [closed.s, deleted.s]) {
+      const { data } = await admin
+        .from("participant_sessions")
+        .select("resume_reminder_count")
+        .eq("id", id)
+        .single();
+      expect(data!.resume_reminder_count).toBe(1); // claimed, no send
+    }
+
+    await admin
+      .from("participant_sessions")
+      .delete()
+      .in("id", [closed.s, deleted.s]);
+    await admin
+      .from("campaign_participants")
+      .delete()
+      .in("id", [closed.p, deleted.p]);
+    await admin.from("campaigns").delete().in("id", [closedCampaign, deletedCampaign]);
   });
 });
