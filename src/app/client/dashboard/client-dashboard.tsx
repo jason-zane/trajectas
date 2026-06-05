@@ -232,6 +232,33 @@ export function ClientDashboard({
         </p>
       </header>
 
+      {/* ===== QUICK ACTIONS ===== */}
+      <section className="space-y-4">
+        <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
+          Quick actions
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <LaunchCampaignButton
+            label="Create campaign"
+            assessments={launchAssessments}
+            clients={[{ id: clientId, name: "My organisation" }]}
+            recentCampaigns={campaigns}
+            forcedClientId={clientId}
+            successHrefPrefix="/client/campaigns"
+          />
+          <Link
+            href={href("/participants")}
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "border-foreground/20"
+            )}
+          >
+            <ArrowUpRight className="size-4" />
+            View recent results
+          </Link>
+        </div>
+      </section>
+
       {/* ===== METRIC STRIP — one headline, two framing stats ===== */}
       <section className="grid gap-8 border-t border-b border-border/70 py-8 lg:grid-cols-5">
         {/* Headline metric */}
@@ -302,30 +329,6 @@ export function ClientDashboard({
               </p>
             </div>
           ))}
-        </div>
-      </section>
-
-      {/* ===== QUICK ACTIONS ===== */}
-      <section className="space-y-4">
-        <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-[var(--gold)]">
-          Quick actions
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <LaunchCampaignButton
-            label="Launch campaign"
-            assessments={launchAssessments}
-            clients={[{ id: clientId, name: "My organisation" }]}
-            recentCampaigns={campaigns}
-            forcedClientId={clientId}
-            successHrefPrefix="/client/campaigns"
-          />
-          <Link
-            href={href("/participants")}
-            className={buttonVariants({ variant: "outline" })}
-          >
-            <ArrowUpRight className="size-4" />
-            View recent results
-          </Link>
         </div>
       </section>
 
