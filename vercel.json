@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/account-deletion-sweep",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/assessment-resume-reminders",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
