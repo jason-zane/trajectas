@@ -74,6 +74,9 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       title: `ARR Campaign ${ts}`,
       slug: slug("campaign"),
       client_id: ids.client,
+      // Reminders only go to campaigns the runner would accept (status=active);
+      // the column defaults to 'draft', which the sweep now correctly skips.
+      status: "active",
     });
     ids.assessment = await ins("assessments", {
       title: `ARR Assessment ${ts}`,
@@ -181,7 +184,7 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
     expect((await sessionCount()).resume_reminder_count).toBe(2);
   });
 
-  it("releases the claim when a send fails so it retries next run", async () => {
+  it("consumes the tier at-most-once on send failure (no retry loop)", async () => {
     // Fresh, untouched session so earlier global sweeps haven't already nudged it.
     const participant = await ins("campaign_participants", {
       campaign_id: ids.campaign,
@@ -207,7 +210,9 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       return data!.resume_reminder_count as number;
     };
 
-    // A sender that always fails: every claimed row should be reverted.
+    // A sender that always fails: the claim is NOT reverted, so the tier is
+    // consumed and the session is not retried on the next run — a
+    // permanently-undeliverable recipient must not loop through the cron.
     const failing = (async () => {
       throw new Error("simulated delivery failure");
     }) as typeof sendEmail;
@@ -217,15 +222,94 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       sendFn: failing,
     });
     expect(failResult.errors).toBeGreaterThanOrEqual(1);
-    expect(await countFor()).toBe(0); // claim reverted → still eligible
+    expect(await countFor()).toBe(1); // claimed, not reverted
 
-    // A subsequent successful run nudges it and advances the counter.
+    // A subsequent run does not re-send tier 1 (counter stayed advanced).
     sent = [];
     await sweepResumeReminders({ now, client: admin, sendFn });
-    expect(sent.map((s) => s.to)).toContain(`arr-fail-${ts}@test.local`);
+    expect(sent.map((s) => s.to)).not.toContain(`arr-fail-${ts}@test.local`);
     expect(await countFor()).toBe(1);
 
     await admin.from("participant_sessions").delete().eq("id", session);
     await admin.from("campaign_participants").delete().eq("id", participant);
+  });
+
+  it("skips campaigns the runner would not accept (closed / deleted / non-active status)", async () => {
+    // Three ways a campaign is not a valid reminder target, each with an idle
+    // session: active-but-past-closes_at, soft-deleted, and status=closed with
+    // NO closes_at (closeCampaign sets status without touching closes_at).
+    const pastClose = await ins("campaigns", {
+      title: `ARR PastClose ${ts}`,
+      slug: slug("pastclose"),
+      client_id: ids.client,
+      status: "active",
+      closes_at: minutesAgo(60),
+    });
+    const deletedCampaign = await ins("campaigns", {
+      title: `ARR Deleted ${ts}`,
+      slug: slug("deleted"),
+      client_id: ids.client,
+      status: "active",
+      deleted_at: new Date(now.getTime() - 60_000).toISOString(),
+    });
+    const statusClosed = await ins("campaigns", {
+      title: `ARR StatusClosed ${ts}`,
+      slug: slug("statusclosed"),
+      client_id: ids.client,
+      status: "closed", // no closes_at — only the status column marks it closed
+    });
+
+    const mk = async (campaignId: string, tag: string) => {
+      const p = await ins("campaign_participants", {
+        campaign_id: campaignId,
+        email: `arr-${tag}-${ts}@test.local`,
+        first_name: tag,
+      });
+      const s = await ins("participant_sessions", {
+        campaign_participant_id: p,
+        campaign_id: campaignId,
+        assessment_id: ids.assessment,
+        client_id: ids.client,
+        status: "in_progress",
+        started_at: minutesAgo(30),
+        last_activity_at: minutesAgo(6),
+      });
+      return { p, s };
+    };
+    const cases = {
+      pastclose: await mk(pastClose, "pastclose"),
+      deleted: await mk(deletedCampaign, "deleted"),
+      statusclosed: await mk(statusClosed, "statusclosed"),
+    };
+
+    sent = [];
+    await sweepResumeReminders({ now, client: admin, sendFn });
+
+    const recipients = sent.map((s) => s.to);
+    for (const tag of ["pastclose", "deleted", "statusclosed"]) {
+      expect(recipients).not.toContain(`arr-${tag}-${ts}@test.local`);
+    }
+    // Each session is claimed (retired), so it isn't reselected every run.
+    for (const { s } of Object.values(cases)) {
+      const { data } = await admin
+        .from("participant_sessions")
+        .select("resume_reminder_count")
+        .eq("id", s)
+        .single();
+      expect(data!.resume_reminder_count).toBe(1);
+    }
+
+    await admin
+      .from("participant_sessions")
+      .delete()
+      .in("id", Object.values(cases).map((c) => c.s));
+    await admin
+      .from("campaign_participants")
+      .delete()
+      .in("id", Object.values(cases).map((c) => c.p));
+    await admin
+      .from("campaigns")
+      .delete()
+      .in("id", [pastClose, deletedCampaign, statusClosed]);
   });
 });
