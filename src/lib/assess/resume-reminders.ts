@@ -43,6 +43,8 @@ interface DueSession {
   id: string
   campaign_id: string | null
   campaign_participant_id: string
+  /** Prior value, captured at selection so a failed send can be reverted. */
+  resume_reminder_last_sent_at: string | null
 }
 
 export interface SweepOptions {
@@ -70,7 +72,7 @@ export async function sweepResumeReminders(
   // Tier 1: never reminded, quiet for long enough.
   const { data: tier1Rows, error: t1err } = await db
     .from('participant_sessions')
-    .select('id, campaign_id, campaign_participant_id')
+    .select('id, campaign_id, campaign_participant_id, resume_reminder_last_sent_at')
     .eq('status', 'in_progress')
     .eq('resume_reminder_count', 0)
     .not('campaign_participant_id', 'is', null)
@@ -81,7 +83,7 @@ export async function sweepResumeReminders(
   // Tier 2: reminded once, 24h elapsed since, still unfinished.
   const { data: tier2Rows, error: t2err } = await db
     .from('participant_sessions')
-    .select('id, campaign_id, campaign_participant_id')
+    .select('id, campaign_id, campaign_participant_id, resume_reminder_last_sent_at')
     .eq('status', 'in_progress')
     .eq('resume_reminder_count', 1)
     .not('campaign_participant_id', 'is', null)
@@ -128,6 +130,14 @@ async function sendForTier(
       : Promise.resolve({ data: [], error: null }),
   ])
 
+  // Abort the tier on a lookup failure rather than treating every selected
+  // session as unsendable — otherwise a transient DB/API error would burn a
+  // reminder tier for the whole batch with no email and no retry.
+  if (participantsRes.error)
+    throw new Error(`participant lookup failed: ${participantsRes.error.message}`)
+  if (campaignsRes.error)
+    throw new Error(`campaign lookup failed: ${campaignsRes.error.message}`)
+
   const participants = new Map(
     (participantsRes.data ?? []).map((p) => [p.id as string, p]),
   )
@@ -135,11 +145,19 @@ async function sendForTier(
   const baseUrl = requireAppUrl('public')
 
   for (const row of rows) {
+    // Claim the row atomically *before* sending: advance the counter only if
+    // it's still in_progress, still on the prior tier, and still past this
+    // tier's cutoff. This wins exactly one claim across overlapping runs (no
+    // double-send) and drops a session that became active again between
+    // selection and now (the activity trigger moved last_activity_at).
+    const claimed = await claimSession(db, row, tier, now)
+    if (!claimed) continue
+
     const participant = participants.get(row.campaign_participant_id)
     const campaign = row.campaign_id ? campaigns.get(row.campaign_id) : undefined
 
-    // Unsendable (participant deleted / no token / orphaned campaign). Advance
-    // the counter so we don't reselect this row on every subsequent run.
+    // Unsendable (participant deleted / no token / orphaned campaign). Leave it
+    // claimed so we don't reselect this dead row on every subsequent run.
     if (
       !participant ||
       participant.deleted_at ||
@@ -147,7 +165,6 @@ async function sendForTier(
       !participant.access_token ||
       !campaign
     ) {
-      await markReminded(db, row.id, tier, now)
       continue
     }
 
@@ -166,16 +183,15 @@ async function sendForTier(
         scopeClientId: campaign.client_id ?? undefined,
         scopePartnerId: campaign.partner_id ?? undefined,
       })
-
-      const advanced = await markReminded(db, row.id, tier, now)
-      if (advanced) sent++
+      sent++
     } catch (err) {
-      // Leave the counter untouched so the next run retries this session.
       console.error(
         `[cron:assessment-resume-reminders] tier ${tier} send failed for session ${row.id}:`,
         err instanceof Error ? err.message : String(err),
       )
       errors++
+      // Release the claim so the next run retries this session.
+      await revertClaim(db, row, tier)
     }
   }
 
@@ -183,36 +199,68 @@ async function sendForTier(
 }
 
 /**
- * Advance the reminder counter for a session, guarding on the prior tier and
- * in_progress status so a concurrent sweep or a just-completed session can't
- * cause a double-send or resurrect a finished row. Returns whether a row was
- * updated.
+ * Atomically advance a session's reminder counter, re-checking everything the
+ * selection relied on (in_progress, prior tier, this tier's cutoff). Returns
+ * whether this call won the claim.
  */
-async function markReminded(
+async function claimSession(
   db: AdminClient,
-  sessionId: string,
+  row: DueSession,
   tier: 1 | 2,
   now: Date,
 ): Promise<boolean> {
-  const { data, error } = await db
+  let query = db
     .from('participant_sessions')
     .update({
       resume_reminder_count: tier,
       resume_reminder_last_sent_at: now.toISOString(),
     })
-    .eq('id', sessionId)
+    .eq('id', row.id)
     .eq('status', 'in_progress')
     .eq('resume_reminder_count', tier - 1)
-    .select('id')
 
+  if (tier === 1) {
+    query = query.lte(
+      'last_activity_at',
+      new Date(now.getTime() - TIER1_INACTIVITY_MS).toISOString(),
+    )
+  } else {
+    query = query.lte(
+      'resume_reminder_last_sent_at',
+      new Date(now.getTime() - TIER2_DELAY_MS).toISOString(),
+    )
+  }
+
+  const { data, error } = await query.select('id')
   if (error) {
     console.error(
-      `[cron:assessment-resume-reminders] failed to mark session ${sessionId}:`,
+      `[cron:assessment-resume-reminders] failed to claim session ${row.id}:`,
       error.message,
     )
     return false
   }
   return (data?.length ?? 0) > 0
+}
+
+/**
+ * Undo a claim after a failed send, restoring the prior tier/timestamp so the
+ * next run retries. Guarded on still owning the claim.
+ */
+async function revertClaim(db: AdminClient, row: DueSession, tier: 1 | 2): Promise<void> {
+  const { error } = await db
+    .from('participant_sessions')
+    .update({
+      resume_reminder_count: tier - 1,
+      resume_reminder_last_sent_at: row.resume_reminder_last_sent_at,
+    })
+    .eq('id', row.id)
+    .eq('resume_reminder_count', tier)
+  if (error) {
+    console.error(
+      `[cron:assessment-resume-reminders] failed to revert claim for session ${row.id}:`,
+      error.message,
+    )
+  }
 }
 
 function daysRemaining(closesAt: string | null, now: Date): string {

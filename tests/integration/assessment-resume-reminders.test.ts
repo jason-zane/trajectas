@@ -180,4 +180,52 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
     expect(myEmails()).toHaveLength(0);
     expect((await sessionCount()).resume_reminder_count).toBe(2);
   });
+
+  it("releases the claim when a send fails so it retries next run", async () => {
+    // Fresh, untouched session so earlier global sweeps haven't already nudged it.
+    const participant = await ins("campaign_participants", {
+      campaign_id: ids.campaign,
+      email: `arr-fail-${ts}@test.local`,
+      first_name: "Frankie",
+    });
+    const session = await ins("participant_sessions", {
+      campaign_participant_id: participant,
+      campaign_id: ids.campaign,
+      assessment_id: ids.assessment,
+      client_id: ids.client,
+      status: "in_progress",
+      started_at: minutesAgo(30),
+      last_activity_at: minutesAgo(6),
+    });
+
+    const countFor = async () => {
+      const { data } = await admin
+        .from("participant_sessions")
+        .select("resume_reminder_count")
+        .eq("id", session)
+        .single();
+      return data!.resume_reminder_count as number;
+    };
+
+    // A sender that always fails: every claimed row should be reverted.
+    const failing = (async () => {
+      throw new Error("simulated delivery failure");
+    }) as typeof sendEmail;
+    const failResult = await sweepResumeReminders({
+      now,
+      client: admin,
+      sendFn: failing,
+    });
+    expect(failResult.errors).toBeGreaterThanOrEqual(1);
+    expect(await countFor()).toBe(0); // claim reverted → still eligible
+
+    // A subsequent successful run nudges it and advances the counter.
+    sent = [];
+    await sweepResumeReminders({ now, client: admin, sendFn });
+    expect(sent.map((s) => s.to)).toContain(`arr-fail-${ts}@test.local`);
+    expect(await countFor()).toBe(1);
+
+    await admin.from("participant_sessions").delete().eq("id", session);
+    await admin.from("campaign_participants").delete().eq("id", participant);
+  });
 });
