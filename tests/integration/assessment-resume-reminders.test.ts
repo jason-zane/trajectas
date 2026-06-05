@@ -74,6 +74,9 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       title: `ARR Campaign ${ts}`,
       slug: slug("campaign"),
       client_id: ids.client,
+      // Reminders only go to campaigns the runner would accept (status=active);
+      // the column defaults to 'draft', which the sweep now correctly skips.
+      status: "active",
     });
     ids.assessment = await ins("assessments", {
       title: `ARR Assessment ${ts}`,
@@ -231,20 +234,31 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
     await admin.from("campaign_participants").delete().eq("id", participant);
   });
 
-  it("skips closed and soft-deleted campaigns", async () => {
-    // A closed campaign and a soft-deleted campaign, each with an idle session.
-    const closedCampaign = await ins("campaigns", {
-      title: `ARR Closed ${ts}`,
-      slug: slug("closed"),
+  it("skips campaigns the runner would not accept (closed / deleted / non-active status)", async () => {
+    // Three ways a campaign is not a valid reminder target, each with an idle
+    // session: active-but-past-closes_at, soft-deleted, and status=closed with
+    // NO closes_at (closeCampaign sets status without touching closes_at).
+    const pastClose = await ins("campaigns", {
+      title: `ARR PastClose ${ts}`,
+      slug: slug("pastclose"),
       client_id: ids.client,
+      status: "active",
       closes_at: minutesAgo(60),
     });
     const deletedCampaign = await ins("campaigns", {
       title: `ARR Deleted ${ts}`,
       slug: slug("deleted"),
       client_id: ids.client,
+      status: "active",
       deleted_at: new Date(now.getTime() - 60_000).toISOString(),
     });
+    const statusClosed = await ins("campaigns", {
+      title: `ARR StatusClosed ${ts}`,
+      slug: slug("statusclosed"),
+      client_id: ids.client,
+      status: "closed", // no closes_at — only the status column marks it closed
+    });
+
     const mk = async (campaignId: string, tag: string) => {
       const p = await ins("campaign_participants", {
         campaign_id: campaignId,
@@ -262,34 +276,40 @@ describe.skipIf(!canRun)("assess: sweepResumeReminders", () => {
       });
       return { p, s };
     };
-    const closed = await mk(closedCampaign, "closed");
-    const deleted = await mk(deletedCampaign, "deleted");
+    const cases = {
+      pastclose: await mk(pastClose, "pastclose"),
+      deleted: await mk(deletedCampaign, "deleted"),
+      statusclosed: await mk(statusClosed, "statusclosed"),
+    };
 
     sent = [];
     await sweepResumeReminders({ now, client: admin, sendFn });
 
-    // No emails to either; both sessions are claimed (retired), not left at 0.
     const recipients = sent.map((s) => s.to);
-    expect(recipients).not.toContain(`arr-closed-${ts}@test.local`);
-    expect(recipients).not.toContain(`arr-deleted-${ts}@test.local`);
-
-    for (const id of [closed.s, deleted.s]) {
+    for (const tag of ["pastclose", "deleted", "statusclosed"]) {
+      expect(recipients).not.toContain(`arr-${tag}-${ts}@test.local`);
+    }
+    // Each session is claimed (retired), so it isn't reselected every run.
+    for (const { s } of Object.values(cases)) {
       const { data } = await admin
         .from("participant_sessions")
         .select("resume_reminder_count")
-        .eq("id", id)
+        .eq("id", s)
         .single();
-      expect(data!.resume_reminder_count).toBe(1); // claimed, no send
+      expect(data!.resume_reminder_count).toBe(1);
     }
 
     await admin
       .from("participant_sessions")
       .delete()
-      .in("id", [closed.s, deleted.s]);
+      .in("id", Object.values(cases).map((c) => c.s));
     await admin
       .from("campaign_participants")
       .delete()
-      .in("id", [closed.p, deleted.p]);
-    await admin.from("campaigns").delete().in("id", [closedCampaign, deletedCampaign]);
+      .in("id", Object.values(cases).map((c) => c.p));
+    await admin
+      .from("campaigns")
+      .delete()
+      .in("id", [pastClose, deletedCampaign, statusClosed]);
   });
 });

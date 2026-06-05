@@ -19,6 +19,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAppUrl } from '@/lib/hosts'
+import { getCampaignAccessError, getParticipantAccessError } from '@/lib/assess/access'
 import type { sendEmail } from '@/lib/email/send'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -118,12 +119,12 @@ async function sendForTier(
   const [participantsRes, campaignsRes] = await Promise.all([
     db
       .from('campaign_participants')
-      .select('id, email, first_name, access_token, deleted_at')
+      .select('id, email, first_name, access_token, deleted_at, status')
       .in('id', participantIds),
     campaignIds.length
       ? db
           .from('campaigns')
-          .select('id, title, client_id, partner_id, closes_at, deleted_at')
+          .select('id, title, client_id, partner_id, status, opens_at, closes_at, deleted_at')
           .in('id', campaignIds)
       : Promise.resolve({ data: [], error: null }),
   ])
@@ -155,22 +156,31 @@ async function sendForTier(
     const campaign = row.campaign_id ? campaigns.get(row.campaign_id) : undefined
 
     // Not a valid send target — leave it claimed so we don't reselect this row
-    // on every subsequent run. Skip when:
-    //  - the participant is gone / has no deliverable token,
-    //  - the campaign is missing,
-    //  - the campaign is soft-deleted, or
-    //  - the campaign has already closed (no point nudging someone to finish an
-    //    assessment that no longer accepts responses).
-    const campaignClosed =
-      !!campaign?.closes_at && new Date(campaign.closes_at).getTime() <= now.getTime()
+    // on every subsequent run. Skip when the participant is gone / has no
+    // deliverable token, or when the campaign/participant would not actually be
+    // allowed into the runner. We reuse the runtime's own access checks so the
+    // reminder rule can never drift from what the assessment will accept:
+    // deleted/paused/draft/closed/not-yet-open campaigns, and withdrawn/expired
+    // participants, are all excluded.
+    const campaignBlocked =
+      !campaign ||
+      getCampaignAccessError(
+        {
+          status: campaign.status,
+          opensAt: campaign.opens_at,
+          closesAt: campaign.closes_at,
+          deletedAt: campaign.deleted_at,
+        },
+        now,
+      ) !== null
     if (
       !participant ||
       participant.deleted_at ||
       !participant.email ||
       !participant.access_token ||
-      !campaign ||
-      campaign.deleted_at ||
-      campaignClosed
+      getParticipantAccessError(participant.status ?? '') !== null ||
+      campaignBlocked ||
+      !campaign
     ) {
       continue
     }
