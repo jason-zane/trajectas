@@ -20,7 +20,8 @@ import { throwActionError } from '@/lib/security/action-errors'
 import { runBriefExtraction } from '@/lib/ai/brief-extraction'
 import { runMatching } from '@/lib/ai/matching/engine'
 import { runArchitectOverview } from '@/lib/ai/architect-overview'
-import { createAssessment } from '@/app/actions/assessments'
+import { createAssessment, getFormatBreakdown } from '@/app/actions/assessments'
+import type { SectionDraft } from '@/app/actions/assessments'
 import { extractBriefSchema, runArchitectMatchSchema, createArchitectAssessmentSchema, summariseSelectionSchema } from '@/lib/validations/architect'
 import type { Brief, MatchingFactor } from '@/types/ai'
 import type { ArchitectPick, ArchitectMatchResult } from '@/types/architect'
@@ -239,11 +240,37 @@ export async function createArchitectAssessment(input: {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  const factorIds = parsed.data.picks.map((p) => p.factorId)
+
+  // The runner serves items from assessment_sections -> assessment_section_items,
+  // not directly from assessment_factors. createAssessment only materialises those
+  // section items when it's handed a `sections` layout (persistSections). The manual
+  // builder builds that layout in its Presentation step; the architect skips it, so
+  // without this an architect assessment ends up with factors but zero questions.
+  // Mirror the manual default — one section per response format the picks resolve to.
+  const formatGroups = await getFormatBreakdown({ factorIds })
+  const sections: SectionDraft[] = formatGroups.map((g, i) => ({
+    responseFormatId: g.responseFormatId,
+    formatName: g.formatName,
+    formatType: g.formatType,
+    // assessment_sections.title is NOT NULL and persistSections stores
+    // `title.trim() || null`, so an empty title would fail the insert. Resolve a
+    // default up front (the manual builder resolves its title before saving too).
+    title: DEFAULT_SECTION_TITLES[g.formatType] ?? 'Assessment Section',
+    instructions: DEFAULT_SECTION_INSTRUCTIONS[g.formatType] ?? '',
+    displayOrder: i,
+    itemOrdering: g.formatType === 'sjt' ? 'fixed' : 'randomised',
+    timeLimitSeconds: null,
+    itemCount: g.itemCount,
+  }))
+
   // Reuse the existing assessment-creation path; it enforces its own scope.
   return createAssessment({
     title: parsed.data.title,
     description: parsed.data.description,
-    status: 'draft',
+    // Architect assessments are assembled ready-to-run from the live (all-active)
+    // library, so they go straight to active. Manual creation stays 'draft'.
+    status: 'active',
     itemSelectionStrategy: 'fixed',
     creationMode: 'ai_generated',
     formatMode: 'traditional',
@@ -252,7 +279,26 @@ export async function createArchitectAssessment(input: {
       weight: p.weight ?? 1,
       itemCount: p.itemCount,
     })),
+    sections,
   })
+}
+
+// Section copy defaults — mirrors the manual builder's section-configurator so
+// architect-built sections read identically to hand-built ones.
+const DEFAULT_SECTION_TITLES: Record<string, string> = {
+  likert: 'Self-Report Questionnaire',
+  binary: 'Quick Checks',
+  sjt: 'Situational Judgement',
+  forced_choice: 'Forced Choice',
+  free_text: 'Open Response',
+}
+
+const DEFAULT_SECTION_INSTRUCTIONS: Record<string, string> = {
+  likert: 'Rate how strongly you agree or disagree with each statement.',
+  binary: 'Indicate whether each statement applies to you.',
+  sjt: 'Read each scenario carefully and rate the effectiveness of each response option.',
+  forced_choice: 'For each group of statements, select the one most like you and the one least like you.',
+  free_text: 'Please provide a detailed response to each prompt.',
 }
 
 // ---------------------------------------------------------------------------
