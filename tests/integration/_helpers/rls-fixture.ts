@@ -55,15 +55,46 @@ export const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 export const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 /**
+ * Pure predicate: is this URL a local Supabase host? Only localhost /
+ * 127.0.0.1 / Docker-internal / the Kong gateway count. Exported so the guard
+ * itself is unit-tested and can't silently regress.
+ */
+export function isLocalSupabaseUrl(url: string | null | undefined): boolean {
+  return (
+    !!url &&
+    /^(https?:\/\/)?(127\.0\.0\.1|localhost|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(
+      url,
+    )
+  );
+}
+
+/**
+ * Fail-closed guard. Throws if a Supabase URL is configured but is NOT local.
+ * A properly guarded test skips (via `skipIf(!canRun)`) before reaching here;
+ * this is the defence-in-depth net for when that per-file guard is missing or
+ * wrong, so a misconfigured run (`npm test` / `npm run test:integration` with
+ * `.env.local` pointing at prod) can never open a privileged connection to
+ * production — it aborts loudly instead of writing rows.
+ *
+ * No-op when no URL is configured (CI), so guarded tests still skip there.
+ */
+export function assertLocalSupabaseUrl(url: string | null | undefined): void {
+  if (url && !isLocalSupabaseUrl(url)) {
+    throw new Error(
+      `Refusing to open a Supabase connection from an integration test: ` +
+        `NEXT_PUBLIC_SUPABASE_URL points at a non-local host (${url}). ` +
+        `Integration tests may only run against a local stack — use ` +
+        `\`npm run test:integration:local\`. (.env.local points at production.)`,
+    );
+  }
+}
+
+/**
  * Hard safety gate: only ever run against a local Supabase stack. `.env.local`
  * points at production by default, so anything that isn't localhost /
  * 127.0.0.1 / Docker-internal / the Kong gateway is refused.
  */
-export const isLocalSupabase =
-  !!SUPABASE_URL &&
-  /^(https?:\/\/)?(127\.0\.0\.1|localhost|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(
-    SUPABASE_URL,
-  );
+export const isLocalSupabase = isLocalSupabaseUrl(SUPABASE_URL);
 
 export const canRun =
   Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY) &&
@@ -71,6 +102,8 @@ export const canRun =
 
 /** Service-role client for privileged setup/teardown (bypasses RLS). */
 export function createAdminClient(): SupabaseClient {
+  // Fail loud before connecting if pointed at a non-local host.
+  assertLocalSupabaseUrl(SUPABASE_URL);
   if (!canRun) return null as never;
   return createClient(SUPABASE_URL!, SUPABASE_SERVICE_KEY!);
 }
@@ -93,6 +126,10 @@ export async function createTestUser(
     lastName?: string;
   },
 ): Promise<{ userId: string; client: SupabaseClient }> {
+  // Fail loud before any write if pointed at a non-local host (defence in depth;
+  // the admin client passed in is already guarded, but this also covers the
+  // anon client created below).
+  assertLocalSupabaseUrl(SUPABASE_URL);
   // 1. Create the auth user WITHOUT a password (OTP-only model).
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email: opts.email,
