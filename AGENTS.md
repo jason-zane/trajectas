@@ -122,7 +122,12 @@ const canRun = Boolean(SUPABASE_URL && SUPABASE_SERVICE_KEY && SUPABASE_ANON_KEY
 
 CI does not have `.env.local`, so the env vars are unset and tests skip. The guard is for local-developer safety.
 
-This is now **enforced**: `tests/architecture/integration-host-guard.test.ts` fails CI if an integration test opens a real Supabase client (imports `@supabase/supabase-js` or the rls-fixture) without the host guard. Relatedly, `tests/architecture/admin-actions-authz.test.ts` fails CI if a Server Action performs an admin-client (service-role, RLS-bypassing) **mutation** without an authorization gate — add a vetted entry to its ALLOWLIST only for genuine self-service/token exceptions.
+This is enforced two ways:
+
+- **Static (CI):** `tests/architecture/integration-host-guard.test.ts` fails CI if an integration test opens a real Supabase client (imports `@supabase/supabase-js` or the rls-fixture) without the host guard.
+- **Runtime (fail-closed):** the shared fixture's `createAdminClient()` / `createTestUser()` call `assertLocalSupabaseUrl()`, which **throws** if `NEXT_PUBLIC_SUPABASE_URL` is set to a non-local host. So even if a file's `skipIf` guard is missing or wrong, a run pointed at prod aborts loudly instead of writing rows. (No-op when the URL is unset, so CI still skips cleanly.) Pinned by `tests/architecture/rls-fixture-guard.test.ts`.
+
+Relatedly, `tests/architecture/admin-actions-authz.test.ts` fails CI if a Server Action performs an admin-client (service-role, RLS-bypassing) **mutation** without an authorization gate — add a vetted entry to its ALLOWLIST only for genuine self-service/token exceptions.
 
 ## Migration & deploy flow
 
