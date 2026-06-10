@@ -64,19 +64,17 @@ A guiding principle from the audit's root-cause analysis: **every security fix s
 
 **Why it matters.** A caller who can invoke the action (the repo's own `admin-actions-authz` test treats every `'use server'` export as a public endpoint) and knows a snapshot UUID exfiltrates another tenant's psychometric report + PII. Zero defense-in-depth today.
 
-**How.**
-1. `downloadSnapshotPdfBase64`: call `await requireReportSnapshotAccess(snapshotId)` (`src/lib/auth/authorization.ts:603`) before the read. It already resolves the snapshot and checks membership; on failure it throws `AuthorizationError`.
-2. `getSignedReportPdfUrl`: **change the contract so callers can't supply an arbitrary path.** Two real callers exist (server-side render paths that already authorized the snapshot, plus the email/download path). Recommended shape:
-   - Keep an internal, *non-exported* `signReportStoragePath(path)` for already-authorized server-side callers (it stays in the module, not a `'use server'` endpoint, so it isn't independently invocable).
-   - Make the **exported** action take a `snapshotId`, call `requireReportSnapshotAccess(snapshotId)`, resolve the snapshot's `pdf_url` server-side, then sign it. Never trust a path from the client.
-   - The `startsWith('http')` legacy branch (line 89, 120) should be removed or constrained — a legacy full URL passed in is another way to make the action fetch an attacker-chosen URL (minor SSRF). At minimum, only honor stored `pdf_url` values read from the row, never a caller argument.
-3. Audit the call sites (the security agent found them; re-grep `getSignedReportPdfUrl|downloadSnapshotPdfBase64`) and thread `snapshotId` through.
+**How.** *(Updated after a call-site re-check, 2026-06-10.)* The fix is **not** to bolt a user-session gate onto the existing functions — a re-check found **every real caller is server-side and none passes a client-supplied path**, and one caller runs without a user session. Specifically, `downloadSnapshotPdfBase64` is invoked by `notifyConsultantsForSnapshot` (`src/lib/notifications/consultant-notification.ts:138`), which runs in a **system context with no authenticated user** — it uses `createAdminClient()` and fires from a background `after()` path post-PDF-generation (`src/lib/reports/pdf.ts:311`) and directly from `src/lib/reports/runner.ts:366`. So naively wrapping it in `requireReportSnapshotAccess` (which needs a user scope) would **break the consultant email-attachment flow.** Apply the split-helper pattern to *both* functions:
+1. **Internal, non-exported helpers** for the already-authorized / system callers — e.g. `loadSnapshotPdfBase64(snapshotId)` (used by `consultant-notification.ts:138` and `reports.ts:1295`) and `signReportStoragePath(path)` (used by the render paths `reports.ts:843,1525` and the participant flow `assess.ts:1588`, which pass a `pdf_url` already read from a DB row in an authorized context). These stay in the module / a server-only lib, are **not** `'use server'` exports, and carry no user-session gate.
+2. **A separate guarded `'use server'` action** for any genuine *client* invocation: it takes a `snapshotId`, calls `requireReportSnapshotAccess(snapshotId)` (`src/lib/auth/authorization.ts:603`), resolves the snapshot's `pdf_url` server-side, then delegates to the internal helper. Never accept a path from the client.
+   - Since the re-check found **no direct client caller** of either function, the simplest correct fix is to **un-export both** and convert the cross-module import in `assess.ts:1588` to the internal helper — this removes the IDOR surface entirely with no new gate to maintain. Add the guarded action only if/when a client path is actually needed.
+3. Remove/constrain the `startsWith('http')` legacy branches (`reports.ts:89,120`). Note the corrected threat read: in `getSignedReportPdfUrl` the http path is returned **as-is with no fetch** (a pass-through, *not* SSRF — the original plan mislabeled this), and in `downloadSnapshotPdfBase64` the http value *is* fetched but comes from the DB row, not a caller argument. Either way, only honor stored `pdf_url` values read from the row, never a caller-supplied one.
 
 **Verify.**
-- Integration: a user without access to a snapshot's tenant gets `AuthorizationError` from both actions; the owning client-admin still succeeds and gets bytes/URL.
-- Add a regression test asserting the exported signer rejects an arbitrary `reports/<other-id>.pdf`.
+- Integration: if a guarded public action is added, a user without access to a snapshot's tenant gets `AuthorizationError` from it while the owning client-admin succeeds. **Regression-critical:** confirm the consultant-notification background path (no user session) still attaches the PDF via the internal helper — this is the flow a naive gate breaks.
+- Add a test asserting the public surface (action, or the absence of any export) rejects/forbids an arbitrary foreign `snapshotId` / `reports/<other-id>.pdf`.
 
-**Risk & rollback.** Medium — signature change has blast radius across report download/email flows. Mitigate by keeping the internal helper for the already-authorized render paths so only the *public* surface changes. Revertable per-file.
+**Risk & rollback.** Medium — touches report download/email flows. The split-helper (or un-export) keeps the session-less consultant-notification path working; only the *public* surface changes. Revertable per-file.
 
 **Effort.** M. **Depends on:** item 9's report-access test is nice-to-have first, but not blocking.
 
