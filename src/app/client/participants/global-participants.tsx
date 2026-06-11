@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ExternalLink, GitCompare, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -186,9 +186,16 @@ function ParticipantsSearchBar({
   initialQuery?: string;
 }) {
   const [query, setQuery] = useState(initialQuery ?? "");
+  // Guard against parent re-renders: onSearch gets a new identity on every
+  // navigation (it closes over searchParams), which re-runs this effect.
+  // Only dispatch when the VALUE changed, or pagination resets to page 0
+  // on every Next/Prev click.
+  const lastSentRef = useRef(initialQuery ?? "");
 
   useEffect(() => {
+    if (query === lastSentRef.current) return;
     const handle = window.setTimeout(() => {
+      lastSentRef.current = query;
       onSearch(query);
     }, 300);
 

@@ -299,7 +299,18 @@ export async function listUniqueParticipantsForClient(
   const allUnique = Array.from(byEmail.values());
   const totalCount = allUnique.length;
 
-  // Paginate after deduplication
+  // Order by last activity (the table's default sort) BEFORE slicing —
+  // otherwise pages are cut on created_at order and per-page client sorting
+  // shows the wrong participants on each page.
+  const lastActivityOf = (entry: { latest: { started_at?: string | null; completed_at?: string | null; created_at: string } }) => {
+    const t = [entry.latest.completed_at, entry.latest.started_at].filter(
+      Boolean,
+    ) as string[];
+    return t.length > 0 ? t.sort()[t.length - 1] : entry.latest.created_at;
+  };
+  allUnique.sort((a, b) => lastActivityOf(b).localeCompare(lastActivityOf(a)));
+
+  // Paginate after deduplication + ordering
   const offset = params.page * params.pageSize;
   const pageSlice = allUnique.slice(offset, offset + params.pageSize);
 
