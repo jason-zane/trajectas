@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@/lib/auth/claims'
 import {
   listCampaigns,
   listActiveAssessments,
@@ -2208,13 +2209,13 @@ export async function getFavoriteCampaignIds(): Promise<string[]> {
 
 export async function favoriteCampaign(campaignId: string) {
   const db = await createClient()
-  const { data: { user } } = await db.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const userId = await getVerifiedUserId(db)
+  if (!userId) return { error: 'Not authenticated' }
 
   const { error } = await db
     .from('campaign_favorites')
     .upsert(
-      { profile_id: user.id, campaign_id: campaignId },
+      { profile_id: userId, campaign_id: campaignId },
       { onConflict: 'profile_id,campaign_id' },
     )
 
@@ -2225,13 +2226,13 @@ export async function favoriteCampaign(campaignId: string) {
 
 export async function unfavoriteCampaign(campaignId: string) {
   const db = await createClient()
-  const { data: { user } } = await db.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const userId = await getVerifiedUserId(db)
+  if (!userId) return { error: 'Not authenticated' }
 
   const { error } = await db
     .from('campaign_favorites')
     .delete()
-    .eq('profile_id', user.id)
+    .eq('profile_id', userId)
     .eq('campaign_id', campaignId)
 
   if (error) return { error: error.message }
