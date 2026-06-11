@@ -1,5 +1,6 @@
 'use server'
 
+import { createHash } from 'crypto'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -8,6 +9,8 @@ import {
   sendStaffOtpEmail,
 } from '@/lib/auth/otp'
 import { logActionError } from '@/lib/security/action-errors'
+import { checkKeyedRateLimit } from '@/lib/security/rate-limit'
+import { reportError } from '@/lib/observability/report-error'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import {
   buildSurfaceAuthUrl,
@@ -64,6 +67,14 @@ function buildRequestUrlFromHeaders(headerStore: Awaited<ReturnType<typeof heade
   }
 
   return requireAppUrl('public')
+}
+
+/**
+ * Hash an email for logging/context without storing sensitive PII.
+ * Used to track per-email rate-limit throttles in error reports.
+ */
+function hashEmailForLogging(email: string): string {
+  return createHash('sha256').update(email).digest('hex').slice(0, 16)
 }
 
 async function buildCodeEntryRedirect(input: {
@@ -138,13 +149,48 @@ export async function requestStaffOtp(
     return { fields: parsed.error.flatten().fieldErrors }
   }
 
-  const context = await resolveDefaultWorkspaceContextForEmail(parsed.data.email)
+  const email = parsed.data.email
+  const emailHash = hashEmailForLogging(email)
+  const otpRateLimitKey = `otp-email:${email}`
+
+  // Per-email OTP rate limit: 5 requests per hour
+  const rateLimitResult = await checkKeyedRateLimit(
+    otpRateLimitKey,
+    5,
+    60 * 60 * 1000,
+    false // Allow in-memory fallback for auth
+  )
+
+  if (rateLimitResult && !rateLimitResult.allowed) {
+    // Throttled: log the event but return generic response to avoid enumeration oracle
+    reportError(new Error('OTP request throttled'), {
+      source: 'auth.otp-email-throttle',
+      severity: 'warning',
+      context: {
+        email_hash: emailHash,
+      },
+      alert: false,
+    }).catch(() => {
+      // Swallow reportError failures
+    })
+
+    // Return generic response (same as success case) to avoid revealing throttling
+    return {
+      step: 'code',
+      email,
+      next: parsed.data.next,
+      success:
+        "If that email has staff access, we've sent a sign-in code. Check your inbox.",
+    }
+  }
+
+  const context = await resolveDefaultWorkspaceContextForEmail(email)
 
   if (context) {
     try {
       await sendOtp(
         {
-          email: parsed.data.email,
+          email,
           redirectPath: buildCallbackPath(parsed.data.next ?? null, null),
         }
       )
@@ -158,14 +204,14 @@ export async function requestStaffOtp(
     ? await buildCodeEntryRedirect({
         surface: context.surface,
         authPath: '/login',
-        email: parsed.data.email,
+        email,
         next: parsed.data.next ?? null,
       })
     : null
 
   return {
     step: 'code',
-    email: parsed.data.email,
+    email,
     next: parsed.data.next,
     redirectTo: redirectTo ?? undefined,
     success:
@@ -187,6 +233,40 @@ export async function requestInviteOtp(
 
   if (invite.revokedAt || invite.acceptedAt || new Date(invite.expiresAt).getTime() <= Date.now()) {
     return { error: 'This invite is invalid or expired.' }
+  }
+
+  // Per-email OTP rate limit: 5 requests per hour
+  const emailHash = hashEmailForLogging(invite.email)
+  const otpRateLimitKey = `otp-email:${invite.email}`
+
+  const rateLimitResult = await checkKeyedRateLimit(
+    otpRateLimitKey,
+    5,
+    60 * 60 * 1000,
+    false // Allow in-memory fallback for auth
+  )
+
+  if (rateLimitResult && !rateLimitResult.allowed) {
+    // Throttled: log the event but return generic response to avoid enumeration oracle
+    reportError(new Error('OTP request throttled'), {
+      source: 'auth.otp-email-throttle',
+      severity: 'warning',
+      context: {
+        email_hash: emailHash,
+      },
+      alert: false,
+    }).catch(() => {
+      // Swallow reportError failures
+    })
+
+    // Return generic response (same as success case) to avoid revealing throttling
+    return {
+      step: 'code',
+      email: invite.email,
+      invite: token,
+      next,
+      success: `We've sent a sign-in code to ${invite.email}. Enter the code to accept the invite.`,
+    }
   }
 
   try {
