@@ -91,15 +91,16 @@ export const getWorkspaceBootstrap = cache(
 
     try {
       const scope = await resolveAuthorizedScope();
-      const [brandConfig, workspaceContextOptions] = await Promise.all([
-        getCachedEffectiveBrand(),
-        portal === "admin" ? Promise.resolve([]) : getWorkspaceContextOptions(portal),
-      ]);
-
-      const supportSessionInfo =
-        scope.actor && portal !== "admin"
-          ? await resolveSupportSessionInfo(scope.actor, portal)
-          : null;
+      const [brandConfig, workspaceContextOptions, supportSessionInfo] =
+        await Promise.all([
+          getCachedEffectiveBrand(),
+          portal === "admin"
+            ? Promise.resolve([])
+            : getWorkspaceContextOptions(portal),
+          scope.actor && portal !== "admin"
+            ? resolveSupportSessionInfo(scope.actor, portal)
+            : Promise.resolve(null),
+        ]);
 
       return {
         actor: scope.actor,

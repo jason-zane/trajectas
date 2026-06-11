@@ -4,6 +4,7 @@ import { cache } from 'react'
 import { revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@/lib/auth/claims'
 import {
   listCampaigns,
   listActiveAssessments,
@@ -1698,30 +1699,14 @@ export async function getParticipantsForClient(
   await requireClientAccess(clientId)
   const db = await createClient()
 
-  // First get all non-deleted campaigns for this client
-  const { data: campaigns, error: campaignsError } = await db
-    .from('campaigns')
-    .select('id, title')
-    .eq('client_id', clientId)
-    .is('deleted_at', null)
-
-  if (campaignsError) {
-    throwActionError(
-      'getParticipantsForClient.campaigns',
-      'Unable to load participants.',
-      campaignsError
-    )
-  }
-  if (!campaigns || campaigns.length === 0) return []
-
-  const campaignIds = campaigns.map((c) => c.id)
-  const campaignMap = new Map(campaigns.map((c) => [c.id, c.title]))
-
-  // Then get all participants for those campaigns
+  // Single round trip: scope to the client through the campaigns inner
+  // join (and pull the title from it) instead of fetching campaign ids
+  // first.
   const { data: participants, error: participantsError } = await db
     .from('campaign_participants')
-    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, participant_sessions(id, status)')
-    .in('campaign_id', campaignIds)
+    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, campaigns!inner(title, client_id, deleted_at), participant_sessions(id, status)')
+    .eq('campaigns.client_id', clientId)
+    .is('campaigns.deleted_at', null)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -1746,7 +1731,7 @@ export async function getParticipantsForClient(
       startedAt: row.started_at,
       completedAt: row.completed_at,
       campaignId: row.campaign_id,
-      campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+      campaignTitle: row.campaigns?.title ?? 'Unknown',
       latestSessionId:
         sessions
           .slice()
@@ -1776,25 +1761,33 @@ export async function getOperationalCampaignsForClient(
 ): Promise<OperationalClientCampaign[]> {
   await requireClientAccess(clientId)
 
-  const campaigns = await getCampaigns({ clientId })
+  // Campaigns and their access links are independent fetches — the links
+  // query scopes itself to the client via an inner join instead of waiting
+  // for the campaign ids.
+  const [campaigns, linkRows] = await Promise.all([
+    getCampaigns({ clientId }),
+    (async () => {
+      const db = createAdminClient()
+      const { data, error } = await db
+        .from('campaign_access_links')
+        .select('*, campaigns!inner(client_id, deleted_at)')
+        .eq('campaigns.client_id', clientId)
+        .is('campaigns.deleted_at', null)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        throwActionError(
+          'getOperationalCampaignsForClient.links',
+          'Unable to load campaign links.',
+          error
+        )
+      }
+      return data ?? []
+    })(),
+  ])
+
   if (campaigns.length === 0) {
     return []
-  }
-
-  const db = createAdminClient()
-  const campaignIds = campaigns.map((campaign) => campaign.id)
-  const { data: linkRows, error } = await db
-    .from('campaign_access_links')
-    .select('*')
-    .in('campaign_id', campaignIds)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    throwActionError(
-      'getOperationalCampaignsForClient.links',
-      'Unable to load campaign links.',
-      error
-    )
   }
 
   const linksByCampaign = new Map<string, CampaignAccessLink[]>()
@@ -1839,33 +1832,16 @@ export async function getRecentClientResults(
   await requireClientAccess(clientId)
   const db = await createClient()
 
-  const { data: campaigns, error: campaignsError } = await db
-    .from('campaigns')
-    .select('id, title')
-    .eq('client_id', clientId)
-    .is('deleted_at', null)
-
-  if (campaignsError) {
-    throwActionError(
-      'getRecentClientResults.campaigns',
-      'Unable to load recent results.',
-      campaignsError
-    )
-  }
-
-  if (!campaigns || campaigns.length === 0) {
-    return []
-  }
-
-  const campaignIds = campaigns.map((campaign) => campaign.id)
-  const campaignMap = new Map(campaigns.map((campaign) => [campaign.id, campaign.title]))
-
+  // Single round trip: scope to the client through the campaigns inner
+  // join (and pull the title from it) instead of fetching campaign ids
+  // first.
   const { data: participants, error: participantsError } = await db
     .from('campaign_participants')
     .select(
-      'id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, participant_sessions(id, status, started_at, completed_at)'
+      'id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, campaigns!inner(title, client_id, deleted_at), participant_sessions(id, status, started_at, completed_at)'
     )
-    .in('campaign_id', campaignIds)
+    .eq('campaigns.client_id', clientId)
+    .is('campaigns.deleted_at', null)
     .in('status', ['in_progress', 'completed'])
     .is('deleted_at', null)
 
@@ -1902,7 +1878,7 @@ export async function getRecentClientResults(
       participantName: getParticipantDisplayName(row),
       participantEmail: row.email,
       campaignId: row.campaign_id,
-      campaignTitle: campaignMap.get(row.campaign_id) ?? 'Unknown',
+      campaignTitle: row.campaigns?.title ?? 'Unknown',
       latestSessionId: latestSession?.id ?? undefined,
       status: row.status,
       lastActivity,
@@ -1932,31 +1908,16 @@ export async function getCompletionTimeline(
   const days = options?.days ?? 14
   const db = await createClient()
 
-  const { data: campaigns, error: campaignsError } = await db
-    .from('campaigns')
-    .select('id')
-    .eq('client_id', clientId)
-    .eq('status', 'active')
-    .is('deleted_at', null)
-
-  if (campaignsError) {
-    throwActionError(
-      'getCompletionTimeline.campaigns',
-      'Unable to load completion timeline.',
-      campaignsError,
-    )
-  }
-  if (!campaigns || campaigns.length === 0) {
-    return zeroFilledTimeline(days)
-  }
-
-  const campaignIds = campaigns.map((c) => c.id)
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
+  // Single round trip: filter sessions to the client's active campaigns
+  // through the inner join instead of resolving campaign ids first.
   const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')
-    .select('completed_at')
-    .in('campaign_id', campaignIds)
+    .select('completed_at, campaigns!inner(client_id, status, deleted_at)')
+    .eq('campaigns.client_id', clientId)
+    .eq('campaigns.status', 'active')
+    .is('campaigns.deleted_at', null)
     .eq('status', 'completed')
     .gte('completed_at', since)
     .not('completed_at', 'is', null)
@@ -2018,27 +1979,13 @@ export async function getUniqueParticipantsForClient(
   await requireClientAccess(clientId)
   const db = await createClient()
 
-  const { data: campaigns, error: campaignsError } = await db
-    .from('campaigns')
-    .select('id')
-    .eq('client_id', clientId)
-    .is('deleted_at', null)
-
-  if (campaignsError) {
-    throwActionError(
-      'getUniqueParticipantsForClient.campaigns',
-      'Unable to load participants.',
-      campaignsError
-    )
-  }
-  if (!campaigns || campaigns.length === 0) return []
-
-  const campaignIds = campaigns.map((c) => c.id)
-
+  // Single round trip: scope to the client through the campaigns inner
+  // join instead of resolving campaign ids first.
   const { data: participants, error: participantsError } = await db
     .from('campaign_participants')
-    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, participant_sessions(id, status)')
-    .in('campaign_id', campaignIds)
+    .select('id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, campaigns!inner(client_id, deleted_at), participant_sessions(id, status)')
+    .eq('campaigns.client_id', clientId)
+    .is('campaigns.deleted_at', null)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
@@ -2208,13 +2155,13 @@ export async function getFavoriteCampaignIds(): Promise<string[]> {
 
 export async function favoriteCampaign(campaignId: string) {
   const db = await createClient()
-  const { data: { user } } = await db.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const userId = await getVerifiedUserId(db)
+  if (!userId) return { error: 'Not authenticated' }
 
   const { error } = await db
     .from('campaign_favorites')
     .upsert(
-      { profile_id: user.id, campaign_id: campaignId },
+      { profile_id: userId, campaign_id: campaignId },
       { onConflict: 'profile_id,campaign_id' },
     )
 
@@ -2225,13 +2172,13 @@ export async function favoriteCampaign(campaignId: string) {
 
 export async function unfavoriteCampaign(campaignId: string) {
   const db = await createClient()
-  const { data: { user } } = await db.auth.getUser()
-  if (!user) return { error: 'Not authenticated' }
+  const userId = await getVerifiedUserId(db)
+  if (!userId) return { error: 'Not authenticated' }
 
   const { error } = await db
     .from('campaign_favorites')
     .delete()
-    .eq('profile_id', user.id)
+    .eq('profile_id', userId)
     .eq('campaign_id', campaignId)
 
   if (error) return { error: error.message }
