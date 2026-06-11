@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -10,8 +10,7 @@ import type { Construct } from '@/types/database'
 
 export type SelectOption = { id: string; name: string }
 
-export async function getFactorsForSelect(): Promise<SelectOption[]> {
-  await requireAdminScope()
+async function getFactorsForSelectImpl(): Promise<SelectOption[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('factors')
@@ -23,8 +22,21 @@ export async function getFactorsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
-export async function getConstructsForSelect(): Promise<SelectOption[]> {
+const getFactorsForSelectCached = unstable_cache(
+  getFactorsForSelectImpl,
+  ['factors-select'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getFactorsForSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
+  return getFactorsForSelectCached()
+}
+
+async function getConstructsForSelectImpl(): Promise<SelectOption[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('constructs')
@@ -34,6 +46,20 @@ export async function getConstructsForSelect(): Promise<SelectOption[]> {
     .order('name', { ascending: true })
   if (error) throw new Error(error.message)
   return data ?? []
+}
+
+const getConstructsForSelectCached = unstable_cache(
+  getConstructsForSelectImpl,
+  ['constructs-select'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getConstructsForSelect(): Promise<SelectOption[]> {
+  await requireAdminScope()
+  return getConstructsForSelectCached()
 }
 
 export type ConstructWithCounts = Construct & {
@@ -47,8 +73,7 @@ export type ConstructWithRelationships = Construct & {
   parentFactors: { id: string; name: string; slug: string }[]
 }
 
-export async function getConstructs(): Promise<ConstructWithCounts[]> {
-  await requireAdminScope()
+async function getConstructsImpl(): Promise<ConstructWithCounts[]> {
   const db = createAdminClient()
 
   // Three queries: count can't mix with nested relations in PostgREST
@@ -109,8 +134,21 @@ export async function getConstructs(): Promise<ConstructWithCounts[]> {
   })
 }
 
-export async function getConstructBySlug(slug: string): Promise<ConstructWithRelationships | null> {
+const getConstructsCached = unstable_cache(
+  getConstructsImpl,
+  ['constructs'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getConstructs(): Promise<ConstructWithCounts[]> {
   await requireAdminScope()
+  return getConstructsCached()
+}
+
+async function getConstructBySlugImpl(slug: string): Promise<ConstructWithRelationships | null> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('constructs')
@@ -143,6 +181,20 @@ export async function getConstructBySlug(slug: string): Promise<ConstructWithRel
       })
     ),
   }
+}
+
+const getConstructBySlugCached = unstable_cache(
+  getConstructBySlugImpl,
+  ['construct-by-slug'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getConstructBySlug(slug: string): Promise<ConstructWithRelationships | null> {
+  await requireAdminScope()
+  return getConstructBySlugCached(slug)
 }
 
 export async function createConstruct(formData: FormData) {
@@ -198,6 +250,7 @@ export async function createConstruct(formData: FormData) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.created',
@@ -258,6 +311,7 @@ export async function updateConstruct(id: string, formData: FormData) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.updated',
@@ -279,6 +333,7 @@ export async function deleteConstruct(id: string) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.deleted',
@@ -305,6 +360,7 @@ export async function deleteConstructs(ids: string[]) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.bulk_deleted',
@@ -328,6 +384,7 @@ export async function restoreConstruct(id: string) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.restored',
@@ -353,6 +410,7 @@ export async function restoreConstructs(ids: string[]) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.bulk_restored',
@@ -376,6 +434,7 @@ export async function toggleConstructActive(id: string, isActive: boolean) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.active_toggled',
@@ -417,6 +476,7 @@ export async function updateConstructField(id: string, field: string, value: str
   if (error) return { error: error.message }
 
   revalidatePath('/constructs')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.field_updated',
@@ -466,6 +526,7 @@ export async function saveConstructDraftToLibrary(
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/constructs')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.draft_saved_to_library',
@@ -660,6 +721,7 @@ export async function duplicateConstructAsFactor(
   revalidatePath('/factors')
   revalidatePath('/constructs')
   revalidatePath(`/constructs/${construct.slug}/edit`)
+  updateTag('taxonomy')
 
   return { success: true, factorId: resolvedFactorId, factorSlug: slug }
 }

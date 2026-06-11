@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -18,8 +18,7 @@ export type ItemWithMeta = Item & {
 
 export type SelectOption = { id: string; name: string; slug?: string }
 
-export async function getItems(): Promise<ItemWithMeta[]> {
-  await requireAdminScope()
+async function getItemsImpl(): Promise<ItemWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('items')
@@ -40,6 +39,20 @@ export async function getItems(): Promise<ItemWithMeta[]> {
       responseFormatType: r.response_formats?.type ?? '',
     }
   })
+}
+
+const getItemsCached = unstable_cache(
+  getItemsImpl,
+  ['items'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy', 'items'],
+  }
+)
+
+export async function getItems(): Promise<ItemWithMeta[]> {
+  await requireAdminScope()
+  return getItemsCached()
 }
 
 export async function getItemById(id: string) {
@@ -66,8 +79,7 @@ export async function getItemById(id: string) {
   }
 }
 
-export async function getConstructsForSelect(): Promise<SelectOption[]> {
-  await requireAdminScope()
+async function getConstructsForSelectImpl(): Promise<SelectOption[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('constructs')
@@ -79,8 +91,21 @@ export async function getConstructsForSelect(): Promise<SelectOption[]> {
   return data ?? []
 }
 
-export async function getResponseFormats(): Promise<ResponseFormat[]> {
+const getConstructsForSelectCached = unstable_cache(
+  getConstructsForSelectImpl,
+  ['constructs-select'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getConstructsForSelect(): Promise<SelectOption[]> {
   await requireAdminScope()
+  return getConstructsForSelectCached()
+}
+
+async function getResponseFormatsImpl(): Promise<ResponseFormat[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')
@@ -90,6 +115,20 @@ export async function getResponseFormats(): Promise<ResponseFormat[]> {
 
   if (error) throw new Error(error.message)
   return (data ?? []).map(mapResponseFormatRow)
+}
+
+const getResponseFormatsCached = unstable_cache(
+  getResponseFormatsImpl,
+  ['response-formats-select'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getResponseFormats(): Promise<ResponseFormat[]> {
+  await requireAdminScope()
+  return getResponseFormatsCached()
 }
 
 export async function getItemsForConstruct(constructId: string): Promise<ItemWithMeta[]> {
@@ -186,6 +225,7 @@ export async function createItem(formData: FormData) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.created',
@@ -273,6 +313,7 @@ export async function updateItem(id: string, formData: FormData) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.updated',
@@ -301,6 +342,7 @@ export async function deleteItem(id: string) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.deleted',
@@ -330,6 +372,7 @@ export async function deleteItems(ids: string[]) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.bulk_deleted',
@@ -356,6 +399,7 @@ export async function restoreItem(id: string) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.restored',
@@ -387,6 +431,7 @@ export async function bulkUpdateItemStatus(
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.bulk_status_updated',
@@ -419,6 +464,7 @@ export async function restoreItems(ids: string[]) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.bulk_restored',
@@ -491,6 +537,7 @@ export async function updateItemField(id: string, field: string, value: string) 
   if (error) return { error: error.message }
 
   revalidatePath('/items')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.field_updated',
