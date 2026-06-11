@@ -181,7 +181,7 @@ These endpoints are configured with `maxDuration = 300` (5 minutes) and intentio
 - **Additional consideration:** Static (cached) pages do not run SSR per request and therefore do not get a fresh nonce per request. Routes that must enforce strict CSP either need to be dynamic, or use a different CSP strategy (hash-based) for static content. This is a real architectural constraint and is part of why the spike is necessary.
 - **Version note:** This codebase is on Next 16.2.3 (`package.json`). v1 of this plan incorrectly cited Next 15 issues as the cause. They were related but not authoritative.
 - **Why this matters beyond "report-only is fine":**
-  - The comment at `proxy.ts:170` says "Flip `CSP_ENFORCE=1` once the violation log is clean." With the current middleware, that state is unachievable.
+  - CSP enforcement is now enabled by default; see `resolveCspContext()` in `proxy.ts` for the current configuration.
   - The current XSS posture relies on a nonce that never reaches the browser. The deployed security claim and reality diverge.
   - Whether the user's incident was caused by CSP-related script blocking on their corporate browser is unverified, but the broken middleware is a real issue independent of that.
 
@@ -508,7 +508,7 @@ For long-running calls, the calling component owns the `AbortController`, expose
 4. Verify the marketing home, login, and one authenticated dashboard route in particular (they may behave differently depending on rendering mode).
 5. Decision point:
    - **If nonces are now attached** on dynamic routes: file a follow-up to investigate static routes specifically, then plan enforcement rollout (preview → small percent of production → full enforcement).
-   - **If nonces still aren't attached:** capture what we tried, file an issue (or find an existing one) upstream, and de-fang `CSP_ENFORCE` by removing the flag from the codebase so nobody flips it.
+   - **If nonces still aren't attached:** capture what we tried, file an issue (or find an existing one) upstream, and set `CSP_REPORT_ONLY=1` for a graceful fallback to report-only mode.
 
 **Why this works:** The current implementation is incomplete. Fixing the request-header forwarding may be all that's needed. We don't know without trying, but trying is cheap.
 
@@ -694,7 +694,7 @@ src/proxy.ts                                                       (add CSP requ
 3. `curl -sA "Chrome" https://<preview-url>/login | grep -c 'nonce='` — expect non-zero count if `/login` is rendered dynamically after the fix.
 4. Same on one authenticated dashboard route. Check `/` separately; if it remains static and has zero nonces, that is expected and feeds the static-route decision.
 5. If nonces are attached on dynamic routes: write a follow-up document covering static-route strategy (force-dynamic vs. hash-based CSP) and enforcement rollout.
-6. If nonces are NOT attached: remove the `CSP_ENFORCE` env-var path and the misleading comment at `src/proxy.ts:170`. Update the comment to say "CSP runs in report-only mode for telemetry; enforcement is not currently achievable in this Next.js setup."
+6. CSP is now enforced by default. If violations appear in production, set `CSP_REPORT_ONLY=1` to fall back to report-only mode while violations are investigated.
 
 #### Risks
 
@@ -976,7 +976,7 @@ package.json                               (browserslist)
 Depends on PR 0 outcome:
 
 - **D1.a (if nonces attach after the spike):** Plan enforcement rollout. Preview → 10% production → 100%. Requires deciding static-route strategy (force-dynamic for sensitive routes vs. hash-based CSP for static).
-- **D1.b (if nonces still don't attach):** Remove `CSP_ENFORCE` flag and misleading comment. Document that CSP is telemetry-only. Track as technical debt for a future hash-based pipeline.
+- **D1.b (if violations occur):** Set `CSP_REPORT_ONLY=1` to switch to report-only mode while investigating. Fix underlying violations and re-enable enforcement.
 
 #### D2. Email deliverability operations
 
