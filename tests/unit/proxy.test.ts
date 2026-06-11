@@ -214,7 +214,7 @@ describe("proxy CSP header modes", () => {
     vi.unstubAllEnvs();
   });
 
-  it("uses Content-Security-Policy (enforcing) by default", async () => {
+  it("uses Content-Security-Policy (enforcing) by default on dynamic surfaces", async () => {
     const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
 
     expect(response.headers.has("Content-Security-Policy")).toBe(true);
@@ -222,6 +222,25 @@ describe("proxy CSP header modes", () => {
     const cspValue = response.headers.get("Content-Security-Policy");
     expect(cspValue).toContain("script-src");
     expect(cspValue).toContain("strict-dynamic");
+  });
+
+  it("stays report-only by default on the static public surface", async () => {
+    // Marketing pages are statically prerendered: their script tags carry no
+    // per-request nonce, so nonce+strict-dynamic enforcement would block all
+    // JS (verified on preview). Public enforces only with CSP_ENFORCE=1.
+    const response = await proxy(createRequest("https://trajectas.test/"));
+
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy")).toBe(false);
+  });
+
+  it("CSP_ENFORCE=1 forces enforcement on the public surface too", async () => {
+    vi.stubEnv("CSP_ENFORCE", "1");
+
+    const response = await proxy(createRequest("https://trajectas.test/"));
+
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(false);
   });
 
   it("uses Content-Security-Policy-Report-Only when CSP_REPORT_ONLY=1", async () => {
