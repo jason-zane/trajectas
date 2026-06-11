@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
@@ -58,20 +58,33 @@ export function ClientPortalUsersTable({
   const router = useRouter();
   const [removeTarget, setRemoveTarget] = useState<ClientMember | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [changingRoleId, setChangingRoleId] = useState<string | null>(null);
+  const [optimisticMembers, updateOptimisticMembers] = useOptimistic(
+    members,
+    (state: ClientMember[], action: { type: string; memberId?: string; role?: "admin" | "member" | undefined }) => {
+      if (action.type === "updateRole" && action.memberId && action.role !== undefined) {
+        const role = action.role as "admin" | "member";
+        return state.map((m) =>
+          m.membershipId === action.memberId ? { ...m, role } : m,
+        );
+      }
+      if (action.type === "remove" && action.memberId) {
+        return state.filter((m) => m.membershipId !== action.memberId);
+      }
+      return state;
+    },
+  );
 
   function handleRoleChange(member: ClientMember, newRole: string) {
     const role = newRole as "admin" | "member";
     if (role === member.role) return;
 
-    setChangingRoleId(member.membershipId);
+    updateOptimisticMembers({ type: "updateRole", memberId: member.membershipId, role });
     startTransition(async () => {
       const result = await changeClientMemberRole(
         clientId,
         member.membershipId,
         role,
       );
-      setChangingRoleId(null);
       if (result && "error" in result) {
         toast.error(result.error);
         return;
@@ -83,6 +96,7 @@ export function ClientPortalUsersTable({
 
   function handleRemove() {
     if (!removeTarget) return;
+    updateOptimisticMembers({ type: "remove", memberId: removeTarget.membershipId });
     startTransition(async () => {
       const result = await removeClientMember(
         clientId,
@@ -98,7 +112,7 @@ export function ClientPortalUsersTable({
     });
   }
 
-  const rows: Row[] = members.map((m) => ({
+  const rows: Row[] = optimisticMembers.map((m) => ({
     ...m,
     displayName: memberName(m) ?? m.email,
   }));
@@ -138,7 +152,7 @@ export function ClientPortalUsersTable({
             onValueChange={(v) => {
               if (v) handleRoleChange(row.original, v);
             }}
-            disabled={changingRoleId === row.original.membershipId}
+            disabled={isPending}
           >
             <SelectTrigger size="sm" className="w-[110px]">
               <SelectValue>
