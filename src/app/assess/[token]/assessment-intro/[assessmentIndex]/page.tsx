@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -16,32 +17,63 @@ import { sanitizeReportHtml } from "@/lib/security/sanitize-html"
 import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration"
 import { buttonVariants } from "@/components/ui/button-variants"
 import { cn } from "@/lib/utils"
-import type { TemplateVariables } from "@/lib/experience/types"
+import type { TemplateVariables, ExperienceTemplate } from "@/lib/experience/types"
 import type { AssessmentIntroContent, IntroOverride } from "@/types/database"
 
-export default async function AssessmentIntroPage({
-  params,
+// Skeleton for the intro body content
+function AssessmentIntroSkeleton() {
+  return (
+    <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
+      <div className="w-full max-w-[540px] space-y-8 animate-pulse">
+        <div className="space-y-3 text-center">
+          <div className="h-10 bg-muted rounded w-3/4 mx-auto" />
+          <div className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm">
+            <div className="space-y-2">
+              <div className="h-4 bg-muted rounded w-full" />
+              <div className="h-4 bg-muted rounded w-5/6" />
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-center">
+          <div className="h-10 bg-muted rounded w-48" />
+        </div>
+      </div>
+    </main>
+  );
+}
+
+interface ValidatedAccessData {
+  campaign: { id: string; clientId?: string | null };
+  assessments: Array<{ assessmentId: string; title: string }>;
+  participant: { firstName?: string };
+}
+
+
+
+// Async component for intro content — the slow data-fetch part
+async function AssessmentIntroContent({
+  token,
+  idxStr,
+  campaign,
+  assessments,
+  participant,
+  experience,
+  isCustomBrand,
 }: {
-  params: Promise<{ token: string; assessmentIndex: string }>
+  token: string;
+  idxStr: string;
+  campaign: ValidatedAccessData["campaign"];
+  assessments: ValidatedAccessData["assessments"];
+  participant: ValidatedAccessData["participant"];
+  experience: ExperienceTemplate;
+  isCustomBrand: boolean;
 }) {
-  const { token, assessmentIndex: idxStr } = await params
-  const result = await validateAccessToken(token)
-
-  if (result.error || !result.data) {
-    redirect("/assess/expired")
-  }
-
-  const { campaign, assessments, participant } = result.data
   const idx = parseInt(idxStr, 10)
   const assessment = assessments[idx]
-
   const db = createAdminClient()
 
-  // Load experience + brand + campaign-level intro override in parallel.
-  // Experience is needed for the post-sections URL and all three are independent.
-  const [experience, brandConfig, caRowResult, assessmentRowResult, itemCount] = await Promise.all([
-    getCachedEffectiveExperience(campaign.id),
-    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+  // Load intro overrides and item count
+  const [caRowResult, assessmentRowResult, itemCount] = await Promise.all([
     assessment
       ? db
           .from("campaign_assessments")
@@ -66,7 +98,6 @@ export default async function AssessmentIntroPage({
   }
 
   const caRow = caRowResult.data
-
   const introOverride = caRow?.intro_override as IntroOverride | undefined
 
   let heading: string
@@ -102,7 +133,6 @@ export default async function AssessmentIntroPage({
     buttonLabel = introContent.buttonLabel
   }
 
-  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name
   const runnerFooterText = getPageContent(experience, "runner").footerText
 
   // Interpolate template variables
@@ -113,14 +143,111 @@ export default async function AssessmentIntroPage({
     estimatedMinutes: estimateAssessmentDurationMinutes(itemCount),
   }
   heading = interpolateContent(heading, variables)
-  // body is authored by partner/client admins and rendered as inline HTML to
-  // participants (who authenticate by URL token, not HttpOnly cookie). Strip
-  // script/event handlers before render so a malicious admin can't pivot into
-  // the participant's origin.
   body = sanitizeReportHtml(interpolateContent(body, variables))
   buttonLabel = interpolateContent(buttonLabel, variables)
 
-  // Generate brand CSS tokens
+  return (
+    <>
+      {/* Main content */}
+      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
+        <div className="w-full max-w-[540px] space-y-8">
+          {/* Heading and body */}
+          <div className="space-y-3 text-center">
+            <h1
+              className="text-3xl font-semibold tracking-tight sm:text-4xl"
+              style={{
+                color: "var(--brand-text, hsl(var(--foreground)))",
+                fontFamily: "var(--brand-font-heading, inherit)",
+              }}
+            >
+              {heading}
+            </h1>
+            {body && (
+              <div
+                className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm"
+                style={{
+                  background: "var(--brand-neutral-50, hsl(var(--card)))",
+                  borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
+                  borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
+                }}
+              >
+                <div
+                  className="prose prose-sm max-w-none leading-relaxed"
+                  style={{
+                    color:
+                      "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                  }}
+                  dangerouslySetInnerHTML={{ __html: body }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* CTA */}
+          <div className="flex justify-center">
+            <Link
+              href={`/assess/${token}/section/0`}
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "min-w-[200px] gap-1.5",
+              )}
+              style={{
+                background: "var(--brand-primary, hsl(var(--primary)))",
+                color:
+                  "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
+              }}
+            >
+              <ArrowRight className="size-4" />
+              {buttonLabel}
+            </Link>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="flex items-center justify-center gap-3 px-4 py-4">
+        <span
+          className="text-xs"
+          style={{
+            color:
+              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+          }}
+        >
+          {isCustomBrand
+            ? (runnerFooterText ?? "Powered by Trajectas")
+            : "Your responses are confidential"}
+        </span>
+      </footer>
+    </>
+  );
+}
+
+export default async function AssessmentIntroPage({
+  params,
+}: {
+  params: Promise<{ token: string; assessmentIndex: string }>
+}) {
+  const { token, assessmentIndex: idxStr } = await params
+  const result = await validateAccessToken(token)
+
+  if (result.error || !result.data) {
+    redirect("/assess/expired")
+  }
+
+  const { campaign, assessments, participant } = result.data
+  const idx = parseInt(idxStr, 10)
+  // assessment is used in AssessmentIntroContent via idxStr + assessments
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const assessment = assessments[idx]
+
+  // Load brand and experience early for the header + caching
+  // These are "use cache"-wrapped, so they're fast
+  const [experience, brandConfig] = await Promise.all([
+    getCachedEffectiveExperience(campaign.id),
+    getCachedEffectiveBrand(campaign.clientId, campaign.id),
+  ])
+
+  const isCustomBrand = brandConfig.name !== TRAJECTAS_DEFAULTS.name
   const { css: brandCss } = generateCSSTokens(brandConfig)
 
   const fontsUrl = buildGoogleFontsUrl([
@@ -193,76 +320,18 @@ export default async function AssessmentIntroPage({
           </div>
         </header>
 
-        {/* Main content */}
-        <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-          <div className="w-full max-w-[540px] space-y-8">
-            {/* Heading and body */}
-            <div className="space-y-3 text-center">
-              <h1
-                className="text-3xl font-semibold tracking-tight sm:text-4xl"
-                style={{
-                  color: "var(--brand-text, hsl(var(--foreground)))",
-                  fontFamily: "var(--brand-font-heading, inherit)",
-                }}
-              >
-                {heading}
-              </h1>
-              {body && (
-                <div
-                  className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm"
-                  style={{
-                    background: "var(--brand-neutral-50, hsl(var(--card)))",
-                    borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-                    borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
-                  }}
-                >
-                  <div
-                    className="prose prose-sm max-w-none leading-relaxed"
-                    style={{
-                      color:
-                        "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-                    }}
-                    dangerouslySetInnerHTML={{ __html: body }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* CTA */}
-            <div className="flex justify-center">
-              <Link
-                href={`/assess/${token}/section/0`}
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "min-w-[200px] gap-1.5",
-                )}
-                style={{
-                  background: "var(--brand-primary, hsl(var(--primary)))",
-                  color:
-                    "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-                }}
-              >
-                <ArrowRight className="size-4" />
-                {buttonLabel}
-              </Link>
-            </div>
-          </div>
-        </main>
-
-        {/* Footer */}
-        <footer className="flex items-center justify-center gap-3 px-4 py-4">
-          <span
-            className="text-xs"
-            style={{
-              color:
-                "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-            }}
-          >
-            {isCustomBrand
-              ? (runnerFooterText ?? "Powered by Trajectas")
-              : "Your responses are confidential"}
-          </span>
-        </footer>
+        {/* Content streams behind Suspense */}
+        <Suspense fallback={<AssessmentIntroSkeleton />}>
+          <AssessmentIntroContent
+            token={token}
+            idxStr={idxStr}
+            campaign={campaign}
+            assessments={assessments}
+            participant={participant}
+            experience={experience}
+            isCustomBrand={isCustomBrand}
+          />
+        </Suspense>
       </div>
     </>
   )
