@@ -1,5 +1,5 @@
-import { FormPageLoading } from '@/components/page-loading'
+import { CompareSkeleton } from "@/components/loading/compare-skeleton";
 
 export default function CompareLoading() {
-  return <FormPageLoading className="max-w-7xl" fieldCount={3} />
+  return <CompareSkeleton />;
 }
