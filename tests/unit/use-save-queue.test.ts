@@ -54,6 +54,8 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
   async function settle(ms = 2000) {
     // Real timers — let the IDB writes and debounced flush happen on their
     // own schedule. The debounce is 1500ms; 2000ms covers it comfortably.
+    // Note: Converting to fake timers would require mocking IDB itself, as
+    // IDB doesn't rely on setTimeout and doesn't resolve with vi.useFakeTimers().
     await new Promise((r) => setTimeout(r, ms))
   }
 

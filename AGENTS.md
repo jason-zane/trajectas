@@ -139,7 +139,7 @@ The project uses a PR-then-merge model with CI gating on each PR. The order of o
 4. **Run `mcp__claude_ai_Supabase__get_advisors` after every DDL change.** New `SECURITY DEFINER` functions that aren't intended for direct RPC need a follow-up migration revoking `EXECUTE` from `anon` and `authenticated`. See `20260512150000_trajectory_revoke_trigger_fn_exec.sql` for the pattern.
 5. **Commit the migration file** so source matches live.
 6. **Open a PR** with `gh pr create` and watch CI with `gh pr checks <num> --watch`.
-7. **CI must be green to merge.** The three jobs are `security` → `quality` → `e2e-smoke`. Each gates the next.
+7. **CI must be green to merge.** The four jobs are `security` (gates the rest), then `quality` and `integration` (parallel), then `e2e-smoke` (gates on `quality`).
 8. **If `security` fails on `npm audit`**, that's almost always a pre-existing dependency issue, not the PR's fault. `npm audit fix` and commit the lockfile bump as a separate `chore(deps)` commit on the same branch — do NOT mix dep bumps with feature work in the same commit.
 9. **Merge via `gh pr merge --squash --delete-branch`** once CI is green and any review feedback is addressed.
 10. **Prune the local branch.** `--delete-branch` only removes the *remote* branch; the local one still points at the pre-squash commit and will not show up in `git branch --merged`. Run:
