@@ -85,6 +85,37 @@ export async function logAuditEvent(input: AuditEventInput) {
   }
 }
 
+/**
+ * Fail-safe wrapper around logAuditEvent. Catches insertion failures, reports
+ * them via reportError (alert: true — a failing audit trail is alert-worthy),
+ * and never throws. Use this for post-mutation audit logging where a transient
+ * DB failure should not surface as a user-facing error.
+ *
+ * For pre-destructive audit writes (e.g., account deletion evidence), use
+ * logAuditEvent directly so failures propagate and halt the operation.
+ */
+export async function logAuditEventSafe(input: AuditEventInput): Promise<void> {
+  try {
+    await logAuditEvent(input);
+  } catch (err) {
+    const { reportError } = await import('@/lib/observability/report-error');
+    const message = err instanceof Error ? err.message : String(err);
+    await reportError(
+      new Error(`audit insert failed: ${message}`),
+      {
+        source: 'audit.insert_failed',
+        severity: 'error',
+        alert: true,
+        context: {
+          eventType: input.eventType,
+          targetTable: input.targetTable,
+          targetId: input.targetId,
+        },
+      }
+    );
+  }
+}
+
 export async function logReportViewed(input: {
   actorProfileId?: string | null;
   snapshotId: string;

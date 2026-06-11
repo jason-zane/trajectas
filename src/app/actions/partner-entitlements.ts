@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requirePartnerAccess } from '@/lib/auth/authorization'
+import { logAuditEventSafe } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
 import {
   mapPartnerAssessmentAssignmentRow,
@@ -149,6 +150,18 @@ export async function assignAssessmentToPartner(
     return { error: error.message }
   }
 
+  await logAuditEventSafe({
+    actorProfileId: scope.actor.id,
+    eventType: 'entitlement.partner.assigned',
+    targetTable: 'partner_assessment_assignments',
+    targetId: data.id,
+    partnerId: partnerId,
+    metadata: {
+      assessmentId: input.assessmentId,
+      quotaLimit: input.quotaLimit ?? null,
+    },
+  })
+
   revalidatePath('/partners')
   return { success: true, id: data.id }
 }
@@ -176,6 +189,17 @@ export async function updatePartnerAssessmentAssignment(
     return { success: true, id: assignmentId }
   }
 
+  // Fetch previous state for audit logging
+  const { data: previous, error: fetchError } = await db
+    .from('partner_assessment_assignments')
+    .select('assessment_id, quota_limit, is_active')
+    .eq('id', assignmentId)
+    .eq('partner_id', partnerId)
+    .single()
+
+  if (fetchError) return { error: fetchError.message }
+  if (!previous) return { error: 'Assignment not found.' }
+
   const { error } = await db
     .from('partner_assessment_assignments')
     .update(patch)
@@ -183,6 +207,25 @@ export async function updatePartnerAssessmentAssignment(
     .eq('partner_id', partnerId)
 
   if (error) return { error: error.message }
+
+  const eventType = updates.isActive !== undefined
+    ? (updates.isActive ? 'entitlement.partner.reactivated' : 'entitlement.partner.deactivated')
+    : 'entitlement.partner.quota_updated'
+
+  await logAuditEventSafe({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: eventType,
+    targetTable: 'partner_assessment_assignments',
+    targetId: assignmentId,
+    partnerId: partnerId,
+    metadata: {
+      assessmentId: previous.assessment_id,
+      previousQuotaLimit: previous.quota_limit,
+      newQuotaLimit: updates.quotaLimit !== undefined ? updates.quotaLimit : previous.quota_limit,
+      previousIsActive: previous.is_active,
+      newIsActive: updates.isActive !== undefined ? updates.isActive : previous.is_active,
+    },
+  })
 
   revalidatePath('/partners')
   return { success: true, id: assignmentId }
@@ -273,10 +316,30 @@ export async function togglePartnerReportTemplateAssignment(
       .single()
 
     if (error) return { error: error.message }
+
+    await logAuditEventSafe({
+      actorProfileId: scope.actor.id,
+      eventType: 'entitlement.partner.report_template_assigned',
+      targetTable: 'partner_report_template_assignments',
+      targetId: data.id,
+      partnerId: partnerId,
+      metadata: {
+        reportTemplateId: reportTemplateId,
+      },
+    })
+
     revalidatePath('/partners')
     return { success: true, id: data.id }
   } else {
     // Deactivate
+    // Fetch previous state for audit logging
+    const { data: previous } = await db
+      .from('partner_report_template_assignments')
+      .select('id')
+      .eq('partner_id', partnerId)
+      .eq('report_template_id', reportTemplateId)
+      .single()
+
     const { data, error } = await db
       .from('partner_report_template_assignments')
       .update({ is_active: false })
@@ -286,6 +349,18 @@ export async function togglePartnerReportTemplateAssignment(
       .single()
 
     if (error) return { error: error.message }
+
+    await logAuditEventSafe({
+      actorProfileId: scope.actor.id,
+      eventType: 'entitlement.partner.report_template_removed',
+      targetTable: 'partner_report_template_assignments',
+      targetId: previous?.id ?? data.id,
+      partnerId: partnerId,
+      metadata: {
+        reportTemplateId: reportTemplateId,
+      },
+    })
+
     revalidatePath('/partners')
     return { success: true, id: data.id }
   }
@@ -303,12 +378,32 @@ export async function togglePartnerBranding(
   }
 
   const db = createAdminClient()
+
+  // Fetch previous state for audit logging
+  const { data: previous } = await db
+    .from('partners')
+    .select('can_customize_branding')
+    .eq('id', partnerId)
+    .single()
+
   const { error } = await db
     .from('partners')
     .update({ can_customize_branding: canCustomize })
     .eq('id', partnerId)
 
   if (error) return { error: error.message }
+
+  await logAuditEventSafe({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'entitlement.partner.branding_toggled',
+    targetTable: 'partners',
+    targetId: partnerId,
+    partnerId: partnerId,
+    metadata: {
+      previousCanCustomizeBranding: previous?.can_customize_branding ?? null,
+      newCanCustomizeBranding: canCustomize,
+    },
+  })
 
   // Layout-scoped revalidation. Partner branding cascades to the partner's
   // clients (see isClientBrandingEnabled), so flipping it must invalidate the

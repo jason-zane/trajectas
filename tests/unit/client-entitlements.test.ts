@@ -69,6 +69,10 @@ vi.mock("next/cache", () => ({
   revalidatePath: cache.revalidatePath,
 }));
 
+vi.mock("@/lib/auth/support-sessions", () => ({
+  logAuditEventSafe: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // Import actions under test (AFTER mocks)
 // ---------------------------------------------------------------------------
@@ -354,10 +358,19 @@ describe("client entitlement actions", () => {
 
     it("updates the assignment for admin callers", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
-      // .eq('id', ...) returns builder, .eq('client_id', ...) resolves
+      // Setup for the first chain (fetch previous state)
+      queryBuilder.select.mockReturnValueOnce(queryBuilder);
       queryBuilder.eq
-        .mockReturnValueOnce(queryBuilder)
-        .mockResolvedValueOnce({ error: null });
+        .mockReturnValueOnce(queryBuilder)  // first eq
+        .mockReturnValueOnce(queryBuilder)  // second eq
+        .mockReturnValueOnce(queryBuilder)  // third eq (update query)
+      // .single() must resolve with the fetched data
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { assessment_id: "aaa", quota_limit: 100, is_active: true },
+        error: null,
+      });
+      // The final update resolves to error: null
+      queryBuilder.update.mockReturnValueOnce(queryBuilder);
 
       const result = await updateAssessmentAssignment("33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111", {
         quotaLimit: 200,
@@ -374,10 +387,19 @@ describe("client entitlement actions", () => {
   describe("removeAssessmentAssignment", () => {
     it("soft-deactivates via updateAssessmentAssignment", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
-      // .eq('id', ...) returns builder, .eq('client_id', ...) resolves
+      // Setup for the first chain (fetch previous state)
+      queryBuilder.select.mockReturnValueOnce(queryBuilder);
       queryBuilder.eq
-        .mockReturnValueOnce(queryBuilder)
-        .mockResolvedValueOnce({ error: null });
+        .mockReturnValueOnce(queryBuilder)  // first eq
+        .mockReturnValueOnce(queryBuilder)  // second eq
+        .mockReturnValueOnce(queryBuilder)  // third eq (update query)
+      // .single() must resolve with the fetched data
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { assessment_id: "aaa", quota_limit: 100, is_active: true },
+        error: null,
+      });
+      // The final update resolves to error: null
+      queryBuilder.update.mockReturnValueOnce(queryBuilder);
 
       const result = await removeAssessmentAssignment("33333333-3333-3333-3333-333333333333", "11111111-1111-1111-1111-111111111111");
       expect(result).toEqual({ success: true, id: "33333333-3333-3333-3333-333333333333" });
@@ -399,7 +421,18 @@ describe("client entitlement actions", () => {
 
     it("updates branding flag for admin callers", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(adminScope());
-      queryBuilder.eq.mockResolvedValueOnce({ error: null });
+      // Setup for the first chain (fetch previous state)
+      queryBuilder.select.mockReturnValueOnce(queryBuilder);
+      queryBuilder.eq
+        .mockReturnValueOnce(queryBuilder)  // eq in fetch chain
+        .mockReturnValueOnce(queryBuilder)  // eq in update chain
+      // .single() must resolve with the fetched data
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { can_customize_branding: false },
+        error: null,
+      });
+      // The final update resolves to error: null
+      queryBuilder.update.mockReturnValueOnce(queryBuilder);
 
       const result = await toggleClientBranding("11111111-1111-1111-1111-111111111111", true);
       expect(result).toEqual({ success: true, id: "11111111-1111-1111-1111-111111111111" });
