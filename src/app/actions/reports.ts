@@ -41,6 +41,7 @@ import {
 import { enqueueReportSnapshotEvent } from '@/lib/integrations/events'
 import { notifyConsultantsForSnapshot } from '@/lib/notifications/consultant-notification'
 import { createReportAccessToken } from '@/lib/reports/report-access-token'
+import { downloadSnapshotPdfBase64, getSignedReportPdfUrl } from '@/lib/reports/pdf-access'
 import { postgresUuid } from '@/lib/validations/uuid'
 import {
   createReportTemplateSchema,
@@ -69,69 +70,6 @@ import type {
   ReportDisplayLevel,
   PersonReferenceType,
 } from '@/types/database'
-
-// ---------------------------------------------------------------------------
-// Signed PDF URL helper
-// ---------------------------------------------------------------------------
-
-/**
- * pdf_url now stores a private storage path (e.g. "reports/<id>.pdf").
- * This helper generates a short-lived signed URL for download.
- * Returns undefined if no PDF has been generated yet.
- */
-export async function getSignedReportPdfUrl(
-  storagePath: string | undefined | null,
-  expiresInSeconds = 3600,
-): Promise<string | undefined> {
-  if (!storagePath) return undefined
-
-  // If it's a legacy full URL (starts with http), return as-is for backwards compat
-  if (storagePath.startsWith('http')) return storagePath
-
-  const db = createAdminClient()
-  const { data, error } = await db.storage
-    .from('reports')
-    .createSignedUrl(storagePath, expiresInSeconds)
-
-  if (error || !data?.signedUrl) {
-    console.warn('[reports] Failed to create signed URL for', storagePath, error?.message)
-    return undefined
-  }
-
-  return data.signedUrl
-}
-
-/**
- * Download a snapshot PDF as base64 ready to attach to an email.
- * Returns null when no PDF is available.
- */
-export async function downloadSnapshotPdfBase64(
-  snapshotId: string,
-): Promise<{ filename: string; content: string } | null> {
-  if (!postgresUuid().safeParse(snapshotId).success) return null
-  const db = createAdminClient()
-  const { data, error } = await db
-    .from('report_snapshots')
-    .select('pdf_url')
-    .eq('id', snapshotId)
-    .maybeSingle()
-  if (error || !data?.pdf_url) return null
-  const storagePath = String(data.pdf_url)
-  if (storagePath.startsWith('http')) {
-    try {
-      const resp = await fetch(storagePath)
-      if (!resp.ok) return null
-      const buffer = Buffer.from(await resp.arrayBuffer())
-      return { filename: `report-${snapshotId}.pdf`, content: buffer.toString('base64') }
-    } catch {
-      return null
-    }
-  }
-  const download = await db.storage.from('reports').download(storagePath)
-  if (download.error || !download.data) return null
-  const buffer = Buffer.from(await download.data.arrayBuffer())
-  return { filename: `report-${snapshotId}.pdf`, content: buffer.toString('base64') }
-}
 
 async function filterTemplatesForScope<T extends { partnerId?: string }>(
   scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,

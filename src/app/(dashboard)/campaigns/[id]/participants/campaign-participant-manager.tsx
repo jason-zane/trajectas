@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import Papa from "papaparse";
@@ -63,6 +63,19 @@ export function CampaignParticipantManager({
   const params = useSearchParams();
   const view = params.get("view") === "participants" ? "participants" : "sessions";
   const { href } = usePortal();
+  const [, startTransition] = useTransition();
+  const [optimisticParticipants, addOptimisticParticipant] = useOptimistic(
+    participants,
+    (state: CampaignParticipant[], action: { type: string; participant?: CampaignParticipant; id?: string }) => {
+      if (action.type === "add" && action.participant) {
+        return [...state, action.participant];
+      }
+      if (action.type === "remove" && action.id) {
+        return state.filter((p) => p.id !== action.id);
+      }
+      return state;
+    },
+  );
   const [showInvite, setShowInvite] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
   const [email, setEmail] = useState("");
@@ -90,44 +103,63 @@ export function CampaignParticipantManager({
     setErrors({});
 
     const invitedEmail = email;
-    const result = await inviteParticipant(campaignId, {
+    const tempId = `optimistic-${invitedEmail}-${Date.now()}`;
+
+    // Create optimistic participant
+    const optimisticParticipant: CampaignParticipant = {
+      id: tempId,
       email: invitedEmail,
       firstName: firstName || undefined,
       lastName: lastName || undefined,
-    });
+      status: "invited" as const,
+      accessToken: "",
+      invitedAt: new Date().toISOString(),
+      campaignId,
+      created_at: new Date().toISOString(),
+    };
 
-    if ("error" in result && result.error) {
-      setErrors(result.error);
-      return;
-    }
+    startTransition(async () => {
+      addOptimisticParticipant({ type: "add", participant: optimisticParticipant });
 
-    setEmail("");
-    setFirstName("");
-    setLastName("");
-    setShowInvite(false);
-
-    if (result.emailSent) {
-      toast.success(`Invited ${invitedEmail}`);
-    } else {
-      const participantId = result.id;
-      toast.warning(`${invitedEmail} added but email failed to send`, {
-        description: result.emailError,
-        action: {
-          label: "Retry email",
-          onClick: async () => {
-            const retry = await sendParticipantInviteEmail(campaignId, participantId);
-            if (retry.success) {
-              toast.success(`Invite sent to ${invitedEmail}`);
-            } else {
-              toast.error(retry.error ?? "Email still failed");
-            }
-          },
-        },
-        duration: 10000,
+      const result = await inviteParticipant(campaignId, {
+        email: invitedEmail,
+        firstName: firstName || undefined,
+        lastName: lastName || undefined,
       });
-    }
 
-    router.refresh();
+      if ("error" in result && result.error) {
+        setErrors(result.error);
+        return;
+      }
+
+      setEmail("");
+      setFirstName("");
+      setLastName("");
+      setShowInvite(false);
+
+      if (result.emailSent) {
+        toast.success(`Invited ${invitedEmail}`);
+      } else {
+        const participantId = result.id;
+        toast.warning(`${invitedEmail} added but email failed to send`, {
+          description: result.emailError,
+          action: {
+            label: "Retry email",
+            onClick: async () => {
+              const retry = await sendParticipantInviteEmail(campaignId, participantId);
+              if (retry.success) {
+                toast.success(`Invite sent to ${invitedEmail}`);
+              } else {
+                toast.error(retry.error ?? "Email still failed");
+              }
+            },
+          },
+          duration: 10000,
+        });
+      }
+
+      router.refresh();
+    });
   }
 
   async function handleBulkUpload() {
@@ -175,128 +207,170 @@ export function CampaignParticipantManager({
       };
     });
 
-    const result = await bulkInviteParticipants(campaignId, parsed);
-
-    if ("error" in result && result.error) {
-      toast.error(typeof result.error === "string" ? result.error : "Upload failed");
-      return;
-    }
-
-    if (!("success" in result) || !result.success) {
-      toast.error("Upload failed");
-      return;
-    }
-
-    const summary = [
-      result.inserted > 0
-        ? `${result.inserted} participant${result.inserted === 1 ? "" : "s"} invited`
-        : "No new participants invited",
-      result.existingCount > 0
-        ? `${result.existingCount} already existed`
-        : null,
-      result.errors.length > 0
-        ? `${result.errors.length} invalid row${result.errors.length === 1 ? "" : "s"}`
-        : null,
-      result.emailFailures.length > 0
-        ? `${result.emailFailures.length} email delivery failure${
-            result.emailFailures.length === 1 ? "" : "s"
-          }`
-        : null,
-    ]
-      .filter(Boolean)
-      .join(", ");
-
-    if (result.emailFailures.length > 0) {
-      toast.warning(summary, {
-        description:
-          "Some participants were added, but their invite emails need to be retried from the participant table.",
+    startTransition(async () => {
+      // Add optimistic participants for successful parses
+      parsed.forEach((p) => {
+        if (p.email) {
+          const opt: CampaignParticipant = {
+            id: `optimistic-${p.email}-${Date.now()}`,
+            email: p.email,
+            firstName: p.firstName || undefined,
+            lastName: p.lastName || undefined,
+            status: "invited" as const,
+            accessToken: "",
+            invitedAt: new Date().toISOString(),
+            campaignId,
+            created_at: new Date().toISOString(),
+          };
+          addOptimisticParticipant({ type: "add", participant: opt });
+        }
       });
-    } else {
-      toast.success(summary);
-    }
 
-    if (result.errors.length > 0 || result.emailFailures.length > 0) {
-      setBulkErrors(result.errors);
-      setBulkEmailFailures(result.emailFailures);
-      setShowBulkErrors(true);
-    } else {
-      setBulkErrors([]);
-      setBulkEmailFailures([]);
-    }
-    if (result.requiresConfirmation && result.pendingExisting.length > 0) {
-      setPendingDuplicateRows(result.pendingExisting);
-      setShowDuplicateConfirm(true);
-    } else {
-      setPendingDuplicateRows([]);
-    }
+      const result = await bulkInviteParticipants(campaignId, parsed);
 
-    setCsvText("");
-    setShowBulk(false);
-    router.refresh();
+      if ("error" in result && result.error) {
+        toast.error(typeof result.error === "string" ? result.error : "Upload failed");
+        return;
+      }
+
+      if (!("success" in result) || !result.success) {
+        toast.error("Upload failed");
+        return;
+      }
+
+      const summary = [
+        result.inserted > 0
+          ? `${result.inserted} participant${result.inserted === 1 ? "" : "s"} invited`
+          : "No new participants invited",
+        result.existingCount > 0
+          ? `${result.existingCount} already existed`
+          : null,
+        result.errors.length > 0
+          ? `${result.errors.length} invalid row${result.errors.length === 1 ? "" : "s"}`
+          : null,
+        result.emailFailures.length > 0
+          ? `${result.emailFailures.length} email delivery failure${
+              result.emailFailures.length === 1 ? "" : "s"
+            }`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      if (result.emailFailures.length > 0) {
+        toast.warning(summary, {
+          description:
+            "Some participants were added, but their invite emails need to be retried from the participant table.",
+        });
+      } else {
+        toast.success(summary);
+      }
+
+      if (result.errors.length > 0 || result.emailFailures.length > 0) {
+        setBulkErrors(result.errors);
+        setBulkEmailFailures(result.emailFailures);
+        setShowBulkErrors(true);
+      } else {
+        setBulkErrors([]);
+        setBulkEmailFailures([]);
+      }
+      if (result.requiresConfirmation && result.pendingExisting.length > 0) {
+        setPendingDuplicateRows(result.pendingExisting);
+        setShowDuplicateConfirm(true);
+      } else {
+        setPendingDuplicateRows([]);
+      }
+
+      setCsvText("");
+      setShowBulk(false);
+      router.refresh();
+    });
   }
 
   async function handleConfirmDuplicateInvites() {
-    const result = await bulkInviteParticipants(campaignId, pendingDuplicateRows, {
-      allowExisting: true,
+    startTransition(async () => {
+      // Add optimistic participants for confirmed duplicates
+      pendingDuplicateRows.forEach((p) => {
+        const opt: CampaignParticipant = {
+          id: `optimistic-${p.email}-${Date.now()}`,
+          email: p.email,
+          firstName: p.firstName || undefined,
+          lastName: p.lastName || undefined,
+          status: "invited" as const,
+          accessToken: "",
+          invitedAt: new Date().toISOString(),
+          campaignId,
+          created_at: new Date().toISOString(),
+        };
+        addOptimisticParticipant({ type: "add", participant: opt });
+      });
+
+      const result = await bulkInviteParticipants(campaignId, pendingDuplicateRows, {
+        allowExisting: true,
+      });
+
+      if ("error" in result && result.error) {
+        toast.error(typeof result.error === "string" ? result.error : "Retake invite failed");
+        return;
+      }
+
+      if (!("success" in result) || !result.success) {
+        toast.error("Retake invite failed");
+        return;
+      }
+
+      if (result.emailFailures.length > 0) {
+        toast.warning(
+          `${result.inserted} retake invite${
+            result.inserted === 1 ? "" : "s"
+          } created, ${result.emailFailures.length} email${
+            result.emailFailures.length === 1 ? "" : "s"
+          } failed`,
+        );
+        setBulkErrors([]);
+        setBulkEmailFailures(result.emailFailures);
+        setShowBulkErrors(true);
+      } else {
+        setBulkErrors([]);
+        setBulkEmailFailures([]);
+        toast.success(
+          `${result.inserted} retake invite${result.inserted === 1 ? "" : "s"} created`,
+        );
+      }
+      setPendingDuplicateRows([]);
+      setShowDuplicateConfirm(false);
+      router.refresh();
     });
-
-    if ("error" in result && result.error) {
-      toast.error(typeof result.error === "string" ? result.error : "Retake invite failed");
-      return;
-    }
-
-    if (!("success" in result) || !result.success) {
-      toast.error("Retake invite failed");
-      return;
-    }
-
-    if (result.emailFailures.length > 0) {
-      toast.warning(
-        `${result.inserted} retake invite${
-          result.inserted === 1 ? "" : "s"
-        } created, ${result.emailFailures.length} email${
-          result.emailFailures.length === 1 ? "" : "s"
-        } failed`,
-      );
-      setBulkErrors([]);
-      setBulkEmailFailures(result.emailFailures);
-      setShowBulkErrors(true);
-    } else {
-      setBulkErrors([]);
-      setBulkEmailFailures([]);
-      toast.success(
-        `${result.inserted} retake invite${result.inserted === 1 ? "" : "s"} created`,
-      );
-    }
-    setPendingDuplicateRows([]);
-    setShowDuplicateConfirm(false);
-    router.refresh();
   }
 
   async function handleRemove(participantId: string, name: string) {
-    const result = await removeParticipant(campaignId, participantId);
-    if (result?.error) {
-      toast.error(result.error);
-      return;
-    }
+    startTransition(async () => {
+      addOptimisticParticipant({ type: "remove", id: participantId });
 
-    toast.success("Participant removed", {
-      action: {
-        label: "Undo",
-        onClick: async () => {
-          const restoreResult = await restoreParticipant(campaignId, participantId);
-          if (restoreResult?.error) {
-            toast.error(restoreResult.error);
-            return;
-          }
+      const result = await removeParticipant(campaignId, participantId);
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
 
-          toast.success(`${name} restored`);
-          router.refresh();
+      toast.success("Participant removed", {
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            const restoreResult = await restoreParticipant(campaignId, participantId);
+            if (restoreResult?.error) {
+              toast.error(restoreResult.error);
+              return;
+            }
+
+            toast.success(`${name} restored`);
+            router.refresh();
+          },
         },
-      },
-      duration: 5000,
+        duration: 5000,
+      });
+      router.refresh();
     });
-    router.refresh();
   }
 
   async function copyLink(token: string) {
@@ -318,7 +392,7 @@ export function CampaignParticipantManager({
     toast.success(`Invite sent to ${emailAddress}`);
   }
 
-  const rows = participants.map((participant) => ({
+  const rows = optimisticParticipants.map((participant) => ({
     ...participant,
     displayName: getDisplayName(participant),
   }));
@@ -339,17 +413,23 @@ export function CampaignParticipantManager({
       variant: "destructive",
       icon: <Trash2 className="mr-1.5 h-3.5 w-3.5" />,
       action: async (ids) => {
-        try {
-          await bulkDeleteParticipants(ids);
-          toast.success(
-            `Removed ${ids.length} participant${ids.length === 1 ? "" : "s"}`,
-          );
-          router.refresh();
-        } catch (error) {
-          toast.error(
-            error instanceof Error ? error.message : "Failed to remove participants.",
-          );
-        }
+        startTransition(async () => {
+          ids.forEach((id) => {
+            addOptimisticParticipant({ type: "remove", id });
+          });
+
+          try {
+            await bulkDeleteParticipants(ids);
+            toast.success(
+              `Removed ${ids.length} participant${ids.length === 1 ? "" : "s"}`,
+            );
+            router.refresh();
+          } catch (error) {
+            toast.error(
+              error instanceof Error ? error.message : "Failed to remove participants.",
+            );
+          }
+        });
       },
     },
   ];

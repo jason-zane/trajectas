@@ -35,6 +35,12 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    files: ["src/app/actions/**/*.ts", "src/app/api/**/*.ts"],
+    rules: {
+      "no-empty": ["error", { allowEmptyCatch: false }],
+    },
+  },
 ]);
 
 export default eslintConfig;
