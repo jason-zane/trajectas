@@ -13,6 +13,12 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    files: ["src/app/actions/**/*.ts", "src/app/api/**/*.ts"],
+    rules: {
+      "no-empty": ["error", { allowEmptyCatch: false }],
+    },
+  },
 ]);
 
 export default eslintConfig;
