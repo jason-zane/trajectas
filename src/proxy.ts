@@ -177,13 +177,14 @@ interface CspContext {
 }
 
 function resolveCspContext(surface: Surface, nonce: string): CspContext {
-  // Default to report-only mode for safe rollout. CSP_ENFORCE=1 flips this to
-  // enforcing, but enforcement is gated on PR 0's nonce-attachment verification
-  // landing first — see docs/audit/2026-05-22-cross-environment-reliability-plan.md.
-  const headerName =
-    process.env.CSP_ENFORCE === "1"
-      ? "Content-Security-Policy"
-      : "Content-Security-Policy-Report-Only";
+  // Enforce CSP by default for fail-secure behavior. Set CSP_REPORT_ONLY=1
+  // to fall back to report-only mode (for debugging / gradual rollout).
+  // CSP_ENFORCE=1 is accepted for backwards compatibility and forces enforcement.
+  const isReportOnly =
+    process.env.CSP_REPORT_ONLY === "1" && process.env.CSP_ENFORCE !== "1";
+  const headerName = isReportOnly
+    ? "Content-Security-Policy-Report-Only"
+    : "Content-Security-Policy";
   return {
     headerName,
     policy: buildContentSecurityPolicy(surface, nonce),
