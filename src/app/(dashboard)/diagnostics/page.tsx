@@ -1,13 +1,20 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Plus, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { getDiagnosticSessions } from "@/app/actions/diagnostics";
 import { DiagnosticSessionsTable } from "./diagnostic-sessions-table";
+import { DataTableSkeleton } from "@/components/loading/data-table-skeleton";
 
-export default async function DiagnosticsPage() {
+// Async component for the diagnostics table
+async function DiagnosticsTableSection() {
   const sessions = await getDiagnosticSessions();
 
+  return <DiagnosticSessionsTable sessions={sessions} />;
+}
+
+export default async function DiagnosticsPage() {
   return (
     <div className="space-y-8 max-w-6xl">
       <PageHeader
@@ -30,7 +37,9 @@ export default async function DiagnosticsPage() {
         </div>
       </PageHeader>
 
-      <DiagnosticSessionsTable sessions={sessions} />
+      <Suspense fallback={<DataTableSkeleton rows={8} columns={4} />}>
+        <DiagnosticsTableSection />
+      </Suspense>
     </div>
   );
 }
