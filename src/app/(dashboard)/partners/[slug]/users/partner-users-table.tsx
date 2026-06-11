@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getSelectLabel } from "@/lib/select-display";
+import { formatDate } from "@/lib/formatting";
 
 type PartnerMemberRow = PartnerMember & {
   displayName: string;
@@ -41,14 +42,6 @@ const membershipRoleOptions = [
 function formatMemberName(member: PartnerMember) {
   const parts = [member.firstName, member.lastName].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : null;
-}
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
 }
 
 export function PartnerUsersTable({

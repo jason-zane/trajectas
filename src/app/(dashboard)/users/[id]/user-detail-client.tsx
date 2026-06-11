@@ -58,6 +58,7 @@ import {
 } from "@/components/ui/table";
 import { getSelectLabel } from "@/lib/select-display";
 import { cn } from "@/lib/utils";
+import { formatDateTimeMedium, formatRelativeTime } from "@/lib/formatting";
 
 type TenantOption = {
   id: string;
@@ -99,30 +100,6 @@ const TENANT_TYPE_OPTIONS = [
   { value: "partner", label: "Partner" },
   { value: "client", label: "Client" },
 ] as const;
-
-function formatDateTime(dateString: string) {
-  return new Date(dateString).toLocaleString("en-AU", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-}
-
-function formatRelativeTime(dateString: string) {
-  const diffMs = Date.now() - new Date(dateString).getTime();
-  const diffDays = Math.round(diffMs / 86_400_000);
-
-  if (diffDays === 0) {
-    const diffHours = Math.round(diffMs / 3_600_000);
-    if (Math.abs(diffHours) < 1) return "just now";
-    return diffHours > 0 ? `${diffHours}h ago` : `in ${Math.abs(diffHours)}h`;
-  }
-
-  if (Math.abs(diffDays) < 7) {
-    return diffDays > 0 ? `${diffDays}d ago` : `in ${Math.abs(diffDays)}d`;
-  }
-
-  return formatDateTime(dateString);
-}
 
 function getInitials(name: string | null, email: string) {
   const source = name?.trim() || email.trim();
@@ -390,7 +367,7 @@ export function UserDetailClient({
               </p>
               <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Calendar className="size-3.5" />
-                Created {formatDateTime(user.createdAt)}
+                Created {formatDateTimeMedium(user.createdAt)}
               </p>
             </div>
 

@@ -15,6 +15,7 @@ import { ScrollReveal } from "@/components/scroll-reveal";
 import { TiltCard } from "@/components/tilt-card";
 import { getClients } from "@/app/actions/clients";
 import { getCampaigns } from "@/app/actions/campaigns";
+import { statusBadgeVariant } from "@/lib/formatting";
 
 const quickActions = [
   {
@@ -51,24 +52,6 @@ const quickActions = [
   },
 ];
 
-function statusBadgeVariant(status: string) {
-  switch (status) {
-    case "active":
-    case "completed":
-      return "default" as const;
-    case "draft":
-    case "pending":
-      return "secondary" as const;
-    case "paused":
-    case "archived":
-    case "closed":
-      return "outline" as const;
-    case "failed":
-      return "destructive" as const;
-    default:
-      return "secondary" as const;
-  }
-}
 
 export default async function PartnerDashboardPage() {
   const [clients, campaigns] = await Promise.all([getClients(), getCampaigns()]);
