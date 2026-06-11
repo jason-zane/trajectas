@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -18,8 +18,7 @@ export type DimensionWithChildren = Dimension & {
 /*  Read functions                                                     */
 /* ------------------------------------------------------------------ */
 
-export async function getDimensions(): Promise<DimensionWithCounts[]> {
-  await requireAdminScope()
+async function getDimensionsImpl(): Promise<DimensionWithCounts[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
@@ -37,8 +36,21 @@ export async function getDimensions(): Promise<DimensionWithCounts[]> {
   }))
 }
 
-export async function getDimensionBySlug(slug: string): Promise<DimensionWithChildren | null> {
+const getDimensionsCached = unstable_cache(
+  getDimensionsImpl,
+  ['dimensions'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getDimensions(): Promise<DimensionWithCounts[]> {
   await requireAdminScope()
+  return getDimensionsCached()
+}
+
+async function getDimensionBySlugImpl(slug: string): Promise<DimensionWithChildren | null> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('dimensions')
@@ -63,6 +75,20 @@ export async function getDimensionBySlug(slug: string): Promise<DimensionWithChi
       })
     ),
   }
+}
+
+const getDimensionBySlugCached = unstable_cache(
+  getDimensionBySlugImpl,
+  ['dimension-by-slug'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getDimensionBySlug(slug: string): Promise<DimensionWithChildren | null> {
+  await requireAdminScope()
+  return getDimensionBySlugCached(slug)
 }
 
 /* ------------------------------------------------------------------ */
@@ -109,6 +135,7 @@ export async function createDimension(formData: FormData) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.created',
@@ -171,6 +198,7 @@ export async function updateDimension(id: string, formData: FormData) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.updated',
@@ -196,6 +224,7 @@ export async function deleteDimension(id: string) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.deleted',
@@ -223,6 +252,7 @@ export async function deleteDimensions(ids: string[]) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.bulk_deleted',
@@ -251,6 +281,7 @@ export async function restoreDimension(id: string) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.restored',
@@ -277,6 +308,7 @@ export async function restoreDimensions(ids: string[]) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.bulk_restored',
@@ -305,6 +337,7 @@ export async function toggleDimensionActive(id: string, isActive: boolean) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.active_toggled',
@@ -348,6 +381,7 @@ export async function updateDimensionField(id: string, field: string, value: str
   if (error) return { error: error.message }
 
   revalidatePath('/dimensions')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.field_updated',

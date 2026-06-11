@@ -54,9 +54,28 @@ const brandMocks = vi.hoisted(() => ({
   getEffectiveBrand: vi.fn(),
 }));
 
+// next/cache mock: getEmailTemplate now reads through unstable_cache and
+// upsertEmailTemplate calls updateTag. Outside a Next request context these
+// throw ("incrementalCache missing" / "updateTag can only be called from…"),
+// so make unstable_cache a pass-through and updateTag a no-op (matches the
+// convention in report-template-actions / staff-users-actions tests).
+const cacheMocks = vi.hoisted(() => ({
+  unstable_cache: <T extends (...args: unknown[]) => unknown>(fn: T): T => fn,
+  updateTag: vi.fn(),
+  revalidateTag: vi.fn(),
+  revalidatePath: vi.fn(),
+}));
+
 // ---------------------------------------------------------------------------
 // vi.mock calls — all mocks must be registered before any imports
 // ---------------------------------------------------------------------------
+
+vi.mock("next/cache", () => ({
+  unstable_cache: cacheMocks.unstable_cache,
+  updateTag: cacheMocks.updateTag,
+  revalidateTag: cacheMocks.revalidateTag,
+  revalidatePath: cacheMocks.revalidatePath,
+}));
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
