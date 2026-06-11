@@ -170,6 +170,7 @@ export async function getClientAssessmentLibrary(
 ): Promise<ClientAssessmentLibrarySummary[]> {
   const parsed = clientIdSchema.safeParse({ clientId })
   if (!parsed.success) return []
+  await requireClientAccess(clientId)
   const assignments = await getAssessmentAssignments(clientId)
   if (assignments.length === 0) {
     return []
