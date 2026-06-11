@@ -1,0 +1,12 @@
+{
+  "comment": "Gzipped first-load JS budgets (bytes) for the hot routes, enforced by scripts/check-bundle-budgets.mjs in CI. Seeded 2026-06-12 from the current build at +15% headroom. Raise a budget only deliberately, in the same PR as the growth, with a reason.",
+  "routes": {
+    "/(dashboard)/dashboard": 380000,
+    "/(dashboard)/campaigns": 446000,
+    "/(dashboard)/campaigns/[id]/participants": 456000,
+    "/(dashboard)/participants": 432000,
+    "/(dashboard)/assessments": 455000,
+    "/assess/[token]": 308000,
+    "/(dashboard)/report-templates/[id]/builder": 584000
+  }
+}
