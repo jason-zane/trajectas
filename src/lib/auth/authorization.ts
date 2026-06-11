@@ -233,8 +233,12 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
     let allClients: { id: string; partner_id: string | null }[] = [];
 
     try {
-      allPartners = await loadAllPartnerIds();
-      allClients = (await loadAllClientRows()).map((row) => ({
+      const [partnerIdRows, clientRows] = await Promise.all([
+        loadAllPartnerIds(),
+        loadAllClientRows(),
+      ]);
+      allPartners = partnerIdRows;
+      allClients = clientRows.map((row) => ({
         id: String(row.id),
         partner_id: row.partner_id ? String(row.partner_id) : null,
       }));
@@ -311,12 +315,14 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
       .filter((membership) => membership.role === "admin")
       .map((membership) => membership.clientId)
   );
-  const clientPartnerMap = await loadClientPartnerMap(actorPartnerIds);
-  const partnerClientIds = Array.from(clientPartnerMap.keys());
   const activeContext = actorIsActive ? actor.activeContext ?? null : null;
-  const supportSession = actorIsActive
-    ? await getValidatedSupportSession(actor, activeContext)
-    : null;
+  const [clientPartnerMap, supportSession] = await Promise.all([
+    loadClientPartnerMap(actorPartnerIds),
+    actorIsActive
+      ? getValidatedSupportSession(actor, activeContext)
+      : Promise.resolve(null),
+  ]);
+  const partnerClientIds = Array.from(clientPartnerMap.keys());
 
   let partnerIds = actorPartnerIds;
   let partnerAdminIds = actorPartnerAdminIds;
