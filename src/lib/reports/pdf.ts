@@ -55,56 +55,9 @@ export function getReportPdfDownloadPath(snapshotId: string) {
   return `/api/reports/${snapshotId}/pdf`
 }
 
-function slugify(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-}
-
-export async function getReportPdfFilename(snapshotId: string) {
-  const db = createAdminClient()
-  const { data } = await db
-    .from('report_snapshots')
-    .select(`
-      id,
-      participant_sessions!inner(
-        campaign_participants!inner(first_name, last_name),
-        campaigns!inner(title)
-      ),
-      report_templates!inner(name, report_type)
-    `)
-    .eq('id', snapshotId)
-    .maybeSingle()
-
-  if (!data) return `report-${snapshotId}.pdf`
-
-  const session = Array.isArray(data.participant_sessions)
-    ? data.participant_sessions[0]
-    : data.participant_sessions
-  const cpRaw = session?.campaign_participants
-  const participant = (Array.isArray(cpRaw) ? cpRaw[0] : cpRaw) as
-    | { first_name: string | null; last_name: string | null }
-    | undefined
-  const campRaw = session?.campaigns
-  const campaign = (Array.isArray(campRaw) ? campRaw[0] : campRaw) as { title: string | null } | undefined
-  const tplRaw = data.report_templates
-  const template = (Array.isArray(tplRaw) ? tplRaw[0] : tplRaw) as
-    | { name: string | null; report_type: string | null }
-    | undefined
-
-  const parts: string[] = []
-  const name = [participant?.first_name, participant?.last_name]
-    .filter(Boolean)
-    .join(' ')
-  if (name) parts.push(name)
-  if (template?.report_type) parts.push(template.report_type)
-  if (campaign?.title) parts.push(campaign.title)
-
-  if (parts.length === 0) return `report-${snapshotId}.pdf`
-
-  return `${slugify(parts.join(' - '))}.pdf`
-}
+// Report PDF naming lives in one place so the download path and the email
+// attachment paths can't drift apart. See pdf-filename.ts for the convention.
+export { getReportPdfFilename } from '@/lib/reports/pdf-filename'
 
 export function mapReportPdfStatus(
   snapshot: Pick<SnapshotPdfRow, 'pdf_url' | 'pdf_status' | 'pdf_error_message'>,
