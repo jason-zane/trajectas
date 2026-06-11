@@ -19,6 +19,7 @@ import { ScrollReveal } from "@/components/scroll-reveal"
 import { AnimatedNumber } from "@/components/animated-number"
 import { getNormGroups } from "@/app/actions/psychometrics"
 import { cn } from "@/lib/utils"
+import { formatDateOrNull } from "@/lib/formatting"
 
 function normStatus(sampleSize: number) {
   if (sampleSize >= 200) {
@@ -45,16 +46,6 @@ function normStatus(sampleSize: number) {
 
 function isGeneralPopulation(name: string) {
   return /general\s*population/i.test(name)
-}
-
-function formatDate(iso: string | null) {
-  if (!iso) return null
-  const d = new Date(iso)
-  return d.toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  })
 }
 
 export default async function NormsPage() {
@@ -212,7 +203,7 @@ export default async function NormsPage() {
                       {group.lastRefreshed && (
                         <span className="flex items-center gap-1">
                           <Calendar className="size-3" />
-                          {formatDate(group.lastRefreshed)}
+                          {formatDateOrNull(group.lastRefreshed)}
                         </span>
                       )}
                     </div>

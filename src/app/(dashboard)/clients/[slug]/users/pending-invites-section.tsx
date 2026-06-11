@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/formatting";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -36,14 +37,6 @@ interface PendingInvitesSectionProps {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatRoleLabel(role: string) {
   if (role === "client_admin") return "Admin";
