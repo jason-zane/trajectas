@@ -43,10 +43,10 @@ function memberName(m: ClientMember) {
 
 
 export function ClientPortalUsersTable({
-  clientId,
+  workspaceId,
   members,
 }: {
-  clientId: string;
+  workspaceId: string;
   members: ClientMember[];
 }) {
   const router = useRouter();
@@ -75,7 +75,7 @@ export function ClientPortalUsersTable({
     updateOptimisticMembers({ type: "updateRole", memberId: member.membershipId, role });
     startTransition(async () => {
       const result = await changeClientMemberRole(
-        clientId,
+        workspaceId,
         member.membershipId,
         role,
       );
@@ -93,7 +93,7 @@ export function ClientPortalUsersTable({
     updateOptimisticMembers({ type: "remove", memberId: removeTarget.membershipId });
     startTransition(async () => {
       const result = await removeClientMember(
-        clientId,
+        workspaceId,
         removeTarget.membershipId,
       );
       if (result && "error" in result) {
