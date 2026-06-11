@@ -7,6 +7,7 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { detectBrandAssetMimeType } from '@/lib/brand-assets/file-validation'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
 const ALLOWED_TYPES = new Set(['image/png', 'image/jpeg'])
@@ -80,16 +81,35 @@ export async function POST(request: NextRequest) {
       assertAdminOnly(scope)
     }
 
-    if (!ALLOWED_TYPES.has(file.type)) {
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: 'File must be under 2MB' },
+        { status: 400 }
+      )
+    }
+
+    // Validate file contents against magic bytes, not just client-supplied MIME type
+    const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+    const detectedMimeType = detectBrandAssetMimeType(headerBytes)
+
+    if (!detectedMimeType) {
       return NextResponse.json(
         { error: 'File must be PNG or JPEG' },
         { status: 400 }
       )
     }
 
-    if (file.size > MAX_FILE_SIZE) {
+    // Verify that the file contents match the declared type
+    if (file.type && !ALLOWED_TYPES.has(file.type)) {
       return NextResponse.json(
-        { error: 'File must be under 2MB' },
+        { error: 'File must be PNG or JPEG' },
+        { status: 400 }
+      )
+    }
+
+    if (file.type && file.type !== detectedMimeType) {
+      return NextResponse.json(
+        { error: 'File contents do not match the declared file type' },
         { status: 400 }
       )
     }
@@ -104,7 +124,7 @@ export async function POST(request: NextRequest) {
     const { error: uploadError } = await db.storage
       .from('brand-assets')
       .upload(storagePath, file, {
-        contentType: file.type,
+        contentType: detectedMimeType,
         upsert: false,
       })
 
