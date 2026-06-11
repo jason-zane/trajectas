@@ -1,9 +1,11 @@
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
-import { getParticipantsForClient, getUniqueParticipantsForClient, getCampaigns } from "@/app/actions/campaigns";
+import { getParticipantsForClient, getUniqueParticipantsForClientPaginated, getCampaigns } from "@/app/actions/campaigns";
 import { GlobalParticipants } from "./global-participants";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Users } from "lucide-react";
+
+const PAGE_SIZE = 50;
 
 export default async function ClientParticipantsPage({
   searchParams,
@@ -30,10 +32,14 @@ export default async function ClientParticipantsPage({
 
   const params = await searchParams;
   const view = params.view === "sessions" ? "sessions" : "participants";
+  const page = Math.max(0, parseInt(String(params.page ?? "0"), 10));
+  const query = String(params.q ?? "").trim();
 
-  const [sessions, uniqueParticipants, campaigns] = await Promise.all([
+  const [sessions, paginationResult, campaigns] = await Promise.all([
     view === "sessions" ? getParticipantsForClient(clientId) : Promise.resolve([]),
-    view === "participants" ? getUniqueParticipantsForClient(clientId) : Promise.resolve([]),
+    view === "participants"
+      ? getUniqueParticipantsForClientPaginated(clientId, page, PAGE_SIZE, query)
+      : Promise.resolve({ participants: [], totalCount: 0, page, pageSize: PAGE_SIZE }),
     getCampaigns({ clientId }),
   ]);
 
@@ -41,8 +47,14 @@ export default async function ClientParticipantsPage({
     <GlobalParticipants
       view={view}
       sessions={sessions}
-      participants={uniqueParticipants}
+      participants={paginationResult.participants}
       campaigns={campaigns}
+      paginationMeta={{
+        page: paginationResult.page,
+        pageSize: paginationResult.pageSize,
+        totalCount: paginationResult.totalCount,
+        query,
+      }}
     />
   );
 }
