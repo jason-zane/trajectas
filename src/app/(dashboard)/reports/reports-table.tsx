@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ReportSnapshotStatus } from "@/types/database";
 import { getReportStatusLabel } from "@/lib/reports/status";
+import { formatRelativeDate, formatDateTime } from "@/lib/formatting";
 
 type ReportTableRow = ReportSnapshotListItem & {
   participantLabel: string;
@@ -35,38 +36,6 @@ const STATUS_META: Record<
     className: "text-destructive bg-destructive/10 border-destructive/20",
   },
 };
-
-
-function formatRelativeDate(value: string) {
-  const date = new Date(value);
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 const bulkActions: BulkAction<ReportTableRow>[] = [
   {
