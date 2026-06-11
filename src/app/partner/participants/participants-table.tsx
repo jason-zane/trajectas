@@ -17,6 +17,7 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { formatDateTime, formatRelativeDate } from "@/lib/formatting";
 
 type SessionTableRow = ParticipantWithMeta & {
   displayName: string;
@@ -50,36 +51,7 @@ const STATUS_LABEL: Record<string, string> = {
   expired: "Expired",
 };
 
-function formatRelativeDate(value: string) {
-  const date = new Date(value);
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
 
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString("en-AU", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getDisplayName(p: ParticipantWithMeta | UniqueParticipant) {
   const name = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
