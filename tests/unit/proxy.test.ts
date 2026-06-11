@@ -2,12 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "../../src/proxy";
 
-// Mock Supabase middleware client — proxy tests don't exercise auth state
+// Mock Supabase middleware client
+let mockSupabaseClient: {
+  auth: { getClaims: () => Promise<{ data: { claims: { sub: string } } | null; error: null }> };
+};
+
 vi.mock("../../src/lib/supabase/middleware", () => ({
-  createMiddlewareSupabaseClient: () => ({
-    auth: { getClaims: async () => ({ data: null, error: null }) },
-  }),
+  createMiddlewareSupabaseClient: () => mockSupabaseClient,
 }));
+
+// Default to unauthenticated; tests can override
+beforeEach(() => {
+  mockSupabaseClient = {
+    auth: { getClaims: async () => ({ data: null, error: null }) },
+  };
+});
 
 function createRequest(
   url: string,
@@ -118,5 +127,201 @@ describe("proxy surface routing", () => {
       )
     );
     expect(webhookResponse.status).not.toBe(403);
+  });
+});
+
+describe("proxy authenticated paths", () => {
+  beforeEach(() => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.test");
+    vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.test");
+    vi.stubEnv("ASSESS_APP_URL", "https://assess.trajectas.test");
+    vi.stubEnv("PARTNER_APP_URL", "https://partner.trajectas.test");
+    vi.stubEnv("CLIENT_APP_URL", "https://client.trajectas.test");
+    // Required for session activity cookie signing in authenticated tests
+    vi.stubEnv("TRAJECTAS_CONTEXT_SECRET", "test-signing-secret-32-bytes-here");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("allows authenticated user on admin dashboard route", async () => {
+    mockSupabaseClient.auth.getClaims = async () => ({
+      data: { claims: { sub: "test-user-id" } },
+      error: null,
+    });
+
+    const response = await proxy(
+      createRequest("https://admin.trajectas.test/dashboard")
+    );
+
+    expect(response.status).not.toBe(307); // Should not redirect
+    expect(response.headers.get("x-trajectas-surface")).toBe("admin");
+  });
+
+  it("allows authenticated user on partner surface", async () => {
+    mockSupabaseClient.auth.getClaims = async () => ({
+      data: { claims: { sub: "test-user-id" } },
+      error: null,
+    });
+
+    const response = await proxy(
+      createRequest("https://partner.trajectas.test/partner/dashboard")
+    );
+
+    expect(response.headers.get("x-trajectas-surface")).toBe("partner");
+  });
+
+  it("allows authenticated user on client surface", async () => {
+    mockSupabaseClient.auth.getClaims = async () => ({
+      data: { claims: { sub: "test-user-id" } },
+      error: null,
+    });
+
+    const response = await proxy(
+      createRequest("https://client.trajectas.test/client/dashboard")
+    );
+
+    expect(response.headers.get("x-trajectas-surface")).toBe("client");
+  });
+
+  it("allows cross-surface redirect with authenticated user", async () => {
+    mockSupabaseClient.auth.getClaims = async () => ({
+      data: { claims: { sub: "test-user-id" } },
+      error: null,
+    });
+
+    // Public surface user trying to access dashboard (admin surface)
+    const response = await proxy(
+      createRequest("https://trajectas.test/dashboard")
+    );
+
+    expect(response.status).toBe(307); // Redirect expected
+    expect(response.headers.get("location")).toBe(
+      "https://admin.trajectas.test/dashboard"
+    );
+    expect(response.headers.get("x-trajectas-surface")).toBe("admin");
+  });
+});
+
+describe("proxy CSP header modes", () => {
+  beforeEach(() => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.test");
+    vi.stubEnv("ADMIN_APP_URL", "https://admin.trajectas.test");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("uses Content-Security-Policy (enforcing) by default on dynamic surfaces", async () => {
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(false);
+    const cspValue = response.headers.get("Content-Security-Policy");
+    expect(cspValue).toContain("script-src");
+    expect(cspValue).toContain("strict-dynamic");
+  });
+
+  it("stays report-only by default on the static public surface", async () => {
+    // Marketing pages are statically prerendered: their script tags carry no
+    // per-request nonce, so nonce+strict-dynamic enforcement would block all
+    // JS (verified on preview). Public enforces only with CSP_ENFORCE=1.
+    const response = await proxy(createRequest("https://trajectas.test/"));
+
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy")).toBe(false);
+  });
+
+  it("CSP_ENFORCE=1 forces enforcement on the public surface too", async () => {
+    vi.stubEnv("CSP_ENFORCE", "1");
+
+    const response = await proxy(createRequest("https://trajectas.test/"));
+
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(false);
+  });
+
+  it("uses Content-Security-Policy-Report-Only when CSP_REPORT_ONLY=1", async () => {
+    vi.stubEnv("CSP_REPORT_ONLY", "1");
+
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy")).toBe(false);
+    const cspValue = response.headers.get("Content-Security-Policy-Report-Only");
+    expect(cspValue).toContain("script-src");
+  });
+
+  it("uses Content-Security-Policy when CSP_ENFORCE=1 (backwards compat)", async () => {
+    vi.stubEnv("CSP_ENFORCE", "1");
+
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(false);
+  });
+
+  it("prefers CSP_ENFORCE=1 over CSP_REPORT_ONLY=1", async () => {
+    vi.stubEnv("CSP_ENFORCE", "1");
+    vi.stubEnv("CSP_REPORT_ONLY", "1");
+
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+    expect(response.headers.has("Content-Security-Policy-Report-Only")).toBe(false);
+  });
+
+  it("includes nonce in script-src directive", async () => {
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    const cspValue = response.headers.get("Content-Security-Policy");
+    expect(cspValue).toMatch(/script-src.*'nonce-/);
+  });
+
+  it("includes strict-dynamic in script-src on enforcing CSP", async () => {
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    const cspValue = response.headers.get("Content-Security-Policy");
+    expect(cspValue).toContain("'strict-dynamic'");
+  });
+
+  it("forwards CSP header in request headers for SSR nonce attachment", async () => {
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+
+    // The response should have been created with CSP forwarded to SSR
+    // (we can't directly inspect request headers in the proxy function,
+    // but we can verify the response carries a CSP header from the proxy)
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+  });
+
+  it("applies CSP per-surface correctly (admin surface)", async () => {
+    const response = await proxy(createRequest("https://admin.trajectas.test/dashboard"));
+    const cspValue = response.headers.get("Content-Security-Policy");
+
+    // Admin surface should have frame-src 'none' and specific connect-src
+    expect(cspValue).toContain("frame-src 'none'");
+    expect(cspValue).toContain("connect-src");
+  });
+
+  it("applies CSP per-surface correctly (public surface)", async () => {
+    vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.test");
+    const response = await proxy(createRequest("https://trajectas.test/"));
+    // Public is report-only by default (static pages carry no nonce).
+    const cspValue = response.headers.get("Content-Security-Policy-Report-Only");
+
+    // Public surface should allow Cal.com iframes
+    expect(cspValue).toContain("frame-src https://app.cal.com https://cal.com");
+  });
+
+  it("maintains CSP in cross-surface redirects", async () => {
+    // Redirect from public to admin surface
+    const response = await proxy(createRequest("https://trajectas.test/dashboard"));
+
+    expect(response.status).toBe(307);
+    expect(response.headers.has("Content-Security-Policy")).toBe(true);
+    const cspValue = response.headers.get("Content-Security-Policy");
+    expect(cspValue).toContain("script-src");
   });
 });
