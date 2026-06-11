@@ -42,7 +42,7 @@ describe("sendHtmlEmail", () => {
     await expect(sendHtmlEmail(base)).rejects.toThrow(/domain is not verified/);
   });
 
-  it("names all recipients in the thrown error", async () => {
+  it("includes recipient count (not email addresses) in the thrown error for PII redaction", async () => {
     mocks.send.mockResolvedValue({
       data: null,
       error: { name: "rate_limit_exceeded", message: "Too many requests" },
@@ -50,6 +50,11 @@ describe("sendHtmlEmail", () => {
 
     await expect(
       sendHtmlEmail({ ...base, to: ["a@example.com", "b@example.com"] })
-    ).rejects.toThrow(/a@example.com, b@example.com/);
+    ).rejects.toThrow(/2 recipient/);
+
+    // Verify no email addresses leaked into the error
+    await expect(
+      sendHtmlEmail({ ...base, to: ["a@example.com", "b@example.com"] })
+    ).rejects.not.toThrow(/a@example.com/);
   });
 });

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireClientAccess } from '@/lib/auth/authorization'
+import { logAuditEventSafe } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
 import { estimateAssessmentDurationMinutes } from '@/lib/assessments/duration'
 import { getFactorsForAssessment } from '@/app/actions/factor-selection'
@@ -737,6 +738,18 @@ export async function assignAssessment(
     return { error: error.message }
   }
 
+  await logAuditEventSafe({
+    actorProfileId: scope.actor.id,
+    eventType: 'entitlement.client.assigned',
+    targetTable: 'client_assessment_assignments',
+    targetId: data.id,
+    clientId: clientId,
+    metadata: {
+      assessmentId: input.assessmentId,
+      quotaLimit: input.quotaLimit ?? null,
+    },
+  })
+
   revalidatePath('/clients')
   return { success: true, id: data.id }
 }
@@ -764,6 +777,17 @@ export async function updateAssessmentAssignment(
     return { success: true, id: assignmentId }
   }
 
+  // Fetch previous state for audit logging
+  const { data: previous, error: fetchError } = await db
+    .from('client_assessment_assignments')
+    .select('assessment_id, quota_limit, is_active')
+    .eq('id', assignmentId)
+    .eq('client_id', clientId)
+    .single()
+
+  if (fetchError) return { error: fetchError.message }
+  if (!previous) return { error: 'Assignment not found.' }
+
   const { error } = await db
     .from('client_assessment_assignments')
     .update(patch)
@@ -771,6 +795,25 @@ export async function updateAssessmentAssignment(
     .eq('client_id', clientId)
 
   if (error) return { error: error.message }
+
+  const eventType = updates.isActive !== undefined
+    ? (updates.isActive ? 'entitlement.client.reactivated' : 'entitlement.client.deactivated')
+    : 'entitlement.client.quota_updated'
+
+  await logAuditEventSafe({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: eventType,
+    targetTable: 'client_assessment_assignments',
+    targetId: assignmentId,
+    clientId: clientId,
+    metadata: {
+      assessmentId: previous.assessment_id,
+      previousQuotaLimit: previous.quota_limit,
+      newQuotaLimit: updates.quotaLimit !== undefined ? updates.quotaLimit : previous.quota_limit,
+      previousIsActive: previous.is_active,
+      newIsActive: updates.isActive !== undefined ? updates.isActive : previous.is_active,
+    },
+  })
 
   revalidatePath('/clients')
   return { success: true, id: assignmentId }
@@ -821,10 +864,30 @@ export async function toggleReportTemplateAssignment(
       .single()
 
     if (error) return { error: error.message }
+
+    await logAuditEventSafe({
+      actorProfileId: scope.actor.id,
+      eventType: 'entitlement.client.report_template_assigned',
+      targetTable: 'client_report_template_assignments',
+      targetId: data.id,
+      clientId: clientId,
+      metadata: {
+        reportTemplateId: reportTemplateId,
+      },
+    })
+
     revalidatePath('/clients')
     return { success: true, id: data.id }
   } else {
     // Deactivate
+    // Fetch previous state for audit logging
+    const { data: previous } = await db
+      .from('client_report_template_assignments')
+      .select('id')
+      .eq('client_id', clientId)
+      .eq('report_template_id', reportTemplateId)
+      .single()
+
     const { data, error } = await db
       .from('client_report_template_assignments')
       .update({ is_active: false })
@@ -834,6 +897,18 @@ export async function toggleReportTemplateAssignment(
       .single()
 
     if (error) return { error: error.message }
+
+    await logAuditEventSafe({
+      actorProfileId: scope.actor.id,
+      eventType: 'entitlement.client.report_template_removed',
+      targetTable: 'client_report_template_assignments',
+      targetId: previous?.id ?? data.id,
+      clientId: clientId,
+      metadata: {
+        reportTemplateId: reportTemplateId,
+      },
+    })
+
     revalidatePath('/clients')
     return { success: true, id: data.id }
   }
@@ -890,12 +965,32 @@ export async function toggleClientBranding(
   }
 
   const db = createAdminClient()
+
+  // Fetch previous state for audit logging
+  const { data: previous } = await db
+    .from('clients')
+    .select('can_customize_branding')
+    .eq('id', clientId)
+    .single()
+
   const { error } = await db
     .from('clients')
     .update({ can_customize_branding: canCustomize })
     .eq('id', clientId)
 
   if (error) return { error: error.message }
+
+  await logAuditEventSafe({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'entitlement.client.branding_toggled',
+    targetTable: 'clients',
+    targetId: clientId,
+    clientId: clientId,
+    metadata: {
+      previousCanCustomizeBranding: previous?.can_customize_branding ?? null,
+      newCanCustomizeBranding: canCustomize,
+    },
+  })
 
   // Layout-scoped revalidation so every cached page under the admin /clients
   // tree AND the entire client portal re-renders with the new flag value.
