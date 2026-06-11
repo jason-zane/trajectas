@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import { redirect } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -21,27 +20,6 @@ import type { TemplateVariables, ExperienceTemplate } from "@/lib/experience/typ
 import type { AssessmentIntroContent, IntroOverride } from "@/types/database"
 
 // Skeleton for the intro body content
-function AssessmentIntroSkeleton() {
-  return (
-    <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-      <div className="w-full max-w-[540px] space-y-8 animate-pulse">
-        <div className="space-y-3 text-center">
-          <div className="h-10 bg-muted rounded w-3/4 mx-auto" />
-          <div className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm">
-            <div className="space-y-2">
-              <div className="h-4 bg-muted rounded w-full" />
-              <div className="h-4 bg-muted rounded w-5/6" />
-            </div>
-          </div>
-        </div>
-        <div className="flex justify-center">
-          <div className="h-10 bg-muted rounded w-48" />
-        </div>
-      </div>
-    </main>
-  );
-}
-
 interface ValidatedAccessData {
   campaign: { id: string; clientId?: string | null };
   assessments: Array<{ assessmentId: string; title: string }>;
@@ -320,18 +298,19 @@ export default async function AssessmentIntroPage({
           </div>
         </header>
 
-        {/* Content streams behind Suspense */}
-        <Suspense fallback={<AssessmentIntroSkeleton />}>
-          <AssessmentIntroContent
-            token={token}
-            idxStr={idxStr}
-            campaign={campaign}
-            assessments={assessments}
-            participant={participant}
-            experience={experience}
-            isCustomBrand={isCustomBrand}
-          />
-        </Suspense>
+        {/* Deliberately NOT wrapped in Suspense: the same fetch that produces
+            the intro content also decides the skip redirects (suppressed /
+            disabled / index past end). Streaming a fallback first would turn
+            those server redirects into a visible flash + meta refresh. */}
+        <AssessmentIntroContent
+          token={token}
+          idxStr={idxStr}
+          campaign={campaign}
+          assessments={assessments}
+          participant={participant}
+          experience={experience}
+          isCustomBrand={isCustomBrand}
+        />
       </div>
     </>
   )
