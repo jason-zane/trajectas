@@ -1231,6 +1231,7 @@ export async function updateAssessmentCustomisation(
 export async function getAssessmentCustomReportLockNameForAssessment(
   assessmentId: string,
 ): Promise<string | null> {
+  await requireAssessmentAccess(assessmentId)
   const db = createAdminClient()
   return getAssessmentCustomReportLockName(db, assessmentId)
 }

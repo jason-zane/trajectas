@@ -34,6 +34,10 @@ const actorMocks = vi.hoisted(() => ({
   resolveSessionActor: vi.fn(),
 }));
 
+const authzMocks = vi.hoisted(() => ({
+  resolveAuthorizedScope: vi.fn(),
+}));
+
 const renderMocks = vi.hoisted(() => ({
   renderEmailHtml: vi.fn(),
 }));
@@ -63,6 +67,42 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/auth/actor", () => ({
   resolveSessionActor: actorMocks.resolveSessionActor,
 }));
+
+// Mock only scope RESOLUTION; re-implement the pure gate helpers inline
+// (mirroring src/lib/auth/authorization.ts) so the actions' authorization
+// wiring is genuinely exercised against scope fixtures.
+vi.mock("@/lib/auth/authorization", () => {
+  class AuthorizationError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "AuthorizationError";
+    }
+  }
+  interface ScopeLike {
+    isPlatformAdmin: boolean;
+    clientAdminIds: string[];
+    partnerAdminIds: string[];
+  }
+  return {
+    AuthorizationError,
+    resolveAuthorizedScope: authzMocks.resolveAuthorizedScope,
+    assertAdminOnly: (scope: ScopeLike) => {
+      if (!scope.isPlatformAdmin) {
+        throw new AuthorizationError("This action is restricted to platform admin.");
+      }
+    },
+    canManageClient: (
+      scope: ScopeLike,
+      clientId: string,
+      clientPartnerId?: string | null,
+    ) =>
+      scope.isPlatformAdmin ||
+      scope.clientAdminIds.includes(clientId) ||
+      (clientPartnerId != null && scope.partnerAdminIds.includes(clientPartnerId)),
+    canManagePartner: (scope: ScopeLike, partnerId: string) =>
+      scope.isPlatformAdmin || scope.partnerAdminIds.includes(partnerId),
+  };
+});
 
 vi.mock("@/lib/email/render", () => ({
   renderEmailHtml: renderMocks.renderEmailHtml,
@@ -127,6 +167,28 @@ const ACTIVE_ACTOR = {
   role: "platform_admin",
 };
 
+const CLIENT_A = "11111111-1111-4111-8111-111111111111";
+const CLIENT_B = "22222222-2222-4222-8222-222222222222";
+const PARTNER_P = "33333333-3333-4333-8333-333333333333";
+
+const PLATFORM_ADMIN_SCOPE = {
+  isPlatformAdmin: true,
+  clientAdminIds: [] as string[],
+  partnerAdminIds: [] as string[],
+};
+
+const CLIENT_A_ADMIN_SCOPE = {
+  isPlatformAdmin: false,
+  clientAdminIds: [CLIENT_A],
+  partnerAdminIds: [] as string[],
+};
+
+const PARTNER_P_ADMIN_SCOPE = {
+  isPlatformAdmin: false,
+  clientAdminIds: [] as string[],
+  partnerAdminIds: [PARTNER_P],
+};
+
 const PLATFORM_BRAND = {
   name: "Trajectas",
   primaryColor: "#2d6a5a",
@@ -159,6 +221,7 @@ describe("email template actions", () => {
     supabaseMocks.upsertFn.mockResolvedValue({ data: null, error: null });
 
     actorMocks.resolveSessionActor.mockResolvedValue(ACTIVE_ACTOR);
+    authzMocks.resolveAuthorizedScope.mockResolvedValue(PLATFORM_ADMIN_SCOPE);
     brandMocks.getEffectiveBrand.mockResolvedValue(PLATFORM_BRAND);
     renderMocks.renderEmailHtml.mockResolvedValue({
       html: "<html>test</html>",
@@ -409,6 +472,115 @@ describe("email template actions", () => {
       actorMocks.resolveSessionActor.mockResolvedValueOnce(null);
 
       await expect(sendTestEmail("magic_link")).rejects.toThrow("Unauthorized");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Scope authorization — regression pins for prior finding F-003.
+  // Authentication alone must never be enough: every action requires authority
+  // over the TARGET scope. If a gate is removed, these fail.
+  // -------------------------------------------------------------------------
+  describe("scope authorization (F-003 regression pins)", () => {
+    const clientUpsertInput = {
+      type: "magic_link" as const,
+      scopeType: "client" as const,
+      scopeId: CLIENT_A,
+      subject: "Sign in",
+      previewText: null,
+      editorJson: { type: "doc", content: [] },
+    };
+
+    it("client admin cannot read platform templates", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(listEmailTemplates("platform", null)).rejects.toThrow(
+        /platform admin/,
+      );
+      expect(supabaseMocks.fromFn).not.toHaveBeenCalled();
+    });
+
+    it("client admin cannot read another client's templates", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(listEmailTemplates("client", CLIENT_B)).rejects.toThrow(
+        /not authorized/i,
+      );
+      await expect(getEmailTemplate("magic_link", "client", CLIENT_B)).rejects.toThrow(
+        /not authorized/i,
+      );
+      expect(supabaseMocks.fromFn).not.toHaveBeenCalled();
+    });
+
+    it("client admin can read their own client's templates", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(listEmailTemplates("client", CLIENT_A)).resolves.toEqual([]);
+    });
+
+    it("client admin cannot overwrite platform templates", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(
+        upsertEmailTemplate({
+          ...clientUpsertInput,
+          scopeType: "platform",
+          scopeId: null,
+        }),
+      ).rejects.toThrow(/platform admin/);
+      expect(supabaseMocks.upsertFn).not.toHaveBeenCalled();
+    });
+
+    it("client admin cannot overwrite another client's templates", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(
+        upsertEmailTemplate({ ...clientUpsertInput, scopeId: CLIENT_B }),
+      ).rejects.toThrow(/not authorized/i);
+      expect(supabaseMocks.upsertFn).not.toHaveBeenCalled();
+    });
+
+    it("client admin can upsert their own client's template", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(upsertEmailTemplate(clientUpsertInput)).resolves.toEqual({});
+      expect(supabaseMocks.upsertFn).toHaveBeenCalled();
+    });
+
+    it("partner admin can upsert their own partner's template", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(PARTNER_P_ADMIN_SCOPE);
+
+      await expect(
+        upsertEmailTemplate({
+          ...clientUpsertInput,
+          scopeType: "partner",
+          scopeId: PARTNER_P,
+        }),
+      ).resolves.toEqual({});
+    });
+
+    it("scoped reads without a scope id are rejected for non-platform admins", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(getEmailTemplate("magic_link", "client", null)).rejects.toThrow(
+        /client id is required/i,
+      );
+    });
+
+    it("client admin cannot test-send a platform template (default scope)", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await expect(sendTestEmail("magic_link")).rejects.toThrow(/platform admin/);
+      expect(sendMocks.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it("client admin can test-send their own client's template", async () => {
+      authzMocks.resolveAuthorizedScope.mockResolvedValue(CLIENT_A_ADMIN_SCOPE);
+
+      await sendTestEmail("assessment_invite", "client", CLIENT_A);
+
+      expect(sendMocks.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ scopeClientId: CLIENT_A }),
+      );
     });
   });
 });
