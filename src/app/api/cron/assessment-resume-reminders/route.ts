@@ -13,6 +13,7 @@
 
 import { NextResponse } from 'next/server'
 import { sweepResumeReminders } from '@/lib/assess/resume-reminders'
+import { reportError } from '@/lib/observability/report-error'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -35,6 +36,12 @@ export async function GET(request: Request): Promise<Response> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('[cron:assessment-resume-reminders] sweep failed:', message)
+    await reportError(err, {
+      source: 'cron.assessment-resume-reminders',
+      severity: 'error',
+      alert: true,
+      context: { phase: 'sweep' },
+    })
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 }

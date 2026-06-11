@@ -21,6 +21,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAppUrl } from '@/lib/hosts'
 import { getCampaignAccessError, getParticipantAccessError } from '@/lib/assess/access'
 import type { sendEmail } from '@/lib/email/send'
+import { reportError } from '@/lib/observability/report-error'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -207,10 +208,22 @@ async function sendForTier(
       // permanently-undeliverable recipient (hard bounce, dead domain) loop
       // through this cron every few minutes forever. A missed tier-1 is still
       // covered by tier-2.
+      const message = err instanceof Error ? err.message : String(err)
       console.error(
         `[cron:assessment-resume-reminders] tier ${tier} send failed for session ${row.id}:`,
-        err instanceof Error ? err.message : String(err),
+        message,
       )
+      await reportError(err, {
+        source: 'cron.assessment-resume-reminders.send',
+        severity: 'error',
+        alert: false,
+        context: {
+          tier,
+          sessionId: row.id,
+          participantId: row.campaign_participant_id,
+          campaignId: row.campaign_id,
+        },
+      })
       errors++
     }
   }
@@ -257,6 +270,15 @@ async function claimSession(
       `[cron:assessment-resume-reminders] failed to claim session ${row.id}:`,
       error.message,
     )
+    await reportError(error, {
+      source: 'cron.assessment-resume-reminders.claim',
+      severity: 'error',
+      alert: false,
+      context: {
+        sessionId: row.id,
+        tier,
+      },
+    })
     return false
   }
   return (data?.length ?? 0) > 0
