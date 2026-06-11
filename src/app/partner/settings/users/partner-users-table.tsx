@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getSelectLabel } from "@/lib/select-display";
+import { formatDate } from "@/lib/formatting";
 
 type Row = PartnerMember & { displayName: string };
 
@@ -40,13 +41,6 @@ function memberName(m: PartnerMember) {
   return parts.length > 0 ? parts.join(" ") : null;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 export function PartnerPortalUsersTable({
   partnerId,
