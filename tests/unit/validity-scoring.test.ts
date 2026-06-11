@@ -464,7 +464,8 @@ describe('runValidityAnalysis', () => {
       const profile = runValidityAnalysis('session-1', responses, items)
 
       expect(profile.responseTimeFlags?.suspiciouslyFast).toBe(2)
-      expect(profile.overallFlag).toMatch(/valid|review/)
+      // fastRate 0.5 is not > 0.5 (invalid) but is > 0.25 → exactly 'review'
+      expect(profile.overallFlag).toBe('review')
     })
 
     it('hand-derives "invalid" flag when > 50% are suspiciously fast', () => {
