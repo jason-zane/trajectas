@@ -49,6 +49,7 @@ interface ClientIntegrationsPanelProps {
   clientId: string;
   clientSlug: string;
   settings: ClientInternalIntegrationSettings;
+  disabled?: boolean;
 }
 
 type CredentialFormState = {
@@ -353,6 +354,7 @@ export function ClientIntegrationsPanel({
   clientId,
   clientSlug,
   settings,
+  disabled = false,
 }: ClientIntegrationsPanelProps) {
   const router = useRouter();
   const [credentialDialogOpen, setCredentialDialogOpen] = useState(false);
@@ -564,7 +566,7 @@ export function ClientIntegrationsPanel({
             </div>
           </div>
 
-          <Button onClick={() => setCredentialDialogOpen(true)} disabled={pendingAction}>
+          <Button onClick={() => setCredentialDialogOpen(true)} disabled={pendingAction || disabled}>
             <KeyRound data-icon="inline-start" />
             Create API Key
           </Button>
@@ -655,7 +657,7 @@ export function ClientIntegrationsPanel({
               resetEndpointForm();
               setEndpointDialogOpen(true);
             }}
-            disabled={pendingAction}
+            disabled={pendingAction || disabled}
           >
             <Webhook data-icon="inline-start" />
             Add Endpoint
@@ -708,7 +710,7 @@ export function ClientIntegrationsPanel({
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={pendingAction}
+                        disabled={pendingAction || disabled}
                         onClick={() => {
                           setEndpointForm({
                             endpointId: endpoint.id,
@@ -726,7 +728,7 @@ export function ClientIntegrationsPanel({
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={pendingAction}
+                        disabled={pendingAction || disabled}
                         onClick={() => handleRotateSecret(endpoint.id, endpoint.label)}
                       >
                         <RotateCcw data-icon="inline-start" />
