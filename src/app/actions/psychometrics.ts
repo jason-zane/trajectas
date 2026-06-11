@@ -120,7 +120,7 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
   await requireAdminScope()
   const db = createAdminClient()
 
-  const [items, activeItems, flagged, constructs, reliable, runs, norms] =
+  const [items, activeItems, flagged, constructs, reliable, runs, norms, calibrationRunsResult] =
     await Promise.all([
       db.from('items').select('*', { count: 'exact', head: true }),
       db.from('items').select('*', { count: 'exact', head: true }).eq('status', 'active'),
@@ -129,6 +129,7 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
       db.from('construct_reliability').select('*', { count: 'exact', head: true }).gte('cronbach_alpha', 0.7),
       db.from('calibration_runs').select('created_at').order('created_at', { ascending: false }).limit(1),
       db.from('norm_groups').select('*', { count: 'exact', head: true }).eq('is_active', true),
+      db.from('calibration_runs').select('*', { count: 'exact', head: true }),
     ])
 
   if (items.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', items.error)
@@ -138,8 +139,6 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
   if (reliable.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', reliable.error)
   if (runs.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', runs.error)
   if (norms.error) throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', norms.error)
-
-  const calibrationRunsResult = await db.from('calibration_runs').select('*', { count: 'exact', head: true })
   if (calibrationRunsResult.error) {
     throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', calibrationRunsResult.error)
   }

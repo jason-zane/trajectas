@@ -1584,7 +1584,7 @@ export async function getParticipantReportSnapshot(
   }
 
   // pdf_url now stores a private storage path — resolve a signed URL for download
-  const { getSignedReportPdfUrl } = await import('@/app/actions/reports')
+  const { getSignedReportPdfUrl } = await import('@/lib/reports/pdf-access')
   const pdfUrl = await getSignedReportPdfUrl(data.pdf_url)
 
   return {
