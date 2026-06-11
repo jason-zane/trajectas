@@ -1,12 +1,11 @@
 import { Building2 } from "lucide-react"
 import { redirect, notFound } from "next/navigation"
-import { getBrandConfig, getCachedPlatformBrand } from "@/app/actions/brand"
+import { getBrandConfig } from "@/app/actions/brand"
 import { isClientBrandingEnabled } from "@/app/actions/client-entitlements"
 import { canManageClient, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolveClientOrg } from "@/lib/auth/resolve-client-org"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
-import type { BrandConfig } from "@/lib/brand/types"
+import { resolveInheritedBrand } from "@/lib/brand/resolve-inherited-brand"
 import { ClientBrandEditor } from "@/app/(dashboard)/clients/[slug]/branding/client-brand-editor"
 
 export default async function ClientPortalBrandPage() {
@@ -53,22 +52,10 @@ export default async function ClientPortalBrandPage() {
     )
   }
 
-  const clientRecord = await getBrandConfig("client", clientId)
-
-  // Resolve inherited brand: partner → platform → hardcoded defaults
-  let inheritedBrand: BrandConfig
-  if (client.partner_id) {
-    const partnerBrand = await getBrandConfig("partner", client.partner_id)
-    if (partnerBrand) {
-      inheritedBrand = partnerBrand.config
-    } else {
-      const platform = await getCachedPlatformBrand()
-      inheritedBrand = platform?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
-    }
-  } else {
-    const platform = await getCachedPlatformBrand()
-    inheritedBrand = platform?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
-  }
+  const [clientRecord, inheritedBrand] = await Promise.all([
+    getBrandConfig("client", clientId),
+    resolveInheritedBrand("client", clientId),
+  ])
 
   return (
     <ClientBrandEditor

@@ -9,15 +9,7 @@ import {
   DataTableRowLink,
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
-
-function formatDate(value?: string) {
-  if (!value) return "Not set";
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
+import { formatDate } from "@/lib/formatting";
 
 const columns: ColumnDef<CampaignWithMeta>[] = [
   {

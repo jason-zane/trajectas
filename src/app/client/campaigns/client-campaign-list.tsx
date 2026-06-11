@@ -29,6 +29,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
+import { formatDateRange } from "@/lib/formatting";
 
 const statusVariant: Record<
   string,
@@ -40,19 +41,6 @@ const statusVariant: Record<
   closed: "destructive",
   archived: "outline",
 };
-
-function formatDateRange(opensAt?: string, closesAt?: string) {
-  if (!opensAt && !closesAt) return "—";
-  const fmt = (d: string) =>
-    new Date(d).toLocaleDateString("en-AU", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  if (opensAt && closesAt) return `${fmt(opensAt)} – ${fmt(closesAt)}`;
-  if (opensAt) return `Opens ${fmt(opensAt)}`;
-  return `Closes ${fmt(closesAt!)}`;
-}
 
 function getCompletionPercent(campaign: OperationalClientCampaign) {
   if (campaign.participantCount === 0) {

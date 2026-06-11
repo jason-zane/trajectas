@@ -1,11 +1,10 @@
 import { Building2 } from "lucide-react"
 import { notFound, redirect } from "next/navigation"
-import { getBrandConfig, getCachedPlatformBrand } from "@/app/actions/brand"
+import { getBrandConfig } from "@/app/actions/brand"
 import { canManagePartner, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org"
-import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
-import type { BrandConfig } from "@/lib/brand/types"
+import { resolveInheritedBrand } from "@/lib/brand/resolve-inherited-brand"
 import { PartnerBrandEditor } from "@/app/(dashboard)/partners/[slug]/branding/partner-brand-editor"
 
 export default async function PartnerPortalBrandPage() {
@@ -51,13 +50,10 @@ export default async function PartnerPortalBrandPage() {
     )
   }
 
-  const [partnerRecord, platformRecord] = await Promise.all([
+  const [partnerRecord, inheritedBrand] = await Promise.all([
     getBrandConfig("partner", partnerId),
-    getCachedPlatformBrand(),
+    resolveInheritedBrand("partner", partnerId),
   ])
-
-  const inheritedBrand: BrandConfig =
-    platformRecord?.config ?? (TRAJECTAS_DEFAULTS as BrandConfig)
 
   return (
     <PartnerBrandEditor

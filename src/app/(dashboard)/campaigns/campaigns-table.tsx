@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
+import { formatDateRange } from "@/lib/formatting";
 
 const STATUS_VARIANT: Record<
   string,
@@ -30,29 +31,6 @@ const STATUS_VARIANT: Record<
   closed: "destructive",
   archived: "outline",
 };
-
-function formatDateRange(opensAt?: string, closesAt?: string) {
-  if (!opensAt && !closesAt) {
-    return "—";
-  }
-
-  const formatDate = (value: string) =>
-    new Date(value).toLocaleDateString("en-AU", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
-  if (opensAt && closesAt) {
-    return `${formatDate(opensAt)} – ${formatDate(closesAt)}`;
-  }
-
-  if (opensAt) {
-    return `Opens ${formatDate(opensAt)}`;
-  }
-
-  return `Closes ${formatDate(closesAt!)}`;
-}
 
 function getCompletionPercent(campaign: CampaignWithMeta) {
   if (campaign.participantCount === 0) {
