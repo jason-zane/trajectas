@@ -36,8 +36,9 @@ const USE_SERVER_RE = /^\s*(['"])use server\1;?\s*$/m;
 
 /**
  * Authorization evidence: scope/tenancy checks and token validation.
- * Deliberately ABSENT: resolveSessionActor, .auth.getUser, getCurrentProfile,
- * getAuthenticatedActor — authentication-only (see header).
+ * Deliberately ABSENT: resolveSessionActor, .auth.getUser, getVerifiedUserId
+ * (the local-JWT getUser equivalent from src/lib/auth/claims.ts),
+ * getCurrentProfile, getAuthenticatedActor — authentication-only (see header).
  */
 const AUTHZ_PATTERNS = [
   // require<Something>() / require360Admin() helpers (incl. digits).

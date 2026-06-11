@@ -261,23 +261,21 @@ export async function getWorkspaceContextOptions(
   try {
     if (scope.isLocalDevelopmentBypass) {
       const db = createAdminClient();
+      const [partnerRows, clientRows] = await Promise.all([
+        surface === "partner"
+          ? db.from("partners").select("id").order("name", { ascending: true })
+          : Promise.resolve({ data: null }),
+        db
+          .from("clients")
+          .select("id")
+          .is("deleted_at", null)
+          .order("name", { ascending: true }),
+      ]);
       partnerIds =
         surface === "partner"
-          ? (
-              await db
-                .from("partners")
-                .select("id")
-                .order("name", { ascending: true })
-            ).data?.map((row) => String(row.id)) ?? []
+          ? partnerRows.data?.map((row) => String(row.id)) ?? []
           : scope.partnerIds;
-      clientIds =
-        (
-          await db
-            .from("clients")
-            .select("id")
-            .is("deleted_at", null)
-            .order("name", { ascending: true })
-        ).data?.map((row) => String(row.id)) ?? [];
+      clientIds = clientRows.data?.map((row) => String(row.id)) ?? [];
     }
 
     [partners, clients] = await Promise.all([

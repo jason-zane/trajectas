@@ -15,6 +15,7 @@ import type {
 } from "@/lib/auth/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getVerifiedUserId } from "@/lib/auth/claims";
 
 function mapPartnerMembership(row: Record<string, unknown>): PartnerMembershipRecord {
   return {
@@ -50,11 +51,12 @@ export async function resolveSignedPreviewContext(): Promise<PreviewContext | nu
 
 async function resolveSessionActorImpl(): Promise<ResolvedActor | null> {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Local JWT verification — the profile lookup below is the freshness
+  // check (deactivated users fail isActive) so a network getUser() here
+  // would only duplicate it.
+  const userId = await getVerifiedUserId(supabase);
 
-  if (!user) return null;
+  if (!userId) return null;
 
   const db = createAdminClient();
   const [profileResult, partnerMembershipResult, clientMembershipResult, activeContext] =
@@ -62,17 +64,17 @@ async function resolveSessionActorImpl(): Promise<ResolvedActor | null> {
       db
         .from("profiles")
         .select("id, email, role, display_name, is_active")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single(),
       db
         .from("partner_memberships")
         .select("id, partner_id, role, is_default, created_at")
-        .eq("profile_id", user.id)
+        .eq("profile_id", userId)
         .is("revoked_at", null),
       db
         .from("client_memberships")
         .select("id, client_id, role, is_default, created_at")
-        .eq("profile_id", user.id)
+        .eq("profile_id", userId)
         .is("revoked_at", null),
       resolveSignedActiveContext(),
     ]);
