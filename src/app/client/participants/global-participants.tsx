@@ -24,6 +24,7 @@ import {
   ParticipantStatusBadge,
   PARTICIPANT_STATUS_LABEL,
 } from "@/components/results/status-badges";
+import { formatRelativeDate, formatDateTime } from "@/lib/formatting";
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -36,37 +37,6 @@ function getDisplayName(p: { firstName?: string | null; lastName?: string | null
 
 function getInitials(p: { firstName?: string | null; email: string }) {
   return (p.firstName?.[0] ?? p.email[0] ?? "?").toUpperCase();
-}
-
-function formatRelativeDate(value: string) {
-  const date = new Date(value);
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-
-  if (diffMinutes < 1) return "just now";
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `${diffDays}d ago`;
-
-  return date.toLocaleDateString("en-AU", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 // ---------------------------------------------------------------------------

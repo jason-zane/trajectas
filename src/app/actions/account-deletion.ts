@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { sendEmail } from '@/lib/email/send'
 import { requireAppUrl } from '@/lib/hosts'
+import { formatDateLong } from '@/lib/formatting'
 
 const GRACE_PERIOD_DAYS = 30
 
@@ -61,7 +62,7 @@ export async function requestAccountDeletion(): Promise<AccountDeletionResult> {
       to: profile.email,
       variables: {
         subject: 'Your Trajectas account is scheduled for deletion',
-        message: `You have requested deletion of your Trajectas account. We will permanently delete your account and associated data on ${formatDate(scheduledFor)}.\n\nIf you change your mind, sign in to Trajectas and cancel the deletion from your profile page. You have ${GRACE_PERIOD_DAYS} days.`,
+        message: `You have requested deletion of your Trajectas account. We will permanently delete your account and associated data on ${formatDateLong(scheduledFor.toISOString())}.\n\nIf you change your mind, sign in to Trajectas and cancel the deletion from your profile page. You have ${GRACE_PERIOD_DAYS} days.`,
         actionUrl: `${publicAppUrl()}/profile`,
         actionLabel: 'Cancel deletion',
       },
@@ -115,15 +116,6 @@ export async function cancelAccountDeletion(): Promise<AccountDeletionResult> {
 
   revalidatePath('/profile')
   return { success: true }
-}
-
-function formatDate(d: Date): string {
-  return d.toLocaleDateString('en-AU', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
 }
 
 function publicAppUrl(): string {

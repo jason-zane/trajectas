@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
 import {
+  canManageClient,
+  resolveAuthorizedScope,
+} from "@/lib/auth/authorization";
+import {
   getClientMembers,
   getClientPendingInvites,
 } from "@/app/actions/clients";
@@ -7,10 +11,19 @@ import { resolveClientOrg } from "@/lib/auth/resolve-client-org";
 import { ClientPortalUsersTable } from "./client-users-table";
 import { ClientPortalInviteDialog } from "./invite-user-dialog";
 import { ClientPortalPendingInvites } from "./pending-invites-section";
+import { WorkspaceUsersPage } from "@/components/workspace-users/workspace-users-page";
 
 export default async function ClientPortalUsersPage() {
-  const { clientId } = await resolveClientOrg("/client/settings/users");
+  const [{ clientId }, scope] = await Promise.all([
+    resolveClientOrg("/client/settings/users"),
+    resolveAuthorizedScope(),
+  ]);
+
   if (!clientId) notFound();
+
+  if (!canManageClient(scope, clientId)) {
+    notFound();
+  }
 
   const [members, pendingInvites] = await Promise.all([
     getClientMembers(clientId),
@@ -18,25 +31,15 @@ export default async function ClientPortalUsersPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-section">Team Members</h2>
-          <p className="text-caption mt-0.5">
-            Invite, promote, and remove people from your workspace.
-          </p>
-        </div>
-        <ClientPortalInviteDialog clientId={clientId} />
-      </div>
-
-      <ClientPortalUsersTable clientId={clientId} members={members} />
-
-      {pendingInvites.length > 0 && (
-        <ClientPortalPendingInvites
-          clientId={clientId}
-          invites={pendingInvites}
-        />
-      )}
-    </div>
+    <WorkspaceUsersPage
+      surface={{
+        workspaceId: clientId,
+        TableComponent: ClientPortalUsersTable,
+        InviteDialog: ClientPortalInviteDialog,
+        PendingInvitesComponent: ClientPortalPendingInvites,
+        members,
+        pendingInvites,
+      }}
+    />
   );
 }

@@ -6,32 +6,8 @@ import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { getInviteDetail } from "@/app/actions/user-management";
+import { formatDateTimeMedium, formatExpiryStatus } from "@/lib/formatting";
 import { InviteDetailClient } from "./invite-detail-client";
-
-function formatDate(dateString: string) {
-  return new Date(dateString).toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatExpiry(expiresAt: string) {
-  const now = Date.now();
-  const expiry = new Date(expiresAt).getTime();
-  const diffMs = expiry - now;
-  const diffDays = Math.ceil(Math.abs(diffMs) / (1000 * 60 * 60 * 24));
-
-  if (diffMs >= 0) {
-    if (diffDays <= 1) return "Expires within 1 day";
-    return `Expires in ${diffDays} days`;
-  }
-
-  if (diffDays <= 1) return "Expired within 1 day";
-  return `Expired ${diffDays} days ago`;
-}
 
 function getRoleLabel(role: string) {
   switch (role) {
@@ -104,7 +80,7 @@ export default async function InviteDetailPage({
               <p className="text-sm font-medium text-foreground">Invite status</p>
               <p className="text-sm text-muted-foreground">Pending</p>
               <p className="text-sm text-muted-foreground">
-                {formatExpiry(invite.expiresAt)}
+                {formatExpiryStatus(invite.expiresAt)}
               </p>
             </div>
           </div>
@@ -128,13 +104,13 @@ export default async function InviteDetailPage({
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Created
               </p>
-              <p className="font-medium text-foreground">{formatDate(invite.createdAt)}</p>
+              <p className="font-medium text-foreground">{formatDateTimeMedium(invite.createdAt)}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Expires
               </p>
-              <p className="font-medium text-foreground">{formatDate(invite.expiresAt)}</p>
+              <p className="font-medium text-foreground">{formatDateTimeMedium(invite.expiresAt)}</p>
             </div>
           </div>
 
