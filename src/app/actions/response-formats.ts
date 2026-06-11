@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -10,8 +10,7 @@ import type { ResponseFormat } from '@/types/database'
 
 export type ResponseFormatWithMeta = ResponseFormat & { itemCount: number }
 
-export async function getResponseFormats(): Promise<ResponseFormatWithMeta[]> {
-  await requireAdminScope()
+async function getResponseFormatsImpl(): Promise<ResponseFormatWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')
@@ -30,10 +29,23 @@ export async function getResponseFormats(): Promise<ResponseFormatWithMeta[]> {
   })
 }
 
-export async function getResponseFormatById(
+const getResponseFormatsCached = unstable_cache(
+  getResponseFormatsImpl,
+  ['response-formats'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getResponseFormats(): Promise<ResponseFormatWithMeta[]> {
+  await requireAdminScope()
+  return getResponseFormatsCached()
+}
+
+async function getResponseFormatByIdImpl(
   id: string,
 ): Promise<ResponseFormat | null> {
-  await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('response_formats')
@@ -43,6 +55,22 @@ export async function getResponseFormatById(
 
   if (error) return null
   return mapResponseFormatRow(data)
+}
+
+const getResponseFormatByIdCached = unstable_cache(
+  getResponseFormatByIdImpl,
+  ['response-format-by-id'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getResponseFormatById(
+  id: string,
+): Promise<ResponseFormat | null> {
+  await requireAdminScope()
+  return getResponseFormatByIdCached(id)
 }
 
 export async function createResponseFormat(formData: FormData) {
@@ -85,6 +113,7 @@ export async function createResponseFormat(formData: FormData) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
+  revalidateTag('taxonomy', 'max')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'response_format.created',
@@ -138,6 +167,7 @@ export async function updateResponseFormat(id: string, formData: FormData) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
+  revalidateTag('taxonomy', 'max')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'response_format.updated',
@@ -154,8 +184,7 @@ export async function updateResponseFormat(id: string, formData: FormData) {
 
 export type AnchorPresets = Record<string, Record<number, string[]>>
 
-export async function getAnchorPresets(): Promise<AnchorPresets> {
-  await requireAdminScope()
+async function getAnchorPresetsImpl(): Promise<AnchorPresets> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('anchor_presets')
@@ -172,6 +201,20 @@ export async function getAnchorPresets(): Promise<AnchorPresets> {
     presets[row.type][row.points] = row.anchors as string[]
   }
   return presets
+}
+
+const getAnchorPresetsCached = unstable_cache(
+  getAnchorPresetsImpl,
+  ['anchor-presets'],
+  {
+    revalidate: 300,
+    tags: ['taxonomy'],
+  }
+)
+
+export async function getAnchorPresets(): Promise<AnchorPresets> {
+  await requireAdminScope()
+  return getAnchorPresetsCached()
 }
 
 export async function deleteResponseFormat(id: string) {
@@ -204,6 +247,7 @@ export async function deleteResponseFormat(id: string) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
+  revalidateTag('taxonomy', 'max')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'response_format.deleted',

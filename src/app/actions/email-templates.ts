@@ -1,5 +1,6 @@
 'use server'
 
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveSessionActor } from '@/lib/auth/actor'
 import { upsertEmailTemplateSchema } from '@/lib/validations/email-template'
@@ -36,7 +37,7 @@ export async function listEmailTemplates(
   return data ?? []
 }
 
-export async function getEmailTemplate(
+async function getEmailTemplateImpl(
   type: EmailType,
   scopeType: EmailTemplateScope,
   scopeId: string | null,
@@ -59,6 +60,23 @@ export async function getEmailTemplate(
   const { data, error } = await query.maybeSingle()
   if (error) throw new Error(error.message)
   return data ?? null
+}
+
+const getEmailTemplateCached = unstable_cache(
+  getEmailTemplateImpl,
+  ['email-template'],
+  {
+    revalidate: 300,
+    tags: ['email-templates'],
+  }
+)
+
+export async function getEmailTemplate(
+  type: EmailType,
+  scopeType: EmailTemplateScope,
+  scopeId: string | null,
+) {
+  return getEmailTemplateCached(type, scopeType, scopeId)
 }
 
 // ---------------------------------------------------------------------------
@@ -122,6 +140,7 @@ export async function upsertEmailTemplate(input: unknown) {
   )
 
   if (error) return { error: { _form: [error.message] } }
+  revalidateTag('email-templates', 'max')
   return {}
 }
 

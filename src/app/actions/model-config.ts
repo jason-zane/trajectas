@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -26,8 +26,7 @@ export interface ModelConfigRow {
  * Returns all ai_model_configs rows that have a purpose set,
  * joined with the provider name.
  */
-export async function getModelConfigs(): Promise<ModelConfigRow[]> {
-  await requireAdminScope()
+async function getModelConfigsImpl(): Promise<ModelConfigRow[]> {
   const supabase = createAdminClient()
 
   const { data, error } = await supabase
@@ -47,6 +46,20 @@ export async function getModelConfigs(): Promise<ModelConfigRow[]> {
     config: (row.config as { temperature?: number; max_tokens?: number }) ?? {},
     updatedAt: row.updated_at as string,
   }))
+}
+
+const getModelConfigsCached = unstable_cache(
+  getModelConfigsImpl,
+  ['model-configs'],
+  {
+    revalidate: 300,
+    tags: ['ai-config'],
+  }
+)
+
+export async function getModelConfigs(): Promise<ModelConfigRow[]> {
+  await requireAdminScope()
+  return getModelConfigsCached()
 }
 
 export async function getModelConfigForPurpose(
@@ -84,12 +97,9 @@ export async function getModelSelectionBootstrap(): Promise<{
  * Returns just the model ID for a given purpose. Lightweight helper for
  * client components that only need to seed a default value.
  */
-export async function getDefaultModelIdForPurpose(
+async function getDefaultModelIdForPurposeImpl(
   purpose: AIPromptPurpose,
 ): Promise<string | null> {
-  const parsed = aiPromptPurposeSchema.safeParse(purpose)
-  if (!parsed.success) return null
-  await requireAdminScope()
   const supabase = createAdminClient()
 
   const { data, error } = await supabase
@@ -101,6 +111,24 @@ export async function getDefaultModelIdForPurpose(
   if (error) throw new Error(error.message)
 
   return (data?.model_id as string | undefined) ?? null
+}
+
+const getDefaultModelIdForPurposeCached = unstable_cache(
+  getDefaultModelIdForPurposeImpl,
+  ['default-model-id-for-purpose'],
+  {
+    revalidate: 300,
+    tags: ['ai-config'],
+  }
+)
+
+export async function getDefaultModelIdForPurpose(
+  purpose: AIPromptPurpose,
+): Promise<string | null> {
+  const parsed = aiPromptPurposeSchema.safeParse(purpose)
+  if (!parsed.success) return null
+  await requireAdminScope()
+  return getDefaultModelIdForPurposeCached(purpose)
 }
 
 /** All non-embedding purposes that the global selector applies to. */
@@ -169,6 +197,7 @@ export async function applyModelToAllPurposes(
   if (failed?.error) return { error: failed.error.message }
 
   revalidatePath('/settings/ai')
+  revalidateTag('ai-config', 'max')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_model.bulk_updated',
@@ -236,6 +265,7 @@ export async function updateModelForPurpose(
   if (error) return { error: error.message }
 
   revalidatePath('/settings/ai')
+  revalidateTag('ai-config', 'max')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_model.updated',
