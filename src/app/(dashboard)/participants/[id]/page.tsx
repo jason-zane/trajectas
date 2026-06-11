@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
   getParticipant,
@@ -7,6 +8,7 @@ import {
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
 import { loadTrajectoryForParticipant } from "@/lib/trajectory/load";
 import { ParticipantDetailView } from "@/components/results/participant-detail-view";
+import { DataTableSkeleton } from "@/components/loading/data-table-skeleton";
 
 async function loadParticipant(participantId: string) {
   try {
@@ -17,24 +19,42 @@ async function loadParticipant(participantId: string) {
   }
 }
 
-async function loadParticipantAuxiliaryData(participantId: string) {
+// Async component for the slow auxiliary data (sessions, activity, etc.)
+async function ParticipantDetailContent({
+  id,
+  participant,
+}: {
+  id: string;
+  participant: NonNullable<Awaited<ReturnType<typeof loadParticipant>>>;
+}) {
   const [sessions, activity, snapshots, trajectory] = await Promise.all([
-    getParticipantSessions(participantId).catch((error) => {
+    getParticipantSessions(id).catch((error) => {
       console.error("[participant-detail] Failed to load sessions:", error);
       return [];
     }),
-    getParticipantActivity(participantId).catch((error) => {
+    getParticipantActivity(id).catch((error) => {
       console.error("[participant-detail] Failed to load activity:", error);
       return [];
     }),
-    getReportSnapshotsForParticipant(participantId).catch((error) => {
+    getReportSnapshotsForParticipant(id).catch((error) => {
       console.error("[participant-detail] Failed to load report snapshots:", error);
       return [];
     }),
-    loadTrajectoryForParticipant(participantId, "participant-detail"),
+    loadTrajectoryForParticipant(id, "participant-detail"),
   ]);
 
-  return { sessions, activity, snapshots, trajectory };
+  return (
+    <ParticipantDetailView
+      participant={participant}
+      sessions={sessions}
+      activity={activity}
+      snapshots={snapshots}
+      trajectory={trajectory}
+      backHref="/participants"
+      backLabel="Back to participants"
+      sessionBaseHref={`/participants/${id}/sessions`}
+    />
+  );
 }
 
 export default async function AdminParticipantDetailPage({
@@ -48,19 +68,9 @@ export default async function AdminParticipantDetailPage({
 
   if (!participant) notFound();
 
-  const { sessions, activity, snapshots, trajectory } =
-    await loadParticipantAuxiliaryData(id);
-
   return (
-    <ParticipantDetailView
-      participant={participant}
-      sessions={sessions}
-      activity={activity}
-      snapshots={snapshots}
-      trajectory={trajectory}
-      backHref="/participants"
-      backLabel="Back to participants"
-      sessionBaseHref={`/participants/${id}/sessions`}
-    />
+    <Suspense fallback={<DataTableSkeleton rows={5} columns={3} />}>
+      <ParticipantDetailContent id={id} participant={participant} />
+    </Suspense>
   );
 }
