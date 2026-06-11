@@ -2176,6 +2176,7 @@ export async function getCampaignAssessmentId(
   campaignId: string,
   assessmentId: string,
 ): Promise<string | null> {
+  await requireCampaignAccess(campaignId)
   const db = createAdminClient()
   const { data, error } = await db
     .from('campaign_assessments')
