@@ -20,6 +20,13 @@ import { RunHeader } from "./run-header"
 
 const TERMINAL_STATUSES = new Set(["reviewing", "completed", "failed"])
 
+// Poll fast while the run is producing output, back off when nothing
+// changes between polls (long generations spend minutes per batch), and
+// stop entirely on terminal status.
+const POLL_MIN_MS = 2000
+const POLL_MAX_MS = 30_000
+const POLL_BACKOFF_FACTOR = 1.5
+
 export default function GenerationRunPage({
   params,
 }: {
@@ -35,22 +42,33 @@ export default function GenerationRunPage({
   const [responseFormats, setResponseFormats] = useState<Array<{ id: string; name: string; type: string }>>([])
   const [loading, setLoading] = useState(true)
   const [explainerOpen, setExplainerOpen] = useState(false)
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pollDelayRef = useRef(POLL_MIN_MS)
+  const lastPollSignatureRef = useRef("")
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (): Promise<boolean> => {
     const result = await getGenerationRun(runId)
-    if (!result) return
+    if (!result) return true
 
     setRun(result.run)
     setItems(result.items)
     setLoading(false)
 
     if (TERMINAL_STATUSES.has(result.run.status)) {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-        pollingRef.current = null
-      }
+      return false
     }
+
+    const signature = `${result.run.status}:${result.items.length}`
+    if (signature !== lastPollSignatureRef.current) {
+      lastPollSignatureRef.current = signature
+      pollDelayRef.current = POLL_MIN_MS
+    } else {
+      pollDelayRef.current = Math.min(
+        Math.round(pollDelayRef.current * POLL_BACKOFF_FACTOR),
+        POLL_MAX_MS,
+      )
+    }
+    return true
   }, [runId])
 
   useEffect(() => {
@@ -73,17 +91,19 @@ export default function GenerationRunPage({
   }, [run, responseFormats])
 
   useEffect(() => {
-    const initialFetchTimer = window.setTimeout(() => {
-      void fetchData()
-    }, 0)
+    let cancelled = false
 
-    pollingRef.current = setInterval(() => {
-      void fetchData()
-    }, 2000)
+    const tick = async () => {
+      const keepPolling = await fetchData()
+      if (cancelled || !keepPolling) return
+      pollingRef.current = setTimeout(tick, pollDelayRef.current)
+    }
+
+    void tick()
 
     return () => {
-      window.clearTimeout(initialFetchTimer)
-      if (pollingRef.current) clearInterval(pollingRef.current)
+      cancelled = true
+      if (pollingRef.current) clearTimeout(pollingRef.current)
     }
   }, [fetchData])
 
