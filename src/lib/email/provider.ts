@@ -54,9 +54,9 @@ export async function sendHtmlEmail(options: SendHtmlEmailOptions) {
   // believes the email was sent. Surface them as thrown errors so they reach
   // logs/observability and any caller's own error handling.
   if (error) {
-    const recipients = Array.isArray(options.to) ? options.to.join(', ') : options.to
-    const message = `Resend rejected email to ${recipients}: ${error.name ?? 'error'} — ${error.message ?? 'unknown error'}`
-    console.error(`[email] ${message}`, error)
+    const recipientCount = Array.isArray(options.to) ? options.to.length : 1
+    const message = `Resend rejected email to ${recipientCount} recipient(s): ${error.name ?? 'error'} — ${error.message ?? 'unknown error'}`
+    console.error(`[email] ${message}`)
     throw new Error(message)
   }
 
