@@ -2277,3 +2277,51 @@ export async function getCampaignSessions(
   // the cross-participant join for some support sessions).
   return dalGetCampaignSessions(createAdminClient(), campaignId)
 }
+
+// ---------------------------------------------------------------------------
+// Client portal: paginated unique participants
+// ---------------------------------------------------------------------------
+
+export async function getUniqueParticipantsForClientPaginated(
+  clientId: string,
+  page: number,
+  pageSize: number,
+  search?: string,
+): Promise<{
+  participants: UniqueClientParticipant[]
+  totalCount: number
+  page: number
+  pageSize: number
+}> {
+  await requireClientAccess(clientId)
+
+  const { listUniqueParticipantsForClient } = await import('@/lib/dal/participants')
+  const db = await createClient()
+
+  const result = await listUniqueParticipantsForClient(db, {
+    clientId,
+    page,
+    pageSize,
+    search,
+  })
+
+  // Map DAL result to UniqueClientParticipant type used by the component
+  const participants: UniqueClientParticipant[] = result.rows.map((row) => ({
+    id: row.id,
+    email: row.email,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    latestStatus: row.latestStatus,
+    sessionCount: row.sessionCount,
+    lastActivity: row.lastActivity,
+    latestCampaignId: row.latestCampaignId,
+    latestSessionId: row.latestSessionId,
+  }))
+
+  return {
+    participants,
+    totalCount: result.totalCount,
+    page: result.page,
+    pageSize: result.pageSize,
+  }
+}

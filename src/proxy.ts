@@ -177,13 +177,29 @@ interface CspContext {
 }
 
 function resolveCspContext(surface: Surface, nonce: string): CspContext {
-  // Default to report-only mode for safe rollout. CSP_ENFORCE=1 flips this to
-  // enforcing, but enforcement is gated on PR 0's nonce-attachment verification
-  // landing first — see docs/audit/2026-05-22-cross-environment-reliability-plan.md.
-  const headerName =
-    process.env.CSP_ENFORCE === "1"
-      ? "Content-Security-Policy"
-      : "Content-Security-Policy-Report-Only";
+  // Enforce CSP by default on the dynamic app surfaces (admin/partner/client/
+  // assess): every response there is rendered per-request, so Next attaches
+  // the nonce to each script tag and nonce + strict-dynamic enforcement is
+  // safe. The public surface is statically prerendered — its HTML carries no
+  // nonce, and with 'strict-dynamic' the 'self' allowlist is disabled, so
+  // enforcing there blocks every script on the page (verified on the PR
+  // preview, 2026-06-11: 45 violations, marketing JS fully dead). Public
+  // stays report-only until static routes move to a hash-based policy.
+  // Escape hatches: CSP_REPORT_ONLY=1 forces report-only everywhere
+  // (instant rollback, no redeploy); CSP_ENFORCE=1 forces enforcement
+  // everywhere (back-compat — including the public surface, so leave it
+  // unset unless the static-page policy has been fixed).
+  const isDynamicSurface =
+    surface === "admin" ||
+    surface === "partner" ||
+    surface === "client" ||
+    surface === "assess";
+  const forceEnforce = process.env.CSP_ENFORCE === "1";
+  const forceReportOnly = process.env.CSP_REPORT_ONLY === "1";
+  const enforce = forceEnforce || (!forceReportOnly && isDynamicSurface);
+  const headerName = enforce
+    ? "Content-Security-Policy"
+    : "Content-Security-Policy-Report-Only";
   return {
     headerName,
     policy: buildContentSecurityPolicy(surface, nonce),
@@ -287,6 +303,11 @@ function shouldSkipMutationOriginCheck(
 }
 
 export async function proxy(request: NextRequest) {
+  const proxyStartedAt = performance.now();
+  // Server-Timing phases (visible in browser DevTools → Network → Timing):
+  // rl = rate-limit check, auth = local JWT verification + activity check,
+  // proxy = total middleware time. Durations only — no sensitive data.
+  const serverTimings: Array<{ name: string; durationMs: number }> = [];
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get("host");
   const configuredHosts = getConfiguredSurfaceHosts();
@@ -303,8 +324,8 @@ export async function proxy(request: NextRequest) {
     nonce,
     csp,
   );
-  const applyHeaders = (response: NextResponse, surface: Surface, p: string) =>
-    applySecurityHeaders(
+  const applyHeaders = (response: NextResponse, surface: Surface, p: string) => {
+    const applied = applySecurityHeaders(
       response,
       surface,
       p,
@@ -313,7 +334,18 @@ export async function proxy(request: NextRequest) {
       // on the response matches what the destination expects.
       surface === configuredSurface ? csp : resolveCspContext(surface, nonce),
     );
+    const parts = [
+      ...serverTimings.map(
+        ({ name, durationMs }) => `${name};dur=${durationMs.toFixed(1)}`
+      ),
+      `proxy;dur=${(performance.now() - proxyStartedAt).toFixed(1)}`,
+    ];
+    applied.headers.set("Server-Timing", parts.join(", "));
+    return applied;
+  };
+  const rateLimitStartedAt = performance.now();
   const rateLimit = await checkRequestRateLimit(request);
+  serverTimings.push({ name: "rl", durationMs: performance.now() - rateLimitStartedAt });
 
   if (rateLimit && !rateLimit.allowed) {
     const response = NextResponse.json(
@@ -349,7 +381,9 @@ export async function proxy(request: NextRequest) {
     const supabase = createMiddlewareSupabaseClient(request, sessionResponse);
     // Verifies the session JWT locally against the cached JWKS; refreshes
     // expired tokens through the SSR client (cookies land on sessionResponse).
+    const authStartedAt = performance.now();
     const userId = await getVerifiedUserId(supabase);
+    serverTimings.push({ name: "auth", durationMs: performance.now() - authStartedAt });
 
     if (userId) {
       const now = Math.floor(Date.now() / 1000);

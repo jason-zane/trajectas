@@ -6,6 +6,16 @@ port = 54321
 schemas = ["public", "storage", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
+# Supabase CLI 2.106.0 flipped the default of this flag to `false`: a local
+# `start`/`db reset` now REVOKES the default Data API privileges (anon,
+# authenticated, service_role) on every newly-created public table/sequence/
+# function. That silently broke the integration job — service-role inserts in
+# the test fixtures started failing with `permission denied for table <X>`
+# (green on 2.105, red from 2.106 onward). Production was provisioned under the
+# legacy behaviour and still exposes these tables, so we keep parity locally /
+# in CI by re-enabling auto-expose. The flag is deprecated (removal 2026-10-30);
+# the durable replacement is explicit GRANTs per exposed object.
+auto_expose_new_tables = true
 
 [db]
 port = 54322
