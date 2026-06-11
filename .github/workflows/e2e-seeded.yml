@@ -43,7 +43,9 @@ jobs:
         run: npm run db:test:reset
 
       - name: Export local Supabase environment
-        run: npm run db:test:env >> "$GITHUB_ENV"
+        # --silent suppresses npm's "> trajectas@0.1.0 db:test:env" banner,
+        # which is not KEY=VALUE and makes GITHUB_ENV parsing fail.
+        run: npm run --silent db:test:env >> "$GITHUB_ENV"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
