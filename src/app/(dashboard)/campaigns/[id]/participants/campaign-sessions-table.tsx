@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -44,7 +44,21 @@ export function CampaignSessionsTable({
   const router = useRouter();
   const { href } = usePortal();
   const [confirmDelete, setConfirmDelete] = useState<string[] | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Optimistic mutations for sessions list
+  type SessionAction = { type: "remove"; ids: string[] };
+
+  const [optimisticSessions, updateOptimisticSessions] = useOptimistic(
+    sessions,
+    (state: CampaignSessionRow[], action: SessionAction) => {
+      if (action.type === "remove") {
+        const idSet = new Set(action.ids);
+        return state.filter((s) => !idSet.has(s.id));
+      }
+      return state;
+    },
+  );
 
   const columns: ColumnDef<CampaignSessionRow>[] = [
     {
@@ -158,26 +172,28 @@ export function CampaignSessionsTable({
 
   async function handleDelete() {
     if (!confirmDelete) return;
-    setIsDeleting(true);
-    try {
-      await bulkDeleteParticipantSessions(confirmDelete);
-      toast.success(
-        `Deleted ${confirmDelete.length} session${confirmDelete.length === 1 ? "" : "s"}`,
-      );
-      setConfirmDelete(null);
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete sessions.");
-    } finally {
-      setIsDeleting(false);
-    }
+
+    updateOptimisticSessions({ type: "remove", ids: confirmDelete });
+
+    startTransition(async () => {
+      try {
+        await bulkDeleteParticipantSessions(confirmDelete);
+        toast.success(
+          `Deleted ${confirmDelete.length} session${confirmDelete.length === 1 ? "" : "s"}`,
+        );
+        setConfirmDelete(null);
+        router.refresh();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to delete sessions.");
+      }
+    });
   }
 
   return (
     <>
       <DataTable
         columns={columns}
-        data={sessions}
+        data={optimisticSessions}
         searchableColumns={["participantName", "participantEmail", "assessmentTitle"]}
         searchPlaceholder="Search by participant or assessment"
         defaultSort={{ id: "lastActivity", desc: true }}
@@ -189,7 +205,7 @@ export function CampaignSessionsTable({
       />
       <ConfirmDialog
         open={!!confirmDelete}
-        onOpenChange={(open) => !open && !isDeleting && setConfirmDelete(null)}
+        onOpenChange={(open) => !open && !isPending && setConfirmDelete(null)}
         title={`Delete ${confirmDelete?.length ?? 0} session${
           (confirmDelete?.length ?? 0) === 1 ? "" : "s"
         }?`}
@@ -197,7 +213,7 @@ export function CampaignSessionsTable({
         confirmLabel="Delete sessions"
         variant="destructive"
         onConfirm={handleDelete}
-        loading={isDeleting}
+        loading={isPending}
         loadingLabel="Deleting…"
       />
     </>
