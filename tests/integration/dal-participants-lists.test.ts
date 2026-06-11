@@ -3,6 +3,7 @@ import { canRun, createAdminClient } from "./_helpers/rls-fixture";
 import {
   listParticipants,
   listUniqueParticipants,
+  listUniqueParticipantsForClient,
 } from "@/lib/dal/participants";
 
 const ts = Date.now();
@@ -148,5 +149,66 @@ describe.skipIf(!canRun)("dal/participants: list queries", () => {
     expect(total).toBe(2);
     const emails = data.map((d) => d.email).sort();
     expect(emails).toEqual([emailA, emailB].sort());
+  });
+
+  it("client portal: lists unique participants paginated", async () => {
+    const { rows, totalCount, page, pageSize } =
+      await listUniqueParticipantsForClient(admin, {
+        clientId: ids.client,
+        page: 0,
+        pageSize: 50,
+      });
+    expect(totalCount).toBe(2);
+    expect(rows.length).toBe(2);
+    expect(page).toBe(0);
+    expect(pageSize).toBe(50);
+
+    const emails = rows.map((r) => r.email).sort();
+    expect(emails).toEqual([emailA, emailB].sort());
+  });
+
+  it("client portal: applies search filter", async () => {
+    const { rows, totalCount } = await listUniqueParticipantsForClient(admin, {
+      clientId: ids.client,
+      page: 0,
+      pageSize: 50,
+      search: "alice",
+    });
+    expect(totalCount).toBe(1);
+    expect(rows.length).toBe(1);
+    expect(rows[0].email).toBe(emailA);
+  });
+
+  it("client portal: paginates correctly", async () => {
+    const { rows: page0, totalCount } =
+      await listUniqueParticipantsForClient(admin, {
+        clientId: ids.client,
+        page: 0,
+        pageSize: 1,
+      });
+    expect(totalCount).toBe(2);
+    expect(page0.length).toBe(1);
+
+    const { rows: page1 } = await listUniqueParticipantsForClient(admin, {
+      clientId: ids.client,
+      page: 1,
+      pageSize: 1,
+    });
+    expect(page1.length).toBe(1);
+
+    // Pages should contain different participants
+    expect(page0[0].email).not.toBe(page1[0].email);
+  });
+
+  it("client portal: respects session count and campaign context", async () => {
+    const { rows } = await listUniqueParticipantsForClient(admin, {
+      clientId: ids.client,
+      page: 0,
+      pageSize: 50,
+    });
+
+    const alice = rows.find((r) => r.email === emailA);
+    expect(alice).toBeDefined();
+    expect(alice!.sessionCount).toBe(2);
   });
 });

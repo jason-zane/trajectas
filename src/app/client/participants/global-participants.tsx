@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink, GitCompare, Trash2 } from "lucide-react";
+import { ExternalLink, GitCompare, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 import type { CampaignWithMeta, ClientParticipant, UniqueClientParticipant } from "@/app/actions/campaigns";
@@ -16,6 +17,8 @@ import {
 import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { PageHeader } from "@/components/page-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -171,6 +174,102 @@ function uniqueParticipantHref(row: ParticipantTableRow) {
     : `/client/campaigns/${row.latestCampaignId}/participants/${row.id}`;
 }
 
+// ---------------------------------------------------------------------------
+// Search and pagination components for server-side pagination
+// ---------------------------------------------------------------------------
+
+function ParticipantsSearchBar({
+  onSearch,
+  initialQuery,
+}: {
+  onSearch: (query: string) => void;
+  initialQuery?: string;
+}) {
+  const [query, setQuery] = useState(initialQuery ?? "");
+  // Guard against parent re-renders: onSearch gets a new identity on every
+  // navigation (it closes over searchParams), which re-runs this effect.
+  // Only dispatch when the VALUE changed, or pagination resets to page 0
+  // on every Next/Prev click.
+  const lastSentRef = useRef(initialQuery ?? "");
+
+  useEffect(() => {
+    if (query === lastSentRef.current) return;
+    const handle = window.setTimeout(() => {
+      lastSentRef.current = query;
+      onSearch(query);
+    }, 300);
+
+    return () => window.clearTimeout(handle);
+  }, [query, onSearch]);
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="relative flex-1 max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Search by name or email..."
+          className="pl-10"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ParticipationsPaginationControls({
+  currentPage,
+  pageCount,
+  pageStart,
+  pageEnd,
+  totalCount,
+  onPageChange,
+}: {
+  currentPage: number;
+  pageCount: number;
+  pageStart: number;
+  pageEnd: number;
+  totalCount: number;
+  onPageChange: (page: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-sm text-muted-foreground">
+        {totalCount === 0 ? (
+          "No participants"
+        ) : (
+          <>Showing {pageStart}–{pageEnd} of {totalCount} participant{totalCount !== 1 ? "s" : ""}</>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">
+          Page {pageCount === 0 ? 0 : currentPage + 1} of {pageCount}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 0}
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage >= pageCount - 1}
+          aria-label="Next page"
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
   {
     accessorKey: "displayName",
@@ -243,19 +342,28 @@ const participantsColumns: ColumnDef<ParticipantTableRow>[] = [
 // Main component
 // ---------------------------------------------------------------------------
 
+export type PaginationMeta = {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  query: string;
+};
+
 export function GlobalParticipants({
   view,
   sessions,
   participants,
   campaigns,
+  paginationMeta,
 }: {
   view: "participants" | "sessions";
   sessions: ClientParticipant[];
   participants: UniqueClientParticipant[];
   campaigns: CampaignWithMeta[];
+  paginationMeta?: PaginationMeta;
 }) {
   const router = useRouter();
-  const total = view === "sessions" ? sessions.length : participants.length;
+  const total = view === "sessions" ? sessions.length : paginationMeta?.totalCount ?? participants.length;
 
   function handleViewChange(newView: string | null) {
     if (!newView) return;
@@ -264,6 +372,25 @@ export function GlobalParticipants({
     } else {
       router.push("/client/participants?view=sessions");
     }
+  }
+
+  function handleParticipantsPageChange(newPage: number) {
+    const qs = new URLSearchParams();
+    qs.set("page", String(newPage));
+    if (paginationMeta?.query) {
+      qs.set("q", paginationMeta.query);
+    }
+    router.push(`/client/participants?${qs.toString()}`);
+  }
+
+  function handleParticipantsSearch(query: string) {
+    const qs = new URLSearchParams();
+    if (query.trim()) {
+      qs.set("q", query.trim());
+    }
+    // Reset to page 0 on search
+    qs.set("page", "0");
+    router.replace(`/client/participants?${qs.toString()}`);
   }
 
   const sessionsBulkActions: BulkAction<SessionTableRow>[] = [
@@ -365,12 +492,22 @@ export function GlobalParticipants({
     );
   }
 
-  // Participants view (deduplicated)
+  // Participants view (deduplicated with server-side pagination)
   const rows: ParticipantTableRow[] = participants.map((p) => ({
     ...p,
     displayName: getDisplayName(p),
     lastActivityValue: p.lastActivity ?? "",
   }));
+
+  const pageCount = paginationMeta
+    ? Math.ceil(paginationMeta.totalCount / paginationMeta.pageSize)
+    : 1;
+  const currentPage = paginationMeta?.page ?? 0;
+  const pageStart = currentPage * (paginationMeta?.pageSize ?? 50) + 1;
+  const pageEnd = Math.min(
+    (currentPage + 1) * (paginationMeta?.pageSize ?? 50),
+    paginationMeta?.totalCount ?? 0,
+  );
 
   return (
     <div className="space-y-8 max-w-6xl">
@@ -388,11 +525,16 @@ export function GlobalParticipants({
           </TabsList>
         </Tabs>
 
+        <ParticipantsSearchBar
+          onSearch={handleParticipantsSearch}
+          initialQuery={paginationMeta?.query}
+        />
+
         <DataTable
           columns={participantsColumns}
           data={rows}
-          searchableColumns={["displayName", "email"]}
-          searchPlaceholder="Search participants"
+          searchableColumns={[]}
+          searchPlaceholder=""
           filterableColumns={[
             {
               id: "latestStatus",
@@ -403,8 +545,19 @@ export function GlobalParticipants({
             },
           ]}
           defaultSort={{ id: "lastActivity", desc: true }}
-          pageSize={25}
+          pageSize={paginationMeta?.pageSize ?? 50}
           rowHref={uniqueParticipantHref}
+          hideClientPagination
+          serverPaginationControls={
+            <ParticipationsPaginationControls
+              currentPage={currentPage}
+              pageCount={pageCount}
+              pageStart={pageStart}
+              pageEnd={pageEnd}
+              totalCount={paginationMeta?.totalCount ?? 0}
+              onPageChange={handleParticipantsPageChange}
+            />
+          }
         />
       </div>
     </div>
