@@ -7,11 +7,14 @@ import {
 } from '@/lib/auth/authorization'
 import {
   generateAndStoreReportPdf,
-  getReportPdfFilename,
   getSnapshotPdfState,
   mapReportPdfStatus,
   queueReportPdfGeneration,
 } from '@/lib/reports/pdf'
+import {
+  contentDispositionAttachment,
+  getReportPdfFilename,
+} from '@/lib/reports/pdf-filename'
 import { verifyReportAccessToken } from '@/lib/reports/report-access-token'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import {
@@ -55,7 +58,7 @@ async function respondWithStoredPdf(storagePath: string, filename: string) {
   return new Response(await data.arrayBuffer(), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': contentDispositionAttachment(filename),
       'Cache-Control': 'no-store',
     },
   })
@@ -239,7 +242,7 @@ export async function GET(
     return new Response(generated.body, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': contentDispositionAttachment(filename),
         'Cache-Control': 'no-store',
       },
     })
