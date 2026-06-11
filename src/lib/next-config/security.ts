@@ -127,6 +127,17 @@ export function createTrajectasNextConfig(
         allowedOrigins: getAllowedServerActionOrigins(env),
         bodySizeLimit: "2mb",
       },
+      // Client router cache for dynamic segments. Default is 0 — every
+      // navigation refetches the RSC payload even when revisiting a page
+      // seconds later. 30s makes back/forward and repeat navigation free;
+      // mutations still invalidate via revalidatePath/Tag and
+      // router.refresh as before.
+      staleTimes: {
+        dynamic: 30,
+      },
+      // lucide-react and date-fns are in Next's built-in list already;
+      // @base-ui/react is not.
+      optimizePackageImports: ["@base-ui/react"],
     },
     async headers() {
       return [
