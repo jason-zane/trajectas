@@ -3,11 +3,11 @@
 import { inviteUserToPartner } from "@/app/actions/partners";
 import { InviteMemberDialog } from "@/components/invite-member-dialog";
 
-export function PartnerPortalInviteDialog({ partnerId }: { partnerId: string }) {
+export function PartnerPortalInviteDialog({ workspaceId }: { workspaceId: string }) {
   return (
     <InviteMemberDialog
       scope="partner workspace"
-      onInvite={(params) => inviteUserToPartner(partnerId, params)}
+      onInvite={(params) => inviteUserToPartner(workspaceId, params)}
     />
   );
 }

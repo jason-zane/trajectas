@@ -34,10 +34,10 @@ function formatRole(role: string) {
 }
 
 export function ClientPortalPendingInvites({
-  clientId,
+  workspaceId,
   invites,
 }: {
-  clientId: string;
+  workspaceId: string;
   invites: ClientPendingInvite[];
 }) {
   const router = useRouter();
@@ -49,7 +49,7 @@ export function ClientPortalPendingInvites({
   function handleRevoke() {
     if (!revokeTarget) return;
     startRevoke(async () => {
-      const result = await revokeClientInvite(clientId, revokeTarget.id);
+      const result = await revokeClientInvite(workspaceId, revokeTarget.id);
       if (result && "error" in result) {
         toast.error(result.error);
         return;
@@ -93,7 +93,7 @@ export function ClientPortalPendingInvites({
                       iconOnly
                       email={invite.email}
                       label="Copy invite link"
-                      getLink={() => reissueClientInvite(clientId, invite.id)}
+                      getLink={() => reissueClientInvite(workspaceId, invite.id)}
                     />
                     <Button
                       variant="ghost"
