@@ -41,6 +41,17 @@ const eslintConfig = defineConfig([
       "no-empty": ["error", { allowEmptyCatch: false }],
     },
   },
+  // Disable the legacy `no-html-link-for-pages` rule. It only guards links to a
+  // `pages/` directory (which this App-Router-only project does not have) and it
+  // crashes when building its URL list from app-dir paths that combine a route
+  // group with a dynamic segment (e.g. `(dashboard)/campaigns/[id]/compare`):
+  // the plugin's greedy `/\[.*\]/g` replace mangles the escaped `\[id\]` into an
+  // unmatched-paren regex. Adding loading.tsx files surfaced the crash.
+  {
+    rules: {
+      "@next/next/no-html-link-for-pages": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
