@@ -1,6 +1,6 @@
 'use server'
 
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -41,8 +41,7 @@ function mapPromptRow(row: Record<string, unknown>): PromptVersionRow {
   }
 }
 
-export async function getPromptSummaries(): Promise<PromptSummaryRow[]> {
-  await requireAdminScope()
+async function getPromptSummariesImpl(): Promise<PromptSummaryRow[]> {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('ai_system_prompts')
@@ -75,12 +74,23 @@ export async function getPromptSummaries(): Promise<PromptSummaryRow[]> {
   return Array.from(summaries.values())
 }
 
-export async function getPromptVersions(
+const getPromptSummariesCached = unstable_cache(
+  getPromptSummariesImpl,
+  ['prompt-summaries'],
+  {
+    revalidate: 300,
+    tags: ['ai-config'],
+  }
+)
+
+export async function getPromptSummaries(): Promise<PromptSummaryRow[]> {
+  await requireAdminScope()
+  return getPromptSummariesCached()
+}
+
+async function getPromptVersionsImpl(
   purpose: AIPromptPurpose,
 ): Promise<PromptVersionRow[]> {
-  const parsed = getPromptVersionsSchema.safeParse({ purpose })
-  if (!parsed.success) return []
-  await requireAdminScope()
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('ai_system_prompts')
@@ -90,6 +100,24 @@ export async function getPromptVersions(
 
   if (error) throw new Error(error.message)
   return ((data ?? []) as Record<string, unknown>[]).map(mapPromptRow)
+}
+
+const getPromptVersionsCached = unstable_cache(
+  getPromptVersionsImpl,
+  ['prompt-versions'],
+  {
+    revalidate: 300,
+    tags: ['ai-config'],
+  }
+)
+
+export async function getPromptVersions(
+  purpose: AIPromptPurpose,
+): Promise<PromptVersionRow[]> {
+  const parsed = getPromptVersionsSchema.safeParse({ purpose })
+  if (!parsed.success) return []
+  await requireAdminScope()
+  return getPromptVersionsCached(purpose)
 }
 
 export async function createPromptVersion(
@@ -120,6 +148,7 @@ export async function createPromptVersion(
   }
 
   revalidatePath('/settings/ai')
+  updateTag('ai-config')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_prompt.created',
@@ -162,6 +191,7 @@ export async function activatePromptVersion(
   if (activateError) return { error: activateError.message }
 
   revalidatePath('/settings/ai')
+  updateTag('ai-config')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_prompt.activated',
