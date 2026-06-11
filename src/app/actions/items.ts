@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -225,7 +225,7 @@ export async function createItem(formData: FormData) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.created',
@@ -313,7 +313,7 @@ export async function updateItem(id: string, formData: FormData) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.updated',
@@ -342,7 +342,7 @@ export async function deleteItem(id: string) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.deleted',
@@ -372,7 +372,7 @@ export async function deleteItems(ids: string[]) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.bulk_deleted',
@@ -399,7 +399,7 @@ export async function restoreItem(id: string) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.restored',
@@ -431,7 +431,7 @@ export async function bulkUpdateItemStatus(
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.bulk_status_updated',
@@ -464,7 +464,7 @@ export async function restoreItems(ids: string[]) {
   revalidatePath('/items')
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.bulk_restored',
@@ -537,7 +537,7 @@ export async function updateItemField(id: string, field: string, value: string) 
   if (error) return { error: error.message }
 
   revalidatePath('/items')
-  revalidateTag('items', 'max')
+  updateTag('items')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'item.field_updated',

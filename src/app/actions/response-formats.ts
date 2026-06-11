@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -113,7 +113,7 @@ export async function createResponseFormat(formData: FormData) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'response_format.created',
@@ -167,7 +167,7 @@ export async function updateResponseFormat(id: string, formData: FormData) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'response_format.updated',
@@ -247,7 +247,7 @@ export async function deleteResponseFormat(id: string) {
   revalidatePath('/response-formats')
   revalidatePath('/items')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'response_format.deleted',

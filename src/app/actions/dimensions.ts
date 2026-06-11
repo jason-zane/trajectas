@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -135,7 +135,7 @@ export async function createDimension(formData: FormData) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.created',
@@ -198,7 +198,7 @@ export async function updateDimension(id: string, formData: FormData) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.updated',
@@ -224,7 +224,7 @@ export async function deleteDimension(id: string) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.deleted',
@@ -252,7 +252,7 @@ export async function deleteDimensions(ids: string[]) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.bulk_deleted',
@@ -281,7 +281,7 @@ export async function restoreDimension(id: string) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.restored',
@@ -308,7 +308,7 @@ export async function restoreDimensions(ids: string[]) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.bulk_restored',
@@ -337,7 +337,7 @@ export async function toggleDimensionActive(id: string, isActive: boolean) {
 
   revalidatePath('/dimensions')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.active_toggled',
@@ -381,7 +381,7 @@ export async function updateDimensionField(id: string, field: string, value: str
   if (error) return { error: error.message }
 
   revalidatePath('/dimensions')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'dimension.field_updated',

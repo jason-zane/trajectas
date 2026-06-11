@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdminScope } from '@/lib/auth/authorization'
@@ -506,7 +506,7 @@ export async function createFactor(formData: FormData) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.created',
@@ -650,7 +650,7 @@ export async function updateFactor(id: string, formData: FormData) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.updated',
@@ -678,7 +678,7 @@ export async function deleteFactor(id: string) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.deleted',
@@ -706,7 +706,7 @@ export async function deleteFactors(ids: string[]) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.bulk_deleted',
@@ -731,7 +731,7 @@ export async function restoreFactor(id: string) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.restored',
@@ -758,7 +758,7 @@ export async function restoreFactors(ids: string[]) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.bulk_restored',
@@ -783,7 +783,7 @@ export async function toggleFactorActive(id: string, isActive: boolean) {
 
   revalidatePath('/factors')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.active_toggled',
@@ -812,7 +812,7 @@ export async function setFactorCompositionLocked(id: string, locked: boolean) {
 
   revalidatePath('/factors')
   revalidatePath(`/factors`)
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.composition_lock_toggled',
@@ -855,7 +855,7 @@ export async function updateFactorField(id: string, field: string, value: string
   if (error) return { error: error.message }
 
   revalidatePath('/factors')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'factor.field_updated',

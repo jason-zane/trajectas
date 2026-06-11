@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -148,7 +148,7 @@ export async function createPromptVersion(
   }
 
   revalidatePath('/settings/ai')
-  revalidateTag('ai-config', 'max')
+  updateTag('ai-config')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_prompt.created',
@@ -191,7 +191,7 @@ export async function activatePromptVersion(
   if (activateError) return { error: activateError.message }
 
   revalidatePath('/settings/ai')
-  revalidateTag('ai-config', 'max')
+  updateTag('ai-config')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'ai_prompt.activated',

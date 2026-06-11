@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveSessionActor } from '@/lib/auth/actor'
 import { upsertEmailTemplateSchema } from '@/lib/validations/email-template'
@@ -140,7 +140,7 @@ export async function upsertEmailTemplate(input: unknown) {
   )
 
   if (error) return { error: { _form: [error.message] } }
-  revalidateTag('email-templates', 'max')
+  updateTag('email-templates')
   return {}
 }
 

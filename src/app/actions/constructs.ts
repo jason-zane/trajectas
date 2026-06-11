@@ -1,6 +1,6 @@
 'use server'
 
-import { unstable_cache, revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -250,7 +250,7 @@ export async function createConstruct(formData: FormData) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.created',
@@ -311,7 +311,7 @@ export async function updateConstruct(id: string, formData: FormData) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.updated',
@@ -333,7 +333,7 @@ export async function deleteConstruct(id: string) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.deleted',
@@ -360,7 +360,7 @@ export async function deleteConstructs(ids: string[]) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.bulk_deleted',
@@ -384,7 +384,7 @@ export async function restoreConstruct(id: string) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.restored',
@@ -410,7 +410,7 @@ export async function restoreConstructs(ids: string[]) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.bulk_restored',
@@ -434,7 +434,7 @@ export async function toggleConstructActive(id: string, isActive: boolean) {
 
   revalidatePath('/constructs')
   revalidatePath('/')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.active_toggled',
@@ -476,7 +476,7 @@ export async function updateConstructField(id: string, field: string, value: str
   if (error) return { error: error.message }
 
   revalidatePath('/constructs')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.field_updated',
@@ -526,7 +526,7 @@ export async function saveConstructDraftToLibrary(
   if (error) return { success: false, error: error.message }
 
   revalidatePath('/constructs')
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'construct.draft_saved_to_library',
@@ -721,7 +721,7 @@ export async function duplicateConstructAsFactor(
   revalidatePath('/factors')
   revalidatePath('/constructs')
   revalidatePath(`/constructs/${construct.slug}/edit`)
-  revalidateTag('taxonomy', 'max')
+  updateTag('taxonomy')
 
   return { success: true, factorId: resolvedFactorId, factorSlug: slug }
 }
