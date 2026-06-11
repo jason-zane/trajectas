@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
-import { throwActionError } from '@/lib/security/action-errors'
+import { throwActionError, logActionError } from '@/lib/security/action-errors'
 import { mapFactorRow } from '@/lib/supabase/mappers'
 import { factorSchema } from '@/lib/validations/factors'
 import { factorReadiness } from '@/lib/library/factor-completeness'
@@ -171,7 +171,8 @@ export async function draftFactorField(
       candidates,
     })
     return { text }
-  } catch {
+  } catch (error) {
+    logActionError('factors.draftFactorField', error)
     return { error: 'Could not draft that field. Try again in a moment.' }
   }
 }
