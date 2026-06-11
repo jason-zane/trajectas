@@ -16,6 +16,7 @@ import {
 } from "@/lib/security/request-origin";
 import type { Surface } from "@/lib/surfaces";
 import { createMiddlewareSupabaseClient } from "@/lib/supabase/middleware";
+import { getVerifiedUserId } from "@/lib/auth/claims";
 import {
   COOKIE_NAME as ACTIVITY_COOKIE,
   decodeLastActivity,
@@ -346,11 +347,11 @@ export async function proxy(request: NextRequest) {
   if (!shouldSkipActivityCheck(pathname)) {
     const sessionResponse = NextResponse.next();
     const supabase = createMiddlewareSupabaseClient(request, sessionResponse);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Verifies the session JWT locally against the cached JWKS; refreshes
+    // expired tokens through the SSR client (cookies land on sessionResponse).
+    const userId = await getVerifiedUserId(supabase);
 
-    if (user) {
+    if (userId) {
       const now = Math.floor(Date.now() / 1000);
       const raw = request.cookies.get(ACTIVITY_COOKIE)?.value;
       const lastActivity = decodeLastActivity(raw);
