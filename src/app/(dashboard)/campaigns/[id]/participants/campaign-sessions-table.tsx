@@ -18,21 +18,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ParticipantStatusBadge } from "@/components/results/status-badges";
 import { usePortal } from "@/components/portal-context";
+import { formatDate } from "@/lib/formatting";
 
 function getInitials(name: string, email: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return email.slice(0, 2).toUpperCase();
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export function CampaignSessionsTable({
@@ -119,7 +111,7 @@ export function CampaignSessionsTable({
       ),
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground tabular-nums">
-          {formatDate(row.original.completedAt ?? row.original.startedAt)}
+          {formatDate(row.original.completedAt ?? row.original.startedAt, "—")}
         </span>
       ),
     },

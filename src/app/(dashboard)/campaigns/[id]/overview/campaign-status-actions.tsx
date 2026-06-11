@@ -10,6 +10,7 @@ import {
   pauseCampaign,
   closeCampaign,
 } from "@/app/actions/campaigns";
+import { formatDate } from "@/lib/formatting";
 import type { CampaignStatus } from "@/types/database";
 
 export function CampaignStatusActions({
@@ -31,15 +32,6 @@ export function CampaignStatusActions({
 }) {
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
-
-  function formatDate(value?: string) {
-    if (!value) return "Not scheduled";
-    return new Intl.DateTimeFormat("en-AU", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(value));
-  }
 
   async function handleActivate() {
     startTransition(async () => {
