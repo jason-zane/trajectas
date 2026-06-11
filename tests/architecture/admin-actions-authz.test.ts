@@ -31,6 +31,8 @@ const AUTH_PATTERNS = [
   /verify\w*Token\s*\(/,
   // Self-service: the action operates on the currently authenticated user.
   /\.auth\.getUser\s*\(/,
+  // Local-JWT equivalent of getUser (see src/lib/auth/claims.ts).
+  /getVerifiedUserId\s*\(/,
   /getCurrentProfile\s*\(/,
   /getAuthenticatedActor\s*\(/,
   // Participant token-gated actions take a `token` parameter that they validate.
