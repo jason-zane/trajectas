@@ -177,13 +177,29 @@ interface CspContext {
 }
 
 function resolveCspContext(surface: Surface, nonce: string): CspContext {
-  // Default to report-only mode for safe rollout. CSP_ENFORCE=1 flips this to
-  // enforcing, but enforcement is gated on PR 0's nonce-attachment verification
-  // landing first — see docs/audit/2026-05-22-cross-environment-reliability-plan.md.
-  const headerName =
-    process.env.CSP_ENFORCE === "1"
-      ? "Content-Security-Policy"
-      : "Content-Security-Policy-Report-Only";
+  // Enforce CSP by default on the dynamic app surfaces (admin/partner/client/
+  // assess): every response there is rendered per-request, so Next attaches
+  // the nonce to each script tag and nonce + strict-dynamic enforcement is
+  // safe. The public surface is statically prerendered — its HTML carries no
+  // nonce, and with 'strict-dynamic' the 'self' allowlist is disabled, so
+  // enforcing there blocks every script on the page (verified on the PR
+  // preview, 2026-06-11: 45 violations, marketing JS fully dead). Public
+  // stays report-only until static routes move to a hash-based policy.
+  // Escape hatches: CSP_REPORT_ONLY=1 forces report-only everywhere
+  // (instant rollback, no redeploy); CSP_ENFORCE=1 forces enforcement
+  // everywhere (back-compat — including the public surface, so leave it
+  // unset unless the static-page policy has been fixed).
+  const isDynamicSurface =
+    surface === "admin" ||
+    surface === "partner" ||
+    surface === "client" ||
+    surface === "assess";
+  const forceEnforce = process.env.CSP_ENFORCE === "1";
+  const forceReportOnly = process.env.CSP_REPORT_ONLY === "1";
+  const enforce = forceEnforce || (!forceReportOnly && isDynamicSurface);
+  const headerName = enforce
+    ? "Content-Security-Policy"
+    : "Content-Security-Policy-Report-Only";
   return {
     headerName,
     policy: buildContentSecurityPolicy(surface, nonce),
