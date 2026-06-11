@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import type { NextRequest } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
+import { reportError } from "@/lib/observability/report-error";
 
 type SlidingWindowStore = Map<string, number[]>;
 
@@ -16,6 +17,12 @@ type RateLimitRule = {
   key: string;
   limit: number;
   windowMs: number;
+  /**
+   * When Redis is configured but errors, fail-closed rules deny requests (429)
+   * instead of falling back to in-memory. This protects cost-bearing operations.
+   * Defaults to false (allow fallback).
+   */
+  failClosed?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -181,6 +188,7 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
       key: `pdf:${userBucket(request, ip)}`,
       limit: 20,
       windowMs: 60_000,
+      failClosed: true, // PDF generation is expensive
     };
   }
 
@@ -197,6 +205,8 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
       key: `login:${ip}`,
       limit: 10,
       windowMs: 60_000,
+      // Login: allow in-memory fallback to avoid locking users out on Redis blip
+      failClosed: false,
     };
   }
 
@@ -213,6 +223,7 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
       key: `chat:${userBucket(request, ip)}`,
       limit: 30,
       windowMs: 60_000,
+      failClosed: true, // Chat is an expensive operation
     };
   }
 
@@ -221,6 +232,7 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
       key: `gen-start:${userBucket(request, ip)}`,
       limit: 10,
       windowMs: 60_000,
+      failClosed: true, // Generation is an expensive operation
     };
   }
 
@@ -245,6 +257,10 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
  * falls back to an in-memory per-process sliding window. The in-memory
  * fallback is not distributed across Vercel Fluid Compute instances — use
  * Upstash in any deployed environment.
+ *
+ * For failClosed rules (cost-bearing operations), if Redis is configured
+ * but errors, the request is denied (429) rather than falling back. If Redis
+ * is not configured at all (local dev), the in-memory fallback is used.
  */
 export async function checkRequestRateLimit(
   request: NextRequest,
@@ -268,15 +284,108 @@ export async function checkRequestRateLimit(
         retryAfterSeconds,
       };
     } catch (error) {
-      // Fail open to the in-memory store rather than blocking legitimate
-      // traffic if Redis has a transient error. The in-memory limit still
-      // catches the single-instance worst case.
-      console.warn("[rate-limit] Upstash error, falling back to in-memory:", error);
+      // Redis is configured but erroring. Report the issue, then decide
+      // whether to deny (failClosed) or fall back (default).
+      reportError(error, {
+        source: "rate-limit.redis_error",
+        severity: "warning",
+        context: {
+          rule_key: rule.key,
+          fail_closed: rule.failClosed ?? false,
+        },
+        alert: false,
+      }).catch(() => {
+        // Swallow reportError failures so instrumentation doesn't break the path
+      });
+
+      console.warn("[rate-limit] Upstash error:", error);
+
+      if (rule.failClosed) {
+        // For cost-bearing routes, deny on Redis error rather than falling back
+        return {
+          allowed: false,
+          limit: rule.limit,
+          remaining: 0,
+          retryAfterSeconds: 60,
+        };
+      }
+
+      // For other routes, fall back to in-memory
       warnIfProductionInMemoryFallback("redis_error");
     }
   } else {
     warnIfProductionInMemoryFallback("redis_not_configured");
   }
 
+  return applyRuleInMemory(rule);
+}
+
+/**
+ * Check a rate-limit bucket for an arbitrary key, with optional failClosed behavior.
+ * Used for action-layer rate limiting (e.g., per-email OTP requests).
+ *
+ * @param key - The rate-limit bucket key (e.g., "otp-email:user@example.com")
+ * @param limit - Number of requests allowed per window
+ * @param windowMs - Time window in milliseconds
+ * @param failClosed - If true and Redis is configured but errors, deny (429).
+ *                     If false, fall back to in-memory. Irrelevant if Redis not configured.
+ *
+ * @returns RateLimitResult with allowed status, or null if rate-limit is not applicable.
+ */
+export async function checkKeyedRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number,
+  failClosed: boolean = false,
+): Promise<RateLimitResult | null> {
+  const ratelimit = getRatelimit(limit, windowMs);
+
+  if (ratelimit) {
+    try {
+      const result = await ratelimit.limit(key);
+      const retryAfterSeconds = result.success
+        ? 0
+        : Math.max(Math.ceil((result.reset - Date.now()) / 1_000), 1);
+      return {
+        allowed: result.success,
+        limit: result.limit,
+        remaining: result.remaining,
+        retryAfterSeconds,
+      };
+    } catch (error) {
+      // Redis is configured but erroring.
+      reportError(error, {
+        source: "rate-limit.keyed.redis_error",
+        severity: "warning",
+        context: {
+          key_prefix: key.split(":")[0] ?? "unknown",
+          fail_closed: failClosed,
+        },
+        alert: false,
+      }).catch(() => {
+        // Swallow reportError failures
+      });
+
+      console.warn("[rate-limit.keyed] Upstash error:", error);
+
+      if (failClosed) {
+        return {
+          allowed: false,
+          limit,
+          remaining: 0,
+          retryAfterSeconds: 60,
+        };
+      }
+
+      // Fall back to in-memory
+      warnIfProductionInMemoryFallback("redis_error");
+    }
+  } else {
+    warnIfProductionInMemoryFallback("redis_not_configured");
+  }
+
+  // Use in-memory fallback (either because Redis not configured or because
+  // we're OK with fallback for this operation)
+  const rule: RateLimitRule = { key, limit, windowMs };
   return applyRuleInMemory(rule);
 }
