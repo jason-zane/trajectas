@@ -12,7 +12,7 @@ import {
   parseJsonRequestWithLimit,
   RequestBodyTooLargeError,
 } from '@/lib/security/request-body'
-import { reportError } from '@/lib/observability/report-error'
+import { logActionError } from '@/lib/security/action-errors'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -121,11 +121,9 @@ export async function POST(request: Request) {
           }
           controller.close()
         } catch (error) {
-          // Mid-stream provider error — report server-side and write to client
-          void reportError(error, {
-            source: 'api.chat.stream',
-            severity: 'warning',
-          })
+          // Mid-stream provider error — persist server-side via after() so the
+          // insert isn't cut short when the stream closes (see logActionError).
+          logActionError('api.chat.stream', error)
           const msg = getOpenRouterErrorMessage(error)
           controller.enqueue(encoder.encode(`\n\n[Error: ${msg}]`))
           controller.close()
