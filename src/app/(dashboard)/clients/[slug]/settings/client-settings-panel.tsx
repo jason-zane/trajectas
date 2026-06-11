@@ -48,7 +48,10 @@ export function ClientSettingsPanel({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-card p-6 shadow-sm ring-1 ring-foreground/[0.06] space-y-6">
+      <div
+        className="rounded-xl bg-card p-6 shadow-sm ring-1 ring-foreground/[0.06] space-y-6 transition-opacity"
+        style={{ opacity: isPending ? 0.6 : 1 }}
+      >
         <h2 className="text-section font-semibold">Feature Flags</h2>
 
         <div className="flex items-center justify-between gap-4">
@@ -81,6 +84,7 @@ export function ClientSettingsPanel({
         clientId={clientId}
         clientSlug={clientSlug}
         settings={integrationSettings}
+        disabled={isPending}
       />
     </div>
   );
