@@ -197,8 +197,8 @@ values
     'active',
     '10000000-0000-0000-0000-000000000101',
     '10000000-0000-0000-0000-000000000001',
-    '2026-03-01T00:00:00Z',
-    '2026-04-30T23:59:59Z',
+    now() - interval '90 days',
+    now() + interval '180 days',
     '{}'::jsonb,
     true,
     true,
@@ -290,7 +290,7 @@ values (
   'Seeded open enrollment',
   50,
   0,
-  '2026-04-30T23:59:59Z',
+  now() + interval '180 days',
   true,
   '2026-03-01T00:00:00Z'
 )
