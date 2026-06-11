@@ -308,7 +308,8 @@ describe("proxy CSP header modes", () => {
   it("applies CSP per-surface correctly (public surface)", async () => {
     vi.stubEnv("PUBLIC_APP_URL", "https://trajectas.test");
     const response = await proxy(createRequest("https://trajectas.test/"));
-    const cspValue = response.headers.get("Content-Security-Policy");
+    // Public is report-only by default (static pages carry no nonce).
+    const cspValue = response.headers.get("Content-Security-Policy-Report-Only");
 
     // Public surface should allow Cal.com iframes
     expect(cspValue).toContain("frame-src https://app.cal.com https://cal.com");
