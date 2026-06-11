@@ -85,7 +85,8 @@ describe('rule-based item selection', () => {
       ]
 
       // Should fall back to defaults and return 10 for 2 factors
-      expect(calculateItemsPerFactor(2, badRules as (FactorCountRule | ReturnType<typeof parseFactorCountRule>)[])).toBe(10)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(calculateItemsPerFactor(2, badRules as any)).toBe(10)
     })
 
     it('returns 4 as ultimate fallback if no rule matches (should not happen with defaults)', () => {
