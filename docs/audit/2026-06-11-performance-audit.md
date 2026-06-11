@@ -60,6 +60,8 @@ Two network `getUser()` calls per request:
 2. Replace `getUser()` with **`supabase.auth.getClaims()`** in the proxy and in `resolveSessionActor`. With asymmetric keys this verifies the JWT **locally against a cached JWKS — zero network**. Keep `getUser()` only where revocation-freshness genuinely matters (e.g., `/auth/*` boundaries, destructive admin actions).
 3. The proxy still needs `setSession`-style cookie refresh — `getClaims()` + the SSR client's token refresh handles this; only refresh when the access token is near expiry rather than verifying remotely every request.
 
+**Revocation model (the trade-off, stated explicitly):** `getClaims()` validates signature/expiry only — it does not see server-side session revocation. This is acceptable here because (a) `resolveSessionActor` already queries `profiles.is_active` on every privileged request via the admin client, so the platform's own kill switch (deactivating a user) takes effect immediately regardless of JWT state; (b) PostgREST/RLS data access is JWT-bound and was never revocation-checked per request, so the data-API surface is unchanged; (c) `getUser()` stays at the auth boundaries (sign-in callback, account deletion). The residual window is auth-server-level revocation (sign-out on another device, auth bans) honoring the old token for ≤ access-token expiry (1h default) — shorten the JWT expiry in Auth settings if that window matters, and enforce the boundary list with an architecture test.
+
 **Expected effect:** −60–160ms on *every* request, and prefetches become nearly free (which makes the sidebar's default prefetching an asset instead of a load amplifier).
 
 ### 1b — Scope resolution does avoidable serial work (P0)
