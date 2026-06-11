@@ -1,9 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { canRun, createAdminClient } from "./_helpers/rls-fixture";
+import { canRun, createAdminClient, createTestUser } from "./_helpers/rls-fixture";
 import { getUserActivity } from "@/lib/dal/audit";
 
 const ts = Date.now();
-const slug = (s: string) => `dala-${s}-${ts}`.toLowerCase();
 
 /**
  * Validates the getUserActivity query (audit_events read filtered by target_id
@@ -20,25 +19,19 @@ describe.skipIf(!canRun)("dal/audit: getUserActivity", () => {
   };
 
   beforeAll(async () => {
-    // Create test profiles
-    const { data: prof, error: profErr } = await admin
-      .from("profiles")
-      .insert({ email: `dala-${ts}@test.local`, slug: slug("profile") })
-      .select("id")
-      .single();
-    if (profErr) throw new Error(`profile insert: ${profErr.message}`);
-    ids.profile = prof!.id;
+    // profiles.id REFERENCES auth.users(id) — rows must be auth-backed, so
+    // create real users via the fixture rather than inserting bare profiles.
+    const user = await createTestUser(admin, {
+      email: `dala-${ts}@test.local`,
+      role: "consultant",
+    });
+    ids.profile = user.userId;
 
-    const { data: otherProf, error: otherErr } = await admin
-      .from("profiles")
-      .insert({
-        email: `dala-other-${ts}@test.local`,
-        slug: slug("other-profile"),
-      })
-      .select("id")
-      .single();
-    if (otherErr) throw new Error(`other profile insert: ${otherErr.message}`);
-    ids.otherProfile = otherProf!.id;
+    const otherUser = await createTestUser(admin, {
+      email: `dala-other-${ts}@test.local`,
+      role: "consultant",
+    });
+    ids.otherProfile = otherUser.userId;
 
     // Create audit events for the target profile
     const events = [
@@ -55,10 +48,10 @@ describe.skipIf(!canRun)("dal/audit: getUserActivity", () => {
         metadata: { field: "name" },
       },
       {
+        // metadata omitted — audit_events.metadata is NOT NULL DEFAULT '{}'
         target_table: "profiles",
         target_id: ids.profile,
         event_type: "profile.avatar_uploaded",
-        metadata: null,
       },
     ];
 
@@ -77,18 +70,19 @@ describe.skipIf(!canRun)("dal/audit: getUserActivity", () => {
       target_table: "profiles",
       target_id: ids.otherProfile,
       event_type: "profile.created",
-      metadata: null,
     });
     if (otherErr2)
       throw new Error(`other audit_events insert: ${otherErr2.message}`);
   });
 
   afterAll(async () => {
-    // Clean up in reverse dependency order
-    await admin.from("audit_events").delete().eq("target_id", ids.profile);
-    await admin.from("audit_events").delete().eq("target_id", ids.otherProfile);
-    await admin.from("profiles").delete().eq("id", ids.profile);
-    await admin.from("profiles").delete().eq("id", ids.otherProfile);
+    // audit_events is append-only (DB-enforced block triggers) — never delete
+    // from it. Rows stay scoped to this run's unique user UUIDs, so they
+    // can't interfere with other tests. Deleting the auth users cascades the
+    // profiles rows; the audit rows' actor FKs SET NULL via the depth-guarded
+    // trigger path.
+    await admin.auth.admin.deleteUser(ids.profile);
+    await admin.auth.admin.deleteUser(ids.otherProfile);
   });
 
   it("returns audit events for target profile ordered newest first", async () => {
@@ -121,39 +115,38 @@ describe.skipIf(!canRun)("dal/audit: getUserActivity", () => {
     expect(withMetadata?.metadata).toEqual({ action: "signup" });
   });
 
-  it("defaults metadata to null when not provided", async () => {
+  it("uses the column default {} when metadata is not provided", async () => {
+    // audit_events.metadata is NOT NULL DEFAULT '{}' — it is never null in
+    // the database, so the DTO surfaces the empty object.
     const activity = await getUserActivity(ids.profile);
     const withoutMetadata = activity.find(
       (a) => a.eventType === "profile.avatar_uploaded"
     );
 
-    expect(withoutMetadata?.metadata).toBeNull();
+    expect(withoutMetadata?.metadata).toEqual({});
   });
 
   it("respects the limit parameter (default 10)", async () => {
-    // Create many events
-    const manyEvents = Array.from({ length: 15 }, (_, i) => ({
-      target_table: "profiles",
-      target_id: ids.profile,
-      event_type: `test.event_${i}`,
-      metadata: null,
-    }));
-
-    const { error } = await admin
-      .from("audit_events")
-      .insert(manyEvents);
-    if (error) throw new Error(`many events insert: ${error.message}`);
-
+    // Use a dedicated user so the 15 extra events never pollute the main
+    // fixture's timeline (audit_events is append-only — no cleanup possible).
+    const limitUser = await createTestUser(admin, {
+      email: `dala-limit-${ts}@test.local`,
+      role: "consultant",
+    });
     try {
-      const activity = await getUserActivity(ids.profile);
-      // Default limit is 10; we have 3 original + 15 new = 18 total
+      const manyEvents = Array.from({ length: 15 }, (_, i) => ({
+        target_table: "profiles",
+        target_id: limitUser.userId,
+        event_type: `test.event_${i}`,
+      }));
+
+      const { error } = await admin.from("audit_events").insert(manyEvents);
+      if (error) throw new Error(`many events insert: ${error.message}`);
+
+      const activity = await getUserActivity(limitUser.userId);
       expect(activity.length).toBeLessThanOrEqual(10);
     } finally {
-      // Cleanup the test events
-      await admin
-        .from("audit_events")
-        .delete()
-        .gte("event_type", "test.event_");
+      await admin.auth.admin.deleteUser(limitUser.userId);
     }
   });
 

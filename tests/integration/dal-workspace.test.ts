@@ -1,5 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { canRun, createAdminClient } from "./_helpers/rls-fixture";
+
+// getSidebarIdentity reads the platform brand through unstable_cache, which
+// cannot run outside the Next server runtime ("Invariant: incrementalCache
+// missing"). The DAL only takes name/logomark from it with a "Trajectas"
+// fallback, so returning null exercises exactly that fallback path while the
+// tenant queries below still hit the real local database.
+vi.mock("@/app/actions/brand", () => ({
+  getCachedPlatformBrand: async () => null,
+}));
+
 import { getSidebarIdentity } from "@/lib/dal/workspace";
 import type { WorkspaceBootstrap } from "@/lib/auth/types";
 
