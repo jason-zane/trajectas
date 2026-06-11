@@ -69,7 +69,7 @@ export const getBrandConfig = unstable_cache(
  * Uses admin client — called transitively from no-session contexts
  * (see getBrandConfig).
  */
-export async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
+async function getPlatformBrand(): Promise<BrandConfigRecord | null> {
   const db = createAdminClient()
   const { data, error } = await db
     .from('brand_configs')
