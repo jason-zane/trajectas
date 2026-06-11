@@ -61,7 +61,15 @@ CREATE OR REPLACE FUNCTION public.audit_events_prevent_mutation()
   SET search_path = public
 AS $$
 BEGIN
-  RAISE EXCEPTION 'audit_events: mutation not allowed — this table is append-only'
+  -- audit_events carries four ON DELETE SET NULL FKs (profiles, partners,
+  -- organizations, support_sessions). Those referential actions run inside
+  -- Postgres's internal RI triggers, so pg_trigger_depth() > 1 there; they
+  -- must pass or deleting any user/partner/client/support-session would
+  -- fail. Direct UPDATE statements arrive at depth 1 and are blocked.
+  IF TG_OP = 'UPDATE' AND pg_trigger_depth() > 1 THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'audit_events: % not allowed — this table is append-only', TG_OP
     USING ERRCODE = '42501';
 END;
 $$;
@@ -82,7 +90,12 @@ CREATE OR REPLACE FUNCTION public.error_events_prevent_mutation()
   SET search_path = public
 AS $$
 BEGIN
-  RAISE EXCEPTION 'error_events: mutation not allowed — this table is append-only'
+  -- error_events.actor_profile_id is ON DELETE SET NULL; allow that FK
+  -- referential action (depth > 1) or deleting a profile would fail.
+  IF TG_OP = 'UPDATE' AND pg_trigger_depth() > 1 THEN
+    RETURN NEW;
+  END IF;
+  RAISE EXCEPTION 'error_events: % not allowed — this table is append-only', TG_OP
     USING ERRCODE = '42501';
 END;
 $$;

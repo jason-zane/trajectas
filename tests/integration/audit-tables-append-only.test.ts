@@ -264,4 +264,42 @@ describe('Audit tables append-only enforcement', () => {
       expect(deleteError?.message).toMatch(/append-only|mutation not allowed|permission denied/i)
     })
   })
+
+  // audit_events / error_events carry ON DELETE SET NULL FKs (profiles,
+  // partners, organizations, support_sessions). Those referential actions are
+  // UPDATEs on the audit rows — the block triggers must let them through
+  // (pg_trigger_depth() > 1) or deleting any user/partner/client would fail.
+  describe.skipIf(!canRun)('FK referential actions still pass', () => {
+    it('deleting a profile SET NULLs audit_events.actor_profile_id instead of failing', async () => {
+      const adminClient = createAdminClient()
+      const { userId } = await createTestUser(adminClient, {
+        email: `audit-cascade-${Date.now()}@example.com`,
+        role: 'consultant',
+      })
+
+      const inserted = await adminClient
+        .from('audit_events')
+        .insert({
+          actor_profile_id: userId,
+          event_type: 'fk_cascade_probe',
+          metadata: {},
+        })
+        .select('id')
+        .single()
+      expect(inserted.error).toBeNull()
+
+      // With an unconditional BEFORE UPDATE trigger this delete fails,
+      // because the FK's SET NULL is an UPDATE on audit_events.
+      const del = await adminClient.auth.admin.deleteUser(userId)
+      expect(del.error).toBeNull()
+
+      const after = await adminClient
+        .from('audit_events')
+        .select('actor_profile_id')
+        .eq('id', inserted.data!.id)
+        .single()
+      expect(after.error).toBeNull()
+      expect(after.data!.actor_profile_id).toBeNull()
+    })
+  })
 })
