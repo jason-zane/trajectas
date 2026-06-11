@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getReportPdfFilename } from '@/lib/reports/pdf-filename'
 import { postgresUuid } from '@/lib/validations/uuid'
 
 /**
@@ -58,12 +59,13 @@ export async function downloadSnapshotPdfBase64(
     .maybeSingle()
   if (error || !data?.pdf_url) return null
   const storagePath = String(data.pdf_url)
+  const filename = await getReportPdfFilename(snapshotId)
   if (storagePath.startsWith('http')) {
     try {
       const resp = await fetch(storagePath)
       if (!resp.ok) return null
       const buffer = Buffer.from(await resp.arrayBuffer())
-      return { filename: `report-${snapshotId}.pdf`, content: buffer.toString('base64') }
+      return { filename, content: buffer.toString('base64') }
     } catch {
       return null
     }
@@ -71,5 +73,5 @@ export async function downloadSnapshotPdfBase64(
   const download = await db.storage.from('reports').download(storagePath)
   if (download.error || !download.data) return null
   const buffer = Buffer.from(await download.data.arrayBuffer())
-  return { filename: `report-${snapshotId}.pdf`, content: buffer.toString('base64') }
+  return { filename, content: buffer.toString('base64') }
 }

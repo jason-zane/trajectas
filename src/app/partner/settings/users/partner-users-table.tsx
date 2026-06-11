@@ -27,6 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getSelectLabel } from "@/lib/select-display";
+import { formatDate } from "@/lib/formatting";
 
 type Row = PartnerMember & { displayName: string };
 
@@ -40,19 +41,12 @@ function memberName(m: PartnerMember) {
   return parts.length > 0 ? parts.join(" ") : null;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-AU", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 export function PartnerPortalUsersTable({
-  partnerId,
+  workspaceId,
   members,
 }: {
-  partnerId: string;
+  workspaceId: string;
   members: PartnerMember[];
 }) {
   const router = useRouter();
@@ -81,7 +75,7 @@ export function PartnerPortalUsersTable({
     updateOptimisticMembers({ type: "updateRole", memberId: member.membershipId, role });
     startTransition(async () => {
       const result = await changePartnerMemberRole(
-        partnerId,
+        workspaceId,
         member.membershipId,
         role,
       );
@@ -99,7 +93,7 @@ export function PartnerPortalUsersTable({
     updateOptimisticMembers({ type: "remove", memberId: removeTarget.membershipId });
     startTransition(async () => {
       const result = await removePartnerMember(
-        partnerId,
+        workspaceId,
         removeTarget.membershipId,
       );
       if (result && "error" in result) {
