@@ -26,22 +26,9 @@ import {
 } from "@/app/actions/prompts"
 import type { ModelConfigRow } from "@/app/actions/model-config"
 import { PURPOSE_META } from "@/lib/ai/purpose-meta"
+import { formatDateTimeMedium } from "@/lib/formatting"
 import type { AIPromptPurpose } from "@/types/database"
 import type { OpenRouterModel } from "@/types/generation"
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -408,7 +395,7 @@ export function AiPurposeDetail({
                         )}
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
                           <Clock className="size-3" />
-                          {formatDate(version.createdAt)}
+                          {formatDateTimeMedium(version.createdAt)}
                         </span>
                       </div>
 

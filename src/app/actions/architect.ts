@@ -16,7 +16,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireAdminScope } from '@/lib/auth/authorization'
-import { throwActionError } from '@/lib/security/action-errors'
+import { throwActionError, logActionError } from '@/lib/security/action-errors'
 import { runBriefExtraction } from '@/lib/ai/brief-extraction'
 import { runMatching } from '@/lib/ai/matching/engine'
 import { runArchitectOverview } from '@/lib/ai/architect-overview'
@@ -221,7 +221,8 @@ export async function summariseArchitectSelection(input: {
       excluded: parsed.data.excluded,
     })
     return { summary }
-  } catch {
+  } catch (error) {
+    logActionError('architect.summariseSelection', error)
     return { error: 'Could not generate a summary.' }
   }
 }
