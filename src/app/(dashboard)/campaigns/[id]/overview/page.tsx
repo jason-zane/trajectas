@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   Users,
   PlayCircle,
@@ -16,12 +17,8 @@ import { notFound } from "next/navigation";
 import { CampaignStatusActions } from "./campaign-status-actions";
 import { CampaignAccessLinks } from "../settings/campaign-access-links";
 
-export default async function CampaignOverviewPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+// Async component for stats/completion chart — the slow part
+async function CampaignStatsSection({ id }: { id: string }) {
   const campaign = await getCampaignById(id);
   if (!campaign) notFound();
 
@@ -36,21 +33,7 @@ export default async function CampaignOverviewPage({
     totalParticipants > 0 ? Math.round((completedCount / totalParticipants) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      {/* Status + quick actions */}
-      <CampaignStatusActions
-        campaignId={campaign.id}
-        campaignTitle={campaign.title}
-        status={campaign.status}
-        assessmentCount={campaign.assessments.length}
-        pendingInviteCount={
-          campaign.participants.filter((participant) => participant.status === "invited")
-            .length
-        }
-        opensAt={campaign.opensAt}
-        closesAt={campaign.closesAt}
-      />
-
+    <>
       {campaign.assessments.length === 0 && (
         <Alert variant="warning">
           <AlertTriangle className="size-4" />
@@ -111,6 +94,71 @@ export default async function CampaignOverviewPage({
           </CardContent>
         </Card>
       )}
+    </>
+  );
+}
+
+// Skeleton fallback for the stats section
+function StatsLoadingSkeleton() {
+  return (
+    <>
+      {/* Stats row skeleton */}
+      <div className="grid gap-4 sm:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="rounded-xl bg-card p-6 shadow-sm ring-1 ring-foreground/[0.06]">
+            <div className="flex items-center gap-3">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-muted" />
+              <div className="space-y-1 flex-1">
+                <div className="h-6 bg-muted rounded w-8" />
+                <div className="h-3 bg-muted rounded w-16" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Completion bar skeleton */}
+      <div className="rounded-xl bg-card p-6 shadow-sm ring-1 ring-foreground/[0.06]">
+        <div className="h-4 bg-muted rounded w-32 mb-4" />
+        <div className="space-y-3">
+          <div className="h-3 bg-muted rounded w-full" />
+          <div className="h-2 bg-muted rounded w-full" />
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default async function CampaignOverviewPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  // Fetch header only in the page to render actions immediately
+  const campaign = await getCampaignById(id);
+  if (!campaign) notFound();
+
+  return (
+    <div className="space-y-6">
+      {/* Status + quick actions — render immediately (already fast from cache) */}
+      <CampaignStatusActions
+        campaignId={campaign.id}
+        campaignTitle={campaign.title}
+        status={campaign.status}
+        assessmentCount={campaign.assessments.length}
+        pendingInviteCount={
+          campaign.participants.filter((participant) => participant.status === "invited")
+            .length
+        }
+        opensAt={campaign.opensAt}
+        closesAt={campaign.closesAt}
+      />
+
+      {/* Stats + completion chart stream behind Suspense */}
+      <Suspense fallback={<StatsLoadingSkeleton />}>
+        <CampaignStatsSection id={id} />
+      </Suspense>
 
       {/* Access links */}
       <CampaignAccessLinks
