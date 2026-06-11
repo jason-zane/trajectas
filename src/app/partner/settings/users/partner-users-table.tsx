@@ -49,10 +49,10 @@ function formatDate(iso: string) {
 }
 
 export function PartnerPortalUsersTable({
-  partnerId,
+  workspaceId,
   members,
 }: {
-  partnerId: string;
+  workspaceId: string;
   members: PartnerMember[];
 }) {
   const router = useRouter();
@@ -81,7 +81,7 @@ export function PartnerPortalUsersTable({
     updateOptimisticMembers({ type: "updateRole", memberId: member.membershipId, role });
     startTransition(async () => {
       const result = await changePartnerMemberRole(
-        partnerId,
+        workspaceId,
         member.membershipId,
         role,
       );
@@ -99,7 +99,7 @@ export function PartnerPortalUsersTable({
     updateOptimisticMembers({ type: "remove", memberId: removeTarget.membershipId });
     startTransition(async () => {
       const result = await removePartnerMember(
-        partnerId,
+        workspaceId,
         removeTarget.membershipId,
       );
       if (result && "error" in result) {
