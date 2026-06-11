@@ -96,6 +96,8 @@ export interface DataTableProps<TData, TValue> {
   getRowId?: (row: TData) => string;
   bulkActions?: BulkAction<TData>[];
   hiddenColumns?: string[];
+  hideClientPagination?: boolean;
+  serverPaginationControls?: ReactNode;
 }
 
 export function DataTable<TData, TValue>({
@@ -113,6 +115,8 @@ export function DataTable<TData, TValue>({
   getRowId,
   bulkActions = [],
   hiddenColumns = [],
+  hideClientPagination = false,
+  serverPaginationControls,
 }: DataTableProps<TData, TValue>) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>(() =>
@@ -377,7 +381,11 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
 
-        <DataTablePagination table={table} totalCount={data.length} />
+        {hideClientPagination ? (
+          serverPaginationControls
+        ) : (
+          <DataTablePagination table={table} totalCount={data.length} />
+        )}
       </div>
     </ScrollReveal>
   );
