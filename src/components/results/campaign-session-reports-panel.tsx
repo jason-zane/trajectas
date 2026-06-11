@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useEffect, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import { ExternalLink, Loader2, Mail, RefreshCw, Send } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -41,6 +41,12 @@ interface CampaignSessionReportsPanelProps {
 }
 
 
+// Poll quickly while generation is making visible progress, back off to
+// POLL_MAX_MS while statuses are unchanged, stop when nothing is generating.
+const POLL_MIN_MS = 3000
+const POLL_MAX_MS = 15_000
+const POLL_BACKOFF_FACTOR = 1.5
+
 export function CampaignSessionReportsPanel({
   sessionId,
   initialRows,
@@ -49,7 +55,13 @@ export function CampaignSessionReportsPanel({
 }: CampaignSessionReportsPanelProps) {
   const [rows, setRows] = useState(initialRows)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  // Bumped after every refresh attempt (success or failure) so the polling
+  // effect reschedules even when the row data — and thus its identity —
+  // didn't change (e.g. transient fetch error).
+  const [pollEpoch, setPollEpoch] = useState(0)
   const [, startTransition] = useTransition()
+  const pollDelayRef = useRef(POLL_MIN_MS)
+  const lastPollSignatureRef = useRef('')
 
   const refresh = useCallback(async () => {
     setIsRefreshing(true)
@@ -60,20 +72,36 @@ export function CampaignSessionReportsPanel({
       toast.error('Failed to refresh report status')
     } finally {
       setIsRefreshing(false)
+      setPollEpoch((epoch) => epoch + 1)
     }
   }, [sessionId])
 
   useEffect(() => {
     if (!rows.some((row) => isReportGenerating(row.status))) {
+      pollDelayRef.current = POLL_MIN_MS
+      lastPollSignatureRef.current = ''
       return
     }
 
-    const interval = window.setInterval(() => {
-      void refresh()
-    }, 3000)
+    const signature = rows
+      .map((row) => `${row.templateId}:${row.snapshotId ?? ''}:${row.status}`)
+      .join('|')
+    if (signature !== lastPollSignatureRef.current) {
+      lastPollSignatureRef.current = signature
+      pollDelayRef.current = POLL_MIN_MS
+    } else {
+      pollDelayRef.current = Math.min(
+        Math.round(pollDelayRef.current * POLL_BACKOFF_FACTOR),
+        POLL_MAX_MS,
+      )
+    }
 
-    return () => window.clearInterval(interval)
-  }, [refresh, rows])
+    const timeout = window.setTimeout(() => {
+      void refresh()
+    }, pollDelayRef.current)
+
+    return () => window.clearTimeout(timeout)
+  }, [refresh, rows, pollEpoch])
 
   function handleRetry(snapshotId: string) {
     startTransition(async () => {

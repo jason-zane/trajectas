@@ -7,16 +7,17 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
+// Both faces are variable fonts — omitting `weight` loads the single
+// variable file (one request, all weights true-rendered) instead of five
+// (Jakarta) + three (Geist Mono) static cuts.
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
   variable: "--font-sans",
   display: "swap",
 });
 
 const geistMono = Geist_Mono({
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
   variable: "--font-mono",
   display: "swap",
 });

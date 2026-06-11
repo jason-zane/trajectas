@@ -16,7 +16,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { reportError } from '@/lib/observability/report-error'
 import { sendHtmlEmail } from '@/lib/email/provider'
-import { downloadSnapshotPdfBase64 } from '@/app/actions/reports'
+import { downloadSnapshotPdfBase64 } from '@/lib/reports/pdf-access'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { buildSurfaceUrl, getConfiguredSurfaceUrl } from '@/lib/hosts'
 
