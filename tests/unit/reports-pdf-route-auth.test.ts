@@ -206,7 +206,8 @@ describe('GET /api/reports/[snapshotId]/pdf', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('Content-Type')).toBe('application/pdf')
     expect(response.headers.get('Content-Disposition')).toContain('attachment')
-    expect(response.headers.get('Content-Disposition')).toContain(filename)
+    // #275 unified PDF naming: route derives report-<snapshotId>.pdf
+    expect(response.headers.get('Content-Disposition')).toContain(`report-${snapshotId}.pdf`)
   })
 
   it('returns 200 with generated PDF when PDF generation succeeds', async () => {
