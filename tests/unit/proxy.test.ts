@@ -5,7 +5,7 @@ import { proxy } from "../../src/proxy";
 // Mock Supabase middleware client — proxy tests don't exercise auth state
 vi.mock("../../src/lib/supabase/middleware", () => ({
   createMiddlewareSupabaseClient: () => ({
-    auth: { getUser: async () => ({ data: { user: null } }) },
+    auth: { getClaims: async () => ({ data: null, error: null }) },
   }),
 }));
 
