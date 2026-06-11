@@ -1,8 +1,4 @@
-import { notFound } from "next/navigation"
-import { getCampaignHeader } from "@/app/actions/campaigns"
-import { getBrandConfig, getEffectiveBrand } from "@/app/actions/brand"
-import { createAdminClient } from "@/lib/supabase/admin"
-import { CampaignBrandEditor } from "./campaign-brand-editor"
+import { CampaignBrandingPageComponent } from "@/components/campaigns/pages/campaign-branding-page"
 
 export default async function CampaignBrandingPage({
   params,
@@ -10,38 +6,5 @@ export default async function CampaignBrandingPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const campaign = await getCampaignHeader(id)
-  if (!campaign) notFound()
-
-  const [campaignBrandRecord, inheritedBrand, clientBrand] = await Promise.all([
-    getBrandConfig("campaign", id),
-    getEffectiveBrand(campaign.clientId),
-    campaign.clientId ? getBrandConfig("client", campaign.clientId) : Promise.resolve(null),
-  ])
-
-  let inheritedFrom = "Trajectas (platform default)"
-  if (clientBrand) {
-    inheritedFrom = campaign.clientName ?? "Client"
-  } else if (campaign.partnerId) {
-    const partnerBrand = await getBrandConfig("partner", campaign.partnerId)
-    if (partnerBrand) {
-      const db = createAdminClient()
-      const { data: partner } = await db
-        .from("partners")
-        .select("name")
-        .eq("id", campaign.partnerId)
-        .single()
-      inheritedFrom = partner?.name ?? "Partner"
-    }
-  }
-
-  return (
-    <CampaignBrandEditor
-      campaignId={id}
-      campaignTitle={campaign.title}
-      inheritedFrom={inheritedFrom}
-      initialRecord={campaignBrandRecord}
-      inheritedBrand={inheritedBrand}
-    />
-  )
+  return <CampaignBrandingPageComponent campaignId={id} />
 }
