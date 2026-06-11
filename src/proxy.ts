@@ -287,6 +287,11 @@ function shouldSkipMutationOriginCheck(
 }
 
 export async function proxy(request: NextRequest) {
+  const proxyStartedAt = performance.now();
+  // Server-Timing phases (visible in browser DevTools → Network → Timing):
+  // rl = rate-limit check, auth = local JWT verification + activity check,
+  // proxy = total middleware time. Durations only — no sensitive data.
+  const serverTimings: Array<{ name: string; durationMs: number }> = [];
   const { pathname, search } = request.nextUrl;
   const host = request.headers.get("host");
   const configuredHosts = getConfiguredSurfaceHosts();
@@ -303,8 +308,8 @@ export async function proxy(request: NextRequest) {
     nonce,
     csp,
   );
-  const applyHeaders = (response: NextResponse, surface: Surface, p: string) =>
-    applySecurityHeaders(
+  const applyHeaders = (response: NextResponse, surface: Surface, p: string) => {
+    const applied = applySecurityHeaders(
       response,
       surface,
       p,
@@ -313,7 +318,18 @@ export async function proxy(request: NextRequest) {
       // on the response matches what the destination expects.
       surface === configuredSurface ? csp : resolveCspContext(surface, nonce),
     );
+    const parts = [
+      ...serverTimings.map(
+        ({ name, durationMs }) => `${name};dur=${durationMs.toFixed(1)}`
+      ),
+      `proxy;dur=${(performance.now() - proxyStartedAt).toFixed(1)}`,
+    ];
+    applied.headers.set("Server-Timing", parts.join(", "));
+    return applied;
+  };
+  const rateLimitStartedAt = performance.now();
   const rateLimit = await checkRequestRateLimit(request);
+  serverTimings.push({ name: "rl", durationMs: performance.now() - rateLimitStartedAt });
 
   if (rateLimit && !rateLimit.allowed) {
     const response = NextResponse.json(
@@ -349,7 +365,9 @@ export async function proxy(request: NextRequest) {
     const supabase = createMiddlewareSupabaseClient(request, sessionResponse);
     // Verifies the session JWT locally against the cached JWKS; refreshes
     // expired tokens through the SSR client (cookies land on sessionResponse).
+    const authStartedAt = performance.now();
     const userId = await getVerifiedUserId(supabase);
+    serverTimings.push({ name: "auth", durationMs: performance.now() - authStartedAt });
 
     if (userId) {
       const now = Math.floor(Date.now() / 1000);
