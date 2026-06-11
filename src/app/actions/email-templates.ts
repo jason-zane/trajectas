@@ -2,12 +2,62 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { resolveSessionActor } from '@/lib/auth/actor'
+import {
+  AuthorizationError,
+  assertAdminOnly,
+  canManageClient,
+  canManagePartner,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { upsertEmailTemplateSchema } from '@/lib/validations/email-template'
 import { renderEmailHtml } from '@/lib/email/render'
 import { getEffectiveBrand } from '@/app/actions/brand'
 import { DEFAULT_EMAIL_STYLES } from '@/lib/brand/defaults'
 import { SAMPLE_VARIABLES } from '@/lib/email/types'
 import type { EmailType, EmailTemplateScope } from '@/lib/email/types'
+
+/**
+ * Templates are rendered into the platform's most trust-laden emails
+ * (magic-link, welcome, report-ready), so managing or even reading a scope's
+ * templates requires authority over that scope — platform templates are
+ * platform-admin only; partner/client templates require admin of that
+ * partner/client. Mere authentication is not enough (prior finding F-003).
+ */
+async function assertCanManageEmailScope(
+  scopeType: EmailTemplateScope,
+  scopeId: string | null,
+) {
+  const scope = await resolveAuthorizedScope()
+
+  if (scope.isPlatformAdmin) {
+    return scope
+  }
+
+  if (scopeType === 'platform') {
+    assertAdminOnly(scope)
+    return scope
+  }
+
+  if (!scopeId) {
+    throw new AuthorizationError(
+      `A ${scopeType} id is required for ${scopeType}-scoped email templates.`,
+    )
+  }
+
+  if (scopeType === 'partner' && !canManagePartner(scope, scopeId)) {
+    throw new AuthorizationError(
+      'You are not authorized to manage email templates for this partner.',
+    )
+  }
+
+  if (scopeType === 'client' && !canManageClient(scope, scopeId)) {
+    throw new AuthorizationError(
+      'You are not authorized to manage email templates for this client.',
+    )
+  }
+
+  return scope
+}
 
 // ---------------------------------------------------------------------------
 // Read
@@ -17,6 +67,8 @@ export async function listEmailTemplates(
   scopeType: EmailTemplateScope,
   scopeId: string | null,
 ) {
+  await assertCanManageEmailScope(scopeType, scopeId)
+
   const db = createAdminClient()
 
   let query = db
@@ -41,6 +93,8 @@ export async function getEmailTemplate(
   scopeType: EmailTemplateScope,
   scopeId: string | null,
 ) {
+  await assertCanManageEmailScope(scopeType, scopeId)
+
   const db = createAdminClient()
 
   let query = db
@@ -77,6 +131,8 @@ export async function upsertEmailTemplate(input: unknown) {
   if (!actor?.isActive) {
     return { error: { _form: ['Unauthorized'] } }
   }
+
+  await assertCanManageEmailScope(scopeType, scopeId ?? null)
 
   // Pre-render html_cache (non-fatal)
   let htmlCache: string | null = null
@@ -138,6 +194,9 @@ export async function sendTestEmail(
   if (!actor?.isActive) {
     throw new Error('Unauthorized')
   }
+
+  // Rendering a scope's template (even to yourself) discloses its content.
+  await assertCanManageEmailScope(scopeType ?? 'platform', scopeId ?? null)
 
   const { sendEmail } = await import('@/lib/email/send')
 

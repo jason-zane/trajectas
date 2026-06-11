@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useOptimistic, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
@@ -75,6 +75,30 @@ export function PartnerAssessmentAssignments({
 }: PartnerAssessmentAssignmentsProps) {
   const router = useRouter();
 
+  // Optimistic mutations for assignments
+  type OptimisticAction =
+    | { type: "add"; assignment: PartnerAssessmentAssignmentWithUsage }
+    | { type: "remove"; id: string }
+    | { type: "updateQuota"; id: string; quotaLimit: number | null };
+
+  const [optimisticAssignments, updateOptimisticAssignments] = useOptimistic(
+    assignments,
+    (state: PartnerAssessmentAssignmentWithUsage[], action: OptimisticAction) => {
+      if (action.type === "add") {
+        return [...state, action.assignment];
+      }
+      if (action.type === "remove") {
+        return state.filter((a) => a.id !== action.id);
+      }
+      if (action.type === "updateQuota") {
+        return state.map((a) =>
+          a.id === action.id ? { ...a, quotaLimit: action.quotaLimit } : a,
+        );
+      }
+      return state;
+    },
+  );
+
   // Assign dialog state
   const [assignOpen, setAssignOpen] = useState(false);
   const [selectedAssessmentId, setSelectedAssessmentId] = useState<
@@ -96,7 +120,7 @@ export function PartnerAssessmentAssignments({
   const [isSavingQuota, startSaveQuota] = useTransition();
 
   // Filter available assessments (exclude already-assigned ones)
-  const assignedIds = new Set(assignments.map((a) => a.assessmentId));
+  const assignedIds = new Set(optimisticAssignments.map((a) => a.assessmentId));
   const availableAssessments = allAssessments.filter(
     (a) => !assignedIds.has(a.id)
   );
@@ -114,6 +138,24 @@ export function PartnerAssessmentAssignments({
     if (!selectedAssessmentId) return;
 
     const quotaLimit = unlimited ? null : Number(quotaInput) || null;
+    const selectedAssessment = allAssessments.find((a) => a.id === selectedAssessmentId);
+
+    if (!selectedAssessment) return;
+
+    const optimisticAssignment: PartnerAssessmentAssignmentWithUsage = {
+      id: `optimistic-${selectedAssessmentId}-${Date.now()}`,
+      assessmentId: selectedAssessmentId,
+      assessmentName: selectedAssessment.title,
+      quotaLimit,
+      quotaUsed: 0,
+      created_at: new Date().toISOString(),
+      partnerId: partnerId,
+      isActive: true,
+      assignedBy: "optimistic",
+      updated_at: new Date().toISOString(),
+    };
+
+    updateOptimisticAssignments({ type: "add", assignment: optimisticAssignment });
 
     startAssign(async () => {
       const result = await assignAssessmentToPartner(partnerId, {
@@ -134,6 +176,8 @@ export function PartnerAssessmentAssignments({
 
   function handleRemove() {
     if (!removeTarget) return;
+
+    updateOptimisticAssignments({ type: "remove", id: removeTarget.id } as OptimisticAction);
 
     startRemove(async () => {
       const result = await removePartnerAssessmentAssignment(
@@ -166,6 +210,8 @@ export function PartnerAssessmentAssignments({
       toast.error("Quota must be a positive number or empty for unlimited");
       return;
     }
+
+    updateOptimisticAssignments({ type: "updateQuota", id: assignmentId, quotaLimit: newLimit } as OptimisticAction);
 
     startSaveQuota(async () => {
       const result = await updatePartnerAssessmentAssignment(
@@ -402,7 +448,7 @@ export function PartnerAssessmentAssignments({
 
       <DataTable
         columns={columns}
-        data={assignments}
+        data={optimisticAssignments}
         searchableColumns={["assessmentName"]}
         searchPlaceholder="Search assessments"
         defaultSort={{ id: "assessmentName", desc: false }}
