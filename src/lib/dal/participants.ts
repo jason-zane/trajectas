@@ -189,6 +189,175 @@ export async function listUniqueParticipants(
   });
 }
 
+/** Client portal: list unique participants (by email) for a client with pagination & search. */
+export type ClientUniqueParticipantListParams = {
+  clientId: string;
+  search?: string;
+  page: number;
+  pageSize: number;
+};
+
+export type ClientUniqueParticipantRow = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  latestStatus: string;
+  sessionCount: number;
+  lastActivity?: string;
+  latestCampaignId: string;
+  latestSessionId?: string;
+};
+
+/**
+ * List unique participants (by email) for a client, paginated.
+ *
+ * Since Supabase JS has no GROUP BY, we fetch all scoped rows (filtered by search
+ * if provided), deduplicate by email in memory, paginate, and return the slice.
+ * The dedupe preserves only the most recent participant record per email + the
+ * count of total sessions for that email across all campaigns.
+ *
+ * Returns { rows, totalCount, page, pageSize }.
+ */
+export async function listUniqueParticipantsForClient(
+  db: DbClient,
+  params: ClientUniqueParticipantListParams,
+): Promise<{
+  rows: ClientUniqueParticipantRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}> {
+  let query = db
+    .from("campaign_participants")
+    .select(
+      `
+      id,
+      email,
+      first_name,
+      last_name,
+      status,
+      started_at,
+      completed_at,
+      campaign_id,
+      created_at,
+      campaigns!inner(client_id, deleted_at),
+      participant_sessions(id, status)
+    `,
+    )
+    .eq("campaigns.client_id", params.clientId)
+    .is("campaigns.deleted_at", null)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  // Apply search filter if provided
+  if (params.search && params.search.trim()) {
+    const q = params.search.trim();
+    query = query.or(
+      `email.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`,
+    );
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: rows, error } = await query as any;
+
+  if (error) {
+    throwActionError(
+      "listUniqueParticipantsForClient",
+      "Unable to load participants.",
+      error,
+    );
+  }
+
+  // Deduplicate by email: collect all rows, group by lowercase email,
+  // keep the most recent (first seen) for each email, and aggregate session counts.
+  const byEmail = new Map<
+    string,
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      latest: any;
+      participantCount: number;
+      totalSessionCount: number;
+    }
+  >();
+  for (const row of rows ?? []) {
+    const email = row.email.toLowerCase();
+    const sessionCount = (row.participant_sessions ?? []).length;
+    const existing = byEmail.get(email);
+    if (!existing) {
+      byEmail.set(email, {
+        latest: row,
+        participantCount: 1,
+        totalSessionCount: sessionCount,
+      });
+    } else {
+      existing.participantCount++;
+      existing.totalSessionCount += sessionCount;
+    }
+  }
+
+  const allUnique = Array.from(byEmail.values());
+  const totalCount = allUnique.length;
+
+  // Order by last activity (the table's default sort) BEFORE slicing —
+  // otherwise pages are cut on created_at order and per-page client sorting
+  // shows the wrong participants on each page.
+  const lastActivityOf = (entry: { latest: { started_at?: string | null; completed_at?: string | null; created_at: string } }) => {
+    const t = [entry.latest.completed_at, entry.latest.started_at].filter(
+      Boolean,
+    ) as string[];
+    return t.length > 0 ? t.sort()[t.length - 1] : entry.latest.created_at;
+  };
+  allUnique.sort((a, b) => lastActivityOf(b).localeCompare(lastActivityOf(a)));
+
+  // Paginate after deduplication + ordering
+  const offset = params.page * params.pageSize;
+  const pageSlice = allUnique.slice(offset, offset + params.pageSize);
+
+  // Map to DTOs
+  const rows_result: ClientUniqueParticipantRow[] = pageSlice.map(
+    ({ latest, totalSessionCount }) => {
+      const timestamps = [
+        latest.started_at,
+        latest.completed_at,
+      ].filter(Boolean) as string[];
+      const sessions = latest.participant_sessions ?? [];
+      const latestSessionId =
+        sessions
+          .slice()
+          .reverse()
+          .find(
+            (s: { status: string }) =>
+              s.status === "completed" || s.status === "in_progress",
+          )?.id ??
+        sessions[sessions.length - 1]?.id ??
+        undefined;
+
+      return {
+        id: latest.id,
+        email: latest.email,
+        firstName: latest.first_name ?? null,
+        lastName: latest.last_name ?? null,
+        latestStatus: latest.status,
+        sessionCount: totalSessionCount,
+        lastActivity:
+          timestamps.length > 0
+            ? timestamps.sort().reverse()[0]
+            : latest.created_at,
+        latestCampaignId: latest.campaign_id,
+        latestSessionId,
+      };
+    },
+  );
+
+  return {
+    rows: rows_result,
+    totalCount,
+    page: params.page,
+    pageSize: params.pageSize,
+  };
+}
+
 /**
  * Fetch a participant's assessment sessions (with scores), mapped to
  * ParticipantSession DTOs. Throws via throwActionError on a query failure.
