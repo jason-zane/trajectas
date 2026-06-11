@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -93,6 +93,32 @@ export function CampaignRatersManager({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  // Optimistic mutations for raters list
+  type RaterAction =
+    | { type: "add"; rater: RaterWithProgress }
+    | { type: "remove"; id: string }
+    | { type: "updateStatus"; id: string; status: "approved" | "declined" | "withdrawn" };
+
+  const [optimisticRaters, updateOptimisticRaters] = useOptimistic(
+    raters,
+    (state: RaterWithProgress[], action: RaterAction) => {
+      if (action.type === "add") {
+        return [...state, action.rater];
+      }
+      if (action.type === "remove") {
+        return state.filter((r) => r.id !== action.id);
+      }
+      if (action.type === "updateStatus") {
+        return state.map((r) =>
+          r.id === action.id
+            ? { ...r, status: action.status, effectiveStatus: action.status }
+            : r,
+        );
+      }
+      return state;
+    },
+  );
+
   // --- Subject form state ---
   const [subjEmail, setSubjEmail] = useState("");
   const [subjFirst, setSubjFirst] = useState("");
@@ -131,6 +157,24 @@ export function CampaignRatersManager({
       toast.error("Enter the rater's email");
       return;
     }
+
+    // Create optimistic rater
+    const optimisticRater: RaterWithProgress = {
+      id: `optimistic-${raterEmail}-${Date.now()}`,
+      campaignId,
+      subjectParticipantId: subject?.id ?? "",
+      name: raterName.trim() || undefined,
+      email: raterEmail.trim(),
+      relationship,
+      status: "nominated" as const,
+      effectiveStatus: "nominated" as const,
+      accessToken: "",
+      created_at: new Date().toISOString(),
+      nominatedAt: new Date().toISOString(),
+    } as RaterWithProgress;
+
+    updateOptimisticRaters({ type: "add", rater: optimisticRater });
+
     startTransition(async () => {
       const res = await addRater(campaignId, {
         relationship,
@@ -156,6 +200,8 @@ export function CampaignRatersManager({
     raterId: string,
     status: "approved" | "declined" | "withdrawn",
   ) {
+    updateOptimisticRaters({ type: "updateStatus", id: raterId, status });
+
     startTransition(async () => {
       const res = await updateRaterStatus(campaignId, raterId, status);
       if (res.error) {
@@ -167,6 +213,8 @@ export function CampaignRatersManager({
   }
 
   function handleRemove(raterId: string) {
+    updateOptimisticRaters({ type: "remove", id: raterId });
+
     startTransition(async () => {
       const res = await removeRater(campaignId, raterId);
       if (res.error) {
@@ -224,13 +272,13 @@ export function CampaignRatersManager({
   }
 
   // Readiness: count active (non-declined/withdrawn) raters per category.
-  const active = raters.filter(
+  const active = optimisticRaters.filter(
     (r) => r.status !== "declined" && r.status !== "withdrawn",
   );
   const countBy = (rel: RaterRelationship) =>
     active.filter((r) => r.relationship === rel).length;
-  const approvedCount = raters.filter((r) => r.status === "approved").length;
-  const completedRaters = raters.filter(
+  const approvedCount = optimisticRaters.filter((r) => r.status === "approved").length;
+  const completedRaters = optimisticRaters.filter(
     (r) => r.effectiveStatus === "completed",
   ).length;
 
@@ -238,7 +286,7 @@ export function CampaignRatersManager({
   const isOutstanding = (r: RaterWithProgress) =>
     !!r.takingToken &&
     (r.effectiveStatus === "invited" || r.effectiveStatus === "in_progress");
-  const outstanding = raters.filter(isOutstanding);
+  const outstanding = optimisticRaters.filter(isOutstanding);
 
   function handleRemind(raterIds: string[]) {
     if (raterIds.length === 0) return;
@@ -451,7 +499,7 @@ export function CampaignRatersManager({
               </div>
 
               {/* Rater list */}
-              {raters.length === 0 ? (
+              {optimisticRaters.length === 0 ? (
                 <EmptyState
                   variant="default"
                   size="sm"
@@ -460,7 +508,7 @@ export function CampaignRatersManager({
                 />
               ) : (
                 <div className="divide-y rounded-lg border">
-                  {raters.map((r) => (
+                  {optimisticRaters.map((r) => (
                     <div
                       key={r.id}
                       className="flex items-center gap-3 p-3"
