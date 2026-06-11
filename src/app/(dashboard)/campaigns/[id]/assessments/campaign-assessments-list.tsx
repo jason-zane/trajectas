@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -102,8 +102,27 @@ export function CampaignAssessmentsList({
   const [expandedFactorPickers, setExpandedFactorPickers] = useState<
     Set<string>
   >(new Set());
+  const [, startTransition] = useTransition();
 
-  const linkedIds = new Set(linkedAssessments.map((a) => a.assessmentId));
+  // Optimistic mutations for linked assessments
+  type LinkedAction =
+    | { type: "add"; assessment: LinkedAssessment }
+    | { type: "remove"; id: string };
+
+  const [optimisticLinked, updateOptimisticLinked] = useOptimistic(
+    linkedAssessments,
+    (state: LinkedAssessment[], action: LinkedAction) => {
+      if (action.type === "add") {
+        return [...state, action.assessment];
+      }
+      if (action.type === "remove") {
+        return state.filter((a) => a.assessmentId !== action.id);
+      }
+      return state;
+    },
+  );
+
+  const linkedIds = new Set(optimisticLinked.map((a) => a.assessmentId));
   const available = allAssessments.filter((a) => !linkedIds.has(a.id));
   const visibleAvailable = available.filter(
     (assessment) => showDrafts || assessment.status !== "draft",
@@ -129,27 +148,50 @@ export function CampaignAssessmentsList({
   }
 
   async function handleAdd(assessmentId: string) {
-    const result = await addAssessmentToCampaign(campaignId, assessmentId);
-    if (result?.error) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success("Assessment added");
-    setShowPicker(false);
-    router.refresh();
+    const assessment = allAssessments.find((a) => a.id === assessmentId);
+    if (!assessment) return;
+
+    startTransition(async () => {
+      const optimisticAssessment: LinkedAssessment = {
+        id: `optimistic-${assessmentId}-${Date.now()}`,
+        campaignId,
+        assessmentId,
+        displayOrder: optimisticLinked.length,
+        isRequired: false,
+        assessmentTitle: assessment.title,
+        assessmentStatus: assessment.status,
+        minCustomFactors: null,
+        created_at: new Date().toISOString(),
+      };
+
+      updateOptimisticLinked({ type: "add", assessment: optimisticAssessment });
+
+      const result = await addAssessmentToCampaign(campaignId, assessmentId);
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Assessment added");
+      setShowPicker(false);
+      router.refresh();
+    });
   }
 
-  async function handleRemove(assessmentId: string) {
-    const result = await removeAssessmentFromCampaign(
-      campaignId,
-      assessmentId,
-    );
-    if (result?.error) {
-      toast.error(result.error);
-      return;
-    }
-    toast.success("Assessment removed");
-    router.refresh();
+  function handleRemove(assessmentId: string) {
+    updateOptimisticLinked({ type: "remove", id: assessmentId });
+
+    startTransition(async () => {
+      const result = await removeAssessmentFromCampaign(
+        campaignId,
+        assessmentId,
+      );
+      if (result?.error) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Assessment removed");
+      router.refresh();
+    });
   }
 
   function toggleFactorPicker(campaignAssessmentId: string) {
@@ -168,8 +210,8 @@ export function CampaignAssessmentsList({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">
-          {linkedAssessments.length}{" "}
-          {linkedAssessments.length === 1 ? "assessment" : "assessments"}
+          {optimisticLinked.length}{" "}
+          {optimisticLinked.length === 1 ? "assessment" : "assessments"}
         </h3>
         <Button size="sm" onClick={() => setShowPicker(true)}>
           <Plus className="size-4" />
@@ -177,7 +219,7 @@ export function CampaignAssessmentsList({
         </Button>
       </div>
 
-      {linkedAssessments.length === 0 ? (
+      {optimisticLinked.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-sm text-muted-foreground">
             No assessments linked yet. Add assessments to include them in this
@@ -186,7 +228,7 @@ export function CampaignAssessmentsList({
         </Card>
       ) : (
         <div className="space-y-2">
-          {linkedAssessments.map((la, index) => {
+          {optimisticLinked.map((la, index) => {
             const factorPicker = factorPickerDataMap[la.id];
             const hasFactorCustomisation =
               la.minCustomFactors != null && factorPicker;
