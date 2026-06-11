@@ -25,38 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function formatDate(value?: string) {
-  if (!value) return "Not set";
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function statusBadgeVariant(status: string) {
-  switch (status) {
-    case "active":
-    case "completed":
-      return "default";
-    case "draft":
-    case "pending":
-      return "secondary";
-    case "paused":
-    case "archived":
-    case "closed":
-      return "outline";
-    case "failed":
-      return "destructive";
-    default:
-      return "outline";
-  }
-}
+import { formatDate, statusBadgeVariant } from "@/lib/formatting";
 
 function MetricCard({
   label,

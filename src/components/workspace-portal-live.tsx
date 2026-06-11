@@ -55,6 +55,7 @@ import {
 import type { WorkspaceAccessResult } from "@/lib/auth/workspace-access";
 import type { WorkspacePortalPageConfig } from "@/lib/workspace-portal-config";
 import { applyRoutePrefix, type WorkspaceSurface } from "@/lib/surfaces";
+import { formatDate, statusBadgeVariant, formatDateTime } from "@/lib/formatting";
 
 type SupportedPageKey =
   | ""
@@ -79,35 +80,6 @@ function getParticipantReportHref(routePrefix: string, participantId: string) {
 
 function getParticipantExportHref(routePrefix: string, participantId: string) {
   return applyRoutePrefix(routePrefix, `/exports/participants/${participantId}`);
-}
-
-function formatDate(value?: string) {
-  if (!value) return "Not set";
-
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function statusBadgeVariant(status: string) {
-  switch (status) {
-    case "active":
-    case "completed":
-      return "default";
-    case "draft":
-    case "pending":
-      return "secondary";
-    case "paused":
-    case "archived":
-    case "closed":
-      return "outline";
-    case "failed":
-      return "destructive";
-    default:
-      return "outline";
-  }
 }
 
 const matchingStatusConfig: Record<
@@ -201,17 +173,6 @@ function EmptyState({
   );
 }
 
-function formatDateTime(value?: string) {
-  if (!value) return "Not set";
-
-  return new Intl.DateTimeFormat("en-AU", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}
 
 function formatDuration(start?: string, end?: string) {
   if (!start || !end) return null;
