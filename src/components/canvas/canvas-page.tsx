@@ -66,10 +66,9 @@ export async function CanvasPageView({
   const validOrder = CANVAS_ORDERS.includes(order as CanvasOrder)
     ? (order as CanvasOrder)
     : undefined
-  const compareBase = basePath.startsWith('/client/')
+  const compareBasePath = basePath.startsWith('/client/')
     ? '/client/participants/compare'
     : '/participants/compare'
-  const compareHref = `${compareBase}?ids=${people.map((p) => p.entryCpId).join(',')}`
 
   return (
     <div className="space-y-4 max-w-[1600px] min-w-0">
@@ -86,7 +85,7 @@ export async function CanvasPageView({
         initialOrder={validOrder}
         initialShowChange={change !== '0'}
         basePath={basePath}
-        compareHref={compareHref}
+        compareBasePath={compareBasePath}
       />
     </div>
   )

@@ -43,14 +43,14 @@ export function CanvasWorkspace({
   initialOrder,
   initialShowChange,
   basePath,
-  compareHref,
+  compareBasePath,
 }: {
   initial: CanvasResult
   initialCharted?: string
   initialOrder?: CanvasOrder
   initialShowChange?: boolean
   basePath: string
-  compareHref: string
+  compareBasePath: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -84,6 +84,8 @@ export function CanvasWorkspace({
     [result.entities],
   )
   const chartedName = charted === OVERALL_ID ? 'Overall' : entityById.get(charted)?.name ?? 'Overall'
+  // Recomputed from live state so the link follows Add person / remove.
+  const compareHref = `${compareBasePath}?ids=${result.people.map((p) => p.entryCpId).join(',')}`
   const sinceLabel = monthYear(
     result.people.reduce<string | null>(
       (acc, p) =>
@@ -190,7 +192,7 @@ export function CanvasWorkspace({
         )}
       </div>
 
-      {/* Controls: show change · order · table view */}
+      {/* Controls: show change · order · compare cross-link */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Switch checked={showChange} onCheckedChange={setShowChange} />
