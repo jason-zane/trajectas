@@ -32,8 +32,8 @@ function toComparison(row: Row): SavedComparison {
     name: row.name,
     entries: row.entries,
     assessmentIds: row.assessment_ids,
-    visibleLevels: row.visible_levels.filter((l): l is ColumnLevel =>
-      l === 'dimension' || l === 'factor' || l === 'construct',
+    visibleLevels: row.visible_levels.filter(
+      (l): l is ColumnLevel => l === 'dimension' || l === 'factor',
     ),
     deltaMode: row.delta_mode,
     shareScope: row.share_scope,

@@ -10,7 +10,7 @@ export type EntryRequest = {
 export type ComparisonRequest = {
   entries: EntryRequest[]
   assessmentIds: string[]
-  /** Which column levels are visible. Defaults to all three when not provided. */
+  /** Which column levels are visible. Defaults to all levels when not provided. */
   visibleLevels?: ColumnLevel[]
 }
 
