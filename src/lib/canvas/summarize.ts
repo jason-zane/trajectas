@@ -80,6 +80,14 @@ export function formatSigned(v: number): string {
   return v > 0 ? `+${v}` : String(v)
 }
 
+/** Page/report title for a selection of people. */
+export function canvasTitle(people: { displayName: string }[]): string {
+  if (people.length === 0) return 'Trajectory'
+  if (people.length === 1) return people[0].displayName
+  if (people.length === 2) return `${people[0].displayName} vs ${people[1].displayName}`
+  return `Comparing ${people.length} people`
+}
+
 export function monthYear(iso: string | null): string | null {
   if (!iso) return null
   const d = new Date(iso)

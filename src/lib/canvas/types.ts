@@ -56,9 +56,18 @@ export type CanvasResult = {
   people: CanvasPerson[]
   entities: CanvasEntity[]
   series: CanvasSeries[]
+  /** Client the selection belongs to (first person's client). */
+  clientId: string | null
 }
 
 export type CanvasOrder = 'standard' | 'change' | 'difference'
+
+/** The on-screen state a growth report reproduces. */
+export type CanvasViewState = {
+  charted?: string
+  order?: CanvasOrder
+  showChange?: boolean
+}
 
 export const CANVAS_ORDERS: readonly CanvasOrder[] = ['standard', 'change', 'difference'] as const
 

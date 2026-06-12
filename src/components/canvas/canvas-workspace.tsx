@@ -21,6 +21,7 @@ import { AddParticipantDialog } from '@/components/comparison/add-participant-di
 import { PALETTE } from '@/components/trajectory/trajectory-timeline'
 import { CanvasHero } from './canvas-hero'
 import { CanvasBreakdown } from './canvas-breakdown'
+import { CanvasExportBar } from './canvas-export-bar'
 import { monthYear } from '@/lib/canvas/summarize'
 import {
   CANVAS_ORDERS,
@@ -264,6 +265,13 @@ export function CanvasWorkspace({
         charted={charted}
         openDimension={openDimension}
         onChart={onChart}
+      />
+
+      <CanvasExportBar
+        campaignParticipantIds={result.people.map((p) => p.entryCpId)}
+        viewState={{ charted, order, showChange }}
+        peopleCount={result.people.length}
+        sessionCount={result.people.reduce((acc, p) => acc + p.completedSessionCount, 0)}
       />
 
       {showAdd && (

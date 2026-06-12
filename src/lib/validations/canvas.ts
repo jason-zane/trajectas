@@ -14,3 +14,10 @@ export const canvasRequestSchema = z.object({
     .max(CANVAS_MAX_PEOPLE, 'Too many participants for the canvas — use the table view'),
 })
 export type CanvasRequestInput = z.infer<typeof canvasRequestSchema>
+
+export const canvasViewStateSchema = z.object({
+  charted: z.string().max(100).optional(),
+  order: z.enum(['standard', 'change', 'difference']).optional(),
+  showChange: z.boolean().optional(),
+})
+export type CanvasViewStateInput = z.infer<typeof canvasViewStateSchema>

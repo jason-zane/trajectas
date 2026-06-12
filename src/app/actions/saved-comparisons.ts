@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { resolveSessionActor } from '@/lib/auth/actor'
+import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { revalidatePath } from 'next/cache'
 import type {
   SavedComparison,
@@ -127,6 +128,15 @@ export async function saveComparison(input: {
     .select('*')
     .single()
   if (error) throw new Error(error.message)
+  await logAuditEvent({
+    actorProfileId: actor.id,
+    eventType: 'comparison.saved',
+    targetTable: 'comparisons',
+    targetId: String((data as Row).id),
+    clientId: scope.clientId,
+    partnerId: scope.partnerId,
+    metadata: { name, shareScope: input.shareScope ?? 'private' },
+  })
   revalidatePath('/participants/compare')
   revalidatePath('/client/participants/compare')
   return toComparison(data as Row)
@@ -163,6 +173,16 @@ export async function updateSavedComparison(
     .select('*')
     .single()
   if (error) throw new Error(error.message)
+  const actor = await resolveSessionActor()
+  await logAuditEvent({
+    actorProfileId: actor?.id ?? null,
+    eventType: 'comparison.updated',
+    targetTable: 'comparisons',
+    targetId: id,
+    clientId: (data as Row).client_id,
+    partnerId: (data as Row).partner_id,
+    metadata: { fields: Object.keys(update) },
+  })
   revalidatePath('/participants/compare')
   revalidatePath('/client/participants/compare')
   return toComparison(data as Row)
@@ -172,6 +192,13 @@ export async function deleteSavedComparison(id: string): Promise<void> {
   const supabase = await createClient()
   const { error } = await supabase.from('comparisons').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  const actor = await resolveSessionActor()
+  await logAuditEvent({
+    actorProfileId: actor?.id ?? null,
+    eventType: 'comparison.deleted',
+    targetTable: 'comparisons',
+    targetId: id,
+  })
   revalidatePath('/participants/compare')
   revalidatePath('/client/participants/compare')
 }
