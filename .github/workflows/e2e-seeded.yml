@@ -1,6 +1,14 @@
 name: Seeded E2E
 
 on:
+  pull_request:
+    paths:
+      - "src/app/assess/**"
+      - "src/app/actions/assess.ts"
+      - "src/components/assess/**"
+      - "src/lib/assess/**"
+      - "tests/e2e/seeded/**"
+      - ".github/workflows/e2e-seeded.yml"
   workflow_dispatch:
   schedule:
     - cron: "0 16 * * 1"
@@ -35,7 +43,9 @@ jobs:
         run: npm run db:test:reset
 
       - name: Export local Supabase environment
-        run: npm run db:test:env >> "$GITHUB_ENV"
+        # --silent suppresses npm's "> trajectas@0.1.0 db:test:env" banner,
+        # which is not KEY=VALUE and makes GITHUB_ENV parsing fail.
+        run: npm run --silent db:test:env >> "$GITHUB_ENV"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
