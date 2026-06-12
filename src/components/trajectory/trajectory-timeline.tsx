@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useId,
   useMemo,
   useRef,
@@ -73,6 +74,9 @@ type PreparedSeries = {
   values: (number | null)[]
   /** Value rendered at each session: raw in absolute mode, baseline-rebased in change mode. */
   displayValues: (number | null)[]
+  /** Measurement-error band per session (mode-adjusted like displayValues); null when not stored. */
+  ciLowDisplay: (number | null)[]
+  ciHighDisplay: (number | null)[]
   latestValue: number | null
   baselineValue: number | null
 }
@@ -85,6 +89,11 @@ type SessionTick = {
   sessionIds: string[]
 }
 
+type CampaignMarker = {
+  tickIndex: number
+  title: string
+}
+
 type ChartGeometry = {
   ticks: SessionTick[]
   prepared: PreparedSeries[]
@@ -92,6 +101,7 @@ type ChartGeometry = {
   yScale: (v: number) => number
   yDomain: [number, number]
   yTicks: number[]
+  markers: CampaignMarker[]
 }
 
 export function TrajectoryTimeline({
@@ -116,6 +126,39 @@ export function TrajectoryTimeline({
   const [activeId, setActiveId] = useState<string | null>(null)
   const svgRef = useRef<SVGSVGElement | null>(null)
   const gradientId = useId()
+
+  // Draw-in reveal: each curve sweeps in left-to-right on mount and when the
+  // dataset changes, staggered per series. Inline styles persist on the DOM
+  // nodes (React doesn't manage them), so hover re-renders don't retrigger.
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const lines = svg.querySelectorAll<SVGPathElement>('path.traj-line')
+    const timers: ReturnType<typeof setTimeout>[] = []
+    lines.forEach((line, i) => {
+      const length = line.getTotalLength()
+      if (!Number.isFinite(length) || length === 0) return
+      line.style.transition = 'none'
+      line.style.strokeDasharray = `${length}`
+      line.style.strokeDashoffset = `${length}`
+      line.getBoundingClientRect()
+      timers.push(
+        setTimeout(() => {
+          line.style.transition = 'stroke-dashoffset 700ms cubic-bezier(0.22, 1, 0.36, 1)'
+          line.style.strokeDashoffset = '0'
+        }, i * 80),
+      )
+    })
+    return () => {
+      timers.forEach(clearTimeout)
+      lines.forEach((line) => {
+        line.style.transition = ''
+        line.style.strokeDasharray = ''
+        line.style.strokeDashoffset = ''
+      })
+    }
+  }, [geometry])
 
   const onMouseMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
@@ -197,18 +240,56 @@ export function TrajectoryTimeline({
             className="dark:opacity-30"
           />
 
-          {/* Typical-range band — absolute mode only; ambient gold wash 30–70 */}
+          {/* Typical-range band — absolute mode only; labelled gold wash 30–70 */}
           {mode === 'absolute' && (
-            <rect
-              x={PADDING.left}
-              y={geometry.yScale(TYPICAL_RANGE.high)}
-              width={INNER_W}
-              height={geometry.yScale(TYPICAL_RANGE.low) - geometry.yScale(TYPICAL_RANGE.high)}
-              fill="var(--gold)"
-              opacity={0.09}
-              className="dark:opacity-[0.14]"
-            />
+            <>
+              <rect
+                x={PADDING.left}
+                y={geometry.yScale(TYPICAL_RANGE.high)}
+                width={INNER_W}
+                height={geometry.yScale(TYPICAL_RANGE.low) - geometry.yScale(TYPICAL_RANGE.high)}
+                fill="var(--gold)"
+                opacity={0.09}
+                className="dark:opacity-[0.14]"
+              />
+              <text
+                x={PADDING.left + 8}
+                y={geometry.yScale(TYPICAL_RANGE.high) + 14}
+                className="text-[10px]"
+                fill="var(--gold)"
+                opacity={0.8}
+              >
+                Typical range
+              </text>
+            </>
           )}
+
+          {/* Campaign markers — labelled tick at each campaign's first session */}
+          {geometry.markers.map((m) => {
+            const x = geometry.xForTick(m.tickIndex)
+            const nearRightEdge = x > VIEW_W - PADDING.right - 140
+            return (
+              <g key={`marker-${m.tickIndex}-${m.title}`} pointerEvents="none">
+                <line
+                  x1={x}
+                  x2={x}
+                  y1={PADDING.top}
+                  y2={VIEW_H - PADDING.bottom}
+                  className="stroke-border"
+                  strokeWidth={1}
+                  strokeDasharray="3 5"
+                />
+                <text
+                  x={nearRightEdge ? x - 5 : x + 5}
+                  y={PADDING.top + 10}
+                  textAnchor={nearRightEdge ? 'end' : 'start'}
+                  className="fill-muted-foreground text-[9.5px]"
+                >
+                  {truncate(m.title, 24)}
+                </text>
+              </g>
+            )
+          })}
 
           <YAxis geometry={geometry} mode={mode} />
           <XAxis geometry={geometry} />
@@ -312,23 +393,38 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
     for (const sid of tick.sessionIds) tickIndexBySession.set(sid, i)
   })
 
-  // 2. X scale — ordinal. Sessions are equally spaced regardless of date
-  // gap. A small inset on each end keeps the first/last dots off the axis
-  // edges, which otherwise looks visually crowded.
+  // 2. X scale — temporal. Sessions sit where they happened in time, so
+  // six months of growth no longer renders like a two-week retest. A small
+  // inset keeps the first/last dots off the axis edges. Degenerate spans
+  // (everything within an hour) fall back to even spacing so same-day
+  // sessions don't collapse onto one pixel.
   const inset = INNER_W * X_INSET_RATIO
   const usableW = INNER_W - inset * 2
+  const minDate = ticks[0]?.date ?? 0
+  const maxDate = ticks[ticks.length - 1]?.date ?? 0
+  const span = maxDate - minDate
+  const DEGENERATE_SPAN_MS = 60 * 60 * 1000
   const xForTick = (i: number) => {
     if (ticks.length === 1) return PADDING.left + INNER_W / 2
-    return PADDING.left + inset + (i / (ticks.length - 1)) * usableW
+    if (span < DEGENERATE_SPAN_MS) {
+      return PADDING.left + inset + (i / (ticks.length - 1)) * usableW
+    }
+    return PADDING.left + inset + ((ticks[i].date - minDate) / span) * usableW
   }
 
-  // 3. Per-series value array aligned to ticks
+  // 3. Per-series value + error-band arrays aligned to ticks
   const prepared: PreparedSeries[] = series.map((s, idx) => {
     const values: (number | null)[] = new Array(ticks.length).fill(null)
+    const ciLow: (number | null)[] = new Array(ticks.length).fill(null)
+    const ciHigh: (number | null)[] = new Array(ticks.length).fill(null)
     for (const p of s.points) {
       const i = tickIndexBySession.get(p.sessionId)
       if (i === undefined) continue
       values[i] = p.scaledScore
+      if (p.ciLower !== null && p.ciUpper !== null) {
+        ciLow[i] = p.ciLower
+        ciHigh[i] = p.ciUpper
+      }
     }
     // Baseline = first non-null value
     let baselineValue: number | null = null
@@ -338,10 +434,11 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
         break
       }
     }
+    const shift = mode === 'change' && baselineValue !== null ? baselineValue : 0
     const displayValues =
-      mode === 'change' && baselineValue !== null
-        ? values.map((v) => (v === null ? null : v - (baselineValue as number)))
-        : values
+      shift !== 0 ? values.map((v) => (v === null ? null : v - shift)) : values
+    const ciLowDisplay = shift !== 0 ? ciLow.map((v) => (v === null ? null : v - shift)) : ciLow
+    const ciHighDisplay = shift !== 0 ? ciHigh.map((v) => (v === null ? null : v - shift)) : ciHigh
 
     // Latest = last non-null display value
     let latestValue: number | null = null
@@ -359,6 +456,8 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
       colourClass: PALETTE[idx % PALETTE.length],
       values,
       displayValues,
+      ciLowDisplay,
+      ciHighDisplay,
       latestValue,
       baselineValue,
     }
@@ -402,7 +501,71 @@ function buildGeometry(series: TrajectorySeries[], mode: TimelineMode): ChartGeo
     }
   }
 
-  return { ticks, prepared, xForTick, yScale, yDomain, yTicks }
+  // 5. Campaign markers — a labelled tick where each campaign's first
+  // session lands. Only drawn when there are 2–4 distinct campaigns:
+  // one campaign carries no information, five or more is clutter.
+  const campaignBySession = new Map<string, { id: string; title: string }>()
+  for (const s of series) {
+    for (const p of s.points) {
+      if (p.campaignId && p.campaignTitle) {
+        campaignBySession.set(p.sessionId, { id: p.campaignId, title: p.campaignTitle })
+      }
+    }
+  }
+  const markers: CampaignMarker[] = []
+  const seenCampaigns = new Set<string>()
+  ticks.forEach((tick, i) => {
+    for (const sid of tick.sessionIds) {
+      const c = campaignBySession.get(sid)
+      if (!c || seenCampaigns.has(c.id)) continue
+      seenCampaigns.add(c.id)
+      markers.push({ tickIndex: i, title: c.title })
+    }
+  })
+  const showMarkers = seenCampaigns.size >= 2 && seenCampaigns.size <= 4
+
+  return {
+    ticks,
+    prepared,
+    xForTick,
+    yScale,
+    yDomain,
+    yTicks,
+    markers: showMarkers ? markers : [],
+  }
+}
+
+/**
+ * Monotone cubic interpolation (Fritsch–Carlson tangents). Smooth, but the
+ * curve never overshoots a measured value — psychometrically honest, no
+ * invented peaks between sessions.
+ */
+function monoPath(pts: { x: number; y: number }[]): string {
+  const n = pts.length
+  if (n === 0) return ''
+  if (n === 1) return `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`
+  const dx: number[] = []
+  const dy: number[] = []
+  const m: number[] = []
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1].x - pts[i].x)
+    dy.push(pts[i + 1].y - pts[i].y)
+    m.push(dx[i] === 0 ? 0 : dy[i] / dx[i])
+  }
+  const t: number[] = [m[0]]
+  for (let i = 1; i < n - 1; i++) {
+    t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2)
+  }
+  t.push(m[n - 2])
+  let d = `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i]
+    d +=
+      ` C${(pts[i].x + h / 3).toFixed(2)},${(pts[i].y + (t[i] * h) / 3).toFixed(2)}` +
+      ` ${(pts[i + 1].x - h / 3).toFixed(2)},${(pts[i + 1].y - (t[i + 1] * h) / 3).toFixed(2)}` +
+      ` ${pts[i + 1].x.toFixed(2)},${pts[i + 1].y.toFixed(2)}`
+  }
+  return d
 }
 
 // ---------------------------------------------------------------------------
@@ -467,21 +630,40 @@ function SeriesPath({
   onMouseLeave: () => void
   onClick?: () => void
 }) {
-  // Build one polyline through every non-null point for this series.
-  // Different sessions score different subsets of dimensions, so nulls
-  // are the norm at ticks where this dimension wasn't measured — we
+  // Build one smooth monotone curve through every non-null point for this
+  // series. Different sessions score different subsets of dimensions, so
+  // nulls are the norm at ticks where this dimension wasn't measured — we
   // bridge them visually so the dimension's arc reads as one trajectory.
-  // A series with <2 non-null points renders only as a dot (no segment).
-  const linePoints: string[] = []
+  // A series with <2 non-null points renders only as a dot (no curve).
+  const curvePoints: { x: number; y: number }[] = []
+  const bandPoints: { x: number; lo: number; hi: number }[] = []
   for (let i = 0; i < prepared.displayValues.length; i++) {
     const v = prepared.displayValues[i]
     if (v === null) continue
-    linePoints.push(`${geometry.xForTick(i).toFixed(2)},${geometry.yScale(v).toFixed(2)}`)
+    const x = geometry.xForTick(i)
+    curvePoints.push({ x, y: geometry.yScale(v) })
+    const lo = prepared.ciLowDisplay[i]
+    const hi = prepared.ciHighDisplay[i]
+    if (lo !== null && hi !== null) {
+      bandPoints.push({ x, lo: geometry.yScale(lo), hi: geometry.yScale(hi) })
+    }
   }
-  // SVG <polyline> expects space-separated coord pairs ("x1,y1 x2,y2 …"). An
-  // earlier revision joined with " L " — SVG <path> lineTo command syntax —
-  // which polyline silently ignores, so dots were rendered without lines.
-  const segments: string[] = linePoints.length >= 2 ? [linePoints.join(' ')] : []
+  const lineD = curvePoints.length >= 2 ? monoPath(curvePoints) : ''
+
+  // Error-band ribbon: smooth upper edge, then the lower edge in reverse.
+  // Only drawn while this series is focused — ambient ribbons across many
+  // lines turn the chart into fog. Requires stored bands at ≥2 points.
+  let ribbonD = ''
+  if (active && bandPoints.length >= 2) {
+    const upper = monoPath(bandPoints.map((p) => ({ x: p.x, y: p.hi })))
+    const lower = monoPath(
+      bandPoints
+        .slice()
+        .reverse()
+        .map((p) => ({ x: p.x, y: p.lo })),
+    ).replace(/^M/, 'L')
+    ribbonD = `${upper} ${lower} Z`
+  }
 
   return (
     <g
@@ -494,30 +676,32 @@ function SeriesPath({
       onMouseLeave={onMouseLeave}
       onClick={onClick}
     >
+      {ribbonD && (
+        <path d={ribbonD} fill="currentColor" opacity={0.12} pointerEvents="none" />
+      )}
       {/* Generous invisible hit area */}
-      {segments.map((seg, i) => (
-        <polyline
-          key={`hit-${i}`}
-          points={seg}
+      {lineD && (
+        <path
+          d={lineD}
           fill="none"
           stroke="transparent"
           strokeWidth={16}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-      ))}
-      {/* Visible line */}
-      {segments.map((seg, i) => (
-        <polyline
-          key={`line-${i}`}
-          points={seg}
+      )}
+      {/* Visible curve */}
+      {lineD && (
+        <path
+          className="traj-line"
+          d={lineD}
           fill="none"
           stroke="currentColor"
           strokeWidth={active ? 2.5 : 1.75}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-      ))}
+      )}
       {/* Dots */}
       {prepared.displayValues.map((v, i) => {
         if (v === null) return null

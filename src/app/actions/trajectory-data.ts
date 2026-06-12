@@ -297,6 +297,8 @@ type ScoreRow = {
   scaled_score: number | string | null
   raw_score: number | string | null
   percentile: number | string | null
+  confidence_interval_lower: number | string | null
+  confidence_interval_upper: number | string | null
 }
 
 /**
@@ -311,7 +313,9 @@ async function loadScores(
   if (sessionIds.length === 0) return new Map()
   const { data, error } = await db
     .from('participant_scores')
-    .select('session_id, factor_id, scaled_score, raw_score, percentile')
+    .select(
+      'session_id, factor_id, scaled_score, raw_score, percentile, confidence_interval_lower, confidence_interval_upper',
+    )
     .in('session_id', sessionIds)
   if (error) throwActionError('getPersonTrajectory', 'Unable to load scores.', error)
 
@@ -541,6 +545,8 @@ function buildSeries(input: BuildSeriesInput): TrajectorySeries[] {
       assessmentName: assessment.title,
       completedAt: session.completed_at!,
       attemptNumber,
+      ciLower: null,
+      ciUpper: null,
       reliability: null,
       normGroupId: null,
       normGroupName: null,
@@ -633,11 +639,15 @@ function numericTriple(row: ScoreRow): {
   scaledScore: number | null
   rawScore: number | null
   percentile: number | null
+  ciLower: number | null
+  ciUpper: number | null
 } {
   return {
     scaledScore: numericOrNull(row.scaled_score),
     rawScore: numericOrNull(row.raw_score),
     percentile: numericOrNull(row.percentile),
+    ciLower: numericOrNull(row.confidence_interval_lower),
+    ciUpper: numericOrNull(row.confidence_interval_upper),
   }
 }
 

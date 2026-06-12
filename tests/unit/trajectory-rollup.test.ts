@@ -22,6 +22,8 @@ function point(
     attemptNumber: 1,
     rawScore: null,
     percentile: null,
+    ciLower: null,
+    ciUpper: null,
     reliability: null,
     normGroupId: null,
     normGroupName: null,

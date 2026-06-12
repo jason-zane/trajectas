@@ -132,18 +132,11 @@ export function CanvasHero({
   )
 }
 
-function toTrajectoryPoint(p: {
-  sessionId: string
-  completedAt: string
-  assessmentId: string
-  assessmentName: string
-  attemptNumber: number
-  value: number
-}) {
+function toTrajectoryPoint(p: CanvasPointLike) {
   return {
     sessionId: p.sessionId,
-    campaignId: '',
-    campaignTitle: '',
+    campaignId: p.campaignId,
+    campaignTitle: p.campaignTitle,
     assessmentId: p.assessmentId,
     assessmentName: p.assessmentName,
     completedAt: p.completedAt,
@@ -151,8 +144,23 @@ function toTrajectoryPoint(p: {
     scaledScore: p.value,
     rawScore: null,
     percentile: null,
+    ciLower: p.ciLower,
+    ciUpper: p.ciUpper,
     reliability: null,
     normGroupId: null,
     normGroupName: null,
   }
+}
+
+type CanvasPointLike = {
+  sessionId: string
+  completedAt: string
+  assessmentId: string
+  assessmentName: string
+  campaignId: string
+  campaignTitle: string
+  attemptNumber: number
+  value: number
+  ciLower: number | null
+  ciUpper: number | null
 }

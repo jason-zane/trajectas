@@ -23,8 +23,12 @@ function mkSeries(personKey: string, entityId: string, values: number[]): Canvas
       completedAt: `2026-0${i + 1}-01T00:00:00Z`,
       assessmentId: 'a1',
       assessmentName: 'Assessment',
+      campaignId: 'cam',
+      campaignTitle: 'Campaign',
       attemptNumber: i + 1,
       value,
+      ciLower: null,
+      ciUpper: null,
     })),
   }
 }
