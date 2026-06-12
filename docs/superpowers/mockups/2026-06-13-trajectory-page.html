@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Trajectory — full page mockup (v4)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --emerald:#2d6a5a; --emerald-dark:#1e4a3e; --gold:#c9a962; --cream:#f8f6f1;
+    --ink:#1a2421; --muted:#68716d; --faint:#9aa39e; --border:#e4e1d8; --card:#ffffff;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Plus Jakarta Sans',sans-serif; background:var(--cream); color:var(--ink); display:flex; min-height:100vh;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .tn{font-variant-numeric:tabular-nums;}
+
+  aside{width:232px; flex:none; background:var(--emerald-dark); color:#e8efe9; padding:28px 0; display:flex; flex-direction:column; min-height:100vh;}
+  .logo{font-weight:800; font-size:20px; letter-spacing:-0.02em; padding:0 24px 28px; color:#fff;}
+  .logo span{color:var(--gold);}
+  nav a{display:block; padding:10px 24px; font-size:13.5px; color:#bccfc4; text-decoration:none; border-left:3px solid transparent;}
+  nav a.active{color:#fff; background:rgba(255,255,255,.06); border-left-color:var(--gold); font-weight:600;}
+  .navlabel{font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:#7e978a; padding:18px 24px 8px;}
+
+  main{flex:1; padding:36px 48px 64px;}
+  .wrap{max-width:1120px; margin:0 auto;}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--gold); margin-bottom:8px;}
+  .headrow{display:flex; align-items:flex-start; justify-content:space-between; gap:24px;}
+  h1{font-size:30px; font-weight:800; letter-spacing:-0.03em;}
+  .actions{display:flex; gap:10px; flex:none; padding-top:4px;}
+  .btn{font-family:inherit; font-size:13.5px; font-weight:600; border-radius:10px; padding:9px 16px; cursor:pointer; border:1px solid var(--border); background:#fff; color:var(--ink);}
+  .btn.primary{background:var(--emerald); border-color:var(--emerald); color:#fff;}
+
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-top:18px;}
+  .chip{display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:500; background:#fff; border:1px solid var(--border); border-radius:999px; padding:7px 14px;}
+  .chip .dot{width:9px; height:9px; border-radius:50%;}
+  .chip .x{color:var(--faint); font-size:14px; margin-left:2px;}
+  .chip.add{border-style:dashed; color:var(--muted); background:transparent;}
+
+  .controls{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:18px;}
+  .switchwrap{display:flex; align-items:center; gap:10px;}
+  .switch{width:38px; height:22px; border-radius:999px; background:var(--emerald); position:relative; flex:none;}
+  .switch::after{content:''; position:absolute; top:3px; right:3px; width:16px; height:16px; border-radius:50%; background:#fff;}
+  .switchlabel{font-size:13.5px; font-weight:600;}
+  .switchcap{font-size:12px; color:var(--muted);}
+  .order{font-size:13px; color:var(--muted);}
+  .order b{color:var(--ink); font-weight:600;}
+
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 2px rgba(26,36,33,.04), 0 8px 24px rgba(26,36,33,.05);}
+  .hero{margin-top:20px; padding:24px 28px 18px;}
+  .hero .overline{font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--gold);}
+  .hero .lede{font-size:14.5px; color:var(--muted); margin-top:6px; max-width:760px; line-height:1.55;}
+  .hero .chartfoot{font-size:12px; color:var(--faint); margin-top:6px;}
+
+  .section{display:flex; align-items:baseline; justify-content:space-between; margin:34px 0 12px;}
+  h2{font-size:18px; font-weight:700; letter-spacing:-0.01em;}
+  .hint{font-size:12.5px; color:var(--faint);}
+
+  .list{overflow:hidden;}
+  .listhead{display:flex; align-items:center; gap:16px; padding:12px 24px 10px; border-bottom:1px solid var(--border); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint);}
+  .row{display:flex; align-items:center; gap:16px; padding:10px 24px; border-bottom:1px solid #f0ede4; cursor:pointer; border-left:3px solid transparent;}
+  .row:last-child{border-bottom:none;}
+  .row:hover{background:var(--cream);}
+  .row.selected{background:var(--cream); border-left-color:var(--gold);}
+  .row .name{width:208px; flex:none; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px;}
+  .row .name .chev{color:var(--faint); font-size:11px;}
+  .row.factor .name{width:184px; font-size:13px; font-weight:500; color:var(--muted);}
+  .row.factor{padding-left:48px; background:#fcfbf7;}
+  .row.factor:hover{background:var(--cream);}
+  .row .track{flex:1; min-width:0;}
+  .row .sum{width:216px; flex:none; font-size:12px; color:var(--muted); line-height:1.5;}
+  .row .sum b{font-weight:600;}
+  .axis{flex:1; display:flex; justify-content:space-between; font-size:10.5px; color:var(--faint);}
+  .spacer-l{width:208px; flex:none;} .spacer-r{width:216px; flex:none;}
+
+  .foot{margin-top:22px; font-size:12px; color:var(--faint);}
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">Trajec<span>tas</span></div>
+  <nav>
+    <div class="navlabel">Workspace</div>
+    <a href="#">Dashboard</a>
+    <a href="#">Campaigns</a>
+    <a href="#">Participants</a>
+    <a href="#" class="active">Trajectory</a>
+    <a href="#">Reports</a>
+    <div class="navlabel">Build</div>
+    <a href="#">Assessments</a>
+    <a href="#">Library</a>
+    <a href="#">Settings</a>
+  </nav>
+</aside>
+<main>
+  <div class="wrap">
+    <div class="eyebrow">Participants · Compare</div>
+    <div class="headrow">
+      <h1>Comparing five candidates</h1>
+      <div class="actions">
+        <button class="btn">Save view</button>
+        <button class="btn primary">Export ▾</button>
+      </div>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <div class="controls">
+      <div class="switchwrap">
+        <div class="switch" aria-hidden="true"></div>
+        <div>
+          <div class="switchlabel">Show change</div>
+          <div class="switchcap">since first assessment · Sep 2025</div>
+        </div>
+      </div>
+      <div class="order">Order: <b>Largest change ▾</b></div>
+    </div>
+
+    <div class="card hero">
+      <div class="overline" id="hero-overline">Relating · all five candidates</div>
+      <p class="lede" id="hero-lede"></p>
+      <div id="hero-chart"></div>
+      <div class="chartfoot">4 assessments · Sep 2025 – Jun 2026 · Scores run 0–100 against the Industry leadership norm group · the shaded band is the typical range</div>
+    </div>
+
+    <div class="section">
+      <h2>Breakdown</h2>
+      <span class="hint">Click any row to chart it above · click a dimension to open its factors</span>
+    </div>
+    <div class="card list" id="list"></div>
+
+    <div class="foot">Identity is matched across campaigns automatically · assessment dates differ slightly per person — hover a dot for exact dates · Generated for Meridian Group</div>
+  </div>
+</main>
+<script>
+const DIMS={
+ Thinking:['Strategic perspective','Analytical reasoning','Judgment','Innovation','Business acumen','Systems thinking'],
+ Executing:['Drive for results','Planning & organising','Accountability','Resource management','Process discipline','Delivery under pressure'],
+ Relating:['Influence','Empathy','Collaboration','Communication','Conflict navigation','Stakeholder management'],
+ Adapting:['Learning agility','Resilience','Ambiguity tolerance','Openness to feedback','Change leadership','Composure'],
+ Leading:['Vision & direction','Developing others','Delegation','Inspiring commitment','Courage','Team building']
+};
+const SESSIONS=['Sep 2025','Dec 2025','Mar 2026','Jun 2026'];
+const PEOPLE=[
+ {id:'A',name:'Amara Okafor',color:'#1D9E75'},
+ {id:'B',name:'Ben Castillo',color:'#7F77DD'},
+ {id:'P',name:'Priya Sharma',color:'#D85A30'},
+ {id:'D',name:'Daniel Reyes',color:'#D4537E'},
+ {id:'E',name:'Elena Marsh',color:'#378ADD'}
+];
+function hsh(s){let x=7;for(let i=0;i<s.length;i++){x=(x*31+s.charCodeAt(i))>>>0;}return x;}
+function rnd(seed,k){const v=Math.sin(seed*12.9898+k*78.233)*43758.5453;return v-Math.floor(v);}
+const PROFILES={A:[44,24],B:[60,2],P:[40,28],D:[58,-6],E:[36,16]};
+const V={};
+PEOPLE.forEach(p=>{V[p.id]={};});
+Object.values(DIMS).flat().forEach(f=>{
+ const s=hsh(f);
+ PEOPLE.forEach((p,pi)=>{
+  const base=PROFILES[p.id][0]+rnd(s,pi)*18, d=PROFILES[p.id][1]*(0.4+rnd(s,pi+7)*1.2)-4+rnd(s,pi+13)*8;
+  V[p.id][f]=[0,1,2,3].map(i=>Math.round(Math.min(95,Math.max(8,base+d*i/3+(rnd(s,pi*4+i)-0.5)*5))));
+ });
+});
+function roll(pid,dim){return [0,1,2,3].map(i=>Math.round(DIMS[dim].reduce((a,f)=>a+V[pid][f][i],0)/DIMS[dim].length));}
+function comp(pid){return [0,1,2,3].map(i=>Math.round(Object.keys(DIMS).reduce((a,d)=>a+roll(pid,d)[i],0)/5));}
+function ser(pid,key){if(key==='__comp')return comp(pid);if(DIMS[key])return roll(pid,key);return V[pid][key];}
+function dTxt(d){return (d>0?'+':'')+d;}
+function dCol(d){return Math.abs(d)<3?'#9aa39e':(d>0?'#1D9E75':'#D85A30');}
+
+// Hero chart — monotone cubic, auto-fit y with labelled ticks
+function monoPath(pts){
+ const n=pts.length, dx=[],dy=[],m=[],t=[];
+ for(let i=0;i<n-1;i++){dx.push(pts[i+1].x-pts[i].x);dy.push(pts[i+1].y-pts[i].y);m.push(dy[i]/dx[i]);}
+ t.push(m[0]);
+ for(let i=1;i<n-1;i++){t.push(m[i-1]*m[i]<=0?0:(m[i-1]+m[i])/2);}
+ t.push(m[n-2]);
+ let d='M'+pts[0].x.toFixed(1)+','+pts[0].y.toFixed(1);
+ for(let i=0;i<n-1;i++){
+  const h=dx[i];
+  d+=' C'+(pts[i].x+h/3).toFixed(1)+','+(pts[i].y+t[i]*h/3).toFixed(1)+' '+(pts[i+1].x-h/3).toFixed(1)+','+(pts[i+1].y-t[i+1]*h/3).toFixed(1)+' '+pts[i+1].x.toFixed(1)+','+pts[i+1].y.toFixed(1);
+ }
+ return d;
+}
+const HERO_KEY='Relating';
+(function(){
+ const W=1056,H=400,pl=44,pr=170,pt=22,pb=40;
+ const series=PEOPLE.map(p=>({name:p.name,color:p.color,vals:ser(p.id,HERO_KEY)}));
+ let all=[];series.forEach(s=>{all=all.concat(s.vals);});
+ const lo=Math.max(0,Math.floor((Math.min(...all)-8)/10)*10), hi=Math.min(100,Math.ceil((Math.max(...all)+8)/10)*10);
+ const xf=i=>pl+i*(W-pl-pr)/3, yf=v=>pt+(1-(v-lo)/(hi-lo))*(H-pt-pb);
+ let g='';
+ for(let v=lo;v<=hi;v+=10){g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+yf(v)+'" y2="'+yf(v)+'" stroke="#eceadf" stroke-width="1"/><text x="'+(pl-10)+'" y="'+(yf(v)+4)+'" text-anchor="end" font-size="11.5" fill="#9aa39e" class="tn">'+v+'</text>';}
+ const bl=Math.max(lo,44),bh=Math.min(hi,62);
+ g+='<rect x="'+pl+'" y="'+yf(bh)+'" width="'+(W-pl-pr)+'" height="'+(yf(bl)-yf(bh))+'" fill="#c9a962" opacity="0.10"/>';
+ g+='<text x="'+(pl+10)+'" y="'+(yf(bh)+16)+'" font-size="11.5" fill="#a8854c">Typical range</text>';
+ SESSIONS.forEach((s,i)=>{g+='<text x="'+xf(i)+'" y="'+(H-12)+'" text-anchor="middle" font-size="12" fill="#9aa39e">'+s+'</text><line x1="'+xf(i)+'" x2="'+xf(i)+'" y1="'+(H-pb)+'" y2="'+(H-pb+5)+'" stroke="#d8d4c8"/>';});
+ g+='<line x1="'+xf(2)+'" x2="'+xf(2)+'" y1="'+pt+'" y2="'+(H-pb)+'" stroke="#d8d4c8" stroke-dasharray="4 5"/><text x="'+(xf(2)-7)+'" y="'+(pt+12)+'" text-anchor="end" font-size="11" fill="#9aa39e">Programme ended</text>';
+ const labels=[];
+ series.forEach(s=>{
+  const pts=s.vals.map((v,i)=>({x:xf(i),y:yf(v)}));
+  g+='<path d="'+monoPath(pts)+'" fill="none" stroke="'+s.color+'" stroke-width="2.4" stroke-linecap="round"/>';
+  pts.forEach((p,i)=>{g+='<circle cx="'+p.x+'" cy="'+p.y+'" r="3.6" fill="'+s.color+'" stroke="#fff" stroke-width="1.6"/>';});
+  labels.push({y:pts[3].y,color:s.color,name:s.name,v:s.vals[3],d:s.vals[3]-s.vals[0]});
+ });
+ labels.sort((a,b)=>a.y-b.y);
+ for(let i=1;i<labels.length;i++){if(labels[i].y<labels[i-1].y+19)labels[i].y=labels[i-1].y+19;}
+ labels.forEach(l=>{
+  g+='<text x="'+(W-pr+14)+'" y="'+(l.y+4)+'" font-size="12.5" font-weight="600" fill="'+l.color+'">'+l.name+'</text>';
+  g+='<text x="'+(W-14)+'" y="'+(l.y+4)+'" text-anchor="end" font-size="12.5" fill="#68716d" class="tn">'+l.v+' <tspan fill="'+dCol(l.d)+'">'+dTxt(l.d)+'</tspan></text>';
+ });
+ document.getElementById('hero-chart').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Relating scores for five candidates over four assessments">'+g+'</svg>';
+ const riser=labels.slice().sort((a,b)=>b.d-a.d)[0], top=labels.slice().sort((a,b)=>b.v-a.v)[0];
+ document.getElementById('hero-lede').textContent=riser.name+' has risen the most on Relating ('+dTxt(riser.d)+' since September). '+top.name+' remains highest'+(Math.abs(top.d)<3?' but is flat':'')+'. Numbers on the right show where each person is now, and how far they have moved.';
+})();
+
+// People chips
+document.getElementById('chips').innerHTML=PEOPLE.map(p=>'<span class="chip"><span class="dot" style="background:'+p.color+'"></span>'+p.name+'<span class="x">✕</span></span>').join('')+'<span class="chip add">+ Add person</span>';
+
+// Breakdown list
+function trackSvg(key,h){
+ const X=v=>(3+v*0.94).toFixed(2)+'%';
+ let g='<rect x="'+X(44)+'" y="3" width="16.92%" height="'+(h-6)+'" fill="#c9a962" opacity="0.10"/>';
+ [0,50,100].forEach(v=>{g+='<line x1="'+X(v)+'" x2="'+X(v)+'" y1="3" y2="'+(h-3)+'" stroke="#eceadf" stroke-width="1"/>';});
+ PEOPLE.forEach((p,pi)=>{
+  const vals=ser(p.id,key);
+  const y=h/2+(pi-2)*6.5;
+  g+='<line x1="'+X(vals[0])+'" x2="'+X(vals[3])+'" y1="'+y+'" y2="'+y+'" stroke="'+p.color+'" stroke-width="1.8" opacity="0.4"/>';
+  g+='<circle cx="'+X(vals[3])+'" cy="'+y+'" r="4.2" fill="'+p.color+'" stroke="#fff" stroke-width="1.4"/>';
+ });
+ return '<svg width="100%" height="'+h+'" aria-hidden="true" style="display:block;">'+g+'</svg>';
+}
+function summaryHtml(key){
+ const stats=PEOPLE.map(p=>{const v=ser(p.id,key);return {p,now:v[3],d:v[3]-v[0]};});
+ const best=stats.slice().sort((a,b)=>Math.abs(b.d)-Math.abs(a.d))[0];
+ const lows=Math.min(...stats.map(s=>s.now)), highs=Math.max(...stats.map(s=>s.now));
+ return '<span>Biggest change <b style="color:'+best.p.color+'">'+best.p.name.split(' ')[0]+'</b> <b class="tn" style="color:'+dCol(best.d)+'">'+dTxt(best.d)+'</b></span><br><span>Everyone sits between <b class="tn">'+lows+'</b> and <b class="tn">'+highs+'</b></span>';
+}
+function metric(key){return Math.max(...PEOPLE.map(p=>{const v=ser(p.id,key);return Math.abs(v[3]-v[0]);}));}
+(function(){
+ let html='<div class="listhead"><span class="spacer-l">Competency</span><span class="axis"><span>0</span><span>typical range shaded</span><span>100</span></span><span class="spacer-r">Summary</span></div>';
+ html+='<div class="row"><span class="name">Overall</span><span class="track">'+trackSvg('__comp',40)+'</span><span class="sum">'+summaryHtml('__comp')+'</span></div>';
+ const dims=Object.keys(DIMS).sort((a,b)=>metric(b)-metric(a));
+ dims.forEach(d=>{
+  const sel=d===HERO_KEY;
+  html+='<div class="row'+(sel?' selected':'')+'"><span class="name"><span class="chev">'+(sel?'▼':'▶')+'</span>'+d+'</span><span class="track">'+trackSvg(d,40)+'</span><span class="sum">'+summaryHtml(d)+'</span></div>';
+  if(sel){
+   DIMS[d].slice().sort((a,b)=>metric(b)-metric(a)).forEach(f=>{
+    html+='<div class="row factor"><span class="name">'+f+'</span><span class="track">'+trackSvg(f,34)+'</span><span class="sum">'+summaryHtml(f)+'</span></div>';
+   });
+  }
+ });
+ document.getElementById('list').innerHTML=html;
+})();
+</script>
+</body>
+</html>
