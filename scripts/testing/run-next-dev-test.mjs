@@ -114,6 +114,14 @@ const env = {
     process.env.DATABASE_URL ??
     envFromFile.DATABASE_URL ??
     "postgresql://postgres:postgres@127.0.0.1:54322/postgres",
+  // Required for secure cookie signing (session activity + active context).
+  // The app throws at render time if this is unset, so the seeded suite needs a
+  // value. A fixed local-only secret keeps the harness self-contained (CI has no
+  // .env.local to supply one). Never used outside the local test stack.
+  TRAJECTAS_CONTEXT_SECRET:
+    process.env.TRAJECTAS_CONTEXT_SECRET ??
+    envFromFile.TRAJECTAS_CONTEXT_SECRET ??
+    "e2e-local-context-secret-do-not-use-in-production",
 };
 
 const nextBin = resolve(cwd, "node_modules/next/dist/bin/next");

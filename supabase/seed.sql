@@ -532,4 +532,154 @@ set
   response_time_ms = excluded.response_time_ms,
   section_id = excluded.section_id;
 
+-- ── Seeded admin actor ──────────────────────────────────────────────────────
+-- Backs the authenticated half of the seeded Playwright suite (the "seeded
+-- admin workspace" tests). The e2e harness serves every surface on one host, so
+-- the request surface always resolves to "public" and `isPlatformAdmin` is never
+-- true there; the dashboard renders via the host-based local-dev gate and the
+-- page data actions scope to this actor's client via auth_user_client_ids().
+-- That membership (admin on Seeded Client Co) is what makes the seeded
+-- campaigns/participants visible. Passwordless by design — no encrypted_password
+-- is set; sessions are minted at test time via the Supabase admin API + OTP
+-- verify (see tests/e2e/seeded/auth.ts). Confined to the local test stack.
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  is_sso_user,
+  is_anonymous,
+  -- GoTrue scans these token columns as non-null strings; leaving them NULL
+  -- makes admin lookups fail with "Database error finding user".
+  confirmation_token,
+  recovery_token,
+  email_change,
+  email_change_token_new
+)
+values (
+  '00000000-0000-0000-0000-000000000000',
+  '10000000-0000-0000-0000-000000000111',
+  'authenticated',
+  'authenticated',
+  'seed-admin@seeded-client-co.test',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{}'::jsonb,
+  false,
+  false,
+  false,
+  '',
+  '',
+  '',
+  ''
+)
+on conflict (id) do update
+set
+  email = excluded.email,
+  email_confirmed_at = excluded.email_confirmed_at,
+  raw_app_meta_data = excluded.raw_app_meta_data,
+  confirmation_token = excluded.confirmation_token,
+  recovery_token = excluded.recovery_token,
+  email_change = excluded.email_change,
+  email_change_token_new = excluded.email_change_token_new,
+  updated_at = excluded.updated_at;
+
+insert into auth.identities (
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000111',
+  '10000000-0000-0000-0000-000000000111',
+  jsonb_build_object(
+    'sub', '10000000-0000-0000-0000-000000000111',
+    'email', 'seed-admin@seeded-client-co.test',
+    'email_verified', true
+  ),
+  'email',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (provider_id, provider) do update
+set
+  identity_data = excluded.identity_data,
+  updated_at = excluded.updated_at;
+
+insert into profiles (
+  id,
+  partner_id,
+  client_id,
+  role,
+  first_name,
+  last_name,
+  email,
+  display_name,
+  is_active,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000111',
+  null,
+  '10000000-0000-0000-0000-000000000101',
+  'org_admin',
+  'Seeded',
+  'Admin',
+  'seed-admin@seeded-client-co.test',
+  'Seeded Admin',
+  true,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (id) do update
+set
+  partner_id = excluded.partner_id,
+  client_id = excluded.client_id,
+  role = excluded.role,
+  first_name = excluded.first_name,
+  last_name = excluded.last_name,
+  email = excluded.email,
+  display_name = excluded.display_name,
+  is_active = excluded.is_active,
+  updated_at = excluded.updated_at;
+
+insert into client_memberships (
+  id,
+  profile_id,
+  client_id,
+  role,
+  is_default,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000121',
+  '10000000-0000-0000-0000-000000000111',
+  '10000000-0000-0000-0000-000000000101',
+  'admin',
+  true,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (profile_id, client_id) do update
+set
+  role = excluded.role,
+  is_default = excluded.is_default,
+  updated_at = excluded.updated_at;
+
 commit;
