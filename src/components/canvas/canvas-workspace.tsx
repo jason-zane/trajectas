@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Plus, Table2, X } from 'lucide-react'
+import { Link2, Plus, Table2, X } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
+import { TrajectoryLinkedRecordsDrawer } from '@/components/trajectory/trajectory-linked-records-drawer'
 import { Switch } from '@/components/ui/switch'
 import {
   Select,
@@ -42,14 +43,14 @@ export function CanvasWorkspace({
   initialOrder,
   initialShowChange,
   basePath,
-  tableHref,
+  compareBasePath,
 }: {
   initial: CanvasResult
   initialCharted?: string
   initialOrder?: CanvasOrder
   initialShowChange?: boolean
   basePath: string
-  tableHref: string
+  compareBasePath: string
 }) {
   const router = useRouter()
   const pathname = usePathname()
@@ -67,6 +68,7 @@ export function CanvasWorkspace({
     return entity.level === 'dimension' ? entity.id : entity.parentId
   })
   const [showAdd, setShowAdd] = useState(false)
+  const [showLinked, setShowLinked] = useState(false)
 
   const peopleKeys = useMemo(() => result.people.map((p) => p.personKey), [result.people])
   const nameByPerson = useMemo(
@@ -82,6 +84,8 @@ export function CanvasWorkspace({
     [result.entities],
   )
   const chartedName = charted === OVERALL_ID ? 'Overall' : entityById.get(charted)?.name ?? 'Overall'
+  // Recomputed from live state so the link follows Add person / remove.
+  const compareHref = `${compareBasePath}?ids=${result.people.map((p) => p.entryCpId).join(',')}`
   const sinceLabel = monthYear(
     result.people.reduce<string | null>(
       (acc, p) =>
@@ -96,6 +100,7 @@ export function CanvasWorkspace({
   const lastUrl = useRef('')
   useEffect(() => {
     const next = new URLSearchParams(params)
+    next.delete('id')
     next.set('ids', result.people.map((p) => p.entryCpId).join(','))
     if (charted !== OVERALL_ID) next.set('chart', charted)
     else next.delete('chart')
@@ -187,7 +192,7 @@ export function CanvasWorkspace({
         )}
       </div>
 
-      {/* Controls: show change · order · table view */}
+      {/* Controls: show change · order · compare cross-link */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Switch checked={showChange} onCheckedChange={setShowChange} />
@@ -215,9 +220,19 @@ export function CanvasWorkspace({
               ))}
             </SelectContent>
           </Select>
-          <Link href={tableHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+          {result.people.length === 1 && (
+            <button
+              type="button"
+              onClick={() => setShowLinked(true)}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              <Link2 className="size-4" />
+              Linked records
+            </button>
+          )}
+          <Link href={compareHref} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
             <Table2 className="size-4" />
-            Table view
+            Open in Compare
           </Link>
         </div>
       </div>
@@ -257,6 +272,15 @@ export function CanvasWorkspace({
           onClose={() => setShowAdd(false)}
           onAdd={(opts) => addPeople(opts.map((o) => o.id))}
           searchSource={(query) => searchAllParticipants(query)}
+        />
+      )}
+
+      {showLinked && result.people.length === 1 && (
+        <TrajectoryLinkedRecordsDrawer
+          open
+          onOpenChange={(open: boolean) => setShowLinked(open)}
+          campaignParticipantId={result.people[0].entryCpId}
+          onAfterChange={() => refetch(result.people.map((p) => p.entryCpId))}
         />
       )}
     </div>

@@ -10,9 +10,9 @@ import { CanvasWorkspace } from './canvas-workspace'
 
 /**
  * Server wrapper for the canvas: fetches the multi-person payload and
- * renders the page header + workspace. Shared by the admin and client
- * compare routes (they differ only in basePath and access guards, which
- * the routes themselves own).
+ * renders the page header + workspace. Lives under the Trajectory routes;
+ * the Compare section keeps its matrix workspace, reachable from here via
+ * the "Open in Compare" cross-link.
  */
 
 export async function CanvasPageView({
@@ -66,13 +66,15 @@ export async function CanvasPageView({
   const validOrder = CANVAS_ORDERS.includes(order as CanvasOrder)
     ? (order as CanvasOrder)
     : undefined
-  const tableHref = `${basePath}?view=table&ids=${people.map((p) => p.entryCpId).join(',')}`
+  const compareBasePath = basePath.startsWith('/client/')
+    ? '/client/participants/compare'
+    : '/participants/compare'
 
   return (
     <div className="space-y-4 max-w-[1600px] min-w-0">
       <div className="px-4 pt-4">
         <PageHeader
-          eyebrow={people.length === 1 ? 'Insights · Trajectory' : 'Insights · Compare'}
+          eyebrow="Insights · Trajectory"
           title={title}
           description={description}
         />
@@ -83,7 +85,7 @@ export async function CanvasPageView({
         initialOrder={validOrder}
         initialShowChange={change !== '0'}
         basePath={basePath}
-        tableHref={tableHref}
+        compareBasePath={compareBasePath}
       />
     </div>
   )
