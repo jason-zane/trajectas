@@ -76,13 +76,31 @@ function readSupabaseStatusEnv(cwd: string): Record<string, string> {
  * `supabase status` call. The URL must match what the app uses so the
  * @supabase/ssr cookie storage key lines up.
  */
+// CI exports the Supabase env via `supabase status -o env >> $GITHUB_ENV`,
+// which keeps the surrounding quotes (e.g. API_URL="http://127.0.0.1:54321"),
+// so process.env values arrive quoted. The file/status parsers already strip
+// quotes; do the same for anything read straight from process.env.
+function stripQuotes(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  const trimmed = value.trim();
+  if (
+    trimmed.length >= 2 &&
+    ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+      (trimmed.startsWith("'") && trimmed.endsWith("'")))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
 function resolveSupabaseEnv(): SupabaseTestEnv {
   const cwd = process.cwd();
   const fileEnv = readEnvFile(resolve(cwd, ".env.e2e.local"));
 
   const pick = (...keys: string[]): string | undefined => {
     for (const key of keys) {
-      if (process.env[key]) return process.env[key];
+      const value = stripQuotes(process.env[key]);
+      if (value) return value;
     }
     for (const key of keys) {
       if (fileEnv[key]) return fileEnv[key];
