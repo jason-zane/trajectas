@@ -20,6 +20,7 @@ const rows: ComparisonRow[] = [
     campaignParticipantId: 'cp1',
     participantName: "O'Connor, Sam",
     participantEmail: 'sam@example.com',
+    personKey: 'pk-sam',
     perAssessment: [
       {
         assessmentId: 'a1',
