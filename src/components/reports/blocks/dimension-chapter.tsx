@@ -76,12 +76,20 @@ export function DimensionChapterBlock({ data, mode }: { data: Record<string, unk
         return (
           <section
             key={chapter.dimensionId}
+            data-pg-section
+            data-toc-target={`dim:${chapter.dimensionId}`}
+            data-pg-atomic={keepTogether ? 'true' : undefined}
+            data-pg-break-before={flow === 'new_page' && i > 0 ? 'true' : undefined}
             className={
               flow === 'new_page' && i > 0 ? 'print:break-before-page' : undefined
             }
             style={keepTogether ? { breakInside: 'avoid' } : undefined}
           >
-            <div className={i > 0 ? 'mt-10 print:mt-8' : undefined} style={{ breakInside: 'avoid', breakAfter: 'avoid' }}>
+            <div
+              data-pg-atomic
+              className={i > 0 ? 'mt-10 print:mt-8' : undefined}
+              style={{ breakInside: 'avoid', breakAfter: 'avoid' }}
+            >
               <p
                 className="font-mono text-[10px] font-medium tracking-[0.22em]"
                 style={{ color: 'var(--report-featured-accent)' }}

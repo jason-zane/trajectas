@@ -187,14 +187,26 @@ export function ReportRenderer({ blocks, className, onBlockSelect, selectedBlock
             )
           } else if (block.type === 'cover_page') {
             content = (
-              <div key={block.blockId} data-cover-page className="relative z-10 print:break-after-page">
+              <div
+                key={block.blockId}
+                data-cover-page
+                data-pg-block
+                data-pg-full-page
+                className="relative z-10 print:break-after-page"
+              >
                 <Component data={safeData} mode={mode} chartType={block.chartType} />
               </div>
             )
           } else {
             const printClasses = block.printBreakBefore ? 'print:break-before-page' : undefined
             content = (
-              <div key={block.blockId} className={printClasses}>
+              <div
+                key={block.blockId}
+                className={printClasses}
+                data-pg-block
+                data-pg-break-before={block.printBreakBefore ? 'true' : undefined}
+                data-toc-target={block.blockId}
+              >
                 <ModeWrapper
                   mode={mode}
                   columns={block.columns}

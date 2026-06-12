@@ -3,6 +3,7 @@
 import { render, fireEvent } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { ReportRenderer } from '@/components/reports/report-renderer'
+import { PageMapContext } from '@/components/reports/page-map'
 import { generateSampleData, type PreviewEntity } from '@/lib/reports/sample-data'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 
@@ -58,5 +59,27 @@ describe('ReportRenderer — full redesigned template', () => {
     )
     fireEvent.click(getAllByText('MY COMMITMENTS')[0])
     expect(onSelect).toHaveBeenCalledWith('b5')
+  })
+
+  it('renders TOC page numbers when a PageMap is provided in context', () => {
+    const blocks = generateSampleData(TEMPLATE_BLOCKS, DEFAULT_REPORT_THEME, ENTITIES, 'Standard Report')
+    // Page numbers ≥ 06 so they can't collide with contents/development ordinals.
+    const pageMap = {
+      pageCount: 9,
+      breakOffsets: [],
+      pageByTarget: { b3: 6, 'dim:dim-1': 7, 'dim:dim-2': 8, b5: 9, b6: 9 },
+    }
+    const { getByText, queryByText, rerender } = render(
+      <PageMapContext.Provider value={pageMap}>
+        <ReportRenderer blocks={blocks} />
+      </PageMapContext.Provider>,
+    )
+    expect(getByText('06')).toBeTruthy()
+    expect(getByText('07')).toBeTruthy()
+    expect(getByText('08')).toBeTruthy()
+
+    // Without a map (plain screen views) no page numbers render.
+    rerender(<ReportRenderer blocks={blocks} />)
+    expect(queryByText('06')).toBeNull()
   })
 })

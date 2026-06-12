@@ -43,6 +43,11 @@ export async function generatePreviewPdf(
         await document.fonts.ready
       }
     })
+    // Wait for the measured pagination pass (TOC page numbers) — soft timeout
+    // so a measurement hiccup can never block PDF generation.
+    await page
+      .waitForSelector('html[data-pagination-ready="true"]', { timeout: 5000 })
+      .catch(() => {})
 
     const pdf = await page.pdf({
       format: 'A4',

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
-import { ReportRenderer } from '@/components/reports/report-renderer'
+import { PrintPaginatedReport } from '@/components/reports/print-paginated-report'
 import { verifyReportPdfToken } from '@/lib/reports/pdf-token'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportSnapshotRow } from '@/lib/supabase/mappers'
@@ -33,7 +33,7 @@ export default async function PrintReportPage({ params, searchParams }: Props) {
 
   return (
     <Suspense>
-      <ReportRenderer blocks={blocks} className="print-report" />
+      <PrintPaginatedReport blocks={blocks} className="print-report" />
     </Suspense>
   )
 }

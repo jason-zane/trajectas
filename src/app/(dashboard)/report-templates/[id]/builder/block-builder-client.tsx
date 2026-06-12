@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useCallback, useEffect } from 'react'
+import { useState, useTransition, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
@@ -51,6 +51,8 @@ import { cn } from '@/lib/utils'
 import { BLOCK_REGISTRY, isDeferredBlockType } from '@/lib/reports/registry'
 import type { BlockType, BlockConfig, ResolvedBlockData } from '@/lib/reports/types'
 import { ReportRenderer } from '@/components/reports/report-renderer'
+import { PageMapContext, measurePageUnits } from '@/components/reports/page-map'
+import { computePageMap, A4_PAGE_HEIGHT_PX, A4_PAGE_WIDTH_PX, type PageMap } from '@/lib/reports/pagination'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 import { DEFAULT_3_BAND_SCHEME, type BandScheme } from '@/lib/reports/band-scheme'
 import {
@@ -1109,6 +1111,44 @@ function TemplatePreviewSurface({
   reviewMode?: boolean
   onToggleReview?: () => void
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const paperRef = useRef<HTMLDivElement>(null)
+  const [pageMap, setPageMap] = useState<PageMap | null>(null)
+
+  // Measured pagination pass: project the rendered preview onto A4 pages.
+  // The preview paper is narrower than true A4, so the page height scales
+  // with the paper width — breaks land where they will in the PDF (±).
+  const recompute = useCallback(() => {
+    const paper = paperRef.current
+    if (!paper || paper.clientWidth === 0) return
+    const pageHeight = paper.clientWidth * (A4_PAGE_HEIGHT_PX / A4_PAGE_WIDTH_PX)
+    const units = measurePageUnits(paper)
+    setPageMap(computePageMap(units, pageHeight, paper.scrollHeight))
+  }, [])
+
+  useEffect(() => {
+    // Let the new blocks paint before measuring.
+    const t = window.setTimeout(recompute, 150)
+    return () => window.clearTimeout(t)
+  }, [blocks, reviewMode, recompute])
+
+  useEffect(() => {
+    if (!paperRef.current || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(() => recompute())
+    observer.observe(paperRef.current)
+    return () => observer.disconnect()
+  }, [recompute])
+
+  const jumpToPage = useCallback((page: number) => {
+    const scroll = scrollRef.current
+    const paper = paperRef.current
+    if (!scroll || !paper || !pageMap) return
+    const offset = page <= 1 ? 0 : (pageMap.breakOffsets[page - 2] ?? 0)
+    const paperTop =
+      paper.getBoundingClientRect().top - scroll.getBoundingClientRect().top + scroll.scrollTop
+    scroll.scrollTo({ top: Math.max(0, paperTop + offset - 12), behavior: 'smooth' })
+  }, [pageMap])
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-border bg-card/90 px-4 py-2.5 backdrop-blur">
@@ -1121,6 +1161,27 @@ function TemplatePreviewSurface({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {pageMap && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1 font-mono text-[11px] font-medium tracking-wide text-primary">
+              ≈ {pageMap.pageCount} {pageMap.pageCount === 1 ? 'PAGE' : 'PAGES'}
+            </span>
+          )}
+          {pageMap && pageMap.pageCount > 1 && (
+            <select
+              value=""
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                if (n) jumpToPage(n)
+              }}
+              className="rounded-md border border-border bg-background px-2 py-1 text-xs"
+              aria-label="Jump to page"
+            >
+              <option value="">Page…</option>
+              {Array.from({ length: pageMap.pageCount }, (_, i) => (
+                <option key={i + 1} value={i + 1}>Page {i + 1}</option>
+              ))}
+            </select>
+          )}
           {assessments.length > 0 && (
             <select
               value={selectedAssessmentId ?? ''}
@@ -1157,19 +1218,33 @@ function TemplatePreviewSurface({
           </Button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--report-page-bg,#fafaf8)] p-4">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-[var(--report-page-bg,#fafaf8)] p-4">
         {!reviewMode && (
           <div className="mb-4 rounded-xl border border-amber-300/60 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-900">
             Preview only — rendered with sample participant data.
           </div>
         )}
         {/* A4 proportions: the paper is the same width ratio the PDF will use */}
-        <div className="mx-auto max-w-3xl overflow-hidden rounded-md border border-black/5 bg-white shadow-xl">
-          <ReportRenderer
-            blocks={blocks}
-            onBlockSelect={reviewMode ? undefined : onBlockSelect}
-            selectedBlockId={reviewMode ? undefined : selectedBlockId}
-          />
+        <div
+          ref={paperRef}
+          className="relative mx-auto max-w-3xl overflow-hidden rounded-md border border-black/5 bg-white shadow-xl"
+        >
+          <PageMapContext.Provider value={pageMap}>
+            <ReportRenderer
+              blocks={blocks}
+              onBlockSelect={reviewMode ? undefined : onBlockSelect}
+              selectedBlockId={reviewMode ? undefined : selectedBlockId}
+            />
+          </PageMapContext.Provider>
+          {/* Page-break indicators from the measured pagination pass */}
+          {pageMap?.breakOffsets.map((y, i) => (
+            <div key={`${i}-${Math.round(y)}`} className="pointer-events-none absolute inset-x-0 z-20" style={{ top: y }}>
+              <div className="border-t border-dashed border-primary/40" />
+              <span className="absolute right-2 -top-2.5 rounded-full border border-primary/30 bg-card px-1.5 font-mono text-[10px] leading-4 text-primary">
+                {i + 2}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
