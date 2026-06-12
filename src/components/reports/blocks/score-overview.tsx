@@ -90,6 +90,9 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 showBandLabel={showBandLabel}
                 variant={isFeatured ? 'dark' : 'light'}
               />
+              {(depth === 'rich' || depth === 'full') && (
+                <AnchorList scores={group.scores} isFeatured={isFeatured} />
+              )}
             </div>
           ))}
         </div>
@@ -186,6 +189,27 @@ function GroupHeader({
           </span>
         </span>
       )}
+    </div>
+  )
+}
+
+/**
+ * Compact low/high anchor reference for chart types that can't carry anchors
+ * per-row (gauges). Bars render anchors inside each FactorRow instead.
+ */
+function AnchorList({ scores, isFeatured }: { scores: ScoreEntry[]; isFeatured: boolean }) {
+  const withAnchors = scores.filter((s) => s.anchorLow || s.anchorHigh)
+  if (withAnchors.length === 0) return null
+  const colour = isFeatured ? 'rgba(255,255,255,0.55)' : 'var(--report-muted-colour)'
+  return (
+    <div className="mt-3 space-y-1">
+      {withAnchors.map((s) => (
+        <div key={s.entityId} className="flex gap-3 text-[10px] leading-snug" style={{ color: colour }}>
+          <span className="w-28 shrink-0 truncate font-medium">{s.entityName}</span>
+          <span className="flex-1">{s.anchorLow ?? ''}</span>
+          <span className="flex-1 text-right">{s.anchorHigh ?? ''}</span>
+        </div>
+      ))}
     </div>
   )
 }
