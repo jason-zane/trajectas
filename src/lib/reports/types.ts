@@ -162,6 +162,9 @@ export interface DevelopmentPlanConfig {
   prioritiseByScore?: boolean
   displayLevel?: 'dimension' | 'factor' | 'construct'
   entityIds?: string[]
+  /** Blank write-in lines beneath the priorities — turns the printed page into a coaching artifact. */
+  showCommitments?: boolean
+  commitmentLines?: number
 }
 
 export interface AiTextConfig {

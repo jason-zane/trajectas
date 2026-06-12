@@ -856,6 +856,13 @@ function DevelopmentContent({ block, entityOptions, onUpdateConfig }: BlockConte
         checked={config.prioritiseByScore as boolean ?? true}
         onChange={(v) => onUpdateConfig('prioritiseByScore', v)}
       />
+      <SwitchField
+        id="dev-showCommitments"
+        label="Commitments panel"
+        help="Blank write-in lines beneath the priorities for coaching sessions"
+        checked={config.showCommitments as boolean ?? false}
+        onChange={(v) => onUpdateConfig('showCommitments', v)}
+      />
       <Field label="Entity filter" help="Limit to specific entities, or leave empty for all">
         <EntityMultiSelect
           value={entityIds}

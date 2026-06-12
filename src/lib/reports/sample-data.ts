@@ -581,8 +581,19 @@ function generateBlockSampleData(
         pompScore: e.pompScore,
         bandResult: e.bandResult,
         developmentSuggestion: e.developmentSuggestion ?? SAMPLE_DEVELOPMENT_SUGGESTIONS[0],
+        parentName: e.parentId
+          ? entities.find((p) => p.id === e.parentId)?.name
+          : undefined,
       }))
-      return { palette, items, config: { maxItems } }
+      return {
+        palette,
+        items,
+        config: {
+          maxItems,
+          showCommitments: config.showCommitments === true,
+          commitmentLines: typeof config.commitmentLines === 'number' ? config.commitmentLines : 3,
+        },
+      }
     }
 
     case 'ai_text':

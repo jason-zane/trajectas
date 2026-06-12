@@ -116,7 +116,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     label: 'Development Plan',
     category: 'highlight',
     description: 'Aggregated development suggestions prioritised by lowest score.',
-    defaultConfig: { maxItems: 3, prioritiseByScore: true },
+    defaultConfig: { maxItems: 3, prioritiseByScore: true, showCommitments: true },
     supportedModes: ['open', 'carded', 'split'],
     defaultMode: 'carded',
   },
