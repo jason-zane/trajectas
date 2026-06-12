@@ -3,8 +3,9 @@
 // =============================================================================
 // Contents block — table of contents derived from the template's other blocks.
 // Dimension rows carry their score; the band legend panel explains the scale
-// once so no other page needs a legend. (Page numbers require the measured
-// pagination pass — deliberately omitted for now.)
+// once so no other page needs a legend. Page numbers appear when a PageMap is
+// available in context (builder preview + print routes run the measured
+// pagination pass; plain screen views render without numbers).
 // =============================================================================
 
 import {
@@ -13,6 +14,7 @@ import {
   type PaletteKey,
   type BandDefinition,
 } from '@/lib/reports/band-scheme'
+import { usePageMap } from '../page-map'
 import type { ContentsConfig } from '@/lib/reports/types'
 import type { ContentsSection } from '@/lib/reports/contents-sections'
 import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
@@ -25,10 +27,13 @@ interface ContentsData {
 }
 
 export function ContentsBlock({ data }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
+  const pageMap = usePageMap()
   const d = data as unknown as ContentsData
   if (!d.sections?.length) return null
 
   const showLegend = d.config?.showBandLegend !== false
+  const pageFor = (section: ContentsSection): number | null =>
+    section.targetId && pageMap ? (pageMap.pageByTarget[section.targetId] ?? null) : null
 
   return (
     <div>
@@ -67,6 +72,14 @@ export function ContentsBlock({ data }: { data: Record<string, unknown>; mode?: 
               className="flex-1 -translate-y-[3px] border-b border-dotted"
               style={{ borderColor: 'var(--report-card-border)' }}
             />
+            {pageFor(section) !== null && (
+              <span
+                className="shrink-0 font-mono text-[11px] tabular-nums"
+                style={{ color: 'var(--report-muted-colour)' }}
+              >
+                {String(pageFor(section)).padStart(2, '0')}
+              </span>
+            )}
           </div>
         ))}
       </div>

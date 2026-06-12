@@ -46,6 +46,16 @@ describe('buildContentsSections', () => {
     expect(sections[0].bandResult?.bandLabel).toBe('Effective')
   })
 
+  it('carries pagination target ids: block id for sections, dim:<id> for chapters', () => {
+    const sections = buildContentsSections(
+      [block('score_overview'), block('dimension_chapter')],
+      DIMS,
+    )
+    expect(sections[0].targetId).toBe('score_overview-0')
+    expect(sections[1].targetId).toBe('dim:dim-1')
+    expect(sections[2].targetId).toBe('dim:dim-2')
+  })
+
   it('respects the dimensionIds filter on chapter blocks', () => {
     const sections = buildContentsSections(
       [block('dimension_chapter', { config: { dimensionIds: ['dim-2'] } as BlockConfig['config'] })],

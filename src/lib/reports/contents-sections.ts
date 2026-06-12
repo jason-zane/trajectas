@@ -2,8 +2,8 @@
 // src/lib/reports/contents-sections.ts
 // Pure helper that derives Contents-block sections from a template's blocks.
 // Shared by the runner (real data) and sample-data (builder preview) so the
-// two never drift. Page numbers are deliberately absent — they need the
-// measured pagination pass.
+// two never drift. Page numbers come from the measured pagination pass at
+// render time, resolved via each section's targetId.
 // =============================================================================
 
 import type { BlockConfig, BandResult } from './types'
@@ -13,6 +13,12 @@ export interface ContentsSection {
   kind: 'section' | 'dimension'
   pompScore?: number
   bandResult?: BandResult
+  /**
+   * Anchor id matched against [data-toc-target] markers in the rendered
+   * report — the measured pagination pass resolves it to a page number.
+   * Block id for sections; `dim:<dimensionId>` for chapter dimensions.
+   */
+  targetId?: string
 }
 
 export interface ContentsDimension {
@@ -57,6 +63,7 @@ export function buildContentsSections(
           kind: 'dimension',
           pompScore: dim.pompScore,
           bandResult: dim.bandResult,
+          targetId: `dim:${dim.id}`,
         })
       }
       continue
@@ -64,7 +71,7 @@ export function buildContentsSections(
 
     const label = block.heading?.trim() || DEFAULT_LABELS[block.type]
     if (!label) continue
-    sections.push({ label, kind: 'section' })
+    sections.push({ label, kind: 'section', targetId: block.id })
   }
 
   return sections
