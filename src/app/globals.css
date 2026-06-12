@@ -598,4 +598,17 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* Score entries are atomic — a row (and its depth layers) never splits
+     across a page break. Lists of entries may break BETWEEN entries. */
+  .report-entry {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Keep a group header with at least its first row */
+  .report-group {
+    orphans: 2;
+    widows: 2;
+  }
 }

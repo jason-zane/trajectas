@@ -29,90 +29,112 @@ export function CoverPageBlock({ data }: { data: Record<string, unknown>; mode?:
       })
     : null
 
-  // Resolve the subtitle line — assessment name, campaign name, or legacy campaignTitle
-  const subtitleParts: string[] = []
-  if (d.showAssessmentName !== false && d.assessmentName) subtitleParts.push(d.assessmentName)
-  if (d.showCampaignName && d.campaignName) subtitleParts.push(d.campaignName)
-  if (d.showReportName && d.reportName) subtitleParts.push(d.reportName)
-  // Fallback to legacy campaignTitle if no new fields are set
-  const subtitle = subtitleParts.length > 0
-    ? subtitleParts.join(' — ')
+  // Eyebrow: the report name, unless it's already shown in the title fields.
+  const eyebrow = (!d.showReportName && d.reportName ? d.reportName : 'Assessment Report').toUpperCase()
+
+  const subtitle = d.showAssessmentName !== false && d.assessmentName
+    ? d.assessmentName
     : d.campaignTitle ?? null
+  const secondLineParts: string[] = []
+  if (d.showCampaignName && d.campaignName) secondLineParts.push(d.campaignName)
+  if (d.showReportName && d.reportName) secondLineParts.push(d.reportName)
+  const secondLine = secondLineParts.join(' · ') || null
 
   return (
     <div
-      className="flex flex-col items-center justify-center min-h-[160px] px-10 py-12 text-center print:h-screen"
+      className="relative flex min-h-[420px] flex-col overflow-hidden px-12 py-10 print:h-screen print:px-[18mm] print:py-[16mm]"
       style={{
         background: 'var(--report-featured-bg)',
         color: 'var(--report-featured-text)',
       }}
     >
-      {/* Logo or org name fallback */}
-      {d.showLogo !== false && (
-        d.primaryLogoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={d.primaryLogoUrl}
-            alt="Logo"
-            className="h-12 mb-8 object-contain"
-          />
-        ) : d.clientName ? (
-          <p
-            className="text-sm font-semibold uppercase tracking-[3px] mb-8"
-            style={{ color: 'var(--report-featured-accent)' }}
-          >
-            {d.clientName}
-          </p>
-        ) : null
-      )}
+      {/* Ghosted mark motif, bottom-right */}
+      <div aria-hidden="true" className="absolute -right-1 -bottom-3 flex items-end gap-2.5">
+        <span className="h-16 w-4 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <span className="h-24 w-4 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <span className="h-32 w-4 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }} />
+        <span className="h-40 w-4 rounded-full" style={{ background: 'var(--report-featured-accent)', opacity: 0.16 }} />
+      </div>
 
-      {/* Main content */}
-      <div className="space-y-4">
+      {/* Top row — co-brand left, confidential right */}
+      <div className="relative flex items-start justify-between gap-4">
+        {d.showLogo !== false ? (
+          d.secondaryLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={d.secondaryLogoUrl} alt="Logo" className="h-9 object-contain" />
+          ) : d.clientName ? (
+            <p
+              className="font-mono text-[11px] font-medium uppercase tracking-[0.2em]"
+              style={{ color: 'rgba(255,255,255,0.55)' }}
+            >
+              {d.clientName}
+            </p>
+          ) : <span />
+        ) : <span />}
+        <p className="font-mono text-[10px] tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.3)' }}>
+          CONFIDENTIAL
+        </p>
+      </div>
+
+      <div className="flex-1" />
+
+      {/* Title cluster */}
+      <div className="relative">
+        <p
+          className="font-mono text-[11px] font-medium tracking-[0.26em]"
+          style={{ color: 'var(--report-featured-accent)' }}
+        >
+          {eyebrow}
+        </p>
         {d.participantName && (
-          <h1 className="text-4xl font-semibold tracking-tight">{d.participantName}</h1>
+          <h1 className="mt-3 text-4xl font-bold tracking-tight">{d.participantName}</h1>
         )}
+        <div className="my-5 h-0.5 w-9" style={{ background: 'var(--report-featured-accent)' }} />
         {subtitle && (
-          <p className="text-lg opacity-60">{subtitle}</p>
+          <p className="text-[15px]" style={{ color: 'rgba(255,255,255,0.65)' }}>{subtitle}</p>
         )}
-        {date && (
-          <p className="text-sm opacity-50 mt-8">{date}</p>
+        {secondLine && (
+          <p className="mt-1 text-[12.5px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{secondLine}</p>
         )}
       </div>
 
-      {/* Secondary logo / Powered by */}
-      {(d.showLogo !== false || d.showPoweredBy) && (
-        <div className="mt-10 flex flex-col items-center gap-3">
-          {d.showPoweredBy && d.poweredByText && (
-            <p className="text-[10px] uppercase tracking-[2px] opacity-50">
-              {d.poweredByText}
-            </p>
-          )}
-          {d.showLogo !== false && d.secondaryLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={d.secondaryLogoUrl}
-              alt="Secondary logo"
-              className="h-8 object-contain opacity-60"
-            />
-          ) : d.showPoweredBy ? (
-            // Span mark — pills inherit currentColor so the mark reads on
-            // both dark and light cover themes; gold accent is fixed.
-            <svg
-              viewBox="0 0 64 64"
-              width="22"
-              height="22"
-              role="img"
-              aria-label="Trajectas"
-              className="opacity-80"
-            >
-              <rect x="9" y="46" width="7" height="10" rx="3.5" fill="currentColor" />
-              <rect x="22" y="36" width="7" height="20" rx="3.5" fill="currentColor" />
-              <rect x="35" y="24" width="7" height="32" rx="3.5" fill="currentColor" />
-              <rect x="48" y="10" width="7" height="46" rx="3.5" fill="#c9a962" />
-            </svg>
-          ) : null}
-        </div>
-      )}
+      <div className="flex-1" />
+
+      {/* Bottom row — date left, mark right */}
+      <div className="relative flex items-end justify-between gap-4">
+        <span className="font-mono text-[11px] tracking-[0.16em]" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          {date ? date.toUpperCase() : ''}
+        </span>
+        {(d.showPoweredBy || (d.showLogo !== false && d.primaryLogoUrl)) && (
+          <span className="flex flex-col items-end gap-2">
+            {d.showLogo !== false && d.primaryLogoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={d.primaryLogoUrl} alt="Logo" className="h-7 object-contain opacity-70" />
+            ) : (
+              <span className="flex items-center gap-2">
+                <svg
+                  viewBox="0 0 64 64"
+                  width="15"
+                  height="15"
+                  role="img"
+                  aria-label="Trajectas"
+                  className="opacity-70"
+                >
+                  <rect x="9" y="46" width="7" height="10" rx="3.5" fill="currentColor" />
+                  <rect x="22" y="36" width="7" height="20" rx="3.5" fill="currentColor" />
+                  <rect x="35" y="24" width="7" height="32" rx="3.5" fill="currentColor" />
+                  <rect x="48" y="10" width="7" height="46" rx="3.5" fill="#c9a962" />
+                </svg>
+                {d.showPoweredBy && d.poweredByText && (
+                  <span className="font-mono text-[10px] tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                    {d.poweredByText.replace(/^powered by\s*/i, '')}
+                  </span>
+                )}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
     </div>
   )
 }

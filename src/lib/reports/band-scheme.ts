@@ -5,6 +5,7 @@
 
 export type IndicatorTier = 'low' | 'mid' | 'high'
 export type PaletteKey =
+  | 'indicator'
   | 'red-amber-green'
   | 'soft-rag'
   | 'sage-ladder'
@@ -31,7 +32,7 @@ export interface BandScheme {
 
 export const PRESETS: Record<string, BandScheme> = {
   '3-band': {
-    palette: 'red-amber-green',
+    palette: 'indicator',
     bands: [
       { key: 'developing', label: 'Developing', min: 0, max: 40, indicatorTier: 'low' },
       { key: 'effective', label: 'Effective', min: 41, max: 69, indicatorTier: 'mid' },
@@ -39,7 +40,7 @@ export const PRESETS: Record<string, BandScheme> = {
     ],
   },
   '5-band': {
-    palette: 'red-amber-green',
+    palette: 'indicator',
     bands: [
       { key: 'emerging', label: 'Emerging', min: 0, max: 20, indicatorTier: 'low' },
       { key: 'developing', label: 'Developing', min: 21, max: 40, indicatorTier: 'low' },
@@ -49,7 +50,7 @@ export const PRESETS: Record<string, BandScheme> = {
     ],
   },
   '7-band': {
-    palette: 'red-amber-green',
+    palette: 'indicator',
     bands: [
       { key: 'very_low', label: 'Very Low', min: 0, max: 14, indicatorTier: 'low' },
       { key: 'low', label: 'Low', min: 15, max: 28, indicatorTier: 'low' },
@@ -69,6 +70,9 @@ export const DEFAULT_3_BAND_SCHEME: BandScheme = PRESETS['3-band']
 // ---------------------------------------------------------------------------
 
 const PALETTE_STOPS: Record<PaletteKey, string[]> = {
+  // Neutral-but-distinguishable indicator trio (terracotta → ochre → sage).
+  // Default for new schemes: reads clearly without fighting any brand theme.
+  'indicator':       ['#b85f52', '#c49a4a', '#3d8b72'],
   'red-amber-green': ['#c62828', '#e67a00', '#2e7d32'],
   'soft-rag':        ['#c78a8a', '#d7b26a', '#7aa87a'],
   'sage-ladder':     ['#64748b', '#60a5fa', '#14b8a6', '#84cc16', '#22c55e'],
@@ -98,6 +102,24 @@ export function getBandColour(palette: PaletteKey, bandIndex: number, bandCount:
   if (bandCount <= 1) return stops[0]
   const t = bandIndex / (bandCount - 1)
   return interpolateMultiStop(stops, t)
+}
+
+/**
+ * Text-safe variant of a band colour — dark enough to read as a label on the
+ * report's light page background. Derived by mixing the band fill toward
+ * near-black, so it tracks any palette without per-palette tuning.
+ */
+export function getBandTextColour(palette: PaletteKey, bandIndex: number, bandCount: number): string {
+  return interpolateHex(getBandColour(palette, bandIndex, bandCount), '#241f1a', 0.38)
+}
+
+/** Chip colours for band badges: a light tint background + dark readable text. */
+export function getBandChipColours(palette: PaletteKey, bandIndex: number, bandCount: number): { bg: string; text: string } {
+  const fill = getBandColour(palette, bandIndex, bandCount)
+  return {
+    bg: interpolateHex(fill, '#faf8f4', 0.85),
+    text: interpolateHex(fill, '#241f1a', 0.38),
+  }
 }
 
 function interpolateHex(a: string, b: string, t: number): string {

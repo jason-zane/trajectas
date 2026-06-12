@@ -5,6 +5,17 @@
 export const PRESENTATION_MODES = ['featured', 'open', 'carded', 'split', 'inset'] as const
 export type PresentationMode = (typeof PRESENTATION_MODES)[number]
 
+/**
+ * Depth — how much information a score entry carries beneath its spine row
+ * (name + band label + score + bar). Each step adds a layer:
+ *   glance    → spine row only
+ *   standard  → + description
+ *   rich      → + low/high anchors flanking the bar
+ *   full      → + behavioural indicators and development focus
+ */
+export const REPORT_DEPTHS = ['glance', 'standard', 'rich', 'full'] as const
+export type ReportDepth = (typeof REPORT_DEPTHS)[number]
+
 export const CHART_TYPES = ['bar', 'radar', 'gauges', 'segment', 'scorecard', 'grouped_bar', 'radar_360', 'gap'] as const
 export type ChartType = (typeof CHART_TYPES)[number]
 
@@ -62,14 +73,14 @@ export interface ReportTheme {
 
 export const DEFAULT_REPORT_THEME: ReportTheme = {
   reportHighBandFill: '#3d8b72',
-  reportMidBandFill: '#d4a843',
-  reportLowBandFill: '#c75c5c',
-  reportHighBadgeBg: '#e6f2ed',
+  reportMidBandFill: '#c49a4a',
+  reportLowBandFill: '#b85f52',
+  reportHighBadgeBg: '#e4f0eb',
   reportHighBadgeText: '#2a6b52',
-  reportMidBadgeBg: '#faf3e0',
-  reportMidBadgeText: '#8a6510',
-  reportLowBadgeBg: '#fce8e8',
-  reportLowBadgeText: '#a94442',
+  reportMidBadgeBg: '#f4eddc',
+  reportMidBadgeText: '#7d5e1e',
+  reportLowBadgeBg: '#f6e8e4',
+  reportLowBadgeText: '#8c4337',
 
   reportFeaturedBg: '#1e3a32',
   reportFeaturedText: '#ffffff',
