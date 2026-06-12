@@ -87,6 +87,39 @@ describe('computePageMap', () => {
     expect(map.breakOffsets).toEqual([1000, 2000])
   })
 
+  it('re-anchors a section target when its first atomic entry is pushed', () => {
+    // Section wrapper starts near the bottom of page 1 (header only fits);
+    // its first score entry would straddle and is pushed to page 2. The TOC
+    // must point at page 2, where the visible section actually starts.
+    const map = computePageMap(
+      [
+        unit(0, 100),
+        unit(880, 400, { targetId: 'section' }),
+        unit(940, 200, { atomic: true }),
+      ],
+      PAGE,
+      1300,
+    )
+    expect(map.breakOffsets).toEqual([940])
+    expect(map.pageByTarget.section).toBe(2)
+  })
+
+  it('does not re-anchor a target once real content rendered before the push', () => {
+    // The section started high on page 1 with plenty of content; a later
+    // entry being pushed must not drag the section's TOC entry forward.
+    const map = computePageMap(
+      [
+        unit(100, 800, { targetId: 'section' }),
+        unit(150, 200, { atomic: true }),
+        unit(900, 200, { atomic: true }),
+      ],
+      PAGE,
+      1300,
+    )
+    expect(map.pageByTarget.section).toBe(1)
+    expect(map.breakOffsets).toEqual([900])
+  })
+
   it('keeps the first page number per target', () => {
     const map = computePageMap(
       [unit(0, 100, { targetId: 'dup' }), unit(1200, 100, { targetId: 'dup' })],

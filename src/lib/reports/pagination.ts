@@ -23,6 +23,15 @@ export const A4_PAGE_WIDTH_PX = 794
 /** Measurement tolerance — sub-pixel layout jitter must not flip a break. */
 const EPS = 1
 
+/**
+ * When an atomic unit is pushed to a fresh page, the section header directly
+ * above it travels too (print CSS: .report-block-headers has break-after:
+ * avoid). A TOC target recorded within this many px above the pushed unit is
+ * therefore re-anchored to the new page — roughly eyebrow + heading +
+ * description height.
+ */
+const KEEP_WITH_NEXT_WINDOW = 160
+
 export interface PageUnit {
   /** Distance from the report root's top, px (screen space). */
   top: number
@@ -64,6 +73,7 @@ export function computePageMap(
   let pageStart = 0
   let pageEnd = pageHeight
   let forceBreakNext = false
+  let lastTarget: { id: string; top: number } | null = null
 
   const startNewPageAt = (y: number) => {
     breakOffsets.push(y)
@@ -90,13 +100,20 @@ export function computePageMap(
         unit.top + unit.height > pageEnd + EPS &&
         unit.height <= pageHeight
       ) {
-        // Would straddle the boundary — push to the next page.
+        // Would straddle the boundary — push to the next page. If the push
+        // happens right at the top of a section (only its header rendered so
+        // far), the header travels with the pushed entry, so the section's
+        // TOC target moves to the new page too.
         startNewPageAt(unit.top)
+        if (lastTarget && lastTarget.top >= unit.top - KEEP_WITH_NEXT_WINDOW) {
+          pageByTarget[lastTarget.id] = page
+        }
       }
     }
 
     if (unit.targetId && !(unit.targetId in pageByTarget)) {
       pageByTarget[unit.targetId] = page
+      lastTarget = { id: unit.targetId, top: unit.top }
     }
 
     if (unit.breakAfter || unit.fullPage) forceBreakNext = true
