@@ -8,6 +8,7 @@ import type { BandScheme } from './band-scheme'
 import { DEFAULT_3_BAND_SCHEME } from './band-scheme'
 import { resolveBand } from './band-resolution'
 import { isDeferredBlockType, parseBlocks } from './registry'
+import { buildContentsSections } from './contents-sections'
 
 // ---------------------------------------------------------------------------
 // Preview entity — caller provides real DB entities; we assign fake scores
@@ -124,7 +125,7 @@ export function generateSampleData(
       continue
     }
 
-    const data = generateBlockSampleData(block.type, block.config as Record<string, unknown>, scored, templateName, scheme)
+    const data = generateBlockSampleData(block.type, block.config as Record<string, unknown>, scored, templateName, scheme, blocks)
 
     resolved.push({
       blockId: block.id,
@@ -181,6 +182,7 @@ function generateBlockSampleData(
   entities: ScoredEntity[],
   templateName: string,
   scheme: BandScheme,
+  allBlocks: BlockConfig[] = [],
 ): Record<string, unknown> {
   const palette = scheme.palette
 
@@ -206,23 +208,32 @@ function generateBlockSampleData(
 
     case 'score_overview': {
       const filtered = filterEntities(entities, config)
+      const depth = typeof config.depth === 'string' ? config.depth : 'glance'
       const parentNameMap = new Map<string, string>()
       for (const e of entities) {
         if (e.type === 'dimension') parentNameMap.set(e.id, e.name)
       }
       return {
         palette,
+        bands: scheme.bands,
         scores: filtered.map((e, i) => ({
           entityId: e.id,
           entityName: e.name,
           pompScore: e.pompScore,
           bandResult: e.bandResult,
           parentName: e.parentId ? (parentNameMap.get(e.parentId) ?? '') : '',
+          description: depth === 'glance'
+            ? null
+            : (e.description || e.definition || '[Sample] The description from the library will appear here.'),
           anchorLow: e.anchorLow ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].low,
           anchorHigh: e.anchorHigh ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].high,
         })),
+        parents: entities
+          .filter((e) => e.type === 'dimension')
+          .map((e) => ({ name: e.name, pompScore: e.pompScore, bandResult: e.bandResult })),
         config: {
           displayLevel: config.displayLevel ?? 'factor',
+          depth,
           showScore: config.showScore !== false,
           showBandLabel: config.showBandLabel !== false,
           showAnchors: config.showAnchors === true,
@@ -230,6 +241,89 @@ function generateBlockSampleData(
         },
       }
     }
+
+    case 'dimension_chapter': {
+      const depth = typeof config.depth === 'string' ? config.depth : 'standard'
+      const filter = Array.isArray(config.dimensionIds) && config.dimensionIds.length > 0
+        ? new Set(config.dimensionIds as string[])
+        : null
+      const dims = entities
+        .filter((e) => e.type === 'dimension')
+        .filter((e) => !filter || filter.has(e.id))
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+      const chapters = dims
+        .map((dim) => {
+          const factors = entities
+            .filter((e) => e.type === 'factor' && e.parentId === dim.id)
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .map((f, i) => ({
+              entityId: f.id,
+              entityName: f.name,
+              pompScore: f.pompScore,
+              bandResult: f.bandResult,
+              description: depth === 'glance'
+                ? null
+                : (f.description || f.definition || '[Sample] The description from the library will appear here.'),
+              anchorLow: f.anchorLow ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].low,
+              anchorHigh: f.anchorHigh ?? SAMPLE_ANCHORS[i % SAMPLE_ANCHORS.length].high,
+              indicators: depth === 'full'
+                ? (resolveIndicator(f, f.bandResult.indicatorTier) ?? '[Sample] Behavioural indicators from the library will appear here.')
+                : null,
+              development: depth === 'full'
+                ? (f.developmentSuggestion ?? SAMPLE_DEVELOPMENT_SUGGESTIONS[0])
+                : null,
+            }))
+          return {
+            dimensionId: dim.id,
+            dimensionName: dim.name,
+            pompScore: dim.pompScore,
+            bandResult: dim.bandResult,
+            summary: config.showDimensionSummary !== false
+              ? (dim.description || dim.definition || '[Sample] The dimension summary from the library will appear here.')
+              : null,
+            factors,
+          }
+        })
+        .filter((chapter) => chapter.factors.length > 0)
+
+      if (chapters.length === 0) return { _empty: true, palette }
+      return {
+        palette,
+        bands: scheme.bands,
+        chapters,
+        config: {
+          depth,
+          showDimensionSummary: config.showDimensionSummary !== false,
+          chapterFlow: typeof config.chapterFlow === 'string' ? config.chapterFlow : 'auto',
+        },
+      }
+    }
+
+    case 'contents': {
+      const dims = entities
+        .filter((e) => e.type === 'dimension')
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((e) => ({ id: e.id, name: e.name, pompScore: e.pompScore, bandResult: e.bandResult }))
+      return {
+        palette,
+        bands: scheme.bands,
+        sections: buildContentsSections(allBlocks, dims),
+        config: {
+          showBandLegend: config.showBandLegend !== false,
+        },
+      }
+    }
+
+    case 'closing_page':
+      return {
+        methodologyText: typeof config.methodologyText === 'string' ? config.methodologyText : '',
+        confidentialityText: typeof config.confidentialityText === 'string' ? config.confidentialityText : '',
+        showBandLegend: config.showBandLegend !== false,
+        palette,
+        bands: scheme.bands,
+        clientName: 'Preview Organisation',
+      }
 
     case 'score_interpretation': {
       const filtered = filterEntities(entities, config)
@@ -487,8 +581,19 @@ function generateBlockSampleData(
         pompScore: e.pompScore,
         bandResult: e.bandResult,
         developmentSuggestion: e.developmentSuggestion ?? SAMPLE_DEVELOPMENT_SUGGESTIONS[0],
+        parentName: e.parentId
+          ? entities.find((p) => p.id === e.parentId)?.name
+          : undefined,
       }))
-      return { palette, items, config: { maxItems } }
+      return {
+        palette,
+        items,
+        config: {
+          maxItems,
+          showCommitments: config.showCommitments === true,
+          commitmentLines: typeof config.commitmentLines === 'number' ? config.commitmentLines : 3,
+        },
+      }
     }
 
     case 'ai_text':

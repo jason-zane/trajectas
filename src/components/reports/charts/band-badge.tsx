@@ -1,7 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { getBandColour, type PaletteKey } from '@/lib/reports/band-scheme'
+import { getBandChipColours, type PaletteKey } from '@/lib/reports/band-scheme'
 
 interface BandBadgeProps {
   label: string
@@ -12,18 +12,17 @@ interface BandBadgeProps {
 }
 
 export function BandBadge({ label, bandIndex, bandCount, palette, className }: BandBadgeProps) {
-  const colour = getBandColour(palette, bandIndex, bandCount)
+  const chip = getBandChipColours(palette, bandIndex, bandCount)
 
   return (
     <span
       className={cn(
-        'inline-block text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md',
+        'inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
         className,
       )}
       style={{
-        color: colour,
-        // Subtle tinted background: the band colour at ~12% alpha
-        background: `${colour}1f`,
+        color: chip.text,
+        background: chip.bg,
       }}
     >
       {label}

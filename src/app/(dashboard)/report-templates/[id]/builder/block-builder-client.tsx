@@ -68,7 +68,7 @@ import {
 import type { PreviewEntity } from '@/lib/reports/sample-data'
 import { useAutoSave } from '@/hooks/use-auto-save'
 import { AutoSaveIndicator } from '@/components/auto-save-indicator'
-import { AddBlockDropdown } from './add-block-dropdown'
+import { AddBlockGallery } from './add-block-gallery'
 import { BlockContentPanel } from './block-content-panels'
 import { BlockHeadersPanel } from './block-headers-panel'
 import { BlockPresentationPanel } from './block-presentation-panel'
@@ -194,6 +194,18 @@ function getBlockSummary(
         ? toggleNames.join(' \u00b7 ')
         : resolveEntityNames(config.entityIds)
     }
+    case 'dimension_chapter': {
+      const depth = String(config.depth ?? 'standard')
+      const dimensionIds = Array.isArray(config.dimensionIds) ? config.dimensionIds : []
+      const scope = dimensionIds.length > 0 ? resolveEntityNames(dimensionIds) : 'All dimensions'
+      return `${depth.charAt(0).toUpperCase()}${depth.slice(1)} depth · ${scope}`
+    }
+    case 'contents':
+      return config.showBandLegend === false
+        ? 'Auto-generated sections'
+        : 'Auto-generated sections · Band legend'
+    case 'closing_page':
+      return 'Methodology · Bands · Confidentiality'
     case 'strengths_highlights':
       return `Top ${config.topN ?? 3} strengths`
     case 'development_plan': {
@@ -216,18 +228,43 @@ function getBlockSummary(
 }
 
 // ---------------------------------------------------------------------------
-// Tab types
+// Inspector groups — collapsible sections replacing the old 4-tab layout
 // ---------------------------------------------------------------------------
 
-type BlockTab = 'content' | 'headers' | 'presentation' | 'print'
 const BLOCKS_WITHOUT_HEADERS: BlockType[] = ['cover_page', 'section_divider']
 const BLOCKS_WITHOUT_PRESENTATION: BlockType[] = ['section_divider']
-const BLOCK_TABS: { id: BlockTab; label: string }[] = [
-  { id: 'content', label: 'Content' },
-  { id: 'headers', label: 'Headers' },
-  { id: 'presentation', label: 'Presentation' },
-  { id: 'print', label: 'Print' },
-]
+
+function InspectorGroup({
+  label,
+  defaultOpen = false,
+  children,
+}: {
+  label: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  return (
+    <div className="border-t border-border/60 first:border-t-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 py-2.5 text-left"
+        aria-expanded={open}
+      >
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+          {label}
+        </span>
+        {open ? (
+          <ChevronUp className="size-3.5 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="size-3.5 text-muted-foreground" />
+        )}
+      </button>
+      {open && <div className="pb-4">{children}</div>}
+    </div>
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Main client component
@@ -248,7 +285,7 @@ export function BlockBuilderClient({
   const router = useRouter()
   const [blocks, setBlocks] = useState<BlockConfig[]>(initialBlocks)
   const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<BlockTab>('content')
+  const [reviewMode, setReviewMode] = useState(false)
   const [name, setName] = useState(initialName)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [isSaving, startSave] = useTransition()
@@ -395,7 +432,6 @@ export function BlockBuilderClient({
       return [...prev, newBlock]
     })
     setExpandedBlockId(newBlock.id)
-    setActiveTab('content')
   }
 
   // ---------------------------------------------------------------------------
@@ -410,12 +446,19 @@ export function BlockBuilderClient({
   // Toggle expand
   // ---------------------------------------------------------------------------
   function toggleExpand(id: string) {
-    setExpandedBlockId((prev) => {
-      if (prev === id) return null
-      setActiveTab('content')
-      return id
-    })
+    setExpandedBlockId((prev) => (prev === id ? null : id))
   }
+
+  // Click-to-select from the preview: expand the matching block card and
+  // bring it into view in the left column.
+  const handlePreviewBlockSelect = useCallback((blockId: string) => {
+    setExpandedBlockId(blockId)
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`builder-block-${blockId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    })
+  }, [])
 
   // ---------------------------------------------------------------------------
   // Update selected block config
@@ -553,7 +596,7 @@ export function BlockBuilderClient({
           </SelectContent>
         </Select>
         <div className="ml-auto flex items-center gap-2">
-          <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
+          <AddBlockGallery reportType={reportType} onAdd={(type) => addBlock(type)} />
           <Button
             size="sm"
             onClick={handleSave}
@@ -565,8 +608,8 @@ export function BlockBuilderClient({
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden lg:grid lg:grid-cols-2">
-        <div className="overflow-y-auto bg-background p-6">
+      <div className={cn('flex-1 overflow-hidden', !reviewMode && 'lg:grid lg:grid-cols-2')}>
+        <div className={cn('overflow-y-auto bg-background p-6', reviewMode && 'hidden')}>
           <div className="mx-auto max-w-3xl space-y-6">
             <InlineTemplateSettingsPanel
               expanded={settingsExpanded}
@@ -594,7 +637,7 @@ export function BlockBuilderClient({
                   <p className="text-sm text-muted-foreground">
                     No blocks yet. Add your first block to get started.
                   </p>
-                  <AddBlockDropdown reportType={reportType} onAdd={(type) => addBlock(type)} />
+                  <AddBlockGallery reportType={reportType} onAdd={(type) => addBlock(type)} />
                 </div>
               </div>
             ) : (
@@ -613,6 +656,7 @@ export function BlockBuilderClient({
                       />
 
                       <div
+                        id={`builder-block-${block.id}`}
                         draggable={!isExpanded}
                         onDragStart={() => handleDragStart(block.id)}
                         onDragOver={(e) => handleDragOver(e, block.id)}
@@ -694,48 +738,28 @@ export function BlockBuilderClient({
                               </div>
                             )}
 
-                            <div className="flex gap-0 border-b border-border px-4">
-                              {BLOCK_TABS.filter((tab) => {
-                                if (tab.id === 'headers' && BLOCKS_WITHOUT_HEADERS.includes(block.type)) return false
-                                if (tab.id === 'presentation' && BLOCKS_WITHOUT_PRESENTATION.includes(block.type)) return false
-                                return true
-                              }).map((tab) => (
-                                <button
-                                  key={tab.id}
-                                  onClick={() => setActiveTab(tab.id)}
-                                  className={cn(
-                                    'relative px-3 py-2.5 text-sm font-medium transition-colors',
-                                    activeTab === tab.id
-                                      ? 'text-foreground'
-                                      : 'text-muted-foreground hover:text-foreground',
-                                  )}
-                                >
-                                  {tab.label}
-                                  {activeTab === tab.id && (
-                                    <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary" />
-                                  )}
-                                </button>
-                              ))}
-                            </div>
-
-                            <div className="px-4 py-4">
-                              {activeTab === 'content' && (
+                            <div className="px-4 pb-1">
+                              <InspectorGroup label="Content" defaultOpen>
                                 <BlockContentPanel
                                   block={block}
                                   entityOptions={entityOptions}
                                   promptOptions={promptOptions}
                                   onUpdateConfig={updateConfig}
                                 />
+                              </InspectorGroup>
+                              {!BLOCKS_WITHOUT_HEADERS.includes(block.type) && (
+                                <InspectorGroup label="Header">
+                                  <BlockHeadersPanel block={block} onUpdateBlock={updateBlock} />
+                                </InspectorGroup>
                               )}
-                              {activeTab === 'headers' && (
-                                <BlockHeadersPanel block={block} onUpdateBlock={updateBlock} />
+                              {!BLOCKS_WITHOUT_PRESENTATION.includes(block.type) && (
+                                <InspectorGroup label="Style">
+                                  <BlockPresentationPanel block={block} onUpdateBlock={updateBlock} />
+                                </InspectorGroup>
                               )}
-                              {activeTab === 'presentation' && (
-                                <BlockPresentationPanel block={block} onUpdateBlock={updateBlock} />
-                              )}
-                              {activeTab === 'print' && (
+                              <InspectorGroup label="Print & visibility">
                                 <BlockPrintPanel block={block} onUpdateBlock={updateBlock} />
-                              )}
+                              </InspectorGroup>
                             </div>
                           </div>
                         )}
@@ -753,7 +777,7 @@ export function BlockBuilderClient({
           </div>
         </div>
 
-        <div className="hidden min-h-0 flex-col border-l border-border bg-muted/15 lg:flex">
+        <div className={cn('hidden min-h-0 flex-col bg-muted/15 lg:flex', !reviewMode && 'border-l border-border', reviewMode && 'h-full')}>
           <TemplatePreviewSurface
             templateId={templateId}
             basePath={basePath}
@@ -761,6 +785,10 @@ export function BlockBuilderClient({
             assessments={previewAssessments}
             selectedAssessmentId={selectedPreviewAssessmentId}
             onSelectAssessment={setSelectedPreviewAssessmentId}
+            onBlockSelect={handlePreviewBlockSelect}
+            selectedBlockId={expandedBlockId}
+            reviewMode={reviewMode}
+            onToggleReview={() => setReviewMode((v) => !v)}
           />
         </div>
       </div>
@@ -1065,6 +1093,10 @@ function TemplatePreviewSurface({
   assessments,
   selectedAssessmentId,
   onSelectAssessment,
+  onBlockSelect,
+  selectedBlockId,
+  reviewMode = false,
+  onToggleReview,
 }: {
   templateId: string
   basePath: string
@@ -1072,14 +1104,20 @@ function TemplatePreviewSurface({
   assessments: PreviewAssessmentOption[]
   selectedAssessmentId: string | null
   onSelectAssessment: (id: string) => void
+  onBlockSelect?: (blockId: string) => void
+  selectedBlockId?: string | null
+  reviewMode?: boolean
+  onToggleReview?: () => void
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-border bg-card/90 px-4 py-3 backdrop-blur">
+      <div className="flex items-center justify-between border-b border-border bg-card/90 px-4 py-2.5 backdrop-blur">
         <div>
-          <p className="text-sm font-semibold">Live Preview</p>
+          <p className="text-sm font-semibold">{reviewMode ? 'Review' : 'Live Preview'}</p>
           <p className="text-xs text-muted-foreground">
-            Sample data refreshes about 500ms after edits.
+            {reviewMode
+              ? 'Full-width render with sample data.'
+              : 'Click a block to edit it. Sample data refreshes after edits.'}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -1094,6 +1132,16 @@ function TemplatePreviewSurface({
                 <option key={a.id} value={a.id}>{a.title}</option>
               ))}
             </select>
+          )}
+          {onToggleReview && (
+            <Button
+              variant={reviewMode ? 'default' : 'outline'}
+              size="sm"
+              onClick={onToggleReview}
+            >
+              <Eye className="size-3.5" />
+              {reviewMode ? 'Exit review' : 'Review'}
+            </Button>
           )}
           <Button
             variant="ghost"
@@ -1110,11 +1158,18 @@ function TemplatePreviewSurface({
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--report-page-bg,#fafaf8)] p-4">
-        <div className="mb-4 rounded-xl border border-amber-300/60 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-900">
-          Preview only — rendered with sample participant data.
-        </div>
-        <div className="mx-auto max-w-3xl rounded-[1.5rem] border border-black/5 bg-white p-6 shadow-xl">
-          <ReportRenderer blocks={blocks} />
+        {!reviewMode && (
+          <div className="mb-4 rounded-xl border border-amber-300/60 bg-amber-50/80 px-3 py-2 text-center text-xs text-amber-900">
+            Preview only — rendered with sample participant data.
+          </div>
+        )}
+        {/* A4 proportions: the paper is the same width ratio the PDF will use */}
+        <div className="mx-auto max-w-3xl overflow-hidden rounded-md border border-black/5 bg-white shadow-xl">
+          <ReportRenderer
+            blocks={blocks}
+            onBlockSelect={reviewMode ? undefined : onBlockSelect}
+            selectedBlockId={reviewMode ? undefined : selectedBlockId}
+          />
         </div>
       </div>
     </div>
@@ -1133,10 +1188,10 @@ function InlineAddButton({
   onAdd: (type: BlockType) => void
 }) {
   return (
-    <div className="relative flex items-center justify-center py-2">
-      <div className="absolute inset-x-0 top-1/2 h-px bg-border/50" />
-      <div className="relative z-10">
-        <AddBlockDropdown reportType={reportType} onAdd={onAdd} />
+    <div className="group/add relative flex items-center justify-center py-1.5">
+      <div className="absolute inset-x-0 top-1/2 h-px bg-border/50 opacity-0 transition-opacity group-hover/add:opacity-100" />
+      <div className="relative z-10 opacity-40 transition-opacity group-hover/add:opacity-100">
+        <AddBlockGallery reportType={reportType} onAdd={onAdd} variant="inline" />
       </div>
     </div>
   )
