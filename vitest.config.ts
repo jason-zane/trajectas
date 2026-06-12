@@ -55,6 +55,8 @@ export default defineConfig({
         // Comparison utilities — tested by comparison/ suite
         "src/lib/comparison/resolve-bands.ts",  // (90/91.66/100/100)
         "src/lib/comparison/session-resolution.ts",  // (100/73.91/100/100)
+        // Canvas summaries — tested by canvas/summarize.test.ts
+        "src/lib/canvas/summarize.ts",
       ],
       thresholds: {
         perFile: true,

@@ -58,3 +58,31 @@ export function computeAttemptOrdinals(rows: SessionRow[]): Map<string, number> 
   }
   return out
 }
+
+/**
+ * Attempt ordinals counted per PERSON rather than per campaign-participant:
+ * the same human invited to two campaigns gets one continuous attempt
+ * sequence per assessment, not two sequences restarting at 1.
+ *
+ * Sessions whose cp has no person mapping fall back to the cp id as the
+ * person bucket, which reproduces the per-cp behaviour for legacy rows.
+ * Returns a Map keyed by `${personBucket}:${assessmentId}:${sessionId}`.
+ */
+export function computePersonAttemptOrdinals(
+  rows: SessionRow[],
+  personKeyByCp: Map<string, string>,
+): Map<string, number> {
+  const out = new Map<string, number>()
+  const orderedAsc = rows.slice().sort((a, b) =>
+    (a.started_at ?? '').localeCompare(b.started_at ?? ''),
+  )
+  const counter = new Map<string, number>()
+  for (const r of orderedAsc) {
+    const person = personKeyByCp.get(r.campaign_participant_id) ?? r.campaign_participant_id
+    const k = `${person}:${r.assessment_id}`
+    const next = (counter.get(k) ?? 0) + 1
+    counter.set(k, next)
+    out.set(`${k}:${r.id}`, next)
+  }
+  return out
+}

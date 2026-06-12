@@ -42,6 +42,8 @@ export type ComparisonRow = {
   campaignParticipantId: string
   participantName: string
   participantEmail: string
+  /** Stable per-client person identity; null only for legacy rows predating the column. */
+  personKey: string | null
   perAssessment: RowAssessment[]
 }
 
