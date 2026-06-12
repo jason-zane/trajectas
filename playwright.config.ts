@@ -17,8 +17,25 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   projects: [
+    // Mints the seeded admin session (tests/e2e/seeded/.auth/admin.json) before
+    // the seeded specs. Scoped to its own project so it only runs when seeded
+    // tests are selected — the smoke suite runs without a Supabase stack and
+    // must not trigger it.
     {
-      name: "chromium",
+      name: "seeded-setup",
+      testMatch: /seeded\/admin-auth\.setup\.ts$/,
+    },
+    {
+      name: "seeded",
+      testMatch: /seeded\/.*\.spec\.ts$/,
+      dependencies: ["seeded-setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+      },
+    },
+    {
+      name: "smoke",
+      testMatch: /smoke\/.*\.spec\.ts$/,
       use: {
         ...devices["Desktop Chrome"],
       },

@@ -1,19 +1,25 @@
 import { expect, test } from "@playwright/test";
+import { ADMIN_STORAGE_STATE } from "./auth";
 import { seededIds, seededTokens } from "./fixtures";
 
-// FIXME: the admin workspace tests need an authenticated admin session, which the
-// seeded e2e harness does not yet provide (run-next-dev-test.mjs only starts the app;
-// there is no storageState/login). Under the OTP-only auth model these pages correctly
-// throw AuthenticationRequiredError, so the tests have never passed. Skipped until a
-// test-auth harness (e.g. a global setup that mints a local Supabase session for a
-// seeded admin) is wired up. The participant-runtime suite below needs no auth and runs.
-test.describe.skip("seeded admin workspace", () => {
+test.describe("seeded admin workspace", () => {
+  // Authenticated as the seeded admin, whose session is minted by the
+  // seeded-setup project (see auth.ts / admin-auth.setup.ts). The
+  // participant-runtime block below intentionally stays unauthenticated.
+  test.use({ storageState: ADMIN_STORAGE_STATE });
+
   test("shows deterministic seeded campaigns on the dashboard", async ({ page }) => {
     await page.goto("/campaigns");
 
     await expect(page.getByRole("heading", { name: "Campaigns" })).toBeVisible();
-    await expect(page.getByText("Seeded Leadership Campaign")).toBeVisible();
-    await expect(page.getByText("Seeded Closed Campaign")).toBeVisible();
+    // Each row renders both an inner anchor (aria-label "Open <title>") and a
+    // whole-row link whose name embeds the title; match the anchor exactly.
+    await expect(
+      page.getByRole("link", { name: "Open Seeded Leadership Campaign", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Seeded Closed Campaign", exact: true })
+    ).toBeVisible();
     await expect(page.getByText("Seeded Client Co").first()).toBeVisible();
   });
 
@@ -24,7 +30,7 @@ test.describe.skip("seeded admin workspace", () => {
     await expect(page.getByText("1 of 4 participants completed")).toBeVisible();
     await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Close" })).toBeVisible();
-    await expect(page.getByText("Timeline")).toBeVisible();
+    await expect(page.getByText("Started")).toBeVisible();
   });
 
   test("lists seeded participants and opens the completed participant detail view", async ({
@@ -33,16 +39,26 @@ test.describe.skip("seeded admin workspace", () => {
     await page.goto("/participants");
 
     await expect(page.getByRole("heading", { name: "Participants" })).toBeVisible();
-    await expect(page.getByText("Avery Invited")).toBeVisible();
-    await expect(page.getByText("Blake Progress")).toBeVisible();
-    await expect(page.getByText("Casey Completed")).toBeVisible();
-    await expect(page.getByText("River Revoked")).toBeVisible();
+    // Same inner-anchor vs whole-row-link ambiguity as the campaigns table.
+    await expect(
+      page.getByRole("link", { name: "Open Avery Invited", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Blake Progress", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Casey Completed", exact: true })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open River Revoked", exact: true })
+    ).toBeVisible();
 
     await page.goto(`/participants/${seededIds.completedParticipantId}`);
 
     await expect(page.getByRole("heading", { name: "Casey Completed" })).toBeVisible();
-    await expect(page.getByText("Assessment Sessions")).toBeVisible();
-    await expect(page.getByText("Seeded Leadership Campaign")).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Sessions" })).toBeVisible();
+    // Campaign title appears in the header subtitle (and again in the overview panel).
+    await expect(page.getByText("Seeded Leadership Campaign").first()).toBeVisible();
   });
 });
 
