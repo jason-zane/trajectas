@@ -12,6 +12,7 @@ import { BandRow } from './band-row'
 import { SchemePreview } from './scheme-preview'
 
 const PALETTES: { value: PaletteKey; label: string }[] = [
+  { value: 'indicator', label: 'Indicator (neutral)' },
   { value: 'red-amber-green', label: 'Red-Amber-Green' },
   { value: 'soft-rag', label: 'Soft RAG' },
   { value: 'sage-ladder', label: 'Sage Ladder' },

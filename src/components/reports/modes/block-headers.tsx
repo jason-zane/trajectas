@@ -20,15 +20,15 @@ export function BlockHeaders({
     <div className="report-block-headers space-y-1.5 mb-6 print:mb-4">
       {eyebrow && (
         <p
-          className="text-[10px] uppercase tracking-[2px]"
-          style={{ color: isFeatured ? 'var(--report-featured-accent)' : 'var(--report-cover-accent)' }}
+          className="font-mono text-[10px] font-medium uppercase tracking-[0.22em]"
+          style={{ color: 'var(--report-featured-accent)' }}
         >
           {eyebrow}
         </p>
       )}
       {heading && (
         <h2
-          className="text-xl font-semibold"
+          className="text-xl font-bold tracking-tight"
           style={{ color: isFeatured ? 'currentColor' : 'var(--report-heading-colour)' }}
         >
           {heading}

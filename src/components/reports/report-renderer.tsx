@@ -15,6 +15,9 @@ import { RaterComparisonBlock } from './blocks/rater-comparison'
 import { GapAnalysisBlock } from './blocks/gap-analysis'
 import { OpenCommentsBlock } from './blocks/open-comments'
 import { AiTextBlock } from './blocks/ai-text'
+import { DimensionChapterBlock } from './blocks/dimension-chapter'
+import { ContentsBlock } from './blocks/contents'
+import { ClosingPageBlock } from './blocks/closing-page'
 import { ModeWrapper } from './modes/mode-wrapper'
 import { sanitizeBlockData } from '@/lib/reports/sanitize-block-data'
 import { CUSTOM_REPORTS, type CustomReportRenderContext } from '@/lib/reports/custom'
@@ -31,6 +34,9 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   cover_page: CoverPageBlock,
   custom_text: CustomTextBlock,
   section_divider: SectionDividerBlock,
+  contents: ContentsBlock,
+  closing_page: ClosingPageBlock,
+  dimension_chapter: DimensionChapterBlock,
   score_overview: ScoreOverviewBlock,
   score_detail: ScoreDetailBlock,
   score_interpretation: ScoreInterpretationBlock,
@@ -122,12 +128,37 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
     )
   }
 
+  // Participant name for the print running header — injected into meta-block
+  // data by the runner; fall back to the first block that carries it.
+  const participantName = blocks
+    .map((b) => (b.data as { participantName?: string })?.participantName)
+    .find((name): name is string => typeof name === 'string' && name.length > 0)
+
   return (
     <div
       data-print={isPrint ? 'true' : undefined}
       className={className}
       style={brandTheme ? themeToStyle(brandTheme) : undefined}
     >
+      {/* Print page chrome — position:fixed repeats on every printed page.
+          The full-bleed cover sits above it (relative z-10), masking page 1. */}
+      {isPrint && (
+        <>
+          <div className="report-page-chrome hidden print:flex fixed top-[5mm] left-[20mm] right-[20mm] justify-between">
+            <span className="font-mono text-[9px] tracking-[0.16em] uppercase" style={{ color: 'var(--report-muted-colour)' }}>
+              {participantName ?? ''}
+            </span>
+            <span className="font-mono text-[9px] tracking-[0.16em]" style={{ color: 'var(--report-muted-colour)' }}>
+              CONFIDENTIAL
+            </span>
+          </div>
+          <div className="report-page-chrome hidden print:flex fixed bottom-[5mm] left-[20mm] right-[20mm] justify-center">
+            <span className="font-mono text-[9px] tracking-[0.2em]" style={{ color: 'var(--report-muted-colour)' }}>
+              TRAJECTAS
+            </span>
+          </div>
+        </>
+      )}
       {blocks
         .filter((block) => !block.skipped)
         .filter((block) => (isPrint ? !block.printHide : !block.screenHide))
@@ -154,7 +185,7 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
 
           if (block.type === 'cover_page') {
             return (
-              <div key={block.blockId} data-cover-page className="print:break-after-page">
+              <div key={block.blockId} data-cover-page className="relative z-10 print:break-after-page">
                 <Component data={safeData} mode={mode} chartType={block.chartType} />
               </div>
             )

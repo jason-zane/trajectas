@@ -194,6 +194,18 @@ function getBlockSummary(
         ? toggleNames.join(' \u00b7 ')
         : resolveEntityNames(config.entityIds)
     }
+    case 'dimension_chapter': {
+      const depth = String(config.depth ?? 'standard')
+      const dimensionIds = Array.isArray(config.dimensionIds) ? config.dimensionIds : []
+      const scope = dimensionIds.length > 0 ? resolveEntityNames(dimensionIds) : 'All dimensions'
+      return `${depth.charAt(0).toUpperCase()}${depth.slice(1)} depth · ${scope}`
+    }
+    case 'contents':
+      return config.showBandLegend === false
+        ? 'Auto-generated sections'
+        : 'Auto-generated sections · Band legend'
+    case 'closing_page':
+      return 'Methodology · Bands · Confidentiality'
     case 'strengths_highlights':
       return `Top ${config.topN ?? 3} strengths`
     case 'development_plan': {

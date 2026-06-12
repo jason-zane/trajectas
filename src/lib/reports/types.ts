@@ -2,7 +2,7 @@
 // src/lib/reports/types.ts — Block engine type system
 // =============================================================================
 
-import type { PresentationMode, ChartType, ReportTheme } from './presentation'
+import type { PresentationMode, ChartType, ReportTheme, ReportDepth } from './presentation'
 
 // ---------------------------------------------------------------------------
 // Block type registry key
@@ -13,11 +13,14 @@ export type BlockType =
   | 'cover_page'
   | 'custom_text'
   | 'section_divider'
+  | 'contents'
+  | 'closing_page'
   // Score (self-report + 360)
   | 'score_overview'
   | 'score_detail'
   | 'score_interpretation'
   | 'score_interpretation_v2'
+  | 'dimension_chapter'
   | 'strengths_highlights'
   | 'development_plan'
   | 'norm_comparison'   // registered but deferred — runner skips if included
@@ -74,6 +77,38 @@ export interface ScoreOverviewConfig {
   showBandLabel?: boolean
   showAnchors?: boolean
   entityIds?: string[]  // null/empty = all scored entities
+  /** How much information each row carries (bar chart type only). Default 'glance'. */
+  depth?: ReportDepth
+}
+
+export interface DimensionChapterConfig {
+  /** How much information each factor entry carries. Default 'standard'. */
+  depth?: ReportDepth
+  /** Limit chapters to specific dimensions; empty = all scored dimensions. */
+  dimensionIds?: string[]
+  /** Render the dimension's description/definition under the chapter hero. Default true. */
+  showDimensionSummary?: boolean
+  /**
+   * Page-flow policy for print:
+   *   auto       → short chapters keep together (pack onto shared pages); long ones may split
+   *   new_page   → every chapter starts on a fresh page
+   *   continuous → no flow constraints beyond atomic factor entries
+   */
+  chapterFlow?: 'auto' | 'new_page' | 'continuous'
+}
+
+export interface ContentsConfig {
+  title?: string
+  /** Show the "how to read" band legend panel. Default true. */
+  showBandLegend?: boolean
+}
+
+export interface ClosingPageConfig {
+  /** Markdown/HTML methodology paragraph. Empty = sensible default copy. */
+  methodologyText?: string
+  showBandLegend?: boolean
+  /** Markdown/HTML confidentiality paragraph. Empty = sensible default copy. */
+  confidentialityText?: string
 }
 
 export interface ScoreInterpretationConfig {
@@ -172,6 +207,9 @@ export type BlockConfigMap = {
   cover_page: CoverPageConfig
   custom_text: CustomTextConfig
   section_divider: SectionDividerConfig
+  contents: ContentsConfig
+  closing_page: ClosingPageConfig
+  dimension_chapter: DimensionChapterConfig
   score_overview: ScoreOverviewConfig
   score_detail: ScoreDetailConfig
   score_interpretation: ScoreInterpretationConfig

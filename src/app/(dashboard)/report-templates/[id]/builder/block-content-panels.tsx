@@ -5,6 +5,7 @@ import { X, ChevronsUpDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { RichTextEditor } from '@/components/rich-text-editor'
 import {
   Select,
@@ -82,6 +83,47 @@ function SwitchField({
       </div>
       {help && <p className="text-xs text-muted-foreground pl-0">{help}</p>}
     </div>
+  )
+}
+
+const DEPTH_OPTIONS = [
+  { value: 'glance', label: 'Glance', help: 'Name, band, score, bar' },
+  { value: 'standard', label: 'Standard', help: '+ description' },
+  { value: 'rich', label: 'Rich', help: '+ low/high anchors' },
+  { value: 'full', label: 'Full', help: '+ indicators & development' },
+] as const
+
+function DepthSelect({
+  value,
+  onChange,
+  maxDepth = 'full',
+}: {
+  value: string
+  onChange: (v: string) => void
+  maxDepth?: 'rich' | 'full'
+}) {
+  const options = maxDepth === 'rich' ? DEPTH_OPTIONS.slice(0, 3) : DEPTH_OPTIONS
+  const active = options.find((o) => o.value === value) ?? options[0]
+  return (
+    <Field label="Depth" help={active.help}>
+      <div className="grid grid-cols-4 gap-1 rounded-lg border border-input p-1">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+              value === opt.value || (!options.some((o) => o.value === value) && opt.value === options[0].value)
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </Field>
   )
 }
 
@@ -353,6 +395,13 @@ function ScoreOverviewContent({ block, entityOptions, onUpdateConfig }: BlockCon
 
   return (
     <div className="space-y-4">
+      {(block.chartType ?? 'bar') === 'bar' && (
+        <DepthSelect
+          value={String(config.depth ?? 'glance')}
+          onChange={(v) => onUpdateConfig('depth', v)}
+          maxDepth="rich"
+        />
+      )}
       <DisplayLevelSelect
         value={String(config.displayLevel ?? 'factor')}
         onChange={(v) => onUpdateConfig('displayLevel', v)}
@@ -366,35 +415,148 @@ function ScoreOverviewContent({ block, entityOptions, onUpdateConfig }: BlockCon
         />
       </Field>
       <SwitchField
-        id="overview-showScore"
-        label="Show score"
-        help="Display the numeric score value"
-        checked={config.showScore as boolean ?? true}
-        onChange={(v) => onUpdateConfig('showScore', v)}
-      />
-      <SwitchField
-        id="overview-showBandLabel"
-        label="Show band label"
-        help="Qualitative label like 'Highly Effective' or 'Developing'"
-        checked={config.showBandLabel as boolean ?? true}
-        onChange={(v) => onUpdateConfig('showBandLabel', v)}
-      />
-      <SwitchField
         id="overview-groupByDimension"
         label="Group by dimension"
-        help="Group factors/constructs under their parent dimension heading"
+        help="Group factors under their parent dimension heading, with the dimension's score"
         checked={config.groupByDimension as boolean ?? false}
         onChange={(v) => onUpdateConfig('groupByDimension', v)}
       />
-      {block.chartType !== 'radar' && (
+      <div className="space-y-3 pt-2 border-t border-border/40">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Advanced</p>
         <SwitchField
-          id="overview-showAnchors"
-          label="Show anchors"
-          help="Display low/high anchor sentences beneath each score bar"
-          checked={config.showAnchors as boolean ?? false}
-          onChange={(v) => onUpdateConfig('showAnchors', v)}
+          id="overview-showScore"
+          label="Show score"
+          help="Display the numeric score value"
+          checked={config.showScore as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showScore', v)}
         />
-      )}
+        <SwitchField
+          id="overview-showBandLabel"
+          label="Show band label"
+          help="Qualitative label like 'Highly Effective' or 'Developing'"
+          checked={config.showBandLabel as boolean ?? true}
+          onChange={(v) => onUpdateConfig('showBandLabel', v)}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dimension Chapters
+// ---------------------------------------------------------------------------
+
+const CHAPTER_FLOW_OPTIONS = [
+  { value: 'auto', label: 'Auto-pack', help: 'Short chapters share pages; long ones may split' },
+  { value: 'new_page', label: 'Always new page', help: 'Every chapter starts on a fresh page' },
+  { value: 'continuous', label: 'Continuous', help: 'No page constraints' },
+] as const
+
+function DimensionChapterContent({ block, entityOptions, onUpdateConfig }: BlockContentPanelProps) {
+  const config = block.config as Record<string, unknown>
+  const dimensionIds = Array.isArray(config.dimensionIds) ? (config.dimensionIds as string[]) : []
+  const dimensionOptions = entityOptions.filter((o) => o.type === 'dimension')
+  const flow = String(config.chapterFlow ?? 'auto')
+  const activeFlow = CHAPTER_FLOW_OPTIONS.find((o) => o.value === flow) ?? CHAPTER_FLOW_OPTIONS[0]
+
+  return (
+    <div className="space-y-4">
+      <DepthSelect
+        value={String(config.depth ?? 'standard')}
+        onChange={(v) => onUpdateConfig('depth', v)}
+      />
+      <Field label="Dimensions" help="Leave empty to include every scored dimension">
+        <EntityMultiSelect
+          value={dimensionIds}
+          onChange={(ids) => onUpdateConfig('dimensionIds', ids)}
+          options={dimensionOptions}
+          emptyMessage="All scored dimensions get a chapter."
+        />
+      </Field>
+      <SwitchField
+        id="chapter-showDimensionSummary"
+        label="Dimension summary"
+        help="The dimension's description under each chapter hero"
+        checked={config.showDimensionSummary as boolean ?? true}
+        onChange={(v) => onUpdateConfig('showDimensionSummary', v)}
+      />
+      <Field label="Page flow (print)" help={activeFlow.help}>
+        <div className="grid grid-cols-3 gap-1 rounded-lg border border-input p-1">
+          {CHAPTER_FLOW_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => onUpdateConfig('chapterFlow', opt.value)}
+              className={cn(
+                'rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                flow === opt.value
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </Field>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Contents
+// ---------------------------------------------------------------------------
+
+function ContentsContent({ block, onUpdateConfig }: BlockContentPanelProps) {
+  const config = block.config as Record<string, unknown>
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Sections are derived automatically from the other blocks in this template — dimension
+        chapters expand to one row per dimension with its score.
+      </p>
+      <SwitchField
+        id="contents-showBandLegend"
+        label="Band legend"
+        help="The 'how to read' panel explaining score bands"
+        checked={config.showBandLegend as boolean ?? true}
+        onChange={(v) => onUpdateConfig('showBandLegend', v)}
+      />
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Closing Page
+// ---------------------------------------------------------------------------
+
+function ClosingPageContent({ block, onUpdateConfig }: BlockContentPanelProps) {
+  const config = block.config as Record<string, unknown>
+  return (
+    <div className="space-y-4">
+      <Field label="Methodology" help="Leave empty for the default methodology copy">
+        <Textarea
+          value={String(config.methodologyText ?? '')}
+          onChange={(e) => onUpdateConfig('methodologyText', e.target.value)}
+          className="min-h-20 text-sm"
+          placeholder="Scores reflect responses across the behavioural items of this assessment…"
+        />
+      </Field>
+      <SwitchField
+        id="closing-showBandLegend"
+        label="Score bands"
+        help="List each band with its range and meaning"
+        checked={config.showBandLegend as boolean ?? true}
+        onChange={(v) => onUpdateConfig('showBandLegend', v)}
+      />
+      <Field label="Confidentiality" help="Leave empty for the default confidentiality copy">
+        <Textarea
+          value={String(config.confidentialityText ?? '')}
+          onChange={(e) => onUpdateConfig('confidentialityText', e.target.value)}
+          className="min-h-20 text-sm"
+          placeholder="This report was prepared for the named participant…"
+        />
+      </Field>
     </div>
   )
 }
@@ -773,6 +935,9 @@ const CONTENT_PANELS: Record<BlockType, React.ComponentType<BlockContentPanelPro
   cover_page: CoverPageContent,
   custom_text: CustomTextContent,
   section_divider: SectionDividerContent,
+  contents: ContentsContent,
+  closing_page: ClosingPageContent,
+  dimension_chapter: DimensionChapterContent,
   score_overview: ScoreOverviewContent,
   score_detail: ScoreDetailContent,
   score_interpretation: ScoreInterpretationContent,

@@ -24,8 +24,10 @@ export function SectionDividerBlock({ data }: { data: Record<string, unknown>; m
       return <div className="h-12" />
     case 'dot_break':
       return (
-        <div className="mx-10 my-2 print:mx-[20mm] print:my-3 text-center tracking-[0.5em]" style={{ color: 'var(--report-muted-colour)' }}>
-          &bull;&bull;&bull;
+        <div className="mx-10 my-2 print:mx-[20mm] print:my-3 flex items-center justify-center gap-2">
+          <span className="size-[3px] rounded-full" style={{ background: 'var(--report-featured-accent)' }} />
+          <span className="size-[3px] rounded-full" style={{ background: 'var(--report-featured-accent)' }} />
+          <span className="size-[3px] rounded-full" style={{ background: 'var(--report-featured-accent)' }} />
         </div>
       )
     case 'thin_rule':
