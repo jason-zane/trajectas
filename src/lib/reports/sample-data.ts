@@ -310,7 +310,6 @@ function generateBlockSampleData(
         bands: scheme.bands,
         sections: buildContentsSections(allBlocks, dims),
         config: {
-          title: typeof config.title === 'string' ? config.title : "What's inside",
           showBandLegend: config.showBandLegend !== false,
         },
       }

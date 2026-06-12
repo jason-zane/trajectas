@@ -98,7 +98,6 @@ export interface DimensionChapterConfig {
 }
 
 export interface ContentsConfig {
-  title?: string
   /** Show the "how to read" band legend panel. Default true. */
   showBandLegend?: boolean
 }

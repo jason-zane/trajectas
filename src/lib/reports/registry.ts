@@ -45,7 +45,7 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     label: 'Contents',
     category: 'meta',
     description: 'Table of contents with dimension scores and a how-to-read band legend.',
-    defaultConfig: { title: "What's inside", showBandLegend: true },
+    defaultConfig: { showBandLegend: true },
     supportedModes: ['open'],
     defaultMode: 'open',
   },

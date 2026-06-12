@@ -64,9 +64,12 @@ function themeToStyle(theme: ReportTheme): React.CSSProperties {
 interface ReportRendererProps {
   blocks: ResolvedBlockData[]
   className?: string
+  /** Builder preview only — makes blocks click-selectable. No effect on reports. */
+  onBlockSelect?: (blockId: string) => void
+  selectedBlockId?: string | null
 }
 
-export function ReportRenderer({ blocks, className }: ReportRendererProps) {
+export function ReportRenderer({ blocks, className, onBlockSelect, selectedBlockId }: ReportRendererProps) {
   const searchParams = useSearchParams()
   const isPrint = searchParams.get('format') === 'print'
 
@@ -172,8 +175,9 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
           const safeData = sanitizeBlockData(block.type, block.data)
 
           // Section dividers and cover pages render directly without mode wrapper
+          let content: React.ReactElement
           if (block.type === 'section_divider') {
-            return (
+            content = (
               <Component
                 key={block.blockId}
                 data={safeData}
@@ -181,30 +185,43 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
                 chartType={block.chartType}
               />
             )
-          }
-
-          if (block.type === 'cover_page') {
-            return (
+          } else if (block.type === 'cover_page') {
+            content = (
               <div key={block.blockId} data-cover-page className="relative z-10 print:break-after-page">
                 <Component data={safeData} mode={mode} chartType={block.chartType} />
               </div>
             )
+          } else {
+            const printClasses = block.printBreakBefore ? 'print:break-before-page' : undefined
+            content = (
+              <div key={block.blockId} className={printClasses}>
+                <ModeWrapper
+                  mode={mode}
+                  columns={block.columns}
+                  insetAccent={block.insetAccent}
+                  eyebrow={block.eyebrow}
+                  heading={block.heading}
+                  blockDescription={block.blockDescription}
+                >
+                  <Component data={safeData} mode={mode} chartType={block.chartType} />
+                </ModeWrapper>
+              </div>
+            )
           }
 
-          const printClasses = block.printBreakBefore ? 'print:break-before-page' : undefined
-
+          // Builder preview: blocks are click-selectable with a selection ring.
+          if (!onBlockSelect) return content
           return (
-            <div key={block.blockId} className={printClasses}>
-              <ModeWrapper
-                mode={mode}
-                columns={block.columns}
-                insetAccent={block.insetAccent}
-                eyebrow={block.eyebrow}
-                heading={block.heading}
-                blockDescription={block.blockDescription}
-              >
-                <Component data={safeData} mode={mode} chartType={block.chartType} />
-              </ModeWrapper>
+            <div
+              key={`select-${block.blockId}`}
+              onClick={() => onBlockSelect(block.blockId)}
+              className={
+                selectedBlockId === block.blockId
+                  ? 'relative cursor-pointer rounded-sm ring-2 ring-primary ring-offset-1'
+                  : 'relative cursor-pointer rounded-sm transition-shadow hover:ring-2 hover:ring-primary/30'
+              }
+            >
+              {content}
             </div>
           )
         })}
