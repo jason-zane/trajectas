@@ -131,7 +131,29 @@ function resolveSupabaseEnv(): SupabaseTestEnv {
     );
   }
 
-  return { url: url ?? DEFAULT_SUPABASE_URL, anonKey, serviceKey };
+  const resolvedUrl = url ?? DEFAULT_SUPABASE_URL;
+  assertLocalSupabaseUrl(resolvedUrl);
+  return { url: resolvedUrl, anonKey, serviceKey };
+}
+
+// Fail closed: this harness mints sessions with a service-role key, so it must
+// never run against a hosted project. If a shell/CI already exports
+// NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY pointing at production,
+// refuse rather than mutate prod auth state. Mirrors the integration-test guard
+// (assertLocalSupabaseUrl) described in AGENTS.md.
+function assertLocalSupabaseUrl(url: string): void {
+  const isLocal =
+    /^(https?:\/\/)?(127\.0\.0\.1|localhost|0\.0\.0\.0|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(
+      url
+    );
+  if (!isLocal) {
+    throw new Error(
+      `[seeded-auth] Refusing to mint a session against non-local Supabase URL "${url}". ` +
+        "This harness uses a service-role key and only runs against the local stack. " +
+        "Unset NEXT_PUBLIC_SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY (or point them at the " +
+        "local stack) before running the seeded suite."
+    );
+  }
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
