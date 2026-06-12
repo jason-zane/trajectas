@@ -279,6 +279,7 @@ type CampaignParticipantRow = {
   email: string
   first_name: string | null
   last_name: string | null
+  person_key: string | null
 }
 
 type AssessmentMetaRow = {
@@ -405,6 +406,7 @@ export async function getComparisonMatrix(
       campaignParticipantId: cpId,
       participantName: cp ? formatName(cp) : '',
       participantEmail: cp?.email ?? '',
+      personKey: cp?.person_key ?? null,
       perAssessment,
     }
   })
@@ -421,7 +423,7 @@ async function loadCampaignParticipants(ids: string[]): Promise<CampaignParticip
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('campaign_participants')
-    .select('id, email, first_name, last_name')
+    .select('id, email, first_name, last_name, person_key')
     .in('id', ids)
   if (error) throw error
   return (data ?? []) as CampaignParticipantRow[]
@@ -562,6 +564,7 @@ function assembleEmptyResult(
       campaignParticipantId: entry.campaignParticipantId,
       participantName: cp ? formatName(cp) : '',
       participantEmail: cp?.email ?? '',
+      personKey: cp?.person_key ?? null,
       perAssessment: [],
     }
   })

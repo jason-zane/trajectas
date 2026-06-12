@@ -13,9 +13,11 @@ import type { TrajectorySeries } from '@/lib/trajectory/types'
 /**
  * Hero timeline for the Trajectory workspace.
  *
- * One line per entity (typically dimensions). Real temporal x-axis,
- * end-of-line labels in each line's colour, hover guideline with a
- * ranked tooltip listing every entity's value at the hovered moment.
+ * One line per series (entities for a single person, or people for a
+ * comparison). Sessions are plotted on an ORDINAL x-axis — equally spaced
+ * in completion order, regardless of the real gap between dates (see
+ * buildGeometry). End-of-line labels in each line's colour, hover guideline
+ * with a ranked tooltip listing every series' value at the hovered moment.
  *
  * Two modes:
  *   - 'absolute'  — y = scaledScore as-is, locked to 0–100 (POMP scale)
@@ -50,7 +52,7 @@ const TYPICAL_RANGE = { low: 30, high: 70 } as const
  * and the end-label inherits the same hue automatically. Dark-mode tone
  * is slightly lighter to keep AA contrast against the card.
  */
-const PALETTE: readonly string[] = [
+export const PALETTE: readonly string[] = [
   'text-emerald-600 dark:text-emerald-400',
   'text-amber-600 dark:text-amber-400',
   'text-sky-600 dark:text-sky-400',
@@ -69,7 +71,7 @@ type PreparedSeries = {
   colourClass: string
   /** Indexed by sessionIndex, may contain nulls for sessions where this entity has no score. */
   values: (number | null)[]
-  /** Smoothed display value at each session, used for rendering. */
+  /** Value rendered at each session: raw in absolute mode, baseline-rebased in change mode. */
   displayValues: (number | null)[]
   latestValue: number | null
   baselineValue: number | null

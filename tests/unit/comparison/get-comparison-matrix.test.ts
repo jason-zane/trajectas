@@ -94,6 +94,7 @@ describe('getComparisonMatrix', () => {
         campaignParticipantId: '11111111-1111-1111-1111-111111111111',
         participantName: 'Sam Lee',
         participantEmail: 'sam@x.com',
+        personKey: null,
         perAssessment: [],
       },
     ])
