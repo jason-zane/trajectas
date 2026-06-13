@@ -17,6 +17,9 @@ export type TrajectoryPoint = {
   scaledScore: number | null
   rawScore: number | null
   percentile: number | null
+  /** Stored measurement-error band for the score; null for rollups and legacy scores. */
+  ciLower: number | null
+  ciUpper: number | null
 
   // Reserved for the future norms / reliability layer (see spec out-of-scope).
   // Populated as null today; UI must tolerate.

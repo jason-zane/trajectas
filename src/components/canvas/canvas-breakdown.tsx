@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CanvasRowTrack } from './canvas-row-track'
 import {
-  NOISE_FLOOR,
+  isMeaningfulChange,
   biggestChange,
   formatSigned,
   maxAbsChange,
@@ -223,9 +223,15 @@ function Row({
   )
 }
 
-function DeltaChip({ delta }: { delta: number | null }) {
+function DeltaChip({
+  delta,
+  significant,
+}: {
+  delta: number | null
+  significant?: boolean | null
+}) {
   if (delta === null) return null
-  const muted = Math.abs(delta) < NOISE_FLOOR
+  const muted = !isMeaningfulChange({ delta, significant: significant ?? null })
   return (
     <span
       className={cn(
@@ -266,7 +272,7 @@ function RowSummary({
             <span className={cn('font-semibold', colourClasses[i % colourClasses.length])}>
               {s.latest ?? '—'}
             </span>{' '}
-            {showChange && <DeltaChip delta={s.delta} />}
+            {showChange && <DeltaChip delta={s.delta} significant={s.significant} />}
           </span>
         ))}
       </span>
@@ -274,16 +280,17 @@ function RowSummary({
   }
 
   const best = biggestChange(stats)
+  const bestStat = best ? stats.find((s) => s.personKey === best.personKey) : undefined
   const bestIdx = best ? stats.findIndex((s) => s.personKey === best.personKey) : -1
   return (
     <span className="flex flex-col gap-0.5 text-xs leading-tight">
       <span className="text-muted-foreground">{rangeSentence(stats)}</span>
-      {showChange && best && Math.abs(best.delta) >= NOISE_FLOOR && (
+      {showChange && best && bestStat && isMeaningfulChange(bestStat) && (
         <span>
           <span className={cn('font-medium', colourClasses[bestIdx % colourClasses.length])}>
             {(nameByPerson.get(best.personKey) ?? '').split(' ')[0]}
           </span>{' '}
-          <DeltaChip delta={best.delta} />
+          <DeltaChip delta={best.delta} significant={bestStat.significant} />
         </span>
       )}
     </span>

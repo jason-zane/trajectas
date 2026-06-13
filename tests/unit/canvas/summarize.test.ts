@@ -4,6 +4,7 @@ import {
   biggestChange,
   comparisonLede,
   formatSigned,
+  isMeaningfulChange,
   maxAbsChange,
   monthYear,
   orderEntities,
@@ -23,8 +24,12 @@ function mkSeries(personKey: string, entityId: string, values: number[]): Canvas
       completedAt: `2026-0${i + 1}-01T00:00:00Z`,
       assessmentId: 'a1',
       assessmentName: 'Assessment',
+      campaignId: 'cam',
+      campaignTitle: 'Campaign',
       attemptNumber: i + 1,
       value,
+      ciLower: null,
+      ciUpper: null,
     })),
   }
 }
@@ -39,19 +44,60 @@ describe('statsFor', () => {
   it('returns first/latest/delta per person in the requested order', () => {
     const stats = statsFor(SERIES, 'relating', ['amara', 'ben'])
     expect(stats).toEqual([
-      { personKey: 'amara', first: 48, latest: 75, delta: 27 },
-      { personKey: 'ben', first: 68, latest: 67, delta: -1 },
+      { personKey: 'amara', first: 48, latest: 75, delta: 27, significant: null },
+      { personKey: 'ben', first: 68, latest: 67, delta: -1, significant: null },
     ])
   })
 
   it('gives null stats for a person with no series on the entity', () => {
     const stats = statsFor(SERIES, 'relating', ['amara', 'priya'])
-    expect(stats[1]).toEqual({ personKey: 'priya', first: null, latest: null, delta: null })
+    expect(stats[1]).toEqual({ personKey: 'priya', first: null, latest: null, delta: null, significant: null })
   })
 
   it('treats a single measured session as no measurable change', () => {
     const stats = statsFor(SERIES, 'thinking', ['amara'])
-    expect(stats[0]).toEqual({ personKey: 'amara', first: 60, latest: 60, delta: null })
+    expect(stats[0]).toEqual({ personKey: 'amara', first: 60, latest: 60, delta: null, significant: null })
+  })
+})
+
+describe('significance from confidence bands', () => {
+  function mkCiSeries(values: [number, number, number][]): CanvasSeries {
+    return {
+      personKey: 'p',
+      entityId: 'e',
+      points: values.map(([value, lo, hi], i) => ({
+        sessionId: `s${i}`,
+        completedAt: `2026-0${i + 1}-01T00:00:00Z`,
+        assessmentId: 'a1',
+        assessmentName: 'Assessment',
+        campaignId: 'cam',
+        campaignTitle: 'Campaign',
+        attemptNumber: i + 1,
+        value,
+        ciLower: lo,
+        ciUpper: hi,
+      })),
+    }
+  }
+
+  it('is true when first and latest bands do not overlap', () => {
+    const stats = statsFor([mkCiSeries([[50, 45, 55], [70, 65, 75]])], 'e', ['p'])
+    expect(stats[0].significant).toBe(true)
+  })
+
+  it('is false when the bands overlap', () => {
+    const stats = statsFor([mkCiSeries([[50, 45, 55], [54, 49, 59]])], 'e', ['p'])
+    expect(stats[0].significant).toBe(false)
+  })
+
+  it('is null when bands are missing, and consumers fall back to the noise floor', () => {
+    const stats = statsFor(SERIES, 'relating', ['amara'])
+    expect(stats[0].significant).toBeNull()
+    expect(isMeaningfulChange(stats[0])).toBe(true)
+    expect(isMeaningfulChange({ delta: 1, significant: null })).toBe(false)
+    expect(isMeaningfulChange({ delta: 1, significant: true })).toBe(true)
+    expect(isMeaningfulChange({ delta: 20, significant: false })).toBe(false)
+    expect(isMeaningfulChange({ delta: null, significant: null })).toBe(false)
   })
 })
 
@@ -128,8 +174,8 @@ describe('sentences', () => {
 
   it('comparisonLede names the leader when they differ from the riser', () => {
     const stats = [
-      { personKey: 'amara', first: 48, latest: 60, delta: 12 },
-      { personKey: 'ben', first: 70, latest: 71, delta: 1 },
+      { personKey: 'amara', first: 48, latest: 60, delta: 12, significant: null },
+      { personKey: 'ben', first: 70, latest: 71, delta: 1, significant: null },
     ]
     const lede = comparisonLede({
       entityName: 'Relating',
@@ -144,8 +190,8 @@ describe('sentences', () => {
 
   it('comparisonLede degrades to a flat message when movement is inside the noise floor', () => {
     const flat = [
-      { personKey: 'amara', first: 60, latest: 61, delta: 1 },
-      { personKey: 'ben', first: 70, latest: 70, delta: 0 },
+      { personKey: 'amara', first: 60, latest: 61, delta: 1, significant: null },
+      { personKey: 'ben', first: 70, latest: 70, delta: 0, significant: null },
     ]
     const lede = comparisonLede({
       entityName: 'Relating',

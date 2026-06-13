@@ -34,9 +34,14 @@ export type CanvasPoint = {
   completedAt: string
   assessmentId: string
   assessmentName: string
+  campaignId: string
+  campaignTitle: string
   /** Attempt ordinal counted per (person, assessment) across linked campaign participations. */
   attemptNumber: number
   value: number
+  /** Stored measurement-error band; null for rollups and composites. */
+  ciLower: number | null
+  ciUpper: number | null
 }
 
 export type CanvasSeries = {
@@ -51,9 +56,18 @@ export type CanvasResult = {
   people: CanvasPerson[]
   entities: CanvasEntity[]
   series: CanvasSeries[]
+  /** Client the selection belongs to (first person's client). */
+  clientId: string | null
 }
 
 export type CanvasOrder = 'standard' | 'change' | 'difference'
+
+/** The on-screen state a growth report reproduces. */
+export type CanvasViewState = {
+  charted?: string
+  order?: CanvasOrder
+  showChange?: boolean
+}
 
 export const CANVAS_ORDERS: readonly CanvasOrder[] = ['standard', 'change', 'difference'] as const
 

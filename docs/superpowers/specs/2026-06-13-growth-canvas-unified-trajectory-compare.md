@@ -1,6 +1,14 @@
 # Trajectory & Compare — one page, chart on top, breakdown below
 
-Status: Draft v4 (2026-06-13). Iterations: v1 three-lens canvas (too shallow
+Status: SHIPPED (2026-06-13) with one product revision: **Compare keeps its
+matrix workspace unchanged; the canvas is the Trajectory section** (the
+"two doors, one room" merge was dropped by product decision — the canvas
+lives at `/participants/trajectory` and on the participant-detail Trajectory
+tab, with an "Open in Compare" cross-link). Phases 0–5 delivered across
+PRs #290, #292, #293, #294 + the rigor/cleanup PR. Phase 5's norms layer is
+design-only — see `2026-06-13-norms-versioning-note.md`.
+
+Iterations: v1 three-lens canvas (too shallow
 for 30-factor reality) → v2 ledger-of-arrows (too complex at 5 people; demoted
 the chart) → v3 Profile/Trend views + six orthogonal controls (right structure,
 too much jargon and choice) → **v4: same structure, designed for the

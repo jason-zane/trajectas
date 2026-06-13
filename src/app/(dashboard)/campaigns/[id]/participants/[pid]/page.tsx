@@ -5,7 +5,7 @@ import {
   getParticipantActivity,
 } from "@/app/actions/participants";
 import { getReportSnapshotsForParticipant } from "@/app/actions/reports";
-import { loadTrajectoryForParticipant } from "@/lib/trajectory/load";
+import { getComparisonCanvas } from "@/app/actions/canvas";
 import { ParticipantDetailView } from "@/components/results/participant-detail-view";
 
 async function loadParticipant(participantId: string) {
@@ -31,7 +31,10 @@ async function loadParticipantAuxiliaryData(participantId: string) {
       console.error("[campaign-participant-detail] Failed to load report snapshots:", error);
       return [];
     }),
-    loadTrajectoryForParticipant(participantId, "campaign-participant-detail"),
+    getComparisonCanvas([participantId]).catch((error) => {
+      console.error("[campaign-participant-detail] Failed to load trajectory canvas:", error);
+      return null;
+    }),
   ]);
 
   return { sessions, activity, snapshots, trajectory };
