@@ -20,6 +20,13 @@ export type PersonStat = {
   latest: number | null
   /** latest − first; null when fewer than two measured sessions. */
   delta: number | null
+  /**
+   * Whether the change clears measurement error, judged by the stored
+   * confidence bands of the first and latest scores (true when the bands
+   * do not overlap). Null when either end lacks a stored band — consumers
+   * fall back to the NOISE_FLOOR heuristic.
+   */
+  significant: boolean | null
 }
 
 export function statsFor(
@@ -33,17 +40,39 @@ export function statsFor(
   return personKeys.map((personKey) => {
     const points = byPerson.get(personKey)?.points ?? []
     if (points.length === 0) {
-      return { personKey, first: null, latest: null, delta: null }
+      return { personKey, first: null, latest: null, delta: null, significant: null }
     }
-    const first = points[0].value
-    const latest = points[points.length - 1].value
+    const firstPoint = points[0]
+    const lastPoint = points[points.length - 1]
+    let significant: boolean | null = null
+    if (
+      points.length >= 2 &&
+      firstPoint.ciLower !== null &&
+      firstPoint.ciUpper !== null &&
+      lastPoint.ciLower !== null &&
+      lastPoint.ciUpper !== null
+    ) {
+      significant =
+        lastPoint.ciLower > firstPoint.ciUpper || lastPoint.ciUpper < firstPoint.ciLower
+    }
     return {
       personKey,
-      first,
-      latest,
-      delta: points.length >= 2 ? latest - first : null,
+      first: firstPoint.value,
+      latest: lastPoint.value,
+      delta: points.length >= 2 ? lastPoint.value - firstPoint.value : null,
+      significant,
     }
   })
+}
+
+/**
+ * Is a change worth highlighting? Confidence bands win when stored;
+ * otherwise the ±NOISE_FLOOR heuristic.
+ */
+export function isMeaningfulChange(stat: Pick<PersonStat, 'delta' | 'significant'>): boolean {
+  if (stat.delta === null) return false
+  if (stat.significant !== null) return stat.significant
+  return Math.abs(stat.delta) >= NOISE_FLOOR
 }
 
 /** Largest |delta| across people; 0 when nobody has a measurable change. */
