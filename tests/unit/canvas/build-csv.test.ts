@@ -94,4 +94,19 @@ describe('buildCanvasCsv', () => {
     const benCells = lines[1].split(',').slice(7)
     expect(benCells[2]).toBe('')
   })
+
+  it('neutralises spreadsheet formulas in user-controlled text, but not numbers', () => {
+    const hostile: CanvasResult = {
+      ...RESULT,
+      people: [
+        { ...RESULT.people[0], displayName: '=HYPERLINK("http://evil")' },
+        RESULT.people[1],
+      ],
+    }
+    const out = buildCanvasCsv(hostile)
+    expect(out).toContain(`"'=HYPERLINK(""http://evil"") first"`)
+    expect(out).not.toMatch(/(^|,)=HYPERLINK/m)
+    // Negative deltas stay plain numbers.
+    expect(buildCanvasCsv(RESULT)).not.toContain("'-")
+  })
 })
