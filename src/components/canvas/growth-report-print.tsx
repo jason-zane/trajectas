@@ -5,7 +5,10 @@ import {
   canvasTitle,
   comparisonLede,
   formatSigned,
+  isMeaningfulChange,
+  maxAbsChange,
   monthYear,
+  orderEntities,
   rangeSentence,
   soloLede,
   spread,
@@ -16,6 +19,7 @@ import {
   OVERALL_ID,
   type CanvasEntity,
   type CanvasResult,
+  type CanvasViewState,
 } from '@/lib/canvas/types'
 
 /**
@@ -195,9 +199,11 @@ function PrintLineChart({
 
 function PrintTrackRow({
   stats,
+  showChange = true,
   height = 40,
 }: {
   stats: PersonStat[]
+  showChange?: boolean
   height?: number
 }) {
   const x = (v: number) => `${(2 + Math.max(0, Math.min(100, v)) * 0.96).toFixed(2)}%`
@@ -222,7 +228,7 @@ function PrintTrackRow({
         const colour = PRINT_PALETTE[i % PRINT_PALETTE.length]
         return (
           <g key={s.personKey}>
-            {s.delta !== null && s.first !== null && (
+            {showChange && s.delta !== null && s.first !== null && (
               <>
                 <line
                   x1={x(s.first)}
@@ -304,10 +310,13 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 
 export function GrowthReportPrint({
   result,
+  viewState = {},
   clientName,
   generatedAt,
 }: {
   result: CanvasResult
+  /** The on-screen state when the snapshot was frozen — row order and the show-change toggle carry into the report. */
+  viewState?: CanvasViewState
   clientName: string | null
   generatedAt: string
 }) {
@@ -316,6 +325,8 @@ export function GrowthReportPrint({
   const nameByPerson = new Map(people.map((p) => [p.personKey, p.displayName]))
   const title = canvasTitle(people)
   const solo = people.length === 1
+  const order = viewState.order ?? 'standard'
+  const showChange = viewState.showChange ?? true
 
   const firstAt = people.reduce<string | null>(
     (acc, p) => (p.firstCompletedAt && (!acc || p.firstCompletedAt < acc) ? p.firstCompletedAt : acc),
@@ -328,13 +339,23 @@ export function GrowthReportPrint({
   const period = `${monthYear(firstAt) ?? '—'} – ${monthYear(lastAt) ?? '—'}`
   const totalSessions = people.reduce((acc, p) => acc + p.completedSessionCount, 0)
 
-  const dimensions = result.entities
-    .filter((e) => e.level === 'dimension')
-    .sort((a, b) => a.name.localeCompare(b.name))
+  // Row ordering mirrors the canvas at snapshot time: standard (A→Z),
+  // largest change, or biggest differences.
+  const metric = (entityId: string) => {
+    const stats = statsFor(result.series, entityId, personKeys)
+    return order === 'difference' ? spread(stats) : maxAbsChange(stats)
+  }
+  const dimensions = orderEntities(
+    result.entities.filter((e) => e.level === 'dimension'),
+    metric,
+    order,
+  )
   const factorsOf = (dim: CanvasEntity) =>
-    result.entities
-      .filter((e) => e.level === 'factor' && e.parentId === dim.id)
-      .sort((a, b) => a.name.localeCompare(b.name))
+    orderEntities(
+      result.entities.filter((e) => e.level === 'factor' && e.parentId === dim.id),
+      metric,
+      order,
+    )
 
   const overallStats = statsFor(result.series, OVERALL_ID, personKeys)
   const overallLede = solo
@@ -519,12 +540,14 @@ export function GrowthReportPrint({
             Where {solo ? `${people[0]?.displayName} sits` : 'each candidate sits'}, and how they moved
           </h2>
           <p style={{ color: MUTED, fontSize: 11.5, margin: '0 0 10px' }}>
-            Each dot is a {solo ? 'score' : 'candidate'} today; the trailing line is the path since the
-            first assessment. The shaded band is the typical range.
+            Each dot is a {solo ? 'score' : 'candidate'} today
+            {showChange ? '; the trailing line is the path since the first assessment' : ''}. The
+            shaded band is the typical range.
           </p>
           {dimensions.map((dim) => {
             const stats = statsFor(result.series, dim.id, personKeys)
             const best = biggestChange(stats)
+            const bestStat = best ? stats.find((s) => s.personKey === best.personKey) : undefined
             const range = rangeSentence(stats)
             return (
               <div key={dim.id} style={{ borderBottom: `1px solid ${BORDER}`, padding: '9px 0 7px' }}>
@@ -533,13 +556,15 @@ export function GrowthReportPrint({
                     {dim.name}
                   </span>
                   <span style={{ flex: 1, minWidth: 0 }}>
-                    <PrintTrackRow stats={stats} />
+                    <PrintTrackRow stats={stats} showChange={showChange} />
                   </span>
                 </div>
                 <p style={{ fontSize: 10, color: MUTED, margin: '3px 0 0 162px' }}>
-                  {best && Math.abs(best.delta) >= NOISE_FLOOR
-                    ? `Biggest change: ${(nameByPerson.get(best.personKey) ?? '').split(' ')[0]} ${formatSigned(best.delta)}`
-                    : 'Within measurement noise'}
+                  {showChange
+                    ? best && bestStat && isMeaningfulChange(bestStat)
+                      ? `Biggest change: ${(nameByPerson.get(best.personKey) ?? '').split(' ')[0]} ${formatSigned(best.delta)}`
+                      : 'Within measurement noise'
+                    : 'Scores as of the latest assessment'}
                   {range ? ` · ${range.charAt(0).toLowerCase()}${range.slice(1)}` : ''}
                 </p>
               </div>

@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { GrowthReportPrint } from '@/components/canvas/growth-report-print'
 import { verifyReportPdfToken } from '@/lib/reports/pdf-token'
 import { createAdminClient } from '@/lib/supabase/admin'
-import type { CanvasResult } from '@/lib/canvas/types'
+import type { CanvasResult, CanvasViewState } from '@/lib/canvas/types'
 
 interface Props {
   params: Promise<{ snapshotId: string }>
@@ -25,7 +25,7 @@ export default async function PrintTrajectoryReportPage({ params, searchParams }
   const db = createAdminClient()
   const { data, error } = await db
     .from('comparison_snapshots')
-    .select('id, title, canvas, generated_at, client_id, clients(name)')
+    .select('id, title, canvas, view_state, generated_at, client_id, clients(name)')
     .eq('id', snapshotId)
     .maybeSingle()
 
@@ -35,6 +35,7 @@ export default async function PrintTrajectoryReportPage({ params, searchParams }
   return (
     <GrowthReportPrint
       result={data.canvas as CanvasResult}
+      viewState={(data.view_state ?? {}) as CanvasViewState}
       clientName={clients?.name ? String(clients.name) : null}
       generatedAt={String(data.generated_at)}
     />

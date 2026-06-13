@@ -25,6 +25,24 @@ export function monoPath(pts: { x: number; y: number }[]): string {
     t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2)
   }
   t.push(m[n - 2])
+  // Fritsch–Carlson limiter: clamp tangents so no cubic segment overshoots
+  // its endpoints (averaging alone lets a sharp flattening — e.g. 0→100→101 —
+  // bulge past the measured value).
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) {
+      t[i] = 0
+      t[i + 1] = 0
+      continue
+    }
+    const a = t[i] / m[i]
+    const b = t[i + 1] / m[i]
+    const h = Math.hypot(a, b)
+    if (h > 3) {
+      const f = 3 / h
+      t[i] = f * t[i]
+      t[i + 1] = f * t[i + 1]
+    }
+  }
   let d = `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`
   for (let i = 0; i < n - 1; i++) {
     const h = dx[i]
