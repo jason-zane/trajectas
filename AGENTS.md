@@ -12,7 +12,7 @@ silently rewrites the files under your feet. We have lost work to this twice.
 
 **Rule:** any time you create a new branch — feature, fix, refactor, chore —
 do it in a worktree under `.claude/worktrees/<branch-slug>/`, NOT in the
-primary checkout at `/Users/jasonhunt/projects/trajectas`. The primary
+primary checkout at `/Users/jasonhunt/Developer/trajectas`. The primary
 checkout is reserved for Jason's terminal.
 
 The one-liner is `scripts/agent-worktree.sh <branch-name>`. It creates the
