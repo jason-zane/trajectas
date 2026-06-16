@@ -46,8 +46,6 @@ export default defineConfig({
         "src/hooks/use-auto-save.ts",
         "src/components/animated-number.tsx",
         "src/components/scroll-reveal.tsx",
-        // Trajectory rollup — tested by trajectory-rollup.test.ts (93.84/81.35/83.33/96.22)
-        "src/lib/trajectory/rollup.ts",
         // Email render — tested by email-render.test.ts (100/71.42/100/100)
         "src/lib/email/render.ts",
         // Report tokens — tested by report-token-secrets.test.ts (100/87.5/100/100)
@@ -55,6 +53,8 @@ export default defineConfig({
         // Comparison utilities — tested by comparison/ suite
         "src/lib/comparison/resolve-bands.ts",  // (90/91.66/100/100)
         "src/lib/comparison/session-resolution.ts",  // (100/73.91/100/100)
+        // Canvas summaries — tested by canvas/summarize.test.ts
+        "src/lib/canvas/summarize.ts",
       ],
       thresholds: {
         perFile: true,

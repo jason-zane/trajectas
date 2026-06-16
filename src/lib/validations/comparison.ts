@@ -40,7 +40,7 @@ export const comparisonRequestSchema = z.object({
     .array(postgresUuid('Invalid assessment ID'))
     .max(50, 'Too many assessments'),
   visibleLevels: z
-    .array(z.enum(['dimension', 'factor', 'construct']))
+    .array(z.enum(['dimension', 'factor']))
     .optional(),
 })
 export type ComparisonRequestInput = z.infer<typeof comparisonRequestSchema>

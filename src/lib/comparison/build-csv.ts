@@ -11,7 +11,13 @@ const IDENTITY_HEADERS = [
 
 function escapeCell(value: unknown): string {
   if (value === null || value === undefined) return ''
-  const str = String(value)
+  let str = String(value)
+  // Neutralise spreadsheet formula injection: participant names are
+  // user-controlled, and Excel/Sheets execute cells starting with = + - @ as
+  // formulas. Plain numbers are exempt — they're data.
+  if (/^[=+\-@\t\r]/.test(str) && !/^-?\d+(\.\d+)?$/.test(str)) {
+    str = `'${str}`
+  }
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`
   }

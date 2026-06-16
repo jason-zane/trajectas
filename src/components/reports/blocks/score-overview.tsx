@@ -1,7 +1,7 @@
 import type { ScoreOverviewConfig, BandResult } from '@/lib/reports/types'
-import type { PresentationMode, ChartType } from '@/lib/reports/presentation'
-import type { PaletteKey } from '@/lib/reports/band-scheme'
-import { BarChart } from '../charts/bar-chart'
+import type { PresentationMode, ChartType, ReportDepth } from '@/lib/reports/presentation'
+import { getBandColour, type PaletteKey, type BandDefinition } from '@/lib/reports/band-scheme'
+import { FactorRow } from '../factor-row'
 import { RadarChart } from '../charts/radar-chart'
 import { GaugeChart } from '../charts/gauge-chart'
 import { ScorecardTable } from '../charts/scorecard-table'
@@ -12,14 +12,25 @@ interface ScoreEntry {
   pompScore: number
   bandResult: BandResult
   parentName?: string
+  description?: string | null
   anchorLow?: string
   anchorHigh?: string
+}
+
+interface ParentScore {
+  name: string
+  pompScore: number
+  bandResult: BandResult
 }
 
 interface ScoreOverviewData {
   scores: ScoreEntry[]
   config: ScoreOverviewConfig
   palette: PaletteKey
+  /** Dimension scores for group headers (newer snapshots only). */
+  parents?: ParentScore[]
+  /** Band definitions for boundary ticks (newer snapshots only). */
+  bands?: BandDefinition[]
 }
 
 export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<string, unknown>; mode?: PresentationMode; chartType?: ChartType }) {
@@ -30,13 +41,18 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
   const resolvedChart = chartType ?? 'bar'
   const showScore = d.config?.showScore !== false
   const showBandLabel = d.config?.showBandLabel !== false
-  const showAnchors = d.config?.showAnchors === true
   const grouped = d.config?.groupByDimension === true
   const palette = d.palette
+  // Depth presets supersede the legacy showAnchors toggle but honour it for
+  // templates saved before depth existed.
+  const depth: ReportDepth = d.config?.depth ?? (d.config?.showAnchors === true ? 'rich' : 'glance')
 
   const groups = grouped
     ? groupByParent(d.scores)
     : [{ parentName: null, scores: d.scores }]
+
+  const parentByName = new Map<string, ParentScore>()
+  for (const p of d.parents ?? []) parentByName.set(p.name, p)
 
   return (
     <div>
@@ -54,7 +70,12 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
           {groups.map((group, gi) => (
             <div key={gi}>
               {group.parentName && (
-                <GroupHeading name={group.parentName} isFeatured={isFeatured} />
+                <GroupHeader
+                  name={group.parentName}
+                  parent={parentByName.get(group.parentName)}
+                  palette={palette}
+                  isFeatured={isFeatured}
+                />
               )}
               <GaugeChart
                 items={group.scores.map((s) => ({
@@ -69,33 +90,44 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
                 showBandLabel={showBandLabel}
                 variant={isFeatured ? 'dark' : 'light'}
               />
-              {showAnchors && <AnchorList scores={group.scores} isFeatured={isFeatured} />}
+              {(depth === 'rich' || depth === 'full') && (
+                <AnchorList scores={group.scores} isFeatured={isFeatured} />
+              )}
             </div>
           ))}
         </div>
       )}
 
       {resolvedChart === 'bar' && (
-        <div className={grouped ? 'space-y-6' : undefined}>
+        <div className={grouped ? 'space-y-5' : undefined}>
           {groups.map((group, gi) => (
-            <div key={gi}>
+            <div key={gi} className="report-group">
               {group.parentName && (
-                <GroupHeading name={group.parentName} isFeatured={isFeatured} />
+                <GroupHeader
+                  name={group.parentName}
+                  parent={parentByName.get(group.parentName)}
+                  palette={palette}
+                  isFeatured={isFeatured}
+                />
               )}
-              <BarChart
-                items={group.scores.map((s) => ({
-                  name: s.entityName,
-                  value: s.pompScore,
-                  bandIndex: s.bandResult.bandIndex,
-                  bandCount: s.bandResult.bandCount,
-                  bandLabel: s.bandResult.bandLabel,
-                }))}
-                palette={palette}
-                showBandLabels={showBandLabel}
-                showScore={showScore}
-                variant={isFeatured ? 'dark' : 'light'}
-              />
-              {showAnchors && <AnchorList scores={group.scores} isFeatured={isFeatured} />}
+              {group.scores.map((s) => (
+                <FactorRow
+                  key={s.entityId}
+                  name={s.entityName}
+                  pompScore={s.pompScore}
+                  bandResult={s.bandResult}
+                  palette={palette}
+                  bands={d.bands}
+                  depth={depth}
+                  description={s.description}
+                  anchorLow={s.anchorLow}
+                  anchorHigh={s.anchorHigh}
+                  showScore={showScore}
+                  showBandLabel={showBandLabel}
+                  variant={isFeatured ? 'dark' : 'light'}
+                  size={depth === 'glance' ? 'compact' : 'default'}
+                />
+              ))}
             </div>
           ))}
         </div>
@@ -118,26 +150,62 @@ export function ScoreOverviewBlock({ data, mode, chartType }: { data: Record<str
   )
 }
 
-function GroupHeading({ name, isFeatured }: { name: string; isFeatured: boolean }) {
+function GroupHeader({
+  name,
+  parent,
+  palette,
+  isFeatured,
+}: {
+  name: string
+  parent?: ParentScore
+  palette: PaletteKey
+  isFeatured: boolean
+}) {
   return (
-    <p
-      className="text-[11px] font-semibold uppercase tracking-wider mb-3"
-      style={{ color: isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-label-colour)' }}
+    <div
+      className="mb-2 flex items-baseline justify-between gap-3 border-b pb-1.5"
+      style={{
+        borderColor: isFeatured ? 'rgba(255,255,255,0.2)' : 'var(--report-divider)',
+        breakAfter: 'avoid',
+      }}
     >
-      {name}
-    </p>
+      <span
+        className="font-mono text-[10px] font-medium uppercase tracking-[0.18em]"
+        style={{ color: isFeatured ? 'rgba(255,255,255,0.6)' : 'var(--report-label-colour)' }}
+      >
+        {name}
+      </span>
+      {parent && (
+        <span className="flex items-center gap-1.5">
+          <span
+            className="size-1.5 rounded-full"
+            style={{ background: getBandColour(palette, parent.bandResult.bandIndex, parent.bandResult.bandCount) }}
+          />
+          <span
+            className="font-mono text-[11.5px] font-semibold tabular-nums"
+            style={{ color: isFeatured ? 'rgba(255,255,255,0.85)' : 'var(--report-heading-colour)' }}
+          >
+            {Math.round(parent.pompScore)}
+          </span>
+        </span>
+      )}
+    </div>
   )
 }
 
+/**
+ * Compact low/high anchor reference for chart types that can't carry anchors
+ * per-row (gauges). Bars render anchors inside each FactorRow instead.
+ */
 function AnchorList({ scores, isFeatured }: { scores: ScoreEntry[]; isFeatured: boolean }) {
-  const hasAny = scores.some((s) => s.anchorLow || s.anchorHigh)
-  if (!hasAny) return null
-  const colour = isFeatured ? 'rgba(255,255,255,0.5)' : 'var(--report-muted-colour)'
+  const withAnchors = scores.filter((s) => s.anchorLow || s.anchorHigh)
+  if (withAnchors.length === 0) return null
+  const colour = isFeatured ? 'rgba(255,255,255,0.55)' : 'var(--report-muted-colour)'
   return (
     <div className="mt-3 space-y-1">
-      {scores.map((s) => (s.anchorLow || s.anchorHigh) && (
-        <div key={s.entityId} className="flex gap-2 text-[9px]" style={{ color: colour }}>
-          <span className="font-medium shrink-0 w-28 truncate">{s.entityName}</span>
+      {withAnchors.map((s) => (
+        <div key={s.entityId} className="flex gap-3 text-[10px] leading-snug" style={{ color: colour }}>
+          <span className="w-28 shrink-0 truncate font-medium">{s.entityName}</span>
           <span className="flex-1">{s.anchorLow ?? ''}</span>
           <span className="flex-1 text-right">{s.anchorHigh ?? ''}</span>
         </div>

@@ -23,6 +23,7 @@ const data: ComparisonResult = {
       campaignParticipantId: 'cp1',
       participantName: 'Sarah',
       participantEmail: 's@x',
+      personKey: 'pk-s',
       perAssessment: [
         {
           assessmentId: 'a1',
@@ -39,6 +40,7 @@ const data: ComparisonResult = {
       campaignParticipantId: 'cp2',
       participantName: 'Marcus',
       participantEmail: 'm@x',
+      personKey: 'pk-m',
       perAssessment: [
         {
           assessmentId: 'a1',

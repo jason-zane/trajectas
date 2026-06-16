@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Growth report — PDF mockup (v4)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --emerald:#2d6a5a; --emerald-dark:#1e4a3e; --gold:#c9a962; --cream:#f8f6f1;
+    --ink:#1a2421; --muted:#68716d; --faint:#9aa39e; --border:#e4e1d8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:#54585c; font-family:'Plus Jakarta Sans',sans-serif; color:var(--ink); padding:32px 0;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .tn{font-variant-numeric:tabular-nums;}
+  .page{width:794px; height:1123px; background:#fff; margin:0 auto 28px; box-shadow:0 4px 24px rgba(0,0,0,.35); position:relative; overflow:hidden; display:flex; flex-direction:column;}
+  .body{padding:52px 60px 0; flex:1;}
+  .runhead{display:flex; justify-content:space-between; padding:20px 60px 0; font-size:10px; color:var(--faint); letter-spacing:.06em;}
+  .runfoot{display:flex; justify-content:space-between; padding:0 60px 22px; font-size:10px; color:var(--faint);}
+  .eyebrow{font-family:'JetBrains Mono',monospace; font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold);}
+  h2{font-size:21px; font-weight:800; letter-spacing:-0.02em; margin:6px 0 16px;}
+  h3{font-size:14px; font-weight:700; margin:0 0 6px;}
+  p.lede{font-size:12.5px; line-height:1.65; color:var(--muted);}
+  @media print{
+    body{background:#fff; padding:0;}
+    .page{box-shadow:none; margin:0; page-break-after:always;}
+    @page{size:A4; margin:0;}
+  }
+
+  /* Cover */
+  .cover .band{background:var(--emerald-dark); color:#fff; padding:64px 60px 48px;}
+  .cover .band .mark{font-weight:800; font-size:16px; letter-spacing:-0.01em; color:#fff;}
+  .cover .band .mark span{color:var(--gold);}
+  .cover .band h1{font-size:44px; font-weight:800; letter-spacing:-0.03em; margin-top:84px;}
+  .cover .band .sub{font-size:14px; color:#bccfc4; margin-top:10px;}
+  .cover .rule{height:3px; background:var(--gold); width:64px; margin-top:22px;}
+  .cover .meta{padding:44px 60px;}
+  .cover .metarow{display:flex; gap:0; border-bottom:1px solid var(--border); padding:13px 0; font-size:12.5px;}
+  .cover .metarow .k{width:190px; color:var(--faint); flex:none;}
+  .legend{display:flex; flex-wrap:wrap; gap:14px;}
+  .legend span{display:inline-flex; align-items:center; gap:7px; font-weight:600;}
+  .legend i{width:10px; height:10px; border-radius:50%; display:inline-block;}
+  .cover .conf{position:absolute; bottom:36px; left:60px; right:60px; display:flex; justify-content:space-between; font-size:10px; color:var(--faint);}
+
+  /* Findings */
+  .finding{display:flex; gap:12px; margin-bottom:12px; font-size:12.5px; line-height:1.55;}
+  .finding .n{width:22px; height:22px; flex:none; border-radius:50%; background:var(--cream); border:1px solid var(--gold); color:#a8854c; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+
+  table{width:100%; border-collapse:collapse; font-size:11.5px;}
+  th{text-align:left; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); font-weight:600; padding:7px 10px; border-bottom:1.5px solid var(--border);}
+  td{padding:7px 10px; border-bottom:1px solid #f0ede4;}
+  th.num, td.num{text-align:right;}
+  tr:nth-child(even) td{background:#fcfbf7;}
+
+  .dimblock{padding:13px 0 11px; border-bottom:1px solid var(--border);}
+  .dimblock:last-child{border-bottom:none;}
+  .dimrow{display:flex; align-items:center; gap:14px;}
+  .dimrow .nm{width:128px; flex:none; font-size:12.5px; font-weight:700;}
+  .dimrow .tr{flex:1;}
+  .dimnote{font-size:11px; color:var(--muted); margin-top:5px; padding-left:142px;}
+  .chartwrap{margin:10px 0 18px;}
+  .methbox{background:var(--cream); border:1px solid var(--border); border-radius:10px; padding:16px 18px; font-size:10.5px; color:var(--muted); line-height:1.65; margin-top:18px;}
+  .methbox b{color:var(--ink);}
+</style>
+</head>
+<body>
+
+<!-- Page 1 — cover -->
+<div class="page cover">
+  <div class="band">
+    <div class="mark">Trajec<span>tas</span></div>
+    <h1>Growth report</h1>
+    <div class="sub">Five candidates · September 2025 – June 2026</div>
+    <div class="rule"></div>
+  </div>
+  <div class="meta">
+    <div class="metarow"><span class="k">Prepared for</span><span><b>Meridian Group</b> · Leadership pipeline review</span></div>
+    <div class="metarow"><span class="k">Candidates</span><span class="legend" id="cover-legend"></span></div>
+    <div class="metarow"><span class="k">Period</span><span>4 assessments · 14 Sep 2025 – 8 Jun 2026</span></div>
+    <div class="metarow"><span class="k">Compared against</span><span>Industry leadership norm group (n = 1,420)</span></div>
+    <div class="metarow"><span class="k">Generated</span><span>13 June 2026 · frozen snapshot — figures will not change as new results arrive</span></div>
+  </div>
+  <div class="conf"><span>Confidential — for selection and development use only</span><span>trajectas.com</span></div>
+</div>
+
+<!-- Page 2 — executive summary -->
+<div class="page">
+  <div class="runhead"><span>Growth report · Meridian Group</span><span>Sep 2025 – Jun 2026</span></div>
+  <div class="body">
+    <div class="eyebrow">Executive summary</div>
+    <h2>What changed across four assessments</h2>
+    <p class="lede" id="exec-lede"></p>
+    <div style="margin:18px 0 6px;" id="findings"></div>
+    <div class="chartwrap" id="exec-chart"></div>
+    <h3>Overall scores</h3>
+    <table id="exec-table"></table>
+  </div>
+  <div class="runfoot"><span>Scores run 0–100 · the shaded band is the typical range</span><span>Page 2 of 4</span></div>
+</div>
+
+<!-- Page 3 — five dimensions -->
+<div class="page">
+  <div class="runhead"><span>Growth report · Meridian Group</span><span>Sep 2025 – Jun 2026</span></div>
+  <div class="body">
+    <div class="eyebrow">The five dimensions</div>
+    <h2>Where each candidate sits, and how they moved</h2>
+    <p class="lede">Each dot shows a candidate today; the trailing line shows their path since September. The shaded band is the typical range for this norm group.</p>
+    <div id="dimblocks" style="margin-top:14px;"></div>
+  </div>
+  <div class="runfoot"><span>Dimension scores are the average of their factors</span><span>Page 3 of 4</span></div>
+</div>
+
+<!-- Page 4 — dimension in depth + methodology -->
+<div class="page">
+  <div class="runhead"><span>Growth report · Meridian Group</span><span>Sep 2025 – Jun 2026</span></div>
+  <div class="body">
+    <div class="eyebrow">In depth · Relating</div>
+    <h2>Relating, factor by factor</h2>
+    <div class="chartwrap" id="depth-chart"></div>
+    <table id="depth-table"></table>
+    <div class="methbox">
+      <b>How to read this report.</b> Scores are scaled 0–100, where the shaded band (44–62) covers the middle half of the Industry leadership norm group (n = 1,420).
+      <b>Change</b> compares each candidate's first assessment (Sep–Oct 2025) with their most recent (May–Jun 2026); assessment dates differ slightly per person and are listed per candidate in the appendix.
+      Changes smaller than ±3 are within measurement noise and shown in grey. Identity is matched across campaigns by verified email and reviewed links.
+    </div>
+  </div>
+  <div class="runfoot"><span>One "In depth" page is produced per dimension — five in the full report</span><span>Page 4 of 4</span></div>
+</div>
+
+<script>
+const DIMS={
+ Thinking:['Strategic perspective','Analytical reasoning','Judgment','Innovation','Business acumen','Systems thinking'],
+ Executing:['Drive for results','Planning & organising','Accountability','Resource management','Process discipline','Delivery under pressure'],
+ Relating:['Influence','Empathy','Collaboration','Communication','Conflict navigation','Stakeholder management'],
+ Adapting:['Learning agility','Resilience','Ambiguity tolerance','Openness to feedback','Change leadership','Composure'],
+ Leading:['Vision & direction','Developing others','Delegation','Inspiring commitment','Courage','Team building']
+};
+const SESSIONS=['Sep 2025','Dec 2025','Mar 2026','Jun 2026'];
+const PEOPLE=[
+ {id:'A',name:'Amara Okafor',color:'#1D9E75'},
+ {id:'B',name:'Ben Castillo',color:'#7F77DD'},
+ {id:'P',name:'Priya Sharma',color:'#D85A30'},
+ {id:'D',name:'Daniel Reyes',color:'#D4537E'},
+ {id:'E',name:'Elena Marsh',color:'#378ADD'}
+];
+function hsh(s){let x=7;for(let i=0;i<s.length;i++){x=(x*31+s.charCodeAt(i))>>>0;}return x;}
+function rnd(seed,k){const v=Math.sin(seed*12.9898+k*78.233)*43758.5453;return v-Math.floor(v);}
+const PROFILES={A:[44,24],B:[60,2],P:[40,28],D:[58,-6],E:[36,16]};
+const V={};
+PEOPLE.forEach(p=>{V[p.id]={};});
+Object.values(DIMS).flat().forEach(f=>{
+ const s=hsh(f);
+ PEOPLE.forEach((p,pi)=>{
+  const base=PROFILES[p.id][0]+rnd(s,pi)*18, d=PROFILES[p.id][1]*(0.4+rnd(s,pi+7)*1.2)-4+rnd(s,pi+13)*8;
+  V[p.id][f]=[0,1,2,3].map(i=>Math.round(Math.min(95,Math.max(8,base+d*i/3+(rnd(s,pi*4+i)-0.5)*5))));
+ });
+});
+function roll(pid,dim){return [0,1,2,3].map(i=>Math.round(DIMS[dim].reduce((a,f)=>a+V[pid][f][i],0)/DIMS[dim].length));}
+function comp(pid){return [0,1,2,3].map(i=>Math.round(Object.keys(DIMS).reduce((a,d)=>a+roll(pid,d)[i],0)/5));}
+function ser(pid,key){if(key==='__comp')return comp(pid);if(DIMS[key])return roll(pid,key);return V[pid][key];}
+function dTxt(d){return (d>0?'+':'')+d;}
+function dCol(d){return Math.abs(d)<3?'#9aa39e':(d>0?'#1D9E75':'#D85A30');}
+function monoPath(pts){
+ const n=pts.length, dx=[],dy=[],m=[],t=[];
+ for(let i=0;i<n-1;i++){dx.push(pts[i+1].x-pts[i].x);dy.push(pts[i+1].y-pts[i].y);m.push(dy[i]/dx[i]);}
+ t.push(m[0]);
+ for(let i=1;i<n-1;i++){t.push(m[i-1]*m[i]<=0?0:(m[i-1]+m[i])/2);}
+ t.push(m[n-2]);
+ let d='M'+pts[0].x.toFixed(1)+','+pts[0].y.toFixed(1);
+ for(let i=0;i<n-1;i++){
+  const h=dx[i];
+  d+=' C'+(pts[i].x+h/3).toFixed(1)+','+(pts[i].y+t[i]*h/3).toFixed(1)+' '+(pts[i+1].x-h/3).toFixed(1)+','+(pts[i+1].y-t[i+1]*h/3).toFixed(1)+' '+pts[i+1].x.toFixed(1)+','+pts[i+1].y.toFixed(1);
+ }
+ return d;
+}
+function lineChart(key,W,H,aria){
+ const pl=38,pr=150,pt=16,pb=32;
+ const series=PEOPLE.map(p=>({name:p.name,color:p.color,vals:ser(p.id,key)}));
+ let all=[];series.forEach(s=>{all=all.concat(s.vals);});
+ const lo=Math.max(0,Math.floor((Math.min(...all)-8)/10)*10), hi=Math.min(100,Math.ceil((Math.max(...all)+8)/10)*10);
+ const xf=i=>pl+i*(W-pl-pr)/3, yf=v=>pt+(1-(v-lo)/(hi-lo))*(H-pt-pb);
+ let g='';
+ for(let v=lo;v<=hi;v+=10){g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+yf(v)+'" y2="'+yf(v)+'" stroke="#eceadf" stroke-width="1"/><text x="'+(pl-8)+'" y="'+(yf(v)+3.5)+'" text-anchor="end" font-size="10" fill="#9aa39e" class="tn">'+v+'</text>';}
+ const bl=Math.max(lo,44),bh=Math.min(hi,62);
+ if(bh>bl){g+='<rect x="'+pl+'" y="'+yf(bh)+'" width="'+(W-pl-pr)+'" height="'+(yf(bl)-yf(bh))+'" fill="#c9a962" opacity="0.10"/><text x="'+(pl+8)+'" y="'+(yf(bh)+13)+'" font-size="10" fill="#a8854c">Typical range</text>';}
+ SESSIONS.forEach((s,i)=>{g+='<text x="'+xf(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="10" fill="#9aa39e">'+s+'</text>';});
+ const labels=[];
+ series.forEach(s=>{
+  const pts=s.vals.map((v,i)=>({x:xf(i),y:yf(v)}));
+  g+='<path d="'+monoPath(pts)+'" fill="none" stroke="'+s.color+'" stroke-width="2" stroke-linecap="round"/>';
+  pts.forEach(p=>{g+='<circle cx="'+p.x+'" cy="'+p.y+'" r="2.8" fill="'+s.color+'" stroke="#fff" stroke-width="1.2"/>';});
+  labels.push({y:pts[3].y,color:s.color,name:s.name.split(' ')[0],v:s.vals[3],d:s.vals[3]-s.vals[0]});
+ });
+ labels.sort((a,b)=>a.y-b.y);
+ for(let i=1;i<labels.length;i++){if(labels[i].y<labels[i-1].y+15)labels[i].y=labels[i-1].y+15;}
+ labels.forEach(l=>{
+  g+='<text x="'+(W-pr+12)+'" y="'+(l.y+3.5)+'" font-size="11" font-weight="600" fill="'+l.color+'">'+l.name+'</text>';
+  g+='<text x="'+(W-10)+'" y="'+(l.y+3.5)+'" text-anchor="end" font-size="11" fill="#68716d" class="tn">'+l.v+' <tspan fill="'+dCol(l.d)+'">'+dTxt(l.d)+'</tspan></text>';
+ });
+ return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="'+aria+'">'+g+'</svg>';
+}
+function trackSvg(key,h){
+ const X=v=>(2+v*0.96).toFixed(2)+'%';
+ let g='<rect x="'+X(44)+'" y="2" width="17.28%" height="'+(h-4)+'" fill="#c9a962" opacity="0.10"/>';
+ [0,50,100].forEach(v=>{g+='<line x1="'+X(v)+'" x2="'+X(v)+'" y1="2" y2="'+(h-2)+'" stroke="#eceadf" stroke-width="1"/>';});
+ PEOPLE.forEach((p,pi)=>{
+  const vals=ser(p.id,key), y=h/2+(pi-2)*5.5;
+  g+='<line x1="'+X(vals[0])+'" x2="'+X(vals[3])+'" y1="'+y+'" y2="'+y+'" stroke="'+p.color+'" stroke-width="1.6" opacity="0.4"/>';
+  g+='<circle cx="'+X(vals[3])+'" cy="'+y+'" r="3.4" fill="'+p.color+'" stroke="#fff" stroke-width="1.2"/>';
+ });
+ return '<svg width="100%" height="'+h+'" aria-hidden="true" style="display:block;">'+g+'</svg>';
+}
+
+// Cover
+document.getElementById('cover-legend').innerHTML=PEOPLE.map(p=>'<span><i style="background:'+p.color+'"></i>'+p.name+'</span>').join('');
+
+// Page 2
+(function(){
+ const stats=PEOPLE.map(p=>{const v=comp(p.id);return {p,first:v[0],now:v[3],d:v[3]-v[0]};});
+ const riser=stats.slice().sort((a,b)=>b.d-a.d)[0], top=stats.slice().sort((a,b)=>b.now-a.now)[0];
+ const fell=stats.slice().sort((a,b)=>a.d-b.d)[0];
+ document.getElementById('exec-lede').textContent='Across four assessments, '+riser.p.name+' shows the strongest overall growth ('+dTxt(riser.d)+'), while '+top.p.name+' holds the highest overall level ('+top.now+').'+(fell.d<-2?' '+fell.p.name+'’s overall score dipped ('+dTxt(fell.d)+') — the Relating page shows where.':'');
+ const F=[
+  riser.p.name+' rose in all five dimensions — strongest in Relating and Leading.',
+  top.p.name+' scores above the typical range in four of five dimensions, but has been flat since December.',
+  'The group is most spread out on Relating — the deciding dimension if selecting for people leadership.'
+ ];
+ document.getElementById('findings').innerHTML=F.map((t,i)=>'<div class="finding"><span class="n">'+(i+1)+'</span><span>'+t+'</span></div>').join('');
+ document.getElementById('exec-chart').innerHTML=lineChart('__comp',674,280,'Overall scores for five candidates across four assessments');
+ document.getElementById('exec-table').innerHTML='<tr><th>Candidate</th><th class="num">Sep 2025</th><th class="num">Jun 2026</th><th class="num">Change</th></tr>'+
+  stats.sort((a,b)=>b.now-a.now).map(s=>'<tr><td><b style="color:'+s.p.color+'">'+s.p.name+'</b></td><td class="num tn">'+s.first+'</td><td class="num tn"><b>'+s.now+'</b></td><td class="num tn" style="color:'+dCol(s.d)+'"><b>'+dTxt(s.d)+'</b></td></tr>').join('');
+})();
+
+// Page 3
+(function(){
+ let html='';
+ Object.keys(DIMS).forEach(d=>{
+  const stats=PEOPLE.map(p=>{const v=roll(p.id,d);return {p,now:v[3],d:v[3]-v[0]};});
+  const best=stats.slice().sort((a,b)=>Math.abs(b.d)-Math.abs(a.d))[0];
+  const top=stats.slice().sort((a,b)=>b.now-a.now)[0];
+  html+='<div class="dimblock"><div class="dimrow"><span class="nm">'+d+'</span><span class="tr">'+trackSvg(d,44)+'</span></div>'+
+   '<div class="dimnote">Biggest change: <b style="color:'+best.p.color+'">'+best.p.name.split(' ')[0]+'</b> <b class="tn" style="color:'+dCol(best.d)+'">'+dTxt(best.d)+'</b> · highest today: <b style="color:'+top.p.color+'">'+top.p.name.split(' ')[0]+'</b> <b class="tn">'+top.now+'</b></div></div>';
+ });
+ document.getElementById('dimblocks').innerHTML=html;
+})();
+
+// Page 4
+(function(){
+ document.getElementById('depth-chart').innerHTML=lineChart('Relating',674,260,'Relating scores for five candidates across four assessments');
+ let head='<tr><th>Factor</th>'+PEOPLE.map(p=>'<th class="num" style="color:'+p.color+'">'+p.name.split(' ')[0]+'</th>').join('')+'</tr>';
+ let rows=DIMS.Relating.map(f=>'<tr><td>'+f+'</td>'+PEOPLE.map(p=>{const v=V[p.id][f],d=v[3]-v[0];return '<td class="num tn"><b>'+v[3]+'</b> <span style="color:'+dCol(d)+'">'+dTxt(d)+'</span></td>';}).join('')+'</tr>').join('');
+ document.getElementById('depth-table').innerHTML=head+rows;
+})();
+</script>
+</body>
+</html>

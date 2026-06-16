@@ -31,8 +31,9 @@ import { after } from 'next/server'
 import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
+import { buildContentsSections, type ContentsDimension } from './contents-sections'
 import type { BlockConfig, ResolvedBlockData, BandResult } from './types'
-import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig } from './types'
+import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig, DimensionChapterConfig, ContentsConfig, ClosingPageConfig } from './types'
 import type { PersonReferenceType, ReportDisplayLevel, ReportSnapshot, ReportTemplate } from '@/types/database'
 
 interface SessionData {
@@ -287,6 +288,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         snapshot.narrativeMode === 'ai_enhanced',
         dimensionChildFactors,
         scheme,
+        blocks,
       )
 
       resolvedBlocks.push({
@@ -514,6 +516,9 @@ function extractEntityIds(blocks: BlockConfig[]): string[] {
     if (Array.isArray(config.entityIds)) {
       config.entityIds.forEach((id) => typeof id === 'string' && id && ids.add(id))
     }
+    if (Array.isArray(config.dimensionIds)) {
+      config.dimensionIds.forEach((id) => typeof id === 'string' && id && ids.add(id))
+    }
   }
   return Array.from(ids)
 }
@@ -618,6 +623,36 @@ function filterScoredEntities(
   return entries
 }
 
+/**
+ * Build the per-dimension entries shared by contents + dimension_chapter:
+ * every dimension that has (or derives) a score, with its child factor IDs.
+ * Sorted by name for deterministic output.
+ */
+function collectScoredDimensions(
+  scoreMap: ScoreMap,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  taxonomyMap: Map<string, any>,
+  dimensionChildFactors: Map<string, string[]>,
+  scheme: BandScheme,
+): Array<ContentsDimension & { factorIds: string[]; summary: string | null }> {
+  const dims: Array<ContentsDimension & { factorIds: string[]; summary: string | null }> = []
+  for (const [dimId, factorIds] of dimensionChildFactors) {
+    const entity = taxonomyMap.get(dimId)
+    if (!entity) continue
+    const pompScore = scoreMap[dimId]
+    if (pompScore === undefined) continue
+    dims.push({
+      id: dimId,
+      name: String(entity.name ?? dimId),
+      pompScore: Math.round(pompScore),
+      bandResult: resolveBand(pompScore, scheme),
+      factorIds,
+      summary: (entity.description as string | null) || (entity.definition as string | null) || null,
+    })
+  }
+  return dims.sort((a, b) => a.name.localeCompare(b.name))
+}
+
 async function resolveBlockData(
   block: BlockConfig,
   scoreMap: ScoreMap,
@@ -629,9 +664,95 @@ async function resolveBlockData(
   aiEnhance: boolean,
   dimensionChildFactors: Map<string, string[]>,
   scheme: BandScheme,
+  allBlocks: BlockConfig[],
 ): Promise<Record<string, unknown>> {
   if (block.type === 'norm_comparison') {
     return { _deferred: true, message: 'Norm comparison not available in this version.' }
+  }
+
+  if (block.type === 'contents') {
+    const config = block.config as ContentsConfig
+    const dims = collectScoredDimensions(scoreMap, taxonomyMap, dimensionChildFactors, scheme)
+    return {
+      palette: scheme.palette,
+      bands: scheme.bands,
+      sections: buildContentsSections(allBlocks, dims),
+      config,
+    }
+  }
+
+  if (block.type === 'closing_page') {
+    const config = block.config as ClosingPageConfig
+    return {
+      ...config,
+      palette: scheme.palette,
+      bands: scheme.bands,
+    }
+  }
+
+  if (block.type === 'dimension_chapter') {
+    const config = block.config as DimensionChapterConfig
+    const depth = config.depth ?? 'standard'
+    const filter = config.dimensionIds?.length ? new Set(config.dimensionIds) : null
+    const dims = collectScoredDimensions(scoreMap, taxonomyMap, dimensionChildFactors, scheme)
+      .filter((dim) => !filter || filter.has(dim.id))
+
+    const chapters = dims.map((dim) => {
+      const factors = dim.factorIds
+        .map((factorId) => {
+          const entity = taxonomyMap.get(factorId)
+          const pompScore = scoreMap[factorId]
+          if (!entity || pompScore === undefined) return null
+          const bandResult = resolveBand(pompScore, scheme)
+
+          let indicators: string | null = null
+          let development: string | null = null
+          if (depth === 'full') {
+            const rawIndicator =
+              bandResult.indicatorTier === 'low'
+                ? entity.indicators_low
+                : bandResult.indicatorTier === 'high'
+                  ? entity.indicators_high
+                  : entity.indicators_mid
+            indicators = rawIndicator
+              ? resolvePersonToken(String(rawIndicator).trim(), personReference, session.firstName)
+              : null
+            development = buildDevelopmentSuggestion(
+              { name: entity.name, developmentSuggestion: entity.development_suggestion },
+              personReference,
+              session.firstName,
+            )
+          }
+
+          return {
+            entityId: factorId,
+            entityName: String(entity.name ?? factorId),
+            pompScore: Math.round(pompScore),
+            bandResult,
+            description: depth === 'glance'
+              ? null
+              : ((entity.description as string | null) || (entity.definition as string | null) || null),
+            anchorLow: (entity.anchor_low as string | null) ?? null,
+            anchorHigh: (entity.anchor_high as string | null) ?? null,
+            indicators,
+            development,
+          }
+        })
+        .filter((f): f is NonNullable<typeof f> => f !== null)
+        .sort((a, b) => a.entityName.localeCompare(b.entityName))
+
+      return {
+        dimensionId: dim.id,
+        dimensionName: dim.name,
+        pompScore: dim.pompScore,
+        bandResult: dim.bandResult,
+        summary: config.showDimensionSummary !== false ? dim.summary : null,
+        factors,
+      }
+    }).filter((chapter) => chapter.factors.length > 0)
+
+    if (chapters.length === 0) return { _empty: true, reason: 'no scored dimensions found' }
+    return { palette: scheme.palette, bands: scheme.bands, chapters, config }
   }
 
   if (['cover_page', 'custom_text', 'section_divider'].includes(block.type)) {
@@ -789,6 +910,7 @@ async function resolveBlockData(
 
   if (block.type === 'score_overview') {
     const config = block.config as ScoreOverviewConfig
+    const depth = config.depth ?? 'glance'
     const filtered = filterScoredEntities(scoreMap, taxonomyMap, config)
     const scores = filtered.map(([entityId, pompScore]) => {
       const entity = taxonomyMap.get(entityId)
@@ -803,11 +925,17 @@ async function resolveBlockData(
         pompScore: Math.round(pompScore),
         bandResult,
         parentName,
+        description: depth === 'glance'
+          ? null
+          : ((entity?.description as string | null) || (entity?.definition as string | null) || null),
         anchorLow: entity?.anchor_low ?? null,
         anchorHigh: entity?.anchor_high ?? null,
       }
     })
-    return { palette: scheme.palette, scores, config }
+    // Dimension scores for group headers when grouping by dimension.
+    const parents = collectScoredDimensions(scoreMap, taxonomyMap, dimensionChildFactors, scheme)
+      .map((dim) => ({ name: dim.name, pompScore: dim.pompScore, bandResult: dim.bandResult }))
+    return { palette: scheme.palette, bands: scheme.bands, scores, parents, config }
   }
 
   if (block.type === 'score_interpretation') {
@@ -1051,6 +1179,8 @@ export interface DevelopmentItem {
   pompScore: number
   bandResult: BandResult
   developmentSuggestion: string
+  /** Parent dimension name for the meta line (factors only). */
+  parentName?: string
 }
 
 /**
@@ -1069,7 +1199,7 @@ export function resolveDevelopmentPlan(
   const targetLevel = config.displayLevel ? mapDisplayLevel(config.displayLevel) : null
 
   let items = Object.entries(scoreMap)
-    .map(([entityId, pompScore]) => {
+    .map(([entityId, pompScore]): DevelopmentItem | null => {
       if (entityFilter && !entityFilter.has(entityId)) return null
       const entity = taxonomyMap.get(entityId)
       if (!entity) return null
@@ -1080,12 +1210,17 @@ export function resolveDevelopmentPlan(
       }
 
       const bandResult = resolveBand(pompScore, scheme)
+      const parentName =
+        (entity._taxonomy_level ?? entity.taxonomy_level) === 'factor' && entity.dimension_id
+          ? (taxonomyMap.get(String(entity.dimension_id))?.name as string | undefined)
+          : undefined
       return {
         entityId,
         entityName: entity.name ?? entityId,
         pompScore: Math.round(pompScore),
         bandResult,
         developmentSuggestion: (entity.development_suggestion as string) ?? '',
+        parentName,
       }
     })
     .filter((item): item is DevelopmentItem => item !== null)

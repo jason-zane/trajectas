@@ -5,10 +5,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ComparisonExportButton } from './comparison-export-button'
 import { cn } from '@/lib/utils'
 import { getInitials, representativeSession } from '@/lib/comparison/display'
-import type {
-  ColumnLevel,
-  ComparisonRequest,
-  ComparisonRow,
+import {
+  ALL_LEVELS,
+  type ColumnLevel,
+  type ComparisonRequest,
+  type ComparisonRow,
 } from '@/lib/comparison/types'
 import type { EligibleAssessment } from '@/app/actions/comparison'
 
@@ -85,7 +86,7 @@ export function ComparisonSelectionBar({
 
         <SegmentedToggle
           label="Show"
-          items={(['dimension', 'factor', 'construct'] as ColumnLevel[]).map((l) => ({
+          items={ALL_LEVELS.map((l) => ({
             key: l,
             label: LEVEL_LABEL[l],
           }))}

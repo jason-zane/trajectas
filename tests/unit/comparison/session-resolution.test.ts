@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   pickMostRecentCompleted,
   computeAttemptOrdinals,
+  computePersonAttemptOrdinals,
   type SessionRow,
 } from '@/lib/comparison/session-resolution'
 
@@ -84,5 +85,50 @@ describe('computeAttemptOrdinals', () => {
     expect(map.get('p1:a1:p1-a1-1')).toBe(1)
     expect(map.get('p1:a2:p1-a2-1')).toBe(1)
     expect(map.get('p2:a1:p2-a1-1')).toBe(1)
+  })
+})
+
+describe('computePersonAttemptOrdinals', () => {
+  it('continues the attempt sequence across linked campaign participants', () => {
+    const rows: SessionRow[] = [
+      { ...baseRow, id: 's-wave1', campaign_participant_id: 'cp-w1', started_at: '2025-09-01T00:00:00Z' },
+      { ...baseRow, id: 's-wave2', campaign_participant_id: 'cp-w2', started_at: '2026-01-01T00:00:00Z' },
+      { ...baseRow, id: 's-wave3', campaign_participant_id: 'cp-w3', started_at: '2026-05-01T00:00:00Z' },
+    ]
+    const personByCp = new Map([
+      ['cp-w1', 'person-1'],
+      ['cp-w2', 'person-1'],
+      ['cp-w3', 'person-1'],
+    ])
+    const map = computePersonAttemptOrdinals(rows, personByCp)
+    expect(map.get('person-1:a1:s-wave1')).toBe(1)
+    expect(map.get('person-1:a1:s-wave2')).toBe(2)
+    expect(map.get('person-1:a1:s-wave3')).toBe(3)
+  })
+
+  it('keeps different people and assessments in separate sequences', () => {
+    const rows: SessionRow[] = [
+      { ...baseRow, id: 's1', campaign_participant_id: 'cp-anna', started_at: '2026-04-01T00:00:00Z' },
+      { ...baseRow, id: 's2', campaign_participant_id: 'cp-ben', started_at: '2026-04-02T00:00:00Z' },
+      { ...baseRow, id: 's3', campaign_participant_id: 'cp-anna', assessment_id: 'a2', started_at: '2026-04-03T00:00:00Z' },
+    ]
+    const personByCp = new Map([
+      ['cp-anna', 'person-anna'],
+      ['cp-ben', 'person-ben'],
+    ])
+    const map = computePersonAttemptOrdinals(rows, personByCp)
+    expect(map.get('person-anna:a1:s1')).toBe(1)
+    expect(map.get('person-ben:a1:s2')).toBe(1)
+    expect(map.get('person-anna:a2:s3')).toBe(1)
+  })
+
+  it('falls back to the cp id as the person bucket for unmapped rows', () => {
+    const rows: SessionRow[] = [
+      { ...baseRow, id: 's-legacy-1', campaign_participant_id: 'cp-legacy', started_at: '2026-04-01T00:00:00Z' },
+      { ...baseRow, id: 's-legacy-2', campaign_participant_id: 'cp-legacy', started_at: '2026-04-05T00:00:00Z' },
+    ]
+    const map = computePersonAttemptOrdinals(rows, new Map())
+    expect(map.get('cp-legacy:a1:s-legacy-1')).toBe(1)
+    expect(map.get('cp-legacy:a1:s-legacy-2')).toBe(2)
   })
 })

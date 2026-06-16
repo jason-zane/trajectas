@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapReportTemplateRow } from '@/lib/supabase/mappers'
-import { ReportRenderer } from '@/components/reports/report-renderer'
+import { PrintPaginatedReport } from '@/components/reports/print-paginated-report'
 import { buildTemplatePreviewBlocks } from '@/lib/reports/preview'
 import { verifyPreviewPdfToken } from '@/lib/reports/preview-pdf-token'
 import { loadPreviewEntitiesForAssessment } from '@/lib/reports/preview-entities'
@@ -50,7 +50,7 @@ export default async function PrintPreviewPage({ params, searchParams }: Props) 
 
   return (
     <Suspense>
-      <ReportRenderer blocks={sampleBlocks} className="print-report" />
+      <PrintPaginatedReport blocks={sampleBlocks} className="print-report" />
     </Suspense>
   )
 }

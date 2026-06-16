@@ -8,14 +8,14 @@ import { ParticipantOverviewPanel } from "./participant-overview-panel";
 import { ParticipantActivityPanel } from "./participant-activity-panel";
 import { ParticipantSessionsPanel } from "./participant-sessions-panel";
 import { ParticipantReportsPanel } from "./participant-reports-panel";
-import { TrajectoryWorkspace } from "@/components/trajectory/trajectory-workspace";
+import { CanvasWorkspace } from "@/components/canvas/canvas-workspace";
 import type {
   ParticipantDetail,
   ParticipantSession,
   ActivityEvent,
 } from "@/app/actions/participants";
 import type { ReportSnapshot } from "@/types/database";
-import type { TrajectoryResult } from "@/lib/trajectory/types";
+import type { CanvasResult } from "@/lib/canvas/types";
 
 type SnapshotWithTemplate = ReportSnapshot & { templateName?: string };
 
@@ -24,8 +24,8 @@ interface ParticipantDetailViewProps {
   sessions: ParticipantSession[];
   activity: ActivityEvent[];
   snapshots: SnapshotWithTemplate[];
-  /** Trajectory data. Omit to hide the Trajectory tab entirely (e.g. client / partner surfaces while the feature is admin-only). */
-  trajectory?: TrajectoryResult;
+  /** Trajectory canvas data. Omit to hide the Trajectory tab entirely (e.g. client / partner surfaces while the feature is admin-only). */
+  trajectory?: CanvasResult | null;
   backHref: string;
   backLabel: string;
   sessionBaseHref: string;
@@ -107,11 +107,12 @@ export function ParticipantDetailView({
           />
         </TabsContent>
 
-        {trajectory && (
+        {trajectory && trajectory.people.length > 0 && (
           <TabsContent value="trajectory" className="mt-6">
-            <TrajectoryWorkspace
-              campaignParticipantId={participant.id}
-              initialResult={trajectory}
+            <CanvasWorkspace
+              initial={trajectory}
+              basePath="/participants/trajectory"
+              compareBasePath="/participants/compare"
             />
           </TabsContent>
         )}

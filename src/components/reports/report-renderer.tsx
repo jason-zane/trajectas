@@ -15,6 +15,9 @@ import { RaterComparisonBlock } from './blocks/rater-comparison'
 import { GapAnalysisBlock } from './blocks/gap-analysis'
 import { OpenCommentsBlock } from './blocks/open-comments'
 import { AiTextBlock } from './blocks/ai-text'
+import { DimensionChapterBlock } from './blocks/dimension-chapter'
+import { ContentsBlock } from './blocks/contents'
+import { ClosingPageBlock } from './blocks/closing-page'
 import { ModeWrapper } from './modes/mode-wrapper'
 import { sanitizeBlockData } from '@/lib/reports/sanitize-block-data'
 import { CUSTOM_REPORTS, type CustomReportRenderContext } from '@/lib/reports/custom'
@@ -31,6 +34,9 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   cover_page: CoverPageBlock,
   custom_text: CustomTextBlock,
   section_divider: SectionDividerBlock,
+  contents: ContentsBlock,
+  closing_page: ClosingPageBlock,
+  dimension_chapter: DimensionChapterBlock,
   score_overview: ScoreOverviewBlock,
   score_detail: ScoreDetailBlock,
   score_interpretation: ScoreInterpretationBlock,
@@ -58,9 +64,12 @@ function themeToStyle(theme: ReportTheme): React.CSSProperties {
 interface ReportRendererProps {
   blocks: ResolvedBlockData[]
   className?: string
+  /** Builder preview only — makes blocks click-selectable. No effect on reports. */
+  onBlockSelect?: (blockId: string) => void
+  selectedBlockId?: string | null
 }
 
-export function ReportRenderer({ blocks, className }: ReportRendererProps) {
+export function ReportRenderer({ blocks, className, onBlockSelect, selectedBlockId }: ReportRendererProps) {
   const searchParams = useSearchParams()
   const isPrint = searchParams.get('format') === 'print'
 
@@ -122,12 +131,37 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
     )
   }
 
+  // Participant name for the print running header — injected into meta-block
+  // data by the runner; fall back to the first block that carries it.
+  const participantName = blocks
+    .map((b) => (b.data as { participantName?: string })?.participantName)
+    .find((name): name is string => typeof name === 'string' && name.length > 0)
+
   return (
     <div
       data-print={isPrint ? 'true' : undefined}
       className={className}
       style={brandTheme ? themeToStyle(brandTheme) : undefined}
     >
+      {/* Print page chrome — position:fixed repeats on every printed page.
+          The full-bleed cover sits above it (relative z-10), masking page 1. */}
+      {isPrint && (
+        <>
+          <div className="report-page-chrome hidden print:flex fixed top-[5mm] left-[20mm] right-[20mm] justify-between">
+            <span className="font-mono text-[9px] tracking-[0.16em] uppercase" style={{ color: 'var(--report-muted-colour)' }}>
+              {participantName ?? ''}
+            </span>
+            <span className="font-mono text-[9px] tracking-[0.16em]" style={{ color: 'var(--report-muted-colour)' }}>
+              CONFIDENTIAL
+            </span>
+          </div>
+          <div className="report-page-chrome hidden print:flex fixed bottom-[5mm] left-[20mm] right-[20mm] justify-center">
+            <span className="font-mono text-[9px] tracking-[0.2em]" style={{ color: 'var(--report-muted-colour)' }}>
+              TRAJECTAS
+            </span>
+          </div>
+        </>
+      )}
       {blocks
         .filter((block) => !block.skipped)
         .filter((block) => (isPrint ? !block.printHide : !block.screenHide))
@@ -141,8 +175,9 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
           const safeData = sanitizeBlockData(block.type, block.data)
 
           // Section dividers and cover pages render directly without mode wrapper
+          let content: React.ReactElement
           if (block.type === 'section_divider') {
-            return (
+            content = (
               <Component
                 key={block.blockId}
                 data={safeData}
@@ -150,30 +185,55 @@ export function ReportRenderer({ blocks, className }: ReportRendererProps) {
                 chartType={block.chartType}
               />
             )
-          }
-
-          if (block.type === 'cover_page') {
-            return (
-              <div key={block.blockId} data-cover-page className="print:break-after-page">
+          } else if (block.type === 'cover_page') {
+            content = (
+              <div
+                key={block.blockId}
+                data-cover-page
+                data-pg-block
+                data-pg-full-page
+                className="relative z-10 print:break-after-page"
+              >
                 <Component data={safeData} mode={mode} chartType={block.chartType} />
+              </div>
+            )
+          } else {
+            const printClasses = block.printBreakBefore ? 'print:break-before-page' : undefined
+            content = (
+              <div
+                key={block.blockId}
+                className={printClasses}
+                data-pg-block
+                data-pg-break-before={block.printBreakBefore ? 'true' : undefined}
+                data-toc-target={block.blockId}
+              >
+                <ModeWrapper
+                  mode={mode}
+                  columns={block.columns}
+                  insetAccent={block.insetAccent}
+                  eyebrow={block.eyebrow}
+                  heading={block.heading}
+                  blockDescription={block.blockDescription}
+                >
+                  <Component data={safeData} mode={mode} chartType={block.chartType} />
+                </ModeWrapper>
               </div>
             )
           }
 
-          const printClasses = block.printBreakBefore ? 'print:break-before-page' : undefined
-
+          // Builder preview: blocks are click-selectable with a selection ring.
+          if (!onBlockSelect) return content
           return (
-            <div key={block.blockId} className={printClasses}>
-              <ModeWrapper
-                mode={mode}
-                columns={block.columns}
-                insetAccent={block.insetAccent}
-                eyebrow={block.eyebrow}
-                heading={block.heading}
-                blockDescription={block.blockDescription}
-              >
-                <Component data={safeData} mode={mode} chartType={block.chartType} />
-              </ModeWrapper>
+            <div
+              key={`select-${block.blockId}`}
+              onClick={() => onBlockSelect(block.blockId)}
+              className={
+                selectedBlockId === block.blockId
+                  ? 'relative cursor-pointer rounded-sm ring-2 ring-primary ring-offset-1'
+                  : 'relative cursor-pointer rounded-sm transition-shadow hover:ring-2 hover:ring-primary/30'
+              }
+            >
+              {content}
             </div>
           )
         })}
