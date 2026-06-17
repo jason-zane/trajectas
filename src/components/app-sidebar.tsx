@@ -134,7 +134,10 @@ const adminNav: NavSection[] = [
   },
   {
     label: "Business",
-    items: [{ title: "Invoices", href: "/business/invoices", icon: Receipt }],
+    items: [
+      { title: "Invoices", href: "/business/invoices", icon: Receipt },
+      { title: "Usage", href: "/business/usage", icon: BarChart3 },
+    ],
   },
   {
     label: "AI Tools",

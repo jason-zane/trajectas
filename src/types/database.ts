@@ -2403,3 +2403,23 @@ export interface BillingClientOption {
   id: string
   name: string
 }
+
+/**
+ * Actual product usage rolled up per client, for the Business → Usage view.
+ * Counts come from `campaigns_with_counts` (raters/deleted already excluded):
+ * `participantsInvited` = survey-takers invited; `assessmentsCompleted` = those
+ * who finished. Both are shown rather than committing to one billable unit.
+ */
+export interface ClientUsageRow {
+  clientId: string
+  clientName: string
+  isActive: boolean
+  campaignsTotal: number
+  campaignsActive: number
+  participantsInvited: number
+  assessmentsCompleted: number
+  /** completed / invited, or null when nobody has been invited yet. */
+  completionRate: number | null
+  /** Most recent campaign activity, or null if the client has no campaigns. */
+  lastActivityAt: string | null
+}
