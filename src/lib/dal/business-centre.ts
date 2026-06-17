@@ -13,6 +13,11 @@ import {
   type InvoiceSummary,
   type SeriesPoint,
 } from "@/lib/business/finance-helpers";
+import {
+  classifyUsageHealth,
+  needsAttention,
+  type UsageHealth,
+} from "@/lib/business/health-helpers";
 import type { BillingAccount, Invoice } from "@/types/database";
 
 type Row = Record<string, unknown>;
@@ -89,6 +94,7 @@ export interface ClientCommercialSummary {
   outstandingCents: number;
   usageBillingEnabled: boolean;
   usageUnitPriceCents: number;
+  health: UsageHealth;
 }
 
 /** Per-client commercial roll-up for the Directory (keyed by clientId). */
@@ -96,13 +102,14 @@ export async function getClientCommercialSummaries(): Promise<
   Map<string, ClientCommercialSummary>
 > {
   const db = createAdminClient();
-  const [pricing, usage, openInvRes] = await Promise.all([
+  const [pricing, usage, openInvRes, healthByClient] = await Promise.all([
     listClientUsagePricing(),
     getClientUsageSummary(),
     db
       .from("invoices")
       .select("amount_due_cents, billing_accounts!inner(client_id)")
       .in("status", ["open", "uncollectible"]),
+    buildClientHealth(db),
   ]);
   if (openInvRes.error) {
     throwActionError("getClientCommercialSummaries", "Unable to load invoices.", openInvRes.error);
@@ -126,6 +133,7 @@ export async function getClientCommercialSummaries(): Promise<
       outstandingCents: outstandingByClient.get(u.clientId) ?? 0,
       usageBillingEnabled: p?.enabled ?? false,
       usageUnitPriceCents: p?.unitPriceCents ?? 0,
+      health: healthByClient.get(u.clientId) ?? "none",
     });
   }
   return out;
@@ -175,4 +183,67 @@ export async function getFinanceOverview(): Promise<FinanceOverview> {
     usageThisMonthRevenueCents,
     activeUsageClients: pricing.filter((p) => p.enabled && p.unitPriceCents > 0).length,
   };
+}
+
+/** Classify every client's recent usage health from the monthly view (6-month window). */
+async function buildClientHealth(
+  db: ReturnType<typeof createAdminClient>,
+): Promise<Map<string, UsageHealth>> {
+  const { data, error } = await db
+    .from("client_usage_monthly")
+    .select("client_id, month, completed_count");
+  if (error) {
+    throwActionError("buildClientHealth", "Unable to load usage history.", error);
+  }
+  const now = new Date();
+  const byClient = new Map<string, Map<string, number>>();
+  for (const row of data ?? []) {
+    const r = row as Row;
+    if (!r.client_id) continue;
+    const cid = String(r.client_id);
+    const months = byClient.get(cid) ?? new Map<string, number>();
+    months.set(toMonthKey(new Date(String(r.month))), Number(r.completed_count ?? 0));
+    byClient.set(cid, months);
+  }
+  const out = new Map<string, UsageHealth>();
+  for (const [cid, months] of byClient) {
+    out.set(cid, classifyUsageHealth(monthlySeries(months, 6, now)));
+  }
+  return out;
+}
+
+export interface AttentionClient {
+  clientId: string;
+  name: string;
+  slug: string;
+  status: UsageHealth;
+}
+
+/** Active clients flagged declining/dormant, for the overview "needs attention" panel. */
+export async function listClientsNeedingAttention(): Promise<AttentionClient[]> {
+  const db = createAdminClient();
+  const [clientsRes, healthByClient] = await Promise.all([
+    db.from("clients").select("id, name, slug").is("deleted_at", null).eq("is_active", true),
+    buildClientHealth(db),
+  ]);
+  if (clientsRes.error) {
+    throwActionError("listClientsNeedingAttention", "Unable to load clients.", clientsRes.error);
+  }
+  const rank: Record<string, number> = { dormant: 0, declining: 1 };
+  return (clientsRes.data ?? [])
+    .map((row) => {
+      const r = row as Row;
+      const cid = String(r.id);
+      return {
+        clientId: cid,
+        name: String(r.name),
+        slug: String(r.slug),
+        status: healthByClient.get(cid) ?? "none",
+      };
+    })
+    .filter((c) => needsAttention(c.status))
+    .sort(
+      (a, b) =>
+        (rank[a.status] ?? 9) - (rank[b.status] ?? 9) || a.name.localeCompare(b.name),
+    );
 }

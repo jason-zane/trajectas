@@ -19,12 +19,23 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
+type Health = "growing" | "steady" | "declining" | "dormant" | "none";
+
 type CommercialRow = {
   clientId: string;
   completed: number;
   outstandingCents: number;
   usageBillingEnabled: boolean;
   usageUnitPriceCents: number;
+  health: Health;
+};
+
+const HEALTH_META: Record<Health, { label: string; dot: string } | null> = {
+  growing: { label: "Growing", dot: "bg-emerald-500" },
+  steady: { label: "Steady", dot: "bg-muted-foreground/40" },
+  declining: { label: "Declining", dot: "bg-amber-500" },
+  dormant: { label: "Dormant", dot: "bg-destructive" },
+  none: null,
 };
 
 function formatMoney(cents: number): string {
@@ -38,6 +49,7 @@ type DirectoryClientRow = ClientWithCounts & {
   status: "active" | "inactive" | "archived";
   usageCompleted?: number;
   outstandingCents?: number;
+  health?: Health;
 };
 
 function getStatus(client: ClientWithCounts): DirectoryClientRow["status"] {
@@ -170,6 +182,24 @@ const columns: ColumnDef<DirectoryClientRow>[] = [
     ),
   },
   {
+    accessorKey: "health",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Health" />
+    ),
+    cell: ({ row }) => {
+      const meta = row.original.health ? HEALTH_META[row.original.health] : null;
+      if (!meta) {
+        return <span className="text-sm text-muted-foreground">—</span>;
+      }
+      return (
+        <Badge variant="dot">
+          <span className={`size-1.5 rounded-full ${meta.dot}`} />
+          {meta.label}
+        </Badge>
+      );
+    },
+  },
+  {
     accessorKey: "updated_at",
     enableSorting: true,
   },
@@ -261,6 +291,7 @@ export function ClientDirectoryTable({
       status: getStatus(client),
       usageCompleted: c?.completed,
       outstandingCents: c?.outstandingCents,
+      health: c?.health,
     };
   });
 
