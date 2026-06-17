@@ -259,7 +259,8 @@ export async function applyInvoiceWebhookUpdate(
   update: InvoiceMirrorUpdate,
 ): Promise<boolean> {
   const db = createAdminClient();
-  const { data, error } = await db
+  const TERMINAL_STATUSES = ["paid", "void", "uncollectible"];
+  let query = db
     .from("invoices")
     .update({
       status: update.status,
@@ -274,9 +275,16 @@ export async function applyInvoiceWebhookUpdate(
       paid_at: update.paidAt,
       voided_at: update.voidedAt,
     })
-    .eq("stripe_invoice_id", stripeInvoiceId)
-    .select("id")
-    .maybeSingle();
+    .eq("stripe_invoice_id", stripeInvoiceId);
+
+  // Webhook deliveries aren't ordered: never let a stale non-terminal event
+  // (e.g. a retried `finalized`) downgrade an invoice already in a terminal
+  // state (paid/void/uncollectible) or clear its paid_at.
+  if (!TERMINAL_STATUSES.includes(update.status)) {
+    query = query.not("status", "in", `(${TERMINAL_STATUSES.join(",")})`);
+  }
+
+  const { data, error } = await query.select("id").maybeSingle();
   if (error) {
     throwActionError(
       "applyInvoiceWebhookUpdate",

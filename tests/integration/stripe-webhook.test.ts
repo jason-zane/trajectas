@@ -112,5 +112,44 @@ describe.skipIf(!canRun)("stripe webhook (integration)", () => {
     expect(mirrored?.status).toBe("paid");
     expect(Number(mirrored?.amount_paid_cents)).toBe(380000);
     expect(mirrored?.paid_at).toBeTruthy();
+
+    // A stale, out-of-order event must not downgrade the now-paid invoice.
+    const staleEvent = {
+      ...event,
+      id: "evt_test_webhook_stale",
+      type: "invoice.finalized",
+      data: {
+        object: {
+          ...event.data.object,
+          status: "open",
+          amount_paid: 0,
+          amount_due: 380000,
+          status_transitions: {},
+        },
+      },
+    };
+    const stalePayload = JSON.stringify(staleEvent);
+    const staleResponse = await POST(
+      new Request("http://localhost/api/webhooks/stripe", {
+        method: "POST",
+        headers: {
+          "stripe-signature": getStripe().webhooks.generateTestHeaderString({
+            payload: stalePayload,
+            secret: WEBHOOK_SECRET,
+          }),
+        },
+        body: stalePayload,
+      }),
+    );
+    expect(staleResponse.status).toBe(200);
+    const staleBody = (await staleResponse.json()) as { updated?: boolean };
+    expect(staleBody.updated).toBe(false);
+
+    const { data: afterStale } = await db
+      .from("invoices")
+      .select("status")
+      .eq("stripe_invoice_id", stripeInvoiceId)
+      .single();
+    expect(afterStale?.status).toBe("paid");
   }, 20_000);
 });

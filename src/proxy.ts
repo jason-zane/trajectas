@@ -299,6 +299,12 @@ function shouldSkipMutationOriginCheck(
   if (pathname === "/api/auth/send-email") {
     return hasStandardWebhookSignature(headers);
   }
+  if (pathname === "/api/webhooks/stripe") {
+    // Stripe posts server-to-server with no Origin/sec-fetch-site header. The
+    // route verifies the stripe-signature against STRIPE_WEBHOOK_SECRET, so the
+    // signed delivery is the authentication — same shape as the send-email hook.
+    return headers.has("stripe-signature");
+  }
   return false;
 }
 
