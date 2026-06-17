@@ -2327,3 +2327,79 @@ export interface PartnerTaxonomyAssignment {
   created_at: string
   updated_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Billing (Business Centre)
+// ---------------------------------------------------------------------------
+
+/** Lifecycle status of an invoice, mirroring Stripe's invoice statuses. */
+export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible'
+
+/** Which billing flow produced an invoice. */
+export type InvoiceKind = 'one_off' | 'usage' | 'subscription'
+
+/**
+ * The party Trajectas invoices. v1 always points at a client (clientId set,
+ * partnerId null); partnerId is scaffolding for future reseller billing.
+ */
+export interface BillingAccount {
+  id: string
+  clientId: string | null
+  partnerId: string | null
+  stripeCustomerId: string | null
+  legalName: string | null
+  billingEmail: string | null
+  country: string
+  taxId: string | null
+  paymentTermsDays: number
+  currency: string
+  settings: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  deletedAt: string | null
+}
+
+/** A single line on an invoice (display snapshot; Stripe owns the canonical). */
+export interface InvoiceLineItem {
+  description: string
+  quantity: number
+  unitAmountCents: number
+}
+
+/** Local mirror of a Stripe invoice. Amounts are integer minor units (cents). */
+export interface Invoice {
+  id: string
+  billingAccountId: string
+  stripeInvoiceId: string | null
+  number: string | null
+  kind: InvoiceKind
+  status: InvoiceStatus
+  currency: string
+  subtotalCents: number
+  taxCents: number
+  totalCents: number
+  amountDueCents: number
+  amountPaidCents: number
+  description: string | null
+  lineItems: InvoiceLineItem[]
+  hostedInvoiceUrl: string | null
+  invoicePdfUrl: string | null
+  metadata: Record<string, unknown>
+  dueAt: string | null
+  issuedAt: string | null
+  paidAt: string | null
+  voidedAt: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** An invoice plus a human label for the account it belongs to (admin list). */
+export interface InvoiceListItem extends Invoice {
+  accountLabel: string
+}
+
+/** A client option for the create-invoice picker. */
+export interface BillingClientOption {
+  id: string
+  name: string
+}

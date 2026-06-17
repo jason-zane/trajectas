@@ -31,6 +31,7 @@ import {
   Tag,
   TrendingUp,
   Scale,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
@@ -130,6 +131,10 @@ const adminNav: NavSection[] = [
       { title: "Directory", href: "/directory", icon: Building2 },
       { title: "Users", href: "/users", icon: Users },
     ],
+  },
+  {
+    label: "Business",
+    items: [{ title: "Invoices", href: "/business/invoices", icon: Receipt }],
   },
   {
     label: "AI Tools",
