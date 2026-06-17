@@ -4,6 +4,8 @@
  * I/O-free (no Supabase, no `server-only`) so the mapping logic is unit-tested
  * independently of the query functions in `billing.ts`. See README.md.
  */
+import type Stripe from "stripe";
+
 import type {
   BillingAccount,
   Invoice,
@@ -92,5 +94,53 @@ export function mapUsageSnapshotRow(row: Row): UsageSnapshot {
     amountCents: toNumber(row.amount_cents),
     invoiceId: (row.invoice_id as string | null) ?? null,
     created_at: String(row.created_at),
+  };
+}
+
+/** Mutable invoice columns updated from a Stripe webhook event. */
+export interface InvoiceMirrorUpdate {
+  status: InvoiceStatus;
+  number: string | null;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  amountDueCents: number;
+  amountPaidCents: number;
+  hostedInvoiceUrl: string | null;
+  invoicePdfUrl: string | null;
+  paidAt: string | null;
+  voidedAt: string | null;
+}
+
+const WEBHOOK_STATUSES: ReadonlySet<string> = new Set([
+  "open",
+  "paid",
+  "void",
+  "uncollectible",
+]);
+
+function unixToIso(seconds: number | null | undefined): string | null {
+  return seconds ? new Date(seconds * 1000).toISOString() : null;
+}
+
+/** Map a Stripe invoice (from a webhook event) to the mutable mirror columns. */
+export function stripeInvoiceToUpdate(invoice: Stripe.Invoice): InvoiceMirrorUpdate {
+  const subtotal = invoice.subtotal ?? 0;
+  const total = invoice.total ?? 0;
+  const transitions = invoice.status_transitions;
+  return {
+    status: (WEBHOOK_STATUSES.has(invoice.status ?? "")
+      ? invoice.status
+      : "draft") as InvoiceStatus,
+    number: invoice.number ?? null,
+    subtotalCents: subtotal,
+    taxCents: Math.max(0, total - subtotal),
+    totalCents: total,
+    amountDueCents: invoice.amount_due ?? 0,
+    amountPaidCents: invoice.amount_paid ?? 0,
+    hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+    invoicePdfUrl: invoice.invoice_pdf ?? null,
+    paidAt: unixToIso(transitions?.paid_at),
+    voidedAt: unixToIso(transitions?.voided_at),
   };
 }

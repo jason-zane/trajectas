@@ -5,6 +5,7 @@ import { throwActionError } from "@/lib/security/action-errors";
 import {
   mapBillingAccountRow,
   mapInvoiceRow,
+  type InvoiceMirrorUpdate,
 } from "@/lib/dal/billing-mappers";
 import type {
   BillingAccount,
@@ -246,4 +247,42 @@ export async function listBillingClients(): Promise<BillingClientOption[]> {
     id: String(row.id),
     name: String(row.name),
   }));
+}
+
+/**
+ * Apply a Stripe-webhook-derived status/amount update to the local mirror,
+ * keyed by Stripe invoice id. Returns false when we hold no matching invoice
+ * (e.g. one created outside our flow) so the webhook can ack and move on.
+ */
+export async function applyInvoiceWebhookUpdate(
+  stripeInvoiceId: string,
+  update: InvoiceMirrorUpdate,
+): Promise<boolean> {
+  const db = createAdminClient();
+  const { data, error } = await db
+    .from("invoices")
+    .update({
+      status: update.status,
+      number: update.number,
+      subtotal_cents: update.subtotalCents,
+      tax_cents: update.taxCents,
+      total_cents: update.totalCents,
+      amount_due_cents: update.amountDueCents,
+      amount_paid_cents: update.amountPaidCents,
+      hosted_invoice_url: update.hostedInvoiceUrl,
+      invoice_pdf_url: update.invoicePdfUrl,
+      paid_at: update.paidAt,
+      voided_at: update.voidedAt,
+    })
+    .eq("stripe_invoice_id", stripeInvoiceId)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    throwActionError(
+      "applyInvoiceWebhookUpdate",
+      "Unable to update invoice from webhook.",
+      error,
+    );
+  }
+  return Boolean(data);
 }
