@@ -40,12 +40,14 @@ function toCents(amount: string): number {
 
 export function CreateInvoiceDialog({
   clients,
+  defaultClientId,
 }: {
   clients: BillingClientOption[];
+  defaultClientId?: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [clientId, setClientId] = useState("");
+  const [clientId, setClientId] = useState(defaultClientId ?? "");
   const [billingEmail, setBillingEmail] = useState("");
   const [legalName, setLegalName] = useState("");
   const [memo, setMemo] = useState("");
@@ -69,7 +71,7 @@ export function CreateInvoiceDialog({
   );
 
   function resetForm() {
-    setClientId("");
+    setClientId(defaultClientId ?? "");
     setBillingEmail("");
     setLegalName("");
     setMemo("");

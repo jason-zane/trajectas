@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { getClientDirectoryEntries } from "@/app/actions/clients";
+import { getClientCommercialSummaries } from "@/lib/dal/business-centre";
 import { getPartners } from "@/app/actions/partners";
 import {
   canManageClientDirectory,
@@ -50,9 +51,12 @@ export default async function DirectoryPage({
     redirect("/unauthorized?reason=directory");
   }
 
-  const [clients, partners] = await Promise.all([
+  const [clients, partners, commercialMap] = await Promise.all([
     getClientDirectoryEntries(),
     canManagePartners ? getPartners() : Promise.resolve([]),
+    scope.isPlatformAdmin
+      ? getClientCommercialSummaries()
+      : Promise.resolve(null),
   ]);
 
   return (
@@ -96,7 +100,10 @@ export default async function DirectoryPage({
       </PageHeader>
 
       {activeTab === "clients" ? (
-        <ClientDirectoryTable clients={clients} />
+        <ClientDirectoryTable
+          clients={clients}
+          commercial={commercialMap ? Array.from(commercialMap.values()) : undefined}
+        />
       ) : (
         <PartnerDirectoryTable partners={partners} />
       )}

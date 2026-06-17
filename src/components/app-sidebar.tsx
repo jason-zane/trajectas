@@ -135,6 +135,7 @@ const adminNav: NavSection[] = [
   {
     label: "Business",
     items: [
+      { title: "Overview", href: "/business", icon: Activity },
       { title: "Invoices", href: "/business/invoices", icon: Receipt },
       { title: "Usage", href: "/business/usage", icon: BarChart3 },
     ],

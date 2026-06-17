@@ -19,8 +19,25 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
+type CommercialRow = {
+  clientId: string;
+  completed: number;
+  outstandingCents: number;
+  usageBillingEnabled: boolean;
+  usageUnitPriceCents: number;
+};
+
+function formatMoney(cents: number): string {
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+  }).format(cents / 100);
+}
+
 type DirectoryClientRow = ClientWithCounts & {
   status: "active" | "inactive" | "archived";
+  usageCompleted?: number;
+  outstandingCents?: number;
 };
 
 function getStatus(client: ClientWithCounts): DirectoryClientRow["status"] {
@@ -129,6 +146,30 @@ const columns: ColumnDef<DirectoryClientRow>[] = [
     ),
   },
   {
+    accessorKey: "usageCompleted",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Completed" />
+    ),
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm text-muted-foreground">
+        {row.original.usageCompleted ?? "—"}
+      </span>
+    ),
+  },
+  {
+    accessorKey: "outstandingCents",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Outstanding" />
+    ),
+    cell: ({ row }) => (
+      <span className="tabular-nums text-sm text-muted-foreground">
+        {row.original.outstandingCents !== undefined
+          ? formatMoney(row.original.outstandingCents)
+          : "—"}
+      </span>
+    ),
+  },
+  {
     accessorKey: "updated_at",
     enableSorting: true,
   },
@@ -203,11 +244,25 @@ function ClientDirectoryRowActions({ client }: { client: DirectoryClientRow }) {
   );
 }
 
-export function ClientDirectoryTable({ clients }: { clients: ClientWithCounts[] }) {
-  const rows = clients.map((client) => ({
-    ...client,
-    status: getStatus(client),
-  }));
+export function ClientDirectoryTable({
+  clients,
+  commercial,
+}: {
+  clients: ClientWithCounts[];
+  commercial?: CommercialRow[];
+}) {
+  const commercialByClient = new Map(
+    (commercial ?? []).map((c) => [c.clientId, c]),
+  );
+  const rows = clients.map((client) => {
+    const c = commercialByClient.get(client.id);
+    return {
+      ...client,
+      status: getStatus(client),
+      usageCompleted: c?.completed,
+      outstandingCents: c?.outstandingCents,
+    };
+  });
 
   return (
     <DataTable
