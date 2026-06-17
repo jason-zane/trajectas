@@ -196,6 +196,12 @@ async function buildClientHealth(
     throwActionError("buildClientHealth", "Unable to load usage history.", error);
   }
   const now = new Date();
+  // Anchor the window on the last *completed* month so an in-progress current
+  // month can't skew recent-vs-prior (a steady client looking "declining" early
+  // in the month). This evaluates the 6 completed months up to last month.
+  const lastCompletedMonth = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+  );
   const byClient = new Map<string, Map<string, number>>();
   for (const row of data ?? []) {
     const r = row as Row;
@@ -207,7 +213,7 @@ async function buildClientHealth(
   }
   const out = new Map<string, UsageHealth>();
   for (const [cid, months] of byClient) {
-    out.set(cid, classifyUsageHealth(monthlySeries(months, 6, now)));
+    out.set(cid, classifyUsageHealth(monthlySeries(months, 6, lastCompletedMonth)));
   }
   return out;
 }
