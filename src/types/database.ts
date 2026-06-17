@@ -2327,3 +2327,119 @@ export interface PartnerTaxonomyAssignment {
   created_at: string
   updated_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Billing (Business Centre)
+// ---------------------------------------------------------------------------
+
+/** Lifecycle status of an invoice, mirroring Stripe's invoice statuses. */
+export type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible'
+
+/** Which billing flow produced an invoice. */
+export type InvoiceKind = 'one_off' | 'usage' | 'subscription'
+
+/**
+ * The party Trajectas invoices. v1 always points at a client (clientId set,
+ * partnerId null); partnerId is scaffolding for future reseller billing.
+ */
+export interface BillingAccount {
+  id: string
+  clientId: string | null
+  partnerId: string | null
+  stripeCustomerId: string | null
+  legalName: string | null
+  billingEmail: string | null
+  country: string
+  taxId: string | null
+  paymentTermsDays: number
+  currency: string
+  usageBillingEnabled: boolean
+  usageUnit: string
+  usageUnitPriceCents: number
+  settings: Record<string, unknown>
+  created_at: string
+  updated_at: string
+  deletedAt: string | null
+}
+
+/** A single line on an invoice (display snapshot; Stripe owns the canonical). */
+export interface InvoiceLineItem {
+  description: string
+  quantity: number
+  unitAmountCents: number
+}
+
+/** Local mirror of a Stripe invoice. Amounts are integer minor units (cents). */
+export interface Invoice {
+  id: string
+  billingAccountId: string
+  stripeInvoiceId: string | null
+  number: string | null
+  kind: InvoiceKind
+  status: InvoiceStatus
+  currency: string
+  subtotalCents: number
+  taxCents: number
+  totalCents: number
+  amountDueCents: number
+  amountPaidCents: number
+  description: string | null
+  lineItems: InvoiceLineItem[]
+  hostedInvoiceUrl: string | null
+  invoicePdfUrl: string | null
+  metadata: Record<string, unknown>
+  dueAt: string | null
+  issuedAt: string | null
+  paidAt: string | null
+  voidedAt: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** An invoice plus a human label for the account it belongs to (admin list). */
+export interface InvoiceListItem extends Invoice {
+  accountLabel: string
+}
+
+/** A client option for the create-invoice picker. */
+export interface BillingClientOption {
+  id: string
+  name: string
+}
+
+/**
+ * Actual product usage rolled up per client, for the Business → Usage view.
+ * Counts come from `campaigns_with_counts` (raters/deleted already excluded):
+ * `participantsInvited` = survey-takers invited; `assessmentsCompleted` = those
+ * who finished. Both are shown rather than committing to one billable unit.
+ */
+export interface ClientUsageRow {
+  clientId: string
+  clientName: string
+  isActive: boolean
+  campaignsTotal: number
+  campaignsActive: number
+  participantsInvited: number
+  assessmentsCompleted: number
+  /** completed / invited, or null when nobody has been invited yet. */
+  completionRate: number | null
+  /** Most recent campaign activity, or null if the client has no campaigns. */
+  lastActivityAt: string | null
+}
+
+/**
+ * Immutable per-period usage frozen at billing time. The billed `quantity`
+ * cannot drift afterward even if participants are later withdrawn/deleted.
+ */
+export interface UsageSnapshot {
+  id: string
+  billingAccountId: string
+  periodStart: string
+  periodEnd: string
+  unit: string
+  quantity: number
+  unitPriceCents: number
+  amountCents: number
+  invoiceId: string | null
+  created_at: string
+}
