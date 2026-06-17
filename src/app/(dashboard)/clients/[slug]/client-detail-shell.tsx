@@ -13,6 +13,7 @@ const tabs = [
   { label: "Reports", segment: "reports" },
   { label: "Users", segment: "users" },
   { label: "Branding", segment: "branding" },
+  { label: "Billing", segment: "billing" },
   { label: "Settings", segment: "settings" },
 ];
 
