@@ -17,7 +17,7 @@ import type {
 } from "@/types/database";
 
 const BILLING_ACCOUNT_COLUMNS =
-  "id, client_id, partner_id, stripe_customer_id, legal_name, billing_email, country, tax_id, payment_terms_days, currency, settings, created_at, updated_at, deleted_at";
+  "id, client_id, partner_id, stripe_customer_id, legal_name, billing_email, country, tax_id, payment_terms_days, currency, usage_billing_enabled, usage_unit, usage_unit_price_cents, settings, created_at, updated_at, deleted_at";
 
 export async function getBillingAccountByClientId(
   clientId: string,

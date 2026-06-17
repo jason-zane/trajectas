@@ -10,6 +10,7 @@ import type {
   InvoiceKind,
   InvoiceLineItem,
   InvoiceStatus,
+  UsageSnapshot,
 } from "@/types/database";
 
 type Row = Record<string, unknown>;
@@ -29,6 +30,9 @@ export function mapBillingAccountRow(row: Row): BillingAccount {
     taxId: (row.tax_id as string | null) ?? null,
     paymentTermsDays: toNumber(row.payment_terms_days),
     currency: String(row.currency),
+    usageBillingEnabled: Boolean(row.usage_billing_enabled),
+    usageUnit: String(row.usage_unit ?? "completed_assessment"),
+    usageUnitPriceCents: toNumber(row.usage_unit_price_cents),
     settings: (row.settings as Record<string, unknown>) ?? {},
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
@@ -73,5 +77,20 @@ export function mapInvoiceRow(row: Row): Invoice {
     voidedAt: (row.voided_at as string | null) ?? null,
     created_at: String(row.created_at),
     updated_at: String(row.updated_at),
+  };
+}
+
+export function mapUsageSnapshotRow(row: Row): UsageSnapshot {
+  return {
+    id: String(row.id),
+    billingAccountId: String(row.billing_account_id),
+    periodStart: String(row.period_start),
+    periodEnd: String(row.period_end),
+    unit: String(row.unit),
+    quantity: toNumber(row.quantity),
+    unitPriceCents: toNumber(row.unit_price_cents),
+    amountCents: toNumber(row.amount_cents),
+    invoiceId: (row.invoice_id as string | null) ?? null,
+    created_at: String(row.created_at),
   };
 }

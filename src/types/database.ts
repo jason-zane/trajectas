@@ -2353,6 +2353,9 @@ export interface BillingAccount {
   taxId: string | null
   paymentTermsDays: number
   currency: string
+  usageBillingEnabled: boolean
+  usageUnit: string
+  usageUnitPriceCents: number
   settings: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -2422,4 +2425,21 @@ export interface ClientUsageRow {
   completionRate: number | null
   /** Most recent campaign activity, or null if the client has no campaigns. */
   lastActivityAt: string | null
+}
+
+/**
+ * Immutable per-period usage frozen at billing time. The billed `quantity`
+ * cannot drift afterward even if participants are later withdrawn/deleted.
+ */
+export interface UsageSnapshot {
+  id: string
+  billingAccountId: string
+  periodStart: string
+  periodEnd: string
+  unit: string
+  quantity: number
+  unitPriceCents: number
+  amountCents: number
+  invoiceId: string | null
+  created_at: string
 }
