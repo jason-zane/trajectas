@@ -6,11 +6,12 @@ import { createOneOffInvoice } from "@/lib/stripe/invoices";
 
 /**
  * End-to-end check of the one-off invoice flow: create + finalize + send via
- * Stripe (test mode) and mirror to the local `invoices` table. Self-skips in CI
- * (no STRIPE_SECRET_KEY) and is gated to a local Supabase host so it can never
- * touch production — the app's createAdminClient does not assert local itself.
+ * Stripe and mirror to the local `invoices` table. This flow MUTATES Stripe
+ * (it sends a real invoice), so it is gated to a TEST-mode key as well as a
+ * local Supabase host — never run it against a live key or production DB.
+ * It uses a throwaway client fixture and only deletes rows it created.
  * Run via: `npm run test:integration:local -- tests/integration/stripe-invoice-flow.test.ts`
- * with STRIPE_SECRET_KEY exported.
+ * with a test-mode STRIPE_SECRET_KEY exported.
  */
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const isLocalSupabase =
@@ -18,24 +19,18 @@ const isLocalSupabase =
   /^(https?:\/\/)?(127\.0\.0\.1|localhost|host\.docker\.internal|kong)(:\d+)?(\/|$)/.test(
     SUPABASE_URL,
   );
-const canRun = Boolean(process.env.STRIPE_SECRET_KEY) && isLocalSupabase;
+const isTestModeKey = /^(sk|rk)_test_/.test(process.env.STRIPE_SECRET_KEY ?? "");
+const canRun = isTestModeKey && isLocalSupabase;
 
 describe.skipIf(!canRun)("one-off invoice flow (integration)", () => {
-  const created: { stripeInvoiceId?: string; clientId?: string } = {};
+  const created: {
+    clientId?: string;
+    accountId?: string;
+    stripeInvoiceId?: string;
+  } = {};
 
   afterAll(async () => {
     const db = createAdminClient();
-    if (created.clientId) {
-      const { data: account } = await db
-        .from("billing_accounts")
-        .select("id")
-        .eq("client_id", created.clientId)
-        .maybeSingle();
-      if (account) {
-        await db.from("invoices").delete().eq("billing_account_id", account.id);
-        await db.from("billing_accounts").delete().eq("id", account.id);
-      }
-    }
     if (created.stripeInvoiceId) {
       try {
         await getStripe().invoices.voidInvoice(created.stripeInvoiceId);
@@ -43,22 +38,29 @@ describe.skipIf(!canRun)("one-off invoice flow (integration)", () => {
         // Already void/paid — nothing to clean up.
       }
     }
+    if (created.accountId) {
+      await db.from("invoices").delete().eq("billing_account_id", created.accountId);
+      await db.from("billing_accounts").delete().eq("id", created.accountId);
+    }
+    if (created.clientId) {
+      await db.from("clients").delete().eq("id", created.clientId);
+    }
   });
 
   it("creates, finalizes and mirrors a Stripe invoice", async () => {
     const db = createAdminClient();
-    const { data: client } = await db
+    const slug = `zz-invoice-test-${Date.now()}`;
+    const { data: client, error: clientErr } = await db
       .from("clients")
-      .select("id, name")
-      .is("deleted_at", null)
-      .limit(1)
+      .insert({ name: "Invoice Test Co", slug, is_active: true })
+      .select("id")
       .single();
-    expect(client?.id).toBeTruthy();
+    expect(clientErr).toBeNull();
     created.clientId = client!.id as string;
 
     const invoice = await createOneOffInvoice({
       clientId: created.clientId,
-      legalName: (client!.name as string) ?? "Test Client",
+      legalName: "Invoice Test Co",
       billingEmail: "billing+test@trajectas.com",
       lineItems: [
         { description: "Advisory day", quantity: 2, unitAmountCents: 150000 },
@@ -66,6 +68,13 @@ describe.skipIf(!canRun)("one-off invoice flow (integration)", () => {
       ],
     });
     created.stripeInvoiceId = invoice.stripeInvoiceId ?? undefined;
+
+    const { data: account } = await db
+      .from("billing_accounts")
+      .select("id")
+      .eq("client_id", created.clientId)
+      .single();
+    created.accountId = account?.id as string;
 
     expect(invoice.stripeInvoiceId).toMatch(/^in_/);
     expect(invoice.status).toBe("open");

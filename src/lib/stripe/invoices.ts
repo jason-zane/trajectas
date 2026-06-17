@@ -15,15 +15,27 @@ import type {
   InvoiceStatus,
 } from "@/types/database";
 
-/** Reuse the account's Stripe customer, creating + storing one on first use. */
+/**
+ * Reuse the account's Stripe customer, creating + storing one on first use.
+ * When reusing, the customer's name/email/address are re-synced from the latest
+ * saved billing details — otherwise a billing email changed after the first
+ * invoice would leave Stripe emailing the next invoice to the old address.
+ */
 async function ensureStripeCustomer(account: BillingAccount): Promise<string> {
-  if (account.stripeCustomerId) return account.stripeCustomerId;
-
   const stripe = getStripe();
-  const customer = await stripe.customers.create({
+  const fields = {
     name: account.legalName ?? undefined,
     email: account.billingEmail ?? undefined,
     address: account.country ? { country: account.country } : undefined,
+  };
+
+  if (account.stripeCustomerId) {
+    await stripe.customers.update(account.stripeCustomerId, fields);
+    return account.stripeCustomerId;
+  }
+
+  const customer = await stripe.customers.create({
+    ...fields,
     metadata: {
       billing_account_id: account.id,
       client_id: account.clientId ?? "",
