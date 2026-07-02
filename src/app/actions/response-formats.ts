@@ -2,6 +2,7 @@
 
 import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { normalizeLikertAnchors } from '@/lib/assess/likert-anchors'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapResponseFormatRow } from '@/lib/supabase/mappers'
@@ -73,6 +74,18 @@ export async function getResponseFormatById(
   return getResponseFormatByIdCached(id)
 }
 
+/**
+ * Canonicalize config before persisting. Likert anchors edited in the form
+ * arrive as a plain array; the DB convention (and every consumer that derives
+ * option values) expects a record keyed by 1-based scale value.
+ */
+function normalizeConfigForSave(
+  type: string,
+  config: Record<string, unknown>,
+): Record<string, unknown> {
+  return type === 'likert' ? normalizeLikertAnchors(config) : config
+}
+
 export async function createResponseFormat(formData: FormData) {
   const scope = await requireAdminScope()
   const configRaw = formData.get('config') as string
@@ -103,7 +116,7 @@ export async function createResponseFormat(formData: FormData) {
       name: parsed.data.name,
       type: parsed.data.type,
       is_active: parsed.data.isActive,
-      config: parsed.data.config,
+      config: normalizeConfigForSave(parsed.data.type, parsed.data.config),
     })
     .select('id')
     .single()
@@ -158,7 +171,7 @@ export async function updateResponseFormat(id: string, formData: FormData) {
       name: parsed.data.name,
       type: parsed.data.type,
       is_active: parsed.data.isActive,
-      config: parsed.data.config,
+      config: normalizeConfigForSave(parsed.data.type, parsed.data.config),
     })
     .eq('id', id)
 
