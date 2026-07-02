@@ -590,11 +590,11 @@ export function ResponseFormatForm({
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="likert">Likert Scale</SelectItem>
-                        <SelectItem value="forced_choice">Forced Choice</SelectItem>
-                        <SelectItem value="binary">Binary</SelectItem>
-                        <SelectItem value="free_text">Free Text</SelectItem>
-                        <SelectItem value="sjt">Situational Judgement (SJT)</SelectItem>
+                        {RESPONSE_FORMAT_TYPE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
