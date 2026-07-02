@@ -1,1 +1,18 @@
+# Block paths containing literal backslashes — artifacts of shell-escaped
+# route-group paths (e.g. `src/app/\(dashboard\)/…`) that tools occasionally
+# create instead of writing to the real `(dashboard)` directory. They shadow
+# the real files, and ESLint treats the `\(` in the path as a glob escape, so
+# lint-staged dies with a cryptic "No files matching the pattern" error.
+# Deletions are exempt so cleanup commits pass.
+# CI backstop: tests/architecture/no-escaped-paths.test.ts
+escaped=$(git diff --cached --name-only --diff-filter=d | grep '\\' || true)
+if [ -n "$escaped" ]; then
+  echo "✗ Commit blocked: staged paths contain literal backslashes:" >&2
+  echo "$escaped" >&2
+  echo "  The real file lives at the unescaped path (route groups like" >&2
+  echo "  'src/app/(dashboard)/' need no escaping) — write there instead" >&2
+  echo "  and delete the backslash copy." >&2
+  exit 1
+fi
+
 npx lint-staged
