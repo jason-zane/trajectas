@@ -52,9 +52,11 @@ interface ResponseFormatFormProps {
   }
 }
 
+// forced_choice is deliberately not offered: ipsative scoring is out of scope
+// for now (decision 2026-07-02) — legacy rows stay editable, new ones can't
+// be created.
 const RESPONSE_FORMAT_TYPE_OPTIONS = [
   { value: "likert", label: "Likert Scale" },
-  { value: "forced_choice", label: "Forced Choice" },
   { value: "binary", label: "Binary" },
   { value: "free_text", label: "Free Text" },
   { value: "sjt", label: "Situational Judgement (SJT)" },
