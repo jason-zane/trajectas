@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { processSnapshot } from '@/lib/reports/runner'
+import { processSnapshotsBounded } from '@/lib/reports/generation-sweep'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthenticationRequiredError,
@@ -80,17 +81,9 @@ export async function POST(request: Request) {
         .eq('participant_session_id', body.sessionId)
         .eq('status', 'pending')
       const ids = (data ?? []).map((r: { id: string }) => r.id)
-      after(async () => {
-        await Promise.all(
-          ids.map(async (id) => {
-            try {
-              await processSnapshot(id)
-            } catch (error) {
-              console.error(`[reports] Failed to process snapshot ${id}:`, error)
-            }
-          }),
-        )
-      })
+      // Bounded concurrency: each snapshot can involve LLM calls and a
+      // deferred Chromium PDF render, so an uncapped fan-out risks OOM.
+      after(() => processSnapshotsBounded(ids))
       return Response.json({ queued: ids }, { status: 202 })
     }
 
