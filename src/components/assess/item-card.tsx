@@ -44,17 +44,25 @@ export function ItemCard({
 
   return (
     <div>
-      {/* Question stem — serif display moment */}
-      <p
-        className="mb-8 max-w-[620px] text-[33px] font-semibold leading-tight sm:text-[33px] sm:leading-tight"
-        style={{
-          color: "var(--runner-display)",
-          fontFamily: '"Source Serif 4", Georgia, serif',
-          letterSpacing: "-0.01em",
-        }}
-      >
-        {item.stem}
-      </p>
+      {/* Question stem — serif display moment.
+          Reserve a fixed band tall enough for three lines and bottom-align
+          the text within it, so short (1–2 line) and longer (3 line) stems
+          all occupy the same height. That keeps the total item block a
+          constant height, so the answer options below stay anchored in the
+          same place as the participant advances instead of jumping up and
+          down with each question's length. */}
+      <div className="mb-8 flex min-h-[8.5rem] items-end">
+        <p
+          className="max-w-[620px] text-[33px] font-semibold leading-tight"
+          style={{
+            color: "var(--runner-display)",
+            fontFamily: '"Source Serif 4", Georgia, serif',
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {item.stem}
+        </p>
+      </div>
 
       {/* Response format */}
       <div>

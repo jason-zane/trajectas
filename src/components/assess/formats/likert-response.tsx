@@ -42,11 +42,12 @@ export function LikertResponse({
             key={option.id}
             onClick={() => onSelect(option.value)}
             className="
-              grid place-items-center transition-all duration-150 ease-out
+              flex items-center justify-center text-center text-balance
+              leading-[1.15] transition-all duration-150 ease-out
               focus-visible:outline-none focus-visible:ring-2
               focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
-              px-3 py-3 md:px-2 md:py-4
-              min-h-[46px] md:min-h-[62px] text-sm font-medium
+              px-3 py-3 md:px-3 md:py-3
+              min-h-[46px] md:min-h-[68px] text-sm font-medium
               active:scale-95
             "
             style={{
