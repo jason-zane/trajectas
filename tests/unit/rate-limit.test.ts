@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { checkRequestRateLimit, checkKeyedRateLimit } from "@/lib/security/rate-limit";
+import {
+  checkRequestRateLimit,
+  checkKeyedRateLimit,
+  checkAssessApiTokenRateLimit,
+} from "@/lib/security/rate-limit";
 
 function createRequest(url: string, init?: ConstructorParameters<typeof NextRequest>[1]) {
   return new NextRequest(url, init);
@@ -162,6 +166,138 @@ describe("request rate limiting", () => {
 
       const blocked = await checkRequestRateLimit(junkPath);
       expect(blocked).toMatchObject({ allowed: false, limit: 60 });
+    });
+  });
+
+  describe("assess runner API per-IP proxy buckets", () => {
+    function runnerApiRequest(endpoint: string, ip: string) {
+      return createRequest(`https://trajectas.test/api/assess/${endpoint}`, {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": ip,
+          // Forged referers must not change the bucket.
+          referer: `https://evil.test/assess/${"e".repeat(64)}`,
+        },
+      });
+    }
+
+    it("allows 600/min per IP on save-batch, then blocks", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 600; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", "203.0.113.90"),
+        );
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 600, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(
+        runnerApiRequest("save-batch", "203.0.113.90"),
+      );
+      expect(blocked).toMatchObject({ allowed: false, limit: 600 });
+    });
+
+    it("allows 300/min per IP on progress, then blocks", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 300; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("progress", "203.0.113.91"),
+        );
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 300, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(
+        runnerApiRequest("progress", "203.0.113.91"),
+      );
+      expect(blocked).toMatchObject({ allowed: false, limit: 300 });
+    });
+
+    it("covers the single-save endpoint on the 600/min bucket", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 601; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save", "203.0.113.92"),
+        );
+      }
+      expect(result).toMatchObject({ allowed: false, limit: 600 });
+    });
+
+    it("gives different IPs independent buckets", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 601; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", "203.0.113.93"),
+        );
+      }
+      expect(result).toMatchObject({ allowed: false, limit: 600 });
+
+      const otherIp = await checkRequestRateLimit(
+        runnerApiRequest("save-batch", "203.0.113.94"),
+      );
+      expect(otherIp).toMatchObject({ allowed: true, limit: 600 });
+    });
+
+    it("keeps endpoint buckets independent for the same IP", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 601; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", "203.0.113.95"),
+        );
+      }
+      expect(result).toMatchObject({ allowed: false });
+
+      const progress = await checkRequestRateLimit(
+        runnerApiRequest("progress", "203.0.113.95"),
+      );
+      expect(progress).toMatchObject({ allowed: true, limit: 300 });
+    });
+  });
+
+  describe("assess runner API per-token route buckets", () => {
+    const tokenA = "c".repeat(64);
+    const tokenB = "d".repeat(64);
+
+    it("allows 120/min per token on save-batch, then blocks", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        result = await checkAssessApiTokenRateLimit("save-batch", tokenA);
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 120, remaining: 0 });
+
+      const blocked = await checkAssessApiTokenRateLimit("save-batch", tokenA);
+      expect(blocked).toMatchObject({ allowed: false, limit: 120 });
+    });
+
+    it("allows 60/min per token on progress, then blocks", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        result = await checkAssessApiTokenRateLimit("progress", tokenA);
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 60, remaining: 0 });
+
+      const blocked = await checkAssessApiTokenRateLimit("progress", tokenA);
+      expect(blocked).toMatchObject({ allowed: false, limit: 60 });
+    });
+
+    it("gives different tokens independent buckets", async () => {
+      let resultA = null;
+      for (let attempt = 0; attempt < 121; attempt += 1) {
+        resultA = await checkAssessApiTokenRateLimit("save-batch", tokenA);
+      }
+      expect(resultA).toMatchObject({ allowed: false, limit: 120 });
+
+      const resultB = await checkAssessApiTokenRateLimit("save-batch", tokenB);
+      expect(resultB).toMatchObject({ allowed: true, limit: 120 });
+    });
+
+    it("keeps endpoint buckets independent for the same token", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 121; attempt += 1) {
+        result = await checkAssessApiTokenRateLimit("save", tokenA);
+      }
+      expect(result).toMatchObject({ allowed: false, limit: 120 });
+
+      const progress = await checkAssessApiTokenRateLimit("progress", tokenA);
+      expect(progress).toMatchObject({ allowed: true, limit: 60 });
     });
   });
 
