@@ -67,7 +67,12 @@ test.describe("seeded participant runtime", () => {
     await page.goto(`/assess/${seededTokens.invited}`);
 
     await expect(page).toHaveURL(new RegExp(`/assess/${seededTokens.invited}/welcome$`));
-    await expect(page.getByRole("heading", { name: "Seeded Leadership Campaign" })).toBeVisible();
+    // Dark-editorial welcome: campaign title renders as the mono eyebrow,
+    // and the serif heading carries the greeting sentence.
+    await expect(page.getByText("Seeded Leadership Campaign").first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /this is about how you work best/i })
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Begin assessment" })).toBeVisible();
   });
 
