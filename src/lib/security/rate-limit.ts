@@ -169,20 +169,6 @@ function userBucket(request: NextRequest, ip: string): string {
 // /assess/join, /assess/r, etc.
 const ASSESS_TOKEN_PATH_PATTERN = /^\/assess\/([0-9a-f]{64})(?:\/|$)/;
 
-function getAssessTokenFromReferer(request: NextRequest): string | null {
-  const referer = request.headers.get("referer");
-  if (!referer) return null;
-
-  let refererPath: string;
-  try {
-    refererPath = new URL(referer).pathname;
-  } catch {
-    return null;
-  }
-
-  return refererPath.match(ASSESS_TOKEN_PATH_PATTERN)?.[1] ?? null;
-}
-
 function resolveRule(request: NextRequest): RateLimitRule | null {
   const pathname = request.nextUrl.pathname;
   const ip = getClientIp(request);
@@ -252,27 +238,26 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     pathname === "/api/assess/progress"
   ) {
     // Unauthenticated token-bearing runner endpoints. The access token
-    // travels in the request body, which middleware cannot read — but the
-    // runner page lives at /assess/<token>, and under our
-    // strict-origin-when-cross-origin Referrer-Policy the same-origin
-    // fetch/sendBeacon calls carry that full page URL in Referer. Key per
-    // participant token from there (the same token the next-action rule
-    // below keys on) so NAT'd offices don't collapse into one IP budget.
-    // The referer is attacker-suppliable — like the token in the
-    // next-action rule — so requests without a token-shaped referer fall
-    // back to a per-IP bucket, which bounds naive token brute-forcing.
+    // travels in the request body, which middleware cannot read, and every
+    // request-envelope surrogate for it (Referer, custom headers) is
+    // attacker-suppliable — keying on one would let a scripted caller mint
+    // a fresh bucket per request. So this proxy layer keys per IP only:
+    // it bounds single-IP hammering and token brute-forcing no matter what
+    // headers the caller forges. The tight per-participant budget is
+    // enforced in the routes themselves, keyed on the token actually
+    // submitted (checkAssessApiTokenRateLimit below).
     //
-    // Sizing: the save queue flushes at most every ~1.5s (~40/min) plus
-    // retry and pagehide-beacon bursts; progress updates are debounced to
-    // ~3s (~20/min). 120/60 per minute leaves ~3x the theoretical max
-    // cadence and ~10x realistic traffic.
+    // Sizing: per-IP must absorb a NAT'd cohort. A 50-participant workshop
+    // behind one office IP at realistic cadence (~5-10 batches/min each;
+    // the save queue flushes at most every ~1.5s) stays under 600/min,
+    // while scripted abuse from one IP is capped at 10 req/s. Progress
+    // updates are debounced to ~3s per participant, so 300/min covers the
+    // same cohort. A brief 429 is harmless: the save queue's rows stay
+    // pending in IndexedDB and retry with backoff.
     const endpoint = pathname.slice("/api/assess/".length);
-    const refererToken = getAssessTokenFromReferer(request);
     return {
-      key: refererToken
-        ? `assess-api:${endpoint}:${hashValue(refererToken)}`
-        : `assess-api:${endpoint}:ip:${ip}`,
-      limit: pathname === "/api/assess/progress" ? 60 : 120,
+      key: `assess-api:${endpoint}:ip:${ip}`,
+      limit: pathname === "/api/assess/progress" ? 300 : 600,
       windowMs: 60_000,
       // Fail open: these requests carry participant answers, so a Redis
       // blip must not drop saves. The RPCs behind them are cheap.
@@ -463,4 +448,41 @@ export async function checkKeyedRateLimit(
   // we're OK with fallback for this operation)
   const rule: RateLimitRule = { key, limit, windowMs };
   return applyRuleInMemory(rule);
+}
+
+// ---------------------------------------------------------------------------
+// Assess runner API — per-token layer
+// ---------------------------------------------------------------------------
+
+const ASSESS_API_TOKEN_LIMITS = {
+  "save-batch": 120,
+  save: 120,
+  progress: 60,
+} as const;
+
+export type AssessApiEndpoint = keyof typeof ASSESS_API_TOKEN_LIMITS;
+
+/**
+ * Per-participant-token rate limit for the unauthenticated runner API
+ * endpoints, called from the route handlers after the body is parsed. This
+ * complements the per-IP rule in resolveRule: the proxy layer bounds
+ * single-IP abuse regardless of forged headers, while this layer binds a
+ * tight budget to the token actually submitted, so hammering one leaked
+ * token from many IPs is still capped.
+ *
+ * Sizing: the save queue flushes at most every ~1.5s (~40/min) plus retry
+ * and pagehide-beacon bursts; progress updates are debounced to ~3s
+ * (~20/min). 120/60 per minute leaves ~3x the theoretical max cadence and
+ * ~10x realistic traffic. Fail-open (Redis blips must not drop answers);
+ * a 429 is retried by the client's IndexedDB-backed queue.
+ */
+export async function checkAssessApiTokenRateLimit(
+  endpoint: AssessApiEndpoint,
+  accessToken: string,
+): Promise<RateLimitResult | null> {
+  return checkKeyedRateLimit(
+    `assess-api:${endpoint}:token:${hashValue(accessToken)}`,
+    ASSESS_API_TOKEN_LIMITS[endpoint],
+    60_000,
+  );
 }

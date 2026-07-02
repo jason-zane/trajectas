@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkAssessApiTokenRateLimit } from '@/lib/security/rate-limit'
 import {
   parseJsonRequestWithLimit,
   RequestBodyTooLargeError,
@@ -29,6 +30,16 @@ export async function POST(request: Request) {
 
   if (!token || !sessionId || !sectionId || itemIndex === undefined) {
     return new Response('Missing required fields', { status: 400 })
+  }
+
+  // Per-token budget on top of the proxy's per-IP rule; keyed on the token
+  // actually submitted, so it can't be dodged by forging request headers.
+  const rateLimit = await checkAssessApiTokenRateLimit('progress', token)
+  if (rateLimit && !rateLimit.allowed) {
+    return new Response('Too many requests', {
+      status: 429,
+      headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) },
+    })
   }
 
   const db = createAdminClient()
