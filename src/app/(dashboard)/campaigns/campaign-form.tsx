@@ -418,7 +418,14 @@ export function CampaignForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Confidentiality Mode */}
+            {/* Confidentiality Mode.
+                Aggregate-only is selectable only once reporting actually
+                enforces it (hiding individual results for the campaign) —
+                until then, offering it would promise participants something
+                the product doesn't yet guarantee. The schema, participant
+                copy variants, and this control are ready; enforcement is
+                tracked as follow-up work. Campaigns already set to
+                aggregate_only (none yet) keep their value editable. */}
             <div className="space-y-1.5">
               <Label htmlFor="confidentialityMode">Confidentiality Mode</Label>
               <select
@@ -428,7 +435,12 @@ export function CampaignForm({
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="standard">Standard — individual results visible to authorised viewers</option>
-                <option value="aggregate_only">Aggregate-only — participants promised group-level reporting only</option>
+                <option
+                  value="aggregate_only"
+                  disabled={confidentialityMode !== "aggregate_only"}
+                >
+                  Aggregate-only — coming soon (requires aggregate reporting enforcement)
+                </option>
               </select>
               {errors.confidentialityMode && (
                 <p className="text-xs text-destructive">{errors.confidentialityMode[0]}</p>

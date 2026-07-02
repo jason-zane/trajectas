@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
-import Link from "next/link"
 import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess"
+import { RunnerCtaLink } from "@/components/assess/runner-cta-link"
 import { getCachedEffectiveBrand } from "@/app/actions/brand"
 import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
@@ -223,25 +223,11 @@ async function AssessmentIntroContent({
             </span>
           </div>
 
-          {/* CTA */}
-          <Link
-            href={`/assess/${token}/section/0`}
-            className="inline-flex items-center justify-center px-7 py-3 rounded-[10px] font-semibold transition-colors"
-            style={{
-              background: "var(--runner-cta-fill)",
-              color: "var(--runner-cta-text)",
-              fontSize: "14.5px",
-              fontWeight: "600",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "var(--runner-cta-fill-hover)"
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "var(--runner-cta-fill)"
-            }}
-          >
+          {/* CTA — client component: this page is a Server Component and
+              must not pass event handlers across the RSC boundary. */}
+          <RunnerCtaLink href={`/assess/${token}/section/0`}>
             {buttonLabel}
-          </Link>
+          </RunnerCtaLink>
         </div>
       </main>
 
