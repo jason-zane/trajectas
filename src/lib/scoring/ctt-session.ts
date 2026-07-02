@@ -14,6 +14,11 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { toPomp } from '@/lib/scoring/transforms'
+import {
+  isKeyedItem,
+  scoreKeyedResponse,
+  type ScorableOption,
+} from '@/lib/scoring/keyed-options'
 
 interface ResponseRow {
   item_id: string
@@ -27,6 +32,8 @@ interface ItemMeta {
   weight: number
   minValue: number
   maxValue: number
+  /** The item's options; a non-null scoreValue anywhere makes the item keyed. */
+  options: ScorableOption[]
 }
 
 interface FactorConstructLink {
@@ -150,18 +157,33 @@ export async function scoreSessionCTT(
     formatMap.set(f.id, { type: f.type ?? '', config: f.config ?? {} })
   }
 
-  // Per-item option values: for option-based formats (binary, forced choice)
-  // the real scoring bounds live on item_options, not the format config.
+  // Per-item options: the real scoring bounds live on item_options, not the
+  // format config — and options carrying score_value make the item keyed.
   const { data: optionRows } = await db
     .from('item_options')
-    .select('item_id, value')
+    .select('item_id, value, score_value, exclude_from_scoring')
     .in('item_id', itemIds)
 
   const optionValuesByItem = new Map<string, number[]>()
+  const scorableOptionsByItem = new Map<string, ScorableOption[]>()
   for (const opt of optionRows ?? []) {
-    const existing = optionValuesByItem.get(opt.item_id) ?? []
-    existing.push(Number(opt.value))
-    optionValuesByItem.set(opt.item_id, existing)
+    const excluded = opt.exclude_from_scoring ?? false
+
+    // Excluded options ("Don't know") must not define the scoring scale —
+    // their (often sentinel) values would stretch the bounds for everyone.
+    if (!excluded) {
+      const values = optionValuesByItem.get(opt.item_id) ?? []
+      values.push(Number(opt.value))
+      optionValuesByItem.set(opt.item_id, values)
+    }
+
+    const scorable = scorableOptionsByItem.get(opt.item_id) ?? []
+    scorable.push({
+      value: Number(opt.value),
+      scoreValue: opt.score_value == null ? null : Number(opt.score_value),
+      excludeFromScoring: excluded,
+    })
+    scorableOptionsByItem.set(opt.item_id, scorable)
   }
 
   // Build item metadata map
@@ -183,6 +205,7 @@ export async function scoreSessionCTT(
       weight: item.weight != null ? Number(item.weight) : 1.0,
       minValue,
       maxValue,
+      options: scorableOptionsByItem.get(item.id) ?? [],
     })
   }
 
@@ -193,13 +216,32 @@ export async function scoreSessionCTT(
     const meta = itemMap.get(resp.item_id)
     if (!meta) continue
 
-    const effectiveValue = meta.reverseScored
-      ? meta.maxValue - Number(resp.response_value) + meta.minValue
-      : Number(resp.response_value)
+    // A chosen exclude_from_scoring option ("Don't know") drops the response
+    // from aggregates entirely — keyed or not.
+    const selected = meta.options.find(
+      (o) => o.value === Number(resp.response_value),
+    )
+    if (selected?.excludeFromScoring) continue
 
-    // POMP, clamped to 0–100 so a response outside the derived bounds can
-    // never push a persisted score negative or above the scale.
-    const pompValue = toPomp(effectiveValue, meta.minValue, meta.maxValue)
+    let pompValue: number
+
+    // Keyed items score by the key of the chosen option (reverse_scored does
+    // not apply — keys encode direction).
+    const keyedOutcome = isKeyedItem(meta.options)
+      ? scoreKeyedResponse(Number(resp.response_value), meta.options)
+      : null
+
+    if (keyedOutcome?.kind === 'scored') {
+      pompValue = keyedOutcome.pomp
+    } else {
+      const effectiveValue = meta.reverseScored
+        ? meta.maxValue - Number(resp.response_value) + meta.minValue
+        : Number(resp.response_value)
+
+      // POMP, clamped to 0–100 so a response outside the derived bounds can
+      // never push a persisted score negative or above the scale.
+      pompValue = toPomp(effectiveValue, meta.minValue, meta.maxValue)
+    }
 
     const existing = constructItems.get(meta.constructId) ?? []
     existing.push({ pompValue, weight: meta.weight })

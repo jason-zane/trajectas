@@ -52,6 +52,15 @@ const itemStatusOptions = [
   { value: "archived", label: "Archived" },
 ] as const;
 
+export type ItemOptionDraft = {
+  label: string;
+  value: number;
+  /** Keyed score for choosing this option; null = not keyed. */
+  scoreValue?: number | null;
+  /** Selecting this option drops the response from scoring ("Don't know"). */
+  excludeFromScoring?: boolean;
+};
+
 interface ItemFormProps {
   constructs: SelectOption[];
   responseFormats: ResponseFormat[];
@@ -67,7 +76,7 @@ interface ItemFormProps {
     calibrationDate: string;
     sampleSize: number;
   } | null;
-  initialOptions?: { label: string; value: number }[];
+  initialOptions?: ItemOptionDraft[];
   initialData?: {
     purpose: ItemPurpose;
     constructId?: string;
@@ -116,9 +125,7 @@ export function ItemForm({
     initialData?.difficulty ?? "medium"
   );
   const [sourceId, setSourceId] = useState<string>(initialData?.sourceId ?? "");
-  const [options, setOptions] = useState<{ label: string; value: number }[]>(
-    initialOptions ?? []
-  );
+  const [options, setOptions] = useState<ItemOptionDraft[]>(initialOptions ?? []);
   const isConstructItem = purpose === "construct";
 
   // Auto-populate options from Likert format anchors when format changes
@@ -735,7 +742,7 @@ export function ItemForm({
                         onClick={() =>
                           setOptions((prev) => [
                             ...prev,
-                            { label: "", value: prev.length + 1 },
+                            { label: "", value: prev.length + 1, scoreValue: null, excludeFromScoring: false },
                           ])
                         }
                         disabled={options.length >= 10}
@@ -756,6 +763,18 @@ export function ItemForm({
                     </div>
                   ) : (
                     <div className="space-y-2">
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="w-6" />
+                        <span className="flex-1">Label</span>
+                        <span className="w-20 text-right">Value</span>
+                        <span className="w-20 text-right" title="Keyed score awarded when this option is chosen. Leave blank for unkeyed items.">
+                          Key score
+                        </span>
+                        <span className="w-14 text-center" title="Selecting this option removes the response from scoring (e.g. Don't know).">
+                          Unscored
+                        </span>
+                        {formatType !== "likert" && formatType !== "binary" && <span className="w-6" />}
+                      </div>
                       {options.map((opt, idx) => (
                         <div key={idx} className="flex items-center gap-3">
                           <span className="text-xs text-muted-foreground tabular-nums w-6 text-right">
@@ -782,6 +801,39 @@ export function ItemForm({
                             }}
                             className="w-20 rounded-md border bg-background px-3 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-ring"
                           />
+                          <input
+                            type="number"
+                            step="any"
+                            value={opt.scoreValue ?? ""}
+                            onChange={(e) => {
+                              const updated = [...options];
+                              updated[idx] = {
+                                ...updated[idx],
+                                scoreValue: e.target.value === "" ? null : Number(e.target.value),
+                              };
+                              setOptions(updated);
+                            }}
+                            placeholder="—"
+                            disabled={opt.excludeFromScoring === true}
+                            className="w-20 rounded-md border bg-background px-3 py-1.5 text-sm tabular-nums text-right focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-40"
+                          />
+                          <span className="w-14 flex justify-center">
+                            <input
+                              type="checkbox"
+                              checked={opt.excludeFromScoring === true}
+                              onChange={(e) => {
+                                const updated = [...options];
+                                updated[idx] = {
+                                  ...updated[idx],
+                                  excludeFromScoring: e.target.checked,
+                                  ...(e.target.checked ? { scoreValue: null } : {}),
+                                };
+                                setOptions(updated);
+                              }}
+                              className="size-4 accent-[var(--brand-primary,theme(colors.primary.DEFAULT))]"
+                              aria-label={`Exclude option ${idx + 1} from scoring`}
+                            />
+                          </span>
                           {formatType !== "likert" && formatType !== "binary" && (
                             <Button
                               type="button"
@@ -795,6 +847,11 @@ export function ItemForm({
                           )}
                         </div>
                       ))}
+                      <p className="text-xs text-muted-foreground pt-1">
+                        Key scores make an item expert-keyed: the participant&apos;s score is the
+                        key of the option they chose, scaled against the item&apos;s best and worst
+                        keys. Reverse scoring does not apply to keyed items.
+                      </p>
                     </div>
                   )}
                 </CardContent>
