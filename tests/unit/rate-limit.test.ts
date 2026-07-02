@@ -165,6 +165,146 @@ describe("request rate limiting", () => {
     });
   });
 
+  describe("assess runner API endpoints keyed per participant token", () => {
+    const tokenA = "c".repeat(64);
+    const tokenB = "d".repeat(64);
+
+    function runnerApiRequest(
+      endpoint: string,
+      { token, ip }: { token?: string; ip: string },
+    ) {
+      return createRequest(`https://trajectas.test/api/assess/${endpoint}`, {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": ip,
+          ...(token
+            ? { referer: `https://trajectas.test/assess/${token}` }
+            : {}),
+        },
+      });
+    }
+
+    it("allows 120/min per token on save-batch, then blocks", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", { token: tokenA, ip: "203.0.113.90" }),
+        );
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 120, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(
+        runnerApiRequest("save-batch", { token: tokenA, ip: "203.0.113.90" }),
+      );
+      expect(blocked).toMatchObject({ allowed: false, limit: 120 });
+    });
+
+    it("allows 60/min per token on progress, then blocks", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("progress", { token: tokenA, ip: "203.0.113.91" }),
+        );
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 60, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(
+        runnerApiRequest("progress", { token: tokenA, ip: "203.0.113.91" }),
+      );
+      expect(blocked).toMatchObject({ allowed: false, limit: 60 });
+    });
+
+    it("covers the single-save endpoint on the 120/min bucket", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 121; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save", { token: tokenA, ip: "203.0.113.92" }),
+        );
+      }
+      expect(result).toMatchObject({ allowed: false, limit: 120 });
+    });
+
+    it("gives different participant tokens on the same IP independent buckets", async () => {
+      const sharedIp = "203.0.113.93";
+
+      let resultA = null;
+      for (let attempt = 0; attempt < 121; attempt += 1) {
+        resultA = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", { token: tokenA, ip: sharedIp }),
+        );
+      }
+      expect(resultA).toMatchObject({ allowed: false, limit: 120 });
+
+      const resultB = await checkRequestRateLimit(
+        runnerApiRequest("save-batch", { token: tokenB, ip: sharedIp }),
+      );
+      expect(resultB).toMatchObject({ allowed: true, limit: 120 });
+    });
+
+    it("shares one bucket for the same token across different IPs", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", {
+            token: tokenA,
+            ip: `203.0.113.${attempt % 2 === 0 ? 94 : 95}`,
+          }),
+        );
+      }
+      expect(result).toMatchObject({ allowed: true, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(
+        runnerApiRequest("save-batch", { token: tokenA, ip: "203.0.113.96" }),
+      );
+      expect(blocked).toMatchObject({ allowed: false, limit: 120 });
+    });
+
+    it("falls back to a per-IP bucket when the referer has no runner token", async () => {
+      const ip = "203.0.113.97";
+      const noReferer = runnerApiRequest("save-batch", { ip });
+      const junkReferer = createRequest(
+        "https://trajectas.test/api/assess/save-batch",
+        {
+          method: "POST",
+          headers: {
+            "x-forwarded-for": ip,
+            referer: "https://trajectas.test/assess/not-a-64-hex-token",
+          },
+        },
+      );
+
+      // Both draw from the same IP-keyed bucket.
+      let result = null;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        result = await checkRequestRateLimit(noReferer);
+      }
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        result = await checkRequestRateLimit(junkReferer);
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 120, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(noReferer);
+      expect(blocked).toMatchObject({ allowed: false, limit: 120 });
+    });
+
+    it("keeps endpoint buckets independent for the same token", async () => {
+      // Exhaust save-batch for the token…
+      let result = null;
+      for (let attempt = 0; attempt < 121; attempt += 1) {
+        result = await checkRequestRateLimit(
+          runnerApiRequest("save-batch", { token: tokenA, ip: "203.0.113.98" }),
+        );
+      }
+      expect(result).toMatchObject({ allowed: false });
+
+      // …progress for the same token is unaffected.
+      const progress = await checkRequestRateLimit(
+        runnerApiRequest("progress", { token: tokenA, ip: "203.0.113.98" }),
+      );
+      expect(progress).toMatchObject({ allowed: true, limit: 60 });
+    });
+  });
+
   describe("report generation trigger buckets", () => {
     it("allows 120/min for internal-key callers", async () => {
       const request = createRequest("https://trajectas.test/api/reports/generate", {

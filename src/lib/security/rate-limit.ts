@@ -164,6 +164,25 @@ function userBucket(request: NextRequest, ip: string): string {
   return getSupabaseSessionFingerprint(request) ?? ip;
 }
 
+// Participant access tokens are 64-char lowercase hex
+// (crypto.randomBytes(32).toString('hex')); the strict match excludes
+// /assess/join, /assess/r, etc.
+const ASSESS_TOKEN_PATH_PATTERN = /^\/assess\/([0-9a-f]{64})(?:\/|$)/;
+
+function getAssessTokenFromReferer(request: NextRequest): string | null {
+  const referer = request.headers.get("referer");
+  if (!referer) return null;
+
+  let refererPath: string;
+  try {
+    refererPath = new URL(referer).pathname;
+  } catch {
+    return null;
+  }
+
+  return refererPath.match(ASSESS_TOKEN_PATH_PATTERN)?.[1] ?? null;
+}
+
 function resolveRule(request: NextRequest): RateLimitRule | null {
   const pathname = request.nextUrl.pathname;
   const ip = getClientIp(request);
@@ -227,6 +246,40 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     };
   }
 
+  if (
+    pathname === "/api/assess/save-batch" ||
+    pathname === "/api/assess/save" ||
+    pathname === "/api/assess/progress"
+  ) {
+    // Unauthenticated token-bearing runner endpoints. The access token
+    // travels in the request body, which middleware cannot read — but the
+    // runner page lives at /assess/<token>, and under our
+    // strict-origin-when-cross-origin Referrer-Policy the same-origin
+    // fetch/sendBeacon calls carry that full page URL in Referer. Key per
+    // participant token from there (the same token the next-action rule
+    // below keys on) so NAT'd offices don't collapse into one IP budget.
+    // The referer is attacker-suppliable — like the token in the
+    // next-action rule — so requests without a token-shaped referer fall
+    // back to a per-IP bucket, which bounds naive token brute-forcing.
+    //
+    // Sizing: the save queue flushes at most every ~1.5s (~40/min) plus
+    // retry and pagehide-beacon bursts; progress updates are debounced to
+    // ~3s (~20/min). 120/60 per minute leaves ~3x the theoretical max
+    // cadence and ~10x realistic traffic.
+    const endpoint = pathname.slice("/api/assess/".length);
+    const refererToken = getAssessTokenFromReferer(request);
+    return {
+      key: refererToken
+        ? `assess-api:${endpoint}:${hashValue(refererToken)}`
+        : `assess-api:${endpoint}:ip:${ip}`,
+      limit: pathname === "/api/assess/progress" ? 60 : 120,
+      windowMs: 60_000,
+      // Fail open: these requests carry participant answers, so a Redis
+      // blip must not drop saves. The RPCs behind them are cheap.
+      failClosed: false,
+    };
+  }
+
   if (pathname === "/api/chat") {
     return {
       key: `chat:${userBucket(request, ip)}`,
@@ -249,10 +302,8 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
     // Assessment participants are cookieless, so the generic bucket below
     // falls back to IP — which collapses a whole office behind one NAT into
     // a single 60/min budget. Their server actions POST to the tokenised
-    // runner URL, so key those per participant token instead. Tokens are
-    // 64-char lowercase hex (crypto.randomBytes(32).toString('hex')); the
-    // strict match excludes /assess/join, /assess/r, etc.
-    const assessMatch = pathname.match(/^\/assess\/([0-9a-f]{64})(?:\/|$)/);
+    // runner URL, so key those per participant token instead.
+    const assessMatch = pathname.match(ASSESS_TOKEN_PATH_PATTERN);
     if (assessMatch) {
       return {
         key: `action:assess:${hashValue(assessMatch[1])}`,
