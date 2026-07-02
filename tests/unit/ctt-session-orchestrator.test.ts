@@ -214,6 +214,31 @@ describe('CTT session scoring logic', () => {
       const bounds = deriveItemBounds({ options: 2 }, [2, 1])
       expect(bounds).toEqual({ minValue: 1, maxValue: 2 })
     })
+
+    it('derives 0–1 bounds from seeded binary label keys when the item has no options', () => {
+      // AI-accepted items get no item_options; the runner's binary component
+      // falls back to Yes(1)/No(0), so the config's label keys are the scale.
+      const bounds = deriveItemBounds(
+        { options: 2, labels: { '0': 'No', '1': 'Yes' } },
+        [],
+      )
+      expect(bounds).toEqual({ minValue: 0, maxValue: 1 })
+    })
+
+    it('derives bounds from trueValue/falseValue (admin-form binary config) without options', () => {
+      const bounds = deriveItemBounds(
+        { trueLabel: 'True', falseLabel: 'False', trueValue: 1, falseValue: 0 },
+        [],
+      )
+      expect(bounds).toEqual({ minValue: 0, maxValue: 1 })
+    })
+
+    it('ignores degenerate label keys (single value) and falls through to the default', () => {
+      expect(deriveItemBounds({ labels: { '1': 'Only' } }, [])).toEqual({
+        minValue: 1,
+        maxValue: 5,
+      })
+    })
   })
 
   // -----------------------------------------------------------------------

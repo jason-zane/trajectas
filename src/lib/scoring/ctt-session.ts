@@ -41,8 +41,12 @@ interface FactorConstructLink {
  * Explicit `minValue`/`maxValue` on the response-format config win. When the
  * config lacks them, the item's own option values define the scale — e.g. the
  * seeded binary format carries no bounds, so its 0/1 options must score 0–1,
- * not the Likert default 1–5. Only when the item has no options either do we
- * fall back to the config's `points` (Likert) or the 1–5 default.
+ * not the Likert default 1–5. Items with no options (AI-generated items get
+ * none) can still derive bounds from binary-style configs: the seeded shape
+ * keys option values as `labels` keys ({"0": "No", "1": "Yes"}) and the admin
+ * form stores `trueValue`/`falseValue` — the runner's binary component
+ * submits 0/1 in both cases. Only after that do we fall back to the config's
+ * `points` (Likert) or the 1–5 default.
  */
 export function deriveItemBounds(
   config: Record<string, unknown>,
@@ -57,6 +61,27 @@ export function deriveItemBounds(
     return {
       minValue: Math.min(...optionValues),
       maxValue: Math.max(...optionValues),
+    }
+  }
+  if (config.labels && typeof config.labels === 'object' && !Array.isArray(config.labels)) {
+    const labelValues = Object.keys(config.labels as Record<string, unknown>)
+      .map(Number)
+      .filter(Number.isFinite)
+    if (new Set(labelValues).size >= 2) {
+      return {
+        minValue: Math.min(...labelValues),
+        maxValue: Math.max(...labelValues),
+      }
+    }
+  }
+  if (
+    typeof config.trueValue === 'number' &&
+    typeof config.falseValue === 'number' &&
+    config.trueValue !== config.falseValue
+  ) {
+    return {
+      minValue: Math.min(config.trueValue, config.falseValue),
+      maxValue: Math.max(config.trueValue, config.falseValue),
     }
   }
   const points = typeof config.points === 'number' ? config.points : 5
