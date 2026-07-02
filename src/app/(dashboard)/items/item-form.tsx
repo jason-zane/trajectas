@@ -40,6 +40,7 @@ import {
   updateItemField,
 } from "@/app/actions/items";
 import type { SelectOption } from "@/app/actions/items";
+import { likertAnchorOptions } from "@/lib/assess/likert-anchors";
 import { SourcePicker } from "@/components/source-picker";
 import type { ContentSource, ResponseFormat, ActiveResponseFormatType, ItemPurpose, ItemDifficulty } from "@/types/database";
 
@@ -125,11 +126,10 @@ export function ItemForm({
     setResponseFormatId(formatId);
     const fmt = responseFormats.find((rf) => rf.id === formatId);
     if (fmt?.type === "likert" && fmt.config && typeof fmt.config === "object") {
-      const anchors = (fmt.config as Record<string, unknown>).anchors as Record<string, string> | undefined;
-      if (anchors) {
-        const newOptions = Object.entries(anchors)
-          .map(([val, label]) => ({ label, value: Number(val) }))
-          .sort((a, b) => a.value - b.value);
+      const newOptions = likertAnchorOptions(
+        (fmt.config as Record<string, unknown>).anchors
+      );
+      if (newOptions.length > 0) {
         setOptions(newOptions);
       }
     } else if (fmt?.type === "binary" && fmt.config && typeof fmt.config === "object") {

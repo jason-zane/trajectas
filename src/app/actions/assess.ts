@@ -3,6 +3,7 @@
 import crypto from 'crypto'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { likertAnchorOptions } from '@/lib/assess/likert-anchors'
 import { logReportViewed } from '@/lib/auth/support-sessions'
 import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
@@ -509,18 +510,13 @@ export async function getSessionState(token: string, sessionId: string) {
     // Derive fallback options from response format anchors when item_options is empty.
     // This handles AI-generated items that have stems but no per-item options.
     function deriveOptionsFromFormat() {
-      const anchors = formatConfig.anchors
-      if (formatType === 'likert' && anchors && typeof anchors === 'object') {
-        return Object.entries(anchors)
-          .map(([val, label]) => ({
-            id: `rf-${val}`,
-            label: String(label),
-            value: Number(val),
-            sortOrder: Number(val),
-          }))
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-      }
-      return []
+      if (formatType !== 'likert') return []
+      return likertAnchorOptions(formatConfig.anchors).map((o) => ({
+        id: `rf-${o.value}`,
+        label: o.label,
+        value: o.value,
+        sortOrder: o.value,
+      }))
     }
 
     const fallbackOptions = deriveOptionsFromFormat()
