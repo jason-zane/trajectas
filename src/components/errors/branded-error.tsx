@@ -9,6 +9,14 @@ import { BrandedMessage } from "./branded-message";
 interface BrandedErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
+  /**
+   * Next 16.2+ passes this to error.tsx components alongside reset. Unlike
+   * reset() — which only clears the boundary's state and re-renders the SAME
+   * errored payload, so it can never recover from a server render error —
+   * unstable_retry() refetches through the router (and middleware, which
+   * refreshes an expired session). Prefer it whenever it's provided.
+   */
+  unstable_retry?: () => void;
   /** Displayed above the heading in gold mono, e.g. "Something broke" */
   eyebrow?: string;
   /** Main heading, editorial style. Defaults to a warm apology. */
@@ -24,6 +32,7 @@ interface BrandedErrorProps {
 export function BrandedError({
   error,
   reset,
+  unstable_retry,
   eyebrow = "Something went wrong",
   title = "We hit a snag on the way.",
   description,
@@ -47,7 +56,7 @@ export function BrandedError({
       }
       actions={
         <>
-          <Button onClick={reset}>
+          <Button onClick={unstable_retry ?? reset}>
             <RotateCcw className="size-4" />
             Try again
           </Button>
