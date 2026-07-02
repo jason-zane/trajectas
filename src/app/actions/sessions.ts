@@ -89,6 +89,12 @@ export type SessionDetail = {
   snapshots: SessionDetailSnapshot[]
   attemptNumber: number
   totalAttempts: number
+  /**
+   * True when the campaign is aggregate-only and the viewer is a client
+   * admin: scores, composite, and report snapshots are withheld server-side
+   * and the UI should explain why instead of showing an empty state.
+   */
+  individualResultsWithheld: boolean
 }
 
 type EmbeddedClientRecord = {
@@ -156,11 +162,16 @@ type SnapshotLookupRow = {
   report_templates?: { name?: string | null } | { name?: string | null }[] | null
 }
 
+type SessionAccessCampaignRecord = {
+  client_id?: string | null
+  confidentiality_mode?: string | null
+}
+
 type SessionAccessLookupRow = {
   campaign_participants?: {
-    campaigns?: { client_id?: string | null } | { client_id?: string | null }[] | null
+    campaigns?: SessionAccessCampaignRecord | SessionAccessCampaignRecord[] | null
   } | {
-    campaigns?: { client_id?: string | null } | { client_id?: string | null }[] | null
+    campaigns?: SessionAccessCampaignRecord | SessionAccessCampaignRecord[] | null
   }[] | null
 }
 
@@ -174,18 +185,22 @@ function logSessionDetailError(scope: string, error: unknown) {
   console.error(`[getSessionDetail] ${scope} failed:`, error)
 }
 
-async function assertSessionAccess(sessionId: string): Promise<string> {
+async function assertSessionAccess(
+  sessionId: string,
+): Promise<{ sessionId: string; canViewIndividual: boolean }> {
   const parsed = sessionIdSchema.safeParse({ sessionId })
   if (!parsed.success) {
     throw new AuthorizationError('Invalid session ID.')
   }
   const scope = await resolveAuthorizedScope()
-  if (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass) return sessionId
+  if (scope.isPlatformAdmin || scope.isLocalDevelopmentBypass) {
+    return { sessionId, canViewIndividual: true }
+  }
 
   const db = await createClient()
   const { data, error } = await db
     .from('participant_sessions')
-    .select('id, campaign_participants(campaigns(client_id))')
+    .select('id, campaign_participants(campaigns(client_id, confidentiality_mode))')
     .eq('id', sessionId)
     .single()
 
@@ -202,12 +217,18 @@ async function assertSessionAccess(sessionId: string): Promise<string> {
     throw new AuthorizationError('Session not accessible in current scope.')
   }
 
-  return sessionId
+  // Aggregate-only campaigns: client viewers keep the operational session
+  // view (status, progress) but not scores/responses/reports.
+  return {
+    sessionId,
+    canViewIndividual: campaign?.confidentiality_mode !== 'aggregate_only',
+  }
 }
 
 export async function getSessionDetail(sessionId: string): Promise<SessionDetail | null> {
+  let canViewIndividual: boolean
   try {
-    await assertSessionAccess(sessionId)
+    ;({ canViewIndividual } = await assertSessionAccess(sessionId))
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return null
@@ -269,24 +290,28 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
       .eq('campaign_participant_id', session.campaign_participant_id)
       .eq('assessment_id', session.assessment_id)
       .order('started_at', { ascending: true, nullsFirst: false }),
-    db
-      .from('report_snapshots')
-      .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
-      .eq('participant_session_id', sessionId)
-      .order('created_at', { ascending: false }),
-    db
-      .from('participant_scores')
-      .select(`
-        factor_id,
-        raw_score,
-        scaled_score,
-        percentile,
-        confidence_interval_lower,
-        confidence_interval_upper,
-        scoring_method,
-        factors(name, dimension_id, dimensions(id, name))
-      `)
-      .eq('session_id', sessionId),
+    canViewIndividual
+      ? db
+          .from('report_snapshots')
+          .select('id, template_id, status, generated_at, released_at, sent_to_participant_at, error_message, pdf_url, pdf_status, pdf_error_message, narrative_mode, report_templates(name)')
+          .eq('participant_session_id', sessionId)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    canViewIndividual
+      ? db
+          .from('participant_scores')
+          .select(`
+            factor_id,
+            raw_score,
+            scaled_score,
+            percentile,
+            confidence_interval_lower,
+            confidence_interval_upper,
+            scoring_method,
+            factors(name, dimension_id, dimensions(id, name))
+          `)
+          .eq('session_id', sessionId)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   const assessmentRecord =
@@ -467,19 +492,25 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     durationMinutes,
     responseCount: responseCount ?? 0,
     compositeScore:
-      session.composite_score != null ? Number(session.composite_score) : undefined,
-    compositeMethod: session.composite_method ?? undefined,
+      canViewIndividual && session.composite_score != null
+        ? Number(session.composite_score)
+        : undefined,
+    compositeMethod: canViewIndividual
+      ? session.composite_method ?? undefined
+      : undefined,
     dimensionScores,
     scores,
     snapshots,
     attemptNumber,
     totalAttempts,
+    individualResultsWithheld: !canViewIndividual,
   }
 }
 
 export async function getSessionSnapshots(sessionId: string): Promise<SessionDetailSnapshot[]> {
   try {
-    await assertSessionAccess(sessionId)
+    const { canViewIndividual } = await assertSessionAccess(sessionId)
+    if (!canViewIndividual) return []
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return []

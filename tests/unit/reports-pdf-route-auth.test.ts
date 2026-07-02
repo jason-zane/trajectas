@@ -10,15 +10,31 @@ const getReportPdfFilename = vi.fn()
 const queueReportPdfGeneration = vi.fn()
 const logAuditEvent = vi.fn()
 
-vi.mock('@/lib/auth/authorization', () => ({
-  AuthenticationRequiredError: class AuthenticationRequiredError extends Error {
-    name = 'AuthenticationRequiredError'
-  },
-  AuthorizationError: class AuthorizationError extends Error {
+vi.mock('@/lib/auth/authorization', () => {
+  class AuthorizationError extends Error {
     name = 'AuthorizationError'
-  },
-  requireReportSnapshotAccess: () => requireReportSnapshotAccess(),
-}))
+  }
+  return {
+    AuthenticationRequiredError: class AuthenticationRequiredError extends Error {
+      name = 'AuthenticationRequiredError'
+    },
+    AuthorizationError,
+    requireReportSnapshotAccess: () => requireReportSnapshotAccess(),
+    // Mirror the real gate: throw only for a non-platform-admin on an
+    // aggregate-only campaign. Default fixtures use standard/undefined, so
+    // they pass through untouched.
+    assertIndividualResultsAccess: (
+      scope: { isPlatformAdmin?: boolean },
+      mode: string | null | undefined,
+    ) => {
+      if (mode === 'aggregate_only' && !scope?.isPlatformAdmin) {
+        throw new AuthorizationError(
+          'This campaign is aggregate-only: individual results are not available.',
+        )
+      }
+    },
+  }
+})
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({

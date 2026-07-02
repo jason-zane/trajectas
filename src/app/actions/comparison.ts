@@ -315,13 +315,27 @@ export async function getComparisonMatrix(
   const cpIds = [...new Set(parsed.data.entries.map((e) => e.campaignParticipantId))]
   if (cpIds.length === 0) return { columns: [], rows: [] }
 
-  await Promise.all(cpIds.map((id) => requireParticipantAccess(id)))
+  const cpAccesses = await Promise.all(
+    cpIds.map((id) => requireParticipantAccess(id)),
+  )
   const explicitSessionIds = req.entries.flatMap((e) =>
     Object.values(e.sessionIdsByAssessment ?? {}),
   )
   if (explicitSessionIds.length) {
     await Promise.all(explicitSessionIds.map((id) => requireSessionAccess(id)))
   }
+
+  // Aggregate-only campaigns hide individual scores from client/partner
+  // viewers. The participant stays in the matrix (identity/status still
+  // render) but their score cells are suppressed. Platform admins see all.
+  const blockedCpIds = new Set(
+    cpAccesses
+      .filter(
+        (a) =>
+          !a.scope.isPlatformAdmin && a.confidentialityMode === 'aggregate_only',
+      )
+      .map((a) => a.participantId),
+  )
 
   if (req.assessmentIds.length === 0) {
     // No assessments to materialise — still return identity rows so the UI can render them.
@@ -369,9 +383,10 @@ export async function getComparisonMatrix(
       const session = res.sessionId
         ? sessionRows.find((s) => s.id === res.sessionId) ?? null
         : null
-      const sScores = res.sessionId
-        ? scoresBySession.get(res.sessionId) ?? new Map<string, number>()
-        : new Map<string, number>()
+      const sScores =
+        res.sessionId && !blockedCpIds.has(cpId)
+          ? scoresBySession.get(res.sessionId) ?? new Map<string, number>()
+          : new Map<string, number>()
 
       // Multiple ColumnGroups may share an assessmentId (one per dimension).
       // Populate every cell on every group that belongs to this assessment.

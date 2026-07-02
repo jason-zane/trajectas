@@ -1,6 +1,7 @@
 import {
   AuthenticationRequiredError,
   AuthorizationError,
+  assertIndividualResultsAccess,
   requireReportSnapshotAccess,
 } from '@/lib/auth/authorization'
 import { getSnapshotPdfState, mapReportPdfStatus } from '@/lib/reports/pdf'
@@ -47,7 +48,8 @@ export async function GET(
     }
   } else {
     try {
-      await requireReportSnapshotAccess(snapshotId)
+      const access = await requireReportSnapshotAccess(snapshotId)
+      assertIndividualResultsAccess(access.scope, access.confidentialityMode)
     } catch (error) {
       if (error instanceof AuthenticationRequiredError) {
         return Response.json({ error: 'Authentication required' }, { status: 401 })

@@ -22,6 +22,10 @@ import {
   requireParticipantRuntimeSessionAccess,
 } from '@/lib/auth/participant-runtime'
 import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
+import {
+  shouldGenerateIndividualReports,
+  type CampaignConfidentialityMode,
+} from '@/lib/reports/confidentiality'
 import { selectItemsByDifficulty } from '@/lib/item-selection/distribution'
 import { applyItemOrdering } from '@/lib/item-ordering'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
@@ -845,6 +849,30 @@ async function ensureReportSnapshotsForSession(input: {
   | { error: string }
 > {
   const db = createAdminClient()
+
+  // Aggregate-only campaigns never generate individual report snapshots:
+  // the participant promise is group-level reporting only, so the artefacts
+  // that could leak individual results are never created. See
+  // src/lib/reports/confidentiality.ts for the policy.
+  const { data: campaignModeRow, error: campaignModeError } = await db
+    .from('campaigns')
+    .select('confidentiality_mode')
+    .eq('id', input.campaignId)
+    .maybeSingle()
+
+  if (campaignModeError) {
+    logActionError('submitSession.campaignConfidentiality', campaignModeError)
+    return { error: 'Unable to load this campaign report configuration' }
+  }
+  const confidentialityMode = (campaignModeRow?.confidentiality_mode ??
+    'standard') as CampaignConfidentialityMode
+  if (!shouldGenerateIndividualReports(confidentialityMode)) {
+    return {
+      hasParticipantReport: false,
+      participantSnapshotStatus: null,
+      hasPendingSnapshotWork: false,
+    }
+  }
 
   // Resolve which templates fire for this session.
   // Layer 1: campaign-level extras  +  Layer 2: assessment-level defaults  (union)

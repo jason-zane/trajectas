@@ -279,3 +279,33 @@ export async function getCampaignDetailParts(
     linkRows: linkResult.data,
   };
 }
+
+/**
+ * The subset of the given campaign ids whose confidentiality_mode is
+ * 'aggregate_only'. Used by score-timeline surfaces (canvas, comparison) to
+ * exclude individual results from those campaigns for client/partner
+ * viewers. Empty input short-circuits without a query.
+ */
+export async function getAggregateOnlyCampaignIdSet(
+  db: DbClient,
+  campaignIds: string[],
+): Promise<Set<string>> {
+  const ids = [...new Set(campaignIds.filter(Boolean))];
+  if (ids.length === 0) return new Set();
+
+  const { data, error } = await db
+    .from("campaigns")
+    .select("id")
+    .in("id", ids)
+    .eq("confidentiality_mode", "aggregate_only");
+
+  if (error) {
+    throwActionError(
+      "getAggregateOnlyCampaignIdSet",
+      "Unable to load campaign confidentiality.",
+      error,
+    );
+  }
+
+  return new Set((data ?? []).map((row: { id: string }) => String(row.id)));
+}

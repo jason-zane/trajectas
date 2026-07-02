@@ -2,7 +2,7 @@ import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getPageContent } from "@/lib/experience/resolve";
 import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import { generateRunnerTokens } from "@/lib/brand/runner-tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mapCampaignRow } from "@/lib/supabase/mappers";
 import { JoinForm } from "@/components/assess/join-form";
@@ -15,14 +15,24 @@ export default async function JoinPage({
 }) {
   const { linkToken } = await params;
 
-  // Look up the access link to get campaign context for branding
+  // Look up the access link to get campaign context for branding. The
+  // embedded `campaigns(*)` already carries client_id — do NOT add a second
+  // `campaigns(...)` embed: PostgREST rejects a duplicated relationship
+  // ("table name specified more than once", 42712), which silently nulls the
+  // result and drops the page back to platform branding.
   const db = createAdminClient();
-  const { data: link } = await db
+  const { data: link, error: linkError } = await db
     .from("campaign_access_links")
-    .select("campaign_id, campaigns(*), campaigns(client_id)")
+    .select("campaign_id, campaigns(*)")
     .eq("token", linkToken)
     .eq("is_active", true)
     .maybeSingle();
+
+  if (linkError) {
+    // Branding resolution must not fail silently — a broken lookup here means
+    // participants see the wrong brand. Surface it in server logs.
+    console.error("[assess/join] access link lookup failed", linkError);
+  }
 
   const linkRow = link as
     | {
@@ -57,20 +67,24 @@ export default async function JoinPage({
 
   const content = getPageContent(experience, "join");
 
-  // Brand CSS tokens are generated from admin-controlled brand config values
-  // (color hex codes, font names, border radius) — not user-supplied content.
-  const { css: safeCSS } = generateCSSTokens(brandConfig);
-
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // The join route sits beside /assess/[token] rather than under it, so it
+  // never passes through [token]/layout.tsx — the parent assess/layout only
+  // injects the PLATFORM default tokens. We must therefore override BOTH the
+  // legacy --brand-* tokens AND the --runner-* tokens (which drive the
+  // re-skinned join form) with the campaign-resolved brand here, or the join
+  // page renders in Trajectas branding while every later page is on-brand.
+  //
+  // Tokens are generated from admin-controlled brand config values (hex
+  // colours, border radius, theme mode) — not user-supplied content. The
+  // runner type stack is fixed and already loaded by the root layout, so no
+  // brand fonts are loaded here.
+  const brandCss = generateCSSTokens(brandConfig).css;
+  const runnerCss = generateRunnerTokens(brandConfig).css;
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: safeCSS }} />
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
+      <style dangerouslySetInnerHTML={{ __html: brandCss }} />
+      <style dangerouslySetInnerHTML={{ __html: runnerCss }} />
       <JoinForm
         linkToken={linkToken}
         content={content}

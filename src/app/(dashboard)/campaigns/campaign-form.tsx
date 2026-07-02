@@ -419,13 +419,11 @@ export function CampaignForm({
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Confidentiality Mode.
-                Aggregate-only is selectable only once reporting actually
-                enforces it (hiding individual results for the campaign) —
-                until then, offering it would promise participants something
-                the product doesn't yet guarantee. The schema, participant
-                copy variants, and this control are ready; enforcement is
-                tracked as follow-up work. Campaigns already set to
-                aggregate_only (none yet) keep their value editable. */}
+                Aggregate-only is enforced server-side: individual results
+                (scores, responses, reports) are hidden from client/partner
+                admins and no individual report snapshots are generated. See
+                src/lib/reports/confidentiality.ts and the RLS in migration
+                20260703120000_aggregate_only_enforcement.sql. */}
             <div className="space-y-1.5">
               <Label htmlFor="confidentialityMode">Confidentiality Mode</Label>
               <select
@@ -435,13 +433,16 @@ export function CampaignForm({
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="standard">Standard — individual results visible to authorised viewers</option>
-                <option
-                  value="aggregate_only"
-                  disabled={confidentialityMode !== "aggregate_only"}
-                >
-                  Aggregate-only — coming soon (requires aggregate reporting enforcement)
+                <option value="aggregate_only">
+                  Aggregate-only — participants get group-level reporting; individual results hidden
                 </option>
               </select>
+              <p className="text-xs text-muted-foreground">
+                Aggregate-only hides individual scores, responses, and reports
+                from your team for this campaign and stops individual reports
+                from being generated. Choose this when you promise participants
+                group-level reporting only.
+              </p>
               {errors.confidentialityMode && (
                 <p className="text-xs text-destructive">{errors.confidentialityMode[0]}</p>
               )}

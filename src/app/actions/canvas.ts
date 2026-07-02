@@ -15,6 +15,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { requireParticipantAccess } from '@/lib/auth/authorization'
+import { getAggregateOnlyCampaignIdSet } from '@/lib/dal/campaigns'
 import { resolveSessionActor } from '@/lib/auth/actor'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
@@ -95,7 +96,8 @@ export async function getComparisonCanvas(
   }
   const cpIds = parsed.data.campaignParticipantIds
 
-  await Promise.all(cpIds.map((id) => requireParticipantAccess(id)))
+  const accesses = await Promise.all(cpIds.map((id) => requireParticipantAccess(id)))
+  const viewerIsPlatformAdmin = accesses[0]?.scope.isPlatformAdmin ?? false
   const db = await createClient()
 
   // 1. Entry participants → deduped people, preserving selection order.
@@ -134,8 +136,22 @@ export async function getComparisonCanvas(
   const allCpIds = [...personKeyByCp.keys()]
 
   // 3. Sessions: completed ones feed the series; the full set feeds
-  //    per-person attempt ordinals.
-  const allSessions = await loadSessions(db, allCpIds)
+  //    per-person attempt ordinals. Linked participations can reach into
+  //    other campaigns, so aggregate-only exclusion happens here at the
+  //    session level, not just on the entry participants.
+  let allSessions = await loadSessions(db, allCpIds)
+  if (!viewerIsPlatformAdmin) {
+    const aggregateOnly = await getAggregateOnlyCampaignIdSet(db, [
+      ...new Set(
+        allSessions.map((s) => s.campaign_id).filter((id): id is string => !!id),
+      ),
+    ])
+    if (aggregateOnly.size > 0) {
+      allSessions = allSessions.filter(
+        (s) => !s.campaign_id || !aggregateOnly.has(s.campaign_id),
+      )
+    }
+  }
   const completed = allSessions
     .filter((s) => s.status === 'completed' && s.completed_at)
     .sort((a, b) => (a.completed_at as string).localeCompare(b.completed_at as string))
