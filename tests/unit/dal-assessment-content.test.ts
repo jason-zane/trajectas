@@ -86,21 +86,21 @@ describe('getAssessmentContentSummaries', () => {
     expect(summary).toMatchObject({ itemCount: 8, hasDeliverableContent: true })
   })
 
-  it('counts forced-choice content via block items', async () => {
+  it('treats forced-choice blocks as non-deliverable — the runner only serves sections', async () => {
     const { db, tablesQueried } = fakeDb({
       assessments: [{ data: [{ id: 'a2', title: 'FC', format_mode: 'forced_choice' }] }],
-      forced_choice_blocks: [
-        { data: [{ assessment_id: 'a2', forced_choice_block_items: [{ count: 4 }] }] },
-      ],
+      assessment_sections: [{ data: [] }],
     })
 
     const [summary] = await getAssessmentContentSummaries(db, ['a2'])
     expect(summary).toMatchObject({
       formatMode: 'forced_choice',
-      itemCount: 4,
-      hasDeliverableContent: true,
+      itemCount: 0,
+      hasDeliverableContent: false,
     })
-    expect(tablesQueried).not.toContain('assessment_sections')
+    // Blocks have no delivery path, so they must not count as content.
+    expect(tablesQueried).not.toContain('forced_choice_blocks')
+    expect(tablesQueried).toContain('assessment_sections')
   })
 
   it('listEmptyAssessments returns only the empty ones from a batch', async () => {

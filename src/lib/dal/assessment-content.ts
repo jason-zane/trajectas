@@ -10,18 +10,20 @@ type DbClient = SupabaseClient;
  * Readiness summary of what an assessment can actually serve to a participant.
  *
  * The runner serves questions from `assessment_sections` →
- * `assessment_section_items` (traditional) or `forced_choice_blocks` →
- * `forced_choice_block_items` (forced-choice) — NOT from
- * `assessment_factors`. An assessment whose factors link to constructs full
- * of items still renders empty until a persist step materialises those items
- * into sections/blocks. These summaries let write paths refuse to activate or
- * distribute such a shell.
+ * `assessment_section_items` ONLY — NOT from `assessment_factors`, and NOT
+ * from `forced_choice_blocks` (the section page redirects straight to
+ * completion when there are no sections, whatever the format_mode; FC blocks
+ * are builder-side configuration with no delivery path today). An assessment
+ * whose factors link to constructs full of items still renders empty until a
+ * persist step materialises those items into sections. These summaries let
+ * write paths refuse to activate or distribute such a shell. If the runner
+ * ever learns to serve FC blocks directly, extend the count here to match.
  */
 export type AssessmentContentSummary = {
   assessmentId: string;
   title: string;
   formatMode: "traditional" | "forced_choice";
-  /** Materialised question count for the mode's delivery tables. */
+  /** Materialised question count in the runner's delivery tables. */
   itemCount: number;
   hasDeliverableContent: boolean;
 };
@@ -63,65 +65,33 @@ export async function getAssessmentContentSummaries(
   }>;
   if (rows.length === 0) return [];
 
-  const traditionalIds = rows
-    .filter((r) => r.format_mode !== "forced_choice")
-    .map((r) => r.id);
-  const fcIds = rows
-    .filter((r) => r.format_mode === "forced_choice")
-    .map((r) => r.id);
-
   const itemCounts = new Map<string, number>();
 
-  if (traditionalIds.length > 0) {
-    const { data: sections, error: sectionsError } = await db
-      .from("assessment_sections")
-      .select("assessment_id, assessment_section_items(count)")
-      .in("assessment_id", traditionalIds);
+  const { data: sections, error: sectionsError } = await db
+    .from("assessment_sections")
+    .select("assessment_id, assessment_section_items(count)")
+    .in(
+      "assessment_id",
+      rows.map((r) => r.id),
+    );
 
-    if (sectionsError) {
-      throwActionError(
-        "getAssessmentContentSummaries.sections",
-        "Unable to check assessment content.",
-        sectionsError,
-      );
-    }
-
-    for (const section of (sections ?? []) as Array<{
-      assessment_id: string;
-      assessment_section_items: unknown;
-    }>) {
-      itemCounts.set(
-        section.assessment_id,
-        (itemCounts.get(section.assessment_id) ?? 0) +
-          getNestedCount(section.assessment_section_items),
-      );
-    }
+  if (sectionsError) {
+    throwActionError(
+      "getAssessmentContentSummaries.sections",
+      "Unable to check assessment content.",
+      sectionsError,
+    );
   }
 
-  if (fcIds.length > 0) {
-    const { data: blocks, error: blocksError } = await db
-      .from("forced_choice_blocks")
-      .select("assessment_id, forced_choice_block_items(count)")
-      .in("assessment_id", fcIds);
-
-    if (blocksError) {
-      throwActionError(
-        "getAssessmentContentSummaries.blocks",
-        "Unable to check assessment content.",
-        blocksError,
-      );
-    }
-
-    for (const block of (blocks ?? []) as Array<{
-      assessment_id: string;
-      forced_choice_block_items: unknown;
-    }>) {
-      itemCounts.set(
-        block.assessment_id,
-        (itemCounts.get(block.assessment_id) ?? 0) +
-          getNestedCount(block.forced_choice_block_items),
-      );
-    }
+  for (const section of (sections ?? []) as Array<{
+    assessment_id: string;
+    assessment_section_items: unknown;
+  }>) {
+    itemCounts.set(
+      section.assessment_id,
+      (itemCounts.get(section.assessment_id) ?? 0) +
+        getNestedCount(section.assessment_section_items),
+    );
   }
 
   return rows.map((r) => {

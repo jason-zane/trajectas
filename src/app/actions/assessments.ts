@@ -1067,13 +1067,21 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   }
 
   // Fail closed on empty-but-active: the status update above already wrote the
-  // requested status, so demote back to draft if nothing is deliverable.
+  // requested status and the sections were just rewritten, so demote back to
+  // draft whenever the content isn't verified deliverable — including when the
+  // verification itself fails, since an unverified active assessment is the
+  // exact state this guard exists to prevent.
   if (parsed.data.status === 'active') {
     const deliverable = await hasDeliverableContent(db, id)
-    if (deliverable === null) return { error: { _form: [CONTENT_CHECK_FAILED_ERROR] } }
     if (!deliverable) {
       await db.from('assessments').update({ status: 'draft' }).eq('id', id)
-      return { error: { _form: [EMPTY_ASSESSMENT_ACTIVATION_ERROR] } }
+      return {
+        error: {
+          _form: [
+            deliverable === null ? CONTENT_CHECK_FAILED_ERROR : EMPTY_ASSESSMENT_ACTIVATION_ERROR,
+          ],
+        },
+      }
     }
   }
 
@@ -1773,14 +1781,17 @@ export async function updateAssessmentPresentation(
   const isActive = assessmentRow.status === 'active'
 
   // Refuse to strip a live assessment down to nothing before wiping anything.
+  // Forced-choice mode always counts as nothing servable: it deletes the
+  // sections, and the runner only delivers sections (FC blocks have no
+  // delivery path — see dal/assessment-content).
   const emptyLayout =
-    payload.formatMode === 'traditional'
-      ? (payload.sections ?? []).length === 0
-      : (payload.forcedChoiceBlocks ?? []).length === 0
+    payload.formatMode !== 'traditional' || (payload.sections ?? []).length === 0
   if (isActive && emptyLayout) {
     return {
       error:
-        'An active assessment needs at least one section (or forced-choice block) with questions. Move it back to draft first if you want to clear its layout.',
+        payload.formatMode === 'traditional'
+          ? 'An active assessment needs at least one section with questions. Move it back to draft first if you want to clear its layout.'
+          : 'Forced-choice layouts cannot be served to participants yet, so a live assessment cannot switch to forced-choice mode. Move it back to draft first.',
     }
   }
 
@@ -1833,15 +1844,19 @@ export async function updateAssessmentPresentation(
   }
 
   // The layout may persist without matching any items (e.g. constructs with no
-  // active items in the chosen formats). Never leave that live — demote to draft.
+  // active items in the chosen formats). Never leave that live — demote to
+  // draft, including when the verification itself fails: the sections were
+  // just rewritten, so an unverified active assessment is exactly the state
+  // this guard exists to prevent.
   if (isActive) {
     const deliverable = await hasDeliverableContent(db, assessmentId)
-    if (deliverable === null) return { error: CONTENT_CHECK_FAILED_ERROR }
     if (!deliverable) {
       await db.from('assessments').update({ status: 'draft' }).eq('id', assessmentId)
       return {
         error:
-          'No items matched the saved sections, so this assessment was moved back to draft. Check that its factors link to constructs with active items in the chosen response formats, then re-activate it.',
+          deliverable === null
+            ? CONTENT_CHECK_FAILED_ERROR
+            : 'No items matched the saved sections, so this assessment was moved back to draft. Check that its factors link to constructs with active items in the chosen response formats, then re-activate it.',
       }
     }
   }
