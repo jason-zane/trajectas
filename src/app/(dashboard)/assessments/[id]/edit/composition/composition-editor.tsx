@@ -23,7 +23,10 @@ import {
 } from "@/components/ui/card"
 import { FactorSource } from "../../../factor-source"
 import { AssessmentCanvas } from "../../../assessment-canvas"
-import { updateAssessmentComposition } from "@/app/actions/assessments"
+import {
+  getAssessmentFactorIds,
+  updateAssessmentComposition,
+} from "@/app/actions/assessments"
 import { getItemsPerConstructLimit } from "@/app/actions/item-selection-rules"
 import type { BuilderFactor } from "@/app/actions/assessments"
 import type { ConstructShortfall } from "@/app/actions/item-selection-rules"
@@ -99,9 +102,35 @@ export function CompositionEditor({
 
   const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latestFactorsRef = useRef<BuilderFactor[] | null>(null)
+  const dirtyRef = useRef(false)
+
+  // The server prop can be up to 30s stale (router cache; the auto-saves
+  // deliberately don't purge it). Reconcile against server truth on mount so
+  // a quick tab round-trip can't seed an outdated selection — persisting from
+  // a stale seed would overwrite the user's previous change.
+  useEffect(() => {
+    let cancelled = false
+    getAssessmentFactorIds(assessmentId)
+      .then((ids) => {
+        if (cancelled || ids === null || dirtyRef.current) return
+        const byId = new Map(allFactors.map((f) => [f.id, f]))
+        setSelectedFactors(
+          ids
+            .map((id) => byId.get(id))
+            .filter((f): f is BuilderFactor => Boolean(f)),
+        )
+      })
+      .catch(() => {
+        // Seed correction only — the prop-derived state remains usable.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [assessmentId, allFactors])
 
   const persist = useCallback(
     (factors: BuilderFactor[]) => {
+      dirtyRef.current = true
       latestFactorsRef.current = factors
       if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
       pendingSaveRef.current = setTimeout(() => {

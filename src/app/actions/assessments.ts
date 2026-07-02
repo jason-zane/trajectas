@@ -588,6 +588,36 @@ export async function getAssessmentById(id: string): Promise<Assessment | null> 
   return mapAssessmentRow(data)
 }
 
+/**
+ * Current factor ids in canvas order, straight from the database.
+ *
+ * The client router cache may serve an edit tab's RSC payload for up to 30s
+ * (staleTimes.dynamic), and the per-interaction auto-saves deliberately do
+ * NOT purge it (see updateAssessmentComposition). Editors that seed state
+ * from server props call this on mount to reconcile against server truth,
+ * closing that staleness window without reintroducing the purge.
+ * Returns null when the caller can't read the assessment.
+ */
+export async function getAssessmentFactorIds(id: string): Promise<string[] | null> {
+  try {
+    await requireAssessmentAccess(id)
+  } catch (error) {
+    if (error instanceof AuthorizationError) return null
+    if (error instanceof AuthenticationRequiredError) return null
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db
+    .from('assessment_factors')
+    .select('factor_id')
+    .eq('assessment_id', id)
+    .order('display_order', { ascending: true })
+
+  if (error) return null
+  return (data ?? []).map((r) => String(r.factor_id))
+}
+
 export async function getAssessmentWithFactors(id: string): Promise<{
   assessment: Assessment
   factors: AssessmentFactorLink[]
