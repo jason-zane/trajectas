@@ -18,8 +18,10 @@ import {
   requireReportSnapshotAccess,
   requireSessionAccess,
   resolveAuthorizedScope,
+  assertIndividualResultsAccess,
   AuthorizationError,
 } from '@/lib/auth/authorization'
+import { canViewIndividualResults } from '@/lib/reports/confidentiality'
 import {
   logAuditEvent,
   logReportViewed,
@@ -694,6 +696,11 @@ export async function getReportSnapshotsForCampaign(
 ): Promise<ReportSnapshot[]> {
   if (!postgresUuid().safeParse(campaignId).success) return []
   const access = await requireCampaignAccess(campaignId)
+  // Aggregate-only campaigns expose no individual reports to client/partner
+  // viewers (RLS also filters these rows; this keeps the audit log quiet too).
+  if (!canViewIndividualResults(access.confidentialityMode, access.scope)) {
+    return []
+  }
   const db = await createClient()
   const { data, error } = await db
     .from('report_snapshots')
@@ -740,6 +747,9 @@ export async function getReportSnapshot(id: string): Promise<ReportSnapshot | nu
       return null
     }
     throw error
+  }
+  if (!canViewIndividualResults(access.confidentialityMode, access.scope)) {
+    return null
   }
 
   const db = await createClient()
@@ -790,6 +800,10 @@ async function requireReportSnapshotManageAccess(snapshotId: string) {
   if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
     throw new AuthorizationError('You do not have permission to manage this report.')
   }
+
+  // Blocks send/resend/retry/regenerate of individual reports on
+  // aggregate-only campaigns for client/partner admins.
+  assertIndividualResultsAccess(access.scope, access.confidentialityMode)
 
   return access
 }
@@ -870,6 +884,11 @@ export async function getCampaignSessionReportRows(
 ): Promise<CampaignSessionReportRow[]> {
   if (!postgresUuid().safeParse(sessionId).success) return []
   const access = await requireSessionAccess(sessionId)
+  // Aggregate-only campaigns generate no individual reports; hide the
+  // expected-templates picture from client/partner viewers too.
+  if (!canViewIndividualResults(access.confidentialityMode, access.scope)) {
+    return []
+  }
   const db = createAdminClient()
 
   // Pull together everything that informs what the session SHOULD have:
@@ -1423,6 +1442,9 @@ export async function getReportSnapshotsForParticipant(
 ): Promise<ReportSnapshot[]> {
   if (!postgresUuid().safeParse(participantId).success) return []
   const access = await requireParticipantAccess(participantId)
+  if (!canViewIndividualResults(access.confidentialityMode, access.scope)) {
+    return []
+  }
   const db = await createClient()
   const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')

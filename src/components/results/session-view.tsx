@@ -170,6 +170,20 @@ export function SessionView({
         />
       </div>
 
+      {session.individualResultsWithheld ? (
+        <Card className="border-dashed">
+          <CardContent className="space-y-2 py-8 text-center">
+            <p className="font-medium text-foreground">
+              Individual results are not available for this campaign
+            </p>
+            <p className="mx-auto max-w-prose text-sm text-muted-foreground">
+              This campaign is set to <strong>aggregate-only</strong>{" "}
+              confidentiality. Participants were promised group-level reporting
+              only, so individual scores, responses, and reports are not shown.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
       <div className="space-y-12">
         <section className="space-y-5">
           <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -213,6 +227,7 @@ export function SessionView({
           </details>
         ) : null}
       </div>
+      )}
     </div>
   );
 }

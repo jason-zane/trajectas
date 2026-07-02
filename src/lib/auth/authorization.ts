@@ -11,6 +11,10 @@ import {
   resolveSignedPreviewContext,
 } from "@/lib/auth/actor";
 import { isSurface, type Surface } from "@/lib/surfaces";
+import {
+  canViewIndividualResults,
+  type CampaignConfidentialityMode,
+} from "@/lib/reports/confidentiality";
 import type {
   ActiveContext,
   PreviewContext,
@@ -556,7 +560,7 @@ export async function requireCampaignAccess(campaignId: string) {
   const db = createAdminClient();
   const { data, error } = await db
     .from("campaigns")
-    .select("id, client_id, partner_id, deleted_at")
+    .select("id, client_id, partner_id, confidentiality_mode, deleted_at")
     .eq("id", campaignId)
     .single();
 
@@ -580,7 +584,25 @@ export async function requireCampaignAccess(campaignId: string) {
     campaignId: String(data.id),
     clientId,
     partnerId,
+    confidentialityMode: (data.confidentiality_mode ??
+      "standard") as CampaignConfidentialityMode,
   };
+}
+
+/**
+ * Throws unless the viewer may see individual-level results (scores,
+ * responses, report snapshots) for a campaign with the given confidentiality
+ * mode. See src/lib/reports/confidentiality.ts for the policy rationale.
+ */
+export function assertIndividualResultsAccess(
+  scope: AuthorizedScope,
+  confidentialityMode: CampaignConfidentialityMode | null | undefined,
+) {
+  if (!canViewIndividualResults(confidentialityMode, scope)) {
+    throw new AuthorizationError(
+      "This campaign is aggregate-only: individual results are not available.",
+    );
+  }
 }
 
 export async function requireParticipantAccess(participantId: string) {
@@ -627,7 +649,7 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
   const { data, error } = await db
     .from("report_snapshots")
     .select(
-      "id, campaign_id, participant_session_id, campaigns(client_id, partner_id), participant_sessions(campaign_participant_id)"
+      "id, campaign_id, participant_session_id, campaigns(client_id, partner_id, confidentiality_mode), participant_sessions(campaign_participant_id)"
     )
     .eq("id", snapshotId)
     .maybeSingle();
@@ -665,6 +687,8 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
     participantId,
     clientId,
     partnerId,
+    confidentialityMode: (campaign?.confidentiality_mode ??
+      "standard") as CampaignConfidentialityMode,
   };
 }
 

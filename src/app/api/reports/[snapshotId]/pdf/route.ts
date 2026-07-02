@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthenticationRequiredError,
   AuthorizationError,
+  assertIndividualResultsAccess,
   requireReportSnapshotAccess,
 } from '@/lib/auth/authorization'
 import {
@@ -35,6 +36,9 @@ async function requirePdfAccess(
 ): Promise<{ error: Response } | { access: PdfAccess }> {
   try {
     const access = await requireReportSnapshotAccess(snapshotId)
+    // Aggregate-only campaigns: no individual PDFs for client/partner
+    // viewers. Participant token paths are unaffected (own report only).
+    assertIndividualResultsAccess(access.scope, access.confidentialityMode)
     return { access }
   } catch (error) {
     if (error instanceof AuthenticationRequiredError) {

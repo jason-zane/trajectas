@@ -49,7 +49,16 @@ function fromRouter(byTable: Record<string, unknown>) {
 
 describe('getComparisonMatrix', () => {
   beforeEach(() => {
-    requireParticipantAccess.mockReset().mockResolvedValue(undefined)
+    // requireParticipantAccess resolves to the campaign-access shape the action
+    // reads (scope + confidentialityMode) — a standard campaign here, so no
+    // scores are suppressed.
+    requireParticipantAccess
+      .mockReset()
+      .mockImplementation(async (id: string) => ({
+        scope: { isPlatformAdmin: false },
+        participantId: id,
+        confidentialityMode: 'standard',
+      }))
     requireSessionAccess.mockReset().mockResolvedValue(undefined)
     fromMock.mockReset()
   })
