@@ -18,11 +18,28 @@ import {
   getAssessmentContentSummaries,
   listEmptyAssessments,
 } from '@/lib/dal/assessment-content'
+import { autoBuildSectionsFromFactors } from '@/lib/dal/assessment-sections'
+
+/**
+ * Auto-building sections mutates the assessment library asset, so it needs
+ * the same write gate the assessment editor uses — campaign access alone
+ * (e.g. a client attaching a shared assessment) must not be enough.
+ */
+async function canWriteAssessment(assessmentId: string): Promise<boolean> {
+  try {
+    await requireAssessmentAccess(assessmentId, { forWrite: true })
+    return true
+  } catch (error) {
+    if (error instanceof AuthorizationError) return false
+    throw error
+  }
+}
 import {
   AuthorizationError,
   canAccessClient,
   canManageCampaign,
   getAccessibleCampaignIds,
+  requireAssessmentAccess,
   requireCampaignAccess,
   requireClientAccess,
   resolveAuthorizedScope,
@@ -718,15 +735,36 @@ export async function activateCampaign(id: string) {
 
   // Every linked assessment must have materialised questions — an empty one
   // has nothing for the runner to show and its session auto-completes on open.
+  // Auto-build missing layouts from each assessment's factors first; only
+  // block on assessments whose factors resolve to nothing.
   try {
     const empties = await listEmptyAssessments(
       db,
       linkedAssessments.map((row) => String(row.assessment_id)),
     )
-    if (empties.length > 0) {
-      const titles = empties.map((a) => `"${a.title}"`).join(', ')
+    const stillEmpty = []
+    for (const empty of empties) {
+      if (!(await canWriteAssessment(empty.assessmentId))) {
+        stillEmpty.push(empty)
+        continue
+      }
+      const built = await autoBuildSectionsFromFactors(db, empty.assessmentId)
+      if (built.built) {
+        await logAuditEvent({
+          actorProfileId: access.scope.actor?.id ?? null,
+          eventType: 'assessment.sections.autobuilt',
+          targetTable: 'assessments',
+          targetId: empty.assessmentId,
+          metadata: { itemCount: built.itemCount, trigger: 'campaign-activation' },
+        })
+      } else {
+        stillEmpty.push(empty)
+      }
+    }
+    if (stillEmpty.length > 0) {
+      const titles = stillEmpty.map((a) => `"${a.title}"`).join(', ')
       return {
-        error: `${titles} ${empties.length === 1 ? 'has' : 'have'} no questions yet. Save the assessment's Presentation step in the builder before activating this campaign.`,
+        error: `${titles} ${stillEmpty.length === 1 ? 'has' : 'have'} no questions: the selected factors don't resolve to any active items. Fix the assessment in the builder before activating this campaign.`,
       }
     }
   } catch {
@@ -935,15 +973,30 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
 
   const db = createAdminClient()
 
-  // The runner serves questions from the assessment's sections/blocks, not its
-  // factors — an assessment with none renders empty and auto-completes, so it
-  // must not be attachable in the first place.
+  // The runner serves questions from the assessment's sections, not its
+  // factors — an assessment with none renders empty and auto-completes. Build
+  // the default layout from the factors on the spot; only refuse when they
+  // genuinely resolve to nothing.
   try {
     const [content] = await getAssessmentContentSummaries(db, [assessmentId])
-    if (!content?.hasDeliverableContent) {
+    let deliverable = Boolean(content?.hasDeliverableContent)
+    if (content && !deliverable && (await canWriteAssessment(assessmentId))) {
+      const built = await autoBuildSectionsFromFactors(db, assessmentId)
+      if (built.built) {
+        deliverable = true
+        await logAuditEvent({
+          actorProfileId: access.scope.actor?.id ?? null,
+          eventType: 'assessment.sections.autobuilt',
+          targetTable: 'assessments',
+          targetId: assessmentId,
+          metadata: { itemCount: built.itemCount, trigger: 'campaign-attach' },
+        })
+      }
+    }
+    if (!deliverable) {
       return {
         error:
-          'This assessment has no questions yet. Save its Presentation step in the assessment builder (so items from its linked constructs are pulled into sections) before adding it to a campaign.',
+          'This assessment has no questions: its factors don’t resolve to any active items. Fix its factor selection (or sections) in the assessment builder before adding it to a campaign.',
       }
     }
   } catch {

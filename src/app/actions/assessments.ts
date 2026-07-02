@@ -19,7 +19,12 @@ import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import { getAssessmentContentSummaries } from '@/lib/dal/assessment-content'
-import { selectItemsByDifficulty, type SelectableItem } from '@/lib/item-selection/distribution'
+import {
+  applyPerConstructLimit,
+  autoBuildSectionsFromFactors,
+  getFormatBreakdownForScope,
+  persistSections,
+} from '@/lib/dal/assessment-sections'
 import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
 import type { Assessment, ItemOrdering } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
@@ -58,8 +63,23 @@ async function hasDeliverableContent(db: any, assessmentId: string): Promise<boo
   }
 }
 
+/**
+ * Attempt the auto-build. Returns the build result, or null when the build
+ * failed on infrastructure (callers fail closed). built:false means the
+ * factors genuinely resolve to nothing (or a configured-but-empty layout
+ * already exists, which auto-build never clobbers).
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function tryAutoBuildSections(db: any, assessmentId: string) {
+  try {
+    return await autoBuildSectionsFromFactors(db, assessmentId)
+  } catch {
+    return null
+  }
+}
+
 const EMPTY_ASSESSMENT_ACTIVATION_ERROR =
-  'This assessment has no questions yet, so it cannot go live. Save its Presentation step in the builder so the items from its linked constructs are pulled into sections, then activate it.'
+  'This assessment has no questions: its selected factors don’t resolve to any active items (or its configured sections match none). Pick factors whose constructs have active items, or adjust the sections in the Presentation step.'
 
 const CONTENT_CHECK_FAILED_ERROR =
   'Unable to verify that this assessment has questions right now. Try again.'
@@ -639,65 +659,10 @@ export async function getFormatBreakdown(
   const factorIds = Array.isArray(scope) ? scope : scope.factorIds ?? []
   const directConstructIds = Array.isArray(scope) ? [] : scope.constructIds ?? []
 
-  if (factorIds.length === 0 && directConstructIds.length === 0) return []
-
-  const db = createAdminClient()
-
-  let constructIds: string[]
-  if (directConstructIds.length > 0) {
-    constructIds = [...new Set(directConstructIds)]
-  } else {
-    const { data: links } = await db
-      .from('factor_constructs')
-      .select('construct_id')
-      .in('factor_id', factorIds)
-    constructIds = [...new Set((links ?? []).map((l) => l.construct_id))]
-  }
-  if (constructIds.length === 0) return []
-
-  // Determine per-construct limit from rules
-  const limit = await getItemsPerConstructForCount(constructIds.length)
-
-  // Get active, non-deleted items for these constructs with their format info
-  const { data: items } = await db
-    .from('items')
-    .select('id, construct_id, response_format_id, display_order, difficulty, reverse_scored, response_formats(id, name, type)')
-    .in('construct_id', constructIds)
-    .eq('status', 'active')
-    .is('deleted_at', null)
-
-  if (!items || items.length === 0) return []
-
-  // Apply per-construct limiting
-  const limitedItems = applyPerConstructLimit(items, limit)
-
-  // Group by format
-  const groups = new Map<string, { formatName: string; formatType: string; count: number }>()
-
-  for (const item of limitedItems) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rf = (item as any).response_formats
-    const fmtId = item.response_format_id
-    const existing = groups.get(fmtId)
-    if (existing) {
-      existing.count++
-    } else {
-      groups.set(fmtId, {
-        formatName: rf?.name ?? 'Unknown',
-        formatType: rf?.type ?? 'unknown',
-        count: 1,
-      })
-    }
-  }
-
-  return [...groups.entries()]
-    .map(([responseFormatId, g]) => ({
-      responseFormatId,
-      formatName: g.formatName,
-      formatType: g.formatType,
-      itemCount: g.count,
-    }))
-    .sort((a, b) => b.itemCount - a.itemCount)
+  return getFormatBreakdownForScope(createAdminClient(), {
+    factorIds,
+    constructIds: directConstructIds,
+  })
 }
 
 export async function getFactorsForBuilder(): Promise<BuilderFactor[]> {
@@ -871,7 +836,7 @@ export async function createAssessment(payload: Record<string, unknown>) {
   const sections = (payload.sections ?? []) as SectionDraft[]
   if (sections.length > 0 && parsed.data.formatMode === 'traditional') {
     const factorIds = parsed.data.factors.map((f) => f.factorId)
-    const sectionErr = await persistSections(db, assessment.id, sections, {
+    const { error: sectionErr } = await persistSections(db, assessment.id, sections, {
       factorIds,
     })
     if (sectionErr) return { error: { _form: [sectionErr] } }
@@ -884,10 +849,16 @@ export async function createAssessment(payload: Record<string, unknown>) {
     if (blockErr) return { error: { _form: [blockErr] } }
   }
 
-  // Fail closed on empty-but-active: keep the row as a draft rather than let
-  // a question-less assessment reach campaigns.
+  // Fail closed on empty-but-active: auto-build the default layout from the
+  // factors first; if nothing is deliverable even then, keep the row as a
+  // draft rather than let a question-less assessment reach campaigns.
   if (parsed.data.status === 'active') {
-    const deliverable = await hasDeliverableContent(db, assessment.id)
+    let deliverable = await hasDeliverableContent(db, assessment.id)
+    if (deliverable === false) {
+      const built = await tryAutoBuildSections(db, assessment.id)
+      if (built === null) deliverable = null
+      else if (built.built) deliverable = true
+    }
     if (!deliverable) {
       await db.from('assessments').update({ status: 'draft' }).eq('id', assessment.id)
       return {
@@ -1026,7 +997,7 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     const sections = (payload.sections ?? []) as SectionDraft[]
     if (sections.length > 0) {
       const factorIds = parsed.data.factors.map((f) => f.factorId)
-      const sectionErr = await persistSections(db, id, sections, {
+      const { error: sectionErr } = await persistSections(db, id, sections, {
         factorIds,
       })
       if (sectionErr) return { error: { _form: [sectionErr] } }
@@ -1067,12 +1038,18 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
   }
 
   // Fail closed on empty-but-active: the status update above already wrote the
-  // requested status and the sections were just rewritten, so demote back to
-  // draft whenever the content isn't verified deliverable — including when the
-  // verification itself fails, since an unverified active assessment is the
-  // exact state this guard exists to prevent.
+  // requested status and the sections were just rewritten, so try the
+  // factor-derived auto-build, then demote back to draft whenever the content
+  // isn't verified deliverable — including when the verification itself fails,
+  // since an unverified active assessment is the exact state this guard
+  // exists to prevent.
   if (parsed.data.status === 'active') {
-    const deliverable = await hasDeliverableContent(db, id)
+    let deliverable = await hasDeliverableContent(db, id)
+    if (deliverable === false) {
+      const built = await tryAutoBuildSections(db, id)
+      if (built === null) deliverable = null
+      else if (built.built) deliverable = true
+    }
     if (!deliverable) {
       await db.from('assessments').update({ status: 'draft' }).eq('id', id)
       return {
@@ -1342,101 +1319,6 @@ function formatTaxonomyLockedError(lockName: string): string {
 }
 
 /**
- * Persist sections for an assessment and auto-assign matching items.
- * Items are matched to sections by response_format_id.
- */
-async function persistSections(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  db: any,
-  assessmentId: string,
-  sections: SectionDraft[],
-  scope: { factorIds: string[]; constructIds?: string[] },
-): Promise<string | null> {
-  // Insert sections
-  const sectionInserts = sections.map((s) => ({
-    assessment_id: assessmentId,
-    response_format_id: s.responseFormatId,
-    title: s.title.trim() || null,
-    instructions: s.instructions || null,
-    display_order: s.displayOrder,
-    item_ordering: s.itemOrdering,
-    time_limit_seconds: s.timeLimitSeconds ?? null,
-  }))
-
-  const { data: insertedSections, error: secErr } = await db
-    .from('assessment_sections')
-    .insert(sectionInserts)
-    .select('id, response_format_id')
-
-  if (secErr) return secErr.message
-
-  // Resolve construct IDs: prefer direct construct scope; otherwise expand factors.
-  let constructIds: string[]
-  if (scope.constructIds && scope.constructIds.length > 0) {
-    constructIds = [...new Set(scope.constructIds)]
-  } else {
-    const { data: links } = await db
-      .from('factor_constructs')
-      .select('construct_id')
-      .in('factor_id', scope.factorIds)
-    constructIds = [
-      ...new Set(
-        ((links ?? []) as { construct_id: string }[]).map((l) => l.construct_id),
-      ),
-    ]
-  }
-  if (constructIds.length === 0) return null
-
-  // Determine per-construct limit from rules
-  const limit = await getItemsPerConstructForCount(constructIds.length)
-
-  // Get all active, non-deleted items for these constructs with priority ordering
-  const { data: items } = await db
-    .from('items')
-    .select('id, construct_id, response_format_id, display_order, difficulty, reverse_scored')
-    .in('construct_id', constructIds)
-    .eq('status', 'active')
-    .is('deleted_at', null)
-
-  if (!items || items.length === 0) return null
-
-  // Apply per-construct limiting
-  const limitedItems = applyPerConstructLimit(items, limit)
-
-  // Build section ID lookup by format
-  const sectionByFormat = new Map<string, string>()
-  for (const s of insertedSections) {
-    sectionByFormat.set(s.response_format_id, s.id)
-  }
-
-  // Assign items to matching sections
-  const sectionItems: { section_id: string; item_id: string; display_order: number }[] = []
-  const orderBySection = new Map<string, number>()
-
-  for (const item of limitedItems) {
-    const sectionId = sectionByFormat.get(item.response_format_id)
-    if (!sectionId) continue
-
-    const order = orderBySection.get(sectionId) ?? 0
-    sectionItems.push({
-      section_id: sectionId,
-      item_id: item.id,
-      display_order: order,
-    })
-    orderBySection.set(sectionId, order + 1)
-  }
-
-  if (sectionItems.length > 0) {
-    const { error: itemErr } = await db
-      .from('assessment_section_items')
-      .insert(sectionItems)
-    if (itemErr) return itemErr.message
-  }
-
-  return null
-}
-
-/**
  * Persist forced-choice blocks for an assessment.
  */
 async function persistForcedChoiceBlocks(
@@ -1523,32 +1405,6 @@ export async function getFCItemsForFactors(factorIds: string[]): Promise<{
     stem: item.stem,
     constructName: item.constructs?.name ?? '',
   }))
-}
-
-/**
- * Apply per-construct item limit by spreading the picks evenly across the
- * easy/medium/hard difficulty bands and meeting a 25 % reverse-coded floor.
- * Returns all items unchanged when no limit is set.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyPerConstructLimit<T extends Record<string, any> & SelectableItem & { construct_id: string }>(
-  items: T[],
-  limit: number | null,
-): T[] {
-  if (limit === null) return items
-
-  const byConstruct = new Map<string, T[]>()
-  for (const item of items) {
-    const group = byConstruct.get(item.construct_id)
-    if (group) group.push(item)
-    else byConstruct.set(item.construct_id, [item])
-  }
-
-  const result: T[] = []
-  for (const [, group] of byConstruct) {
-    result.push(...selectItemsByDifficulty(group, limit))
-  }
-  return result
 }
 
 /**
@@ -1665,7 +1521,23 @@ export async function updateAssessmentMeta(
   const db = createAdminClient()
 
   if (updates.status === 'active') {
-    const deliverable = await hasDeliverableContent(db, assessmentId)
+    let deliverable = await hasDeliverableContent(db, assessmentId)
+    if (deliverable === false) {
+      // No Presentation step saved — build the default layout from the
+      // selected factors right here instead of bouncing the user to another tab.
+      const built = await tryAutoBuildSections(db, assessmentId)
+      if (built === null) deliverable = null
+      else if (built.built) {
+        deliverable = true
+        await logAuditEvent({
+          actorProfileId: scope.actor?.id ?? null,
+          eventType: 'assessment.sections.autobuilt',
+          targetTable: 'assessments',
+          targetId: assessmentId,
+          metadata: { itemCount: built.itemCount, trigger: 'activation' },
+        })
+      }
+    }
     if (deliverable === null) return { error: CONTENT_CHECK_FAILED_ERROR }
     if (!deliverable) return { error: EMPTY_ASSESSMENT_ACTIVATION_ERROR }
   }
@@ -1830,7 +1702,7 @@ export async function updateAssessmentPresentation(
   if (payload.formatMode === 'traditional') {
     const sections = payload.sections ?? []
     if (sections.length > 0) {
-      const err = await persistSections(db, assessmentId, sections, {
+      const { error: err } = await persistSections(db, assessmentId, sections, {
         factorIds,
       })
       if (err) return { error: err }
