@@ -13,6 +13,12 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { toPomp } from '@/lib/scoring/transforms'
+import {
+  isKeyedItem,
+  scoreKeyedResponse,
+  type ScorableOption,
+} from '@/lib/scoring/keyed-options'
 
 interface ResponseRow {
   item_id: string
@@ -26,12 +32,73 @@ interface ItemMeta {
   weight: number
   minValue: number
   maxValue: number
+  /** The item's options; a non-null scoreValue anywhere makes the item keyed. */
+  options: ScorableOption[]
 }
 
 interface FactorConstructLink {
   factorId: string
   constructId: string
   weight: number
+}
+
+/**
+ * Derive an item's scoring bounds.
+ *
+ * Explicit `minValue`/`maxValue` on the response-format config win. When the
+ * config lacks them, the item's own option values define the scale — e.g. the
+ * seeded binary format carries no bounds, so its 0/1 options must score 0–1,
+ * not the Likert default 1–5. Items with no options (AI-generated items get
+ * none) can still derive bounds from binary-style configs: the seeded shape
+ * keys option values as `labels` keys ({"0": "No", "1": "Yes"}) and the admin
+ * form stores `trueValue`/`falseValue` — the runner's binary component
+ * submits 0/1 in both cases. A binary format whose config carries none of
+ * those shapes still scores 0–1 — the runner's hardcoded Yes=1/No=0 fallback
+ * applies to every option-less binary item. Only after that do we fall back
+ * to the config's `points` (Likert) or the 1–5 default.
+ */
+export function deriveItemBounds(
+  config: Record<string, unknown>,
+  optionValues: number[],
+  formatType?: string,
+): { minValue: number; maxValue: number } {
+  const cfgMin = typeof config.minValue === 'number' ? config.minValue : undefined
+  const cfgMax = typeof config.maxValue === 'number' ? config.maxValue : undefined
+  if (cfgMin !== undefined && cfgMax !== undefined) {
+    return { minValue: cfgMin, maxValue: cfgMax }
+  }
+  if (optionValues.length > 0) {
+    return {
+      minValue: Math.min(...optionValues),
+      maxValue: Math.max(...optionValues),
+    }
+  }
+  if (config.labels && typeof config.labels === 'object' && !Array.isArray(config.labels)) {
+    const labelValues = Object.keys(config.labels as Record<string, unknown>)
+      .map(Number)
+      .filter(Number.isFinite)
+    if (new Set(labelValues).size >= 2) {
+      return {
+        minValue: Math.min(...labelValues),
+        maxValue: Math.max(...labelValues),
+      }
+    }
+  }
+  if (
+    typeof config.trueValue === 'number' &&
+    typeof config.falseValue === 'number' &&
+    config.trueValue !== config.falseValue
+  ) {
+    return {
+      minValue: Math.min(config.trueValue, config.falseValue),
+      maxValue: Math.max(config.trueValue, config.falseValue),
+    }
+  }
+  if (formatType === 'binary') {
+    return { minValue: cfgMin ?? 0, maxValue: cfgMax ?? 1 }
+  }
+  const points = typeof config.points === 'number' ? config.points : 5
+  return { minValue: cfgMin ?? 1, maxValue: cfgMax ?? points }
 }
 
 /**
@@ -78,16 +145,45 @@ export async function scoreSessionCTT(
 
   if (itemErr) return { error: itemErr.message }
 
-  // Get response format configs for min/max values
+  // Get response format type + config for min/max values
   const formatIds = [...new Set((itemRows ?? []).map((i) => i.response_format_id))]
   const { data: formatRows } = await db
     .from('response_formats')
-    .select('id, config')
+    .select('id, type, config')
     .in('id', formatIds)
 
-  const formatConfigMap = new Map<string, Record<string, unknown>>()
+  const formatMap = new Map<string, { type: string; config: Record<string, unknown> }>()
   for (const f of formatRows ?? []) {
-    formatConfigMap.set(f.id, f.config ?? {})
+    formatMap.set(f.id, { type: f.type ?? '', config: f.config ?? {} })
+  }
+
+  // Per-item options: the real scoring bounds live on item_options, not the
+  // format config — and options carrying score_value make the item keyed.
+  const { data: optionRows } = await db
+    .from('item_options')
+    .select('item_id, value, score_value, exclude_from_scoring')
+    .in('item_id', itemIds)
+
+  const optionValuesByItem = new Map<string, number[]>()
+  const scorableOptionsByItem = new Map<string, ScorableOption[]>()
+  for (const opt of optionRows ?? []) {
+    const excluded = opt.exclude_from_scoring ?? false
+
+    // Excluded options ("Don't know") must not define the scoring scale —
+    // their (often sentinel) values would stretch the bounds for everyone.
+    if (!excluded) {
+      const values = optionValuesByItem.get(opt.item_id) ?? []
+      values.push(Number(opt.value))
+      optionValuesByItem.set(opt.item_id, values)
+    }
+
+    const scorable = scorableOptionsByItem.get(opt.item_id) ?? []
+    scorable.push({
+      value: Number(opt.value),
+      scoreValue: opt.score_value == null ? null : Number(opt.score_value),
+      excludeFromScoring: excluded,
+    })
+    scorableOptionsByItem.set(opt.item_id, scorable)
   }
 
   // Build item metadata map
@@ -95,10 +191,12 @@ export async function scoreSessionCTT(
   for (const item of itemRows ?? []) {
     if (!item.construct_id) continue
 
-    const config = formatConfigMap.get(item.response_format_id) ?? {}
-    const points = (config.points as number) ?? 5
-    const minValue = (config.minValue as number) ?? 1
-    const maxValue = (config.maxValue as number) ?? points
+    const format = formatMap.get(item.response_format_id)
+    const { minValue, maxValue } = deriveItemBounds(
+      format?.config ?? {},
+      optionValuesByItem.get(item.id) ?? [],
+      format?.type,
+    )
 
     itemMap.set(item.id, {
       id: item.id,
@@ -107,6 +205,7 @@ export async function scoreSessionCTT(
       weight: item.weight != null ? Number(item.weight) : 1.0,
       minValue,
       maxValue,
+      options: scorableOptionsByItem.get(item.id) ?? [],
     })
   }
 
@@ -117,13 +216,32 @@ export async function scoreSessionCTT(
     const meta = itemMap.get(resp.item_id)
     if (!meta) continue
 
-    const effectiveValue = meta.reverseScored
-      ? meta.maxValue - Number(resp.response_value) + meta.minValue
-      : Number(resp.response_value)
+    // A chosen exclude_from_scoring option ("Don't know") drops the response
+    // from aggregates entirely — keyed or not.
+    const selected = meta.options.find(
+      (o) => o.value === Number(resp.response_value),
+    )
+    if (selected?.excludeFromScoring) continue
 
-    // POMP: (observed - min) / (max - min) * 100
-    const range = meta.maxValue - meta.minValue
-    const pompValue = range > 0 ? ((effectiveValue - meta.minValue) / range) * 100 : 0
+    let pompValue: number
+
+    // Keyed items score by the key of the chosen option (reverse_scored does
+    // not apply — keys encode direction).
+    const keyedOutcome = isKeyedItem(meta.options)
+      ? scoreKeyedResponse(Number(resp.response_value), meta.options)
+      : null
+
+    if (keyedOutcome?.kind === 'scored') {
+      pompValue = keyedOutcome.pomp
+    } else {
+      const effectiveValue = meta.reverseScored
+        ? meta.maxValue - Number(resp.response_value) + meta.minValue
+        : Number(resp.response_value)
+
+      // POMP, clamped to 0–100 so a response outside the derived bounds can
+      // never push a persisted score negative or above the scale.
+      pompValue = toPomp(effectiveValue, meta.minValue, meta.maxValue)
+    }
 
     const existing = constructItems.get(meta.constructId) ?? []
     existing.push({ pompValue, weight: meta.weight })

@@ -765,6 +765,17 @@ export interface ItemOption {
   label: string
   /** Numeric value recorded when this option is selected. */
   value: number
+  /**
+   * Keyed score contribution when this option is selected (expert keying for
+   * SJT, correct/incorrect for binary). NULL = not keyed; the item scores by
+   * raw response value.
+   */
+  scoreValue: number | null
+  /**
+   * When true, selecting this option removes the response from quantitative
+   * scoring (e.g. "Don't know" — reported as visibility, not scored as 0).
+   */
+  excludeFromScoring: boolean
   /** Display ordering weight. */
   sortOrder: number
   created_at: string

@@ -200,6 +200,8 @@ export function mapItemOptionRow(row: any): ItemOption {
     itemId: row.item_id,
     label: row.label,
     value: Number(row.value),
+    scoreValue: row.score_value == null ? null : Number(row.score_value),
+    excludeFromScoring: row.exclude_from_scoring ?? false,
     sortOrder: row.display_order,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,

@@ -3,9 +3,11 @@
 import crypto from 'crypto'
 import { cache } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { likertAnchorOptions } from '@/lib/assess/likert-anchors'
 import { logReportViewed } from '@/lib/auth/support-sessions'
 import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
+import { reportError } from '@/lib/observability/report-error'
 import {
   getCampaignAccessError,
   getParticipantAccessError,
@@ -508,18 +510,13 @@ export async function getSessionState(token: string, sessionId: string) {
     // Derive fallback options from response format anchors when item_options is empty.
     // This handles AI-generated items that have stems but no per-item options.
     function deriveOptionsFromFormat() {
-      const anchors = formatConfig.anchors
-      if (formatType === 'likert' && anchors && typeof anchors === 'object') {
-        return Object.entries(anchors)
-          .map(([val, label]) => ({
-            id: `rf-${val}`,
-            label: String(label),
-            value: Number(val),
-            sortOrder: Number(val),
-          }))
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-      }
-      return []
+      if (formatType !== 'likert') return []
+      return likertAnchorOptions(formatConfig.anchors).map((o) => ({
+        id: `rf-${o.value}`,
+        label: o.label,
+        value: o.value,
+        sortOrder: o.value,
+      }))
     }
 
     const fallbackOptions = deriveOptionsFromFormat()
@@ -1239,17 +1236,19 @@ async function finalizeCompletedSessionProcessing(input: {
 
     if (snapshotState.hasPendingSnapshotWork) {
       const triggerResult = await triggerReportGeneration(input.sessionId)
-      if (!triggerResult.ok && snapshotState.hasParticipantReport) {
-        await markParticipantSessionProcessing(input.sessionId, {
-          status: 'failed',
-          error: triggerResult.error,
-          processedAt: null,
+      if (!triggerResult.ok) {
+        // Non-fatal: the report-generation-sweep cron picks up pending
+        // snapshots, so a failed trigger (rate limit, transient network) just
+        // delays the report. Fall through to the 'reporting' state below and
+        // let the report page poll. Log so trigger-failure rates stay visible.
+        await reportError(new Error(triggerResult.error), {
+          source: 'reports.trigger',
+          severity: 'warning',
+          alert: false,
+          context: { session_id: input.sessionId },
+        }).catch(() => {
+          // Instrumentation must not break the submit path
         })
-        return {
-          ok: false,
-          error: 'report_failed',
-          message: REPORT_PROCESSING_ERROR,
-        }
       }
     }
   }
@@ -1489,6 +1488,9 @@ export async function triggerReportGeneration(
         'x-internal-key': apiKey,
       },
       body: JSON.stringify({ sessionId }),
+      // Trigger failure is non-fatal (the sweep cron is the safety net), so
+      // don't let a hung internal fetch stall the participant's submit.
+      signal: AbortSignal.timeout(10_000),
     })
     if (!response.ok) {
       const payload = (await response.json().catch(() => ({}))) as {

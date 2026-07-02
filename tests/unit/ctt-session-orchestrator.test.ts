@@ -17,13 +17,17 @@
 
 import { describe, expect, it } from 'vitest'
 
+import { deriveItemBounds } from '@/lib/scoring/ctt-session'
+import { toPomp } from '@/lib/scoring/transforms'
+
 /**
- * POMP (Percentage of Maximum Possible) calculation — core logic
- * from ctt-session.ts lines 120-126.
+ * POMP (Percentage of Maximum Possible) calculation — mirrors the per-response
+ * step in ctt-session.ts: reverse-score, then delegate to the shared
+ * (clamped) toPomp transform.
  *
  * Formula:
  *   effectiveValue = reverseScored ? (maxValue - response + minValue) : response
- *   POMP = (effectiveValue - minValue) / (maxValue - minValue) * 100
+ *   POMP = clamp((effectiveValue - minValue) / (maxValue - minValue) * 100, 0, 100)
  */
 function calculatePOMP(
   responseValue: number,
@@ -32,8 +36,7 @@ function calculatePOMP(
   reverseScored: boolean,
 ): number {
   const effectiveValue = reverseScored ? maxValue - responseValue + minValue : responseValue
-  const range = maxValue - minValue
-  return range > 0 ? ((effectiveValue - minValue) / range) * 100 : 0
+  return toPomp(effectiveValue, minValue, maxValue)
 }
 
 /**
@@ -173,6 +176,117 @@ describe('CTT session scoring logic', () => {
        */
       const pomp = calculatePOMP(2, 0, 10, true)
       expect(pomp).toBeCloseTo(80, 1)
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // Item bounds derivation (deriveItemBounds — real implementation)
+  // -----------------------------------------------------------------------
+  describe('item bounds derivation', () => {
+    it('derives 0–1 bounds for the seeded binary format from its item options', () => {
+      // Seeded binary config (00004_seed_library_data.sql) carries no
+      // minValue/maxValue/points — the 0/1 option values are the scale.
+      const bounds = deriveItemBounds(
+        { options: 2, labels: { '0': 'No', '1': 'Yes' } },
+        [0, 1],
+      )
+      expect(bounds).toEqual({ minValue: 0, maxValue: 1 })
+    })
+
+    it('prefers explicit config minValue/maxValue over option values', () => {
+      const bounds = deriveItemBounds({ minValue: 0, maxValue: 10 }, [1, 2, 3])
+      expect(bounds).toEqual({ minValue: 0, maxValue: 10 })
+    })
+
+    it('falls back to config points for a Likert format without options', () => {
+      const bounds = deriveItemBounds(
+        { points: 5, anchors: { '1': 'Strongly Disagree', '5': 'Strongly Agree' } },
+        [],
+      )
+      expect(bounds).toEqual({ minValue: 1, maxValue: 5 })
+    })
+
+    it('defaults to 1–5 when config and options carry no bounds', () => {
+      expect(deriveItemBounds({}, [])).toEqual({ minValue: 1, maxValue: 5 })
+    })
+
+    it('derives bounds from unordered option values (forced choice)', () => {
+      const bounds = deriveItemBounds({ options: 2 }, [2, 1])
+      expect(bounds).toEqual({ minValue: 1, maxValue: 2 })
+    })
+
+    it('derives 0–1 bounds from seeded binary label keys when the item has no options', () => {
+      // AI-accepted items get no item_options; the runner's binary component
+      // falls back to Yes(1)/No(0), so the config's label keys are the scale.
+      const bounds = deriveItemBounds(
+        { options: 2, labels: { '0': 'No', '1': 'Yes' } },
+        [],
+      )
+      expect(bounds).toEqual({ minValue: 0, maxValue: 1 })
+    })
+
+    it('derives bounds from trueValue/falseValue (admin-form binary config) without options', () => {
+      const bounds = deriveItemBounds(
+        { trueLabel: 'True', falseLabel: 'False', trueValue: 1, falseValue: 0 },
+        [],
+      )
+      expect(bounds).toEqual({ minValue: 0, maxValue: 1 })
+    })
+
+    it('ignores degenerate label keys (single value) and falls through to the default', () => {
+      expect(deriveItemBounds({ labels: { '1': 'Only' } }, [])).toEqual({
+        minValue: 1,
+        maxValue: 5,
+      })
+    })
+
+    it('treats a bare binary format as 0–1 (runner hardcodes Yes=1/No=0 without options)', () => {
+      expect(deriveItemBounds({ options: 2 }, [], 'binary')).toEqual({
+        minValue: 0,
+        maxValue: 1,
+      })
+    })
+
+    it('does not apply the binary net to other format types', () => {
+      expect(deriveItemBounds({ options: 2 }, [], 'forced_choice')).toEqual({
+        minValue: 1,
+        maxValue: 5,
+      })
+    })
+  })
+
+  // -----------------------------------------------------------------------
+  // POMP calculation (binary items — regression for the 1–5 default bug)
+  // -----------------------------------------------------------------------
+  describe('POMP calculation — binary items', () => {
+    it('scores a "No" (0) response as 0 POMP, not negative', () => {
+      /**
+       * Regression: with the old hardcoded 1–5 default a binary 0 scored
+       * (0 - 1) / (5 - 1) * 100 = -25 POMP.
+       */
+      const { minValue, maxValue } = deriveItemBounds(
+        { options: 2, labels: { '0': 'No', '1': 'Yes' } },
+        [0, 1],
+      )
+      expect(calculatePOMP(0, minValue, maxValue, false)).toBe(0)
+    })
+
+    it('scores a "Yes" (1) response as 100 POMP', () => {
+      const { minValue, maxValue } = deriveItemBounds(
+        { options: 2, labels: { '0': 'No', '1': 'Yes' } },
+        [0, 1],
+      )
+      expect(calculatePOMP(1, minValue, maxValue, false)).toBe(100)
+    })
+
+    it('reverse-scores binary responses within 0–1 bounds', () => {
+      expect(calculatePOMP(0, 0, 1, true)).toBe(100)
+      expect(calculatePOMP(1, 0, 1, true)).toBe(0)
+    })
+
+    it('clamps out-of-bounds responses instead of going negative or above 100', () => {
+      expect(calculatePOMP(0, 1, 5, false)).toBe(0)
+      expect(calculatePOMP(6, 1, 5, false)).toBe(100)
     })
   })
 

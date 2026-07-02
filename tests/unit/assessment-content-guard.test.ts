@@ -9,6 +9,14 @@ const dal = vi.hoisted(() => ({
   listEmptyAssessments: vi.fn(),
 }))
 
+const sectionsDal = vi.hoisted(() => ({
+  autoBuildSectionsFromFactors: vi.fn(),
+  buildDefaultSectionDrafts: vi.fn(),
+  getFormatBreakdownForScope: vi.fn(),
+  persistSections: vi.fn(),
+  applyPerConstructLimit: vi.fn(),
+}))
+
 const auth = vi.hoisted(() => ({
   requireAssessmentAccess: vi.fn(),
   requireCampaignAccess: vi.fn(),
@@ -34,6 +42,13 @@ const adminDb = vi.hoisted(() => {
 
   function opsFor(table: string, method: string) {
     return state.ops.filter((op) => op.table === table && op.method === method)
+  }
+
+  function rpc(fn: string, args: unknown) {
+    state.ops.push({ table: `rpc:${fn}`, method: 'rpc', args: [args] })
+    const queue = state.queues.get(`rpc:${fn}`) ?? []
+    const result = queue.length > 0 ? (queue.shift() as Result) : { data: null, error: null }
+    return Promise.resolve({ data: null, error: null, ...result })
   }
 
   function from(table: string) {
@@ -67,13 +82,19 @@ const adminDb = vi.hoisted(() => {
     return builder
   }
 
-  return { seed, opsFor, client: { from } }
+  return { seed, opsFor, client: { from, rpc } }
 })
 
 vi.mock('@/lib/dal/assessment-content', () => dal)
 
+vi.mock('@/lib/dal/assessment-sections', () => sectionsDal)
+
 vi.mock('@/lib/auth/authorization', () => ({
   AuthorizationError: class AuthorizationError extends Error {},
+  AuthenticationRequiredError: class AuthenticationRequiredError extends Error {},
+  redirectToLoginOnDeadSession: vi.fn((error: unknown) => {
+    throw error
+  }),
   canAccessClient: vi.fn(() => true),
   canManageAssessment: vi.fn(() => true),
   canManageAssessmentLibrary: vi.fn(() => true),
@@ -133,7 +154,11 @@ vi.mock('@/app/actions/client-entitlements', () => ({
 // Imports under test (AFTER mocks)
 // ---------------------------------------------------------------------------
 
-import { updateAssessmentMeta } from '@/app/actions/assessments'
+import { AuthenticationRequiredError, AuthorizationError } from '@/lib/auth/authorization'
+import {
+  updateAssessmentComposition,
+  updateAssessmentMeta,
+} from '@/app/actions/assessments'
 import { activateCampaign, addAssessmentToCampaign } from '@/app/actions/campaigns'
 
 const ASSESSMENT_ID = 'aaaa1111-1111-1111-1111-111111111111'
@@ -151,6 +176,8 @@ beforeEach(() => {
     clientId: null,
     partnerId: null,
   })
+  // Default: auto-build finds nothing to build (factors resolve to no items).
+  sectionsDal.autoBuildSectionsFromFactors.mockResolvedValue({ built: false, itemCount: 0 })
 })
 
 // =============================================================================
@@ -171,7 +198,53 @@ describe('updateAssessmentMeta activation guard', () => {
 
     const result = await updateAssessmentMeta(ASSESSMENT_ID, { status: 'active' })
 
-    expect(result).toMatchObject({ error: expect.stringMatching(/no questions yet/i) })
+    expect(result).toMatchObject({ error: expect.stringMatching(/no questions/i) })
+    expect(sectionsDal.autoBuildSectionsFromFactors).toHaveBeenCalledWith(
+      expect.anything(),
+      ASSESSMENT_ID,
+    )
+    expect(adminDb.opsFor('assessments', 'update')).toHaveLength(0)
+  })
+
+  it('auto-builds the section layout from factors and then activates', async () => {
+    dal.getAssessmentContentSummaries.mockResolvedValue([
+      {
+        assessmentId: ASSESSMENT_ID,
+        title: 'Watermark test',
+        formatMode: 'traditional',
+        itemCount: 0,
+        hasDeliverableContent: false,
+      },
+    ])
+    sectionsDal.autoBuildSectionsFromFactors.mockResolvedValue({ built: true, itemCount: 48 })
+
+    const result = await updateAssessmentMeta(ASSESSMENT_ID, { status: 'active' })
+
+    expect(result).toEqual({ success: true })
+    expect(adminDb.opsFor('assessments', 'update')).toHaveLength(1)
+    expect(audit.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'assessment.sections.autobuilt',
+        metadata: expect.objectContaining({ itemCount: 48, trigger: 'activation' }),
+      }),
+    )
+  })
+
+  it('fails closed when the auto-build itself errors', async () => {
+    dal.getAssessmentContentSummaries.mockResolvedValue([
+      {
+        assessmentId: ASSESSMENT_ID,
+        title: 'Watermark test',
+        formatMode: 'traditional',
+        itemCount: 0,
+        hasDeliverableContent: false,
+      },
+    ])
+    sectionsDal.autoBuildSectionsFromFactors.mockRejectedValue(new Error('db down'))
+
+    const result = await updateAssessmentMeta(ASSESSMENT_ID, { status: 'active' })
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/unable to verify/i) })
     expect(adminDb.opsFor('assessments', 'update')).toHaveLength(0)
   })
 
@@ -230,8 +303,60 @@ describe('addAssessmentToCampaign content guard', () => {
 
     const result = await addAssessmentToCampaign(CAMPAIGN_ID, ASSESSMENT_ID)
 
-    expect(result).toMatchObject({ error: expect.stringMatching(/no questions yet/i) })
+    expect(result).toMatchObject({ error: expect.stringMatching(/no questions/i) })
     expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(0)
+  })
+
+  it('does not auto-build when the actor lacks write access to the assessment', async () => {
+    dal.getAssessmentContentSummaries.mockResolvedValue([
+      {
+        assessmentId: ASSESSMENT_ID,
+        title: 'Shared library assessment',
+        formatMode: 'traditional',
+        itemCount: 0,
+        hasDeliverableContent: false,
+      },
+    ])
+    // Campaign access is fine, but the assessment is not writable by this actor.
+    auth.requireAssessmentAccess.mockRejectedValue(
+      new AuthorizationError('You do not have permission to manage assessments.'),
+    )
+
+    const result = await addAssessmentToCampaign(CAMPAIGN_ID, ASSESSMENT_ID)
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/no questions/i) })
+    expect(sectionsDal.autoBuildSectionsFromFactors).not.toHaveBeenCalled()
+    expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(0)
+  })
+
+  it('auto-builds the layout from factors and attaches', async () => {
+    dal.getAssessmentContentSummaries.mockResolvedValue([
+      {
+        assessmentId: ASSESSMENT_ID,
+        title: 'Watermark test',
+        formatMode: 'traditional',
+        itemCount: 0,
+        hasDeliverableContent: false,
+      },
+    ])
+    sectionsDal.autoBuildSectionsFromFactors.mockResolvedValue({ built: true, itemCount: 48 })
+    adminDb.seed({
+      campaign_assessments: [
+        { data: [] }, // display-order lookup
+        { error: null }, // insert
+      ],
+    })
+
+    const result = await addAssessmentToCampaign(CAMPAIGN_ID, ASSESSMENT_ID)
+
+    expect(result).toBeUndefined()
+    expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(1)
+    expect(audit.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'assessment.sections.autobuilt',
+        metadata: expect.objectContaining({ trigger: 'campaign-attach' }),
+      }),
+    )
   })
 
   it('attaches an assessment that has questions', async () => {
@@ -283,9 +408,40 @@ describe('activateCampaign content readiness gate', () => {
     const result = await activateCampaign(CAMPAIGN_ID)
 
     expect(result).toMatchObject({
-      error: expect.stringMatching(/"Watermark test" has no questions yet/),
+      error: expect.stringMatching(/"Watermark test" has no questions/),
     })
     expect(adminDb.opsFor('campaigns', 'update')).toHaveLength(0)
+  })
+
+  it('auto-builds empty linked assessments and continues activation', async () => {
+    adminDb.seed({
+      campaign_assessments: [{ data: [{ assessment_id: ASSESSMENT_ID }] }],
+      campaign_participants: [{ count: 0 }],
+      campaign_access_links: [{ count: 0 }],
+    })
+    dal.listEmptyAssessments.mockResolvedValue([
+      {
+        assessmentId: ASSESSMENT_ID,
+        title: 'Watermark test',
+        formatMode: 'traditional',
+        itemCount: 0,
+        hasDeliverableContent: false,
+      },
+    ])
+    sectionsDal.autoBuildSectionsFromFactors.mockResolvedValue({ built: true, itemCount: 48 })
+
+    const result = await activateCampaign(CAMPAIGN_ID)
+
+    // Content gate passed via auto-build; the next readiness rule fires instead.
+    expect(result).toMatchObject({
+      error: expect.stringMatching(/participant or active access link/i),
+    })
+    expect(audit.logAuditEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: 'assessment.sections.autobuilt',
+        metadata: expect.objectContaining({ trigger: 'campaign-activation' }),
+      }),
+    )
   })
 
   it('passes the content gate when all linked assessments have questions', async () => {
@@ -302,5 +458,51 @@ describe('activateCampaign content readiness gate', () => {
     expect(result).toMatchObject({
       error: expect.stringMatching(/participant or active access link/i),
     })
+  })
+})
+
+// =============================================================================
+// updateAssessmentComposition — atomic replacement, no revalidation blast
+// =============================================================================
+
+describe('updateAssessmentComposition', () => {
+  it('replaces factors via the advisory-locked RPC, preserving array order', async () => {
+    const result = await updateAssessmentComposition(ASSESSMENT_ID, {
+      factors: [{ factorId: 'f-2' }, { factorId: 'f-1' }],
+    })
+
+    expect(result).toEqual({ success: true })
+    const rpcCalls = adminDb.opsFor('rpc:replace_assessment_factors', 'rpc')
+    expect(rpcCalls).toHaveLength(1)
+    expect(rpcCalls[0].args[0]).toMatchObject({
+      p_assessment_id: ASSESSMENT_ID,
+      p_factors: [
+        { factor_id: 'f-2', weight: 1, item_count: 0 },
+        { factor_id: 'f-1', weight: 1, item_count: 0 },
+      ],
+    })
+    // No delete/insert pair — the RPC owns the whole replacement.
+    expect(adminDb.opsFor('assessment_factors', 'delete')).toHaveLength(0)
+    expect(adminDb.opsFor('assessment_factors', 'insert')).toHaveLength(0)
+  })
+
+  it('maps a dead session to a structured error instead of throwing to the boundary', async () => {
+    auth.requireAssessmentAccess.mockRejectedValue(new AuthenticationRequiredError())
+
+    const result = await updateAssessmentComposition(ASSESSMENT_ID, { factors: [] })
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/session has expired/i) })
+  })
+
+  it('surfaces an RPC failure as a structured error', async () => {
+    adminDb.seed({
+      'rpc:replace_assessment_factors': [{ error: { message: '23505' } }],
+    })
+
+    const result = await updateAssessmentComposition(ASSESSMENT_ID, {
+      factors: [{ factorId: 'f-1' }],
+    })
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/unable to save/i) })
   })
 })
