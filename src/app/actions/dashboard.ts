@@ -1,11 +1,23 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope } from '@/lib/auth/authorization'
+import {
+  redirectToLoginOnDeadSession,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 
 export async function getDashboardStats() {
-  const scope = await resolveAuthorizedScope()
+  // The dashboard home is where stale tabs land — a dead session here must
+  // bounce to /login (re-running the middleware session refresh), not crash
+  // into the error boundary. This exact render error recurred in production
+  // for 23 users (error_events: AuthenticationRequiredError, path /dashboard).
+  let scope
+  try {
+    scope = await resolveAuthorizedScope()
+  } catch (error) {
+    redirectToLoginOnDeadSession(error)
+  }
   const db = await createClient()
   if (scope.isPlatformAdmin) {
     const [dimensions, factors, constructs, items, assessments, clients] =

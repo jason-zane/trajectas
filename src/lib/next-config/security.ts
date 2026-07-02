@@ -116,6 +116,11 @@ export function createTrajectasNextConfig(
 ): NextConfig {
   return {
     allowedDevOrigins: getAllowedDevOrigins(env),
+    // Deployment skew protection: a builder tab left open across a deploy
+    // otherwise POSTs stale server-action IDs, which surface as thrown
+    // UnrecognizedActionError in whatever component fired the action. With a
+    // deploymentId, Vercel routes those requests to the matching deployment.
+    deploymentId: env.VERCEL_DEPLOYMENT_ID,
     // Prevent Turbopack from bundling packages with complex CJS internals.
     // They are loaded from node_modules at runtime instead.
     serverExternalPackages: [
