@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, AlertCircle, Send, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Check, AlertCircle, ArrowLeft } from "lucide-react";
 import { submitSession } from "@/app/actions/assess";
 import { SavingOverlay } from "./saving-overlay";
 import type { SectionForRunner } from "@/app/actions/assess";
@@ -14,7 +13,6 @@ interface ReviewScreenProps {
   sessionId: string;
   sections: SectionForRunner[];
   responses: Record<string, { value: number; data: Record<string, unknown> }>;
-  assessmentName?: string;
   brandLogoUrl?: string;
   brandName?: string;
   isCustomBrand?: boolean;
@@ -22,6 +20,7 @@ interface ReviewScreenProps {
   nextUrl: string;
   privacyUrl?: string;
   termsUrl?: string;
+  participantFirstName?: string;
 }
 
 /** Default section titles that are admin-side placeholders and should not be shown to participants. */
@@ -44,7 +43,6 @@ export function ReviewScreen({
   sessionId,
   sections,
   responses,
-  assessmentName,
   brandLogoUrl,
   brandName,
   isCustomBrand,
@@ -52,6 +50,7 @@ export function ReviewScreen({
   nextUrl,
   privacyUrl,
   termsUrl,
+  participantFirstName,
 }: ReviewScreenProps) {
   const router = useRouter();
   const [submitStage, setSubmitStage] = useState<
@@ -70,12 +69,6 @@ export function ReviewScreen({
   const uniqueAnsweredCount = Array.from(uniqueItemIds).filter(
     (id) => responses[id] !== undefined,
   ).length;
-
-  // Show per-section breakdown only when there are ≥2 sections AND at least one
-  // has a non-default, custom title. Otherwise it's noise.
-  const hasMeaningfulSectionTitles =
-    sections.length >= 2 &&
-    sections.some((s) => !isDefaultTitle(s.title));
 
   const allAnswered = uniqueAnsweredCount >= uniqueTotalItems;
 
@@ -111,13 +104,18 @@ export function ReviewScreen({
         : content.buttonLabel;
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col" style={{ background: "var(--runner-page, hsl(var(--background)))" }}>
+      {/* Full-width progress bar at 100% */}
+      <div
+        className="h-[2px] w-full"
+        style={{
+          background: "var(--runner-progress, var(--brand-accent, hsl(var(--primary))))",
+        }}
+      />
+
       {/* Header */}
       <header
-        className="sticky top-0 z-10 flex h-14 items-center justify-between px-4 sm:px-6"
-        style={{
-          background: "var(--brand-neutral-50, hsl(var(--background)))",
-        }}
+        className="flex items-center justify-between px-6 py-6 sm:px-10 lg:px-[120px]"
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
@@ -125,37 +123,29 @@ export function ReviewScreen({
             <img
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}
-              className="h-7 w-auto object-contain"
+              className="h-6 w-auto object-contain"
             />
           ) : (
             <div className="flex items-center gap-2">
-              <div
-                className="flex size-7 items-center justify-center rounded-lg"
+              <svg
+                className="size-[15px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 style={{
-                  background:
-                    "var(--brand-surface, hsl(var(--primary) / 0.1))",
+                  color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
                 }}
               >
-                <svg
-                  className="size-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: "var(--brand-primary, hsl(var(--primary)))",
-                  }}
-                >
-                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
+                <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span
-                className="text-sm font-semibold tracking-tight"
+                className="text-[13px] font-semibold tracking-tight"
                 style={{
-                  color: "var(--brand-text, hsl(var(--foreground)))",
+                  color: "var(--runner-text, hsl(var(--foreground)))",
                 }}
               >
                 {brandName ?? "Trajectas"}
@@ -166,238 +156,211 @@ export function ReviewScreen({
 
         <button
           onClick={() => router.back()}
-          className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5"
+          className="flex items-center gap-1.5 rounded text-[12.5px] font-medium transition-opacity hover:opacity-70"
           style={{
-            color:
-              "var(--brand-text-muted, hsl(var(--muted-foreground)))",
+            color: "var(--runner-text-muted, hsl(var(--muted-foreground)))",
           }}
         >
-          <ArrowLeft className="size-3.5" />
+          <ArrowLeft className="size-3" strokeWidth={2} />
           Back
         </button>
       </header>
 
-      {/* Full-width progress bar at 100% */}
-      <div
-        className="h-0.5 w-full"
-        style={{
-          background: "var(--brand-primary, hsl(var(--primary)))",
-        }}
-      />
-
       {/* Main content */}
-      <main className="flex flex-1 flex-col items-center px-4 py-12 sm:px-6 sm:py-16">
-        <div className="w-full max-w-[560px] space-y-10 lg:max-w-[720px] xl:max-w-[820px]">
+      <main className="flex flex-1 flex-col items-center px-6 py-12 sm:px-10 sm:py-16 lg:px-[120px]">
+        <div className="w-full max-w-[620px] space-y-8">
           {/* Review eyebrow */}
           <p
-            className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
+            className="font-mono text-[10px] font-semibold uppercase tracking-[0.26em]"
             style={{
-              color: "var(--brand-accent, var(--gold))",
+              color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
             }}
           >
             {content.heading}
           </p>
 
           {/* Assessment name as main heading */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <h1
-              className="font-sans text-[clamp(2rem,4vw,3rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
+              className="font-serif text-[38px] font-semibold leading-[1.15] tracking-[-0.015em]"
               style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
-                fontFamily: "var(--brand-font-heading, inherit)",
+                color: "var(--runner-display, hsl(var(--foreground)))",
+                fontFamily: '"Source Serif 4", Georgia, serif',
               }}
             >
-              {assessmentName ?? content.heading}
+              Almost there{participantFirstName ? `, ${participantFirstName}` : ""}.
             </h1>
             <p
-              className="font-mono text-sm tabular-nums"
+              className="text-[13.5px] leading-relaxed"
               style={{
-                color:
-                  "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                color: "var(--runner-text-muted, hsl(var(--muted-foreground)))",
               }}
             >
-              {uniqueAnsweredCount} of {uniqueTotalItems} questions answered
+              {uniqueAnsweredCount === uniqueTotalItems
+                ? "You've answered all questions. Ready to submit?"
+                : "One section still has an unanswered question."}
             </p>
           </div>
 
-          {/* Assessment-level status card (single card per assessment) */}
-          <div className="space-y-2.5">
-            {(() => {
-              const firstIncompleteSectionIdx = sections.findIndex((s) =>
-                s.items.some((i) => responses[i.id] === undefined),
-              );
+          {/* Section rows — hairline-divided list */}
+          <div
+            className="border-t"
+            style={{
+              borderColor: "var(--runner-hairline, hsl(var(--border)))",
+            }}
+          >
+            {sections.map((section, idx) => {
+              const answered = section.items.filter(
+                (i) => responses[i.id] !== undefined,
+              ).length;
+              const complete = answered === section.items.length;
+
               return (
                 <div
-                  className="flex items-center gap-3 rounded-xl border px-4 py-3.5"
+                  key={section.id}
+                  className="flex items-center gap-4 border-b px-2 py-4"
                   style={{
-                    borderColor:
-                      "var(--brand-neutral-200, hsl(var(--border)))",
-                    background: "transparent",
+                    borderColor: "var(--runner-hairline, hsl(var(--border)))",
                   }}
                 >
-                  {allAnswered ? (
-                    <CheckCircle2
-                      className="size-5 shrink-0"
+                  {/* Section index */}
+                  <span
+                    className="font-mono text-[11px] font-semibold"
+                    style={{
+                      color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
+                    }}
+                  >
+                    {String(idx + 1).padStart(2, "0")}
+                  </span>
+
+                  {/* Section title and count */}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-[14px] font-semibold leading-tight"
                       style={{
-                        color:
-                          "var(--brand-primary, hsl(var(--primary)))",
+                        color: "var(--runner-text, hsl(var(--foreground)))",
+                      }}
+                    >
+                      {isDefaultTitle(section.title) ? `Section ${idx + 1}` : section.title}
+                    </p>
+                  </div>
+
+                  {/* Answer count */}
+                  <span
+                    className="font-mono text-[11px] font-medium"
+                    style={{
+                      color: "var(--runner-text-meta, hsl(var(--muted-foreground)))",
+                    }}
+                  >
+                    {answered} / {section.items.length}
+                  </span>
+
+                  {/* Complete check or Finish button */}
+                  {complete ? (
+                    <Check
+                      className="size-[14px] flex-shrink-0"
+                      strokeWidth={2.5}
+                      style={{
+                        color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
                       }}
                     />
                   ) : (
-                    <AlertCircle className="size-5 shrink-0 text-amber-500" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="text-sm font-medium"
+                    <button
+                      onClick={() => router.push(`/assess/${token}/section/${idx}`)}
+                      className="rounded border px-3.5 py-1.5 text-[12px] font-semibold transition-colors"
                       style={{
-                        color:
-                          "var(--brand-text, hsl(var(--foreground)))",
+                        border: "1px solid var(--runner-ghost-border, hsl(var(--border)))",
+                        color: "var(--runner-text, hsl(var(--foreground)))",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = "var(--runner-ghost-border-hover, hsl(var(--border)))";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = "var(--runner-ghost-border, hsl(var(--border)))";
                       }}
                     >
-                      {assessmentName ?? "Assessment"}
-                    </p>
-                    <p
-                      className="text-xs"
-                      style={{
-                        color:
-                          "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-                      }}
-                    >
-                      {uniqueAnsweredCount} / {uniqueTotalItems} answered
-                    </p>
-                  </div>
-                  {!allAnswered && firstIncompleteSectionIdx >= 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        router.push(
-                          `/assess/${token}/section/${firstIncompleteSectionIdx}`,
-                        )
-                      }
-                    >
-                      Complete
-                    </Button>
+                      Finish section
+                    </button>
                   )}
                 </div>
               );
-            })()}
-
-            {/* Per-section sub-rows — only when we have ≥2 sections with custom titles */}
-            {hasMeaningfulSectionTitles &&
-              sections.map((section, idx) => {
-                const answered = section.items.filter(
-                  (i) => responses[i.id] !== undefined,
-                ).length;
-                const complete = answered === section.items.length;
-                return (
-                  <div
-                    key={section.id}
-                    className="flex items-center gap-3 rounded-xl border border-l-2 px-4 py-3 pl-4"
-                    style={{
-                      borderColor:
-                        "var(--brand-neutral-200, hsl(var(--border)))",
-                      borderLeftColor:
-                        "var(--brand-neutral-300, hsl(var(--border)))",
-                      background: "transparent",
-                    }}
-                  >
-                    {complete ? (
-                      <CheckCircle2
-                        className="size-4 shrink-0"
-                        style={{
-                          color:
-                            "var(--brand-primary, hsl(var(--primary)))",
-                        }}
-                      />
-                    ) : (
-                      <AlertCircle className="size-4 shrink-0 text-amber-500" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className="text-xs font-medium"
-                        style={{
-                          color:
-                            "var(--brand-text, hsl(var(--foreground)))",
-                        }}
-                      >
-                        {section.title}
-                      </p>
-                      <p
-                        className="text-xs"
-                        style={{
-                          color:
-                            "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-                        }}
-                      >
-                        {answered} / {section.items.length}
-                      </p>
-                    </div>
-                    {!complete && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          router.push(`/assess/${token}/section/${idx}`)
-                        }
-                      >
-                        Complete
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+            })}
           </div>
 
-          {/* Submit */}
-          <div className="pt-4 space-y-3">
+          {/* Submit section */}
+          <div className="flex flex-col gap-4 pt-4">
             {!allAnswered && (
-              <p className="text-sm text-amber-500">
+              <p
+                className="text-[12px]"
+                style={{
+                  color: "var(--brand-warning, hsl(var(--destructive)))",
+                }}
+              >
                 {content.incompleteWarning}
               </p>
             )}
+
             {submitError && (
               <div
-                className="flex items-start gap-2 rounded-xl border px-4 py-3 text-sm"
+                className="flex items-start gap-2 rounded border px-4 py-3 text-[13px]"
                 style={{
-                  borderColor:
-                    "var(--brand-error, hsl(var(--destructive) / 0.25))",
-                  background:
-                    "var(--brand-error-surface, hsl(var(--destructive) / 0.08))",
+                  borderColor: "var(--brand-error, hsl(var(--destructive)))",
+                  background: "var(--brand-error, hsl(var(--destructive) / 0.08))",
                   color: "var(--brand-error, hsl(var(--destructive)))",
                 }}
               >
-                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <AlertCircle className="mt-0.5 size-4 flex-shrink-0" strokeWidth={2} />
                 <p>{submitError}</p>
               </div>
             )}
-            <div className="flex justify-center">
-              <Button
-                size="lg"
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="min-w-[200px] gap-1.5"
-                style={{
-                  background:
-                    "var(--brand-primary, hsl(var(--primary)))",
-                  color:
-                    "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-                }}
-              >
-                <Send className="size-4" />
-                {submitButtonLabel}
-              </Button>
-            </div>
+
+            {/* CTA Button */}
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="inline-flex items-center gap-2 rounded border px-8 py-3.5 font-semibold transition-all duration-200 disabled:opacity-60"
+              style={{
+                background: "var(--runner-cta-fill, var(--brand-accent, hsl(var(--primary))))",
+                color: "var(--runner-cta-text, var(--brand-primary-foreground, hsl(var(--primary-foreground))))",
+                border: "none",
+                fontSize: "15px",
+                fontFamily: "’Plus Jakarta Sans’, sans-serif",
+                cursor: submitting ? "not-allowed" : "pointer",
+              }}
+              onMouseEnter={(e) => {
+                if (!submitting) {
+                  e.currentTarget.style.background = "var(--runner-cta-fill-hover, var(--brand-accent, hsl(var(--primary))))";
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--runner-cta-fill, var(--brand-accent, hsl(var(--primary))))";
+              }}
+            >
+              {submitButtonLabel}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </button>
+
+            {/* Submission caveat */}
+            <p
+              className="text-[12px]"
+              style={{
+                color: "var(--runner-text-faint, hsl(var(--muted-foreground)))",
+              }}
+            >
+              Answers can’t be changed after submitting
+            </p>
+
+            {/* In-flight message */}
             {submitting && (
               <div
-                className="mx-auto max-w-md rounded-xl border px-4 py-3 text-sm"
+                className="rounded border px-4 py-3 text-[13px]"
                 style={{
-                  borderColor:
-                    "var(--brand-neutral-200, hsl(var(--border)))",
-                  background:
-                    "var(--brand-neutral-50, hsl(var(--muted) / 0.45))",
-                  color:
-                    "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                  borderColor: "var(--runner-hairline, hsl(var(--border)))",
+                  background: "var(--runner-ghost-fill, hsl(var(--muted) / 0.02))",
+                  color: "var(--runner-text-muted, hsl(var(--muted-foreground)))",
                 }}
               >
                 {submitStage === "preparing_report"
@@ -410,12 +373,11 @@ export function ReviewScreen({
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center gap-3 px-4 py-4">
+      <footer className="flex items-center justify-center gap-2 px-6 py-4 sm:px-10 lg:px-[120px]">
         <span
-          className="text-xs"
+          className="text-[11px]"
           style={{
-            color:
-              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            color: "var(--runner-text-faint, hsl(var(--muted-foreground)))",
           }}
         >
           {content.footerText ??
@@ -426,8 +388,8 @@ export function ReviewScreen({
             href={privacyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="text-[11px] underline-offset-2 hover:underline"
+            style={{ color: "var(--runner-text-faint, hsl(var(--muted-foreground)))" }}
           >
             Privacy
           </a>
@@ -437,8 +399,8 @@ export function ReviewScreen({
             href={termsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="text-[11px] underline-offset-2 hover:underline"
+            style={{ color: "var(--runner-text-faint, hsl(var(--muted-foreground)))" }}
           >
             Terms
           </a>

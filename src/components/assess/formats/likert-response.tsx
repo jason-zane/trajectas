@@ -17,12 +17,14 @@ const GRID_COLS: Record<number, string> = {
 };
 
 /**
- * Likert scale response format.
+ * Likert scale response format (dark-editorial re-skin).
  *
- * - Desktop (>=768px): CSS Grid with equal-width columns, all same height
- * - Mobile (<768px): vertical stack of full-width tap targets
- * - No numbers shown — only word labels
- * - Uses brand tokens for selection state
+ * - Desktop (>=768px): CSS Grid with equal-width columns, all same height (min-h 62px)
+ * - Mobile (<768px): vertical stack of full-width tap targets (min-h 46–54px)
+ * - Word labels only, 13–14px/500
+ * - Ghost outline buttons (1px border, var(--runner-ghost-*) fill/border)
+ * - Selected state flips to var(--runner-selected-*) with weight 600 + shadow
+ * - Uses --runner-* custom properties exclusively
  */
 export function LikertResponse({
   options,
@@ -32,30 +34,52 @@ export function LikertResponse({
   const gridCols = GRID_COLS[options.length] ?? "md:grid-cols-5";
 
   return (
-    <div className={`grid grid-cols-1 gap-2 ${gridCols}`}>
+    <div className={`grid grid-cols-1 gap-2 md:gap-3 ${gridCols}`}>
       {options.map((option) => {
         const isSelected = selectedValue === option.value;
         return (
           <button
             key={option.id}
             onClick={() => onSelect(option.value)}
-            className={`
-              grid place-items-center rounded-xl border-2 px-3 py-3
-              text-sm font-medium transition-all duration-150 ease-out
+            className="
+              grid place-items-center transition-all duration-150 ease-out
               focus-visible:outline-none focus-visible:ring-2
-              min-h-[56px]
-              ${isSelected ? "scale-[1.02]" : "hover:scale-[1.01]"}
-            `}
+              focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
+              px-3 py-3 md:px-2 md:py-4
+              min-h-[46px] md:min-h-[62px] text-sm font-medium
+              active:scale-95
+            "
             style={{
+              borderRadius: "10px",
+              border: "1px solid",
               borderColor: isSelected
-                ? "var(--brand-primary, hsl(var(--primary)))"
-                : "var(--brand-neutral-200, hsl(var(--border)))",
-              background: isSelected
-                ? "var(--brand-surface, hsl(var(--primary) / 0.08))"
-                : "transparent",
+                ? "var(--runner-selected-fill)"
+                : "var(--runner-ghost-border)",
+              backgroundColor: isSelected
+                ? "var(--runner-selected-fill)"
+                : "var(--runner-ghost-fill)",
               color: isSelected
-                ? "var(--brand-primary, hsl(var(--primary)))"
-                : "var(--brand-text, hsl(var(--foreground)))",
+                ? "var(--runner-selected-text)"
+                : "var(--runner-text)",
+              boxShadow: isSelected ? "var(--runner-selected-shadow)" : "none",
+              fontWeight: isSelected ? "600" : "500",
+              cursor: "pointer",
+            }}
+            onMouseEnter={(e) => {
+              if (!isSelected) {
+                (e.currentTarget as HTMLButtonElement).style.borderColor =
+                  "var(--runner-ghost-border-hover)";
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "var(--runner-ghost-fill-hover)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isSelected) {
+                (e.currentTarget as HTMLButtonElement).style.borderColor =
+                  "var(--runner-ghost-border)";
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "var(--runner-ghost-fill)";
+              }
             }}
             aria-pressed={isSelected}
           >

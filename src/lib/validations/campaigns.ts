@@ -26,6 +26,19 @@ export const campaignSchema = z.object({
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
     .default(false),
+  confidentialityMode: z.enum(['standard', 'aggregate_only']).default('standard'),
+  inviterName: z
+    .string()
+    .max(200, 'Inviter name must be 200 characters or fewer')
+    .trim()
+    .optional()
+    .or(z.literal('')),
+  inviterRole: z
+    .string()
+    .max(200, 'Inviter role must be 200 characters or fewer')
+    .trim()
+    .optional()
+    .or(z.literal('')),
 })
 
 export type CampaignInput = z.infer<typeof campaignSchema>

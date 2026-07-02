@@ -63,6 +63,9 @@ export type CampaignStatus = 'draft' | 'active' | 'paused' | 'closed' | 'archive
 /** Campaign kind — distinguishes a single self-assessment from a leadership 360. */
 export type CampaignKind = 'self' | 'leadership_360'
 
+/** Campaign reporting mode: standard allows individual results; aggregate_only promises group-level reporting only. */
+export type ConfidentialityMode = 'standard' | 'aggregate_only'
+
 /** Relationship of a 360 rater to the subject being rated. */
 export type RaterRelationship =
   | 'self'
@@ -1699,6 +1702,12 @@ export interface Campaign {
   showProgress: boolean
   /** Whether to randomize the order assessments are presented. */
   randomizeAssessmentOrder: boolean
+  /** Reporting mode: standard allows individual results; aggregate_only promises group-level reporting only. */
+  confidentialityMode: ConfidentialityMode
+  /** Optional name of the person inviting participants (shown on join screen). */
+  inviterName?: string
+  /** Optional role/title of the inviter (shown on join screen). */
+  inviterRole?: string
   created_at: string
   updated_at?: string
   /** Soft-delete timestamp; NULL means active. */

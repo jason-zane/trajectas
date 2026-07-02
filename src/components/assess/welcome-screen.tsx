@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, RotateCcw, Check, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Lock } from "lucide-react";
 import type { WelcomeContent } from "@/lib/experience/types";
+import { getTimeOfDayGreeting } from "@/lib/experience/time-greeting";
+import type { Campaign, CampaignAssessment } from "@/types/database";
+import type { AssessmentForRunner, SessionForRunner } from "@/app/actions/assess";
 
 interface WelcomeScreenProps {
   token: string;
@@ -23,6 +26,10 @@ interface WelcomeScreenProps {
   nextUrl: string;
   privacyUrl?: string;
   termsUrl?: string;
+  campaign: Campaign;
+  assessments: (CampaignAssessment & AssessmentForRunner)[];
+  sessions: SessionForRunner[];
+  totalItems: number;
 }
 
 export function WelcomeScreen({
@@ -30,26 +37,49 @@ export function WelcomeScreen({
   hasInProgressSession,
   brandLogoUrl,
   brandName,
-  isCustomBrand,
   content,
   nextUrl,
   privacyUrl,
   termsUrl,
-}: WelcomeScreenProps) {
+  campaign,
+  assessments,
+  sessions,
+  totalItems,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  ...rest
+}: WelcomeScreenProps & Record<string, unknown>) {
   const router = useRouter();
+
+  // Greeting is computed at first render: during SSR this uses server time,
+  // and on the client the initializer re-runs with the participant's local
+  // time — the heading text node carries suppressHydrationWarning so the
+  // correction is silent. No effect needed (avoids a cascading re-render).
+  const [greetingWord] = useState<string>(
+    () => getTimeOfDayGreeting(new Date()).split(" ")[1],
+  );
 
   function handleBegin() {
     router.push(nextUrl);
   }
 
+  const totalSections = assessments.reduce((sum, a) => sum + a.sectionCount, 0);
+
+  // Get session status map for assessments
+  const sessionStatusMap = new Map(sessions.map((s) => [s.assessmentId, s.status]));
+
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div
+      className="flex min-h-dvh flex-col"
+      style={{ background: "var(--runner-page)" }}
+    >
       {/* Header */}
       <header
-        className="flex h-14 items-center px-4 sm:px-6"
-        style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
+        className="flex h-14 items-center justify-between border-b px-6 sm:px-10 lg:px-[120px]"
+        style={{
+          borderColor: "var(--runner-hairline)",
+        }}
       >
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center">
           {brandLogoUrl ? (
             <Image
               src={brandLogoUrl}
@@ -57,208 +87,279 @@ export function WelcomeScreen({
               width={140}
               height={28}
               className="h-7 w-auto object-contain"
+              style={{ color: "var(--runner-text)" }}
               unoptimized
             />
           ) : (
-            <div className="flex items-center gap-2">
-              <div
-                className="flex size-7 items-center justify-center rounded-lg"
-                style={{
-                  background:
-                    "var(--brand-surface, hsl(var(--primary) / 0.1))",
-                }}
-              >
-                <svg
-                  className="size-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: "var(--brand-primary, hsl(var(--primary)))",
-                  }}
-                >
-                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <span
-                className="text-sm font-semibold tracking-tight"
-                style={{
-                  color: "var(--brand-text, hsl(var(--foreground)))",
-                }}
-              >
-                {brandName ?? "Trajectas"}
-              </span>
-            </div>
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ color: "var(--runner-accent)" }}
+            >
+              <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
           )}
         </div>
       </header>
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
-        <div className="w-full max-w-[560px] space-y-10">
-          {/* Greeting */}
-          <div className="space-y-4 text-center">
-            {content.eyebrow && (
+      <main className="flex flex-1 flex-col items-center px-6 py-12 sm:px-10 sm:py-16 lg:px-[120px]">
+        <div className="w-full max-w-[620px] space-y-12">
+          {/* Eyebrow — defaults to campaign title if not specified */}
+          <p
+            className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: "var(--runner-overline)" }}
+          >
+            {content.eyebrow || campaign.title}
+          </p>
+
+          {/* Heading with time-of-day greeting substitution. The server
+              interpolates {{timeOfDayGreeting}} with server time; when (and
+              only when) the resolved heading actually starts with that
+              greeting pattern, swap the word for the participant's local
+              time. Custom headings without a greeting render verbatim. */}
+          <h1
+            className="font-serif text-[clamp(2.75rem,5vw,2.875rem)] font-semibold leading-[1.15] tracking-[-0.01em]"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+            }}
+            suppressHydrationWarning
+          >
+            {greetingWord
+              ? content.heading.replace(
+                  /^Good (morning|afternoon|evening)\b/,
+                  `Good ${greetingWord}`,
+                )
+              : content.heading}
+          </h1>
+
+          {/* Body text */}
+          {content.body && (
+            <p
+              className="text-[0.9375rem] leading-relaxed"
+              style={{ color: "var(--runner-text-muted)" }}
+            >
+              {content.body}
+            </p>
+          )}
+
+          {/* Invited by section — only shows when inviterName is present */}
+          {campaign.inviterName && (
+            <div
+              className="space-y-3 border-t pt-4"
+              style={{ borderColor: "var(--runner-hairline)" }}
+            >
               <p
                 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
-                style={{
-                  color: "var(--brand-accent, var(--gold))",
-                }}
+                style={{ color: "var(--runner-text-meta)" }}
               >
-                {content.eyebrow}
+                Invited by
               </p>
-            )}
-            <h1
-              className="font-sans text-[clamp(2rem,4vw,3rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
-              style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
-                fontFamily: "var(--brand-font-heading, inherit)",
-              }}
-            >
-              {content.heading}
-            </h1>
-            {content.body && (
-              <p
-                className="text-[1.0625rem] leading-relaxed"
-                style={{
-                  color:
-                    "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-                }}
-              >
-                {content.body}
-              </p>
-            )}
-          </div>
-
-          {/* Info card */}
-          <div
-            className="rounded-2xl border border-l-[3px] p-7 shadow-sm"
-            style={{
-              background:
-                "var(--brand-neutral-50, hsl(var(--card)))",
-              borderColor:
-                "var(--brand-neutral-200, hsl(var(--border)))",
-              borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
-            }}
-          >
-            <div className="mb-5 flex items-center justify-between gap-3">
-              <h2
-                className="font-sans text-[0.9375rem] font-semibold tracking-[-0.01em]"
-                style={{
-                  color: "var(--brand-text, hsl(var(--foreground)))",
-                }}
-              >
-                {content.infoHeading}
-              </h2>
-              {estimatedMinutes && (
-                <span
-                  className="flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.6875rem] font-medium tabular-nums"
-                  style={{
-                    background: "var(--brand-neutral-100, hsl(var(--muted)))",
-                    color:
-                      "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-                  }}
+              <div>
+                <p
+                  className="text-[0.9375rem] font-semibold"
+                  style={{ color: "var(--runner-text)" }}
                 >
-                  <Clock className="size-3" />~{estimatedMinutes} min
-                </span>
-              )}
+                  {campaign.inviterName}
+                </p>
+                {campaign.inviterRole && (
+                  <p
+                    className="text-[0.8125rem]"
+                    style={{ color: "var(--runner-text-muted)" }}
+                  >
+                    {campaign.inviterRole}
+                  </p>
+                )}
+              </div>
             </div>
-            <ul className="space-y-3.5">
-              {content.infoItems.map((item, idx) => (
-                <InfoBullet key={idx}>{item}</InfoBullet>
-              ))}
-            </ul>
-          </div>
+          )}
 
-          {/* CTA */}
-          <div className="flex justify-center">
-            <Button
-              size="lg"
+          {/* Info row: Questions, Sections, Duration with accent dot separators */}
+          {(totalItems || totalSections || estimatedMinutes) && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <span
+                  className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
+                  style={{ color: "var(--runner-text-meta)" }}
+                >
+                  {totalItems
+                    ? `${totalItems} ${totalItems === 1 ? "QUESTION" : "QUESTIONS"}`
+                    : ""}
+                  {totalItems && totalSections && (
+                    <span style={{ color: "var(--runner-accent)" }}>
+                      {" "}·{" "}
+                    </span>
+                  )}
+                  {totalSections
+                    ? `${totalSections} ${totalSections === 1 ? "SECTION" : "SECTIONS"}`
+                    : ""}
+                  {(totalItems || totalSections) && estimatedMinutes && (
+                    <span style={{ color: "var(--runner-accent)" }}>
+                      {" "}·{" "}
+                    </span>
+                  )}
+                  {estimatedMinutes ? `~${estimatedMinutes} MIN` : ""}
+                  {(totalItems || totalSections || estimatedMinutes) && (
+                    <>
+                      <span style={{ color: "var(--runner-accent)" }}>
+                        {" "}·{" "}
+                      </span>
+                      <span>PAUSE ANY TIME</span>
+                    </>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Multi-assessment rows (if more than 1) */}
+          {assessments.length > 1 && (
+            <div className="space-y-1">
+              {assessments.map((assessment) => {
+                const status = sessionStatusMap.get(assessment.assessmentId);
+                const isDone = status === "completed";
+
+                return (
+                  <div
+                    key={assessment.assessmentId}
+                    className="flex items-center justify-between border-b py-4"
+                    style={{ borderColor: "var(--runner-hairline)" }}
+                  >
+                    <div>
+                      <p
+                        className="text-[0.9375rem] font-semibold"
+                        style={{ color: "var(--runner-text)" }}
+                      >
+                        {assessment.title}
+                      </p>
+                      {assessment.description && (
+                        <p
+                          className="text-[0.8125rem] leading-relaxed"
+                          style={{ color: "var(--runner-text-muted)" }}
+                        >
+                          {assessment.description}
+                        </p>
+                      )}
+                    </div>
+                    {isDone ? (
+                      <span
+                        className="font-mono text-[0.625rem] font-semibold uppercase tracking-[0.12em]"
+                        style={{ color: "var(--runner-text-meta)" }}
+                      >
+                        DONE
+                      </span>
+                    ) : (
+                      <button
+                        className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.12em] rounded-[10px] border px-4 py-2 transition-all"
+                        style={{
+                          color: "var(--runner-text)",
+                          borderColor: "var(--runner-ghost-border)",
+                          backgroundColor: "var(--runner-ghost-fill)",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                            "var(--runner-ghost-fill-hover)";
+                          (e.currentTarget as HTMLButtonElement).style.borderColor =
+                            "var(--runner-ghost-border-hover)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                            "var(--runner-ghost-fill)";
+                          (e.currentTarget as HTMLButtonElement).style.borderColor =
+                            "var(--runner-ghost-border)";
+                        }}
+                      >
+                        {status === "in_progress" ? "Resume" : "Begin"}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* CTA Button */}
+          <div className="flex justify-start pt-4">
+            <button
               onClick={handleBegin}
-              className="min-w-[200px] gap-1.5"
+              className="rounded-[12px] px-7 py-3 font-sans text-[0.9375rem] font-semibold transition-all"
               style={{
-                background:
-                  "var(--brand-primary, hsl(var(--primary)))",
-                color:
-                  "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
+                backgroundColor: "var(--runner-cta-fill)",
+                color: "var(--runner-cta-text)",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "var(--runner-cta-fill-hover)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                  "var(--runner-cta-fill)";
               }}
             >
-              {hasInProgressSession ? (
-                <>
-                  <RotateCcw className="size-4" />
-                  {content.resumeButtonLabel}
-                </>
-              ) : (
-                <>
-                  <ArrowRight className="size-4" />
-                  {content.buttonLabel}
-                </>
-              )}
-            </Button>
+              {hasInProgressSession ? "Resume Assessment" : "Begin Assessment"}
+            </button>
+          </div>
+
+          {/* Confidentiality statement */}
+          <div className="flex items-center gap-2.5">
+            <Lock
+              className="h-4 w-4"
+              style={{ color: "var(--runner-text-muted)" }}
+            />
+            <p
+              className="text-[0.8125rem]"
+              style={{ color: "var(--runner-text-muted)" }}
+            >
+              {campaign.confidentialityMode === "aggregate_only"
+                ? "Confidential — reported in aggregate only"
+                : "Your responses are confidential"}
+            </p>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center gap-3 px-4 py-4">
-        <span
-          className="text-xs"
-          style={{
-            color:
-              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
-          }}
-        >
-          {content.footerText ??
-            (isCustomBrand ? "Powered by Trajectas" : "Your responses are confidential")}
-        </span>
-        {privacyUrl && (
-          <a
-            href={privacyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
-          >
-            Privacy
-          </a>
-        )}
-        {termsUrl && (
-          <a
-            href={termsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
-          >
-            Terms
-          </a>
-        )}
+      <footer className="border-t px-6 py-4 sm:px-10 lg:px-[120px]">
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          {privacyUrl && (
+            <a
+              href={privacyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[0.75rem]"
+              style={{
+                color: "var(--runner-text-meta)",
+                textDecoration: "underline",
+                textDecorationColor: "var(--runner-text-meta)",
+              }}
+            >
+              Privacy
+            </a>
+          )}
+          {termsUrl && (
+            <a
+              href={termsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[0.75rem]"
+              style={{
+                color: "var(--runner-text-meta)",
+                textDecoration: "underline",
+                textDecorationColor: "var(--runner-text-meta)",
+              }}
+            >
+              Terms
+            </a>
+          )}
+        </div>
       </footer>
     </div>
-  );
-}
-
-function InfoBullet({ children }: { children: React.ReactNode }) {
-  return (
-    <li className="flex items-start gap-2.5 text-sm">
-      <Check
-        className="mt-0.5 size-3.5 shrink-0"
-        style={{
-          color: "var(--brand-primary, hsl(var(--primary)))",
-        }}
-      />
-      <span
-        style={{
-          color:
-            "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-        }}
-      >
-        {children}
-      </span>
-    </li>
   );
 }

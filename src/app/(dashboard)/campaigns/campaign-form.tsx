@@ -85,6 +85,13 @@ export function CampaignForm({
     campaign?.description ?? "",
   )
 
+  // --- Campaign options (confidentiality and inviter) ---
+  const [confidentialityMode, setConfidentialityMode] = useState(
+    campaign?.confidentialityMode ?? "standard",
+  )
+  const [inviterName, setInviterName] = useState(campaign?.inviterName ?? "")
+  const [inviterRole, setInviterRole] = useState(campaign?.inviterRole ?? "")
+
   // --- Auto-save for description (Zone 3 — edit mode only) ---
   const descriptionAutoSave = useAutoSave({
     initialValue: campaign?.description ?? "",
@@ -108,7 +115,10 @@ export function CampaignForm({
         opensAt !==
           (campaign?.opensAt ? campaign.opensAt.slice(0, 16) : "") ||
         closesAt !==
-          (campaign?.closesAt ? campaign.closesAt.slice(0, 16) : "")
+          (campaign?.closesAt ? campaign.closesAt.slice(0, 16) : "") ||
+        confidentialityMode !== (campaign?.confidentialityMode ?? "standard") ||
+        inviterName !== (campaign?.inviterName ?? "") ||
+        inviterRole !== (campaign?.inviterRole ?? "")
 
   const { showDialog, confirmNavigation, cancelNavigation } =
     useUnsavedChanges(isDirty)
@@ -131,6 +141,9 @@ export function CampaignForm({
       showProgress: true,
       randomizeAssessmentOrder: false,
       kind: mode === "create" ? kind : undefined,
+      confidentialityMode,
+      inviterName: inviterName || undefined,
+      inviterRole: inviterRole || undefined,
     }
 
     const result =
@@ -392,6 +405,82 @@ export function CampaignForm({
                 value={closesAt}
                 onChange={(e) => setClosesAt(e.target.value)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Campaign Options */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Campaign Options</CardTitle>
+            <CardDescription>
+              Configure reporting mode and participant invitation details.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Confidentiality Mode.
+                Aggregate-only is selectable only once reporting actually
+                enforces it (hiding individual results for the campaign) —
+                until then, offering it would promise participants something
+                the product doesn't yet guarantee. The schema, participant
+                copy variants, and this control are ready; enforcement is
+                tracked as follow-up work. Campaigns already set to
+                aggregate_only (none yet) keep their value editable. */}
+            <div className="space-y-1.5">
+              <Label htmlFor="confidentialityMode">Confidentiality Mode</Label>
+              <select
+                id="confidentialityMode"
+                value={confidentialityMode}
+                onChange={(e) => setConfidentialityMode(e.target.value as "standard" | "aggregate_only")}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="standard">Standard — individual results visible to authorised viewers</option>
+                <option
+                  value="aggregate_only"
+                  disabled={confidentialityMode !== "aggregate_only"}
+                >
+                  Aggregate-only — coming soon (requires aggregate reporting enforcement)
+                </option>
+              </select>
+              {errors.confidentialityMode && (
+                <p className="text-xs text-destructive">{errors.confidentialityMode[0]}</p>
+              )}
+            </div>
+
+            {/* Inviter Name */}
+            <div className="space-y-1.5">
+              <Label htmlFor="inviterName">Invited By — Name (Optional)</Label>
+              <Input
+                id="inviterName"
+                value={inviterName}
+                onChange={(e) => setInviterName(e.target.value)}
+                placeholder="e.g., Jane Smith"
+                maxLength={200}
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown to participants on the invitation screen when set.
+              </p>
+              {errors.inviterName && (
+                <p className="text-xs text-destructive">{errors.inviterName[0]}</p>
+              )}
+            </div>
+
+            {/* Inviter Role */}
+            <div className="space-y-1.5">
+              <Label htmlFor="inviterRole">Invited By — Role (Optional)</Label>
+              <Input
+                id="inviterRole"
+                value={inviterRole}
+                onChange={(e) => setInviterRole(e.target.value)}
+                placeholder="e.g., HR Director"
+                maxLength={200}
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown to participants on the invitation screen when set.
+              </p>
+              {errors.inviterRole && (
+                <p className="text-xs text-destructive">{errors.inviterRole[0]}</p>
+              )}
             </div>
           </CardContent>
         </Card>

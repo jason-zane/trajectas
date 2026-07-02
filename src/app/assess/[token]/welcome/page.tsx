@@ -42,6 +42,7 @@ export default async function WelcomePage({
     campaignTitle: campaign.title,
     campaignDescription: campaign.description,
     assessmentCount: assessments.length,
+    estimatedMinutes: estimatedMinutes,
     clientName: undefined,
   };
   const interpolated = interpolateContent(rawContent, variables);
@@ -71,6 +72,10 @@ export default async function WelcomePage({
         nextUrl={getNextFlowUrl(experience, "welcome", token) ?? `/assess/${token}/section/0`}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
+        campaign={campaign}
+        assessments={assessments}
+        sessions={sessions}
+        totalItems={totalItems}
       />
     </>
   );

@@ -1,13 +1,17 @@
 import { validateAccessToken } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import { generateRunnerTokens } from "@/lib/brand/runner-tokens";
 
 /**
  * Token-scoped layout.
  *
- * Injects org-specific brand CSS so that loading screens (loading.tsx) and all
- * child pages render with the correct campaign brand rather than Trajectas defaults.
+ * Injects the campaign-resolved brand + runner CSS so that loading screens
+ * (loading.tsx) and all child pages render with the correct campaign brand
+ * (including its runnerTheme mode) rather than Trajectas defaults.
+ *
+ * Fonts are NOT loaded here: the runner type stack is fixed and already
+ * loaded by the parent assess layout.
  *
  * validateAccessToken uses React cache() so this call is deduplicated with any
  * identical call made by the child page in the same render.
@@ -22,7 +26,7 @@ export default async function TokenLayout({
   const { token } = await params;
 
   let brandCss = "";
-  let fontsUrl: string | null = null;
+  let runnerCss = "";
 
   try {
     const result = await validateAccessToken(token);
@@ -33,11 +37,7 @@ export default async function TokenLayout({
         campaign.id,
       );
       brandCss = generateCSSTokens(brandConfig).css;
-      fontsUrl = buildGoogleFontsUrl([
-        brandConfig.headingFont,
-        brandConfig.bodyFont,
-        brandConfig.monoFont,
-      ]);
+      runnerCss = generateRunnerTokens(brandConfig).css;
     }
   } catch {
     // Fall through — parent assess/layout.tsx already injected platform defaults
@@ -46,7 +46,7 @@ export default async function TokenLayout({
   return (
     <>
       {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
+      {runnerCss && <style dangerouslySetInnerHTML={{ __html: runnerCss }} />}
       {children}
     </>
   );

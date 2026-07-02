@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { generateCSSTokens } from "@/lib/brand/tokens";
-import { buildGoogleFontsUrl } from "@/lib/brand/fonts";
+import { generateRunnerTokens } from "@/lib/brand/runner-tokens";
 import { ForceLightTheme } from "@/components/force-light-theme";
 import type { BrandConfig } from "@/lib/brand/types";
 
@@ -35,34 +35,37 @@ export const metadata: Metadata = {
  * components can reference --brand-primary, --brand-surface, etc.
  */
 export default async function AssessLayout({ children }: AssessLayoutProps) {
-  // Load the platform brand as the baseline. Child pages (section runner)
-  // will override with org-specific tokens via inline style when needed.
+  // Load the platform brand as the baseline. The token-scoped child layout
+  // overrides with the campaign-resolved brand when a token is present.
   const brandConfig: BrandConfig = await getCachedEffectiveBrand();
 
-  // Assessment runner is always light mode — never emit dark CSS tokens.
+  // Legacy --brand-* tokens (still consumed by report views and any screen
+  // not yet on the runner design system).
   const { css: brandCss } = generateCSSTokens(brandConfig);
 
-  // Build Google Fonts URL for custom fonts
-  const fontsUrl = buildGoogleFontsUrl([
-    brandConfig.headingFont,
-    brandConfig.bodyFont,
-    brandConfig.monoFont,
-  ]);
+  // --runner-* tokens: four-anchor derivation + resolved theme mode
+  // (dark by default; brands can flip runnerTheme to light).
+  const { css: runnerCss, mode } = generateRunnerTokens(brandConfig);
 
   return (
     <>
-      {/* Inject brand CSS tokens — content is server-generated from DB config */}
+      {/* Inject brand + runner CSS tokens — server-generated from DB config */}
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
+      <style dangerouslySetInnerHTML={{ __html: runnerCss }} />
 
-      {/* Load custom Google Fonts if needed */}
-      {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
+      {/* Runner type stack (Source Serif 4 / Plus Jakarta Sans / Geist Mono)
+          is fixed and self-hosted via next/font in the root layout —
+          brand fonts do not apply to the runner. */}
 
+      {/* Keep dashboard dark-class from leaking into --brand-* fallbacks
+          on screens not yet migrated to --runner-* tokens. */}
       <ForceLightTheme />
       <div
+        data-runner-theme={mode}
         className="flex min-h-dvh flex-col"
         style={{
-          background: "var(--brand-neutral-50, hsl(var(--background)))",
-          fontFamily: "var(--brand-font-body, inherit)",
+          background: "var(--runner-page, var(--brand-neutral-50, hsl(var(--background))))",
+          fontFamily: '"Plus Jakarta Sans", var(--brand-font-body, system-ui, sans-serif)',
         }}
       >
         {children}

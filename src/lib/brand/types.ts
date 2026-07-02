@@ -48,6 +48,75 @@ export interface EmailStyleColors {
   footerTextColor: string
 }
 
+/** Spacing density preset — scales the `--brand-space-*` token ramp. */
+export type SpacingDensity = 'compact' | 'comfortable' | 'spacious'
+
+/** Type scale preset — controls the size ramp of `--brand-text-*` tokens. */
+export type TypeScalePreset = 'compact' | 'default' | 'generous'
+
+/** Named typographic levels emitted as `--brand-text-<level>-*` tokens. */
+export type TypeLevelName = 'display' | 'h1' | 'h2' | 'h3' | 'body' | 'label' | 'caption'
+
+/** Concrete style of a single typographic level. */
+export interface TypeLevelStyle {
+  /** CSS font-size (e.g., "2.25rem"). */
+  size: string
+  /** Font weight (300–800). */
+  weight: number
+  /** Unitless line-height. */
+  lineHeight: number
+  /** CSS letter-spacing (e.g., "-0.01em"). */
+  letterSpacing: string
+}
+
+/**
+ * Typography settings beyond font family.
+ *
+ * The `scale` preset drives the full level ramp; `headingWeight` / `bodyWeight`
+ * adjust weights across the ramp; `levels` allows advanced per-level overrides
+ * (applied last, no editor UI yet — reserved for power users / future editor).
+ */
+export interface TypographySettings {
+  scale?: TypeScalePreset
+  /** Weight applied to display/h1/h2/h3 (default 600). */
+  headingWeight?: number
+  /** Weight applied to body/caption (default 400); label gets +100. */
+  bodyWeight?: number
+  levels?: Partial<Record<TypeLevelName, Partial<TypeLevelStyle>>>
+}
+
+/** Button treatment tokens (`--brand-button-*`). */
+export interface ButtonStyle {
+  /**
+   * Corner treatment: `inherit` follows the borderRadius preset,
+   * `pill` is fully rounded, `sharp` is near-square.
+   */
+  shape?: 'inherit' | 'pill' | 'sharp'
+  /** Button label font weight (default 500). */
+  weight?: number
+  /** Button label case treatment (default 'none'). */
+  textTransform?: 'none' | 'uppercase'
+}
+
+/** Optional gradient accent (`--brand-gradient`), defaults primary → accent. */
+export interface GradientAccent {
+  enabled: boolean
+  /** Gradient angle in degrees (default 135). */
+  angle?: number
+  /** Start color hex (default: primaryColor). */
+  from?: string
+  /** End color hex (default: accentColor). */
+  to?: string
+}
+
+/**
+ * Assessment-runner theme mode. `dark` is the Trajectas default (ink
+ * surfaces, paper text); `light` inverts to paper surfaces with ink
+ * accents. Both derive from the same four anchors (ink / paper / accent /
+ * accent-on-paper) — see generateRunnerTokens in tokens.ts.
+ */
+export type RunnerTheme = 'dark' | 'light'
+
 /**
  * Complete brand configuration. Stored as JSONB in the `brand_configs` table.
  *
@@ -71,6 +140,12 @@ export interface BrandConfig {
 
   /** Accent color as hex (e.g., "#c9a962"). Used for premium moments. */
   accentColor: string
+
+  /**
+   * Optional secondary palette color as hex. When set, a full
+   * `--brand-secondary-50…900` scale is emitted alongside primary/accent.
+   */
+  secondaryColor?: string
 
   /**
    * Controls the hue tint of neutral tones (backgrounds, borders, muted text).
@@ -115,7 +190,10 @@ export interface BrandConfig {
   /** Font family for monospace/code contexts. */
   monoFont: string
 
-  // -- Shape ----------------------------------------------------------------
+  /** Type scale, weights, and per-level overrides. */
+  typography?: TypographySettings
+
+  // -- Shape & density --------------------------------------------------------
 
   /**
    * Border radius preset.
@@ -125,14 +203,48 @@ export interface BrandConfig {
    */
   borderRadius: BorderRadiusPreset
 
+  /** Spacing density preset — scales the `--brand-space-*` ramp. */
+  spacingDensity?: SpacingDensity
+
+  /** Button treatment. */
+  buttonStyle?: ButtonStyle
+
+  /** Optional gradient accent. */
+  gradientAccent?: GradientAccent
+
+  /** Assessment-runner theme mode (default `dark`). */
+  runnerTheme?: RunnerTheme
 }
 
-/** Database row for `brand_configs`. */
+/**
+ * A partial brand layer, as stored for partner/client/campaign owners.
+ *
+ * Merge semantics are SHALLOW at the top-level-field granularity: a defined
+ * field wholly replaces the inherited value, and nested groups
+ * (`semanticColors`, `taxonomyColors`, `emailStyles`, `reportTheme`,
+ * `typography`, `buttonStyle`, `gradientAccent`, `portalAccents`) are atomic
+ * units — you override the whole group or none of it. This matches how the
+ * editors edit them and keeps resolution predictable.
+ *
+ * The platform row must always hold a complete `BrandConfig`; it is the merge
+ * base (after `TRAJECTAS_DEFAULTS`). Historic rows that stored full configs
+ * for non-platform owners remain valid — they are simply overrides that
+ * happen to define every field.
+ */
+export type BrandOverrides = Partial<BrandConfig>
+
+/**
+ * Database row for `brand_configs`.
+ *
+ * `config` is typed as the override layer: complete for the platform row,
+ * partial for partner/client/campaign rows. Use `mergeBrandLayers` (or
+ * `getEffectiveBrand`) to obtain a complete `BrandConfig` for rendering.
+ */
 export interface BrandConfigRow {
   id: string
   owner_type: BrandOwnerType
   owner_id: string | null
-  config: BrandConfig
+  config: BrandOverrides
   is_default: boolean
   created_at: string
   updated_at: string | null
@@ -144,7 +256,7 @@ export interface BrandConfigRecord {
   id: string
   ownerType: BrandOwnerType
   ownerId: string | null
-  config: BrandConfig
+  config: BrandOverrides
   isDefault: boolean
   createdAt: string
   updatedAt: string | null

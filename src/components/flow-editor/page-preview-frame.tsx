@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens } from "@/lib/brand/tokens"
+import { generateRunnerTokens } from "@/lib/brand/runner-tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import {
@@ -52,8 +53,12 @@ export function PagePreviewFrame({
   const lightStyles = useMemo(() => {
     if (!brandConfig) return {}
     const { tokens } = generateCSSTokens(brandConfig)
+    const { tokens: runnerTokens } = generateRunnerTokens(brandConfig)
     const light: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
+      light[key] = val
+    }
+    for (const [key, val] of Object.entries(runnerTokens)) {
       light[key] = val
     }
     return light

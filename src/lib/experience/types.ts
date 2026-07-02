@@ -251,9 +251,11 @@ export interface TemplateVariables {
   campaignTitle?: string
   assessmentCount?: number
   clientName?: string
+  brandName?: string
   campaignDescription?: string
   sectionTitle?: string
   sectionNumber?: number
   assessmentTitle?: string
   estimatedMinutes?: number
+  timeOfDayGreeting?: string
 }

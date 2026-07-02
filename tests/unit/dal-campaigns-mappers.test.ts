@@ -18,6 +18,9 @@ const baseRow = {
   allow_resume: true,
   show_progress: true,
   randomize_assessment_order: false,
+  confidentiality_mode: "standard",
+  inviter_name: undefined,
+  inviter_role: undefined,
   created_at: "2026-01-01T00:00:00Z",
 };
 
@@ -276,6 +279,9 @@ describe("mapCampaignHeader", () => {
     allow_resume: true,
     show_progress: true,
     randomize_assessment_order: false,
+    confidentiality_mode: "standard",
+    inviter_name: undefined,
+    inviter_role: undefined,
     created_at: "2026-01-01T00:00:00Z",
   };
 
@@ -329,6 +335,7 @@ describe("assembleCampaignDetail", () => {
     allowResume: true,
     showProgress: true,
     randomizeAssessmentOrder: false,
+    confidentialityMode: "standard",
     created_at: "2026-01-01T00:00:00Z",
     // header-only extras that must be stripped
     clientName: "Acme",

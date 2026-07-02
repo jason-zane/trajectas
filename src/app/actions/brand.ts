@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   assertAdminOnly,
   AuthorizationError,
+  canManageCampaign,
   canManageClient,
   canManagePartner,
   requireAdminScope,
@@ -12,9 +13,10 @@ import {
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapBrandConfigRow } from '@/lib/supabase/mappers'
-import { brandConfigSchema } from '@/lib/validations/brand'
-import { TRAJECTAS_DEFAULTS } from '@/lib/brand/defaults'
+import { brandConfigSchema, brandOverridesSchema } from '@/lib/validations/brand'
+import { mergeBrandLayers, isEmptyOverrides } from '@/lib/brand/merge'
 import type { BrandConfig, BrandConfigRecord, BrandOwnerType } from '@/lib/brand/types'
+// TRAJECTAS_DEFAULTS is applied inside mergeBrandLayers — no direct use here.
 
 // ---------------------------------------------------------------------------
 // Read
@@ -107,40 +109,37 @@ async function getClientPartnerId(clientId: string) {
 /**
  * Resolve the effective brand for a given context.
  *
- * Resolution order:
- * 1. Campaign-specific config (if campaignId provided)
- * 2. Client-specific config (if clientId provided)
- * 3. Platform default config
- * 4. Hardcoded defaults (fallback)
+ * Layers are MERGED per top-level field, ascending specificity:
+ *   TRAJECTAS_DEFAULTS ← platform ← partner ← client ← campaign
+ *
+ * A layer only affects the fields it defines — a campaign that overrides
+ * just `primaryColor` inherits everything else from its client/partner/
+ * platform chain. Nested groups (semanticColors, reportTheme, typography,
+ * …) are atomic units; see src/lib/brand/merge.ts.
+ *
+ * Always returns a complete BrandConfig.
  */
 export async function getEffectiveBrand(
   clientId?: string | null,
   campaignId?: string | null,
 ): Promise<BrandConfig> {
-  // Try campaign-specific first
-  if (campaignId) {
-    const campaignBrand = await getBrandConfig('campaign', campaignId)
-    if (campaignBrand) return campaignBrand.config
-  }
+  const [platform, partnerId, clientBrand, campaignBrand] = await Promise.all([
+    getCachedPlatformBrand(),
+    clientId ? getClientPartnerId(clientId) : Promise.resolve(null),
+    clientId ? getBrandConfig('client', clientId) : Promise.resolve(null),
+    campaignId ? getBrandConfig('campaign', campaignId) : Promise.resolve(null),
+  ])
 
-  // Try client-specific, then partner-specific
-  if (clientId) {
-    const orgBrand = await getBrandConfig('client', clientId)
-    if (orgBrand) return orgBrand.config
+  const partnerBrand = partnerId
+    ? await getBrandConfig('partner', partnerId)
+    : null
 
-    const partnerId = await getClientPartnerId(clientId)
-    if (partnerId) {
-      const partnerBrand = await getBrandConfig('partner', partnerId)
-      if (partnerBrand) return partnerBrand.config
-    }
-  }
-
-  // Fall back to platform default
-  const platform = await getCachedPlatformBrand()
-  if (platform) return platform.config
-
-  // Ultimate fallback: hardcoded defaults
-  return { ...TRAJECTAS_DEFAULTS }
+  return mergeBrandLayers([
+    platform?.config,
+    partnerBrand?.config,
+    clientBrand?.config,
+    campaignBrand?.config,
+  ])
 }
 
 /**
@@ -195,14 +194,16 @@ export const getCachedEffectiveBrand = unstable_cache(
 // ---------------------------------------------------------------------------
 
 /**
- * Create or update a brand config.
+ * Assert the caller may manage branding for the given owner.
+ *
+ * Campaign branding is manageable by admins of the campaign's client or
+ * partner (matching the campaign detail surface), not only platform admins.
  */
-export async function upsertBrandConfig(
+async function assertCanManageBrandOwner(
+  scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
   ownerType: BrandOwnerType,
-  ownerId: string | null,
-  configInput: unknown
-): Promise<{ error?: Record<string, string[]> }> {
-  const scope = await resolveAuthorizedScope()
+  ownerId: string | null
+): Promise<void> {
   if (ownerType === 'client' && ownerId) {
     if (!canManageClient(scope, ownerId)) {
       throw new AuthorizationError('Not authorized to manage this client')
@@ -211,15 +212,53 @@ export async function upsertBrandConfig(
     if (!canManagePartner(scope, ownerId)) {
       throw new AuthorizationError('Not authorized to manage this partner')
     }
+  } else if (ownerType === 'campaign' && ownerId) {
+    const db = createAdminClient()
+    const { data: campaign } = await db
+      .from('campaigns')
+      .select('client_id')
+      .eq('id', ownerId)
+      .single()
+    const clientId = campaign?.client_id ? String(campaign.client_id) : null
+    const partnerId = clientId ? await getClientPartnerId(clientId) : null
+    if (!clientId || !canManageCampaign(scope, partnerId, clientId)) {
+      throw new AuthorizationError('Not authorized to manage this campaign')
+    }
   } else {
     assertAdminOnly(scope)
   }
-  const parsed = brandConfigSchema.safeParse(configInput)
+}
+
+/**
+ * Create or update a brand config.
+ *
+ * The platform config must be complete (it is the merge base); partner/
+ * client/campaign configs are partial override layers — only the fields the
+ * owner has customized. Saving an empty override set for a non-platform
+ * owner is equivalent to resetting to inherited: any existing row is
+ * soft-deleted.
+ */
+export async function upsertBrandConfig(
+  ownerType: BrandOwnerType,
+  ownerId: string | null,
+  configInput: unknown
+): Promise<{ error?: Record<string, string[]> }> {
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageBrandOwner(scope, ownerType, ownerId)
+  const schema = ownerType === 'platform' ? brandConfigSchema : brandOverridesSchema
+  const parsed = schema.safeParse(configInput)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors as Record<string, string[]> }
   }
 
   const config = parsed.data
+
+  // No overrides left for a non-platform owner → same as reset to inherited.
+  if (ownerType !== 'platform' && isEmptyOverrides(config)) {
+    const result = await resetBrandToDefault(ownerType, ownerId)
+    return result.error ? { error: { _form: [result.error] } } : {}
+  }
+
   const db = createAdminClient()
 
   // Check if a config already exists for this owner
@@ -286,17 +325,7 @@ export async function resetBrandToDefault(
   ownerId: string | null
 ): Promise<{ error?: string }> {
   const scope = await resolveAuthorizedScope()
-  if (ownerType === 'client' && ownerId) {
-    if (!canManageClient(scope, ownerId)) {
-      throw new AuthorizationError('Not authorized to manage this client')
-    }
-  } else if (ownerType === 'partner' && ownerId) {
-    if (!canManagePartner(scope, ownerId)) {
-      throw new AuthorizationError('Not authorized to manage this partner')
-    }
-  } else {
-    assertAdminOnly(scope)
-  }
+  await assertCanManageBrandOwner(scope, ownerType, ownerId)
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform brand — edit it instead.' }
   }

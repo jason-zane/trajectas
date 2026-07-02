@@ -8,34 +8,41 @@ interface PreviewShellProps {
 
 /**
  * Shared shell for flow page previews — header bar, content slot, footer.
- * Uses --brand-* CSS variables from parent container.
+ * Uses --runner-* CSS variables for dark-editorial runner design.
  */
 export function PreviewShell({ brandName = "Trajectas", children, footerText }: PreviewShellProps) {
   return (
     <div
       className="flex flex-col min-h-[400px] overflow-hidden"
       style={{
-        borderRadius: "var(--brand-radius-xl)",
-        backgroundColor: "var(--brand-neutral-50)",
-        fontFamily: "var(--brand-font-body)",
+        borderRadius: "10px",
+        background: "var(--runner-page)",
+        fontFamily: '"Plus Jakarta Sans", sans-serif',
       }}
     >
+      {/* Hairline progress bar */}
+      <div
+        className="h-0.5 w-full"
+        style={{ backgroundColor: "var(--runner-hairline)" }}
+      />
+
       {/* Header bar */}
       <div
-        className="flex items-center gap-2 px-4 py-3"
+        className="flex items-center gap-2 px-6 py-4"
         style={{
-          borderBottom: "1px solid var(--brand-neutral-200)",
+          borderBottom: `1px solid var(--runner-hairline)`,
         }}
       >
         <div
-          className="size-5 rounded-md"
-          style={{ backgroundColor: "var(--brand-primary)" }}
+          className="size-5 rounded"
+          style={{ backgroundColor: "var(--runner-accent)" }}
         />
         <span
-          className="text-xs font-semibold"
+          className="text-sm font-semibold"
           style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
+            color: "var(--runner-text)",
+            fontFamily: '"Source Serif 4", Georgia, serif',
+            fontWeight: 600,
           }}
         >
           {brandName}
@@ -43,20 +50,21 @@ export function PreviewShell({ brandName = "Trajectas", children, footerText }: 
       </div>
 
       {/* Content */}
-      <div className="flex-1 px-5 py-6">
+      <div className="flex-1 px-6 py-6">
         {children}
       </div>
 
       {/* Footer */}
       {footerText && (
         <div
-          className="px-5 py-3 text-center"
+          className="px-6 py-3 text-center"
           style={{
-            borderTop: "1px solid var(--brand-neutral-200)",
-            color: "var(--brand-text-muted)",
+            borderTop: `1px solid var(--runner-hairline)`,
+            color: "var(--runner-text-meta)",
+            fontSize: "0.6875rem",
           }}
         >
-          <span className="text-[10px]">{footerText}</span>
+          <span>{footerText}</span>
         </div>
       )}
     </div>

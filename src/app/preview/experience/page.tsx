@@ -45,6 +45,8 @@ interface PreviewData {
   customPageContent: Record<string, CustomPageContent>
   demographicsConfig?: DemographicsConfig
   brandConfig?: BrandConfig | null
+  privacyUrl?: string | null
+  termsUrl?: string | null
 }
 
 export default function PreviewExperiencePage() {
@@ -159,8 +161,9 @@ export default function PreviewExperiencePage() {
             linkToken="preview"
             brandLogoUrl={brandLogoUrl}
             brandName={brandName}
-            isCustomBrand={isCustomBrand}
             content={{ ...defaults.join, ...pc.join } as JoinContent}
+            campaign={undefined}
+            privacyUrl={data!.privacyUrl || undefined}
           />
         )
       case "welcome":
@@ -179,6 +182,47 @@ export default function PreviewExperiencePage() {
             isCustomBrand={isCustomBrand}
             content={{ ...defaults.welcome, ...pc.welcome } as WelcomeContent}
             nextUrl="#"
+            campaign={{
+              id: "preview",
+              title: "Campaign preview",
+              slug: "preview",
+              description: "This is how the page will look for participants.",
+              status: "active",
+              kind: "self",
+              clientId: undefined,
+              partnerId: undefined,
+              createdBy: undefined,
+              opensAt: undefined,
+              closesAt: undefined,
+              branding: {},
+              allowResume: false,
+              showProgress: true,
+              randomizeAssessmentOrder: false,
+              confidentialityMode: "standard",
+              inviterName: undefined,
+              inviterRole: undefined,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              deletedAt: undefined,
+            }}
+            assessments={[
+              {
+                id: "preview-assessment-1",
+                campaignId: "preview",
+                assessmentId: "preview-assessment-1",
+                displayOrder: 0,
+                isRequired: true,
+                introOverride: null,
+                created_at: new Date().toISOString(),
+                title: "Sample Assessment",
+                description: "A sample assessment for preview",
+                sectionCount: 3,
+              },
+            ]}
+            sessions={[]}
+            totalItems={15}
+            privacyUrl={data!.privacyUrl || undefined}
+            termsUrl={data!.termsUrl || undefined}
           />
         )
       case "consent":
@@ -222,12 +266,12 @@ export default function PreviewExperiencePage() {
             sessionId="preview"
             sections={[]}
             responses={{}}
-            assessmentName="Assessment preview"
             brandLogoUrl={brandLogoUrl}
             brandName={brandName}
             isCustomBrand={isCustomBrand}
             content={{ ...defaults.review, ...pc.review } as ReviewContent}
             nextUrl="#"
+            participantFirstName="Sarah"
           />
         )
       case "complete": {

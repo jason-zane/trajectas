@@ -42,49 +42,55 @@ function SortableItem({
   return (
     <div
       ref={ref}
-      className={`
-        flex items-center gap-3 rounded-xl border px-4 py-3.5
+      className="
+        flex items-center gap-3 px-4 py-3.5
         transition-all duration-150
-        ${isDragging ? "opacity-50 scale-[0.98] shadow-lg z-10" : ""}
-      `}
+      "
       style={{
-        borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-        background: isDragging
-          ? "var(--brand-surface, hsl(var(--card)))"
-          : "transparent",
+        borderRadius: "10px",
+        border: "1px solid",
+        borderColor: isDragging
+          ? "var(--runner-selected-fill)"
+          : "var(--runner-ghost-border)",
+        backgroundColor: isDragging
+          ? "var(--runner-selected-fill)"
+          : "var(--runner-ghost-fill)",
+        boxShadow: isDragging ? "var(--runner-selected-shadow)" : "none",
+        opacity: isDragging ? 0.8 : 1,
       }}
     >
       <button
         ref={handleRef}
         type="button"
-        className="shrink-0 cursor-grab touch-none active:cursor-grabbing"
-        style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+        className="shrink-0 cursor-grab touch-none active:cursor-grabbing transition-colors"
+        style={{ color: "var(--runner-text-faint)" }}
         aria-label={`Drag to reorder ${label}`}
       >
         <GripVertical className="size-4" />
       </button>
       <span
-        className="flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+        className="flex size-6 shrink-0 items-center justify-center text-xs font-semibold"
         style={{
-          background: "var(--brand-surface, hsl(var(--primary) / 0.1))",
-          color: "var(--brand-primary, hsl(var(--primary)))",
+          fontFamily: '"Geist Mono", ui-monospace, monospace',
+          letterSpacing: "0.08em",
+          color: "var(--runner-text-muted)",
         }}
       >
         {rank}
       </span>
       <span
         className="flex-1 text-sm"
-        style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
+        style={{ color: "var(--runner-text)" }}
       >
         {label}
       </span>
       {/* Arrow fallback for accessibility / non-drag interaction */}
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-0">
         <button
           onClick={onMoveUp}
           disabled={isFirst}
           className="p-0.5 transition-colors hover:opacity-100 disabled:opacity-30"
-          style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          style={{ color: "var(--runner-text-faint)" }}
           aria-label={`Move ${label} up`}
         >
           <ChevronUp className="size-4" />
@@ -93,7 +99,7 @@ function SortableItem({
           onClick={onMoveDown}
           disabled={isLast}
           className="p-0.5 transition-colors hover:opacity-100 disabled:opacity-30"
-          style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          style={{ color: "var(--runner-text-faint)" }}
           aria-label={`Move ${label} down`}
         >
           <ChevronDown className="size-4" />
@@ -104,13 +110,14 @@ function SortableItem({
 }
 
 /**
- * Ranking (drag-to-reorder) response format.
+ * Ranking (drag-to-reorder) response format (dark-editorial re-skin).
  *
- * Shows a sortable list with position numbers and grip handles.
- * Also has arrow buttons for keyboard/touch accessibility.
+ * Shows a sortable list with grip handles (lucide grip-vertical in --runner-text-faint).
+ * Hairline-divided rows with mono rank number (--runner-text-muted); arrow fallback buttons.
+ * Dragging row lifts with --runner-selected-shadow.
  * Does NOT auto-advance -- requires Continue button (handled by parent).
  * Uses @dnd-kit/react for drag-and-drop.
- * Uses brand tokens for styling.
+ * Uses --runner-* custom properties exclusively.
  */
 export function RankingResponse({
   options,
@@ -145,10 +152,13 @@ export function RankingResponse({
   return (
     <div className="space-y-2">
       <p
-        className="mb-3 text-xs"
-        style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+        className="mb-3 text-xs font-semibold uppercase tracking-widest"
+        style={{
+          fontFamily: '"Geist Mono", ui-monospace, monospace',
+          color: "var(--runner-overline)",
+        }}
       >
-        Drag or use arrows to rank from most to least preferred.
+        Drag or use arrows to rank from most to least preferred
       </p>
       <DragDropProvider
         onDragEnd={(event) => {

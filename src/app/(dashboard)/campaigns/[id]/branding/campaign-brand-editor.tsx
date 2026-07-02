@@ -5,17 +5,19 @@ import { toast } from "sonner"
 import { Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { cn } from "@/lib/utils"
 import { ColorPicker } from "@/components/brand-editor/color-picker"
+import { RunnerThemeSelector } from "@/components/brand-editor/runner-theme-selector"
+import { OverrideField } from "@/components/brand-editor/override-field"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { LogoUploader } from "@/components/brand-editor/logo-uploader"
+import { ContrastWarnings } from "@/components/brand-editor/contrast-warnings"
+import { useBrandOverrides } from "@/components/brand-editor/use-brand-overrides"
 import { upsertBrandConfig, resetBrandToDefault } from "@/app/actions/brand"
-import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import type { BrandConfig, BrandConfigRecord, NeutralTemperature } from "@/lib/brand/types"
 
 interface CampaignBrandEditorProps {
@@ -35,20 +37,24 @@ export function CampaignBrandEditor({
   initialRecord,
   inheritedBrand,
 }: CampaignBrandEditorProps) {
-  const hasCustomBrand = initialRecord !== null
-  const initialConfig = initialRecord?.config ?? { ...inheritedBrand }
+  const [customEnabled, setCustomEnabled] = useState(initialRecord !== null)
+  const { overrides, effective, isOverridden, setField, clearField, clearAll } =
+    useBrandOverrides({
+      inherited: inheritedBrand,
+      initialOverrides: initialRecord?.config ?? null,
+    })
 
-  const [customEnabled, setCustomEnabled] = useState(hasCustomBrand)
-  const [config, setConfig] = useState<BrandConfig>(initialConfig)
-  const [savedConfig, setSavedConfig] = useState<BrandConfig>(initialConfig)
-  const [savedCustomEnabled, setSavedCustomEnabled] = useState(hasCustomBrand)
+  const [savedOverrides, setSavedOverrides] = useState(
+    JSON.stringify(initialRecord?.config ?? null)
+  )
+  const [savedCustomEnabled, setSavedCustomEnabled] = useState(initialRecord !== null)
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [, startTransition] = useTransition()
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isDirty =
     customEnabled !== savedCustomEnabled ||
-    (customEnabled && JSON.stringify(config) !== JSON.stringify(savedConfig))
+    (customEnabled && JSON.stringify(overrides) !== savedOverrides)
 
   const { showDialog, confirmNavigation, cancelNavigation } = useUnsavedChanges(isDirty)
 
@@ -59,10 +65,10 @@ export function CampaignBrandEditor({
         await resetBrandToDefault("campaign", campaignId)
         toast.success("Campaign branding reset to inherited")
         setSavedCustomEnabled(false)
-        setSavedConfig({ ...inheritedBrand })
-        setConfig({ ...inheritedBrand })
+        setSavedOverrides(JSON.stringify(null))
+        clearAll()
       } else {
-        const result = await upsertBrandConfig("campaign", campaignId, config)
+        const result = await upsertBrandConfig("campaign", campaignId, overrides)
         if (result.error) {
           const messages = Object.values(result.error).flat()
           toast.error(messages[0] || "Failed to save branding")
@@ -70,7 +76,7 @@ export function CampaignBrandEditor({
           return
         }
         toast.success("Campaign branding saved")
-        setSavedConfig(config)
+        setSavedOverrides(JSON.stringify(overrides))
         setSavedCustomEnabled(true)
       }
 
@@ -78,7 +84,7 @@ export function CampaignBrandEditor({
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaveState("idle"), 2000)
     })
-  }, [config, customEnabled, campaignId, inheritedBrand, startTransition])
+  }, [overrides, customEnabled, campaignId, clearAll, startTransition])
 
   useEffect(() => {
     return () => {
@@ -87,9 +93,7 @@ export function CampaignBrandEditor({
   }, [])
 
   // Inherited brand source label
-  const inheritedSource = inheritedBrand.name !== TRAJECTAS_DEFAULTS.name
-    ? inheritedFrom ?? "Client"
-    : "Trajectas (platform default)"
+  const inheritedSource = inheritedFrom ?? "Trajectas (platform default)"
 
   const saveLabel =
     saveState === "saving"
@@ -132,9 +136,6 @@ export function CampaignBrandEditor({
                   checked={customEnabled}
                   onCheckedChange={(checked) => {
                     setCustomEnabled(checked)
-                    if (checked && !hasCustomBrand) {
-                      setConfig({ ...inheritedBrand })
-                    }
                   }}
                 />
               </div>
@@ -150,33 +151,45 @@ export function CampaignBrandEditor({
             <>
               <Card>
                 <CardHeader>
+                  <CardTitle>Contrast</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ContrastWarnings config={effective} />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
                   <CardTitle>Identity</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="brand-name">Display Name</Label>
+                  <OverrideField
+                    label="Display Name"
+                    overridden={isOverridden("name")}
+                    onReset={() => clearField("name")}
+                    inheritedHint={`Inherited: "${inheritedBrand.name}"`}
+                  >
                     <Input
-                      id="brand-name"
-                      value={config.name ?? ""}
-                      onChange={(e) =>
-                        setConfig((prev) => ({ ...prev, name: e.target.value }))
-                      }
+                      value={effective.name ?? ""}
+                      onChange={(e) => setField("name", e.target.value)}
                       placeholder={campaignTitle}
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Shown in the runner header and reports.
-                    </p>
-                  </div>
-                  <LogoUploader
+                  </OverrideField>
+
+                  <OverrideField
                     label="Logo"
-                    description="Displayed in the runner header and on report cover pages."
-                    value={config.logoUrl}
-                    ownerType="campaign"
-                    ownerId={campaignId}
-                    onChange={(url) =>
-                      setConfig((prev) => ({ ...prev, logoUrl: url }))
-                    }
-                  />
+                    overridden={isOverridden("logoUrl")}
+                    onReset={() => clearField("logoUrl")}
+                  >
+                    <LogoUploader
+                      label="Logo"
+                      description="Displayed in the runner header and on report cover pages."
+                      value={effective.logoUrl}
+                      ownerType="campaign"
+                      ownerId={campaignId}
+                      onChange={(url) => setField("logoUrl", url)}
+                    />
+                  </OverrideField>
                 </CardContent>
               </Card>
 
@@ -185,22 +198,33 @@ export function CampaignBrandEditor({
                   <CardTitle>Colors</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <ColorPicker
+                  <OverrideField
                     label="Primary Color"
-                    description="Buttons, progress bars, and selection states."
-                    value={config.primaryColor}
-                    onChange={(hex) =>
-                      setConfig((prev) => ({ ...prev, primaryColor: hex }))
-                    }
-                  />
-                  <ColorPicker
+                    overridden={isOverridden("primaryColor")}
+                    onReset={() => clearField("primaryColor")}
+                    inheritedHint={`Inherited: ${inheritedBrand.primaryColor}`}
+                  >
+                    <ColorPicker
+                      label="Primary Color"
+                      description="Buttons, progress bars, and selection states."
+                      value={effective.primaryColor}
+                      onChange={(hex) => setField("primaryColor", hex)}
+                    />
+                  </OverrideField>
+
+                  <OverrideField
                     label="Accent Color"
-                    description="Secondary highlights and decorative elements."
-                    value={config.accentColor}
-                    onChange={(hex) =>
-                      setConfig((prev) => ({ ...prev, accentColor: hex }))
-                    }
-                  />
+                    overridden={isOverridden("accentColor")}
+                    onReset={() => clearField("accentColor")}
+                    inheritedHint={`Inherited: ${inheritedBrand.accentColor}`}
+                  >
+                    <ColorPicker
+                      label="Accent Color"
+                      description="Secondary highlights and decorative elements."
+                      value={effective.accentColor}
+                      onChange={(hex) => setField("accentColor", hex)}
+                    />
+                  </OverrideField>
                 </CardContent>
               </Card>
 
@@ -210,8 +234,12 @@ export function CampaignBrandEditor({
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Neutral temperature */}
-                  <div className="space-y-2">
-                    <Label>Neutral Temperature</Label>
+                  <OverrideField
+                    label="Neutral Temperature"
+                    overridden={isOverridden("neutralTemperature")}
+                    onReset={() => clearField("neutralTemperature")}
+                    inheritedHint={`Inherited: ${inheritedBrand.neutralTemperature}`}
+                  >
                     <p className="text-caption text-muted-foreground">
                       Controls the hue tint of backgrounds, borders, and muted text.
                     </p>
@@ -220,15 +248,10 @@ export function CampaignBrandEditor({
                         <button
                           key={opt.value}
                           type="button"
-                          onClick={() =>
-                            setConfig((prev) => ({
-                              ...prev,
-                              neutralTemperature: opt.value,
-                            }))
-                          }
+                          onClick={() => setField("neutralTemperature", opt.value)}
                           className={cn(
                             "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                            config.neutralTemperature === opt.value
+                            effective.neutralTemperature === opt.value
                               ? "bg-background text-foreground shadow-sm"
                               : "text-muted-foreground hover:text-foreground"
                           )}
@@ -237,53 +260,73 @@ export function CampaignBrandEditor({
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </OverrideField>
 
                   {/* Page background */}
-                  <div>
+                  <OverrideField
+                    label="Page Background"
+                    overridden={isOverridden("backgroundColor")}
+                    onReset={() => clearField("backgroundColor")}
+                  >
                     <ColorPicker
                       label="Page Background"
                       description="Main page surface color. Leave empty to derive from neutral temperature."
-                      value={config.backgroundColor || "#f5f5f4"}
-                      onChange={(hex) =>
-                        setConfig((prev) => ({ ...prev, backgroundColor: hex }))
-                      }
+                      value={effective.backgroundColor || "#f5f5f4"}
+                      onChange={(hex) => setField("backgroundColor", hex)}
                     />
-                    {config.backgroundColor && (
+                    {effective.backgroundColor && (
                       <button
                         type="button"
-                        onClick={() =>
-                          setConfig((prev) => ({ ...prev, backgroundColor: undefined }))
-                        }
+                        onClick={() => setField("backgroundColor", undefined)}
                         className="mt-2 text-xs text-primary hover:underline"
                       >
                         Use neutral temperature instead
                       </button>
                     )}
-                  </div>
+                  </OverrideField>
 
                   {/* Card background */}
-                  <div>
+                  <OverrideField
+                    label="Card Background"
+                    overridden={isOverridden("cardColor")}
+                    onReset={() => clearField("cardColor")}
+                  >
                     <ColorPicker
                       label="Card Background"
                       description="Card and popover surfaces. Leave empty for white."
-                      value={config.cardColor || "#ffffff"}
-                      onChange={(hex) =>
-                        setConfig((prev) => ({ ...prev, cardColor: hex }))
-                      }
+                      value={effective.cardColor || "#ffffff"}
+                      onChange={(hex) => setField("cardColor", hex)}
                     />
-                    {config.cardColor && (
+                    {effective.cardColor && (
                       <button
                         type="button"
-                        onClick={() =>
-                          setConfig((prev) => ({ ...prev, cardColor: undefined }))
-                        }
+                        onClick={() => setField("cardColor", undefined)}
                         className="mt-2 text-xs text-primary hover:underline"
                       >
                         Reset to white
                       </button>
                     )}
-                  </div>
+                  </OverrideField>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Assessment Runner</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <OverrideField
+                    label="Theme"
+                    overridden={isOverridden("runnerTheme")}
+                    onReset={() => clearField("runnerTheme")}
+                    inheritedHint={inheritedBrand.runnerTheme ?? "dark"}
+                  >
+                    <RunnerThemeSelector
+                      value={effective.runnerTheme ?? "dark"}
+                      onChange={(theme) => setField("runnerTheme", theme)}
+                      config={effective}
+                    />
+                  </OverrideField>
                 </CardContent>
               </Card>
             </>
@@ -306,10 +349,10 @@ export function CampaignBrandEditor({
         {/* Preview — show runner and email (contextually relevant for campaigns) */}
         <div className="flex-1 min-w-0 sticky top-6">
           <PreviewGallery
-            config={customEnabled ? config : inheritedBrand}
+            config={effective}
             surfaces={["welcome", "questions", "complete"]}
-            brandName={(customEnabled ? config : inheritedBrand).name}
-            logoUrl={(customEnabled ? config : inheritedBrand).logoUrl}
+            brandName={effective.name}
+            logoUrl={effective.logoUrl}
           />
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getDefaultConsentBody,
   getFlowOrder,
   getPageContent,
   isPageEnabled,
@@ -149,5 +150,50 @@ describe("experience template resolution", () => {
     expect(isPageEnabled(template, "runner")).toBe(true);
     expect(isPageEnabled(template, "report")).toBe(false);
     expect(getPageContent(template, "complete")).toEqual(DEFAULT_PAGE_CONTENT.complete);
+  });
+
+  it("resolves with no records at all (pure code defaults)", () => {
+    const template = resolveTemplate(null, null);
+    expect(getPageContent(template, "welcome")).toEqual(DEFAULT_PAGE_CONTENT.welcome);
+    expect(template.privacyUrl).toBeUndefined();
+    expect(template.termsUrl).toBeUndefined();
+  });
+
+  it("resolves campaign-only records including privacy url and custom content", () => {
+    const campaign = createRecord({
+      ownerType: "campaign",
+      ownerId: "campaign-2",
+      pageContent: {
+        consent: {
+          ...DEFAULT_PAGE_CONTENT.consent,
+          heading: "Campaign consent heading",
+        },
+      },
+      customPageContent: {
+        ethics: { heading: "Ethics", body: "Body", buttonLabel: "Continue" },
+      },
+      privacyUrl: "https://campaign.trajectas.test/privacy",
+    });
+
+    const template = resolveTemplate(null, campaign);
+    expect(getPageContent(template, "consent").heading).toBe("Campaign consent heading");
+    expect(template.customPageContent?.ethics?.heading).toBe("Ethics");
+    expect(template.privacyUrl).toBe("https://campaign.trajectas.test/privacy");
+  });
+});
+
+describe("getDefaultConsentBody", () => {
+  it("standard mode keeps the development/selection wording and no brand promise", () => {
+    const body = getDefaultConsentBody("standard");
+    expect(body).toContain("professional development and/or selection purposes");
+    expect(body).not.toContain("{{brandName}}");
+    expect(body.split("\n")).toHaveLength(3);
+  });
+
+  it("aggregate-only mode promises group-level reporting via the brand name", () => {
+    const body = getDefaultConsentBody("aggregate_only");
+    expect(body).toContain("{{brandName}} receives group-level patterns only");
+    expect(body).not.toContain("selection purposes");
+    expect(body.split("\n")).toHaveLength(3);
   });
 });

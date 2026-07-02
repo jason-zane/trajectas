@@ -7,12 +7,23 @@
 //   3. Email inline styles (hex-based, for HTML email templates)
 // =============================================================================
 
-import type { BrandConfig, BorderRadiusPreset, NeutralTemperature } from './types'
+import type {
+  BrandConfig,
+  BorderRadiusPreset,
+  NeutralTemperature,
+  SpacingDensity,
+  TypeScalePreset,
+  TypeLevelName,
+  TypeLevelStyle,
+} from './types'
 import {
   DEFAULT_PORTAL_ACCENTS,
   DEFAULT_SEMANTIC_COLORS,
   DEFAULT_TAXONOMY_COLORS,
   DEFAULT_EMAIL_STYLES,
+  DEFAULT_TYPOGRAPHY,
+  DEFAULT_BUTTON_STYLE,
+  DEFAULT_SPACING_DENSITY,
 } from './defaults'
 import { generateReportCSSTokens } from '@/lib/reports/report-tokens'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
@@ -158,6 +169,21 @@ function generateScale(base: OKLCH): Record<string, OKLCH> {
   return scale
 }
 
+/**
+ * Generate the 10-step scale as hex values.
+ *
+ * Exported for consumers that need the same derived colors the token
+ * pipeline produces without parsing CSS — e.g. the contrast auditor.
+ */
+export function generateScaleHex(baseHex: string): Record<string, string> {
+  const scale = generateScale(hexToOklch(baseHex))
+  const hexScale: Record<string, string> = {}
+  for (const [step, oklch] of Object.entries(scale)) {
+    hexScale[step] = oklchToHex(oklch)
+  }
+  return hexScale
+}
+
 // ---------------------------------------------------------------------------
 // Neutral temperature → hue offset
 // ---------------------------------------------------------------------------
@@ -182,6 +208,113 @@ const RADIUS_BASE: Record<BorderRadiusPreset, number> = {
   sharp: 4,
   soft: 8,
   round: 16,
+}
+
+// ---------------------------------------------------------------------------
+// Typography scale presets
+// ---------------------------------------------------------------------------
+
+/**
+ * Size/line-height/tracking ramps per scale preset. Weights are applied
+ * separately from TypographySettings (headingWeight for display–h3,
+ * bodyWeight for body/caption, bodyWeight+100 for label).
+ */
+const TYPE_SCALE_PRESETS: Record<
+  TypeScalePreset,
+  Record<TypeLevelName, Omit<TypeLevelStyle, 'weight'>>
+> = {
+  compact: {
+    display: { size: '2.5rem', lineHeight: 1.1, letterSpacing: '-0.02em' },
+    h1: { size: '1.875rem', lineHeight: 1.15, letterSpacing: '-0.015em' },
+    h2: { size: '1.375rem', lineHeight: 1.25, letterSpacing: '-0.01em' },
+    h3: { size: '1.125rem', lineHeight: 1.3, letterSpacing: '-0.005em' },
+    body: { size: '0.9375rem', lineHeight: 1.55, letterSpacing: '0em' },
+    label: { size: '0.8125rem', lineHeight: 1.4, letterSpacing: '0.01em' },
+    caption: { size: '0.6875rem', lineHeight: 1.4, letterSpacing: '0.02em' },
+  },
+  default: {
+    display: { size: '3rem', lineHeight: 1.1, letterSpacing: '-0.02em' },
+    h1: { size: '2.25rem', lineHeight: 1.15, letterSpacing: '-0.015em' },
+    h2: { size: '1.5rem', lineHeight: 1.25, letterSpacing: '-0.01em' },
+    h3: { size: '1.25rem', lineHeight: 1.3, letterSpacing: '-0.005em' },
+    body: { size: '1rem', lineHeight: 1.6, letterSpacing: '0em' },
+    label: { size: '0.875rem', lineHeight: 1.4, letterSpacing: '0.01em' },
+    caption: { size: '0.75rem', lineHeight: 1.4, letterSpacing: '0.02em' },
+  },
+  generous: {
+    display: { size: '3.5rem', lineHeight: 1.08, letterSpacing: '-0.025em' },
+    h1: { size: '2.625rem', lineHeight: 1.12, letterSpacing: '-0.02em' },
+    h2: { size: '1.75rem', lineHeight: 1.22, letterSpacing: '-0.01em' },
+    h3: { size: '1.375rem', lineHeight: 1.3, letterSpacing: '-0.005em' },
+    body: { size: '1.0625rem', lineHeight: 1.65, letterSpacing: '0em' },
+    label: { size: '0.9375rem', lineHeight: 1.4, letterSpacing: '0.01em' },
+    caption: { size: '0.8125rem', lineHeight: 1.4, letterSpacing: '0.02em' },
+  },
+}
+
+const TYPE_LEVELS: TypeLevelName[] = [
+  'display',
+  'h1',
+  'h2',
+  'h3',
+  'body',
+  'label',
+  'caption',
+]
+
+const HEADING_LEVELS: ReadonlySet<TypeLevelName> = new Set([
+  'display',
+  'h1',
+  'h2',
+  'h3',
+])
+
+/**
+ * Resolve the full per-level typography map from settings:
+ * preset ramp → weights → advanced per-level overrides (applied last).
+ */
+export function resolveTypeLevels(
+  config: BrandConfig
+): Record<TypeLevelName, TypeLevelStyle> {
+  const settings = { ...DEFAULT_TYPOGRAPHY, ...config.typography }
+  const preset = TYPE_SCALE_PRESETS[settings.scale ?? 'default']
+  const headingWeight = settings.headingWeight ?? 600
+  const bodyWeight = settings.bodyWeight ?? 400
+
+  const levels = {} as Record<TypeLevelName, TypeLevelStyle>
+  for (const level of TYPE_LEVELS) {
+    const base = preset[level]
+    const weight = HEADING_LEVELS.has(level)
+      ? headingWeight
+      : level === 'label'
+        ? Math.min(bodyWeight + 100, 800)
+        : bodyWeight
+    levels[level] = { ...base, weight, ...settings.levels?.[level] }
+  }
+  return levels
+}
+
+// ---------------------------------------------------------------------------
+// Spacing density presets
+// ---------------------------------------------------------------------------
+
+/** Base spacing ramp in px, scaled by the density multiplier. */
+const SPACING_STEPS: Record<string, number> = {
+  '3xs': 2,
+  '2xs': 4,
+  xs: 8,
+  sm: 12,
+  md: 16,
+  lg: 24,
+  xl: 32,
+  '2xl': 48,
+  '3xl': 64,
+}
+
+const DENSITY_MULTIPLIER: Record<SpacingDensity, number> = {
+  compact: 0.85,
+  comfortable: 1,
+  spacious: 1.2,
 }
 
 // ---------------------------------------------------------------------------
@@ -247,9 +380,15 @@ export interface CSSTokens {
  * Produces:
  * - `--brand-50` through `--brand-900` (10-step primary scale)
  * - `--brand-accent-50` through `--brand-accent-900` (10-step accent scale)
+ * - `--brand-secondary-50…900` (only when secondaryColor is set)
  * - `--brand-surface`, `--brand-text`, `--brand-border` (semantic tokens)
- * - `--brand-radius` (border radius base)
+ * - `--brand-error`, `--brand-success`, `--brand-warning` (status colors)
+ * - `--brand-radius` family (border radius)
+ * - `--brand-space-3xs…3xl` (spacing ramp, scaled by spacingDensity)
  * - `--brand-font-heading`, `--brand-font-body`, `--brand-font-mono`
+ * - `--brand-text-<level>-{size,weight,line-height,tracking}` (type scale)
+ * - `--brand-button-{radius,weight,transform,pad-x,pad-y}` (button treatment)
+ * - `--brand-gradient` (only when gradientAccent is enabled)
  */
 export function generateCSSTokens(config: BrandConfig): CSSTokens {
   const primary = hexToOklch(config.primaryColor)
@@ -271,6 +410,15 @@ export function generateCSSTokens(config: BrandConfig): CSSTokens {
   // Accent scale
   for (const [step, oklch] of Object.entries(accentScale)) {
     tokens[`--brand-accent-${step}`] = oklchCss(oklch)
+  }
+
+  // Secondary scale (optional third palette)
+  if (config.secondaryColor) {
+    const secondaryScale = generateScale(hexToOklch(config.secondaryColor))
+    for (const [step, oklch] of Object.entries(secondaryScale)) {
+      tokens[`--brand-secondary-${step}`] = oklchCss(oklch)
+    }
+    tokens['--brand-secondary'] = oklchCss(hexToOklch(config.secondaryColor))
   }
 
   // Semantic tokens (light mode)
@@ -295,6 +443,13 @@ export function generateCSSTokens(config: BrandConfig): CSSTokens {
   tokens['--brand-neutral-800'] = oklchCss({ l: 0.20, c: neutralChroma, h: neutralHue })
   tokens['--brand-neutral-900'] = oklchCss({ l: 0.13, c: neutralChroma, h: neutralHue })
 
+  // Semantic status colors — the runner references --brand-error/--brand-warning
+  // in fallback position today; emitting them makes status states brandable.
+  const semantic = config.semanticColors ?? DEFAULT_SEMANTIC_COLORS
+  tokens['--brand-error'] = oklchCss(hexToOklch(semantic.destructive))
+  tokens['--brand-success'] = oklchCss(hexToOklch(semantic.success))
+  tokens['--brand-warning'] = oklchCss(hexToOklch(semantic.warning))
+
   // Shape
   tokens['--brand-radius'] = `${radiusBase}px`
   tokens['--brand-radius-sm'] = `${Math.round(radiusBase * 0.5)}px`
@@ -303,10 +458,48 @@ export function generateCSSTokens(config: BrandConfig): CSSTokens {
   tokens['--brand-radius-xl'] = `${Math.round(radiusBase * 1.5)}px`
   tokens['--brand-radius-2xl'] = `${Math.round(radiusBase * 2)}px`
 
+  // Spacing ramp
+  const density = config.spacingDensity ?? DEFAULT_SPACING_DENSITY
+  const multiplier = DENSITY_MULTIPLIER[density]
+  for (const [step, px] of Object.entries(SPACING_STEPS)) {
+    tokens[`--brand-space-${step}`] = `${Math.round(px * multiplier)}px`
+  }
+
   // Typography
   tokens['--brand-font-heading'] = getFontFamily(config.headingFont)
   tokens['--brand-font-body'] = getFontFamily(config.bodyFont)
   tokens['--brand-font-mono'] = getFontFamily(config.monoFont)
+
+  // Type scale
+  const typeLevels = resolveTypeLevels(config)
+  for (const [level, style] of Object.entries(typeLevels)) {
+    tokens[`--brand-text-${level}-size`] = style.size
+    tokens[`--brand-text-${level}-weight`] = String(style.weight)
+    tokens[`--brand-text-${level}-line-height`] = String(style.lineHeight)
+    tokens[`--brand-text-${level}-tracking`] = style.letterSpacing
+  }
+
+  // Button treatment
+  const button = { ...DEFAULT_BUTTON_STYLE, ...config.buttonStyle }
+  tokens['--brand-button-radius'] =
+    button.shape === 'pill'
+      ? '999px'
+      : button.shape === 'sharp'
+        ? '2px'
+        : `${radiusBase}px`
+  tokens['--brand-button-weight'] = String(button.weight ?? 500)
+  tokens['--brand-button-transform'] = button.textTransform ?? 'none'
+  tokens['--brand-button-pad-x'] = `${Math.round(28 * multiplier)}px`
+  tokens['--brand-button-pad-y'] = `${Math.round(12 * multiplier)}px`
+
+  // Gradient accent (only when enabled — consumers fall back to primary)
+  if (config.gradientAccent?.enabled) {
+    const from = config.gradientAccent.from ?? config.primaryColor
+    const to = config.gradientAccent.to ?? config.accentColor
+    const angle = config.gradientAccent.angle ?? 135
+    tokens['--brand-gradient'] =
+      `linear-gradient(${angle}deg, ${oklchCss(hexToOklch(from))}, ${oklchCss(hexToOklch(to))})`
+  }
 
   // Build CSS string
   const css = Object.entries(tokens)

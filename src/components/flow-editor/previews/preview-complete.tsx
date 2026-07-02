@@ -10,15 +10,17 @@ interface PreviewCompleteProps {
 export function PreviewComplete({ content }: PreviewCompleteProps) {
   return (
     <PreviewShell footerText={content.footerText}>
-      <div className="flex flex-col items-center justify-center text-center space-y-4 py-8">
+      <div className="flex flex-col items-center justify-center text-center space-y-6 py-8">
         {/* Success icon */}
         <div
-          className="flex size-12 items-center justify-center rounded-full"
-          style={{ backgroundColor: "var(--brand-primary)" }}
+          className="flex size-14 items-center justify-center rounded-full"
+          style={{
+            backgroundColor: "var(--runner-accent)",
+            color: "var(--runner-ink)",
+          }}
         >
           <svg
-            className="size-6"
-            style={{ color: "var(--brand-primary-foreground)" }}
+            className="size-7"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -28,21 +30,24 @@ export function PreviewComplete({ content }: PreviewCompleteProps) {
           </svg>
         </div>
 
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
-          }}
-        >
-          {content.heading}
-        </h2>
-        <p
-          className="text-sm leading-relaxed max-w-[280px]"
-          style={{ color: "var(--brand-text-muted)" }}
-        >
-          {content.body}
-        </p>
+        <div className="space-y-3">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontWeight: 600,
+            }}
+          >
+            {content.heading}
+          </h2>
+          <p
+            className="text-sm leading-relaxed max-w-xs"
+            style={{ color: "var(--runner-text-muted)" }}
+          >
+            {content.body}
+          </p>
+        </div>
       </div>
     </PreviewShell>
   )

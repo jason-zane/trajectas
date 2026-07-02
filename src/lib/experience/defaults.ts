@@ -11,8 +11,8 @@ import type {
 
 export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   join: {
-    heading: 'Join Assessment',
-    body: 'Enter your details to begin the assessment.',
+    heading: 'Register to begin.',
+    body: "We'll use this to create your personal access link.",
     buttonLabel: 'Continue',
     marketingConsentEnabled: false,
     marketingConsentRequired: false,
@@ -20,14 +20,13 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   },
 
   welcome: {
-    eyebrow: 'Welcome, {{participantName}}',
-    heading: '{{campaignTitle}}',
-    body: '{{campaignDescription}}',
+    eyebrow: '{{campaignTitle}}',
+    heading: '{{timeOfDayGreeting}}, {{participantName}}. This is about how you work best.',
+    body: 'There are no right answers — your first instinct is usually the truest one. Your responses save automatically, and you can pause and return any time.',
     infoHeading: 'Before you begin',
     infoItems: [
       'This campaign contains {{assessmentCount}} assessment(s).',
-      'Your responses are saved automatically as you go.',
-      'You can leave and return to continue where you left off.',
+      'Takes about {{estimatedMinutes}} minutes.',
       'There are no right or wrong answers — respond honestly.',
     ],
     buttonLabel: 'Begin assessment',
@@ -35,31 +34,31 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   },
 
   consent: {
-    eyebrow: 'Information & Consent',
-    heading: 'Before We Begin',
-    body: 'This assessment is being administered as part of a structured evaluation process. Your responses will be used to generate a profile based on validated psychometric constructs.\n\n**What to expect:**\n- The assessment will take approximately 15–25 minutes\n- Your responses are confidential and stored securely\n- Results are used for professional development and/or selection purposes\n- You may withdraw at any time by closing this page\n\nBy proceeding, you confirm that you consent to participate in this assessment and that your responses may be used for the purposes described above.',
+    eyebrow: 'Before you begin',
+    heading: 'How your answers are used.',
+    body: '- Your responses are used to generate a profile based on validated psychometric constructs.\n- Results are used for professional development and/or selection purposes.\n- Your responses save automatically — you may pause, or withdraw at any time by closing this page.',
     consentCheckboxLabel: 'I have read and agree to the above information',
     buttonLabel: 'Continue',
   },
 
   demographics: {
-    eyebrow: 'About You',
-    heading: 'Demographics',
-    body: 'The following information helps us ensure fair and accurate assessment results. All fields are optional unless marked as required.',
+    eyebrow: 'A little about you',
+    heading: 'Help us read the results fairly.',
+    body: 'Used only to compare groups fairly — never to identify you.',
     buttonLabel: 'Continue',
   },
 
   runner: {
     backButtonLabel: 'Back',
-    saveStatusIdle: 'Responses saved automatically',
-    saveStatusSaving: 'Saving...',
-    saveStatusSaved: 'Saved',
+    saveStatusIdle: 'Autosave on',
+    saveStatusSaving: 'Saving…',
+    saveStatusSaved: 'Saved a moment ago',
     continueButtonLabel: 'Continue',
     footerText: 'Powered by Trajectas',
   },
 
   review: {
-    eyebrow: '{{campaignTitle}}',
+    eyebrow: 'Review & submit',
     heading: 'Review Your Responses',
     body: '{{answeredCount}} of {{totalItems}} questions answered',
     buttonLabel: 'Submit assessment',
@@ -68,8 +67,8 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
   },
 
   complete: {
-    heading: 'Thank You',
-    body: 'Your assessment has been submitted successfully. You can safely close this page.',
+    heading: 'Thank you, {{participantName}}.',
+    body: 'Your assessment has been submitted. You can safely close this page.',
     redirectUrl: 'https://trajectas.com',
   },
 
@@ -85,6 +84,15 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     body: 'This assessment link is no longer valid. The campaign may have closed or your access may have been revoked. Please contact your administrator.',
   },
 }
+
+/**
+ * Default consent body for aggregate-only confidentiality mode.
+ * Replaces the "Results are used for..." line with a guarantee that
+ * individual answers are never visible to the organization.
+ */
+export const AGGREGATE_ONLY_CONSENT_BODY = `- Your responses are used to generate a profile based on validated psychometric constructs.
+- {{brandName}} receives group-level patterns only — never your individual answers.
+- Your responses save automatically — you may pause, or withdraw at any time by closing this page.`
 
 // =============================================================================
 // Default flow config — order mirrors the participant journey

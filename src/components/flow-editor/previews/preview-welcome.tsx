@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, Clock } from "lucide-react"
+import { Check } from "lucide-react"
 import { PreviewShell } from "./preview-shell"
 import type { WelcomeContent } from "@/lib/experience/types"
 
@@ -12,67 +12,79 @@ interface PreviewWelcomeProps {
 export function PreviewWelcome({ content, estimatedMinutes }: PreviewWelcomeProps) {
   return (
     <PreviewShell footerText={content.footerText}>
-      <div className="space-y-4">
+      <div className="space-y-6">
         <p
-          className="text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: "var(--brand-primary)" }}
+          className="text-[0.75rem] font-semibold uppercase tracking-[0.16em]"
+          style={{
+            color: "var(--runner-overline)",
+            fontFamily: '"Geist Mono", monospace',
+            letterSpacing: "0.16em",
+          }}
         >
           {content.eyebrow}
         </p>
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
-          }}
-        >
-          {content.heading}
-        </h2>
-        <p
-          className="text-sm leading-relaxed"
-          style={{ color: "var(--brand-text-muted)" }}
-        >
-          {content.body}
-        </p>
+        <div className="space-y-3">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontWeight: 600,
+            }}
+          >
+            {content.heading}
+          </h2>
+          <p
+            className="text-sm leading-relaxed"
+            style={{ color: "var(--runner-text-muted)" }}
+          >
+            {content.body}
+          </p>
+        </div>
 
         {/* Info box */}
         <div
-          className="rounded-lg p-4 space-y-2"
+          className="rounded-lg p-4 space-y-3"
           style={{
-            backgroundColor: "var(--brand-neutral-100)",
-            borderRadius: "var(--brand-radius-lg)",
+            backgroundColor: "var(--runner-ghost-fill)",
+            borderRadius: "8px",
+            border: `1px solid var(--runner-hairline)`,
           }}
         >
           <div className="flex items-center justify-between">
             <p
               className="text-xs font-semibold"
-              style={{ color: "var(--brand-text)" }}
+              style={{ color: "var(--runner-text)" }}
             >
               {content.infoHeading}
             </p>
             {estimatedMinutes && (
               <span
-                className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full"
+                className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-full"
                 style={{
-                  backgroundColor: "var(--brand-neutral-200)",
-                  color: "var(--brand-text-muted)",
+                  backgroundColor: "var(--runner-ghost-border)",
+                  color: "var(--runner-text-muted)",
+                  fontFamily: '"Geist Mono", monospace',
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
                 }}
               >
-                <Clock className="size-2.5" />
-                ~{estimatedMinutes} min
+                {estimatedMinutes}% COMPLETE
               </span>
             )}
           </div>
-          <ul className="space-y-1">
+          <ul className="space-y-1.5">
             {content.infoItems.map((item, i) => (
               <li
                 key={i}
                 className="text-[11px] flex items-start gap-1.5"
-                style={{ color: "var(--brand-text-muted)" }}
+                style={{ color: "var(--runner-text-muted)" }}
               >
                 <Check
                   className="mt-0.5 size-2.5 shrink-0"
-                  style={{ color: "var(--brand-primary)" }}
+                  style={{ color: "var(--runner-accent)" }}
                 />
                 {item}
               </li>
@@ -82,11 +94,11 @@ export function PreviewWelcome({ content, estimatedMinutes }: PreviewWelcomeProp
 
         <button
           type="button"
-          className="w-full py-2 text-sm font-medium"
+          className="w-full py-3 text-sm font-medium transition-all duration-150"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-primary-foreground)",
-            borderRadius: "var(--brand-radius-md)",
+            backgroundColor: "var(--runner-cta-fill)",
+            color: "var(--runner-cta-text)",
+            borderRadius: "8px",
           }}
         >
           {content.buttonLabel}
