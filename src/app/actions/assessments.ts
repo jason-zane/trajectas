@@ -18,6 +18,7 @@ import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { mapAssessmentRow } from '@/lib/supabase/mappers'
 import { assessmentSchema } from '@/lib/validations/assessments'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
+import { getAssessmentContentSummaries } from '@/lib/dal/assessment-content'
 import { selectItemsByDifficulty, type SelectableItem } from '@/lib/item-selection/distribution'
 import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
 import type { Assessment, ItemOrdering } from '@/types/database'
@@ -40,6 +41,28 @@ async function refreshPreviewSeed(assessmentId: string): Promise<void> {
 export type AssessmentWithMeta = Assessment & {
   factorCount: number
 }
+
+/**
+ * True when the assessment has questions materialised in its delivery tables
+ * (sections / FC blocks) — factors linked to item-rich constructs do NOT
+ * count until a persist step pulls those items in, because the runner never
+ * reads assessment_factors. `null` = check failed; callers must fail closed.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function hasDeliverableContent(db: any, assessmentId: string): Promise<boolean | null> {
+  try {
+    const [summary] = await getAssessmentContentSummaries(db, [assessmentId])
+    return Boolean(summary?.hasDeliverableContent)
+  } catch {
+    return null
+  }
+}
+
+const EMPTY_ASSESSMENT_ACTIVATION_ERROR =
+  'This assessment has no questions yet, so it cannot go live. Save its Presentation step in the builder so the items from its linked constructs are pulled into sections, then activate it.'
+
+const CONTENT_CHECK_FAILED_ERROR =
+  'Unable to verify that this assessment has questions right now. Try again.'
 
 export type BuilderFactor = {
   id: string
@@ -861,6 +884,22 @@ export async function createAssessment(payload: Record<string, unknown>) {
     if (blockErr) return { error: { _form: [blockErr] } }
   }
 
+  // Fail closed on empty-but-active: keep the row as a draft rather than let
+  // a question-less assessment reach campaigns.
+  if (parsed.data.status === 'active') {
+    const deliverable = await hasDeliverableContent(db, assessment.id)
+    if (!deliverable) {
+      await db.from('assessments').update({ status: 'draft' }).eq('id', assessment.id)
+      return {
+        error: {
+          _form: [
+            deliverable === null ? CONTENT_CHECK_FAILED_ERROR : EMPTY_ASSESSMENT_ACTIVATION_ERROR,
+          ],
+        },
+      }
+    }
+  }
+
   revalidateAssessmentPaths()
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
@@ -1024,6 +1063,17 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
       const blockErr = await persistForcedChoiceBlocks(db, id, fcBlocks)
       if (blockErr) return { error: { _form: [blockErr] } }
+    }
+  }
+
+  // Fail closed on empty-but-active: the status update above already wrote the
+  // requested status, so demote back to draft if nothing is deliverable.
+  if (parsed.data.status === 'active') {
+    const deliverable = await hasDeliverableContent(db, id)
+    if (deliverable === null) return { error: { _form: [CONTENT_CHECK_FAILED_ERROR] } }
+    if (!deliverable) {
+      await db.from('assessments').update({ status: 'draft' }).eq('id', id)
+      return { error: { _form: [EMPTY_ASSESSMENT_ACTIVATION_ERROR] } }
     }
   }
 
@@ -1605,6 +1655,13 @@ export async function updateAssessmentMeta(
   if (Object.keys(patch).length === 0) return { success: true }
 
   const db = createAdminClient()
+
+  if (updates.status === 'active') {
+    const deliverable = await hasDeliverableContent(db, assessmentId)
+    if (deliverable === null) return { error: CONTENT_CHECK_FAILED_ERROR }
+    if (!deliverable) return { error: EMPTY_ASSESSMENT_ACTIVATION_ERROR }
+  }
+
   const { error } = await db
     .from('assessments')
     .update(patch)
@@ -1704,6 +1761,29 @@ export async function updateAssessmentPresentation(
   const responseCheck = await assertNoParticipantResponses(db, assessmentId)
   if (responseCheck) return { error: responseCheck }
 
+  const { data: assessmentRow, error: statusErr } = await db
+    .from('assessments')
+    .select('status')
+    .eq('id', assessmentId)
+    .single()
+  if (statusErr || !assessmentRow) {
+    logActionError('updateAssessmentPresentation.loadStatus', statusErr)
+    return { error: 'Unable to load this assessment.' }
+  }
+  const isActive = assessmentRow.status === 'active'
+
+  // Refuse to strip a live assessment down to nothing before wiping anything.
+  const emptyLayout =
+    payload.formatMode === 'traditional'
+      ? (payload.sections ?? []).length === 0
+      : (payload.forcedChoiceBlocks ?? []).length === 0
+  if (isActive && emptyLayout) {
+    return {
+      error:
+        'An active assessment needs at least one section (or forced-choice block) with questions. Move it back to draft first if you want to clear its layout.',
+    }
+  }
+
   const { data: af } = await db
     .from('assessment_factors')
     .select('factor_id')
@@ -1749,6 +1829,20 @@ export async function updateAssessmentPresentation(
     if (blocks.length > 0) {
       const err = await persistForcedChoiceBlocks(db, assessmentId, blocks)
       if (err) return { error: err }
+    }
+  }
+
+  // The layout may persist without matching any items (e.g. constructs with no
+  // active items in the chosen formats). Never leave that live — demote to draft.
+  if (isActive) {
+    const deliverable = await hasDeliverableContent(db, assessmentId)
+    if (deliverable === null) return { error: CONTENT_CHECK_FAILED_ERROR }
+    if (!deliverable) {
+      await db.from('assessments').update({ status: 'draft' }).eq('id', assessmentId)
+      return {
+        error:
+          'No items matched the saved sections, so this assessment was moved back to draft. Check that its factors link to constructs with active items in the chosen response formats, then re-activate it.',
+      }
     }
   }
 

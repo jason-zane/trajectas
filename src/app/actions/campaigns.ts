@@ -15,6 +15,10 @@ import {
 } from '@/lib/dal/campaigns'
 import { assembleCampaignDetail } from '@/lib/dal/campaigns-mappers'
 import {
+  getAssessmentContentSummaries,
+  listEmptyAssessments,
+} from '@/lib/dal/assessment-content'
+import {
   AuthorizationError,
   canAccessClient,
   canManageCampaign,
@@ -695,14 +699,13 @@ export async function activateCampaign(id: string) {
 
   const db = createAdminClient()
 
-  // Pre-launch readiness gate: verify campaign has linked assessments and
-  // either participants or access links
+  // Pre-launch readiness gate: verify campaign has linked assessments with
+  // questions to serve, and either participants or access links
   const { data: linkedAssessments, error: linkedAssessmentsError } = await db
     .from('campaign_assessments')
-    .select('id')
+    .select('assessment_id')
     .eq('campaign_id', id)
     .is('deleted_at', null)
-    .limit(1)
 
   if (linkedAssessmentsError) {
     logActionError('activateCampaign', linkedAssessmentsError)
@@ -711,6 +714,23 @@ export async function activateCampaign(id: string) {
 
   if (!linkedAssessments || linkedAssessments.length === 0) {
     return { error: 'Campaign must have at least one assessment before activation.' }
+  }
+
+  // Every linked assessment must have materialised questions — an empty one
+  // has nothing for the runner to show and its session auto-completes on open.
+  try {
+    const empties = await listEmptyAssessments(
+      db,
+      linkedAssessments.map((row) => String(row.assessment_id)),
+    )
+    if (empties.length > 0) {
+      const titles = empties.map((a) => `"${a.title}"`).join(', ')
+      return {
+        error: `${titles} ${empties.length === 1 ? 'has' : 'have'} no questions yet. Save the assessment's Presentation step in the builder before activating this campaign.`,
+      }
+    }
+  } catch {
+    return { error: 'Unable to check campaign readiness.' }
   }
 
   const { count: participantCount, error: participantCountError } = await db
@@ -914,6 +934,21 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
   }
 
   const db = createAdminClient()
+
+  // The runner serves questions from the assessment's sections/blocks, not its
+  // factors — an assessment with none renders empty and auto-completes, so it
+  // must not be attachable in the first place.
+  try {
+    const [content] = await getAssessmentContentSummaries(db, [assessmentId])
+    if (!content?.hasDeliverableContent) {
+      return {
+        error:
+          'This assessment has no questions yet. Save its Presentation step in the assessment builder (so items from its linked constructs are pulled into sections) before adding it to a campaign.',
+      }
+    }
+  } catch {
+    return { error: 'Unable to verify that this assessment has questions. Try again.' }
+  }
 
   // Get max display order
   const { data: existing, error: existingOrderError } = await db
