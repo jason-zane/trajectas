@@ -836,7 +836,7 @@ export async function createAssessment(payload: Record<string, unknown>) {
   const sections = (payload.sections ?? []) as SectionDraft[]
   if (sections.length > 0 && parsed.data.formatMode === 'traditional') {
     const factorIds = parsed.data.factors.map((f) => f.factorId)
-    const sectionErr = await persistSections(db, assessment.id, sections, {
+    const { error: sectionErr } = await persistSections(db, assessment.id, sections, {
       factorIds,
     })
     if (sectionErr) return { error: { _form: [sectionErr] } }
@@ -997,7 +997,7 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
     const sections = (payload.sections ?? []) as SectionDraft[]
     if (sections.length > 0) {
       const factorIds = parsed.data.factors.map((f) => f.factorId)
-      const sectionErr = await persistSections(db, id, sections, {
+      const { error: sectionErr } = await persistSections(db, id, sections, {
         factorIds,
       })
       if (sectionErr) return { error: { _form: [sectionErr] } }
@@ -1702,7 +1702,7 @@ export async function updateAssessmentPresentation(
   if (payload.formatMode === 'traditional') {
     const sections = payload.sections ?? []
     if (sections.length > 0) {
-      const err = await persistSections(db, assessmentId, sections, {
+      const { error: err } = await persistSections(db, assessmentId, sections, {
         factorIds,
       })
       if (err) return { error: err }

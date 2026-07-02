@@ -143,6 +143,7 @@ vi.mock('@/app/actions/client-entitlements', () => ({
 // Imports under test (AFTER mocks)
 // ---------------------------------------------------------------------------
 
+import { AuthorizationError } from '@/lib/auth/authorization'
 import { updateAssessmentMeta } from '@/app/actions/assessments'
 import { activateCampaign, addAssessmentToCampaign } from '@/app/actions/campaigns'
 
@@ -289,6 +290,28 @@ describe('addAssessmentToCampaign content guard', () => {
     const result = await addAssessmentToCampaign(CAMPAIGN_ID, ASSESSMENT_ID)
 
     expect(result).toMatchObject({ error: expect.stringMatching(/no questions/i) })
+    expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(0)
+  })
+
+  it('does not auto-build when the actor lacks write access to the assessment', async () => {
+    dal.getAssessmentContentSummaries.mockResolvedValue([
+      {
+        assessmentId: ASSESSMENT_ID,
+        title: 'Shared library assessment',
+        formatMode: 'traditional',
+        itemCount: 0,
+        hasDeliverableContent: false,
+      },
+    ])
+    // Campaign access is fine, but the assessment is not writable by this actor.
+    auth.requireAssessmentAccess.mockRejectedValue(
+      new AuthorizationError('You do not have permission to manage assessments.'),
+    )
+
+    const result = await addAssessmentToCampaign(CAMPAIGN_ID, ASSESSMENT_ID)
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/no questions/i) })
+    expect(sectionsDal.autoBuildSectionsFromFactors).not.toHaveBeenCalled()
     expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(0)
   })
 

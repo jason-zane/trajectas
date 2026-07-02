@@ -154,17 +154,22 @@ export async function getFormatBreakdownForScope(
     .sort((a, b) => b.itemCount - a.itemCount);
 }
 
+export type PersistSectionsResult = {
+  error: string | null;
+  /** IDs of the sections this call inserted (empty on error). */
+  sectionIds: string[];
+};
+
 /**
  * Persist sections for an assessment and auto-assign matching items.
  * Items are matched to sections by response_format_id.
- * Returns an error message string, or null on success.
  */
 export async function persistSections(
   db: DbClient,
   assessmentId: string,
   sections: SectionDraft[],
   scope: { factorIds: string[]; constructIds?: string[] },
-): Promise<string | null> {
+): Promise<PersistSectionsResult> {
   const sectionInserts = sections.map((s) => ({
     assessment_id: assessmentId,
     response_format_id: s.responseFormatId,
@@ -180,7 +185,9 @@ export async function persistSections(
     .insert(sectionInserts)
     .select("id, response_format_id");
 
-  if (secErr) return secErr.message;
+  if (secErr) return { error: secErr.message, sectionIds: [] };
+
+  const sectionIds = ((insertedSections ?? []) as { id: string }[]).map((s) => String(s.id));
 
   // Resolve construct IDs: prefer direct construct scope; otherwise expand factors.
   let constructIds: string[];
@@ -195,7 +202,7 @@ export async function persistSections(
       ...new Set(((links ?? []) as { construct_id: string }[]).map((l) => l.construct_id)),
     ];
   }
-  if (constructIds.length === 0) return null;
+  if (constructIds.length === 0) return { error: null, sectionIds };
 
   const limit = await getItemsPerConstructForCount(constructIds.length);
 
@@ -206,7 +213,7 @@ export async function persistSections(
     .eq("status", "active")
     .is("deleted_at", null);
 
-  if (!items || items.length === 0) return null;
+  if (!items || items.length === 0) return { error: null, sectionIds };
 
   const limitedItems = applyPerConstructLimit(items, limit);
 
@@ -233,10 +240,10 @@ export async function persistSections(
 
   if (sectionItems.length > 0) {
     const { error: itemErr } = await db.from("assessment_section_items").insert(sectionItems);
-    if (itemErr) return itemErr.message;
+    if (itemErr) return { error: itemErr.message, sectionIds };
   }
 
-  return null;
+  return { error: null, sectionIds };
 }
 
 export type AutoBuildResult = {
@@ -308,13 +315,53 @@ export async function autoBuildSectionsFromFactors(
   if (groups.length === 0) return none;
 
   const drafts = buildDefaultSectionDrafts(groups);
-  const persistErr = await persistSections(db, assessmentId, drafts, { factorIds });
-  if (persistErr) {
+  const persisted = await persistSections(db, assessmentId, drafts, { factorIds });
+  if (persisted.error) {
     throwActionError(
       "autoBuildSectionsFromFactors.persist",
       "Unable to build assessment sections.",
-      new Error(persistErr),
+      new Error(persisted.error),
     );
+  }
+
+  // Concurrency repair: two racing auto-builds (e.g. a double-clicked Activate)
+  // can both pass the empty check above and both insert a batch. There is no
+  // cross-statement transaction here, so converge deterministically instead:
+  // the batch containing the smallest section id wins; every racer that
+  // observes a foreign batch deletes the loser side (section items cascade).
+  // At least one racer necessarily observes both batches, so exactly one
+  // batch survives in every interleaving.
+  const ourIds = new Set(persisted.sectionIds);
+  const { data: allSections, error: allSectionsErr } = await db
+    .from("assessment_sections")
+    .select("id")
+    .eq("assessment_id", assessmentId);
+
+  if (allSectionsErr) {
+    throwActionError(
+      "autoBuildSectionsFromFactors.repairScan",
+      "Unable to build assessment sections.",
+      allSectionsErr,
+    );
+  }
+
+  const allIds = ((allSections ?? []) as { id: string }[]).map((s) => String(s.id));
+  if (allIds.length > ourIds.size) {
+    const winner = [...allIds].sort()[0];
+    const loserIds = ourIds.has(winner)
+      ? allIds.filter((id) => !ourIds.has(id))
+      : [...ourIds];
+    const { error: repairErr } = await db
+      .from("assessment_sections")
+      .delete()
+      .in("id", loserIds);
+    if (repairErr) {
+      throwActionError(
+        "autoBuildSectionsFromFactors.repair",
+        "Unable to build assessment sections.",
+        repairErr,
+      );
+    }
   }
 
   const [summary] = await getAssessmentContentSummaries(db, [assessmentId]);

@@ -33,7 +33,7 @@ function fakeDb(results: Record<string, Result[]>) {
       const result = queue.length > 0 ? (queue.shift() as Result) : { data: [], error: null }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const builder: any = {}
-      for (const m of ['select', 'insert', 'in', 'is', 'eq', 'maybeSingle', 'order', 'limit']) {
+      for (const m of ['select', 'insert', 'delete', 'in', 'is', 'eq', 'maybeSingle', 'order', 'limit']) {
         builder[m] = (...args: unknown[]) => {
           ops.push({ table, method: m, args })
           return builder
@@ -95,6 +95,7 @@ describe('autoBuildSectionsFromFactors', () => {
       assessment_sections: [
         { count: 0 }, // pre-existing layout check
         { data: [{ id: 'sec-1', response_format_id: 'rf-likert' }] }, // insert().select()
+        { data: [{ id: 'sec-1' }] }, // concurrency repair scan — only our batch
         { data: [{ assessment_id: ASSESSMENT, assessment_section_items: [{ count: 2 }] }] }, // recount
       ],
       assessment_factors: [{ data: [{ factor_id: 'f1' }, { factor_id: 'f2' }] }],
@@ -126,6 +127,41 @@ describe('autoBuildSectionsFromFactors', () => {
     >
     expect(itemInsert).toHaveLength(2)
     expect(itemInsert[0]).toMatchObject({ section_id: 'sec-1', item_id: 'i1' })
+  })
+
+  it('repairs a racing duplicate build: the loser batch deletes itself', async () => {
+    const { db, opsFor } = fakeDb({
+      assessments: [
+        { data: { format_mode: 'traditional' } },
+        { data: [{ id: ASSESSMENT, title: 'Watermark test', format_mode: 'traditional' }] },
+      ],
+      assessment_sections: [
+        { count: 0 },
+        { data: [{ id: 'sec-b', response_format_id: 'rf-likert' }] }, // our insert
+        { data: [{ id: 'sec-b' }, { id: 'sec-a' }] }, // repair scan sees a rival batch; 'sec-a' sorts first → rival wins
+        { error: null }, // our delete
+        { data: [{ assessment_id: ASSESSMENT, assessment_section_items: [{ count: 2 }] }] }, // recount = winner's items
+      ],
+      assessment_factors: [{ data: [{ factor_id: 'f1' }] }],
+      factor_constructs: [
+        { data: [{ construct_id: 'c1' }] },
+        { data: [{ construct_id: 'c1' }] },
+      ],
+      items: [
+        { data: [item('i1', 'c1', 'rf-likert')] },
+        { data: [item('i1', 'c1', 'rf-likert')] },
+      ],
+      assessment_section_items: [{ error: null }],
+    })
+
+    const result = await autoBuildSectionsFromFactors(db, ASSESSMENT)
+
+    // We lost the race, deleted our own batch, and report the winner's content.
+    expect(result).toEqual({ built: true, itemCount: 2 })
+    const deletes = opsFor('assessment_sections', 'delete')
+    expect(deletes).toHaveLength(1)
+    const inArgs = opsFor('assessment_sections', 'in').map((op) => op.args)
+    expect(inArgs).toContainEqual(['id', ['sec-b']])
   })
 
   it('no-ops when no factors are selected', async () => {

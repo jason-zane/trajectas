@@ -19,11 +19,27 @@ import {
   listEmptyAssessments,
 } from '@/lib/dal/assessment-content'
 import { autoBuildSectionsFromFactors } from '@/lib/dal/assessment-sections'
+
+/**
+ * Auto-building sections mutates the assessment library asset, so it needs
+ * the same write gate the assessment editor uses — campaign access alone
+ * (e.g. a client attaching a shared assessment) must not be enough.
+ */
+async function canWriteAssessment(assessmentId: string): Promise<boolean> {
+  try {
+    await requireAssessmentAccess(assessmentId, { forWrite: true })
+    return true
+  } catch (error) {
+    if (error instanceof AuthorizationError) return false
+    throw error
+  }
+}
 import {
   AuthorizationError,
   canAccessClient,
   canManageCampaign,
   getAccessibleCampaignIds,
+  requireAssessmentAccess,
   requireCampaignAccess,
   requireClientAccess,
   resolveAuthorizedScope,
@@ -728,6 +744,10 @@ export async function activateCampaign(id: string) {
     )
     const stillEmpty = []
     for (const empty of empties) {
+      if (!(await canWriteAssessment(empty.assessmentId))) {
+        stillEmpty.push(empty)
+        continue
+      }
       const built = await autoBuildSectionsFromFactors(db, empty.assessmentId)
       if (built.built) {
         await logAuditEvent({
@@ -960,7 +980,7 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
   try {
     const [content] = await getAssessmentContentSummaries(db, [assessmentId])
     let deliverable = Boolean(content?.hasDeliverableContent)
-    if (content && !deliverable) {
+    if (content && !deliverable && (await canWriteAssessment(assessmentId))) {
       const built = await autoBuildSectionsFromFactors(db, assessmentId)
       if (built.built) {
         deliverable = true
