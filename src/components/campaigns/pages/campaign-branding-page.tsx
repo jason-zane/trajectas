@@ -14,20 +14,19 @@ export async function CampaignBrandingPageComponent({
   const campaign = await getCampaignHeader(campaignId)
   if (!campaign) notFound()
 
-  const [campaignBrandRecord, inheritedBrand, clientBrand] = await Promise.all([
+  const [campaignBrandRecord, inheritedBrand, clientBrand, partnerBrand] = await Promise.all([
     getBrandConfig("campaign", campaignId),
     getEffectiveBrand(campaign.clientId),
     campaign.clientId ? getBrandConfig("client", campaign.clientId) : Promise.resolve(null),
+    campaign.partnerId ? getBrandConfig("partner", campaign.partnerId) : Promise.resolve(null),
   ])
 
+  // Determine which tier supplies the inherited brand (most specific with overrides)
   let inheritedFrom = "Trajectas (platform default)"
-  if (clientBrand) {
+  if (clientBrand?.config && Object.keys(clientBrand.config).length > 0) {
     inheritedFrom = campaign.clientName ?? "Client"
-  } else if (campaign.partnerId) {
-    const partnerBrand = await getBrandConfig("partner", campaign.partnerId)
-    if (partnerBrand) {
-      inheritedFrom = (await getPartnerName(campaign.partnerId)) ?? "Partner"
-    }
+  } else if (partnerBrand?.config && Object.keys(partnerBrand.config).length > 0 && campaign.partnerId) {
+    inheritedFrom = (await getPartnerName(campaign.partnerId)) ?? "Partner"
   }
 
   return (

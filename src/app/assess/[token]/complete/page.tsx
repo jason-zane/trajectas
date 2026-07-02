@@ -18,6 +18,7 @@ export default async function CompletePage({
 
   let brandConfig: BrandConfig | null = null;
   let campaignId: string | undefined;
+  let participantName: string | undefined;
 
   try {
     const result = await validateAccessToken(token);
@@ -27,6 +28,9 @@ export default async function CompletePage({
         result.data.campaign.clientId,
         result.data.campaign.id,
       );
+    }
+    if (result.data?.participant) {
+      participantName = result.data.participant.firstName;
     }
     // Auto-submit any in-progress session — handles the case where the review
     // page is disabled and submitSession was never triggered by review-screen.
@@ -50,7 +54,10 @@ export default async function CompletePage({
   const experience = await getCachedEffectiveExperience(campaignId);
   const rawContent = getPageContent(experience, "complete");
   const rawRunnerContent = getPageContent(experience, "runner");
-  const variables: TemplateVariables = {};
+
+  const variables: TemplateVariables = {
+    participantName,
+  };
   const interpolated = interpolateContent(rawContent, variables);
   const content = {
     ...interpolated,

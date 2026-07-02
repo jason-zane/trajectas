@@ -12,15 +12,22 @@ import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
 import { ColorPicker } from "@/components/brand-editor/color-picker"
 import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
+import { RunnerThemeSelector } from "@/components/brand-editor/runner-theme-selector"
 import { PortalAccentEditor } from "@/components/brand-editor/portal-accent-editor"
 import { TaxonomyColorEditor } from "@/components/brand-editor/taxonomy-color-editor"
 import { EmailStyleEditor } from "@/components/brand-editor/email-style-editor"
 import { LogoUploader } from "@/components/brand-editor/logo-uploader"
 import { ReportThemeEditor } from "@/components/brand-editor/report-theme-editor"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
+import { TypeScaleSelector } from "@/components/brand-editor/type-scale-selector"
+import { DensitySelector } from "@/components/brand-editor/density-selector"
+import { ButtonStyleEditor } from "@/components/brand-editor/button-style-editor"
+import { GradientEditor } from "@/components/brand-editor/gradient-editor"
+import { ContrastWarnings } from "@/components/brand-editor/contrast-warnings"
 import { upsertBrandConfig } from "@/app/actions/brand"
 import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
+import { mergeBrandLayers } from "@/lib/brand/merge"
 import type {
   BrandConfig,
   BrandConfigRecord,
@@ -45,22 +52,19 @@ function cloneConfig(config: BrandConfig): BrandConfig {
 }
 
 export function BrandEditor({ initialRecord }: BrandEditorProps) {
-  const initialConfig = initialRecord?.config
-    ? cloneConfig(initialRecord.config)
-    : cloneConfig(TRAJECTAS_DEFAULTS as BrandConfig)
+  // Initialize with mergeBrandLayers to fill defaults for new fields
+  const initialConfig = mergeBrandLayers([initialRecord?.config])
 
-  const [config, setConfig] = useState<BrandConfig>(initialConfig)
-  const [savedConfig, setSavedConfig] = useState<BrandConfig>(initialConfig)
+  const [config, setConfig] = useState<BrandConfig>(cloneConfig(initialConfig))
+  const [savedConfig, setSavedConfig] = useState<BrandConfig>(cloneConfig(initialConfig))
   const [isPending, startTransition] = useTransition()
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [showResetDialog, setShowResetDialog] = useState(false)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Dirty detection
   const isDirty = JSON.stringify(config) !== JSON.stringify(savedConfig)
   const { showDialog, confirmNavigation, cancelNavigation } = useUnsavedChanges(isDirty)
 
-  // Inject Google Fonts for selected fonts
   useEffect(() => {
     const fontNames = [config.headingFont, config.bodyFont]
     const url = buildGoogleFontsUrl(fontNames)
@@ -79,12 +83,10 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
     document.head.appendChild(link)
   }, [config.headingFont, config.bodyFont])
 
-  // Update helpers
   const update = useCallback((partial: Partial<BrandConfig>) => {
     setConfig((prev) => ({ ...prev, ...partial }))
-  }, [])
+  }, [setConfig])
 
-  // Save
   const handleSave = useCallback(() => {
     setSaveState("saving")
     startTransition(async () => {
@@ -105,14 +107,12 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
     })
   }, [config, startTransition])
 
-  // Reset — deep clone defaults to ensure no stale references
   const handleReset = useCallback(() => {
     setConfig(cloneConfig(TRAJECTAS_DEFAULTS as BrandConfig))
     setShowResetDialog(false)
     toast.success("Reset to defaults — save to persist")
-  }, [])
+  }, [setConfig, setShowResetDialog])
 
-  // Clean up timer
   useEffect(() => {
     return () => {
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
@@ -173,7 +173,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
-        {/* --- Identity --- */}
         <TabsContent value="identity">
           <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-3xl">
             <Card>
@@ -207,106 +206,151 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           </div>
         </TabsContent>
 
-        {/* --- Colors --- */}
         <TabsContent value="colors">
-          <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-5xl">
-            <Card>
-              <CardHeader>
-                <CardTitle>Primary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ColorPicker
-                  label="Primary Color"
-                  description="Main brand color — buttons, accents, highlights."
-                  value={config.primaryColor}
-                  onChange={(hex) => update({ primaryColor: hex })}
-                />
-              </CardContent>
-            </Card>
+          <div className="mt-6 space-y-6 max-w-5xl">
+            {/* Contrast warnings at top of colors tab */}
+            <ContrastWarnings config={config} />
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Accent</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ColorPicker
-                  label="Accent Color"
-                  description="Premium moments, charts, gold highlights."
-                  value={config.accentColor}
-                  onChange={(hex) => update({ accentColor: hex })}
-                />
-              </CardContent>
-            </Card>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Primary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ColorPicker
+                    label="Primary Color"
+                    description="Main brand color — buttons, accents, highlights."
+                    value={config.primaryColor}
+                    onChange={(hex) => update({ primaryColor: hex })}
+                  />
+                </CardContent>
+              </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Sidebar</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ColorPicker
-                  label="Sidebar Color"
-                  description="Navigation sidebar background."
-                  value={config.sidebarColor || config.primaryColor}
-                  onChange={(hex) => update({ sidebarColor: hex })}
-                />
-              </CardContent>
-            </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Accent</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ColorPicker
+                    label="Accent Color"
+                    description="Premium moments, charts, gold highlights."
+                    value={config.accentColor}
+                    onChange={(hex) => update({ accentColor: hex })}
+                  />
+                </CardContent>
+              </Card>
 
-            <Card className="md:col-span-2 lg:col-span-3">
-              <CardHeader>
-                <CardTitle>Semantic Colors</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-5 md:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Secondary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <ColorPicker
+                      label="Secondary Color (Optional)"
+                      description="Optional palette expansion — leave empty to disable."
+                      value={config.secondaryColor || ""}
+                      onChange={(hex) =>
+                        update({ secondaryColor: hex || undefined })
+                      }
+                    />
+                    {config.secondaryColor && (
+                      <button
+                        type="button"
+                        onClick={() => update({ secondaryColor: undefined })}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Clear secondary color
+                      </button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Sidebar</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <ColorPicker
-                    label="Destructive"
-                    description="Error states and delete actions."
-                    value={config.semanticColors?.destructive || "#c53030"}
-                    onChange={(hex) =>
-                      update({
-                        semanticColors: {
-                          destructive: hex,
-                          success: config.semanticColors?.success || "#2f855a",
-                          warning: config.semanticColors?.warning || "#c27803",
-                        },
-                      })
-                    }
+                    label="Sidebar Color"
+                    description="Navigation sidebar background."
+                    value={config.sidebarColor || config.primaryColor}
+                    onChange={(hex) => update({ sidebarColor: hex })}
                   />
-                  <ColorPicker
-                    label="Success"
-                    description="Confirmation, positive states."
-                    value={config.semanticColors?.success || "#2f855a"}
-                    onChange={(hex) =>
-                      update({
-                        semanticColors: {
-                          destructive: config.semanticColors?.destructive || "#c53030",
-                          success: hex,
-                          warning: config.semanticColors?.warning || "#c27803",
-                        },
-                      })
-                    }
+                </CardContent>
+              </Card>
+
+              <Card className="md:col-span-2 lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Semantic Colors</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-5 md:grid-cols-3">
+                    <ColorPicker
+                      label="Destructive"
+                      description="Error states and delete actions."
+                      value={config.semanticColors?.destructive || "#c53030"}
+                      onChange={(hex) =>
+                        update({
+                          semanticColors: {
+                            destructive: hex,
+                            success: config.semanticColors?.success || "#2f855a",
+                            warning: config.semanticColors?.warning || "#c27803",
+                          },
+                        })
+                      }
+                    />
+                    <ColorPicker
+                      label="Success"
+                      description="Confirmation, positive states."
+                      value={config.semanticColors?.success || "#2f855a"}
+                      onChange={(hex) =>
+                        update({
+                          semanticColors: {
+                            destructive: config.semanticColors?.destructive || "#c53030",
+                            success: hex,
+                            warning: config.semanticColors?.warning || "#c27803",
+                          },
+                        })
+                      }
+                    />
+                    <ColorPicker
+                      label="Warning"
+                      description="Caution and attention states."
+                      value={config.semanticColors?.warning || "#c27803"}
+                      onChange={(hex) =>
+                        update({
+                          semanticColors: {
+                            destructive: config.semanticColors?.destructive || "#c53030",
+                            success: config.semanticColors?.success || "#2f855a",
+                            warning: hex,
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Gradient editor in colors tab */}
+              <Card className="md:col-span-2 lg:col-span-3">
+                <CardHeader>
+                  <CardTitle>Gradient Accent</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <GradientEditor
+                    value={config.gradientAccent}
+                    onChange={(gradient) => update({ gradientAccent: gradient })}
+                    primaryColor={config.primaryColor}
+                    accentColor={config.accentColor}
                   />
-                  <ColorPicker
-                    label="Warning"
-                    description="Caution and attention states."
-                    value={config.semanticColors?.warning || "#c27803"}
-                    onChange={(hex) =>
-                      update({
-                        semanticColors: {
-                          destructive: config.semanticColors?.destructive || "#c53030",
-                          success: config.semanticColors?.success || "#2f855a",
-                          warning: hex,
-                        },
-                      })
-                    }
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </TabsContent>
 
-        {/* --- Surfaces --- */}
         <TabsContent value="surfaces">
           <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3 max-w-5xl">
             <Card>
@@ -385,7 +429,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           </div>
         </TabsContent>
 
-        {/* --- Portal Accents --- */}
         <TabsContent value="portals">
           <div className="mt-6 max-w-xl">
             <Card>
@@ -405,7 +448,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           </div>
         </TabsContent>
 
-        {/* --- Taxonomy --- */}
         <TabsContent value="taxonomy">
           <div className="mt-6 max-w-xl">
             <Card>
@@ -425,9 +467,21 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           </div>
         </TabsContent>
 
-        {/* --- Typography --- */}
         <TabsContent value="typography">
-          <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-3xl">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-5xl">
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle>Type Scale & Weights</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TypeScaleSelector
+                  value={config.typography}
+                  onChange={(settings) => update({ typography: settings })}
+                  seedConfig={config}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Heading Font</CardTitle>
@@ -457,9 +511,8 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           </div>
         </TabsContent>
 
-        {/* --- Shape & Surface --- */}
         <TabsContent value="shape">
-          <div className="mt-6 grid gap-6 md:grid-cols-2 max-w-3xl">
+          <div className="mt-6 space-y-6 max-w-3xl">
             <Card>
               <CardHeader>
                 <CardTitle>Border Radius</CardTitle>
@@ -472,10 +525,48 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
                 />
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Spacing Density</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DensitySelector
+                  value={config.spacingDensity}
+                  onChange={(density) => update({ spacingDensity: density })}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Button Style</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ButtonStyleEditor
+                  value={config.buttonStyle}
+                  onChange={(style) => update({ buttonStyle: style })}
+                  borderRadiusPreset={config.borderRadius}
+                  primaryColor={config.primaryColor}
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Assessment Runner</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RunnerThemeSelector
+                  value={config.runnerTheme ?? "dark"}
+                  onChange={(theme) => update({ runnerTheme: theme })}
+                  config={config}
+                />
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
-        {/* --- Email Styling --- */}
         <TabsContent value="email">
           <div className="mt-6 max-w-xl">
             <Card>
@@ -495,7 +586,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           </div>
         </TabsContent>
 
-        {/* --- Report Theme --- */}
         <TabsContent value="reports" className="space-y-6">
           <ReportThemeEditor
             value={config.reportTheme ?? { ...DEFAULT_REPORT_THEME }}
@@ -503,7 +593,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
           />
         </TabsContent>
 
-        {/* --- Preview --- */}
         <TabsContent value="preview">
           <div className="mt-6">
             <PreviewGallery config={config} />
@@ -511,7 +600,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
         </TabsContent>
       </Tabs>
 
-      {/* Unsaved changes dialog */}
       <ConfirmDialog
         open={showDialog}
         onOpenChange={cancelNavigation}
@@ -523,7 +611,6 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
         onConfirm={confirmNavigation}
       />
 
-      {/* Reset confirmation dialog */}
       <ConfirmDialog
         open={showResetDialog}
         onOpenChange={setShowResetDialog}

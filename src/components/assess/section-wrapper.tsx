@@ -382,45 +382,52 @@ export function SectionWrapper({
 
   const canGoBack = localItemIndex > 0 || sectionIndex > 0;
 
+  // Percent complete for the header tag
+  const pct = totalItems > 0 ? Math.min(100, Math.round((completedCount / totalItems) * 100)) : 0;
+
   const showFinaliserOverlay = isBoundaryPending && isFinalItemInAssessment;
 
   return (
     <div className="flex min-h-dvh flex-col">
-      {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between px-4 sm:px-6"
-        style={{ background: "var(--brand-neutral-50, hsl(var(--background)))" }}
+      {/* Progress bar */}
+      {showProgress && <ProgressBar currentIndex={completedCount} totalItems={totalItems} />}
+
+      {/* Header — logo left, section overline + % tag + back button right */}
+      <header className="sticky top-[2px] z-10 flex h-auto items-center justify-between px-6 py-5 sm:px-10 lg:px-[120px]"
+        style={{ background: "transparent" }}
       >
+        {/* Logo left */}
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
             <img
               src={brandLogoUrl}
               alt={brandName ?? "Logo"}
-              className="h-7 w-auto object-contain"
+              className="h-6 w-auto object-contain"
             />
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <div
-                className="flex size-7 items-center justify-center rounded-lg"
-                style={{ background: "var(--brand-surface, hsl(var(--primary) / 0.1))" }}
+                className="flex size-6 items-center justify-center rounded-lg"
+                style={{ background: "var(--runner-ghost-fill)" }}
               >
                 <svg
-                  className="size-4"
+                  className="size-3.5"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
+                  style={{ color: "var(--runner-accent)" }}
                 >
                   <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
               </div>
               <span
-                className="text-sm font-semibold tracking-tight"
-                style={{ color: "var(--brand-text, hsl(var(--foreground)))" }}
+                className="text-xs font-semibold"
+                style={{ color: "var(--runner-text)" }}
               >
                 {brandName ?? "Trajectas"}
               </span>
@@ -428,52 +435,82 @@ export function SectionWrapper({
           )}
         </div>
 
-        {canGoBack && (
-          <button
-            onClick={goToPreviousItem}
-            disabled={isBoundaryPending}
-            className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors hover:bg-black/5"
-            style={{ color: "var(--brand-text-muted, hsl(var(--muted-foreground)))" }}
-          >
-            <ArrowLeft className="size-3.5" />
-            {runnerContent?.backButtonLabel ?? "Back"}
-          </button>
-        )}
+        {/* Right side: section + completion % + back button */}
+        <div className="flex items-center gap-4 sm:gap-6">
+          {/* Section overline + completion % tag */}
+          <div className="flex items-center gap-3">
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+              style={{ color: "var(--runner-overline)" }}
+            >
+              {assessmentName}
+            </p>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+              style={{ color: "var(--runner-text-meta)" }}
+            >
+              {pct}% COMPLETE
+            </p>
+          </div>
+
+          {/* Back button — ghost text style */}
+          {canGoBack && (
+            <button
+              onClick={goToPreviousItem}
+              disabled={isBoundaryPending}
+              className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors"
+              style={{
+                color: "var(--runner-text-muted)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = "var(--runner-text)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = "var(--runner-text-muted)";
+              }}
+            >
+              <ArrowLeft className="size-3.5" />
+              {runnerContent?.backButtonLabel ?? "Back"}
+            </button>
+          )}
+        </div>
       </header>
+
+      {/* Note: progress bar moved above header */}
 
       {/* Save error banner */}
       {saveError && (
         <div
-          className="flex items-center justify-center gap-3 px-4 py-2.5 text-sm"
+          className="flex items-center justify-center gap-3 px-6 py-3 text-sm border-t border-b sm:px-10 lg:px-[120px]"
           style={{
-            background: "var(--brand-error-surface, hsl(var(--destructive) / 0.1))",
-            color: "var(--brand-error, hsl(var(--destructive)))",
+            borderColor: "var(--brand-error)",
+            color: "var(--brand-error)",
+            background: "rgba(var(--brand-error-rgb, 220, 38, 38), 0.05)",
           }}
         >
           <span>Some responses couldn&apos;t be saved. Check your connection.</span>
           <button
             onClick={retryFailedSaves}
-            className="rounded-md px-3 py-1 text-xs font-semibold underline underline-offset-2"
+            className="rounded-lg px-3 py-1 text-xs font-semibold border transition-colors"
+            style={{
+              borderColor: "var(--brand-error)",
+              color: "var(--brand-error)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(var(--brand-error-rgb, 220, 38, 38), 0.1)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
           >
             Retry
           </button>
         </div>
       )}
 
-      {/* Progress bar */}
-      {showProgress && <ProgressBar currentIndex={completedCount} totalItems={totalItems} />}
-
       {/* Main content area */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[560px] lg:max-w-[720px] xl:max-w-[820px]">
-          {/* Assessment name label */}
-          <p
-            className="mb-8 text-xs font-medium uppercase tracking-widest"
-            style={{ color: "var(--brand-primary, hsl(var(--primary)))" }}
-          >
-            {assessmentName}
-          </p>
-
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-[120px]">
+        <div className="w-full max-w-[620px]">
           {/* Item card with crossfade animation */}
           <div
             className={`transition-opacity duration-150 ease-out motion-reduce:transition-none motion-reduce:!opacity-100 ${
@@ -498,30 +535,42 @@ export function SectionWrapper({
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center gap-2 px-4 py-4">
-        <span
-          className={`inline-block size-1.5 rounded-full transition-colors duration-300 ${
-            saveStatus === "saving"
-              ? "animate-pulse bg-amber-400"
-              : saveStatus === "saved"
-                ? "bg-emerald-400"
-                : "bg-emerald-400/60 animate-[pulse_3s_ease-in-out_infinite]"
-          }`}
-        />
-        <span
-          className="text-xs"
-          style={{ color: "var(--brand-neutral-500, hsl(var(--muted-foreground)))" }}
+      <footer className="flex items-start justify-between px-6 py-5 sm:px-10 lg:px-[120px]">
+        {/* Save status (bottom-left) */}
+        <div
+          className="flex items-center gap-2 aria-live-container"
+          aria-live="polite"
+          aria-atomic="true"
         >
-          {saveStatus === "saving"
-            ? (runnerContent?.saveStatusSaving ?? "Saving...")
-            : saveStatus === "saved"
-              ? (runnerContent?.saveStatusSaved ?? "Saved")
-              : (runnerContent?.saveStatusIdle ?? "Responses saved automatically")}
-        </span>
+          <span
+            className={`inline-block size-1.5 rounded-full transition-colors duration-300 ${
+              saveStatus === "saving"
+                ? "animate-pulse"
+                : saveStatus === "saved"
+                  ? ""
+                  : "animate-[pulse_3s_ease-in-out_infinite]"
+            }`}
+            style={{
+              background: "var(--runner-save-dot)",
+            }}
+          />
+          <span
+            className="text-xs font-normal"
+            style={{ color: "var(--runner-text-faint)" }}
+          >
+            {saveStatus === "saving"
+              ? (runnerContent?.saveStatusSaving ?? "Saving…")
+              : saveStatus === "saved"
+                ? (runnerContent?.saveStatusSaved ?? "Saved a moment ago")
+                : (runnerContent?.saveStatusIdle ?? "Autosave on")}
+          </span>
+        </div>
+
+        {/* Powered by (optional, bottom-right is empty per design) */}
         {isCustomBrand && (
           <span
-            className="ml-4 text-xs"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="text-xs"
+            style={{ color: "var(--runner-text-faint)" }}
           >
             {runnerContent?.footerText ?? "Powered by Trajectas"}
           </span>

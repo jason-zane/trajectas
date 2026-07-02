@@ -219,6 +219,11 @@ export function getFontByName(name: string): FontOption | undefined {
   return ALL_FONTS.find((f) => f.name === name)
 }
 
+// The assessment runner's type stack (Source Serif 4 / Plus Jakarta Sans /
+// Geist Mono) is FIXED — per the design system, a client brand changes
+// colours, not typography. All three families are self-hosted via next/font
+// in the root layout; the runner does not load brand fonts.
+
 /** Build a Google Fonts <link> URL for the given font names. */
 export function buildGoogleFontsUrl(fontNames: string[]): string | null {
   const families = fontNames

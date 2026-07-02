@@ -10,28 +10,35 @@ interface PreviewDemographicsProps {
 export function PreviewDemographics({ content }: PreviewDemographicsProps) {
   return (
     <PreviewShell footerText={content.footerText}>
-      <div className="space-y-4">
+      <div className="space-y-6">
         <p
-          className="text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: "var(--brand-primary)" }}
+          className="text-[0.75rem] font-semibold uppercase tracking-[0.16em]"
+          style={{
+            color: "var(--runner-overline)",
+            fontFamily: '"Geist Mono", monospace',
+            letterSpacing: "0.16em",
+          }}
         >
           {content.eyebrow}
         </p>
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
-          }}
-        >
-          {content.heading}
-        </h2>
-        <p
-          className="text-xs leading-relaxed"
-          style={{ color: "var(--brand-text-muted)" }}
-        >
-          {content.body}
-        </p>
+        <div className="space-y-3">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontWeight: 600,
+            }}
+          >
+            {content.heading}
+          </h2>
+          <p
+            className="text-xs leading-relaxed"
+            style={{ color: "var(--runner-text-muted)" }}
+          >
+            {content.body}
+          </p>
+        </div>
 
         {/* Mock form fields */}
         <div className="space-y-3 pt-1">
@@ -39,16 +46,16 @@ export function PreviewDemographics({ content }: PreviewDemographicsProps) {
             <div key={label} className="space-y-1">
               <span
                 className="text-[10px] font-medium"
-                style={{ color: "var(--brand-text-muted)" }}
+                style={{ color: "var(--runner-text-muted)" }}
               >
                 {label}
               </span>
               <div
-                className="h-8 rounded-md"
+                className="h-8 rounded-lg"
                 style={{
-                  backgroundColor: "var(--brand-neutral-100)",
-                  border: "1px solid var(--brand-neutral-200)",
-                  borderRadius: "var(--brand-radius-md)",
+                  backgroundColor: "var(--runner-input-fill)",
+                  border: `1px solid var(--runner-input-border)`,
+                  borderRadius: "8px",
                 }}
               />
             </div>
@@ -57,11 +64,11 @@ export function PreviewDemographics({ content }: PreviewDemographicsProps) {
 
         <button
           type="button"
-          className="w-full py-2 text-sm font-medium"
+          className="w-full py-3 text-sm font-medium transition-all duration-150"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-primary-foreground)",
-            borderRadius: "var(--brand-radius-md)",
+            backgroundColor: "var(--runner-cta-fill)",
+            color: "var(--runner-cta-text)",
+            borderRadius: "8px",
           }}
         >
           {content.buttonLabel}

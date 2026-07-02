@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { ChevronDown } from "lucide-react";
 import { saveDemographics } from "@/app/actions/experience";
 import type {
   DemographicsContent,
@@ -36,13 +26,12 @@ export function DemographicsForm({
   token,
   participantId,
   fields,
-  brandLogoUrl,
-  brandName,
   isCustomBrand,
   content,
   nextUrl,
   privacyUrl,
   termsUrl,
+   
 }: DemographicsFormProps) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, string>>({});
@@ -84,169 +73,177 @@ export function DemographicsForm({
   }
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      {/* Header */}
-      <header
-        className="flex h-14 items-center px-4 sm:px-6"
-        style={{
-          background: "var(--brand-neutral-50, hsl(var(--background)))",
-        }}
-      >
-        <div className="flex items-center gap-2.5">
-          {brandLogoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- brand logo URLs are runtime-configured and can point to arbitrary remote assets
-            <img
-              src={brandLogoUrl}
-              alt={brandName ?? "Logo"}
-              className="h-7 w-auto object-contain"
-            />
-          ) : (
-            <div className="flex items-center gap-2">
-              <div
-                className="flex size-7 items-center justify-center rounded-lg"
-                style={{
-                  background:
-                    "var(--brand-surface, hsl(var(--primary) / 0.1))",
-                }}
-              >
-                <svg
-                  className="size-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: "var(--brand-primary, hsl(var(--primary)))",
-                  }}
-                >
-                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
-              <span
-                className="text-sm font-semibold tracking-tight"
-                style={{
-                  color: "var(--brand-text, hsl(var(--foreground)))",
-                }}
-              >
-                {brandName ?? "Trajectas"}
-              </span>
-            </div>
-          )}
-        </div>
-      </header>
+    <div className="flex min-h-dvh flex-col" style={{ background: "var(--runner-page)" }}>
+      {/* Header — omitted per design, runner layout handles it */}
 
-      {/* Main content */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-12 sm:px-6 sm:py-16">
-        <div className="w-full max-w-[540px] space-y-10">
-          {/* Title */}
-          <div className="space-y-4 text-center">
+      {/* Main content — full-bleed dark editorial */}
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 sm:py-16 lg:px-[120px]">
+        <div className="w-full max-w-[620px] space-y-12">
+          {/* Heading section — serif display + body copy */}
+          <div className="space-y-4">
             {content.eyebrow && (
               <p
                 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
                 style={{
-                  color: "var(--brand-accent, var(--gold))",
+                  color: "var(--runner-overline)",
                 }}
               >
                 {content.eyebrow}
               </p>
             )}
             <h1
-              className="font-sans text-[clamp(2rem,4vw,3rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
+              className="font-serif text-[clamp(1.875rem, 5vw, 2.25rem)] font-600 leading-[1.1] tracking-[-0.01em]"
               style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
-                fontFamily: "var(--brand-font-heading, inherit)",
+                color: "var(--runner-display)",
+                fontFamily: '"Source Serif 4", Georgia, serif',
+                letterSpacing: "-0.01em",
               }}
             >
               {content.heading}
             </h1>
-            <p
-              className="text-[1.0625rem] leading-relaxed"
-              style={{
-                color:
-                  "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-              }}
-            >
-              {content.body}
-            </p>
+            {content.body && (
+              <p
+                className="text-sm sm:text-base leading-relaxed"
+                style={{
+                  color: "var(--runner-text-muted)",
+                }}
+              >
+                {content.body}
+              </p>
+            )}
           </div>
 
-          {/* Form */}
+          {/* Form fields — 2-column grid on desktop */}
           <form
             onSubmit={handleSubmit}
-            className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm space-y-4"
-            style={{
-              borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-              borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
-              background: "var(--brand-neutral-50, hsl(var(--card)))",
-            }}
+            className="space-y-8"
           >
-            {enabledFields.map((field) => (
-              <div key={field.key} className="space-y-1.5">
-                <Label htmlFor={`demo-${field.key}`}>
-                  {field.label}
-                  {field.required && (
-                    <span className="text-destructive ml-0.5">*</span>
-                  )}
-                </Label>
-
-                {field.type === "select" && field.options ? (
-                  <Select
-                    value={values[field.key] ?? ""}
-                    onValueChange={(v) => handleChange(field.key, v ?? "")}
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              {enabledFields.map((field) => (
+                <div key={field.key} className="space-y-2">
+                  {/* Label — 12px/600 with optional suffix */}
+                  <label
+                    htmlFor={`demo-${field.key}`}
+                    className="block text-[0.75rem] font-semibold uppercase tracking-[0.08em]"
+                    style={{
+                      color: "var(--runner-text)",
+                    }}
                   >
-                    <SelectTrigger id={`demo-${field.key}`}>
-                      <SelectValue placeholder="Select..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {field.options.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    id={`demo-${field.key}`}
-                    value={values[field.key] ?? ""}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                    placeholder={field.label}
-                  />
-                )}
+                    {field.label}
+                    {!field.required && (
+                      <span
+                        className="font-normal"
+                        style={{
+                          color: "var(--runner-text-faint)",
+                        }}
+                      >
+                        {" · optional"}
+                      </span>
+                    )}
+                  </label>
 
-                {errors[field.key] && (
-                  <p className="text-xs text-destructive">{errors[field.key]}</p>
-                )}
-              </div>
-            ))}
+                  {/* Field input or select */}
+                  {field.type === "select" && field.options ? (
+                    <div className="relative">
+                      <select
+                        id={`demo-${field.key}`}
+                        value={values[field.key] ?? ""}
+                        onChange={(e) => handleChange(field.key, e.target.value)}
+                        className="w-full appearance-none rounded-[10px] px-3 py-2.5 text-sm pr-9 font-medium transition-colors"
+                        style={{
+                          background: "var(--runner-input-fill)",
+                          border: "1px solid var(--runner-input-border)",
+                          color: values[field.key] ? "var(--runner-text)" : "var(--runner-placeholder)",
+                        }}
+                        onFocus={(e) => {
+                          e.currentTarget.style.borderColor = "var(--runner-input-border-focus)";
+                        }}
+                        onBlur={(e) => {
+                          e.currentTarget.style.borderColor = "var(--runner-input-border)";
+                        }}
+                      >
+                        <option value="" disabled>
+                          Select…
+                        </option>
+                        {field.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none size-4"
+                        style={{
+                          color: "var(--runner-text-faint)",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <input
+                      id={`demo-${field.key}`}
+                      type="text"
+                      value={values[field.key] ?? ""}
+                      onChange={(e) => handleChange(field.key, e.target.value)}
+                      placeholder={field.label}
+                      className="w-full rounded-[10px] px-3 py-2.5 text-sm font-medium transition-colors"
+                      style={{
+                        background: "var(--runner-input-fill)",
+                        border: "1px solid var(--runner-input-border)",
+                        color: "var(--runner-text)",
+                      }}
+                      onFocus={(e) => {
+                        e.currentTarget.style.borderColor = "var(--runner-input-border-focus)";
+                      }}
+                      onBlur={(e) => {
+                        e.currentTarget.style.borderColor = "var(--runner-input-border)";
+                      }}
+                    />
+                  )}
 
-            <Button
-              type="submit"
-              className="w-full gap-1.5 mt-2"
-              disabled={submitting}
-              style={{
-                background: "var(--brand-primary, hsl(var(--primary)))",
-                color:
-                  "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-              }}
-            >
-              <ArrowRight className="size-4" />
-              {submitting ? "Continuing..." : content.buttonLabel}
-            </Button>
+                  {/* Validation error */}
+                  {errors[field.key] && (
+                    <p
+                      className="text-xs font-medium"
+                      style={{
+                        color: "var(--brand-error)",
+                      }}
+                    >
+                      {errors[field.key]}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* CTA button */}
+            <div className="flex justify-center pt-4">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-[10px] px-7 py-3 text-[0.9375rem] font-semibold transition-colors disabled:opacity-50"
+                style={{
+                  background: "var(--runner-cta-fill)",
+                  color: "var(--runner-cta-text)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--runner-cta-fill-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--runner-cta-fill)";
+                }}
+              >
+                {submitting ? "Continuing…" : content.buttonLabel ?? "Continue"}
+              </button>
+            </div>
           </form>
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="flex items-center justify-center gap-3 px-4 py-4">
+      {/* Footer — minimal per design */}
+      <footer className="flex items-center justify-center gap-2 px-6 py-3 text-xs">
         <span
-          className="text-xs"
           style={{
-            color:
-              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            color: "var(--runner-text-meta)",
           }}
         >
           {content.footerText ??
@@ -257,8 +254,8 @@ export function DemographicsForm({
             href={privacyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="hover:underline underline-offset-2"
+            style={{ color: "var(--runner-text-meta)" }}
           >
             Privacy
           </a>
@@ -268,8 +265,8 @@ export function DemographicsForm({
             href={termsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="hover:underline underline-offset-2"
+            style={{ color: "var(--runner-text-meta)" }}
           >
             Terms
           </a>

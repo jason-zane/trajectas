@@ -23,7 +23,7 @@ export default async function ReviewPage({
   const result = await validateAccessToken(token);
   if (result.error) redirect("/assess/expired");
 
-  const { campaign, sessions, assessments } = result.data!;
+  const { campaign, sessions } = result.data!;
   const currentSession = sessions.find((s) => s.status === "in_progress");
 
   if (!currentSession) {
@@ -36,11 +36,6 @@ export default async function ReviewPage({
   }
 
   const { sections, responses } = stateResult.data;
-
-  // Find the assessment name for the current session
-  const currentAssessment = assessments.find(
-    (a) => a.assessmentId === currentSession.assessmentId
-  );
 
   // Load brand + experience in parallel — independent.
   const [brandConfig, experience] = await Promise.all([
@@ -79,7 +74,6 @@ export default async function ReviewPage({
         sessionId={currentSession.id}
         sections={sections}
         responses={responses}
-        assessmentName={currentAssessment?.title}
         brandLogoUrl={brandConfig.logoUrl}
         brandName={brandConfig.name}
         isCustomBrand={isCustomBrand}
@@ -87,6 +81,7 @@ export default async function ReviewPage({
         nextUrl={getNextFlowUrl(experience, "review", token) ?? `/assess/${token}/complete`}
         privacyUrl={experience.privacyUrl}
         termsUrl={experience.termsUrl}
+        participantFirstName={undefined}
       />
     </>
   );

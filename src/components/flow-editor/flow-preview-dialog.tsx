@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens } from "@/lib/brand/tokens"
+import { generateRunnerTokens } from "@/lib/brand/runner-tokens"
 import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults"
 import { buildPageList } from "./flow-sidebar"
 import {
@@ -88,8 +89,12 @@ export function FlowPreviewDialog({
   const lightStyles = useMemo(() => {
     if (!brandConfig) return {}
     const { tokens } = generateCSSTokens(brandConfig)
+    const { tokens: runnerTokens } = generateRunnerTokens(brandConfig)
     const light: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
+      light[key] = val
+    }
+    for (const [key, val] of Object.entries(runnerTokens)) {
       light[key] = val
     }
     return light

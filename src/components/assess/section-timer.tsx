@@ -40,16 +40,20 @@ export function SectionTimer({
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
 
-  const colorClass =
-    remaining <= 30
-      ? "text-destructive"
-      : remaining <= 120
-        ? "text-amber-500"
-        : "text-muted-foreground";
+  // Color changes based on remaining time
+  let timerColor = "var(--runner-text-meta)";
+  if (remaining <= 30) {
+    timerColor = "var(--brand-error)";
+  } else if (remaining <= 120) {
+    timerColor = "var(--brand-warning)";
+  }
 
   return (
-    <div className={`flex items-center gap-1.5 text-sm font-mono ${colorClass}`}>
-      <Clock className="size-4" />
+    <div
+      className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+      style={{ color: timerColor, fontFamily: '"Geist Mono", ui-monospace, monospace' }}
+    >
+      <Clock className="size-3.5" />
       <span>
         {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
       </span>

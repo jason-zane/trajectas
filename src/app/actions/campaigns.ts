@@ -227,6 +227,9 @@ export async function createCampaign(payload: Record<string, unknown>) {
       allow_resume: parsed.data.allowResume,
       show_progress: parsed.data.showProgress,
       randomize_assessment_order: parsed.data.randomizeAssessmentOrder,
+      confidentiality_mode: parsed.data.confidentialityMode || 'standard',
+      inviter_name: parsed.data.inviterName || null,
+      inviter_role: parsed.data.inviterRole || null,
       consultant_emails: scope.actor?.email ? [scope.actor.email] : [],
     })
     .select('id')
@@ -296,7 +299,7 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
       db
         .from('campaigns')
         .select(
-          'id, title, description, client_id, partner_id, opens_at, closes_at, branding, allow_resume, show_progress, randomize_assessment_order',
+          'id, title, description, client_id, partner_id, opens_at, closes_at, branding, allow_resume, show_progress, randomize_assessment_order, confidentiality_mode, inviter_name, inviter_role',
         )
         .eq('id', sourceCampaignId)
         .is('deleted_at', null)
@@ -346,6 +349,9 @@ export async function duplicateCampaignForReuse(sourceCampaignId: string) {
       allow_resume: sourceCampaign.allow_resume ?? true,
       show_progress: sourceCampaign.show_progress ?? true,
       randomize_assessment_order: sourceCampaign.randomize_assessment_order ?? false,
+      confidentiality_mode: sourceCampaign.confidentiality_mode ?? 'standard',
+      inviter_name: sourceCampaign.inviter_name ?? null,
+      inviter_role: sourceCampaign.inviter_role ?? null,
     })
     .select('id')
     .single()
@@ -523,6 +529,9 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
       allow_resume: parsed.data.allowResume,
       show_progress: parsed.data.showProgress,
       randomize_assessment_order: parsed.data.randomizeAssessmentOrder,
+      confidentiality_mode: parsed.data.confidentialityMode || 'standard',
+      inviter_name: parsed.data.inviterName || null,
+      inviter_role: parsed.data.inviterRole || null,
     })
     .eq('id', id)
 

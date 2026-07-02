@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle2, ArrowRight, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ArrowRight, ExternalLink } from "lucide-react";
 import type { CompleteContent } from "@/lib/experience/types";
 
 function ensureAbsoluteUrl(url: string): string {
@@ -19,6 +18,9 @@ interface CompleteScreenProps {
   nextUrl?: string | null;
   privacyUrl?: string;
   termsUrl?: string;
+  answeredCount?: number;
+  totalCount?: number;
+  submittedAt?: string;
 }
 
 export function CompleteScreen({
@@ -29,6 +31,9 @@ export function CompleteScreen({
   nextUrl,
   privacyUrl,
   termsUrl,
+  answeredCount,
+  totalCount,
+  submittedAt,
 }: CompleteScreenProps) {
   const [countdown, setCountdown] = useState(5);
 
@@ -51,12 +56,17 @@ export function CompleteScreen({
   }, [content.redirectUrl]);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header
-        className="flex h-14 items-center px-4 sm:px-6"
+    <div className="flex min-h-dvh flex-col" style={{ background: "var(--runner-page, hsl(var(--background)))" }}>
+      {/* Full-width progress bar at 100% */}
+      <div
+        className="h-[2px] w-full"
         style={{
-          background: "var(--brand-neutral-50, hsl(var(--background)))",
+          background: "var(--runner-progress, var(--brand-accent, hsl(var(--primary))))",
         }}
+      />
+
+      <header
+        className="flex items-center justify-between px-6 py-6 sm:px-10 lg:px-[120px]"
       >
         <div className="flex items-center gap-2.5">
           {brandLogoUrl ? (
@@ -65,38 +75,30 @@ export function CompleteScreen({
               alt={brandName ?? "Logo"}
               width={140}
               height={28}
-              className="h-7 w-auto object-contain"
+              className="h-6 w-auto object-contain"
               unoptimized
             />
           ) : (
             <div className="flex items-center gap-2">
-              <div
-                className="flex size-7 items-center justify-center rounded-lg"
+              <svg
+                className="size-[15px]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 style={{
-                  background:
-                    "var(--brand-surface, hsl(var(--primary) / 0.1))",
+                  color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
                 }}
               >
-                <svg
-                  className="size-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: "var(--brand-primary, hsl(var(--primary)))",
-                  }}
-                >
-                  <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                  <circle cx="12" cy="10" r="3" />
-                </svg>
-              </div>
+                <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
               <span
-                className="text-sm font-semibold tracking-tight"
+                className="text-[13px] font-semibold tracking-tight"
                 style={{
-                  color: "var(--brand-text, hsl(var(--foreground)))",
+                  color: "var(--runner-text, hsl(var(--foreground)))",
                 }}
               >
                 {brandName ?? "Trajectas"}
@@ -106,53 +108,81 @@ export function CompleteScreen({
         </div>
       </header>
 
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] text-center space-y-6">
-          <div className="flex justify-center">
-            <div
-              className="flex size-24 items-center justify-center rounded-full"
-              style={{
-                background:
-                  "var(--brand-surface, hsl(var(--primary) / 0.1))",
-              }}
-            >
-              <CheckCircle2
-                className="size-12 animate-in zoom-in duration-500"
-                style={{
-                  color: "var(--brand-primary, hsl(var(--primary)))",
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-8 sm:px-10 sm:py-12 lg:px-[120px]">
+        <div className="w-full max-w-[620px] space-y-8 text-center">
+          <div className="space-y-6">
             <h1
-              className="font-sans text-[clamp(1.75rem,3.5vw,2.5rem)] font-extrabold leading-[1.1] tracking-[-0.03em]"
+              className="font-serif text-[44px] font-semibold leading-[1.15] tracking-[-0.015em]"
               style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
-                fontFamily: "var(--brand-font-heading, inherit)",
+                color: "var(--runner-display, hsl(var(--foreground)))",
+                fontFamily: '"Source Serif 4", Georgia, serif',
               }}
             >
               {content.heading}
             </h1>
             <p
-              className="mx-auto max-w-md text-[1.0625rem] leading-relaxed"
+              className="text-[14.5px] leading-relaxed"
               style={{
-                color:
-                  "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
+                color: "var(--runner-text-muted, hsl(var(--muted-foreground)))",
               }}
             >
               {content.body}
             </p>
           </div>
 
+          {/* Meta row: answered count + timestamp + close hint */}
+          <div className="flex items-center justify-center gap-2.5">
+            <span
+              className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em]"
+              style={{
+                color: "var(--runner-text-meta, hsl(var(--muted-foreground)))",
+              }}
+            >
+              {answeredCount !== undefined && totalCount !== undefined
+                ? `${answeredCount} OF ${totalCount} ANSWERED`
+                : "ASSESSMENT COMPLETE"}
+            </span>
+            {submittedAt && (
+              <>
+                <span
+                  className="inline-block size-1 rounded-full"
+                  style={{
+                    background: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
+                  }}
+                />
+                <span
+                  className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em]"
+                  style={{
+                    color: "var(--runner-text-meta, hsl(var(--muted-foreground)))",
+                  }}
+                >
+                  {submittedAt}
+                </span>
+              </>
+            )}
+            <span
+              className="inline-block size-1 rounded-full"
+              style={{
+                background: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
+              }}
+            />
+            <span
+              className="font-mono text-[10.5px] font-medium uppercase tracking-[0.14em]"
+              style={{
+                color: "var(--runner-text-meta, hsl(var(--muted-foreground)))",
+              }}
+            >
+              YOU CAN CLOSE THIS WINDOW
+            </span>
+          </div>
+
           {/* Redirect countdown */}
           {content.redirectUrl && (
             <div className="space-y-2">
               <p
-                className="font-mono text-sm tabular-nums"
+                className="font-mono text-[12px] tabular-nums"
                 style={{
-                  color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+                  color: "var(--runner-text-muted, hsl(var(--muted-foreground)))",
                 }}
               >
                 {content.redirectLabel
@@ -161,9 +191,10 @@ export function CompleteScreen({
               </p>
               <a
                 href={ensureAbsoluteUrl(content.redirectUrl)}
-                className="inline-flex items-center gap-1.5 text-sm font-medium transition-colors hover:opacity-80"
+                className="inline-flex items-center gap-1.5 font-semibold transition-opacity hover:opacity-70"
                 style={{
-                  color: "var(--brand-primary, hsl(var(--primary)))",
+                  color: "var(--runner-accent, var(--brand-accent, hsl(var(--primary))))",
+                  fontSize: "14px",
                 }}
               >
                 Continue now
@@ -174,30 +205,39 @@ export function CompleteScreen({
 
           {/* Continue to next flow page */}
           {nextUrl && !content.redirectUrl && (
-            <div className="flex justify-center">
-              <Button
-                size="lg"
-                render={<Link href={nextUrl} />}
-                className="min-w-[200px] gap-1.5"
-                style={{
-                  background: "var(--brand-primary, hsl(var(--primary)))",
-                  color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-                }}
-              >
-                Continue
-                <ArrowRight className="size-4" />
-              </Button>
+            <div className="flex justify-center pt-2">
+              <Link href={nextUrl}>
+                <button
+                  className="inline-flex items-center gap-2 rounded border px-8 py-3.5 font-semibold transition-all duration-200 disabled:opacity-60"
+                  style={{
+                    background: "var(--runner-cta-fill, var(--brand-accent, hsl(var(--primary))))",
+                    color: "var(--runner-cta-text, var(--brand-primary-foreground, hsl(var(--primary-foreground))))",
+                    border: "none",
+                    fontSize: "15px",
+                    fontFamily: '"Plus Jakarta Sans", sans-serif',
+                    cursor: "pointer",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--runner-cta-fill-hover, var(--brand-accent, hsl(var(--primary))))";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--runner-cta-fill, var(--brand-accent, hsl(var(--primary))))";
+                  }}
+                >
+                  Continue
+                  <ArrowRight className="size-4" />
+                </button>
+              </Link>
             </div>
           )}
         </div>
       </main>
 
-      <footer className="flex items-center justify-center gap-3 px-4 py-4">
+      <footer className="flex items-center justify-center gap-2 px-6 py-4 sm:px-10 lg:px-[120px]">
         <span
-          className="text-xs"
+          className="text-[11px]"
           style={{
-            color:
-              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            color: "var(--runner-text-faint, hsl(var(--muted-foreground)))",
           }}
         >
           {content.footerText ??
@@ -208,8 +248,8 @@ export function CompleteScreen({
             href={privacyUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="text-[11px] underline-offset-2 hover:underline"
+            style={{ color: "var(--runner-text-faint, hsl(var(--muted-foreground)))" }}
           >
             Privacy
           </a>
@@ -219,8 +259,8 @@ export function CompleteScreen({
             href={termsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs underline-offset-2 hover:underline"
-            style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+            className="text-[11px] underline-offset-2 hover:underline"
+            style={{ color: "var(--runner-text-faint, hsl(var(--muted-foreground)))" }}
           >
             Terms
           </a>

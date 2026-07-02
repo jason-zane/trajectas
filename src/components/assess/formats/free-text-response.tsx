@@ -10,12 +10,14 @@ interface FreeTextResponseProps {
 }
 
 /**
- * Free text response format.
+ * Free text response format (dark-editorial re-skin).
  *
- * Textarea with character guidance.
+ * Textarea with character guidance and warning at >90%.
  * Does NOT auto-advance — requires Continue button (handled by parent).
  * Auto-saves on blur + 3s debounce.
- * Uses brand tokens for styling.
+ * Input styling: --runner-input-fill / --runner-input-border (focus → --runner-input-border-focus).
+ * Character counter in mono --runner-text-meta, switches to var(--brand-warning) >90%.
+ * Uses --runner-* custom properties exclusively.
  */
 export function FreeTextResponse({
   onSelect,
@@ -58,39 +60,56 @@ export function FreeTextResponse({
   }, []);
 
   const charPct = Math.round((text.length / maxLength) * 100);
+  const isWarning = charPct > 90;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <textarea
         value={text}
         onChange={handleChange}
-        onBlur={handleBlur}
+        onBlur={(e) => {
+          (e.target as HTMLTextAreaElement).style.borderColor =
+            "var(--runner-input-border)";
+          handleBlur();
+        }}
         maxLength={maxLength}
         rows={5}
-        className="flex w-full rounded-xl border px-4 py-3 text-sm shadow-sm transition-colors placeholder:opacity-50 focus-visible:outline-none focus-visible:ring-2 resize-none min-h-[120px]"
+        className="
+          flex w-full px-4 py-3 text-sm
+          transition-colors placeholder:opacity-50
+          focus-visible:outline-none focus-visible:ring-2
+          focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
+          resize-none min-h-[120px]
+        "
         style={{
-          borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-          background: "transparent",
-          color: "var(--brand-text, hsl(var(--foreground)))",
+          borderRadius: "10px",
+          border: "1px solid",
+          borderColor: "var(--runner-input-border)",
+          backgroundColor: "var(--runner-input-fill)",
+          color: "var(--runner-text)",
+          fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
+        }}
+        onFocus={(e) => {
+          (e.target as HTMLTextAreaElement).style.borderColor =
+            "var(--runner-input-border-focus)";
         }}
         placeholder="Type your response here..."
       />
       <div className="flex items-center justify-between">
         <p
           className="text-xs"
-          style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+          style={{ color: "var(--runner-text-muted)" }}
         >
           {text.length > 0
             ? "Your response will be saved automatically"
             : "Write as much or as little as you like"}
         </p>
         <span
-          className={`text-xs tabular-nums ${charPct > 90 ? "text-amber-500" : ""}`}
-          style={
-            charPct <= 90
-              ? { color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }
-              : undefined
-          }
+          className="text-xs font-semibold uppercase tracking-widest tabular-nums"
+          style={{
+            fontFamily: '"Geist Mono", ui-monospace, monospace',
+            color: isWarning ? "var(--brand-warning)" : "var(--runner-text-meta)",
+          }}
         >
           {text.length} / {maxLength}
         </span>

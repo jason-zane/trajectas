@@ -3,9 +3,10 @@ import { validateAccessToken } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults";
-import { getPageContent, isPageEnabled } from "@/lib/experience/resolve";
+import { getPageContent, isPageEnabled, getDefaultConsentBody } from "@/lib/experience/resolve";
 import { interpolateContent } from "@/lib/experience/interpolate";
 import { getNextFlowUrl } from "@/lib/experience/flow-router";
+import { DEFAULT_PAGE_CONTENT } from "@/lib/experience/defaults";
 import { ConsentScreen } from "@/components/assess/consent-screen";
 import type { TemplateVariables } from "@/lib/experience/types";
 
@@ -42,12 +43,27 @@ export default async function ConsentPage({
 
   const rawContent = getPageContent(experience, "consent");
   const rawRunnerContent = getPageContent(experience, "runner");
+
   const variables: TemplateVariables = {
     participantName: participant.firstName,
     candidateName: participant.firstName,
     campaignTitle: campaign.title,
+    brandName: brandConfig.name,
   };
-  const interpolated = interpolateContent(rawContent, variables);
+
+  // Use mode-aware default consent body if no override was explicitly set.
+  // If the resolved content matches the hardcoded default, it means no campaign
+  // or platform override was provided, so we use the mode-appropriate version.
+  let bodyText = rawContent.body;
+  if (bodyText === DEFAULT_PAGE_CONTENT.consent.body) {
+    // No custom override — use mode-aware default
+    bodyText = getDefaultConsentBody(campaign.confidentialityMode);
+  }
+
+  const interpolated = interpolateContent(
+    { ...rawContent, body: bodyText },
+    variables
+  );
   const content = {
     ...interpolated,
     footerText: interpolated.footerText ?? rawRunnerContent.footerText,
@@ -67,6 +83,9 @@ export default async function ConsentPage({
       nextUrl={nextUrl}
       privacyUrl={experience.privacyUrl}
       termsUrl={experience.termsUrl}
+      inviterName={campaign.inviterName}
+      inviterRole={campaign.inviterRole}
+      confidentialityMode={campaign.confidentialityMode}
     />
   );
 }

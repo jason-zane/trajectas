@@ -10,50 +10,54 @@ interface PreviewJoinProps {
 export function PreviewJoin({ content }: PreviewJoinProps) {
   return (
     <PreviewShell footerText={content.footerText}>
-      <div className="space-y-4">
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
-          }}
-        >
-          {content.heading}
-        </h2>
-        <p
-          className="text-sm leading-relaxed"
-          style={{ color: "var(--brand-text-muted)" }}
-        >
-          {content.body}
-        </p>
+      <div className="space-y-6">
+        <div className="space-y-3">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontWeight: 600,
+            }}
+          >
+            {content.heading}
+          </h2>
+          <p
+            className="text-sm leading-relaxed"
+            style={{ color: "var(--runner-text-muted)" }}
+          >
+            {content.body}
+          </p>
+        </div>
 
         {/* Mock form card */}
         <div
-          className="rounded-xl border p-4 space-y-3"
+          className="rounded-lg border p-4 space-y-3"
           style={{
-            borderColor: "var(--brand-neutral-200)",
-            backgroundColor: "var(--brand-neutral-50)",
+            borderColor: "var(--runner-hairline)",
+            backgroundColor: "var(--runner-ghost-fill)",
+            borderRadius: "8px",
           }}
         >
           {/* Email field */}
           <div className="space-y-1">
             <span
               className="text-[10px] font-medium"
-              style={{ color: "var(--brand-text)" }}
+              style={{ color: "var(--runner-text)" }}
             >
               Email *
             </span>
             <div
-              className="h-8 rounded-md px-2 flex items-center"
+              className="h-8 rounded-lg px-2 flex items-center"
               style={{
-                backgroundColor: "var(--brand-neutral-100)",
-                border: "1px solid var(--brand-neutral-200)",
-                borderRadius: "var(--brand-radius-md)",
+                backgroundColor: "var(--runner-input-fill)",
+                border: `1px solid var(--runner-input-border)`,
+                borderRadius: "8px",
               }}
             >
               <span
                 className="text-[10px]"
-                style={{ color: "var(--brand-text-muted)" }}
+                style={{ color: "var(--runner-text-muted)" }}
               >
                 you@example.com
               </span>
@@ -65,32 +69,32 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
             <div className="space-y-1">
               <span
                 className="text-[10px] font-medium"
-                style={{ color: "var(--brand-text)" }}
+                style={{ color: "var(--runner-text)" }}
               >
                 First Name *
               </span>
               <div
-                className="h-8 rounded-md"
+                className="h-8 rounded-lg"
                 style={{
-                  backgroundColor: "var(--brand-neutral-100)",
-                  border: "1px solid var(--brand-neutral-200)",
-                  borderRadius: "var(--brand-radius-md)",
+                  backgroundColor: "var(--runner-input-fill)",
+                  border: `1px solid var(--runner-input-border)`,
+                  borderRadius: "8px",
                 }}
               />
             </div>
             <div className="space-y-1">
               <span
                 className="text-[10px] font-medium"
-                style={{ color: "var(--brand-text)" }}
+                style={{ color: "var(--runner-text)" }}
               >
                 Last Name *
               </span>
               <div
-                className="h-8 rounded-md"
+                className="h-8 rounded-lg"
                 style={{
-                  backgroundColor: "var(--brand-neutral-100)",
-                  border: "1px solid var(--brand-neutral-200)",
-                  borderRadius: "var(--brand-radius-md)",
+                  backgroundColor: "var(--runner-input-fill)",
+                  border: `1px solid var(--runner-input-border)`,
+                  borderRadius: "8px",
                 }}
               />
             </div>
@@ -100,32 +104,32 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
             <div className="space-y-1">
               <span
                 className="text-[10px] font-medium"
-                style={{ color: "var(--brand-text)" }}
+                style={{ color: "var(--runner-text)" }}
               >
                 Job Title (optional)
               </span>
               <div
-                className="h-8 rounded-md"
+                className="h-8 rounded-lg"
                 style={{
-                  backgroundColor: "var(--brand-neutral-100)",
-                  border: "1px solid var(--brand-neutral-200)",
-                  borderRadius: "var(--brand-radius-md)",
+                  backgroundColor: "var(--runner-input-fill)",
+                  border: `1px solid var(--runner-input-border)`,
+                  borderRadius: "8px",
                 }}
               />
             </div>
             <div className="space-y-1">
               <span
                 className="text-[10px] font-medium"
-                style={{ color: "var(--brand-text)" }}
+                style={{ color: "var(--runner-text)" }}
               >
                 Company (optional)
               </span>
               <div
-                className="h-8 rounded-md"
+                className="h-8 rounded-lg"
                 style={{
-                  backgroundColor: "var(--brand-neutral-100)",
-                  border: "1px solid var(--brand-neutral-200)",
-                  borderRadius: "var(--brand-radius-md)",
+                  backgroundColor: "var(--runner-input-fill)",
+                  border: `1px solid var(--runner-input-border)`,
+                  borderRadius: "8px",
                 }}
               />
             </div>
@@ -135,12 +139,12 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
           {content.marketingConsentEnabled && (
             <div className="flex items-start gap-2 pt-1">
               <div
-                className="mt-0.5 size-3.5 shrink-0 rounded-sm border"
-                style={{ borderColor: "var(--brand-neutral-300)" }}
+                className="mt-0.5 size-3.5 shrink-0 rounded border"
+                style={{ borderColor: "var(--runner-ghost-border)" }}
               />
               <span
                 className="text-[10px] leading-tight"
-                style={{ color: "var(--brand-text-muted)" }}
+                style={{ color: "var(--runner-text-muted)" }}
               >
                 {content.marketingConsentLabel}
               </span>
@@ -150,11 +154,11 @@ export function PreviewJoin({ content }: PreviewJoinProps) {
 
         <button
           type="button"
-          className="w-full py-2 text-sm font-medium"
+          className="w-full py-3 text-sm font-medium transition-all duration-150"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-primary-foreground)",
-            borderRadius: "var(--brand-radius-md)",
+            backgroundColor: "var(--runner-cta-fill)",
+            color: "var(--runner-cta-text)",
+            borderRadius: "8px",
           }}
         >
           {content.buttonLabel}

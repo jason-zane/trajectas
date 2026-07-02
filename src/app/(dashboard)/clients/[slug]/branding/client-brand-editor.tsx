@@ -5,7 +5,6 @@ import { toast } from "sonner"
 import { Building2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes"
@@ -14,7 +13,11 @@ import { ColorPicker } from "@/components/brand-editor/color-picker"
 import { LogoUploader } from "@/components/brand-editor/logo-uploader"
 import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
+import { RunnerThemeSelector } from "@/components/brand-editor/runner-theme-selector"
+import { OverrideField } from "@/components/brand-editor/override-field"
+import { ContrastWarnings } from "@/components/brand-editor/contrast-warnings"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
+import { useBrandOverrides } from "@/components/brand-editor/use-brand-overrides"
 import { upsertBrandConfig } from "@/app/actions/brand"
 import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { HEADING_BODY_FONTS, buildGoogleFontsUrl } from "@/lib/brand/fonts"
@@ -34,32 +37,31 @@ interface ClientBrandEditorProps {
 
 type SaveState = "idle" | "saving" | "saved"
 
-function cloneConfig(config: BrandConfig): BrandConfig {
-  return JSON.parse(JSON.stringify(config))
-}
-
 export function ClientBrandEditor({
   clientId,
   clientName,
   initialRecord,
   inheritedBrand,
 }: ClientBrandEditorProps) {
-  const initialConfig = initialRecord?.config
-    ? cloneConfig(initialRecord.config)
-    : cloneConfig(inheritedBrand)
+  const { overrides, effective, isOverridden, setField, clearField } =
+    useBrandOverrides({
+      inherited: inheritedBrand,
+      initialOverrides: initialRecord?.config ?? null,
+    })
 
-  const [config, setConfig] = useState<BrandConfig>(initialConfig)
-  const [savedConfig, setSavedConfig] = useState<BrandConfig>(initialConfig)
+  const [savedOverrides, setSavedOverrides] = useState(
+    JSON.stringify(initialRecord?.config ?? null)
+  )
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [, startTransition] = useTransition()
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const isDirty = JSON.stringify(config) !== JSON.stringify(savedConfig)
+  const isDirty = JSON.stringify(overrides) !== savedOverrides
   const { showDialog, confirmNavigation, cancelNavigation } = useUnsavedChanges(isDirty)
 
   useEffect(() => {
     const fontNames = Array.from(
-      new Set([config.headingFont, config.bodyFont, config.monoFont])
+      new Set([effective.headingFont, effective.bodyFont, effective.monoFont])
     )
     const url = buildGoogleFontsUrl(fontNames)
     if (!url) return
@@ -77,16 +79,12 @@ export function ClientBrandEditor({
     link.href = url
     link.setAttribute("data-brand-fonts", "true")
     document.head.appendChild(link)
-  }, [config.bodyFont, config.headingFont, config.monoFont])
-
-  const update = useCallback((partial: Partial<BrandConfig>) => {
-    setConfig((prev) => ({ ...prev, ...partial }))
-  }, [])
+  }, [effective.bodyFont, effective.headingFont, effective.monoFont])
 
   const handleSave = useCallback(() => {
     setSaveState("saving")
     startTransition(async () => {
-      const result = await upsertBrandConfig("client", clientId, config)
+      const result = await upsertBrandConfig("client", clientId, overrides)
       if (result.error) {
         const messages = Object.values(result.error).flat()
         toast.error(messages[0] || "Failed to save branding")
@@ -95,19 +93,24 @@ export function ClientBrandEditor({
       }
 
       toast.success("Branding saved")
-      setSavedConfig(cloneConfig(config))
+      setSavedOverrides(JSON.stringify(overrides))
       setSaveState("saved")
 
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaveState("idle"), 2000)
     })
-  }, [clientId, config, startTransition])
+  }, [clientId, overrides, startTransition])
 
   useEffect(() => {
     return () => {
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
     }
   }, [])
+
+  const inheritedFrom =
+    inheritedBrand.name === TRAJECTAS_DEFAULTS.name
+      ? "Trajectas (platform default)"
+      : inheritedBrand.name
 
   const saveLabel =
     saveState === "saving"
@@ -121,11 +124,6 @@ export function ClientBrandEditor({
     { value: "neutral", label: "Neutral" },
     { value: "cool", label: "Cool" },
   ]
-
-  const inheritedFrom =
-    inheritedBrand.name === TRAJECTAS_DEFAULTS.name
-      ? "Trajectas (platform default)"
-      : inheritedBrand.name
 
   return (
     <div className="space-y-6">
@@ -150,29 +148,44 @@ export function ClientBrandEditor({
 
           <Card>
             <CardHeader>
+              <CardTitle>Contrast</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContrastWarnings config={effective} />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Identity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="brand-name">Display Name</Label>
+              <OverrideField
+                label="Display Name"
+                overridden={isOverridden("name")}
+                onReset={() => clearField("name")}
+                inheritedHint={`Inherited: "${inheritedBrand.name}"`}
+              >
                 <Input
-                  id="brand-name"
-                  value={config.name}
-                  onChange={(e) => update({ name: e.target.value })}
+                  value={effective.name ?? ""}
+                  onChange={(e) => setField("name", e.target.value)}
                   placeholder={clientName}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Shown in the dashboard, reports, and portal surfaces.
-                </p>
-              </div>
-              <LogoUploader
+              </OverrideField>
+              <OverrideField
                 label="Logo"
-                description="Displayed in preview headers and report surfaces."
-                value={config.logoUrl}
-                ownerType="client"
-                ownerId={clientId}
-                onChange={(url) => update({ logoUrl: url })}
-              />
+                overridden={isOverridden("logoUrl")}
+                onReset={() => clearField("logoUrl")}
+              >
+                <LogoUploader
+                  label="Logo"
+                  description="Displayed in preview headers and report surfaces."
+                  value={effective.logoUrl}
+                  ownerType="client"
+                  ownerId={clientId}
+                  onChange={(url) => setField("logoUrl", url)}
+                />
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -181,18 +194,32 @@ export function ClientBrandEditor({
               <CardTitle>Colors</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <ColorPicker
+              <OverrideField
                 label="Primary Color"
-                description="Buttons, progress bars, and selection states."
-                value={config.primaryColor}
-                onChange={(hex) => update({ primaryColor: hex })}
-              />
-              <ColorPicker
+                overridden={isOverridden("primaryColor")}
+                onReset={() => clearField("primaryColor")}
+                inheritedHint={`Inherited: ${inheritedBrand.primaryColor}`}
+              >
+                <ColorPicker
+                  label="Primary Color"
+                  description="Buttons, progress bars, and selection states."
+                  value={effective.primaryColor}
+                  onChange={(hex) => setField("primaryColor", hex)}
+                />
+              </OverrideField>
+              <OverrideField
                 label="Accent Color"
-                description="Secondary highlights and decorative elements."
-                value={config.accentColor}
-                onChange={(hex) => update({ accentColor: hex })}
-              />
+                overridden={isOverridden("accentColor")}
+                onReset={() => clearField("accentColor")}
+                inheritedHint={`Inherited: ${inheritedBrand.accentColor}`}
+              >
+                <ColorPicker
+                  label="Accent Color"
+                  description="Secondary highlights and decorative elements."
+                  value={effective.accentColor}
+                  onChange={(hex) => setField("accentColor", hex)}
+                />
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -201,8 +228,12 @@ export function ClientBrandEditor({
               <CardTitle>Surfaces</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-2">
-                <Label>Neutral Temperature</Label>
+              <OverrideField
+                label="Neutral Temperature"
+                overridden={isOverridden("neutralTemperature")}
+                onReset={() => clearField("neutralTemperature")}
+                inheritedHint={`Inherited: ${inheritedBrand.neutralTemperature}`}
+              >
                 <p className="text-caption text-muted-foreground">
                   Controls the hue tint of backgrounds, borders, and muted text.
                 </p>
@@ -211,12 +242,10 @@ export function ClientBrandEditor({
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() =>
-                        update({ neutralTemperature: opt.value })
-                      }
+                      onClick={() => setField("neutralTemperature", opt.value)}
                       className={cn(
                         "flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-all duration-200",
-                        config.neutralTemperature === opt.value
+                        effective.neutralTemperature === opt.value
                           ? "bg-background text-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground"
                       )}
@@ -225,43 +254,51 @@ export function ClientBrandEditor({
                     </button>
                   ))}
                 </div>
-              </div>
+              </OverrideField>
 
-              <div>
+              <OverrideField
+                label="Page Background"
+                overridden={isOverridden("backgroundColor")}
+                onReset={() => clearField("backgroundColor")}
+              >
                 <ColorPicker
                   label="Page Background"
                   description="Main page surface color. Leave empty to derive from neutral temperature."
-                  value={config.backgroundColor || "#f5f5f4"}
-                  onChange={(hex) => update({ backgroundColor: hex })}
+                  value={effective.backgroundColor || "#f5f5f4"}
+                  onChange={(hex) => setField("backgroundColor", hex)}
                 />
-                {config.backgroundColor && (
+                {isOverridden("backgroundColor") && (
                   <button
                     type="button"
-                    onClick={() => update({ backgroundColor: undefined })}
+                    onClick={() => clearField("backgroundColor")}
                     className="mt-2 text-xs text-primary hover:underline"
                   >
                     Use neutral temperature instead
                   </button>
                 )}
-              </div>
+              </OverrideField>
 
-              <div>
+              <OverrideField
+                label="Card Background"
+                overridden={isOverridden("cardColor")}
+                onReset={() => clearField("cardColor")}
+              >
                 <ColorPicker
                   label="Card Background"
                   description="Card and popover surfaces. Leave empty for white."
-                  value={config.cardColor || "#ffffff"}
-                  onChange={(hex) => update({ cardColor: hex })}
+                  value={effective.cardColor || "#ffffff"}
+                  onChange={(hex) => setField("cardColor", hex)}
                 />
-                {config.cardColor && (
+                {isOverridden("cardColor") && (
                   <button
                     type="button"
-                    onClick={() => update({ cardColor: undefined })}
+                    onClick={() => clearField("cardColor")}
                     className="mt-2 text-xs text-primary hover:underline"
                   >
                     Reset to white
                   </button>
                 )}
-              </div>
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -270,18 +307,32 @@ export function ClientBrandEditor({
               <CardTitle>Typography</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <FontSelector
+              <OverrideField
                 label="Heading Font"
-                value={config.headingFont}
-                onChange={(fontName) => update({ headingFont: fontName })}
-                fonts={HEADING_BODY_FONTS}
-              />
-              <FontSelector
+                overridden={isOverridden("headingFont")}
+                onReset={() => clearField("headingFont")}
+                inheritedHint={`Inherited: ${inheritedBrand.headingFont}`}
+              >
+                <FontSelector
+                  label="Heading Font"
+                  value={effective.headingFont}
+                  onChange={(fontName) => setField("headingFont", fontName)}
+                  fonts={HEADING_BODY_FONTS}
+                />
+              </OverrideField>
+              <OverrideField
                 label="Body Font"
-                value={config.bodyFont}
-                onChange={(fontName) => update({ bodyFont: fontName })}
-                fonts={HEADING_BODY_FONTS}
-              />
+                overridden={isOverridden("bodyFont")}
+                onReset={() => clearField("bodyFont")}
+                inheritedHint={`Inherited: ${inheritedBrand.bodyFont}`}
+              >
+                <FontSelector
+                  label="Body Font"
+                  value={effective.bodyFont}
+                  onChange={(fontName) => setField("bodyFont", fontName)}
+                  fonts={HEADING_BODY_FONTS}
+                />
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -290,13 +341,33 @@ export function ClientBrandEditor({
               <CardTitle>Shape</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <RadiusSelector
-                value={config.borderRadius}
-                onChange={(radius: BorderRadiusPreset) =>
-                  update({ borderRadius: radius })
-                }
-                previewColor={config.primaryColor}
-              />
+              <OverrideField
+                label="Border Radius"
+                overridden={isOverridden("borderRadius")}
+                onReset={() => clearField("borderRadius")}
+                inheritedHint={`Inherited: ${inheritedBrand.borderRadius}`}
+              >
+                <RadiusSelector
+                  value={effective.borderRadius}
+                  onChange={(radius: BorderRadiusPreset) =>
+                    setField("borderRadius", radius)
+                  }
+                  previewColor={effective.primaryColor}
+                />
+              </OverrideField>
+
+              <OverrideField
+                label="Assessment Runner Theme"
+                overridden={isOverridden("runnerTheme")}
+                onReset={() => clearField("runnerTheme")}
+                inheritedHint={`Inherited: ${inheritedBrand.runnerTheme ?? "dark"}`}
+              >
+                <RunnerThemeSelector
+                  value={effective.runnerTheme ?? "dark"}
+                  onChange={(theme) => setField("runnerTheme", theme)}
+                  config={effective}
+                />
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -316,10 +387,10 @@ export function ClientBrandEditor({
 
         <div className="flex-1 min-w-0 sticky top-6">
           <PreviewGallery
-            config={config}
+            config={effective}
             surfaces={["dashboard", "questions", "report"]}
-            brandName={config.name}
-            logoUrl={config.logoUrl}
+            brandName={effective.name}
+            logoUrl={effective.logoUrl}
           />
         </div>
       </div>

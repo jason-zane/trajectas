@@ -1,17 +1,27 @@
+import { getTimeOfDayGreeting } from './time-greeting'
 import type { TemplateVariables } from './types'
 
 /**
  * Replace `{{variableName}}` placeholders in a string with values
  * from the provided variables object.
  *
- * Unknown placeholders are left as-is so they're visible during development.
+ * Special handling:
+ * - {{timeOfDayGreeting}} is resolved server-side via getTimeOfDayGreeting(new Date())
+ *   if not provided in the variables object.
+ * - Unknown placeholders are left as-is so they're visible during development.
  */
 export function interpolate(
   template: string,
   variables: TemplateVariables
 ): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_match, key: string) => {
-    const value = variables[key as keyof TemplateVariables]
+    let value = variables[key as keyof TemplateVariables]
+
+    // Special case: resolve timeOfDayGreeting server-side if not provided
+    if (key === 'timeOfDayGreeting' && (value === undefined || value === null)) {
+      value = getTimeOfDayGreeting(new Date())
+    }
+
     if (value === undefined || value === null) return ''
     return String(value)
   })

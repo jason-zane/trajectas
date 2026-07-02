@@ -4,6 +4,7 @@ import { useState, useMemo } from "react"
 import { Expand, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { generateCSSTokens } from "@/lib/brand/tokens"
+import { generateRunnerTokens } from "@/lib/brand/runner-tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
 import type { BrandConfig } from "@/lib/brand/types"
 import { PreviewQuestions } from "./preview-questions"
@@ -53,8 +54,12 @@ export function PreviewGallery({ config, compact = false, surfaces, brandName, l
 
   const lightStyles = useMemo(() => {
     const { tokens } = generateCSSTokens(config)
+    const { tokens: runnerTokens } = generateRunnerTokens(config)
     const styleObj: Record<string, string> = {}
     for (const [key, val] of Object.entries(tokens)) {
+      styleObj[key] = val
+    }
+    for (const [key, val] of Object.entries(runnerTokens)) {
       styleObj[key] = val
     }
     return styleObj

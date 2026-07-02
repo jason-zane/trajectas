@@ -1,4 +1,13 @@
-import type { BrandConfig, PortalAccents, SemanticColors, TaxonomyColors, EmailStyleColors } from './types'
+import type {
+  BrandConfig,
+  PortalAccents,
+  SemanticColors,
+  TaxonomyColors,
+  EmailStyleColors,
+  TypographySettings,
+  ButtonStyle,
+  SpacingDensity,
+} from './types'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
 
 /** Default portal accent colors — unified emerald across all portals. */
@@ -30,6 +39,23 @@ export const DEFAULT_EMAIL_STYLES: Readonly<EmailStyleColors> = {
   footerTextColor: '#737373',
 }
 
+/** Default typography settings — balanced scale, semibold headings. */
+export const DEFAULT_TYPOGRAPHY: Readonly<TypographySettings> = {
+  scale: 'default',
+  headingWeight: 600,
+  bodyWeight: 400,
+}
+
+/** Default button treatment — follows the border radius preset. */
+export const DEFAULT_BUTTON_STYLE: Readonly<ButtonStyle> = {
+  shape: 'inherit',
+  weight: 500,
+  textTransform: 'none',
+}
+
+/** Default spacing density. */
+export const DEFAULT_SPACING_DENSITY: SpacingDensity = 'comfortable'
+
 /**
  * The Trajectas platform default brand configuration.
  *
@@ -52,5 +78,9 @@ export const TRAJECTAS_DEFAULTS: Readonly<BrandConfig> = {
   headingFont: 'Plus Jakarta Sans',
   bodyFont: 'Plus Jakarta Sans',
   monoFont: 'Geist Mono',
+  typography: { ...DEFAULT_TYPOGRAPHY },
   borderRadius: 'soft',
+  spacingDensity: DEFAULT_SPACING_DENSITY,
+  buttonStyle: { ...DEFAULT_BUTTON_STYLE },
+  runnerTheme: 'dark',
 }

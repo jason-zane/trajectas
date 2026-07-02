@@ -23,13 +23,14 @@ export function ProgressBar({ currentIndex, totalItems }: ProgressBarProps) {
       aria-valuemax={100}
       aria-valuenow={pct}
       aria-label="Assessment progress"
-      className="relative h-[3px] w-full overflow-hidden progress-track"
+      className="h-[2px] w-full overflow-hidden"
+      style={{ background: "var(--runner-hairline)" }}
     >
       <div
-        className="absolute inset-y-0 left-0 transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+        className="h-full transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
           width: `${pct}%`,
-          background: "var(--brand-primary, var(--emerald))",
+          background: "var(--runner-progress)",
         }}
       />
     </div>

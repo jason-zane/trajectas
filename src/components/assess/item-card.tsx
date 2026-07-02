@@ -24,8 +24,8 @@ interface ItemCardProps {
 
 /**
  * Single-item card for the assessment runner.
- * Renders the question stem + response format in a centered card.
- * Uses brand tokens for styling.
+ * Renders the question stem as a serif display moment + response format.
+ * Full-bleed surface; no card container.
  */
 export function ItemCard({
   item,
@@ -43,19 +43,14 @@ export function ItemCard({
   const hasResponse = selectedValue !== undefined;
 
   return (
-    <div
-      className="rounded-2xl border p-6 sm:p-8 lg:p-10 shadow-[0_0_40px_-8px_color-mix(in_srgb,var(--brand-primary,hsl(var(--primary)))_15%,transparent)]"
-      style={{
-        background: "var(--brand-neutral-50, hsl(var(--card)))",
-        borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-      }}
-    >
-      {/* Question stem — no question numbers */}
+    <div>
+      {/* Question stem — serif display moment */}
       <p
-        className="mb-6 min-h-[4rem] text-lg leading-relaxed sm:text-xl sm:leading-relaxed"
+        className="mb-8 max-w-[620px] text-[33px] font-semibold leading-tight sm:text-[33px] sm:leading-tight"
         style={{
-          color: "var(--brand-text, hsl(var(--foreground)))",
-          fontFamily: "var(--brand-font-heading, inherit)",
+          color: "var(--runner-display)",
+          fontFamily: '"Source Serif 4", Georgia, serif',
+          letterSpacing: "-0.01em",
         }}
       >
         {item.stem}
@@ -111,14 +106,14 @@ export function ItemCard({
 
       {/* Continue button for multi-step formats */}
       {showContinue && hasResponse && (
-        <div className="mt-6 flex justify-end">
+        <div className="mt-8 flex justify-start">
           <Button
             onClick={onContinue}
             disabled={continueButtonDisabled}
-            className="gap-1.5"
+            className="gap-1.5 rounded-[10px] px-7 py-3 text-[14.5px] font-semibold"
             style={{
-              background: "var(--brand-primary, hsl(var(--primary)))",
-              color: "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
+              background: "var(--runner-cta-fill)",
+              color: "var(--runner-cta-text)",
             }}
           >
             {continueButtonLabel ?? "Continue"}

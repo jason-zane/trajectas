@@ -10,11 +10,12 @@ interface ForcedChoiceResponseProps {
 }
 
 /**
- * Forced choice response format.
+ * Forced choice response format (dark-editorial re-skin).
  *
- * Two statement cards with an "or" divider.
+ * Two ghost-outline statement buttons with hairline "or" divider.
  * Participant selects one statement as "most like me" — single tap auto-advances.
- * Uses brand tokens for selection state.
+ * Selected state flips to var(--runner-selected-*) with weight 600 + shadow.
+ * Uses --runner-* custom properties exclusively.
  */
 export function ForcedChoiceResponse({
   options,
@@ -46,47 +47,67 @@ export function ForcedChoiceResponse({
           <div key={option.id}>
             <button
               onClick={() => handleSelect(option.value)}
-              className={`
-                w-full rounded-xl border-2 px-5 py-5 text-left text-sm leading-relaxed
+              className="
+                w-full px-5 py-4 text-left text-sm leading-relaxed
                 transition-all duration-150 ease-out
                 focus-visible:outline-none focus-visible:ring-2
+                focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
                 min-h-[44px]
-                ${isSelected ? "scale-[1.01]" : "hover:scale-[1.005]"}
-              `}
+                active:scale-95
+              "
               style={{
+                borderRadius: "10px",
+                border: "1px solid",
                 borderColor: isSelected
-                  ? "var(--brand-primary, hsl(var(--primary)))"
-                  : "var(--brand-neutral-200, hsl(var(--border)))",
-                background: isSelected
-                  ? "var(--brand-surface, hsl(var(--primary) / 0.08))"
-                  : "transparent",
+                  ? "var(--runner-selected-fill)"
+                  : "var(--runner-ghost-border)",
+                backgroundColor: isSelected
+                  ? "var(--runner-selected-fill)"
+                  : "var(--runner-ghost-fill)",
                 color: isSelected
-                  ? "var(--brand-primary, hsl(var(--primary)))"
-                  : "var(--brand-text, hsl(var(--foreground)))",
+                  ? "var(--runner-selected-text)"
+                  : "var(--runner-text)",
+                boxShadow: isSelected ? "var(--runner-selected-shadow)" : "none",
+                fontWeight: isSelected ? "600" : "400",
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "var(--runner-ghost-border-hover)";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                    "var(--runner-ghost-fill-hover)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  (e.currentTarget as HTMLButtonElement).style.borderColor =
+                    "var(--runner-ghost-border)";
+                  (e.currentTarget as HTMLButtonElement).style.backgroundColor =
+                    "var(--runner-ghost-fill)";
+                }
               }}
               aria-pressed={isSelected}
             >
-              <span className={isSelected ? "font-medium" : ""}>
-                {option.label}
-              </span>
+              {option.label}
             </button>
 
-            {/* "or" divider between the two options */}
+            {/* Hairline "or" divider between the two options */}
             {idx === 0 && choices.length > 1 && (
               <div className="flex items-center gap-3 py-2">
                 <div
                   className="h-px flex-1"
-                  style={{ background: "var(--brand-neutral-200, hsl(var(--border)))" }}
+                  style={{ background: "var(--runner-hairline)" }}
                 />
                 <span
-                  className="text-xs font-medium uppercase tracking-wider"
-                  style={{ color: "var(--brand-neutral-400, hsl(var(--muted-foreground)))" }}
+                  className="text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: "var(--runner-overline)" }}
                 >
                   or
                 </span>
                 <div
                   className="h-px flex-1"
-                  style={{ background: "var(--brand-neutral-200, hsl(var(--border)))" }}
+                  style={{ background: "var(--runner-hairline)" }}
                 />
               </div>
             )}

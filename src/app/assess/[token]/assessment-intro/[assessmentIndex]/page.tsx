@@ -1,12 +1,9 @@
 import { redirect } from "next/navigation"
-import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
 import { validateAccessToken, getAssessmentItemCount } from "@/app/actions/assess"
 import { getCachedEffectiveBrand } from "@/app/actions/brand"
 import { getCachedEffectiveExperience } from "@/app/actions/experience"
 import { getPostSectionsUrl } from "@/lib/experience/flow-router"
-import { getPageContent } from "@/lib/experience/resolve"
 import { interpolateContent } from "@/lib/experience/interpolate"
 import { generateCSSTokens } from "@/lib/brand/tokens"
 import { buildGoogleFontsUrl } from "@/lib/brand/fonts"
@@ -14,8 +11,6 @@ import { TRAJECTAS_DEFAULTS } from "@/lib/brand/defaults"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sanitizeReportHtml } from "@/lib/security/sanitize-html"
 import { estimateAssessmentDurationMinutes } from "@/lib/assessments/duration"
-import { buttonVariants } from "@/components/ui/button-variants"
-import { cn } from "@/lib/utils"
 import type { TemplateVariables, ExperienceTemplate } from "@/lib/experience/types"
 import type { AssessmentIntroContent, IntroOverride } from "@/types/database"
 
@@ -36,11 +31,10 @@ async function AssessmentIntroContent({
   assessments,
   participant,
   experience,
-  isCustomBrand,
 }: {
   token: string;
   idxStr: string;
-  campaign: ValidatedAccessData["campaign"];
+  campaign: ValidatedAccessData["campaign"] & { confidentialityMode?: string; inviterName?: string; inviterRole?: string };
   assessments: ValidatedAccessData["assessments"];
   participant: ValidatedAccessData["participant"];
   experience: ExperienceTemplate;
@@ -111,8 +105,6 @@ async function AssessmentIntroContent({
     buttonLabel = introContent.buttonLabel
   }
 
-  const runnerFooterText = getPageContent(experience, "runner").footerText
-
   // Interpolate template variables
   const variables: TemplateVariables = {
     participantName: participant.firstName,
@@ -124,75 +116,151 @@ async function AssessmentIntroContent({
   body = sanitizeReportHtml(interpolateContent(body, variables))
   buttonLabel = interpolateContent(buttonLabel, variables)
 
+  const estimatedMinutes = estimateAssessmentDurationMinutes(itemCount)
+  const isAggregateOnly = campaign.confidentialityMode === "aggregate_only"
+
   return (
     <>
+      {/* Header */}
+      <header
+        className="flex items-center justify-between px-6 py-5 sm:px-10 lg:px-[120px] border-b"
+        style={{
+          borderColor: "var(--runner-hairline)",
+        }}
+      >
+        <div className="flex items-center gap-2">
+          <svg
+            className="size-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              color: "var(--runner-accent)",
+            }}
+          >
+            <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        </div>
+        <div className="flex-1" />
+        <div
+          className="text-[10px] font-semibold uppercase tracking-widest"
+          style={{
+            color: "var(--runner-overline)",
+            fontFamily: '"Geist Mono", ui-monospace, monospace',
+          }}
+        >
+          Opening Screen
+        </div>
+      </header>
+
       {/* Main content */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6">
-        <div className="w-full max-w-[540px] space-y-8">
-          {/* Heading and body */}
-          <div className="space-y-3 text-center">
-            <h1
-              className="text-3xl font-semibold tracking-tight sm:text-4xl"
+      <main
+        className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-[120px]"
+        style={{
+          background: "var(--runner-page)",
+        }}
+      >
+        <div className="w-full max-w-[620px] space-y-8">
+          {/* Heading */}
+          <h1
+            className="font-semibold leading-tight"
+            style={{
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontSize: "clamp(33px, 5vw, 38px)",
+              letterSpacing: "-0.01em",
+              color: "var(--runner-display)",
+            }}
+          >
+            {heading}
+          </h1>
+
+          {/* Body */}
+          {body && (
+            <div
+              className="leading-relaxed"
               style={{
-                color: "var(--brand-text, hsl(var(--foreground)))",
-                fontFamily: "var(--brand-font-heading, inherit)",
+                color: "var(--runner-text-muted)",
+                fontSize: "15px",
+                lineHeight: "1.6",
+              }}
+              dangerouslySetInnerHTML={{ __html: body }}
+            />
+          )}
+
+          {/* Fact row (assessment title + estimated minutes) */}
+          <div
+            className="flex items-center gap-4 py-3 px-0"
+            style={{
+              borderTop: "1px solid var(--runner-hairline)",
+              borderBottom: "1px solid var(--runner-hairline)",
+            }}
+          >
+            <span
+              className="font-semibold uppercase flex-shrink-0"
+              style={{
+                fontFamily: '"Geist Mono", ui-monospace, monospace',
+                fontSize: "10px",
+                letterSpacing: "0.12em",
+                color: "var(--runner-text-meta)",
               }}
             >
-              {heading}
-            </h1>
-            {body && (
-              <div
-                className="rounded-2xl border border-l-[3px] p-6 sm:p-8 shadow-sm"
-                style={{
-                  background: "var(--brand-neutral-50, hsl(var(--card)))",
-                  borderColor: "var(--brand-neutral-200, hsl(var(--border)))",
-                  borderLeftColor: "var(--brand-primary, hsl(var(--primary)))",
-                }}
-              >
-                <div
-                  className="prose prose-sm max-w-none leading-relaxed"
-                  style={{
-                    color:
-                      "var(--brand-neutral-500, hsl(var(--muted-foreground)))",
-                  }}
-                  dangerouslySetInnerHTML={{ __html: body }}
-                />
-              </div>
-            )}
+              {assessment.title}
+            </span>
+            <span
+              className="font-semibold uppercase"
+              style={{
+                fontFamily: '"Geist Mono", ui-monospace, monospace',
+                fontSize: "10px",
+                letterSpacing: "0.12em",
+                color: "var(--runner-text-meta)",
+              }}
+            >
+              ~{estimatedMinutes} MIN
+            </span>
           </div>
 
           {/* CTA */}
-          <div className="flex justify-center">
-            <Link
-              href={`/assess/${token}/section/0`}
-              className={cn(
-                buttonVariants({ size: "lg" }),
-                "min-w-[200px] gap-1.5",
-              )}
-              style={{
-                background: "var(--brand-primary, hsl(var(--primary)))",
-                color:
-                  "var(--brand-primary-foreground, hsl(var(--primary-foreground)))",
-              }}
-            >
-              <ArrowRight className="size-4" />
-              {buttonLabel}
-            </Link>
-          </div>
+          <Link
+            href={`/assess/${token}/section/0`}
+            className="inline-flex items-center justify-center px-7 py-3 rounded-[10px] font-semibold transition-colors"
+            style={{
+              background: "var(--runner-cta-fill)",
+              color: "var(--runner-cta-text)",
+              fontSize: "14.5px",
+              fontWeight: "600",
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--runner-cta-fill-hover)"
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.background = "var(--runner-cta-fill)"
+            }}
+          >
+            {buttonLabel}
+          </Link>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="flex items-center justify-center gap-3 px-4 py-4">
+      <footer
+        className="flex items-center justify-center px-6 py-4 sm:px-10 lg:px-[120px] border-t"
+        style={{
+          borderColor: "var(--runner-hairline)",
+          background: "var(--runner-page-solid)",
+        }}
+      >
         <span
           className="text-xs"
           style={{
-            color:
-              "var(--brand-neutral-400, hsl(var(--muted-foreground)))",
+            color: "var(--runner-text-muted)",
           }}
         >
-          {isCustomBrand
-            ? (runnerFooterText ?? "Powered by Trajectas")
+          {isAggregateOnly
+            ? "Your responses are kept completely anonymous and only analysed in aggregate"
             : "Your responses are confidential"}
         </span>
       </footer>
@@ -242,62 +310,12 @@ export default async function AssessmentIntroPage({
       <style dangerouslySetInnerHTML={{ __html: brandCss }} />
       {fontsUrl && <link rel="stylesheet" href={fontsUrl} />}
 
-      <div className="flex min-h-dvh flex-col">
-        {/* Header */}
-        <header
-          className="flex h-14 items-center px-4 sm:px-6"
-          style={{
-            background: "var(--brand-neutral-50, hsl(var(--background)))",
-          }}
-        >
-          <div className="flex items-center gap-2.5">
-            {brandConfig.logoUrl ? (
-              <Image
-                src={brandConfig.logoUrl}
-                alt={brandConfig.name ?? "Logo"}
-                width={140}
-                height={28}
-                className="h-7 w-auto object-contain"
-                unoptimized
-              />
-            ) : (
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex size-7 items-center justify-center rounded-lg"
-                  style={{
-                    background:
-                      "var(--brand-surface, hsl(var(--primary) / 0.1))",
-                  }}
-                >
-                  <svg
-                    className="size-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{
-                      color: "var(--brand-primary, hsl(var(--primary)))",
-                    }}
-                  >
-                    <path d="M12 2a8.5 8.5 0 0 0-8.5 8.5c0 4.5 3.5 8 8.5 11.5 5-3.5 8.5-7 8.5-11.5A8.5 8.5 0 0 0 12 2z" />
-                    <circle cx="12" cy="10" r="3" />
-                  </svg>
-                </div>
-                <span
-                  className="text-sm font-semibold tracking-tight"
-                  style={{
-                    color: "var(--brand-text, hsl(var(--foreground)))",
-                  }}
-                >
-                  {brandConfig.name ?? "Trajectas"}
-                </span>
-              </div>
-            )}
-          </div>
-        </header>
-
+      <div
+        className="flex min-h-dvh flex-col"
+        style={{
+          background: "var(--runner-page)",
+        }}
+      >
         {/* Deliberately NOT wrapped in Suspense: the same fetch that produces
             the intro content also decides the skip redirects (suppressed /
             disabled / index past end). Streaming a fallback first would turn

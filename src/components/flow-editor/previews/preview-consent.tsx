@@ -10,28 +10,35 @@ interface PreviewConsentProps {
 export function PreviewConsent({ content }: PreviewConsentProps) {
   return (
     <PreviewShell footerText={content.footerText}>
-      <div className="space-y-4">
+      <div className="space-y-6">
         <p
-          className="text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: "var(--brand-primary)" }}
+          className="text-[0.75rem] font-semibold uppercase tracking-[0.16em]"
+          style={{
+            color: "var(--runner-overline)",
+            fontFamily: '"Geist Mono", monospace',
+            letterSpacing: "0.16em",
+          }}
         >
           {content.eyebrow}
         </p>
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
-          }}
-        >
-          {content.heading}
-        </h2>
-        <div
-          className="text-xs leading-relaxed whitespace-pre-line"
-          style={{ color: "var(--brand-text-muted)" }}
-        >
-          {content.body.slice(0, 200)}
-          {content.body.length > 200 && "..."}
+        <div className="space-y-3">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontWeight: 600,
+            }}
+          >
+            {content.heading}
+          </h2>
+          <div
+            className="text-xs leading-relaxed whitespace-pre-line"
+            style={{ color: "var(--runner-text-muted)" }}
+          >
+            {content.body.slice(0, 200)}
+            {content.body.length > 200 && "..."}
+          </div>
         </div>
 
         {/* Checkbox */}
@@ -39,13 +46,13 @@ export function PreviewConsent({ content }: PreviewConsentProps) {
           <div
             className="mt-0.5 size-4 shrink-0 rounded border"
             style={{
-              borderColor: "var(--brand-neutral-300)",
-              backgroundColor: "var(--brand-primary)",
+              borderColor: "var(--runner-ghost-border)",
+              backgroundColor: "var(--runner-accent)",
             }}
           />
           <span
             className="text-[11px] leading-snug"
-            style={{ color: "var(--brand-text)" }}
+            style={{ color: "var(--runner-text)" }}
           >
             {content.consentCheckboxLabel}
           </span>
@@ -53,11 +60,11 @@ export function PreviewConsent({ content }: PreviewConsentProps) {
 
         <button
           type="button"
-          className="w-full py-2 text-sm font-medium"
+          className="w-full py-3 text-sm font-medium transition-all duration-150"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-primary-foreground)",
-            borderRadius: "var(--brand-radius-md)",
+            backgroundColor: "var(--runner-cta-fill)",
+            color: "var(--runner-cta-text)",
+            borderRadius: "8px",
           }}
         >
           {content.buttonLabel}

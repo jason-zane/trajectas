@@ -61,12 +61,102 @@ const emailStylesSchema = z.object({
   footerTextColor: hexColor,
 })
 
+// Report theme colors are hex OR css color functions (e.g. rgba(...) for the
+// radar fill). Constrain to characters that cannot break out of a CSS value
+// context rather than a strict format.
+const reportColor = z
+  .string()
+  .min(1)
+  .max(60)
+  .regex(/^[#a-zA-Z0-9(),.%\s/-]+$/, 'Must be a valid CSS color value')
+
+const reportThemeSchema = z.object({
+  primaryLogoUrl: brandLogoUrl.optional(),
+  secondaryLogoUrl: brandLogoUrl.optional(),
+  reportHighBandFill: reportColor,
+  reportMidBandFill: reportColor,
+  reportLowBandFill: reportColor,
+  reportHighBadgeBg: reportColor,
+  reportHighBadgeText: reportColor,
+  reportMidBadgeBg: reportColor,
+  reportMidBadgeText: reportColor,
+  reportLowBadgeBg: reportColor,
+  reportLowBadgeText: reportColor,
+  reportFeaturedBg: reportColor,
+  reportFeaturedText: reportColor,
+  reportFeaturedAccent: reportColor,
+  reportInsetBg: reportColor,
+  reportInsetBorder: reportColor,
+  reportPageBg: reportColor,
+  reportCardBg: reportColor,
+  reportCardBorder: reportColor,
+  reportDivider: reportColor,
+  reportCtaBg: reportColor,
+  reportCtaText: reportColor,
+  reportHeadingColour: reportColor,
+  reportBodyColour: reportColor,
+  reportMutedColour: reportColor,
+  reportLabelColour: reportColor,
+  reportCoverAccent: reportColor,
+  reportRadarFill: reportColor,
+  reportRadarStroke: reportColor,
+  reportRadarPoint: reportColor,
+  reportBarDot: reportColor,
+  reportRaterSelf: reportColor,
+  reportRaterManager: reportColor,
+  reportRaterPeers: reportColor,
+  reportRaterDirects: reportColor,
+  reportRaterOverall: reportColor,
+})
+
+const fontWeight = z.number().int().min(300).max(800)
+
+const typeLevelOverrideSchema = z
+  .object({
+    size: z.string().max(20),
+    weight: fontWeight,
+    lineHeight: z.number().min(0.8).max(3),
+    letterSpacing: z.string().max(20),
+  })
+  .partial()
+
+const typographySchema = z.object({
+  scale: z.enum(['compact', 'default', 'generous']).optional(),
+  headingWeight: fontWeight.optional(),
+  bodyWeight: fontWeight.optional(),
+  levels: z
+    .object({
+      display: typeLevelOverrideSchema.optional(),
+      h1: typeLevelOverrideSchema.optional(),
+      h2: typeLevelOverrideSchema.optional(),
+      h3: typeLevelOverrideSchema.optional(),
+      body: typeLevelOverrideSchema.optional(),
+      label: typeLevelOverrideSchema.optional(),
+      caption: typeLevelOverrideSchema.optional(),
+    })
+    .optional(),
+})
+
+const buttonStyleSchema = z.object({
+  shape: z.enum(['inherit', 'pill', 'sharp']).optional(),
+  weight: fontWeight.optional(),
+  textTransform: z.enum(['none', 'uppercase']).optional(),
+})
+
+const gradientAccentSchema = z.object({
+  enabled: z.boolean(),
+  angle: z.number().min(0).max(360).optional(),
+  from: hexColor.optional(),
+  to: hexColor.optional(),
+})
+
 export const brandConfigSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
   logoUrl: brandLogoUrl.optional(),
   logomarkUrl: brandLogoUrl.optional(),
   primaryColor: hexColor,
   accentColor: hexColor,
+  secondaryColor: hexColor.optional(),
   neutralTemperature: z.enum(['warm', 'neutral', 'cool']),
   portalAccents: portalAccentsSchema.optional(),
   sidebarColor: hexColor.optional(),
@@ -75,19 +165,37 @@ export const brandConfigSchema = z.object({
   semanticColors: semanticColorsSchema.optional(),
   taxonomyColors: taxonomyColorsSchema.optional(),
   emailStyles: emailStylesSchema.optional(),
+  reportTheme: reportThemeSchema.optional(),
   headingFont: z.string().min(1).max(100),
   bodyFont: z.string().min(1).max(100),
   monoFont: z.string().min(1).max(100),
+  typography: typographySchema.optional(),
   borderRadius: z.enum(['sharp', 'soft', 'round']),
+  spacingDensity: z.enum(['compact', 'comfortable', 'spacious']).optional(),
+  buttonStyle: buttonStyleSchema.optional(),
+  gradientAccent: gradientAccentSchema.optional(),
+  runnerTheme: z.enum(['dark', 'light']).optional(),
 })
 
 export type BrandConfigInput = z.infer<typeof brandConfigSchema>
+
+/**
+ * Partial brand layer for partner/client/campaign owners. Every field is
+ * optional; a defined field wholly overrides the inherited value (nested
+ * groups are atomic — see BrandOverrides in src/lib/brand/types.ts).
+ *
+ * The platform config must stay complete: it is the merge base, so it keeps
+ * the full `brandConfigSchema`.
+ */
+export const brandOverridesSchema = brandConfigSchema.partial()
+
+export type BrandOverridesInput = z.infer<typeof brandOverridesSchema>
 
 /** Schema for upserting a brand config record. */
 export const upsertBrandConfigSchema = z.object({
   ownerType: z.enum(['platform', 'partner', 'client', 'campaign']),
   ownerId: z.string().uuid().nullable(),
-  config: brandConfigSchema,
+  config: brandOverridesSchema,
 })
 
 export type UpsertBrandConfigInput = z.infer<typeof upsertBrandConfigSchema>

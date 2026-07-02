@@ -10,28 +10,35 @@ interface PreviewReviewProps {
 export function PreviewReview({ content }: PreviewReviewProps) {
   return (
     <PreviewShell footerText={content.footerText}>
-      <div className="space-y-4">
+      <div className="space-y-6">
         <p
-          className="text-[10px] font-semibold uppercase tracking-widest"
-          style={{ color: "var(--brand-primary)" }}
+          className="text-[0.75rem] font-semibold uppercase tracking-[0.16em]"
+          style={{
+            color: "var(--runner-overline)",
+            fontFamily: '"Geist Mono", monospace',
+            letterSpacing: "0.16em",
+          }}
         >
           {content.eyebrow}
         </p>
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: "var(--brand-text)",
-            fontFamily: "var(--brand-font-heading)",
-          }}
-        >
-          {content.heading}
-        </h2>
-        <p
-          className="text-sm"
-          style={{ color: "var(--brand-text-muted)" }}
-        >
-          {content.body}
-        </p>
+        <div className="space-y-3">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              fontWeight: 600,
+            }}
+          >
+            {content.heading}
+          </h2>
+          <p
+            className="text-sm"
+            style={{ color: "var(--runner-text-muted)" }}
+          >
+            {content.body}
+          </p>
+        </div>
 
         {/* Mock section review cards */}
         <div className="space-y-2 pt-1">
@@ -40,13 +47,14 @@ export function PreviewReview({ content }: PreviewReviewProps) {
               key={name}
               className="flex items-center justify-between rounded-lg p-3"
               style={{
-                backgroundColor: "var(--brand-neutral-100)",
-                borderRadius: "var(--brand-radius-lg)",
+                backgroundColor: "var(--runner-ghost-fill)",
+                borderRadius: "8px",
+                border: `1px solid var(--runner-hairline)`,
               }}
             >
               <span
                 className="text-xs font-medium"
-                style={{ color: "var(--brand-text)" }}
+                style={{ color: "var(--runner-text)" }}
               >
                 {name}
               </span>
@@ -54,11 +62,11 @@ export function PreviewReview({ content }: PreviewReviewProps) {
                 className="text-[10px] font-medium px-2 py-0.5 rounded-full"
                 style={{
                   backgroundColor: i === 0
-                    ? "var(--brand-primary)"
-                    : "var(--brand-neutral-200)",
+                    ? "var(--runner-accent)"
+                    : "var(--runner-ghost-border)",
                   color: i === 0
-                    ? "var(--brand-primary-foreground)"
-                    : "var(--brand-text-muted)",
+                    ? "var(--runner-ink)"
+                    : "var(--runner-text-muted)",
                 }}
               >
                 {i === 0 ? "Complete" : "12 / 15"}
@@ -69,11 +77,11 @@ export function PreviewReview({ content }: PreviewReviewProps) {
 
         <button
           type="button"
-          className="w-full py-2 text-sm font-medium"
+          className="w-full py-3 text-sm font-medium transition-all duration-150"
           style={{
-            backgroundColor: "var(--brand-primary)",
-            color: "var(--brand-primary-foreground)",
-            borderRadius: "var(--brand-radius-md)",
+            backgroundColor: "var(--runner-cta-fill)",
+            color: "var(--runner-cta-text)",
+            borderRadius: "8px",
           }}
         >
           {content.buttonLabel}

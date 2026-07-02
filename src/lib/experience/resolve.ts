@@ -188,3 +188,19 @@ export function getFlowOrder(template: ExperienceTemplate): string[] {
     .sort((a, b) => a.order - b.order)
     .map((e) => e.id)
 }
+
+/**
+ * Get the default consent body for a given confidentiality mode.
+ * Used by consent page when no campaign override exists.
+ */
+export function getDefaultConsentBody(mode: 'standard' | 'aggregate_only'): string {
+  if (mode === 'aggregate_only') {
+    return `- Your responses are used to generate a profile based on validated psychometric constructs.
+- {{brandName}} receives group-level patterns only — never your individual answers.
+- Your responses save automatically — you may pause, or withdraw at any time by closing this page.`
+  }
+
+  return `- Your responses are used to generate a profile based on validated psychometric constructs.
+- Results are used for professional development and/or selection purposes.
+- Your responses save automatically — you may pause, or withdraw at any time by closing this page.`
+}
