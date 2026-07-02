@@ -167,15 +167,21 @@ export async function scoreSessionCTT(
   const optionValuesByItem = new Map<string, number[]>()
   const scorableOptionsByItem = new Map<string, ScorableOption[]>()
   for (const opt of optionRows ?? []) {
-    const values = optionValuesByItem.get(opt.item_id) ?? []
-    values.push(Number(opt.value))
-    optionValuesByItem.set(opt.item_id, values)
+    const excluded = opt.exclude_from_scoring ?? false
+
+    // Excluded options ("Don't know") must not define the scoring scale —
+    // their (often sentinel) values would stretch the bounds for everyone.
+    if (!excluded) {
+      const values = optionValuesByItem.get(opt.item_id) ?? []
+      values.push(Number(opt.value))
+      optionValuesByItem.set(opt.item_id, values)
+    }
 
     const scorable = scorableOptionsByItem.get(opt.item_id) ?? []
     scorable.push({
       value: Number(opt.value),
       scoreValue: opt.score_value == null ? null : Number(opt.score_value),
-      excludeFromScoring: opt.exclude_from_scoring ?? false,
+      excludeFromScoring: excluded,
     })
     scorableOptionsByItem.set(opt.item_id, scorable)
   }
@@ -210,16 +216,20 @@ export async function scoreSessionCTT(
     const meta = itemMap.get(resp.item_id)
     if (!meta) continue
 
+    // A chosen exclude_from_scoring option ("Don't know") drops the response
+    // from aggregates entirely — keyed or not.
+    const selected = meta.options.find(
+      (o) => o.value === Number(resp.response_value),
+    )
+    if (selected?.excludeFromScoring) continue
+
     let pompValue: number
 
     // Keyed items score by the key of the chosen option (reverse_scored does
-    // not apply — keys encode direction). A chosen exclude_from_scoring
-    // option ("Don't know") drops the response from aggregates entirely.
+    // not apply — keys encode direction).
     const keyedOutcome = isKeyedItem(meta.options)
       ? scoreKeyedResponse(Number(resp.response_value), meta.options)
       : null
-
-    if (keyedOutcome?.kind === 'excluded') continue
 
     if (keyedOutcome?.kind === 'scored') {
       pompValue = keyedOutcome.pomp

@@ -14,7 +14,8 @@ const slug = (s: string) => `cks-${s}-${ts}`.toLowerCase();
  * ("Don't know") drop the response from aggregates entirely — the factor gets
  * no score row rather than a fabricated 0.
  *
- * Five factors, one SJT-style keyed item each (options 1–4 keyed 0/1/3/5):
+ * Seven factors, one SJT-style item each:
+ *   Keyed items (options 1–4 keyed 0/1/3/5):
  *   - factorBest:  chose the key-5 option   → 100 POMP
  *   - factorWorst: chose the key-0 option   → 0 POMP
  *   - factorMid:   chose the key-3 option   → 60 POMP
@@ -22,11 +23,16 @@ const slug = (s: string) => `cks-${s}-${ts}`.toLowerCase();
  *                  so choosing the key-5 option still scores 100 (the raw
  *                  reversed path would have produced 0)
  *   - factorDk:    chose the excluded "Don't know" option → no score row
+ *   Unkeyed items (options 1–4 with no keys, plus an excluded value-9 option):
+ *   - factorRawDk:     chose the excluded option → no score row even without keys
+ *   - factorRawBounds: chose 4 → 100 POMP — the excluded option's sentinel
+ *                      value 9 must not stretch the raw bounds (a stretched
+ *                      1–9 scale would have scored 37.5)
  */
 describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
   const admin = createAdminClient();
 
-  const KEYS = ["Best", "Worst", "Mid", "Rev", "Dk"] as const;
+  const KEYS = ["Best", "Worst", "Mid", "Rev", "Dk", "RawDk", "RawBounds"] as const;
   type Key = (typeof KEYS)[number];
 
   const ids = {
@@ -101,12 +107,14 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
         status: "active",
       });
 
-      // Four expert-keyed options: values 1–4 with keys 0/1/3/5.
-      const keyedOptions: [string, number, number][] = [
-        ["Least effective", 1, 0],
-        ["Weak", 2, 1],
-        ["Good", 3, 3],
-        ["Most effective", 4, 5],
+      // Four options valued 1–4: expert keys 0/1/3/5 for keyed items, no
+      // keys for the Raw* items (they score by raw response value).
+      const isRawItem = key === "RawDk" || key === "RawBounds";
+      const keyedOptions: [string, number, number | null][] = [
+        ["Least effective", 1, isRawItem ? null : 0],
+        ["Weak", 2, isRawItem ? null : 1],
+        ["Good", 3, isRawItem ? null : 3],
+        ["Most effective", 4, isRawItem ? null : 5],
       ];
       for (const [label, value, scoreValue] of keyedOptions) {
         await ins("item_options", {
@@ -117,8 +125,9 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
           display_order: value,
         });
       }
-      // The Dk item also offers an excluded "Don't know" option.
-      if (key === "Dk") {
+      // These items also offer an excluded "Don't know" option whose
+      // sentinel value must never define the scoring scale.
+      if (key === "Dk" || isRawItem) {
         await ins("item_options", {
           item_id: itemId,
           label: "Don't know",
@@ -153,6 +162,8 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
       ["Mid", 3], // key 3 → 60
       ["Rev", 4], // key 5 → 100 (reverse_scored must NOT apply)
       ["Dk", 9], // excluded → dropped
+      ["RawDk", 9], // excluded on an UNKEYED item → dropped
+      ["RawBounds", 4], // raw bounds 1–4 (excluded 9 must not stretch) → 100
     ];
     for (const [key, value] of responses) {
       await ins("participant_responses", {
@@ -191,15 +202,15 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
 
   it("scores keyed items by option key and drops excluded responses", async () => {
     const result = await scoreSessionCTT(ids.session);
-    // The Dk factor's only response is excluded, so only four factors score.
-    expect(result).toEqual({ success: true, scoreCount: 4 });
+    // Dk and RawDk factors' only responses are excluded → five factors score.
+    expect(result).toEqual({ success: true, scoreCount: 5 });
 
     const { data: scores, error } = await admin
       .from("participant_scores")
       .select("factor_id, raw_score, scaled_score")
       .eq("session_id", ids.session);
     expect(error).toBeNull();
-    expect(scores).toHaveLength(4);
+    expect(scores).toHaveLength(5);
 
     const byFactor = new Map(
       (scores ?? []).map((s) => [s.factor_id, Number(s.scaled_score)]),
@@ -209,15 +220,19 @@ describe.skipIf(!canRun)("scoring: scoreSessionCTT keyed options", () => {
     expect(byFactor.get(ids.factor.Mid)).toBe(60);
     // Keys are authoritative: raw reversed scoring would have produced 0.
     expect(byFactor.get(ids.factor.Rev)).toBe(100);
-    // Excluded response → no score row at all, not a zero.
+    // Excluded response → no score row at all, not a zero — keyed or not.
     expect(byFactor.has(ids.factor.Dk)).toBe(false);
+    expect(byFactor.has(ids.factor.RawDk)).toBe(false);
+    // Excluded option's sentinel value must not stretch raw bounds:
+    // response 4 on options 1–4 is 100, not (4-1)/(9-1) = 37.5.
+    expect(byFactor.get(ids.factor.RawBounds)).toBe(100);
 
-    // Composite = mean of scored factors = (100 + 0 + 60 + 100) / 4.
+    // Composite = mean of scored factors = (100 + 0 + 60 + 100 + 100) / 5.
     const { data: session } = await admin
       .from("participant_sessions")
       .select("composite_score")
       .eq("id", ids.session)
       .single();
-    expect(Number(session!.composite_score)).toBe(65);
+    expect(Number(session!.composite_score)).toBe(72);
   });
 });
