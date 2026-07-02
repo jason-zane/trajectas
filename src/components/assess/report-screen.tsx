@@ -19,6 +19,14 @@ import { ReportRenderer } from "@/components/reports/report-renderer";
 import type { ReportContent } from "@/lib/experience/types";
 import type { ResolvedBlockData } from "@/lib/reports/types";
 
+// Polling cadence while the report is being prepared: fast for the common
+// in-request generation, then slow enough to cover a report-generation-sweep
+// cron cycle (every 5 min) recovering a failed trigger, then stop.
+const POLL_FAST_INTERVAL_MS = 3_000;
+const POLL_FAST_WINDOW_MS = 45_000;
+const POLL_SLOW_INTERVAL_MS = 15_000;
+const POLL_TOTAL_WINDOW_MS = 8 * 60_000;
+
 interface ReportScreenProps {
   content: ReportContent;
   brandLogoUrl?: string;
@@ -51,6 +59,7 @@ export function ReportScreen({
   const hasReport = renderedData && renderedData.length > 0;
   const isHolding = content.reportMode === "holding";
   const [countdown, setCountdown] = useState(5);
+  const [pollingExpired, setPollingExpired] = useState(false);
 
   // Auto-redirect if redirectUrl is configured
   useEffect(() => {
@@ -74,15 +83,25 @@ export function ReportScreen({
     if (!autoRefresh || hasReport) return;
 
     const startedAt = Date.now();
-    const interval = setInterval(() => {
-      if (Date.now() - startedAt >= 45000) {
-        clearInterval(interval);
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed >= POLL_TOTAL_WINDOW_MS) {
+        setPollingExpired(true);
         return;
       }
       router.refresh();
-    }, 3000);
+      timer = setTimeout(
+        tick,
+        elapsed < POLL_FAST_WINDOW_MS
+          ? POLL_FAST_INTERVAL_MS
+          : POLL_SLOW_INTERVAL_MS,
+      );
+    };
 
-    return () => clearInterval(interval);
+    timer = setTimeout(tick, POLL_FAST_INTERVAL_MS);
+    return () => clearTimeout(timer);
   }, [autoRefresh, hasReport, router]);
 
   const placeholderHint =
@@ -91,7 +110,9 @@ export function ReportScreen({
       : reportStatus === "ready"
         ? "Your report is ready and will appear here once it has been sent."
         : autoRefresh
-          ? "Your report is being prepared. This page updates automatically."
+          ? pollingExpired
+            ? "Still preparing — refresh this page in a few minutes."
+            : "Your report is being prepared. This page updates automatically."
           : "Your report is being prepared. This usually takes a moment.";
 
   // Render the actual report when data is available
