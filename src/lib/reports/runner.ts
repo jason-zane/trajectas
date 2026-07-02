@@ -55,11 +55,17 @@ interface ScoreMap {
 // Main pipeline
 // ---------------------------------------------------------------------------
 
-export async function processSnapshot(snapshotId: string): Promise<void> {
-  const db = createAdminClient()
-
-  // Mark as generating
-  await db
+/**
+ * Atomically claim a pending snapshot for generation. Only one caller wins:
+ * the pending→generating update is guarded by `.eq('status', 'pending')` and
+ * we check that a row was actually updated, so concurrent triggers (submit
+ * path, admin retry, cron sweep) can't double-process the same snapshot.
+ */
+export async function claimSnapshotForGeneration(
+  db: ReturnType<typeof createAdminClient>,
+  snapshotId: string,
+): Promise<boolean> {
+  const claim = await db
     .from('report_snapshots')
     .update({
       status: 'generating',
@@ -69,6 +75,27 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     })
     .eq('id', snapshotId)
     .eq('status', 'pending')
+    .select('id')
+
+  if (claim.error) {
+    console.error(`[runner] Failed to claim snapshot ${snapshotId}:`, claim.error)
+    return false
+  }
+
+  return (claim.data ?? []).length > 0
+}
+
+export async function processSnapshot(snapshotId: string): Promise<void> {
+  const db = createAdminClient()
+
+  // Mark as generating — skip entirely if another caller already claimed it.
+  // This runs before the try block so the catch can't mark an unclaimed
+  // snapshot as failed.
+  const claimed = await claimSnapshotForGeneration(db, snapshotId)
+  if (!claimed) {
+    console.warn(`[runner] Snapshot ${snapshotId} not claimable (not pending), skipping`)
+    return
+  }
 
   try {
     // -----------------------------------------------------------------------
