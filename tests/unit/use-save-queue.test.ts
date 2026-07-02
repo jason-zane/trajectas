@@ -20,6 +20,18 @@ function jsonResponse(status = 200, body: Record<string, unknown> = { success: t
   })
 }
 
+/** Success response confirming the given item ids as saved — the shape
+ *  /api/assess/save-batch actually returns. */
+function savedResponse(itemIds: string[]) {
+  return jsonResponse(200, { success: true, savedItemIds: itemIds })
+}
+
+/** Default happy-path server: confirms every item id in the posted batch. */
+function echoAllSaved(_input: unknown, init?: RequestInit) {
+  const body = JSON.parse(init?.body as string) as { saves: { itemId: string }[] }
+  return Promise.resolve(savedResponse(body.saves.map((s) => s.itemId)))
+}
+
 /** Vitest's jsdom environment lacks BroadcastChannel — stub it. */
 class FakeBroadcastChannel {
   name: string
@@ -38,7 +50,7 @@ class FakeBroadcastChannel {
 describe('useSaveQueue (IndexedDB-backed)', () => {
   beforeEach(async () => {
     vi.clearAllMocks()
-    mockFetch.mockResolvedValue(jsonResponse())
+    mockFetch.mockImplementation(echoAllSaved)
     vi.stubGlobal('fetch', mockFetch)
     vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
     // Wipe IDB between tests so each one starts clean.
@@ -65,7 +77,7 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
     mockFetch.mockImplementation(
       () =>
         new Promise<Response>((resolve) => {
-          release = () => resolve(jsonResponse())
+          release = () => resolve(savedResponse(['item-1']))
         }),
     )
 
@@ -153,6 +165,45 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
     expect(await countPending(cfg.sessionId)).toBe(1)
   })
 
+  it('marks only server-confirmed ids synced — unconfirmed rows stay pending', async () => {
+    // Server saves item-1 but skips item-2 (e.g. the item does not belong to
+    // the session's assessment). item-2 must stay pending in IDB, not be
+    // marked synced and silently lost.
+    mockFetch.mockResolvedValue(savedResponse(['item-1']))
+
+    const { result } = renderHook(() => useSaveQueue(cfg))
+
+    await act(async () => {
+      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec', value: 3 })
+      result.current.enqueueSave({ itemId: 'item-2', sectionId: 'sec', value: 4 })
+      await settle()
+    })
+
+    expect(mockFetch).toHaveBeenCalled()
+    const db = getResponseDb()
+    const row1 = await db.responses.get([cfg.sessionId, 'item-1'])
+    const row2 = await db.responses.get([cfg.sessionId, 'item-2'])
+    expect(row1?.synced).toBe(1)
+    expect(row2?.synced).toBe(0)
+    expect(await countPending(cfg.sessionId)).toBe(1)
+  })
+
+  it('treats a 2xx response without savedItemIds as unconfirmed', async () => {
+    // Regression guard: HTTP success alone must never mark rows synced —
+    // that was the original data-loss bug.
+    mockFetch.mockResolvedValue(jsonResponse(200, { success: true }))
+
+    const { result } = renderHook(() => useSaveQueue(cfg))
+
+    await act(async () => {
+      result.current.enqueueSave({ itemId: 'item-u', sectionId: 'sec', value: 2 })
+      await settle()
+    })
+
+    expect(mockFetch).toHaveBeenCalled()
+    expect(await countPending(cfg.sessionId)).toBe(1)
+  })
+
   it('flushSaves drains pending and returns true on success', async () => {
     const { result } = renderHook(() => useSaveQueue(cfg))
 
@@ -215,7 +266,7 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
       { timeout: 25_000, interval: 500 },
     )
 
-    mockFetch.mockResolvedValue(jsonResponse())
+    mockFetch.mockImplementation(echoAllSaved)
 
     await act(async () => {
       result.current.retryFailedSaves()

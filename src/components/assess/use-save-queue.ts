@@ -43,7 +43,7 @@ async function postBatch(
   token: string,
   sessionId: string,
   rows: ResponseRecord[],
-): Promise<{ ok: boolean; status?: number }> {
+): Promise<{ ok: boolean; status?: number; savedItemIds: string[] | null }> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
   try {
@@ -64,9 +64,26 @@ async function postBatch(
       keepalive: true,
       signal: controller.signal,
     });
-    return { ok: res.ok, status: res.status };
+    // The server may save only a subset of the batch (an item that doesn't
+    // belong to the session's assessment is skipped, not saved). Only the
+    // ids in `savedItemIds` are confirmed persisted — anything else must
+    // stay pending in IDB. A 2xx with no readable savedItemIds array counts
+    // as unconfirmed (null), NOT as all-saved.
+    let savedItemIds: string[] | null = null;
+    if (res.ok) {
+      try {
+        const body: unknown = await res.json();
+        const ids = (body as { savedItemIds?: unknown } | null)?.savedItemIds;
+        if (Array.isArray(ids)) {
+          savedItemIds = ids.filter((id): id is string => typeof id === "string");
+        }
+      } catch {
+        // Unparseable body — leave savedItemIds null so nothing is marked.
+      }
+    }
+    return { ok: res.ok, status: res.status, savedItemIds };
   } catch {
-    return { ok: false };
+    return { ok: false, savedItemIds: null };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -77,10 +94,11 @@ async function postBatch(
  *
  * Every enqueueSave writes to IDB FIRST, then schedules a background flush.
  * The flush reads pending rows in batches and POSTs to /api/assess/save-batch.
- * Successful rows are marked synced=1 in IDB; failures stay pending and the
- * flusher retries with exponential backoff. This survives tab close, refresh,
- * and offline windows — the user's responses live in their browser's
- * persistent storage until the server confirms them.
+ * Only rows the server confirms saved (the response's savedItemIds) are
+ * marked synced=1 in IDB; everything else stays pending and the flusher
+ * retries with exponential backoff. This survives tab close, refresh, and
+ * offline windows — the user's responses live in their browser's persistent
+ * storage until the server confirms them.
  *
  * `localResponses` exposes the IDB-hydrated map on mount so section-wrapper
  * can merge it into its server-rendered `existingResponses` (an in-progress
@@ -159,17 +177,23 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
         }
         setSaveStatus("saving");
         const result = await postBatch(token, sessionId, rows);
-        if (!result.ok) {
+        // Mark ONLY the ids the server confirmed saved. Unconfirmed rows stay
+        // synced=0 so they keep retrying (and eventually trip the error
+        // banner) instead of being silently dropped.
+        const confirmedSet = new Set(result.savedItemIds ?? []);
+        const confirmed = rows
+          .map((r) => r.itemId)
+          .filter((id) => confirmedSet.has(id));
+        if (confirmed.length > 0) {
+          await markSynced(sessionId, confirmed);
+        }
+        if (!result.ok || confirmed.length < rows.length) {
           consecutiveFailuresRef.current++;
           if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
             setSaveError(true);
           }
           return false;
         }
-        await markSynced(
-          sessionId,
-          rows.map((r) => r.itemId),
-        );
         consecutiveFailuresRef.current = 0;
         setSaveError(false);
         // Loop — there may be more pending (or more arrived during the POST).
@@ -280,7 +304,9 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
               updatedAt: Date.now(),
             },
           ]);
-          if (!result.ok) setSaveError(true);
+          if (!result.ok || !result.savedItemIds?.includes(entry.itemId)) {
+            setSaveError(true);
+          }
         }
       })();
     },

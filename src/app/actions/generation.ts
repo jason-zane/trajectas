@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { likertAnchorOptions } from '@/lib/assess/likert-anchors'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { mapGenerationRunRow, mapGeneratedItemRow, mapResponseFormatRow } from '@/lib/supabase/mappers'
@@ -889,17 +890,7 @@ function describeResponseFormat(format: ResponseFormat): string {
 }
 
 function extractAnchors(config: Record<string, unknown>): string[] {
-  const rawAnchors = config.anchors
-  if (Array.isArray(rawAnchors)) {
-    return rawAnchors.filter((anchor): anchor is string => typeof anchor === 'string')
-  }
-  if (typeof rawAnchors === 'object' && rawAnchors !== null) {
-    return Object.entries(rawAnchors as Record<string, unknown>)
-      .sort(([a], [b]) => Number(a) - Number(b))
-      .map(([, label]) => label)
-      .filter((label): label is string => typeof label === 'string')
-  }
-  return []
+  return likertAnchorOptions(config.anchors).map((o) => o.label)
 }
 
 // ---------------------------------------------------------------------------

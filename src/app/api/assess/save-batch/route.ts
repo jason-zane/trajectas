@@ -76,14 +76,27 @@ export async function POST(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Echo back the idempotency keys that were intended to be saved so the
-  // client can mark exactly those IDB rows as synced even if the server
-  // silently dropped some (e.g. unknown item_id outside this assessment).
+  // The RPC returns the item_ids it actually upserted. Items that failed the
+  // assessment-membership check are absent — the client must NOT mark those
+  // synced, or the responses are silently lost from its IndexedDB queue.
+  if (!Array.isArray(data)) {
+    logActionError(
+      "apiAssessSaveBatch.rpc",
+      new Error(`unexpected RPC result shape: ${typeof data}`),
+    );
+    return Response.json({ error: "Unable to save batch" }, { status: 500 });
+  }
+
+  const savedItemIds = data as string[];
+  const savedSet = new Set(savedItemIds);
   return Response.json(
     {
       success: true,
-      saved: typeof data === "number" ? data : saves.length,
-      idempotencyKeys: saves.map((s) => s.idempotencyKey),
+      saved: savedItemIds.length,
+      savedItemIds,
+      idempotencyKeys: saves
+        .filter((s) => savedSet.has(s.itemId))
+        .map((s) => s.idempotencyKey),
     },
     { status: 200 },
   );
