@@ -183,13 +183,17 @@ export function WelcomeScreen({
                   className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.18em]"
                   style={{ color: "var(--runner-text-meta)" }}
                 >
-                  {totalItems ? `${totalItems} QUESTIONS` : ""}
+                  {totalItems
+                    ? `${totalItems} ${totalItems === 1 ? "QUESTION" : "QUESTIONS"}`
+                    : ""}
                   {totalItems && totalSections && (
                     <span style={{ color: "var(--runner-accent)" }}>
                       {" "}·{" "}
                     </span>
                   )}
-                  {totalSections ? `${totalSections} SECTIONS` : ""}
+                  {totalSections
+                    ? `${totalSections} ${totalSections === 1 ? "SECTION" : "SECTIONS"}`
+                    : ""}
                   {(totalItems || totalSections) && estimatedMinutes && (
                     <span style={{ color: "var(--runner-accent)" }}>
                       {" "}·{" "}
