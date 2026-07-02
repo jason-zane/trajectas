@@ -170,11 +170,20 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
 
   if (pathname === "/api/reports/generate") {
     const internalKey = request.headers.get("x-internal-key");
-    const bucket = internalKey
-      ? `internal:${hashValue(internalKey)}`
-      : `user:${userBucket(request, ip)}`;
+    if (internalKey) {
+      // Server-to-server triggers (submit flow, admin retry) share one bucket
+      // per key, so the limit is effectively the platform-wide completion
+      // throughput. The route itself authenticates the key (timing-safe
+      // compare) and downstream processing is claim-guarded, concurrency-
+      // capped, and sweep-backed — so a generous limit here is cheap.
+      return {
+        key: `reports:internal:${hashValue(internalKey)}`,
+        limit: 120,
+        windowMs: 60_000,
+      };
+    }
     return {
-      key: `reports:${bucket}`,
+      key: `reports:user:${userBucket(request, ip)}`,
       limit: 30,
       windowMs: 60_000,
     };
@@ -237,6 +246,21 @@ function resolveRule(request: NextRequest): RateLimitRule | null {
   }
 
   if (request.headers.has("next-action")) {
+    // Assessment participants are cookieless, so the generic bucket below
+    // falls back to IP — which collapses a whole office behind one NAT into
+    // a single 60/min budget. Their server actions POST to the tokenised
+    // runner URL, so key those per participant token instead. Tokens are
+    // 64-char lowercase hex (crypto.randomBytes(32).toString('hex')); the
+    // strict match excludes /assess/join, /assess/r, etc.
+    const assessMatch = pathname.match(/^\/assess\/([0-9a-f]{64})(?:\/|$)/);
+    if (assessMatch) {
+      return {
+        key: `action:assess:${hashValue(assessMatch[1])}`,
+        limit: 60,
+        windowMs: 60_000,
+      };
+    }
+
     return {
       key: `action:${userBucket(request, ip)}`,
       limit: 60,

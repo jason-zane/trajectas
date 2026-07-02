@@ -65,6 +65,145 @@ describe("request rate limiting", () => {
     });
   });
 
+  describe("assess-flow server actions keyed per participant token", () => {
+    const tokenA = "a".repeat(64);
+    const tokenB = "b".repeat(64);
+
+    function assessActionRequest(token: string, ip: string) {
+      return createRequest(
+        `https://trajectas.test/assess/${token}/section/1`,
+        {
+          method: "POST",
+          headers: {
+            "next-action": "action-id",
+            "x-forwarded-for": ip,
+          },
+        },
+      );
+    }
+
+    it("gives different participant tokens on the same IP independent buckets", async () => {
+      const sharedIp = "203.0.113.40";
+
+      // Exhaust token A's budget from the shared IP.
+      let resultA = null;
+      for (let attempt = 0; attempt < 61; attempt += 1) {
+        resultA = await checkRequestRateLimit(assessActionRequest(tokenA, sharedIp));
+      }
+      expect(resultA).toMatchObject({ allowed: false, limit: 60 });
+
+      // Token B behind the same NAT is unaffected.
+      const resultB = await checkRequestRateLimit(assessActionRequest(tokenB, sharedIp));
+      expect(resultB).toMatchObject({ allowed: true, limit: 60 });
+    });
+
+    it("shares one bucket for the same token across different IPs", async () => {
+      let result = null;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        result = await checkRequestRateLimit(
+          assessActionRequest(tokenA, `203.0.113.${attempt % 2 === 0 ? 50 : 51}`),
+        );
+      }
+      expect(result).toMatchObject({ allowed: true, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(
+        assessActionRequest(tokenA, "203.0.113.52"),
+      );
+      expect(blocked).toMatchObject({ allowed: false, limit: 60 });
+    });
+
+    it("keeps /assess/join on the per-IP enrollment bucket", async () => {
+      const request = createRequest(
+        "https://trajectas.test/assess/join/some-link-token",
+        {
+          method: "POST",
+          headers: {
+            "x-forwarded-for": "203.0.113.60",
+          },
+        },
+      );
+
+      let result = null;
+      for (let attempt = 0; attempt < 11; attempt += 1) {
+        result = await checkRequestRateLimit(request);
+      }
+      expect(result).toMatchObject({ allowed: false, limit: 10 });
+    });
+
+    it("falls back to the generic action bucket for non-token assess paths", async () => {
+      const ip = "203.0.113.70";
+      const junkPath = createRequest(
+        "https://trajectas.test/assess/not-a-64-hex-token",
+        {
+          method: "POST",
+          headers: {
+            "next-action": "action-id",
+            "x-forwarded-for": ip,
+          },
+        },
+      );
+      const otherPath = createRequest("https://trajectas.test/client", {
+        method: "POST",
+        headers: {
+          "next-action": "action-id",
+          "x-forwarded-for": ip,
+        },
+      });
+
+      // Both draw from the same IP-keyed generic bucket.
+      let result = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        result = await checkRequestRateLimit(junkPath);
+      }
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        result = await checkRequestRateLimit(otherPath);
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 60, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(junkPath);
+      expect(blocked).toMatchObject({ allowed: false, limit: 60 });
+    });
+  });
+
+  describe("report generation trigger buckets", () => {
+    it("allows 120/min for internal-key callers", async () => {
+      const request = createRequest("https://trajectas.test/api/reports/generate", {
+        method: "POST",
+        headers: {
+          "x-internal-key": "internal-secret",
+          "x-forwarded-for": "203.0.113.80",
+        },
+      });
+
+      let result = null;
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        result = await checkRequestRateLimit(request);
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 120, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(request);
+      expect(blocked).toMatchObject({ allowed: false, limit: 120 });
+    });
+
+    it("keeps 30/min for non-internal callers", async () => {
+      const request = createRequest("https://trajectas.test/api/reports/generate", {
+        method: "POST",
+        headers: {
+          "x-forwarded-for": "203.0.113.81",
+        },
+      });
+
+      let result = null;
+      for (let attempt = 0; attempt < 30; attempt += 1) {
+        result = await checkRequestRateLimit(request);
+      }
+      expect(result).toMatchObject({ allowed: true, limit: 30, remaining: 0 });
+
+      const blocked = await checkRequestRateLimit(request);
+      expect(blocked).toMatchObject({ allowed: false, limit: 30 });
+    });
+  });
+
   describe("fail-closed behavior for cost-bearing routes", () => {
     it("denies cost-bearing routes (/api/chat) on in-memory fallback when Redis configured-but-erroring", async () => {
       // Simulate Redis configured (getRedisClient returns non-null) but erroring
