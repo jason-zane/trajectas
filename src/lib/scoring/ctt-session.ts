@@ -45,12 +45,15 @@ interface FactorConstructLink {
  * none) can still derive bounds from binary-style configs: the seeded shape
  * keys option values as `labels` keys ({"0": "No", "1": "Yes"}) and the admin
  * form stores `trueValue`/`falseValue` — the runner's binary component
- * submits 0/1 in both cases. Only after that do we fall back to the config's
- * `points` (Likert) or the 1–5 default.
+ * submits 0/1 in both cases. A binary format whose config carries none of
+ * those shapes still scores 0–1 — the runner's hardcoded Yes=1/No=0 fallback
+ * applies to every option-less binary item. Only after that do we fall back
+ * to the config's `points` (Likert) or the 1–5 default.
  */
 export function deriveItemBounds(
   config: Record<string, unknown>,
   optionValues: number[],
+  formatType?: string,
 ): { minValue: number; maxValue: number } {
   const cfgMin = typeof config.minValue === 'number' ? config.minValue : undefined
   const cfgMax = typeof config.maxValue === 'number' ? config.maxValue : undefined
@@ -83,6 +86,9 @@ export function deriveItemBounds(
       minValue: Math.min(config.trueValue, config.falseValue),
       maxValue: Math.max(config.trueValue, config.falseValue),
     }
+  }
+  if (formatType === 'binary') {
+    return { minValue: cfgMin ?? 0, maxValue: cfgMax ?? 1 }
   }
   const points = typeof config.points === 'number' ? config.points : 5
   return { minValue: cfgMin ?? 1, maxValue: cfgMax ?? points }
@@ -132,16 +138,16 @@ export async function scoreSessionCTT(
 
   if (itemErr) return { error: itemErr.message }
 
-  // Get response format configs for min/max values
+  // Get response format type + config for min/max values
   const formatIds = [...new Set((itemRows ?? []).map((i) => i.response_format_id))]
   const { data: formatRows } = await db
     .from('response_formats')
-    .select('id, config')
+    .select('id, type, config')
     .in('id', formatIds)
 
-  const formatConfigMap = new Map<string, Record<string, unknown>>()
+  const formatMap = new Map<string, { type: string; config: Record<string, unknown> }>()
   for (const f of formatRows ?? []) {
-    formatConfigMap.set(f.id, f.config ?? {})
+    formatMap.set(f.id, { type: f.type ?? '', config: f.config ?? {} })
   }
 
   // Per-item option values: for option-based formats (binary, forced choice)
@@ -163,10 +169,11 @@ export async function scoreSessionCTT(
   for (const item of itemRows ?? []) {
     if (!item.construct_id) continue
 
-    const config = formatConfigMap.get(item.response_format_id) ?? {}
+    const format = formatMap.get(item.response_format_id)
     const { minValue, maxValue } = deriveItemBounds(
-      config,
+      format?.config ?? {},
       optionValuesByItem.get(item.id) ?? [],
+      format?.type,
     )
 
     itemMap.set(item.id, {

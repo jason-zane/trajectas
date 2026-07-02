@@ -239,6 +239,20 @@ describe('CTT session scoring logic', () => {
         maxValue: 5,
       })
     })
+
+    it('treats a bare binary format as 0–1 (runner hardcodes Yes=1/No=0 without options)', () => {
+      expect(deriveItemBounds({ options: 2 }, [], 'binary')).toEqual({
+        minValue: 0,
+        maxValue: 1,
+      })
+    })
+
+    it('does not apply the binary net to other format types', () => {
+      expect(deriveItemBounds({ options: 2 }, [], 'forced_choice')).toEqual({
+        minValue: 1,
+        maxValue: 5,
+      })
+    })
   })
 
   // -----------------------------------------------------------------------
