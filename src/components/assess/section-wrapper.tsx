@@ -508,9 +508,12 @@ export function SectionWrapper({
         </div>
       )}
 
-      {/* Main content area */}
+      {/* Main content area. The column is wide enough for a 6–7 point answer
+          scale to breathe; the question stem keeps its own narrower reading
+          measure (max-w-[620px] in ItemCard), so the serif question stays a
+          tight column while the options span the fuller width. */}
       <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-10 lg:px-[120px]">
-        <div className="w-full max-w-[620px]">
+        <div className="w-full max-w-[800px]">
           {/* Item card with crossfade animation */}
           <div
             className={`transition-opacity duration-150 ease-out motion-reduce:transition-none motion-reduce:!opacity-100 ${
