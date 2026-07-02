@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logActionError } from "@/lib/security/action-errors";
+import { checkAssessApiTokenRateLimit } from "@/lib/security/rate-limit";
 import {
   parseJsonRequestWithLimit,
   RequestBodyTooLargeError,
@@ -40,6 +41,19 @@ export async function POST(request: Request) {
   }
 
   const { token, sessionId, saves } = parsed.data;
+
+  // Per-token budget on top of the proxy's per-IP rule; keyed on the token
+  // actually submitted, so it can't be dodged by forging request headers.
+  const rateLimit = await checkAssessApiTokenRateLimit("save-batch", token);
+  if (rateLimit && !rateLimit.allowed) {
+    return Response.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      },
+    );
+  }
 
   const db = createAdminClient();
   const { data, error } = await db.rpc("save_responses_batch_for_session", {

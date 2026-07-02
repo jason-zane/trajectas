@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   inferSurfaceFromRequest,
@@ -29,6 +30,20 @@ export class AuthenticationRequiredError extends Error {
     super(message);
     this.name = "AuthenticationRequiredError";
   }
+}
+
+/**
+ * Render-path escape hatch: a dead/expired session during an RSC render must
+ * land the user on /login (which re-runs the middleware session refresh), not
+ * in the route error boundary — the boundary's retry re-renders the same
+ * errored tree and can never recover. Call from `catch` blocks in page-level
+ * data fetches; re-throws anything that isn't a dead-session error.
+ */
+export function redirectToLoginOnDeadSession(error: unknown): never {
+  if (error instanceof AuthenticationRequiredError) {
+    redirect("/login");
+  }
+  throw error;
 }
 
 export interface AuthorizedScope {

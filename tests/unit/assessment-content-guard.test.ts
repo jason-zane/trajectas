@@ -44,6 +44,13 @@ const adminDb = vi.hoisted(() => {
     return state.ops.filter((op) => op.table === table && op.method === method)
   }
 
+  function rpc(fn: string, args: unknown) {
+    state.ops.push({ table: `rpc:${fn}`, method: 'rpc', args: [args] })
+    const queue = state.queues.get(`rpc:${fn}`) ?? []
+    const result = queue.length > 0 ? (queue.shift() as Result) : { data: null, error: null }
+    return Promise.resolve({ data: null, error: null, ...result })
+  }
+
   function from(table: string) {
     const queue = state.queues.get(table) ?? []
     const result = queue.length > 0 ? (queue.shift() as Result) : { data: [], error: null }
@@ -75,7 +82,7 @@ const adminDb = vi.hoisted(() => {
     return builder
   }
 
-  return { seed, opsFor, client: { from } }
+  return { seed, opsFor, client: { from, rpc } }
 })
 
 vi.mock('@/lib/dal/assessment-content', () => dal)
@@ -84,6 +91,10 @@ vi.mock('@/lib/dal/assessment-sections', () => sectionsDal)
 
 vi.mock('@/lib/auth/authorization', () => ({
   AuthorizationError: class AuthorizationError extends Error {},
+  AuthenticationRequiredError: class AuthenticationRequiredError extends Error {},
+  redirectToLoginOnDeadSession: vi.fn((error: unknown) => {
+    throw error
+  }),
   canAccessClient: vi.fn(() => true),
   canManageAssessment: vi.fn(() => true),
   canManageAssessmentLibrary: vi.fn(() => true),
@@ -143,8 +154,11 @@ vi.mock('@/app/actions/client-entitlements', () => ({
 // Imports under test (AFTER mocks)
 // ---------------------------------------------------------------------------
 
-import { AuthorizationError } from '@/lib/auth/authorization'
-import { updateAssessmentMeta } from '@/app/actions/assessments'
+import { AuthenticationRequiredError, AuthorizationError } from '@/lib/auth/authorization'
+import {
+  updateAssessmentComposition,
+  updateAssessmentMeta,
+} from '@/app/actions/assessments'
 import { activateCampaign, addAssessmentToCampaign } from '@/app/actions/campaigns'
 
 const ASSESSMENT_ID = 'aaaa1111-1111-1111-1111-111111111111'
@@ -444,5 +458,51 @@ describe('activateCampaign content readiness gate', () => {
     expect(result).toMatchObject({
       error: expect.stringMatching(/participant or active access link/i),
     })
+  })
+})
+
+// =============================================================================
+// updateAssessmentComposition — atomic replacement, no revalidation blast
+// =============================================================================
+
+describe('updateAssessmentComposition', () => {
+  it('replaces factors via the advisory-locked RPC, preserving array order', async () => {
+    const result = await updateAssessmentComposition(ASSESSMENT_ID, {
+      factors: [{ factorId: 'f-2' }, { factorId: 'f-1' }],
+    })
+
+    expect(result).toEqual({ success: true })
+    const rpcCalls = adminDb.opsFor('rpc:replace_assessment_factors', 'rpc')
+    expect(rpcCalls).toHaveLength(1)
+    expect(rpcCalls[0].args[0]).toMatchObject({
+      p_assessment_id: ASSESSMENT_ID,
+      p_factors: [
+        { factor_id: 'f-2', weight: 1, item_count: 0 },
+        { factor_id: 'f-1', weight: 1, item_count: 0 },
+      ],
+    })
+    // No delete/insert pair — the RPC owns the whole replacement.
+    expect(adminDb.opsFor('assessment_factors', 'delete')).toHaveLength(0)
+    expect(adminDb.opsFor('assessment_factors', 'insert')).toHaveLength(0)
+  })
+
+  it('maps a dead session to a structured error instead of throwing to the boundary', async () => {
+    auth.requireAssessmentAccess.mockRejectedValue(new AuthenticationRequiredError())
+
+    const result = await updateAssessmentComposition(ASSESSMENT_ID, { factors: [] })
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/session has expired/i) })
+  })
+
+  it('surfaces an RPC failure as a structured error', async () => {
+    adminDb.seed({
+      'rpc:replace_assessment_factors': [{ error: { message: '23505' } }],
+    })
+
+    const result = await updateAssessmentComposition(ASSESSMENT_ID, {
+      factors: [{ factorId: 'f-1' }],
+    })
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/unable to save/i) })
   })
 })
