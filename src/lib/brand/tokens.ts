@@ -27,6 +27,7 @@ import {
 } from './defaults'
 import { generateReportCSSTokens } from '@/lib/reports/report-tokens'
 import { DEFAULT_REPORT_THEME } from '@/lib/reports/presentation'
+import { getFontByName } from './fonts'
 
 // ---------------------------------------------------------------------------
 // Color math — hex ↔ OKLCH conversion
@@ -744,20 +745,15 @@ function sanitiseCSSValue(value: string): string {
   return value.replace(/[<>{}();\\"/]/g, '')
 }
 
-/** Get CSS font-family string for a font name. */
+/**
+ * Get the CSS font-family string for a font name.
+ *
+ * Resolves against the curated font list (fonts.ts), which carries the
+ * correct fallback per family (serif → Georgia, serif; mono → monospace;
+ * sans → system-ui). Unknown names fall back to a sanitised generic sans.
+ */
 function getFontFamily(fontName: string): string {
-  // Import here would create circular dependency, so use a simple lookup
-  const FONT_FAMILIES: Record<string, string> = {
-    'Plus Jakarta Sans': '"Plus Jakarta Sans", system-ui, sans-serif',
-    'Inter': '"Inter", system-ui, sans-serif',
-    'DM Sans': '"DM Sans", system-ui, sans-serif',
-    'Sora': '"Sora", system-ui, sans-serif',
-    'Outfit': '"Outfit", system-ui, sans-serif',
-    'Manrope': '"Manrope", system-ui, sans-serif',
-    'Source Sans 3': '"Source Sans 3", system-ui, sans-serif',
-    'Geist Mono': '"Geist Mono", ui-monospace, monospace',
-    'JetBrains Mono': '"JetBrains Mono", ui-monospace, monospace',
-    'Fira Code': '"Fira Code", ui-monospace, monospace',
-  }
-  return FONT_FAMILIES[fontName] ?? `"${sanitiseCSSValue(fontName)}", system-ui, sans-serif`
+  const font = getFontByName(fontName)
+  if (font) return font.family
+  return `"${sanitiseCSSValue(fontName)}", system-ui, sans-serif`
 }

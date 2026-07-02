@@ -135,6 +135,34 @@ export const HEADING_BODY_FONTS: FontOption[] = [
     weights: [400, 500, 600, 700],
     googleId: 'Nunito+Sans',
   },
+  {
+    name: 'Instrument Sans',
+    family: '"Instrument Sans", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Instrument+Sans',
+  },
+  {
+    name: 'Space Grotesk',
+    family: '"Space Grotesk", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Space+Grotesk',
+  },
+  {
+    name: 'Bricolage Grotesque',
+    family: '"Bricolage Grotesque", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'Bricolage+Grotesque',
+  },
+  {
+    name: 'IBM Plex Sans',
+    family: '"IBM Plex Sans", system-ui, sans-serif',
+    category: 'sans',
+    weights: [400, 500, 600, 700],
+    googleId: 'IBM+Plex+Sans',
+  },
   // -- Serifs ---------------------------------------------------------------
   {
     name: 'Fraunces',
@@ -185,6 +213,34 @@ export const HEADING_BODY_FONTS: FontOption[] = [
     weights: [400, 500, 600, 700],
     googleId: 'EB+Garamond',
   },
+  {
+    name: 'Playfair Display',
+    family: '"Playfair Display", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Playfair+Display',
+  },
+  {
+    name: 'Spectral',
+    family: '"Spectral", Georgia, serif',
+    category: 'serif',
+    weights: [400, 500, 600, 700],
+    googleId: 'Spectral',
+  },
+  {
+    name: 'Libre Baskerville',
+    family: '"Libre Baskerville", Georgia, serif',
+    category: 'serif',
+    weights: [400, 700],
+    googleId: 'Libre+Baskerville',
+  },
+  {
+    name: 'Instrument Serif',
+    family: '"Instrument Serif", Georgia, serif',
+    category: 'serif',
+    weights: [400],
+    googleId: 'Instrument+Serif',
+  },
 ]
 
 export const MONO_FONTS: FontOption[] = [
@@ -208,6 +264,20 @@ export const MONO_FONTS: FontOption[] = [
     category: 'mono',
     weights: [400, 500, 600, 700],
     googleId: 'Fira+Code',
+  },
+  {
+    name: 'IBM Plex Mono',
+    family: '"IBM Plex Mono", ui-monospace, monospace',
+    category: 'mono',
+    weights: [400, 500, 600, 700],
+    googleId: 'IBM+Plex+Mono',
+  },
+  {
+    name: 'Space Mono',
+    family: '"Space Mono", ui-monospace, monospace',
+    category: 'mono',
+    weights: [400, 700],
+    googleId: 'Space+Mono',
   },
 ]
 
