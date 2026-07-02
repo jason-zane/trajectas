@@ -18,6 +18,26 @@ export type ItemWithMeta = Item & {
 
 export type SelectOption = { id: string; name: string; slug?: string }
 
+export type ItemOptionInput = {
+  label: string
+  value: number
+  /** Keyed score for choosing this option; null/undefined = not keyed. */
+  scoreValue?: number | null
+  /** Selecting this option drops the response from scoring ("Don't know"). */
+  excludeFromScoring?: boolean
+}
+
+function toItemOptionRow(itemId: string, opt: ItemOptionInput, index: number) {
+  return {
+    item_id: itemId,
+    label: opt.label,
+    value: opt.value,
+    score_value: typeof opt.scoreValue === 'number' ? opt.scoreValue : null,
+    exclude_from_scoring: opt.excludeFromScoring === true,
+    display_order: index + 1,
+  }
+}
+
 async function getItemsImpl(): Promise<ItemWithMeta[]> {
   const db = createAdminClient()
   const { data, error } = await db
@@ -206,14 +226,9 @@ export async function createItem(formData: FormData) {
   const optionsJson = formData.get('options') as string
   if (optionsJson) {
     try {
-      const options = JSON.parse(optionsJson) as { label: string; value: number }[]
+      const options = JSON.parse(optionsJson) as ItemOptionInput[]
       if (options.length > 0) {
-        const optionRows = options.map((opt, i) => ({
-          item_id: data.id,
-          label: opt.label,
-          value: opt.value,
-          display_order: i + 1,
-        }))
+        const optionRows = options.map((opt, i) => toItemOptionRow(data.id, opt, i))
         const { error: insertOptErr } = await db.from('item_options').insert(optionRows)
         if (insertOptErr) logActionError('createItem', insertOptErr)
       }
@@ -290,18 +305,13 @@ export async function updateItem(id: string, formData: FormData) {
   const optionsJson = formData.get('options') as string
   if (optionsJson) {
     try {
-      const options = JSON.parse(optionsJson) as { label: string; value: number }[]
+      const options = JSON.parse(optionsJson) as ItemOptionInput[]
       // Delete existing options
       const { error: deleteOptErr } = await db.from('item_options').delete().eq('item_id', id)
       if (deleteOptErr) logActionError('updateItem', deleteOptErr)
       // Insert new options
       if (options.length > 0) {
-        const optionRows = options.map((opt, i) => ({
-          item_id: id,
-          label: opt.label,
-          value: opt.value,
-          display_order: i + 1,
-        }))
+        const optionRows = options.map((opt, i) => toItemOptionRow(id, opt, i))
         const { error: insertOptErr } = await db.from('item_options').insert(optionRows)
         if (insertOptErr) logActionError('updateItem', insertOptErr)
       }
@@ -478,17 +488,22 @@ export async function restoreItems(ids: string[]) {
   return { success: true, count: uniqueIds.length }
 }
 
-export async function getItemOptions(itemId: string): Promise<{ label: string; value: number }[]> {
+export async function getItemOptions(itemId: string): Promise<ItemOptionInput[]> {
   await requireAdminScope()
   const db = createAdminClient()
   const { data, error } = await db
     .from('item_options')
-    .select('label, value, display_order')
+    .select('label, value, score_value, exclude_from_scoring, display_order')
     .eq('item_id', itemId)
     .order('display_order', { ascending: true })
 
   if (error || !data) return []
-  return data.map((row) => ({ label: row.label, value: Number(row.value) }))
+  return data.map((row) => ({
+    label: row.label,
+    value: Number(row.value),
+    scoreValue: row.score_value == null ? null : Number(row.score_value),
+    excludeFromScoring: row.exclude_from_scoring ?? false,
+  }))
 }
 
 export async function getItemParameters(itemId: string) {
