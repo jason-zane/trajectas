@@ -192,6 +192,12 @@ export async function scoreSessionCTT(
     if (!item.construct_id) continue
 
     const format = formatMap.get(item.response_format_id)
+
+    // Free-text responses are qualitative: the stored response_value is only
+    // a presence flag, so letting it into POMP aggregates would drag every
+    // construct mean toward 0. Text lives in response_data for later use.
+    if (format?.type === 'free_text') continue
+
     const { minValue, maxValue } = deriveItemBounds(
       format?.config ?? {},
       optionValuesByItem.get(item.id) ?? [],
@@ -234,9 +240,23 @@ export async function scoreSessionCTT(
     if (keyedOutcome?.kind === 'scored') {
       pompValue = keyedOutcome.pomp
     } else {
+      const rawValue = Number(resp.response_value)
+
+      // A response outside the derived bounds means option values and bounds
+      // disagree — a data bug, not participant behaviour. Clamping keeps the
+      // score sane, but silently clamping is how the 0-indexed-anchors bug
+      // went unnoticed; make it loud so it surfaces in logs immediately.
+      if (rawValue < meta.minValue || rawValue > meta.maxValue) {
+        console.error(
+          `[scoring] Response out of bounds for item ${meta.id} in session ${sessionId}: ` +
+            `value=${rawValue}, bounds=${meta.minValue}–${meta.maxValue}. ` +
+            `Clamped, but the item's options/bounds need fixing.`,
+        )
+      }
+
       const effectiveValue = meta.reverseScored
-        ? meta.maxValue - Number(resp.response_value) + meta.minValue
-        : Number(resp.response_value)
+        ? meta.maxValue - rawValue + meta.minValue
+        : rawValue
 
       // POMP, clamped to 0–100 so a response outside the derived bounds can
       // never push a persisted score negative or above the scale.

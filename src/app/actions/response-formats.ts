@@ -108,6 +108,12 @@ export async function createResponseFormat(formData: FormData) {
     return { error: parsed.error.flatten().fieldErrors }
   }
 
+  // Retired from authoring (decision 2026-07-02): the enum keeps
+  // forced_choice so legacy rows stay editable, but new ones can't be created.
+  if (parsed.data.type === 'forced_choice') {
+    return { error: { _form: ['Forced choice formats can no longer be created.'] } }
+  }
+
   const db = createAdminClient()
 
   const { data, error: insertErr } = await db
