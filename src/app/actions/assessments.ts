@@ -4,11 +4,13 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
+  AuthenticationRequiredError,
   AuthorizationError,
   canManageAssessment,
   canManageAssessmentLibrary,
   getAccessibleCampaignIds,
   getPreferredPartnerIdForAssessmentCreation,
+  redirectToLoginOnDeadSession,
   requireAdminScope,
   requireAssessmentAccess,
   resolveAuthorizedScope,
@@ -83,6 +85,9 @@ const EMPTY_ASSESSMENT_ACTIVATION_ERROR =
 
 const CONTENT_CHECK_FAILED_ERROR =
   'Unable to verify that this assessment has questions right now. Try again.'
+
+const SESSION_EXPIRED_ERROR =
+  'Your session has expired. Refresh the page and sign in again to keep editing.'
 
 export type BuilderFactor = {
   id: string
@@ -568,7 +573,7 @@ export async function getAssessmentById(id: string): Promise<Assessment | null> 
     if (error instanceof AuthorizationError) {
       return null
     }
-    throw error
+    redirectToLoginOnDeadSession(error)
   }
 
   const db = createAdminClient()
@@ -594,15 +599,19 @@ export async function getAssessmentWithFactors(id: string): Promise<{
     if (error instanceof AuthorizationError) {
       return null
     }
-    throw error
+    redirectToLoginOnDeadSession(error)
   }
 
   const db = createAdminClient()
   const { data, error } = await db
     .from('assessments')
-    .select('*, assessment_factors(factor_id, weight, item_count)')
+    .select('*, assessment_factors(factor_id, weight, item_count, display_order)')
     .eq('id', id)
     .is('deleted_at', null)
+    .order('display_order', {
+      referencedTable: 'assessment_factors',
+      ascending: true,
+    })
     .single()
 
   if (error) return null
@@ -931,18 +940,17 @@ export async function updateAssessment(id: string, payload: Record<string, unkno
 
   if (updateErr) return { error: { _form: [updateErr.message] } }
 
-  await db.from('assessment_factors').delete().eq('assessment_id', id)
-
-  if (parsed.data.factors.length > 0) {
-    const links = parsed.data.factors.map((f) => ({
-      assessment_id: id,
+  // Atomic replacement (advisory-locked transaction in the RPC) — see
+  // updateAssessmentComposition for the rationale.
+  const { error: linkError } = await db.rpc('replace_assessment_factors', {
+    p_assessment_id: id,
+    p_factors: parsed.data.factors.map((f) => ({
       factor_id: f.factorId,
       weight: f.weight,
       item_count: f.itemCount,
-    }))
-    const { error: linkError } = await db.from('assessment_factors').insert(links)
-    if (linkError) return { error: { _form: [linkError.message] } }
-  }
+    })),
+  })
+  if (linkError) return { error: { _form: [linkError.message] } }
 
   // Guard: if any existing section of this assessment has participant responses,
   // we cannot safely replace sections — the participant_responses.section_id FK
@@ -1181,7 +1189,9 @@ export async function updateAssessmentField(id: string, field: string, value: st
 
   if (error) return { error: error.message }
 
-  revalidateAssessmentPaths()
+  // No revalidatePath: per-interaction auto-saves must not trigger the full-route
+  // re-render + prefetch-cache purge that revalidation inside an action causes.
+  // List pages render dynamically per-request; router cache staleness ≤30s.
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.description.updated',
@@ -1243,7 +1253,9 @@ export async function updateAssessmentCustomisation(
     return { error: 'Unable to update customisation settings.' }
   }
 
-  revalidateAssessmentPaths()
+  // No revalidatePath: per-interaction auto-saves must not trigger the full-route
+  // re-render + prefetch-cache purge that revalidation inside an action causes.
+  // List pages render dynamically per-request; router cache staleness ≤30s.
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.customisation.updated',
@@ -1495,6 +1507,10 @@ export async function updateAssessmentMeta(
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
   } catch (error) {
     if (error instanceof AuthorizationError) return { error: error.message }
+    // A dead session must degrade to a structured error, not a thrown one — a
+    // throw from an action lands in the route error boundary ("We hit a
+    // snag") instead of telling the user to sign back in.
+    if (error instanceof AuthenticationRequiredError) return { error: SESSION_EXPIRED_ERROR }
     throw error
   }
   if (!scope) return { error: 'Unable to resolve assessment scope.' }
@@ -1552,7 +1568,9 @@ export async function updateAssessmentMeta(
     return { error: 'Unable to save changes.' }
   }
 
-  revalidateAssessmentPaths()
+  // No revalidatePath: per-interaction auto-saves must not trigger the full-route
+  // re-render + prefetch-cache purge that revalidation inside an action causes.
+  // List pages render dynamically per-request; router cache staleness ≤30s.
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.meta.updated',
@@ -1577,6 +1595,10 @@ export async function updateAssessmentComposition(
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
   } catch (error) {
     if (error instanceof AuthorizationError) return { error: error.message }
+    // A dead session must degrade to a structured error, not a thrown one — a
+    // throw from an action lands in the route error boundary ("We hit a
+    // snag") instead of telling the user to sign back in.
+    if (error instanceof AuthenticationRequiredError) return { error: SESSION_EXPIRED_ERROR }
     throw error
   }
   if (!scope) return { error: 'Unable to resolve assessment scope.' }
@@ -1588,22 +1610,29 @@ export async function updateAssessmentComposition(
   const lockName = await getAssessmentCustomReportLockName(db, assessmentId)
   if (lockName) return { error: formatTaxonomyLockedError(lockName) }
 
-  await db.from('assessment_factors').delete().eq('assessment_id', assessmentId)
-  if (payload.factors.length > 0) {
-    const rows = payload.factors.map((f) => ({
-      assessment_id: assessmentId,
+  // Atomic replacement (advisory-locked transaction in the RPC): concurrent
+  // writers — second tab, partner portal — can no longer interleave the old
+  // delete/insert pair into unique violations or a stranded empty selection.
+  // Array order is persisted as display_order, so the canvas order survives.
+  const { error } = await db.rpc('replace_assessment_factors', {
+    p_assessment_id: assessmentId,
+    p_factors: payload.factors.map((f) => ({
       factor_id: f.factorId,
       weight: f.weight ?? 1,
       item_count: 0,
-    }))
-    const { error } = await db.from('assessment_factors').insert(rows)
-    if (error) {
-      logActionError('updateAssessmentComposition.factors', error)
-      return { error: 'Unable to save factor selection.' }
-    }
+    })),
+  })
+  if (error) {
+    logActionError('updateAssessmentComposition.factors', error)
+    return { error: 'Unable to save factor selection.' }
   }
 
-  revalidateAssessmentPaths()
+  // No revalidatePath here: any revalidation inside a server action makes
+  // Next re-render the whole current route in the action response and purge
+  // the client prefetch cache — the "entire shell flips to its loading page"
+  // on every drag. The list pages that show factor counts are dynamically
+  // rendered per-request and the client router cache is capped at 30s
+  // (staleTimes.dynamic), so they stay fresh without a per-keystroke purge.
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.composition.updated',
@@ -1632,6 +1661,10 @@ export async function updateAssessmentPresentation(
     ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
   } catch (error) {
     if (error instanceof AuthorizationError) return { error: error.message }
+    // A dead session must degrade to a structured error, not a thrown one — a
+    // throw from an action lands in the route error boundary ("We hit a
+    // snag") instead of telling the user to sign back in.
+    if (error instanceof AuthenticationRequiredError) return { error: SESSION_EXPIRED_ERROR }
     throw error
   }
   if (!scope) return { error: 'Unable to resolve assessment scope.' }
@@ -1733,7 +1766,9 @@ export async function updateAssessmentPresentation(
     }
   }
 
-  revalidateAssessmentPaths()
+  // No revalidatePath: per-interaction auto-saves must not trigger the full-route
+  // re-render + prefetch-cache purge that revalidation inside an action causes.
+  // List pages render dynamically per-request; router cache staleness ≤30s.
   await logAuditEvent({
     actorProfileId: scope.actor?.id ?? null,
     eventType: 'assessment.presentation.updated',
@@ -1759,6 +1794,10 @@ export async function createAssessmentDraft(payload: {
     scope = await requireAssessmentBuilderScope()
   } catch (error) {
     if (error instanceof AuthorizationError) return { error: error.message }
+    // A dead session must degrade to a structured error, not a thrown one — a
+    // throw from an action lands in the route error boundary ("We hit a
+    // snag") instead of telling the user to sign back in.
+    if (error instanceof AuthenticationRequiredError) return { error: SESSION_EXPIRED_ERROR }
     throw error
   }
   if (!scope) return { error: 'Unable to resolve assessment scope.' }

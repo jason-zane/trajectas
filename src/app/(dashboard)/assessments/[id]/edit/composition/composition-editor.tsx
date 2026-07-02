@@ -1,7 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import Link from "next/link"
+import { unstable_isUnrecognizedActionError } from "next/navigation"
 import { toast } from "sonner"
 import { DragDropProvider } from "@dnd-kit/react"
 import { move } from "@dnd-kit/helpers"
@@ -29,6 +37,15 @@ interface CompositionEditorProps {
   showLibraryLinks?: boolean
 }
 
+/** Trailing debounce so a drag burst coalesces into one save. */
+const SAVE_DEBOUNCE_MS = 400
+
+type RuleInfo = {
+  constructCount: number
+  itemsPerConstruct: number | null
+  shortfalls: ConstructShortfall[]
+}
+
 export function CompositionEditor({
   assessmentId,
   hasExistingSections,
@@ -36,9 +53,14 @@ export function CompositionEditor({
   allFactors,
   showLibraryLinks = true,
 }: CompositionEditorProps) {
-  const [selectedFactors, setSelectedFactors] = useState<BuilderFactor[]>(() =>
-    allFactors.filter((f) => initialFactorIds.includes(f.id)),
-  )
+  // Preserve the server-persisted canvas order (assessment_factors.display_order)
+  // rather than re-sorting the selection into library order.
+  const [selectedFactors, setSelectedFactors] = useState<BuilderFactor[]>(() => {
+    const byId = new Map(allFactors.map((f) => [f.id, f]))
+    return initialFactorIds
+      .map((id) => byId.get(id))
+      .filter((f): f is BuilderFactor => Boolean(f))
+  })
   const [isPending, startTransition] = useTransition()
 
   const selectedIds = useMemo(
@@ -46,19 +68,67 @@ export function CompositionEditor({
     [selectedFactors],
   )
 
-  const persist = useCallback(
+  const save = useCallback(
     (factors: BuilderFactor[]) => {
       startTransition(async () => {
-        const result = await updateAssessmentComposition(assessmentId, {
-          factors: factors.map((f) => ({ factorId: f.id })),
-        })
-        if (result && "error" in result) {
-          toast.error(result.error)
+        try {
+          const result = await updateAssessmentComposition(assessmentId, {
+            factors: factors.map((f) => ({ factorId: f.id })),
+          })
+          if (result && "error" in result) {
+            toast.error(result.error)
+          }
+        } catch (error) {
+          // A thrown action failure (deploy skew, rate limiting, network drop)
+          // must surface as a toast — letting it bubble unwinds the whole
+          // route into the error boundary and unmounts the editor.
+          if (unstable_isUnrecognizedActionError(error)) {
+            toast.error(
+              "Trajectas was updated in the background. Refresh the page to keep editing.",
+            )
+          } else {
+            toast.error(
+              "Couldn't save your factor selection. Check your connection and try again.",
+            )
+          }
         }
       })
     },
     [assessmentId],
   )
+
+  const pendingSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestFactorsRef = useRef<BuilderFactor[] | null>(null)
+
+  const persist = useCallback(
+    (factors: BuilderFactor[]) => {
+      latestFactorsRef.current = factors
+      if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current)
+      pendingSaveRef.current = setTimeout(() => {
+        pendingSaveRef.current = null
+        const latest = latestFactorsRef.current
+        latestFactorsRef.current = null
+        if (latest) save(latest)
+      }, SAVE_DEBOUNCE_MS)
+    },
+    [save],
+  )
+
+  // Flush a still-debouncing save if the editor unmounts (tab switch,
+  // navigation) so the last change isn't silently dropped.
+  useEffect(() => {
+    return () => {
+      if (pendingSaveRef.current) {
+        clearTimeout(pendingSaveRef.current)
+        const latest = latestFactorsRef.current
+        if (latest) {
+          void updateAssessmentComposition(assessmentId, {
+            factors: latest.map((f) => ({ factorId: f.id })),
+          }).catch(() => {})
+        }
+      }
+    }
+  }, [assessmentId])
 
   const toggleFactor = useCallback(
     (factor: BuilderFactor) => {
@@ -89,26 +159,38 @@ export function CompositionEditor({
     () => selectedFactors.map((f) => f.id),
     [selectedFactors],
   )
-  const [ruleInfo, setRuleInfo] = useState<{
-    constructCount: number
-    itemsPerConstruct: number | null
-    shortfalls: ConstructShortfall[]
-  } | null>(null)
+  const [ruleInfo, setRuleInfo] = useState<RuleInfo | null>(null)
+
+  // Rule info depends on the SET of factors, not their order — key the lookup
+  // order-insensitively and cache it so reorders and re-adds don't fire extra
+  // action POSTs (each counts against the per-user action rate budget).
+  const ruleCacheRef = useRef(new Map<string, RuleInfo>())
+  const ruleKey = useMemo(() => [...factorIds].sort().join(","), [factorIds])
 
   useEffect(() => {
     if (factorIds.length === 0) {
       setRuleInfo(null)
       return
     }
+    const cached = ruleCacheRef.current.get(ruleKey)
+    if (cached) {
+      setRuleInfo(cached)
+      return
+    }
     let cancelled = false
-    getItemsPerConstructLimit({ factorIds }).then((info) => {
-      if (!cancelled) setRuleInfo(info)
-    })
+    getItemsPerConstructLimit({ factorIds })
+      .then((info) => {
+        ruleCacheRef.current.set(ruleKey, info)
+        if (!cancelled) setRuleInfo(info)
+      })
+      .catch(() => {
+        // Advisory display only — a failed lookup must never crash the editor.
+      })
     return () => {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [factorIds.join(",")])
+  }, [ruleKey])
 
   return (
     <div className="space-y-6">
@@ -163,7 +245,13 @@ export function CompositionEditor({
                 return
               }
 
-              setSelectedFactors((prev) => move(prev, event))
+              // Reorders persist too — display_order round-trips, so the
+              // arrangement survives reloads instead of silently reverting.
+              setSelectedFactors((prev) => {
+                const next = move(prev, event)
+                persist(next)
+                return next
+              })
             }}
           >
             <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
