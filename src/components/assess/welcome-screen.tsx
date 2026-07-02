@@ -45,7 +45,6 @@ export function WelcomeScreen({
   assessments,
   sessions,
   totalItems,
-  participantFirstName,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ...rest
 }: WelcomeScreenProps & Record<string, unknown>) {
@@ -120,7 +119,11 @@ export function WelcomeScreen({
             {content.eyebrow || campaign.title}
           </p>
 
-          {/* Heading with time-of-day greeting substitution */}
+          {/* Heading with time-of-day greeting substitution. The server
+              interpolates {{timeOfDayGreeting}} with server time; when (and
+              only when) the resolved heading actually starts with that
+              greeting pattern, swap the word for the participant's local
+              time. Custom headings without a greeting render verbatim. */}
           <h1
             className="font-serif text-[clamp(2.75rem,5vw,2.875rem)] font-semibold leading-[1.15] tracking-[-0.01em]"
             style={{
@@ -129,8 +132,11 @@ export function WelcomeScreen({
             }}
             suppressHydrationWarning
           >
-            {greetingWord && participantFirstName
-              ? `Good ${greetingWord}, ${participantFirstName}. ${content.heading.replace(/^Good \w+,?\s+[^.]+\.\s*/, '')}`
+            {greetingWord
+              ? content.heading.replace(
+                  /^Good (morning|afternoon|evening)\b/,
+                  `Good ${greetingWord}`,
+                )
               : content.heading}
           </h1>
 

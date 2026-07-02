@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import {
   assertAdminOnly,
   AuthorizationError,
+  canManageCampaign,
   canManageClient,
   canManagePartner,
   requireAdminScope,
@@ -193,6 +194,42 @@ export const getCachedEffectiveBrand = unstable_cache(
 // ---------------------------------------------------------------------------
 
 /**
+ * Assert the caller may manage branding for the given owner.
+ *
+ * Campaign branding is manageable by admins of the campaign's client or
+ * partner (matching the campaign detail surface), not only platform admins.
+ */
+async function assertCanManageBrandOwner(
+  scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
+  ownerType: BrandOwnerType,
+  ownerId: string | null
+): Promise<void> {
+  if (ownerType === 'client' && ownerId) {
+    if (!canManageClient(scope, ownerId)) {
+      throw new AuthorizationError('Not authorized to manage this client')
+    }
+  } else if (ownerType === 'partner' && ownerId) {
+    if (!canManagePartner(scope, ownerId)) {
+      throw new AuthorizationError('Not authorized to manage this partner')
+    }
+  } else if (ownerType === 'campaign' && ownerId) {
+    const db = createAdminClient()
+    const { data: campaign } = await db
+      .from('campaigns')
+      .select('client_id')
+      .eq('id', ownerId)
+      .single()
+    const clientId = campaign?.client_id ? String(campaign.client_id) : null
+    const partnerId = clientId ? await getClientPartnerId(clientId) : null
+    if (!clientId || !canManageCampaign(scope, partnerId, clientId)) {
+      throw new AuthorizationError('Not authorized to manage this campaign')
+    }
+  } else {
+    assertAdminOnly(scope)
+  }
+}
+
+/**
  * Create or update a brand config.
  *
  * The platform config must be complete (it is the merge base); partner/
@@ -207,17 +244,7 @@ export async function upsertBrandConfig(
   configInput: unknown
 ): Promise<{ error?: Record<string, string[]> }> {
   const scope = await resolveAuthorizedScope()
-  if (ownerType === 'client' && ownerId) {
-    if (!canManageClient(scope, ownerId)) {
-      throw new AuthorizationError('Not authorized to manage this client')
-    }
-  } else if (ownerType === 'partner' && ownerId) {
-    if (!canManagePartner(scope, ownerId)) {
-      throw new AuthorizationError('Not authorized to manage this partner')
-    }
-  } else {
-    assertAdminOnly(scope)
-  }
+  await assertCanManageBrandOwner(scope, ownerType, ownerId)
   const schema = ownerType === 'platform' ? brandConfigSchema : brandOverridesSchema
   const parsed = schema.safeParse(configInput)
   if (!parsed.success) {
@@ -298,17 +325,7 @@ export async function resetBrandToDefault(
   ownerId: string | null
 ): Promise<{ error?: string }> {
   const scope = await resolveAuthorizedScope()
-  if (ownerType === 'client' && ownerId) {
-    if (!canManageClient(scope, ownerId)) {
-      throw new AuthorizationError('Not authorized to manage this client')
-    }
-  } else if (ownerType === 'partner' && ownerId) {
-    if (!canManagePartner(scope, ownerId)) {
-      throw new AuthorizationError('Not authorized to manage this partner')
-    }
-  } else {
-    assertAdminOnly(scope)
-  }
+  await assertCanManageBrandOwner(scope, ownerType, ownerId)
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform brand — edit it instead.' }
   }
