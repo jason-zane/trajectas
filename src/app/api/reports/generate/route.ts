@@ -1,7 +1,10 @@
 import { after } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { processSnapshot } from '@/lib/reports/runner'
-import { processSnapshotsBounded } from '@/lib/reports/generation-sweep'
+import {
+  processSnapshotsBounded,
+  shouldDeferInlineProcessing,
+} from '@/lib/reports/generation-sweep'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   AuthenticationRequiredError,
@@ -83,6 +86,13 @@ export async function POST(request: Request) {
       const ids = (data ?? []).map((r: { id: string }) => r.id)
       // Bounded concurrency: each snapshot can involve LLM calls and a
       // deferred Chromium PDF render, so an uncapped fan-out risks OOM.
+      // The per-request cap doesn't bound concurrent *requests* (every
+      // completion fires its own trigger), so during bursts the global gate
+      // leaves snapshots pending for the sweep cron instead — the report
+      // page polls long enough to cover a sweep cycle.
+      if (await shouldDeferInlineProcessing(db)) {
+        return Response.json({ queued: ids, deferred: true }, { status: 202 })
+      }
       after(() => processSnapshotsBounded(ids))
       return Response.json({ queued: ids }, { status: 202 })
     }

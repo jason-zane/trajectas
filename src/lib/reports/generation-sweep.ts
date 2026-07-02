@@ -25,8 +25,26 @@ type ProcessFn = typeof processSnapshot
  */
 export const REPORT_PROCESS_CONCURRENCY = 2
 
-/** Max pending snapshots picked up per sweep run; backlog drains over runs. */
+/** Max pending snapshots picked up per sweep round. */
 export const SWEEP_BATCH = 10
+
+/**
+ * Wall-clock budget for one sweep run. The cron route's maxDuration is 300s;
+ * stop picking new batches with headroom so in-flight jobs can finish.
+ */
+export const SWEEP_TIME_BUDGET_MS = 240 * 1000
+
+/** Safety valve on sweep rounds in case pending rows never drain. */
+const MAX_SWEEP_ROUNDS = 20
+
+/**
+ * Global backpressure threshold for the trigger path. Each completion trigger
+ * processes inline only while fewer than this many snapshots are 'generating'
+ * platform-wide; past it, work is left pending for the sweep. The count check
+ * is read-then-act (small races overshoot slightly) — it's backpressure, not
+ * a hard semaphore.
+ */
+export const MAX_GLOBAL_GENERATING = 6
 
 /**
  * A snapshot 'generating' for longer than this is presumed orphaned (the
@@ -81,6 +99,31 @@ export async function processSnapshotsBounded(
   return { processed, failed }
 }
 
+/**
+ * Whether the trigger path should skip inline processing and leave snapshots
+ * pending for the sweep. True when the platform-wide count of 'generating'
+ * snapshots is at or above MAX_GLOBAL_GENERATING — the per-request concurrency
+ * cap doesn't bound concurrent *requests*, so this is the global brake during
+ * completion bursts. Fails open (returns false) on a count error: processing
+ * inline is the pre-existing behaviour and the claim guard keeps it safe.
+ */
+export async function shouldDeferInlineProcessing(
+  client?: AdminClient,
+): Promise<boolean> {
+  const db = client ?? createAdminClient()
+  const { count, error } = await db
+    .from('report_snapshots')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'generating')
+
+  if (error) {
+    console.error('[reports] Failed to count generating snapshots:', error)
+    return false
+  }
+
+  return (count ?? 0) >= MAX_GLOBAL_GENERATING
+}
+
 export async function sweepReportGeneration(
   opts: GenerationSweepOptions = {},
 ): Promise<GenerationSweepResult> {
@@ -104,24 +147,42 @@ export async function sweepReportGeneration(
   }
   const resetStuck = (resetRows ?? []).length
 
-  // 2. Pick up the oldest pending snapshots (uses report_snapshots_pending_idx).
-  const { data: pendingRows, error: pendingError } = await db
-    .from('report_snapshots')
-    .select('id')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true })
-    .limit(SWEEP_BATCH)
+  // 2. Drain pending snapshots in batches until the queue is empty or the
+  // time budget runs out. Processing flips rows out of 'pending', so each
+  // round's oldest-first query naturally advances (report_snapshots_pending_idx).
+  let picked = 0
+  let processed = 0
+  let failed = 0
+  const startedAt = Date.now()
 
-  if (pendingError) {
-    console.error('[reports] Sweep failed to list pending snapshots:', pendingError)
-    return { resetStuck, picked: 0, processed: 0, failed: 0 }
+  for (let round = 0; round < MAX_SWEEP_ROUNDS; round += 1) {
+    if (round > 0 && Date.now() - startedAt >= SWEEP_TIME_BUDGET_MS) break
+
+    const { data: pendingRows, error: pendingError } = await db
+      .from('report_snapshots')
+      .select('id')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true })
+      .limit(SWEEP_BATCH)
+
+    if (pendingError) {
+      console.error('[reports] Sweep failed to list pending snapshots:', pendingError)
+      break
+    }
+
+    const ids = (pendingRows ?? []).map((row: { id: string }) => row.id)
+    if (ids.length === 0) break
+
+    // 3. Process with bounded concurrency; the claim guard in processSnapshot
+    // makes races with the trigger path harmless.
+    const result = await processSnapshotsBounded(ids, processFn)
+    picked += ids.length
+    processed += result.processed
+    failed += result.failed
+
+    // A short batch means the queue is drained.
+    if (ids.length < SWEEP_BATCH) break
   }
 
-  const ids = (pendingRows ?? []).map((row: { id: string }) => row.id)
-
-  // 3. Process with bounded concurrency; the claim guard in processSnapshot
-  // makes races with the trigger path harmless.
-  const { processed, failed } = await processSnapshotsBounded(ids, processFn)
-
-  return { resetStuck, picked: ids.length, processed, failed }
+  return { resetStuck, picked, processed, failed }
 }
