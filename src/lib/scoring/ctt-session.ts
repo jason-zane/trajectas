@@ -13,6 +13,7 @@
  */
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { toPomp } from '@/lib/scoring/transforms'
 
 interface ResponseRow {
   item_id: string
@@ -32,6 +33,34 @@ interface FactorConstructLink {
   factorId: string
   constructId: string
   weight: number
+}
+
+/**
+ * Derive an item's scoring bounds.
+ *
+ * Explicit `minValue`/`maxValue` on the response-format config win. When the
+ * config lacks them, the item's own option values define the scale — e.g. the
+ * seeded binary format carries no bounds, so its 0/1 options must score 0–1,
+ * not the Likert default 1–5. Only when the item has no options either do we
+ * fall back to the config's `points` (Likert) or the 1–5 default.
+ */
+export function deriveItemBounds(
+  config: Record<string, unknown>,
+  optionValues: number[],
+): { minValue: number; maxValue: number } {
+  const cfgMin = typeof config.minValue === 'number' ? config.minValue : undefined
+  const cfgMax = typeof config.maxValue === 'number' ? config.maxValue : undefined
+  if (cfgMin !== undefined && cfgMax !== undefined) {
+    return { minValue: cfgMin, maxValue: cfgMax }
+  }
+  if (optionValues.length > 0) {
+    return {
+      minValue: Math.min(...optionValues),
+      maxValue: Math.max(...optionValues),
+    }
+  }
+  const points = typeof config.points === 'number' ? config.points : 5
+  return { minValue: cfgMin ?? 1, maxValue: cfgMax ?? points }
 }
 
 /**
@@ -90,15 +119,30 @@ export async function scoreSessionCTT(
     formatConfigMap.set(f.id, f.config ?? {})
   }
 
+  // Per-item option values: for option-based formats (binary, forced choice)
+  // the real scoring bounds live on item_options, not the format config.
+  const { data: optionRows } = await db
+    .from('item_options')
+    .select('item_id, value')
+    .in('item_id', itemIds)
+
+  const optionValuesByItem = new Map<string, number[]>()
+  for (const opt of optionRows ?? []) {
+    const existing = optionValuesByItem.get(opt.item_id) ?? []
+    existing.push(Number(opt.value))
+    optionValuesByItem.set(opt.item_id, existing)
+  }
+
   // Build item metadata map
   const itemMap = new Map<string, ItemMeta>()
   for (const item of itemRows ?? []) {
     if (!item.construct_id) continue
 
     const config = formatConfigMap.get(item.response_format_id) ?? {}
-    const points = (config.points as number) ?? 5
-    const minValue = (config.minValue as number) ?? 1
-    const maxValue = (config.maxValue as number) ?? points
+    const { minValue, maxValue } = deriveItemBounds(
+      config,
+      optionValuesByItem.get(item.id) ?? [],
+    )
 
     itemMap.set(item.id, {
       id: item.id,
@@ -121,9 +165,9 @@ export async function scoreSessionCTT(
       ? meta.maxValue - Number(resp.response_value) + meta.minValue
       : Number(resp.response_value)
 
-    // POMP: (observed - min) / (max - min) * 100
-    const range = meta.maxValue - meta.minValue
-    const pompValue = range > 0 ? ((effectiveValue - meta.minValue) / range) * 100 : 0
+    // POMP, clamped to 0–100 so a response outside the derived bounds can
+    // never push a persisted score negative or above the scale.
+    const pompValue = toPomp(effectiveValue, meta.minValue, meta.maxValue)
 
     const existing = constructItems.get(meta.constructId) ?? []
     existing.push({ pompValue, weight: meta.weight })
