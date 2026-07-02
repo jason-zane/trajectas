@@ -24,8 +24,8 @@ describe('POST /api/assess/save-batch', () => {
     vi.clearAllMocks()
   })
 
-  it('returns 200 with saved count and echoed idempotency keys on success', async () => {
-    mockRpc.mockResolvedValue({ data: 2, error: null })
+  it('returns 200 with the saved item ids and their idempotency keys on success', async () => {
+    mockRpc.mockResolvedValue({ data: [VALID_UUID_2, VALID_UUID], error: null })
 
     const res = await POST(
       makeRequest({
@@ -52,6 +52,7 @@ describe('POST /api/assess/save-batch', () => {
     expect(body).toEqual({
       success: true,
       saved: 2,
+      savedItemIds: [VALID_UUID_2, VALID_UUID],
       idempotencyKeys: ['idem-1', 'idem-2'],
     })
 
@@ -73,6 +74,47 @@ describe('POST /api/assess/save-batch', () => {
         },
       ],
     })
+  })
+
+  it('reports only the items the RPC actually saved — a skipped item is not claimed', async () => {
+    // The RPC omits items that fail the assessment-membership check. The
+    // response must NOT report those as saved, or the client marks them
+    // synced in IndexedDB and the response is permanently lost.
+    mockRpc.mockResolvedValue({ data: [VALID_UUID_2], error: null })
+
+    const res = await POST(
+      makeRequest({
+        token: 'test-token',
+        sessionId: VALID_UUID,
+        saves: [
+          { itemId: VALID_UUID_2, responseValue: 3, idempotencyKey: 'idem-1' },
+          { itemId: VALID_UUID, responseValue: 5, idempotencyKey: 'idem-2' },
+        ],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.saved).toBe(1)
+    expect(body.savedItemIds).toEqual([VALID_UUID_2])
+    expect(body.savedItemIds).not.toContain(VALID_UUID)
+    expect(body.idempotencyKeys).toEqual(['idem-1'])
+  })
+
+  it('returns 500 when the RPC result is not the expected array shape', async () => {
+    // A legacy integer count (pre-migration RPC) can't say WHICH items were
+    // saved — fail loudly rather than let the client guess.
+    mockRpc.mockResolvedValue({ data: 2, error: null })
+
+    const res = await POST(
+      makeRequest({
+        token: 'test-token',
+        sessionId: VALID_UUID,
+        saves: [{ itemId: VALID_UUID_2, responseValue: 1, idempotencyKey: 'k' }],
+      }),
+    )
+
+    expect(res.status).toBe(500)
   })
 
   it('returns 400 when input is malformed', async () => {
