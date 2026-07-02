@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AuthorizationError,
   assertAdminOnly,
+  assertIndividualResultsAccess,
   canManageCampaign,
   canAccessClient,
   canAccessPartner,
@@ -74,6 +75,35 @@ describe("authorization rules", () => {
       // But CAN access clients through clientIds
       expect(canAccessClient(scope, "client-1")).toBe(true);
       expect(canAccessClient(scope, "client-2")).toBe(true);
+    });
+  });
+
+  // =============================================================================
+  // Aggregate-only confidentiality
+  // =============================================================================
+
+  describe("assertIndividualResultsAccess", () => {
+    it("permits any viewer on a standard (or unset) campaign", () => {
+      const client = createScope({ clientIds: ["client-1"] });
+      expect(() => assertIndividualResultsAccess(client, "standard")).not.toThrow();
+      expect(() => assertIndividualResultsAccess(client, null)).not.toThrow();
+      expect(() =>
+        assertIndividualResultsAccess(client, undefined),
+      ).not.toThrow();
+    });
+
+    it("throws for a non-platform-admin on an aggregate-only campaign", () => {
+      const client = createScope({ clientIds: ["client-1"] });
+      expect(() =>
+        assertIndividualResultsAccess(client, "aggregate_only"),
+      ).toThrow(AuthorizationError);
+    });
+
+    it("permits a platform admin on an aggregate-only campaign", () => {
+      const admin = createScope({ isPlatformAdmin: true });
+      expect(() =>
+        assertIndividualResultsAccess(admin, "aggregate_only"),
+      ).not.toThrow();
     });
   });
 

@@ -1,4 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  shouldGenerateIndividualReports,
+  type CampaignConfidentialityMode,
+} from '@/lib/reports/confidentiality'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { enqueueIntegrationEvent } from '@/lib/integrations/events'
 import { IntegrationApiError } from '@/lib/integrations/errors'
@@ -67,7 +71,7 @@ async function ensureParticipantOwnedByCredential(
     .from('campaign_participants')
     .select(`
       *,
-      campaigns!inner(id, client_id, title, slug)
+      campaigns!inner(id, client_id, title, slug, confidentiality_mode)
     `)
     .eq('id', participantId)
     .eq('campaigns.client_id', context.clientId)
@@ -84,6 +88,8 @@ async function ensureParticipantOwnedByCredential(
     campaignId: String(row.campaigns.id),
     campaignTitle: String(row.campaigns.title),
     campaignSlug: String(row.campaigns.slug),
+    confidentialityMode: (row.campaigns.confidentiality_mode ??
+      'standard') as CampaignConfidentialityMode,
   }
 }
 
@@ -787,7 +793,14 @@ export async function getIntegrationParticipantReports(
   participantId: string
 ) {
   const db = createAdminClient()
-  const { participant } = await ensureParticipantOwnedByCredential(context, participantId)
+  const { participant, confidentialityMode } =
+    await ensureParticipantOwnedByCredential(context, participantId)
+
+  // Aggregate-only campaigns never expose individual reports — not even to
+  // client integrations. The promise to participants is group-level only.
+  if (!shouldGenerateIndividualReports(confidentialityMode)) {
+    return []
+  }
 
   const { data: sessions, error: sessionsError } = await db
     .from('participant_sessions')

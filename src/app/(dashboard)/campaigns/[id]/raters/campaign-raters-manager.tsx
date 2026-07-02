@@ -44,6 +44,7 @@ import {
   type RaterWithProgress,
 } from "@/app/actions/raters";
 import { generateCampaign360Snapshot } from "@/app/actions/three-sixty";
+import { ANON_THRESHOLD } from "@/lib/reports/confidentiality";
 import type {
   CampaignParticipant,
   RaterRelationship,
@@ -63,9 +64,10 @@ const OBSERVER_RELATIONSHIPS: { value: RaterRelationship; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-// Categories that aggregate need ≥3 raters before scores can be shown
-// without compromising anonymity (manager is named, so it's exempt).
-const ANON_THRESHOLD = 3;
+// ANON_THRESHOLD (k-anonymity floor for aggregate reporting) is shared with
+// the campaign confidentiality module so rater reporting and aggregate-only
+// campaigns use one source of truth. Categories that aggregate need ≥3 raters
+// before scores can be shown (manager is named, so it's exempt).
 
 const STATUS_VARIANT: Record<
   string,
