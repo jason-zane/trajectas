@@ -8,7 +8,6 @@ import {
   canManageCampaign,
   canManageClient,
   canManagePartner,
-  requireAdminScope,
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
@@ -171,11 +170,20 @@ export async function getEffectiveBrandRecord(
 }
 
 /**
- * Get the effective brand for a client, for use in admin preview contexts.
+ * Get the effective brand for a client, for use in preview contexts.
  * Can be called from client components.
+ *
+ * Gated on authority over the client (platform admin, or an admin of the
+ * client), not platform-admin-only — matching how brand configs are managed
+ * (see assertCanManageBrandOwner). Today the only caller is the platform
+ * experience editor's "Preview as" selector, which is admin-surfaced; but on
+ * the single-host model client/partner org-admins are not platform_admin, so
+ * a bare requireAdminScope() here would throw for them if this preview were
+ * ever surfaced in a client/partner portal.
  */
 export async function getClientBrandForPreview(clientId: string): Promise<BrandConfig> {
-  await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageBrandOwner(scope, 'client', clientId)
   return getCachedEffectiveBrand(clientId)
 }
 
