@@ -5,7 +5,12 @@ import {
   ParticipantRuntimeAccessError,
   requireParticipantRuntimeParticipantAccess,
 } from '@/lib/auth/participant-runtime'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import {
+  assertAdminOnly,
+  AuthorizationError,
+  canManageCampaign,
+  resolveAuthorizedScope,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { mapExperienceTemplateRow } from '@/lib/supabase/mappers'
@@ -152,6 +157,46 @@ export const getCachedEffectiveExperience = unstable_cache(
 // ---------------------------------------------------------------------------
 
 /**
+ * Assert the caller may manage the experience template for the given owner.
+ *
+ * The platform template is platform-admin-only. A campaign template is
+ * manageable by admins of the campaign's client or partner — matching the
+ * table's RLS policy and how the campaign Experience tab is surfaced to
+ * client/partner portals. (On the single-host model, real admins operate as
+ * client admins, not platform admins, so gating campaign saves to
+ * platform-admin-only rejected exactly the people who use the editor.)
+ */
+async function assertCanManageExperienceOwner(
+  scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
+  ownerType: ExperienceOwnerType,
+  ownerId: string | null
+): Promise<void> {
+  if (ownerType === 'campaign' && ownerId) {
+    const db = createAdminClient()
+    const { data: campaign } = await db
+      .from('campaigns')
+      .select('client_id')
+      .eq('id', ownerId)
+      .single()
+    const clientId = campaign?.client_id ? String(campaign.client_id) : null
+    let partnerId: string | null = null
+    if (clientId) {
+      const { data: client } = await db
+        .from('clients')
+        .select('partner_id')
+        .eq('id', clientId)
+        .single()
+      partnerId = client?.partner_id ? String(client.partner_id) : null
+    }
+    if (!clientId || !canManageCampaign(scope, partnerId, clientId)) {
+      throw new AuthorizationError('Not authorized to manage this campaign')
+    }
+  } else {
+    assertAdminOnly(scope)
+  }
+}
+
+/**
  * Upsert an experience template's page content.
  */
 export async function upsertExperiencePageContent(
@@ -161,7 +206,8 @@ export async function upsertExperiencePageContent(
 ): Promise<{ error?: string }> {
   const parsed = upsertExperiencePageContentSchema.safeParse({ ownerType, ownerId, pageContent })
   if (!parsed.success) return { error: 'Invalid input' }
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageExperienceOwner(scope, ownerType, ownerId)
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -212,7 +258,8 @@ export async function upsertExperienceFlowConfig(
 ): Promise<{ error?: string }> {
   const parsed = upsertExperienceFlowConfigSchema.safeParse({ ownerType, ownerId, flowConfig })
   if (!parsed.success) return { error: 'Invalid input' }
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageExperienceOwner(scope, ownerType, ownerId)
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -263,7 +310,8 @@ export async function upsertExperienceDemographics(
 ): Promise<{ error?: string }> {
   const parsed = upsertExperienceDemographicsSchema.safeParse({ ownerType, ownerId, demographicsConfig })
   if (!parsed.success) return { error: 'Invalid input' }
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageExperienceOwner(scope, ownerType, ownerId)
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -314,7 +362,8 @@ export async function upsertExperienceTemplate(
 ): Promise<{ error?: string }> {
   const parsed = upsertExperienceTemplateSchema.safeParse({ ownerType, ownerId, template })
   if (!parsed.success) return { error: 'Invalid input' }
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageExperienceOwner(scope, ownerType, ownerId)
   const db = createAdminClient()
   const existing = await getExperienceTemplate(ownerType, ownerId)
 
@@ -374,7 +423,8 @@ export async function resetExperienceToDefault(
 ): Promise<{ error?: string }> {
   const parsed = resetExperienceToDefaultSchema.safeParse({ ownerType, ownerId })
   if (!parsed.success) return { error: 'Invalid input' }
-  const scope = await requireAdminScope()
+  const scope = await resolveAuthorizedScope()
+  await assertCanManageExperienceOwner(scope, ownerType, ownerId)
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform template — edit it instead.' }
   }
