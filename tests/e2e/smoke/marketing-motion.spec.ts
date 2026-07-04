@@ -1,9 +1,25 @@
 import { expect, test } from "@playwright/test";
 
-test.describe("marketing motion", () => {
-  test("promotes the public homepage to the animated surface", async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "no-preference" });
+test.describe("editorial homepage", () => {
+  test("renders the editorial front door at /", async ({ page }) => {
     await page.goto("/");
+
+    await expect(page.locator('[data-surface="welcome"]')).toBeVisible();
+    await expect(page.locator(".wl-hero-title")).toContainText(
+      "Understanding people",
+    );
+    await expect(page.locator(".wl-nav")).toBeVisible();
+    // The animated particle surface lives on /classic, not the editorial home.
+    await expect(page.locator("canvas")).toHaveCount(0);
+  });
+});
+
+// The cinematic marketing site (particle mesh + motion surface) now lives at
+// /classic; these tests follow it there.
+test.describe("classic marketing motion", () => {
+  test("promotes the classic marketing page to the animated surface", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/classic");
 
     const root = page.locator('[data-surface="marketing"]');
     await expect(root).toHaveAttribute("data-motion", "on");
@@ -24,7 +40,6 @@ test.describe("marketing motion", () => {
       )
       .toBe(true);
 
-    // Core home-page sections render
     await expect(page.locator(".tj-hero")).toBeVisible();
     await expect(page.locator(".tj-problem")).toBeVisible();
     await expect(page.locator(".tj-cases")).toBeVisible();
@@ -32,13 +47,12 @@ test.describe("marketing motion", () => {
 
   test("keeps the readable static surface for reduced motion", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("/");
+    await page.goto("/classic");
 
     const root = page.locator('[data-surface="marketing"]');
     await expect(root).not.toHaveAttribute("data-motion", "on");
     await expect(page.locator("canvas")).toHaveCount(0);
 
-    // Content is still fully readable without the mesh
     await expect(page.locator(".tj-hero h1")).toBeVisible();
     await expect(page.locator(".tj-problem")).toBeVisible();
     await expect(page.locator(".tj-cases")).toBeVisible();
@@ -73,7 +87,7 @@ test.describe("marketing motion", () => {
       });
     });
 
-    await page.goto("/");
+    await page.goto("/classic");
 
     await expect(page.locator('[data-surface="marketing"]')).toHaveAttribute(
       "data-motion",

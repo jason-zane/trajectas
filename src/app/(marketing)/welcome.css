@@ -1,0 +1,415 @@
+/* Trajectas — "front door" home. Refined editorial / literary-journal spread:
+   ink-and-gold, Source Serif 4 display, a measured grid that fills the canvas
+   (hero figure right, three-column belief index, two-column close). All tokens
+   scoped to [data-surface="welcome"]; element classes use a .wl-* prefix. */
+
+[data-surface="welcome"] {
+  --wl-ink: #11211b;
+  --wl-ink-lift: #17291f;
+  --wl-ink-drop: #0b1712;
+  --wl-paper: #f6f3ea;
+  --wl-muted: rgba(246, 243, 234, 0.6);
+  --wl-faint: rgba(246, 243, 234, 0.42);
+  --wl-meta: rgba(246, 243, 234, 0.34);
+  --wl-hairline: rgba(246, 243, 234, 0.13);
+  --wl-hairline-strong: rgba(246, 243, 234, 0.26);
+  --wl-accent: #cdae6b;
+
+  --wl-serif: var(--font-serif), Georgia, "Times New Roman", serif;
+  --wl-sans: var(--font-display), system-ui, -apple-system, sans-serif;
+  --wl-mono: var(--font-mono), ui-monospace, monospace;
+  --wl-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --wl-gutter: clamp(24px, 5vw, 80px);
+  --wl-max: 1560px;
+
+  position: relative;
+  min-height: 100vh;
+  background:
+    radial-gradient(120% 80% at 100% 0%, rgba(205, 174, 107, 0.06), transparent 55%),
+    linear-gradient(168deg, var(--wl-ink-lift) 0%, var(--wl-ink) 52%, var(--wl-ink-drop) 100%);
+  color: var(--wl-paper);
+  font-family: var(--wl-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================
+   FILM GRAIN — spans the document, scrolls WITH the page, sits
+   behind content. Tuned to be genuinely visible on the ink ground.
+   ============================================================ */
+[data-surface="welcome"] .wl-grain {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+[data-surface="welcome"] main,
+[data-surface="welcome"] .wl-footer {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================================
+   ENTRANCE
+   ============================================================ */
+@keyframes wl-rise { from { opacity: 0; transform: translateY(18px); } }
+[data-surface="welcome"] .wl-rise { animation: wl-rise 0.85s var(--wl-ease) both; }
+
+/* ============================================================
+   SHARED PRIMITIVES
+   ============================================================ */
+[data-surface="welcome"] .wl-shell {
+  width: 100%;
+  max-width: var(--wl-max);
+  margin: 0 auto;
+  padding: 0 var(--wl-gutter);
+}
+[data-surface="welcome"] .wl-eyebrow {
+  font-family: var(--wl-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--wl-accent);
+  margin: 0;
+}
+[data-surface="welcome"] .wl-serif {
+  font-family: var(--wl-serif);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+  color: var(--wl-paper);
+}
+[data-surface="welcome"] .wl-em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--wl-accent);
+}
+
+/* ============================================================
+   NAV — fixed, transparent, full-bleed bar; content in the grid
+   ============================================================ */
+[data-surface="welcome"] .wl-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: color-mix(in oklch, var(--wl-ink) 58%, transparent);
+  /* backdrop-filter is applied inline in the component (the CSS build strips it). */
+}
+[data-surface="welcome"] .wl-nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: var(--wl-max);
+  margin: 0 auto;
+  padding: 18px var(--wl-gutter);
+}
+[data-surface="welcome"] .wl-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+[data-surface="welcome"] .wl-signin {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--wl-muted);
+  text-decoration: none;
+  padding: 9px 14px;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+[data-surface="welcome"] .wl-signin:hover {
+  color: var(--wl-paper);
+  background: rgba(246, 243, 234, 0.05);
+}
+[data-surface="welcome"] .wl-nav-cta {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--wl-paper);
+  text-decoration: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--wl-hairline-strong);
+  transition: border-color 0.15s, color 0.15s;
+}
+[data-surface="welcome"] .wl-nav-cta:hover {
+  border-color: var(--wl-accent);
+  color: var(--wl-accent);
+}
+
+/* ============================================================
+   HERO — masthead rule, then a two-column spread (copy | figure)
+   ============================================================ */
+[data-surface="welcome"] .wl-hero {
+  padding: clamp(124px, 16vh, 196px) 0 clamp(48px, 8vh, 88px);
+}
+[data-surface="welcome"] .wl-masthead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  margin-bottom: clamp(40px, 6vh, 72px);
+  border-bottom: 1px solid var(--wl-hairline);
+}
+[data-surface="welcome"] .wl-folio {
+  font-family: var(--wl-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--wl-meta);
+  white-space: nowrap;
+}
+[data-surface="welcome"] .wl-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: clamp(40px, 6vw, 96px);
+  align-items: center;
+}
+[data-surface="welcome"] .wl-hero-title {
+  font-size: clamp(2.5rem, 5vw, 4.25rem);
+  line-height: 1.05;
+  margin: 0;
+  max-width: 15ch;
+}
+[data-surface="welcome"] .wl-lede {
+  font-family: var(--wl-sans);
+  font-size: clamp(1.0625rem, 1.35vw, 1.25rem);
+  line-height: 1.6;
+  color: var(--wl-muted);
+  max-width: 48ch;
+  margin: 28px 0 0;
+}
+[data-surface="welcome"] .wl-hero-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 40px;
+}
+[data-surface="welcome"] .wl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--wl-sans);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 14px 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.18s var(--wl-ease), background 0.18s, color 0.18s, border-color 0.18s;
+  line-height: 1;
+}
+[data-surface="welcome"] .wl-btn:hover { transform: translateY(-1px); }
+[data-surface="welcome"] .wl-btn-primary { background: var(--wl-accent); color: var(--wl-ink); }
+[data-surface="welcome"] .wl-btn-primary:hover { background: #d9bd80; }
+[data-surface="welcome"] .wl-btn-ghost {
+  background: transparent;
+  color: var(--wl-paper);
+  border-color: var(--wl-hairline-strong);
+}
+[data-surface="welcome"] .wl-btn-ghost:hover { border-color: var(--wl-accent); color: var(--wl-accent); }
+[data-surface="welcome"] .wl-hero-meta {
+  font-family: var(--wl-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--wl-meta);
+  margin: 44px 0 0;
+}
+
+/* ---- Hero figure: a trajectory rising over a measured baseline ---- */
+[data-surface="welcome"] .wl-hero-figure {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+[data-surface="welcome"] .wl-fig-svg {
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+}
+[data-surface="welcome"] .wl-fig-grid line {
+  stroke: var(--wl-paper);
+  stroke-opacity: 0.09;
+  stroke-width: 1;
+}
+[data-surface="welcome"] .wl-fig-fill {
+  fill: url(#wlFill);
+  opacity: 0;
+  animation: wl-fade 1s ease 0.9s forwards;
+}
+[data-surface="welcome"] .wl-fig-curve {
+  stroke: var(--wl-accent);
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: wl-draw 1.6s var(--wl-ease) 0.4s forwards;
+}
+[data-surface="welcome"] .wl-fig-node,
+[data-surface="welcome"] .wl-fig-node-end {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: wl-pop 0.5s var(--wl-ease) forwards;
+}
+[data-surface="welcome"] .wl-fig-node { fill: var(--wl-paper); animation-delay: 1.35s; }
+[data-surface="welcome"] .wl-fig-node-2 { animation-delay: 1.55s; }
+[data-surface="welcome"] .wl-fig-node-end { fill: var(--wl-accent); animation-delay: 1.8s; }
+[data-surface="welcome"] .wl-fig-glow {
+  opacity: 0;
+  animation: wl-fade 1s ease 1.8s forwards, wl-glow 4.5s ease-in-out 2.8s infinite;
+}
+
+@keyframes wl-draw { to { stroke-dashoffset: 0; } }
+@keyframes wl-fade { to { opacity: 1; } }
+@keyframes wl-pop { from { opacity: 0; transform: scale(0.3); } to { opacity: 1; transform: scale(1); } }
+@keyframes wl-glow { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* ============================================================
+   BELIEFS — three-column editorial index
+   ============================================================ */
+[data-surface="welcome"] .wl-beliefs {
+  padding: clamp(32px, 6vh, 72px) 0;
+}
+[data-surface="welcome"] .wl-beliefs-head {
+  max-width: 46ch;
+  margin-bottom: clamp(40px, 6vh, 64px);
+}
+[data-surface="welcome"] .wl-beliefs-head .wl-eyebrow { margin-bottom: 18px; }
+[data-surface="welcome"] .wl-beliefs-lead {
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.2;
+  margin: 0;
+}
+[data-surface="welcome"] .wl-beliefs-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(28px, 4vw, 64px);
+}
+[data-surface="welcome"] .wl-belief {
+  border-top: 1px solid var(--wl-hairline-strong);
+  padding-top: 22px;
+}
+[data-surface="welcome"] .wl-belief-num {
+  display: block;
+  font-family: var(--wl-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  color: var(--wl-accent);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 20px;
+}
+[data-surface="welcome"] .wl-belief-title {
+  font-family: var(--wl-serif);
+  font-weight: 500;
+  font-size: clamp(1.5rem, 2vw, 1.875rem);
+  letter-spacing: -0.01em;
+  color: var(--wl-paper);
+  margin: 0 0 12px;
+}
+[data-surface="welcome"] .wl-belief-body {
+  font-size: 0.9375rem;
+  line-height: 1.62;
+  color: var(--wl-muted);
+  margin: 0;
+}
+
+/* ============================================================
+   CLOSING — two-column: statement left, contact right
+   ============================================================ */
+[data-surface="welcome"] .wl-closing {
+  padding: clamp(48px, 9vh, 104px) 0 clamp(48px, 8vh, 96px);
+}
+[data-surface="welcome"] .wl-closing-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: clamp(32px, 5vw, 80px);
+  align-items: end;
+}
+[data-surface="welcome"] .wl-closing-main .wl-eyebrow { margin-bottom: 22px; }
+[data-surface="welcome"] .wl-closing-line {
+  font-size: clamp(2rem, 3.6vw, 3.25rem);
+  line-height: 1.1;
+  margin: 0;
+  max-width: 18ch;
+}
+[data-surface="welcome"] .wl-closing-contact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding-bottom: 8px;
+}
+[data-surface="welcome"] .wl-mail {
+  font-family: var(--wl-mono);
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+  color: var(--wl-paper);
+  text-decoration: none;
+  border-bottom: 1px solid var(--wl-accent);
+  padding-bottom: 3px;
+  transition: color 0.15s;
+}
+[data-surface="welcome"] .wl-mail:hover { color: var(--wl-accent); }
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+[data-surface="welcome"] .wl-footer { padding: 30px 0 44px; }
+[data-surface="welcome"] .wl-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 26px;
+  border-top: 1px solid var(--wl-hairline);
+  font-family: var(--wl-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wl-meta);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 900px) {
+  [data-surface="welcome"] .wl-hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  [data-surface="welcome"] .wl-hero-figure { display: none; }
+  [data-surface="welcome"] .wl-beliefs-grid { grid-template-columns: 1fr; gap: 0; }
+  [data-surface="welcome"] .wl-belief { border-top: none; padding-top: 0; }
+  [data-surface="welcome"] .wl-belief + .wl-belief {
+    border-top: 1px solid var(--wl-hairline);
+    margin-top: 28px;
+    padding-top: 28px;
+  }
+  [data-surface="welcome"] .wl-belief-num { margin-bottom: 12px; }
+  [data-surface="welcome"] .wl-closing-grid { grid-template-columns: 1fr; gap: 36px; align-items: start; }
+  [data-surface="welcome"] .wl-hero-ctas .wl-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-surface="welcome"] .wl-grain { display: none; }
+  [data-surface="welcome"] .wl-rise { animation: none; }
+  [data-surface="welcome"] .wl-fig-fill,
+  [data-surface="welcome"] .wl-fig-node,
+  [data-surface="welcome"] .wl-fig-node-end,
+  [data-surface="welcome"] .wl-fig-glow { opacity: 1; animation: none; }
+  [data-surface="welcome"] .wl-fig-curve { stroke-dashoffset: 0; animation: none; }
+}
