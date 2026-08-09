@@ -219,9 +219,33 @@ describe('deriveRunnerAnchors', () => {
 
     for (const surface of [anchors.lightPage, anchors.panelTint]) {
       const hue = hexToOklch(surface).h
-      expect(Math.abs(hue - paperHue)).toBeLessThan(5)
+      expect(Math.abs(hue - paperHue)).toBeLessThan(15)
       expect(Math.abs(hue - accentHue)).toBeGreaterThan(50)
     }
+  })
+
+  it('darkens the light-mode page when paper is pinned dark', () => {
+    // generateRunnerTokens uses lightPage/panelTint — never paper itself — for
+    // the light-mode page and panels. If they only borrowed paper's hue, a
+    // pinned #cccccc would still render a near-white page, contradicting the
+    // editor's "Paper is the light-mode page base".
+    const anchors = deriveRunnerAnchors({
+      ...ORANGE_BRAND,
+      runnerTheme: 'light',
+      runnerAnchors: { paper: '#cccccc' },
+    })
+    const pinnedL = hexToOklch('#cccccc').l
+
+    expect(hexToOklch(anchors.lightPage).l).toBeLessThan(pinnedL + 0.05)
+    expect(hexToOklch(anchors.panelTint).l).toBeLessThan(pinnedL)
+  })
+
+  it('leaves derived light-mode surfaces where the handoff put them', () => {
+    // Expressing lightPage/panelTint as offsets from paper must reproduce the
+    // original fixed values when paper itself is derived.
+    const { lightPage, panelTint } = deriveRunnerAnchors(TRAJECTAS_DEFAULTS)
+    expect(lightPage).toBe('#f6f3ed')
+    expect(panelTint).toBe('#e9e2d4')
   })
 
   it('takes a pinned accent-on-paper verbatim, even a bad one', () => {

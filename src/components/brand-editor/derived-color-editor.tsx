@@ -96,9 +96,15 @@ export function DerivedColorEditor<K extends string>({
                 type="text"
                 value={effective}
                 onChange={(e) => {
-                  let v = e.target.value
-                  if (v && !v.startsWith("#")) v = "#" + v
-                  setRole(field.key, v)
+                  const v = e.target.value.trim()
+                  // Clearing the field means "go back to derived". Storing ""
+                  // would read as unpinned here (falsy) while still failing
+                  // hex validation on save — an unsaveable, misleading state.
+                  if (v === "" || v === "#") {
+                    setRole(field.key, null)
+                    return
+                  }
+                  setRole(field.key, v.startsWith("#") ? v : "#" + v)
                 }}
                 placeholder={derived[field.key]}
                 className="flex-1 bg-background font-mono text-sm"

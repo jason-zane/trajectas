@@ -433,8 +433,9 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
               <CardHeader>
                 <CardTitle>Surface Roles</CardTitle>
                 <p className="text-caption text-muted-foreground">
-                  Surfaces, body text and borders across the runner, reports and
-                  emails. Derived from neutral temperature unless pinned.
+                  Surfaces, body text and borders in the assessment runner and the
+                  on-screen results. Derived from neutral temperature unless pinned.
+                  Email and PDF reports have their own colour settings.
                 </p>
               </CardHeader>
               <CardContent>

@@ -70,6 +70,18 @@ const INK_MUD_HALF_WIDTH = 45
 const INK_CHROMA_CEILING = 0.045
 const INK_CHROMA_CEILING_MUD = 0.014
 
+// Paper, and the light-mode surfaces expressed as offsets from it. The
+// offsets reproduce the handoff's original fixed values exactly when paper is
+// derived (0.953 + 0.013 = 0.966; 0.953 - 0.038 = 0.915).
+const PAPER_L = 0.953
+const PAPER_C = 0.015
+const LIGHT_PAGE_L_OFFSET = 0.013
+const LIGHT_PAGE_C_RATIO = 0.6
+const PANEL_TINT_L_OFFSET = -0.038
+const PANEL_TINT_C_RATIO = 4 / 3
+
+const clampL = (l: number) => Math.max(0, Math.min(1, l))
+
 /** Ink chroma ceiling for a hue — tightened through the amber/brown band. */
 function inkChromaCeiling(hue: number): number {
   let distance = Math.abs(hue - INK_MUD_HUE) % 360
@@ -115,13 +127,24 @@ export function deriveRunnerAnchors(config: BrandConfig): RunnerAnchors {
     })
 
   const paper =
-    pinned?.paper || oklchToHex({ l: 0.953, c: 0.015, h: accentBase.h })
+    pinned?.paper || oklchToHex({ l: PAPER_L, c: PAPER_C, h: accentBase.h })
 
-  // Light-mode surfaces are paper lifted/dropped — track the RESOLVED paper so
-  // a pinned paper carries the whole light theme with it.
-  const paperHue = hexToOklch(paper).h
-  const lightPage = oklchToHex({ l: 0.966, c: 0.009, h: paperHue })
-  const panelTint = oklchToHex({ l: 0.915, c: 0.02, h: paperHue })
+  // Light-mode surfaces are paper lifted/dropped. They are offsets from the
+  // RESOLVED paper — not fixed values sharing its hue — so a pinned paper
+  // carries the whole light theme with it. (generateRunnerTokens uses
+  // lightPage/panelTint, never paper itself, for the light-mode page and
+  // panels; pinning a dark paper has to actually darken them.)
+  const p = hexToOklch(paper)
+  const lightPage = oklchToHex({
+    l: clampL(p.l + LIGHT_PAGE_L_OFFSET),
+    c: p.c * LIGHT_PAGE_C_RATIO,
+    h: p.h,
+  })
+  const panelTint = oklchToHex({
+    l: clampL(p.l + PANEL_TINT_L_OFFSET),
+    c: p.c * PANEL_TINT_C_RATIO,
+    h: p.h,
+  })
 
   const accentL = Math.max(0.68, Math.min(0.78, accentBase.l))
   const accentC = Math.max(

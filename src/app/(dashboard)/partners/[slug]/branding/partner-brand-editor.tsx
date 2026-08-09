@@ -340,8 +340,9 @@ export function PartnerBrandEditor({
                 onReset={() => clearField("surfaceColors")}
               >
                 <p className="text-caption text-muted-foreground">
-                  Surfaces, body text and borders across the runner, reports and
-                  emails. Derived from neutral temperature unless pinned.
+                  Surfaces, body text and borders in the assessment runner and the
+                  on-screen results. Derived from neutral temperature unless pinned.
+                  Email and PDF reports have their own colour settings.
                 </p>
                 <SurfaceRoleEditor
                   config={effective}
