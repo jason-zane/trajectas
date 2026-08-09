@@ -12,7 +12,7 @@
 
 import type { BrandConfig } from './types'
 import { DEFAULT_SEMANTIC_COLORS, DEFAULT_EMAIL_STYLES } from './defaults'
-import { generateScaleHex } from './tokens'
+import { resolveSurfaceRoles } from './tokens'
 
 /** WCAG 2.x relative luminance of a #RRGGBB hex color. */
 export function relativeLuminance(hex: string): number {
@@ -77,13 +77,15 @@ function check(
  * scale used by the token pipeline, so the audit matches what renders.
  */
 export function auditBrandContrast(config: BrandConfig): ContrastCheck[] {
-  const primaryScale = generateScaleHex(config.primaryColor)
   const semantic = config.semanticColors ?? DEFAULT_SEMANTIC_COLORS
   const email = config.emailStyles ?? DEFAULT_EMAIL_STYLES
 
-  const surface = primaryScale['50']
-  const text = primaryScale['900']
-  const textMuted = primaryScale['600']
+  // Same resolution the token pipeline uses — including any pinned overrides,
+  // which is precisely the case the audit needs to catch.
+  const roles = resolveSurfaceRoles(config)
+  const surface = roles.surface
+  const text = roles.text
+  const textMuted = roles.textMuted
 
   const checks: ContrastCheck[] = [
     check(

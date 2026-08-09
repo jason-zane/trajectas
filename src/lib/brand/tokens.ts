@@ -202,6 +202,55 @@ const NEUTRAL_CHROMA: Record<NeutralTemperature, number> = {
 }
 
 // ---------------------------------------------------------------------------
+// Neutral-role colors
+// ---------------------------------------------------------------------------
+
+/**
+ * Target lightness for each neutral role.
+ *
+ * These are the lightness values the primary scale used to supply (steps
+ * 50/100/200/600/900), kept verbatim so visual weight and WCAG ratios are
+ * unchanged by the move off the primary scale.
+ */
+const ROLE_LIGHTNESS = {
+  surface: 0.97,
+  surfaceRaised: 0.93,
+  border: 0.88,
+  textMuted: 0.52,
+  text: 0.25,
+} as const
+
+export type SurfaceRole = keyof typeof ROLE_LIGHTNESS
+
+/**
+ * Resolve the five neutral-role colors as hex.
+ *
+ * Derived from `neutralTemperature` — NOT from `primaryColor`. Deriving them
+ * from the primary meant a saturated primary produced saturated "neutrals":
+ * an orange brand got #490000 body text and #ffc9a0 borders, i.e. browns.
+ * Hue and chroma now come from the neutral ramp (chroma ≤ 0.01 by
+ * construction), so these roles read as neutrals for every brand colour.
+ *
+ * `config.surfaceColors` pins individual roles; unset roles stay derived.
+ */
+export function resolveSurfaceRoles(
+  config: BrandConfig
+): Record<SurfaceRole, string> {
+  const hue = NEUTRAL_HUE[config.neutralTemperature]
+  const chroma = NEUTRAL_CHROMA[config.neutralTemperature]
+  const overrides = config.surfaceColors
+
+  const roles = {} as Record<SurfaceRole, string>
+  for (const [role, l] of Object.entries(ROLE_LIGHTNESS) as [
+    SurfaceRole,
+    number,
+  ][]) {
+    roles[role] = overrides?.[role] || oklchToHex({ l, c: chroma, h: hue })
+  }
+  return roles
+}
+
+// ---------------------------------------------------------------------------
 // Border radius presets
 // ---------------------------------------------------------------------------
 
@@ -422,12 +471,15 @@ export function generateCSSTokens(config: BrandConfig): CSSTokens {
     tokens['--brand-secondary'] = oklchCss(hexToOklch(config.secondaryColor))
   }
 
-  // Semantic tokens (light mode)
-  tokens['--brand-surface'] = oklchCss(primaryScale['50'])
-  tokens['--brand-surface-raised'] = oklchCss(primaryScale['100'])
-  tokens['--brand-text'] = oklchCss(primaryScale['900'])
-  tokens['--brand-text-muted'] = oklchCss(primaryScale['600'])
-  tokens['--brand-border'] = oklchCss(primaryScale['200'])
+  // Semantic tokens (light mode). Surfaces/text/borders are neutral roles —
+  // see resolveSurfaceRoles. The focus ring stays on the primary scale: it is
+  // a brand signal, not a neutral.
+  const roles = resolveSurfaceRoles(config)
+  tokens['--brand-surface'] = roles.surface
+  tokens['--brand-surface-raised'] = roles.surfaceRaised
+  tokens['--brand-text'] = roles.text
+  tokens['--brand-text-muted'] = roles.textMuted
+  tokens['--brand-border'] = roles.border
   tokens['--brand-ring'] = oklchCss(primaryScale['500'])
   tokens['--brand-primary'] = oklchCss(primary)
   tokens['--brand-primary-foreground'] = oklchCss({ l: 0.99, c: 0, h: 0 })
@@ -660,6 +712,7 @@ export function generatePDFStyles(config: BrandConfig): PDFStyles {
   const accent = hexToOklch(config.accentColor)
   const scale = generateScale(primary)
   const accentScale = generateScale(accent)
+  const roles = resolveSurfaceRoles(config)
 
   return {
     colors: {
@@ -668,10 +721,10 @@ export function generatePDFStyles(config: BrandConfig): PDFStyles {
       primaryDark: oklchToHex(scale['800']),
       accent: config.accentColor,
       accentLight: oklchToHex(accentScale['100']),
-      text: oklchToHex(scale['900']),
-      textMuted: oklchToHex(scale['600']),
-      surface: oklchToHex(scale['50']),
-      border: oklchToHex(scale['200']),
+      text: roles.text,
+      textMuted: roles.textMuted,
+      surface: roles.surface,
+      border: roles.border,
     },
     fonts: {
       heading: config.headingFont,
@@ -708,6 +761,7 @@ export interface EmailStyles {
 export function generateEmailStyles(config: BrandConfig): EmailStyles {
   const primary = hexToOklch(config.primaryColor)
   const scale = generateScale(primary)
+  const roles = resolveSurfaceRoles(config)
 
   const emailOverrides = config.emailStyles ?? DEFAULT_EMAIL_STYLES
 
@@ -717,8 +771,8 @@ export function generateEmailStyles(config: BrandConfig): EmailStyles {
     primaryLight: oklchToHex(scale['100']),
     text: emailOverrides.textColor,
     textMuted: emailOverrides.footerTextColor,
-    background: oklchToHex(scale['50']),
-    border: oklchToHex(scale['200']),
+    background: roles.surface,
+    border: roles.border,
   }
 
   const safeHeadingFont = sanitiseCSSValue(config.headingFont)

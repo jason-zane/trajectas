@@ -14,6 +14,8 @@ import { LogoUploader } from "@/components/brand-editor/logo-uploader"
 import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { RunnerThemeSelector } from "@/components/brand-editor/runner-theme-selector"
+import { SurfaceRoleEditor } from "@/components/brand-editor/surface-role-editor"
+import { RunnerAnchorEditor } from "@/components/brand-editor/runner-anchor-editor"
 import { OverrideField } from "@/components/brand-editor/override-field"
 import { ContrastWarnings } from "@/components/brand-editor/contrast-warnings"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
@@ -299,6 +301,67 @@ export function ClientBrandEditor({
                   </button>
                 )}
               </OverrideField>
+
+              <OverrideField
+                label="Surface Roles"
+                overridden={isOverridden("surfaceColors")}
+                onReset={() => clearField("surfaceColors")}
+              >
+                <p className="text-caption text-muted-foreground">
+                  Surfaces, body text and borders in the assessment runner and the
+                  on-screen results. Derived from neutral temperature unless pinned.
+                  Email and PDF reports have their own colour settings.
+                </p>
+                <SurfaceRoleEditor
+                  config={effective}
+                  value={effective.surfaceColors}
+                  onChange={(next) =>
+                    next
+                      ? setField("surfaceColors", next)
+                      : clearField("surfaceColors")
+                  }
+                />
+              </OverrideField>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Assessment Runner</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <OverrideField
+                label="Theme"
+                overridden={isOverridden("runnerTheme")}
+                onReset={() => clearField("runnerTheme")}
+                inheritedHint={`Inherited: ${inheritedBrand.runnerTheme ?? "dark"}`}
+              >
+                <RunnerThemeSelector
+                  value={effective.runnerTheme ?? "dark"}
+                  onChange={(theme) => setField("runnerTheme", theme)}
+                  config={effective}
+                />
+              </OverrideField>
+
+              <OverrideField
+                label="Anchors"
+                overridden={isOverridden("runnerAnchors")}
+                onReset={() => clearField("runnerAnchors")}
+              >
+                <p className="text-caption text-muted-foreground">
+                  The four colours the whole assessment flow is built from.
+                  Derived from primary and accent unless pinned.
+                </p>
+                <RunnerAnchorEditor
+                  config={effective}
+                  value={effective.runnerAnchors}
+                  onChange={(next) =>
+                    next
+                      ? setField("runnerAnchors", next)
+                      : clearField("runnerAnchors")
+                  }
+                />
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -353,19 +416,6 @@ export function ClientBrandEditor({
                     setField("borderRadius", radius)
                   }
                   previewColor={effective.primaryColor}
-                />
-              </OverrideField>
-
-              <OverrideField
-                label="Assessment Runner Theme"
-                overridden={isOverridden("runnerTheme")}
-                onReset={() => clearField("runnerTheme")}
-                inheritedHint={`Inherited: ${inheritedBrand.runnerTheme ?? "dark"}`}
-              >
-                <RunnerThemeSelector
-                  value={effective.runnerTheme ?? "dark"}
-                  onChange={(theme) => setField("runnerTheme", theme)}
-                  config={effective}
                 />
               </OverrideField>
             </CardContent>

@@ -42,6 +42,23 @@ const portalAccentsSchema = z.object({
   client: hexColor,
 })
 
+// Every member is optional: an unset role stays derived from
+// neutralTemperature / the runner anchor derivation.
+const surfaceColorsSchema = z.object({
+  surface: hexColor.optional(),
+  surfaceRaised: hexColor.optional(),
+  text: hexColor.optional(),
+  textMuted: hexColor.optional(),
+  border: hexColor.optional(),
+})
+
+const runnerAnchorsSchema = z.object({
+  ink: hexColor.optional(),
+  paper: hexColor.optional(),
+  accent: hexColor.optional(),
+  accentOnPaper: hexColor.optional(),
+})
+
 const semanticColorsSchema = z.object({
   destructive: hexColor,
   success: hexColor,
@@ -158,6 +175,7 @@ export const brandConfigSchema = z.object({
   accentColor: hexColor,
   secondaryColor: hexColor.optional(),
   neutralTemperature: z.enum(['warm', 'neutral', 'cool']),
+  surfaceColors: surfaceColorsSchema.optional(),
   portalAccents: portalAccentsSchema.optional(),
   sidebarColor: hexColor.optional(),
   backgroundColor: hexColor.optional(),
@@ -175,6 +193,7 @@ export const brandConfigSchema = z.object({
   buttonStyle: buttonStyleSchema.optional(),
   gradientAccent: gradientAccentSchema.optional(),
   runnerTheme: z.enum(['dark', 'light']).optional(),
+  runnerAnchors: runnerAnchorsSchema.optional(),
 })
 
 export type BrandConfigInput = z.infer<typeof brandConfigSchema>

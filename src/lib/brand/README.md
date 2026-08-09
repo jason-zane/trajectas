@@ -25,9 +25,12 @@ Layers are merged in ascending specificity — `TRAJECTAS_DEFAULTS` → platform
   `primaryColor` inherits everything else live from its parent chain.
 - Nested groups (`semanticColors`, `taxonomyColors`, `emailStyles`,
   `reportTheme`, `typography`, `buttonStyle`, `gradientAccent`,
-  `portalAccents`) are **atomic**: override the whole group or none of it.
-  This matches how the editors edit them and means there is never a
-  half-merged nested object.
+  `portalAccents`, `surfaceColors`, `runnerAnchors`) are **atomic**: override
+  the whole group or none of it. This matches how the editors edit them and
+  means there is never a half-merged nested object.
+- Within `surfaceColors` / `runnerAnchors` an unset member still falls back to
+  its *derived* value, so a layer can pin one role and leave the rest tracking
+  the brand colours — granularity without breaking the atomic-group rule.
 - `undefined`/`null` field values mean "not overridden". Empty string is a
   real value (`logoUrl: ''` = "remove the inherited logo").
 
@@ -76,7 +79,8 @@ the `['effective-brand']` keyPart is a prefix, not the whole key.
 | Accent scale | `--brand-accent-50…900` | `accentColor` |
 | Secondary scale | `--brand-secondary-50…900` (only when set) | `secondaryColor` |
 | Neutrals | `--brand-neutral-50…900` | `neutralTemperature` |
-| Semantic | `--brand-surface`, `--brand-text`, `--brand-border`, … | primary scale |
+| Neutral roles | `--brand-surface`, `--brand-surface-raised`, `--brand-text`, `--brand-text-muted`, `--brand-border` | `neutralTemperature`, `surfaceColors` |
+| Focus ring | `--brand-ring` | primary scale |
 | Status | `--brand-error`, `--brand-success`, `--brand-warning` | `semanticColors` |
 | Shape | `--brand-radius`, `--brand-radius-sm…2xl` | `borderRadius` |
 | Spacing | `--brand-space-3xs…3xl` | `spacingDensity` |
@@ -87,3 +91,28 @@ the `['effective-brand']` keyPart is a prefix, not the whole key.
 
 Consumers reference tokens with a dashboard-token fallback:
 `style={{ color: 'var(--brand-primary, hsl(var(--primary)))' }}`.
+
+### Derived vs pinned colours
+
+Two token groups are **derived by default and pinnable per-role**:
+
+| Group | Derived from | Pin with |
+| --- | --- | --- |
+| Neutral roles (`resolveSurfaceRoles`) | `neutralTemperature` | `surfaceColors` |
+| Runner anchors (`deriveRunnerAnchors`) | `primaryColor`, `accentColor` | `runnerAnchors` |
+
+Neutral roles are deliberately **not** derived from `primaryColor`. They used
+to be — steps 50/100/200/600/900 of the primary scale — which meant a
+saturated primary produced saturated "neutrals": an orange brand got `#490000`
+body text and `#ffc9a0` borders, i.e. browns everywhere. Hue and chroma now
+come from the neutral ramp (chroma ≤ 0.01), at the same role lightnesses as
+before, so WCAG ratios are unchanged and no brand colour can push these to mud.
+
+The runner ink applies a **hue-aware chroma ceiling**: hues near amber (≈62°)
+read as mud at ink lightness, where the same chroma on a green or navy reads as
+a handsome dark brand surface. The ceiling tapers on a cosine ramp through that
+band only, so non-amber brands derive exactly what they did before.
+
+Pinned values are taken verbatim — including bad ones. `auditRunnerContrast`
+runs in the editors' warning panel precisely to catch that; saves are never
+blocked.
