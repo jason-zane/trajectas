@@ -13,6 +13,8 @@ import { ColorPicker } from "@/components/brand-editor/color-picker"
 import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { RunnerThemeSelector } from "@/components/brand-editor/runner-theme-selector"
+import { SurfaceRoleEditor } from "@/components/brand-editor/surface-role-editor"
+import { RunnerAnchorEditor } from "@/components/brand-editor/runner-anchor-editor"
 import { PortalAccentEditor } from "@/components/brand-editor/portal-accent-editor"
 import { TaxonomyColorEditor } from "@/components/brand-editor/taxonomy-color-editor"
 import { EmailStyleEditor } from "@/components/brand-editor/email-style-editor"
@@ -426,6 +428,23 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
                 )}
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Surface Roles</CardTitle>
+                <p className="text-caption text-muted-foreground">
+                  Surfaces, body text and borders across the runner, reports and
+                  emails. Derived from neutral temperature unless pinned.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <SurfaceRoleEditor
+                  config={config}
+                  value={config.surfaceColors}
+                  onChange={(surfaceColors) => update({ surfaceColors })}
+                />
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -556,12 +575,23 @@ export function BrandEditor({ initialRecord }: BrandEditorProps) {
               <CardHeader>
                 <CardTitle>Assessment Runner</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6">
                 <RunnerThemeSelector
                   value={config.runnerTheme ?? "dark"}
                   onChange={(theme) => update({ runnerTheme: theme })}
                   config={config}
                 />
+                <div className="space-y-2 border-t pt-6">
+                  <p className="text-caption text-muted-foreground">
+                    The four anchors the whole assessment flow is built from.
+                    Derived from primary and accent unless pinned.
+                  </p>
+                  <RunnerAnchorEditor
+                    config={config}
+                    value={config.runnerAnchors}
+                    onChange={(runnerAnchors) => update({ runnerAnchors })}
+                  />
+                </div>
               </CardContent>
             </Card>
           </div>

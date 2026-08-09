@@ -23,6 +23,50 @@ export interface PortalAccents {
   client: string
 }
 
+/**
+ * Explicit overrides for the neutral-role tokens (`--brand-surface`,
+ * `--brand-text`, `--brand-border`, …).
+ *
+ * These roles are normally derived from `neutralTemperature` at fixed role
+ * lightnesses — see `resolveSurfaceRoles` in tokens.ts. Set a field here to
+ * pin it to an exact colour instead. Every field is optional; unset fields
+ * keep the derived value.
+ *
+ * The same five roles drive the web tokens, the PDF renderer and the email
+ * frame, so an override here follows the brand across all three.
+ */
+export interface SurfaceRoleColors {
+  /** `--brand-surface` — the base branded surface. */
+  surface?: string
+  /** `--brand-surface-raised` — cards and raised panels. */
+  surfaceRaised?: string
+  /** `--brand-text` — body copy. */
+  text?: string
+  /** `--brand-text-muted` — secondary copy, captions, helper text. */
+  textMuted?: string
+  /** `--brand-border` — hairlines and dividers. */
+  border?: string
+}
+
+/**
+ * Explicit overrides for the four assessment-runner anchors.
+ *
+ * Anchors are normally derived from `primaryColor`/`accentColor` — see
+ * `deriveRunnerAnchors` in runner-tokens.ts. Set a field here to pin it.
+ * `accentOnPaper` still auto-darkens from the resolved `accent` for
+ * legibility unless it too is set explicitly.
+ */
+export interface RunnerAnchorOverrides {
+  /** Dark brand surface — the runner page background in dark mode. */
+  ink?: string
+  /** Warm off-white — runner text in dark mode, page base in light mode. */
+  paper?: string
+  /** Wayfinding colour on ink surfaces (overlines, keycaps, CTA fill). */
+  accent?: string
+  /** Accent variant used on paper surfaces; must clear 4.5:1 on paper. */
+  accentOnPaper?: string
+}
+
 /** Semantic status colors. */
 export interface SemanticColors {
   destructive: string
@@ -152,8 +196,15 @@ export interface BrandConfig {
    * - `warm` shifts neutrals toward amber
    * - `cool` shifts neutrals toward blue
    * - `neutral` keeps neutrals achromatic
+   *
+   * Drives both the `--brand-neutral-*` ramp and the neutral-role tokens
+   * (`--brand-surface`, `--brand-text`, `--brand-border`, …). Chroma is held
+   * low by construction, so no primary colour can push these toward mud.
    */
   neutralTemperature: NeutralTemperature
+
+  /** Pin individual neutral-role colours instead of deriving them. */
+  surfaceColors?: SurfaceRoleColors
 
   /** Per-portal accent hex colors. */
   portalAccents?: PortalAccents
@@ -214,6 +265,9 @@ export interface BrandConfig {
 
   /** Assessment-runner theme mode (default `dark`). */
   runnerTheme?: RunnerTheme
+
+  /** Pin individual runner anchors instead of deriving them. */
+  runnerAnchors?: RunnerAnchorOverrides
 }
 
 /**
@@ -222,9 +276,12 @@ export interface BrandConfig {
  * Merge semantics are SHALLOW at the top-level-field granularity: a defined
  * field wholly replaces the inherited value, and nested groups
  * (`semanticColors`, `taxonomyColors`, `emailStyles`, `reportTheme`,
- * `typography`, `buttonStyle`, `gradientAccent`, `portalAccents`) are atomic
- * units — you override the whole group or none of it. This matches how the
- * editors edit them and keeps resolution predictable.
+ * `typography`, `buttonStyle`, `gradientAccent`, `portalAccents`,
+ * `surfaceColors`, `runnerAnchors`) are atomic units — you override the whole
+ * group or none of it. This matches how the editors edit them and keeps
+ * resolution predictable. Within `surfaceColors` / `runnerAnchors` an unset
+ * member still falls back to the derived value, so partial pinning works
+ * without breaking the atomic-group rule.
  *
  * The platform row must always hold a complete `BrandConfig`; it is the merge
  * base (after `TRAJECTAS_DEFAULTS`). Historic rows that stored full configs

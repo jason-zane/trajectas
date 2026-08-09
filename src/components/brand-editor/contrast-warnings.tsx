@@ -1,7 +1,8 @@
 'use client'
 
 import { AlertCircle } from 'lucide-react'
-import { auditBrandContrast } from '@/lib/brand/contrast'
+import { auditBrandContrast, auditRunnerContrast } from '@/lib/brand/contrast'
+import { deriveRunnerAnchors } from '@/lib/brand/runner-tokens'
 import type { BrandConfig } from '@/lib/brand/types'
 
 interface ContrastWarningsProps {
@@ -11,11 +12,18 @@ interface ContrastWarningsProps {
 /**
  * Renders a compact warning panel when WCAG contrast failures are detected.
  *
- * Advisory only — does not block saves. Uses the same contrast auditor
- * that runs client-side for live warnings.
+ * Advisory only — does not block saves. Uses the same contrast auditors
+ * that run client-side for live warnings.
+ *
+ * The runner anchors are audited too: derived anchors pass by construction,
+ * but pinned ones (brandConfig.runnerAnchors) can be anything, and a failure
+ * there means unreadable assessment questions.
  */
 export function ContrastWarnings({ config }: ContrastWarningsProps) {
-  const checks = auditBrandContrast(config)
+  const checks = [
+    ...auditBrandContrast(config),
+    ...auditRunnerContrast(deriveRunnerAnchors(config)),
+  ]
   const failures = checks.filter((c) => !c.passes)
 
   if (failures.length === 0) return null

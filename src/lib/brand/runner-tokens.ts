@@ -61,49 +61,100 @@ function shiftL(hex: string, delta: number): string {
   return oklchToHex({ ...o, l: Math.max(0, Math.min(1, o.l + delta)) })
 }
 
+// Hues around amber (≈62°) read as MUD at ink lightness: the same chroma that
+// makes a 173° primary a handsome dark emerald makes a 55° primary chocolate
+// brown. So the ink chroma ceiling tapers through that band — a cosine ramp
+// rather than a step, so neighbouring hues don't fall off a cliff.
+const INK_MUD_HUE = 62
+const INK_MUD_HALF_WIDTH = 45
+const INK_CHROMA_CEILING = 0.045
+const INK_CHROMA_CEILING_MUD = 0.014
+
+/** Ink chroma ceiling for a hue — tightened through the amber/brown band. */
+function inkChromaCeiling(hue: number): number {
+  let distance = Math.abs(hue - INK_MUD_HUE) % 360
+  if (distance > 180) distance = 360 - distance
+  if (distance >= INK_MUD_HALF_WIDTH) return INK_CHROMA_CEILING
+
+  // 0 at the band centre → 1 at its edge.
+  const t = 0.5 * (1 - Math.cos((distance / INK_MUD_HALF_WIDTH) * Math.PI))
+  return (
+    INK_CHROMA_CEILING_MUD + (INK_CHROMA_CEILING - INK_CHROMA_CEILING_MUD) * t
+  )
+}
+
 /**
  * Derive the four runner anchors from a brand config.
  *
- * - ink: primary hue pulled to a near-black surface (L 0.265, chroma
- *   softened — min(c×0.55, 0.045) reproduces the handoff's emerald and navy
- *   worked examples).
+ * - ink: primary hue pulled to a near-black surface (L 0.265, chroma softened
+ *   to c×0.55 under a hue-aware ceiling — see inkChromaCeiling. Reproduces the
+ *   handoff's emerald and navy worked examples unchanged).
  * - paper: warm off-white tinted toward the ACCENT hue (empirically what the
  *   handoff's cream/ivory values are; "never pure white").
  * - accent: brand accentColor with L clamped into the 0.68–0.78 band so it
- *   reads on ink without glowing. Never the primary itself.
+ *   reads on ink without glowing. Never the primary itself. Chroma is restored
+ *   in proportion to how far L was lifted, so a dark low-chroma accent doesn't
+ *   arrive as grey — it is never reduced below the input's own chroma.
  * - accent-on-paper: accent darkened stepwise until ≥4.5:1 on paper.
+ *
+ * `config.runnerAnchors` pins any of these; unset anchors stay derived, and
+ * the anchors derived FROM an overridden one follow it (light page and panel
+ * tint track paper's hue; accent-on-paper darkens from the resolved accent).
  */
 export function deriveRunnerAnchors(config: BrandConfig): RunnerAnchors {
   const primary = hexToOklch(config.primaryColor)
   const accentBase = hexToOklch(config.accentColor)
+  const pinned = config.runnerAnchors
 
-  const ink = oklchToHex({
-    l: 0.265,
-    c: Math.min(primary.c * 0.55, 0.045),
-    h: primary.h,
-  })
+  const ink =
+    pinned?.ink ||
+    oklchToHex({
+      l: 0.265,
+      c: Math.min(primary.c * 0.55, inkChromaCeiling(primary.h)),
+      h: primary.h,
+    })
 
-  const paperHue = accentBase.h
-  const paper = oklchToHex({ l: 0.953, c: 0.015, h: paperHue })
+  const paper =
+    pinned?.paper || oklchToHex({ l: 0.953, c: 0.015, h: accentBase.h })
+
+  // Light-mode surfaces are paper lifted/dropped — track the RESOLVED paper so
+  // a pinned paper carries the whole light theme with it.
+  const paperHue = hexToOklch(paper).h
   const lightPage = oklchToHex({ l: 0.966, c: 0.009, h: paperHue })
   const panelTint = oklchToHex({ l: 0.915, c: 0.02, h: paperHue })
 
-  const accent = oklchToHex({
-    l: Math.max(0.68, Math.min(0.78, accentBase.l)),
-    c: accentBase.c,
-    h: accentBase.h,
-  })
+  const accentL = Math.max(0.68, Math.min(0.78, accentBase.l))
+  const accentC = Math.max(
+    accentBase.c,
+    Math.min(accentBase.c * Math.max(1, accentL / Math.max(accentBase.l, 0.05)), 0.13)
+  )
+  const accent =
+    pinned?.accent || oklchToHex({ l: accentL, c: accentC, h: accentBase.h })
 
-  // Darken accent until it passes 4.5:1 on paper (keep hue/chroma — hue
-  // carries the brand, lightness carries legibility).
-  let onPaperL = hexToOklch(accent).l
-  let accentOnPaper = accent
-  while (contrastRatio(accentOnPaper, paper) < 4.5 && onPaperL > 0.3) {
-    onPaperL -= 0.01
-    accentOnPaper = oklchToHex({ l: onPaperL, c: accentBase.c, h: accentBase.h })
+  return {
+    ink,
+    paper,
+    lightPage,
+    panelTint,
+    accent,
+    accentOnPaper: pinned?.accentOnPaper || darkenUntilLegible(accent, paper),
   }
+}
 
-  return { ink, paper, lightPage, panelTint, accent, accentOnPaper }
+/**
+ * Darken a colour stepwise until it clears 4.5:1 on the given background.
+ * Hue and chroma are held — hue carries the brand, lightness carries
+ * legibility. Gives up below L 0.3 rather than looping forever.
+ */
+function darkenUntilLegible(hex: string, background: string): string {
+  const { c, h } = hexToOklch(hex)
+  let l = hexToOklch(hex).l
+  let result = hex
+  while (contrastRatio(result, background) < 4.5 && l > 0.3) {
+    l -= 0.01
+    result = oklchToHex({ l, c, h })
+  }
+  return result
 }
 
 /** Fixed runner save-dot green — deliberately off-brand-accent. */

@@ -14,6 +14,8 @@ export type {
   ButtonStyle,
   GradientAccent,
   RunnerTheme,
+  SurfaceRoleColors,
+  RunnerAnchorOverrides,
 } from './types'
 
 export {
@@ -45,8 +47,9 @@ export {
   generateEmailStyles,
   generateScaleHex,
   resolveTypeLevels,
+  resolveSurfaceRoles,
 } from './tokens'
-export type { CSSTokens, PDFStyles, EmailStyles } from './tokens'
+export type { CSSTokens, PDFStyles, EmailStyles, SurfaceRole } from './tokens'
 
 export {
   HEADING_BODY_FONTS,

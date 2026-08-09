@@ -14,6 +14,8 @@ import { LogoUploader } from "@/components/brand-editor/logo-uploader"
 import { FontSelector } from "@/components/brand-editor/font-selector"
 import { RadiusSelector } from "@/components/brand-editor/radius-selector"
 import { RunnerThemeSelector } from "@/components/brand-editor/runner-theme-selector"
+import { SurfaceRoleEditor } from "@/components/brand-editor/surface-role-editor"
+import { RunnerAnchorEditor } from "@/components/brand-editor/runner-anchor-editor"
 import { OverrideField } from "@/components/brand-editor/override-field"
 import { PreviewGallery } from "@/components/brand-editor/preview-gallery"
 import { TypeScaleSelector } from "@/components/brand-editor/type-scale-selector"
@@ -331,6 +333,26 @@ export function PartnerBrandEditor({
                   )}
                 </div>
               </OverrideField>
+
+              <OverrideField
+                label="Surface Roles"
+                overridden={isOverridden("surfaceColors")}
+                onReset={() => clearField("surfaceColors")}
+              >
+                <p className="text-caption text-muted-foreground">
+                  Surfaces, body text and borders across the runner, reports and
+                  emails. Derived from neutral temperature unless pinned.
+                </p>
+                <SurfaceRoleEditor
+                  config={effective}
+                  value={effective.surfaceColors}
+                  onChange={(next) =>
+                    next
+                      ? setField("surfaceColors", next)
+                      : clearField("surfaceColors")
+                  }
+                />
+              </OverrideField>
             </CardContent>
           </Card>
 
@@ -428,6 +450,26 @@ export function PartnerBrandEditor({
                   value={effective.runnerTheme ?? "dark"}
                   onChange={(theme) => setField("runnerTheme", theme)}
                   config={effective}
+                />
+              </OverrideField>
+
+              <OverrideField
+                label="Assessment Runner Anchors"
+                overridden={isOverridden("runnerAnchors")}
+                onReset={() => clearField("runnerAnchors")}
+              >
+                <p className="text-caption text-muted-foreground">
+                  The four colours the whole assessment flow is built from.
+                  Derived from primary and accent unless pinned.
+                </p>
+                <RunnerAnchorEditor
+                  config={effective}
+                  value={effective.runnerAnchors}
+                  onChange={(next) =>
+                    next
+                      ? setField("runnerAnchors", next)
+                      : clearField("runnerAnchors")
+                  }
                 />
               </OverrideField>
             </CardContent>
