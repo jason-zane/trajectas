@@ -146,6 +146,23 @@ export async function requireParticipantRuntimeSessionAccess(
     )
   }
 
+  // A session for an assessment that has been removed from the campaign must
+  // not keep running or submitting — the soft-deleted attachment row is
+  // invisible everywhere else, so it must gate here too.
+  const { data: liveAttachment, error: attachmentError } = await db
+    .from('campaign_assessments')
+    .select('id')
+    .eq('campaign_id', session.campaign_id)
+    .eq('assessment_id', session.assessment_id)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (attachmentError || !liveAttachment) {
+    throw new ParticipantRuntimeAccessError(
+      'This assessment is not available in the active campaign.'
+    )
+  }
+
   return {
     ...access,
     sessionId: String(session.id),

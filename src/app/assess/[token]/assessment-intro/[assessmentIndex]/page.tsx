@@ -52,7 +52,10 @@ async function AssessmentIntroContent({
           .select("intro_override")
           .eq("campaign_id", campaign.id)
           .eq("assessment_id", assessment.assessmentId)
-          .single()
+          // Live row only — after a remove-and-readd the pair has a
+          // historical row too, and .single() would error on multiple rows.
+          .is("deleted_at", null)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
     assessment
       ? db
