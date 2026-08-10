@@ -291,6 +291,9 @@ describe('updateAssessmentMeta activation guard', () => {
 
 describe('addAssessmentToCampaign content guard', () => {
   it('rejects an assessment with no questions', async () => {
+    adminDb.seed({
+      assessments: [{ data: { status: 'active' } }], // status guard lookup
+    })
     dal.getAssessmentContentSummaries.mockResolvedValue([
       {
         assessmentId: ASSESSMENT_ID,
@@ -307,7 +310,22 @@ describe('addAssessmentToCampaign content guard', () => {
     expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(0)
   })
 
+  it('rejects a draft assessment before the content check', async () => {
+    adminDb.seed({
+      assessments: [{ data: { status: 'draft' } }],
+    })
+
+    const result = await addAssessmentToCampaign(CAMPAIGN_ID, ASSESSMENT_ID)
+
+    expect(result).toMatchObject({ error: expect.stringMatching(/not active/i) })
+    expect(dal.getAssessmentContentSummaries).not.toHaveBeenCalled()
+    expect(adminDb.opsFor('campaign_assessments', 'insert')).toHaveLength(0)
+  })
+
   it('does not auto-build when the actor lacks write access to the assessment', async () => {
+    adminDb.seed({
+      assessments: [{ data: { status: 'active' } }],
+    })
     dal.getAssessmentContentSummaries.mockResolvedValue([
       {
         assessmentId: ASSESSMENT_ID,
@@ -341,6 +359,7 @@ describe('addAssessmentToCampaign content guard', () => {
     ])
     sectionsDal.autoBuildSectionsFromFactors.mockResolvedValue({ built: true, itemCount: 48 })
     adminDb.seed({
+      assessments: [{ data: { status: 'active' } }], // status guard lookup
       campaign_assessments: [
         { data: [] }, // display-order lookup
         { error: null }, // insert
@@ -370,6 +389,7 @@ describe('addAssessmentToCampaign content guard', () => {
       },
     ])
     adminDb.seed({
+      assessments: [{ data: { status: 'active' } }], // status guard lookup
       campaign_assessments: [
         { data: [] }, // display-order lookup
         { error: null }, // insert
@@ -391,6 +411,22 @@ describe('addAssessmentToCampaign content guard', () => {
 // =============================================================================
 
 describe('activateCampaign content readiness gate', () => {
+  it('blocks activation when a linked assessment is not active', async () => {
+    adminDb.seed({
+      campaign_assessments: [{ data: [{ assessment_id: ASSESSMENT_ID }] }],
+      assessments: [
+        { data: [{ id: ASSESSMENT_ID, title: 'Draft assessment', status: 'draft' }] },
+      ],
+    })
+
+    const result = await activateCampaign(CAMPAIGN_ID)
+
+    expect(result).toMatchObject({
+      error: expect.stringMatching(/"Draft assessment" is not active/),
+    })
+    expect(adminDb.opsFor('campaigns', 'update')).toHaveLength(0)
+  })
+
   it('blocks activation and names the empty assessment', async () => {
     adminDb.seed({
       campaign_assessments: [{ data: [{ assessment_id: ASSESSMENT_ID }] }],
