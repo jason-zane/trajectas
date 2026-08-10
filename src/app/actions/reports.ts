@@ -1254,6 +1254,13 @@ export async function sendReportSnapshotEmail(input: {
     ? [{ filename: pdf.filename, content: pdf.content, contentType: 'application/pdf' }]
     : undefined
 
+  // Release BEFORE emailing. The reverse order could email a link and then
+  // fail the release-write, leaving a snapshot the self-serve resend path
+  // (which filters on status = released) refuses to touch. If the email
+  // itself fails, the snapshot is simply released-but-unsent and the send
+  // can be retried.
+  await markSnapshotReleased(snapshotId)
+
   await sendHtmlEmail({
     to: draft.recipientEmail,
     subject: draft.subject,
@@ -1263,7 +1270,6 @@ export async function sendReportSnapshotEmail(input: {
     attachments,
   })
 
-  await markSnapshotReleased(snapshotId)
   await markSnapshotSentToParticipant(snapshotId, context)
 }
 
