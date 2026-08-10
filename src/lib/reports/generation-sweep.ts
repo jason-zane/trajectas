@@ -55,6 +55,7 @@ export const STUCK_GENERATING_THRESHOLD_MS = 15 * 60 * 1000
 
 export interface GenerationSweepResult {
   resetStuck: number
+  resetStuckPdf: number
   picked: number
   processed: number
   failed: number
@@ -147,6 +148,25 @@ export async function sweepReportGeneration(
   }
   const resetStuck = (resetRows ?? []).length
 
+  // 1b. Same recovery for PDF generation: a process killed mid-render leaves
+  // pdf_status='generating' forever — downloads 409 and re-queues are
+  // refused. 'failed' is a re-queueable state (see ensureSnapshotPdf) and
+  // reads honestly in the UI.
+  const { data: resetPdfRows, error: resetPdfError } = await db
+    .from('report_snapshots')
+    .update({
+      pdf_status: 'failed',
+      pdf_error_message: 'PDF generation timed out and was reset by the sweep',
+    })
+    .eq('pdf_status', 'generating')
+    .lt('updated_at', stuckCutoff)
+    .select('id')
+
+  if (resetPdfError) {
+    console.error('[reports] Sweep failed to reset stuck PDF generations:', resetPdfError)
+  }
+  const resetStuckPdf = (resetPdfRows ?? []).length
+
   // 2. Drain pending snapshots in batches until the queue is empty or the
   // time budget runs out. Processing flips rows out of 'pending', so each
   // round's oldest-first query naturally advances (report_snapshots_pending_idx).
@@ -184,5 +204,5 @@ export async function sweepReportGeneration(
     if (ids.length < SWEEP_BATCH) break
   }
 
-  return { resetStuck, picked, processed, failed }
+  return { resetStuck, resetStuckPdf, picked, processed, failed }
 }

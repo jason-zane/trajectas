@@ -145,12 +145,16 @@ export async function scoreSessionCTT(
 
   if (itemErr) return { error: itemErr.message }
 
-  // Get response format type + config for min/max values
+  // Get response format type + config for min/max values. Fail closed: a
+  // failed metadata query must abort scoring, not silently fall back to
+  // default bounds/unkeyed scoring — those produce plausible wrong numbers.
   const formatIds = [...new Set((itemRows ?? []).map((i) => i.response_format_id))]
-  const { data: formatRows } = await db
+  const { data: formatRows, error: formatErr } = await db
     .from('response_formats')
     .select('id, type, config')
     .in('id', formatIds)
+
+  if (formatErr) return { error: formatErr.message }
 
   const formatMap = new Map<string, { type: string; config: Record<string, unknown> }>()
   for (const f of formatRows ?? []) {
@@ -159,10 +163,12 @@ export async function scoreSessionCTT(
 
   // Per-item options: the real scoring bounds live on item_options, not the
   // format config — and options carrying score_value make the item keyed.
-  const { data: optionRows } = await db
+  const { data: optionRows, error: optionErr } = await db
     .from('item_options')
     .select('item_id, value, score_value, exclude_from_scoring')
     .in('item_id', itemIds)
+
+  if (optionErr) return { error: optionErr.message }
 
   const optionValuesByItem = new Map<string, number[]>()
   const scorableOptionsByItem = new Map<string, ScorableOption[]>()
@@ -368,7 +374,14 @@ export async function scoreSessionCTT(
 
   if (upsertErr) return { error: upsertErr.message }
 
-  await persistCompositeScore(db, sessionId, scoreRows.map((r) => r.scaled_score))
+  const compositePersisted = await persistCompositeScore(
+    db,
+    sessionId,
+    scoreRows.map((r) => r.scaled_score),
+  )
+  if (!compositePersisted) {
+    return { error: 'Failed to persist the composite score for this session' }
+  }
 
   return { success: true, scoreCount: factorScores.length }
 }
@@ -384,8 +397,8 @@ async function persistCompositeScore(
   db: any,
   sessionId: string,
   scaledScores: number[],
-): Promise<void> {
-  if (scaledScores.length === 0) return
+): Promise<boolean> {
+  if (scaledScores.length === 0) return true
   const composite = scaledScores.reduce((a, b) => a + b, 0) / scaledScores.length
   const { error } = await db
     .from('participant_sessions')
@@ -399,5 +412,7 @@ async function persistCompositeScore(
       `[scoring] Failed to persist composite_score for session ${sessionId}:`,
       error,
     )
+    return false
   }
+  return true
 }
