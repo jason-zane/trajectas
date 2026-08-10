@@ -118,15 +118,26 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
     ids.itemDefault = await makeItem("Default-bounds item");
     ids.itemWithOptions = await makeItem("Option-bounds item");
 
-    // 1–6 options on the second item — its bounds come from these.
-    await adminDb.from("item_options").insert(
-      Array.from({ length: 6 }, (_, i) => ({
+    // 1–6 options on the second item — its bounds come from these. Plus an
+    // excluded "Don't know" option whose sentinel sits outside the scored
+    // scale: legitimate input, must not define the bounds but must save.
+    // PostgREST bulk inserts need uniform keys across rows.
+    await adminDb.from("item_options").insert([
+      ...Array.from({ length: 6 }, (_, i) => ({
         item_id: ids.itemWithOptions,
         label: `Anchor ${i + 1}`,
         value: i + 1,
         display_order: i,
+        exclude_from_scoring: false,
       })),
-    );
+      {
+        item_id: ids.itemWithOptions,
+        label: "Don't know",
+        value: 9,
+        display_order: 6,
+        exclude_from_scoring: true,
+      },
+    ]);
 
     await adminDb.from("assessment_section_items").insert([
       { section_id: ids.section, item_id: ids.itemDefault, display_order: 0 },
@@ -231,5 +242,25 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
     // for the default-bounds item (Likert fallback 1–5).
     const saved = await callRpc([{ itemId: ids.itemDefault, responseValue: 6 }]);
     expect(saved).toEqual([]);
+  });
+
+  it("accepts an excluded option's sentinel value outside the scored scale", async () => {
+    // "Don't know" = 9 is a real option the runner offers; it must save even
+    // though the scored bounds are 1–6. An unlisted 8 must still be rejected.
+    const saved = await callRpc([{ itemId: ids.itemWithOptions, responseValue: 9 }]);
+    expect(saved).toEqual([ids.itemWithOptions]);
+
+    const rejected = await callRpc([
+      { itemId: ids.itemWithOptions, responseValue: 8 },
+    ]);
+    expect(rejected).toEqual([]);
+
+    const { data: row } = await adminDb
+      .from("participant_responses")
+      .select("response_value")
+      .eq("session_id", ids.session)
+      .eq("item_id", ids.itemWithOptions)
+      .single();
+    expect(Number(row?.response_value)).toBe(9);
   });
 });

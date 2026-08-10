@@ -13,8 +13,12 @@
 --   4. trueValue/falseValue on the config
 --   5. binary format default 0–1
 --   6. Likert default 1–`points` (default 5)
--- free_text items skip range validation (response_value is a presence flag;
--- the content lives in response_data).
+-- A value exactly matching ANY of the item's option values — including
+-- excluded ("Don't know") options whose sentinel sits outside the scored
+-- scale — is always accepted: excluded options are legitimate participant
+-- input, they just don't define the scoring bounds. free_text items skip
+-- range validation entirely (response_value is a presence flag; the content
+-- lives in response_data).
 --
 -- Rejected values behave exactly like the assessment-membership skip: the
 -- row is not saved and its item_id is absent from the returned array, so the
@@ -42,6 +46,7 @@ DECLARE
   v_cfg jsonb;
   v_min numeric;
   v_max numeric;
+  v_option_match boolean;
 BEGIN
   SELECT ps.campaign_participant_id, ps.assessment_id
     INTO v_participant_id, v_assessment_id
@@ -86,6 +91,13 @@ BEGIN
     WHERE i.id = v_item_id;
 
     IF COALESCE(v_format_type, '') <> 'free_text' THEN
+      -- An exact match against ANY of the item's options (excluded ones
+      -- included) is always legitimate input.
+      SELECT EXISTS (
+        SELECT 1 FROM item_options io
+        WHERE io.item_id = v_item_id AND io.value = v_value
+      ) INTO v_option_match;
+
       v_min := NULL;
       v_max := NULL;
 
@@ -137,8 +149,9 @@ BEGIN
         END IF;
       END IF;
 
-      IF v_value < v_min OR v_value > v_max THEN
-        -- Out of range: not saved, absent from the returned array.
+      IF NOT v_option_match AND (v_value < v_min OR v_value > v_max) THEN
+        -- Out of range and not one of the item's options: not saved, absent
+        -- from the returned array.
         CONTINUE;
       END IF;
     END IF;
