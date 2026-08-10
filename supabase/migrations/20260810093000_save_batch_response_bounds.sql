@@ -48,13 +48,26 @@ DECLARE
   v_max numeric;
   v_option_match boolean;
 BEGIN
+  -- Ownership requires a live (non-deleted) participant and, for campaign
+  -- sessions, a live campaign_assessments attachment — removed participants
+  -- and removed assessments must not keep writing through this RPC.
   SELECT ps.campaign_participant_id, ps.assessment_id
     INTO v_participant_id, v_assessment_id
   FROM participant_sessions ps
   JOIN campaign_participants cp ON cp.id = ps.campaign_participant_id
   WHERE ps.id = p_session_id
     AND cp.access_token = p_access_token
-    AND ps.status = 'in_progress';
+    AND cp.deleted_at IS NULL
+    AND ps.status = 'in_progress'
+    AND (
+      ps.campaign_id IS NULL
+      OR EXISTS (
+        SELECT 1 FROM campaign_assessments ca
+        WHERE ca.campaign_id = ps.campaign_id
+          AND ca.assessment_id = ps.assessment_id
+          AND ca.deleted_at IS NULL
+      )
+    );
 
   IF v_participant_id IS NULL OR v_assessment_id IS NULL THEN
     RETURN to_jsonb(-1);
