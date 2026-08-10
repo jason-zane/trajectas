@@ -33,6 +33,7 @@ export async function requireParticipantRuntimeAccess(
     .from('campaign_participants')
     .select('id, campaign_id, status')
     .eq('access_token', token)
+    .is('deleted_at', null)
     .single()
 
   if (participantError || !participant) {
@@ -108,6 +109,7 @@ export async function requireParticipantRuntimeCampaignAssessmentAccess(input: {
     .select('id')
     .eq('campaign_id', input.campaignId)
     .eq('assessment_id', input.assessmentId)
+    .is('deleted_at', null)
     .single()
 
   if (error || !data) {
@@ -141,6 +143,23 @@ export async function requireParticipantRuntimeSessionAccess(
   ) {
     throw new ParticipantRuntimeAccessError(
       'This assessment session does not belong to the active access token.'
+    )
+  }
+
+  // A session for an assessment that has been removed from the campaign must
+  // not keep running or submitting — the soft-deleted attachment row is
+  // invisible everywhere else, so it must gate here too.
+  const { data: liveAttachment, error: attachmentError } = await db
+    .from('campaign_assessments')
+    .select('id')
+    .eq('campaign_id', session.campaign_id)
+    .eq('assessment_id', session.assessment_id)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (attachmentError || !liveAttachment) {
+    throw new ParticipantRuntimeAccessError(
+      'This assessment is not available in the active campaign.'
     )
   }
 

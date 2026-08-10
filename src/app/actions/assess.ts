@@ -7,6 +7,7 @@ import { likertAnchorOptions } from '@/lib/assess/likert-anchors'
 import { logReportViewed } from '@/lib/auth/support-sessions'
 import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
+import { getSessionCompleteness } from '@/lib/dal/session-completeness'
 import { reportError } from '@/lib/observability/report-error'
 import {
   getCampaignAccessError,
@@ -197,6 +198,7 @@ async function validateAccessTokenImpl(
     .from('campaign_participants')
     .select('*')
     .eq('access_token', token)
+    .is('deleted_at', null)
     .single()
 
   if (participantErr || !participantRow) {
@@ -225,6 +227,7 @@ async function validateAccessTokenImpl(
         .from('campaign_assessments')
         .select('*, assessments(id, title, description, assessment_sections(count))')
         .eq('campaign_id', participant.campaignId)
+        .is('deleted_at', null)
         .order('display_order', { ascending: true }),
     ])
 
@@ -435,6 +438,7 @@ export async function getSessionState(token: string, sessionId: string) {
         .select('id')
         .eq('campaign_id', session.campaign_id)
         .eq('assessment_id', session.assessment_id)
+        .is('deleted_at', null)
         .maybeSingle(),
       db
         .from('assessment_factors')
@@ -1182,6 +1186,7 @@ async function finalizeCompletedSessionProcessing(input: {
 
   const db = createAdminClient()
   let allDone = false
+  let refreshedAccessToken: string | undefined
 
   if (input.campaignParticipantId && input.campaignId) {
     const [{ data: required }, { data: completed }] = await Promise.all([
@@ -1189,7 +1194,8 @@ async function finalizeCompletedSessionProcessing(input: {
         .from('campaign_assessments')
         .select('assessment_id')
         .eq('campaign_id', input.campaignId)
-        .eq('is_required', true),
+        .eq('is_required', true)
+        .is('deleted_at', null),
       db
         .from('participant_sessions')
         .select('assessment_id')
@@ -1202,18 +1208,26 @@ async function finalizeCompletedSessionProcessing(input: {
     allDone = [...requiredIds].every((id) => completedIds.has(id))
 
     if (allDone) {
-      const { error: participantUpdateError } = await db
+      // Rotating the token invalidates the emailed link once all required
+      // work is done. The new token must travel back to the client — the
+      // browser navigates to the completion/report pages with it, and the
+      // token in its current URL stops validating the moment this commits.
+      const rotatedToken = crypto.randomBytes(32).toString('hex')
+      const { data: rotatedRows, error: participantUpdateError } = await db
         .from('campaign_participants')
         .update({
           status: 'completed',
           completed_at: input.completedAt,
-          access_token: crypto.randomBytes(32).toString('hex'),
+          access_token: rotatedToken,
         })
         .eq('id', input.campaignParticipantId)
         .in('status', PARTICIPANT_COMPLETABLE_STATUSES)
+        .select('id')
 
       if (participantUpdateError) {
         logActionError('submitSession.participantStatus', participantUpdateError)
+      } else if ((rotatedRows ?? []).length > 0) {
+        refreshedAccessToken = rotatedToken
       }
     }
 
@@ -1301,6 +1315,7 @@ async function finalizeCompletedSessionProcessing(input: {
       outcome: 'completed_no_report',
       sessionId: input.sessionId,
       processingStatus: 'ready',
+      refreshedAccessToken,
     }
   }
 
@@ -1327,6 +1342,7 @@ async function finalizeCompletedSessionProcessing(input: {
       outcome: 'ready',
       sessionId: input.sessionId,
       processingStatus: 'ready',
+      refreshedAccessToken,
     }
   }
 
@@ -1349,6 +1365,7 @@ async function finalizeCompletedSessionProcessing(input: {
     outcome: 'report_pending',
     sessionId: input.sessionId,
     processingStatus: 'reporting',
+    refreshedAccessToken,
   }
 }
 
@@ -1392,6 +1409,32 @@ export async function submitSession(
       ok: false,
       error: 'submit_failed',
       message: 'Unable to submit this assessment right now',
+    }
+  }
+
+  // Hard completeness gate: a session still in progress can only be submitted
+  // once every item DELIVERED to it has a saved response (the DAL mirrors the
+  // runner's factor-selection filtering). Already-completed sessions skip
+  // this — their re-submits only retry scoring/report work.
+  if (session.status === 'in_progress') {
+    const completeness = await getSessionCompleteness(db, {
+      sessionId,
+      assessmentId: session.assessment_id,
+      campaignId: session.campaign_id ?? null,
+    })
+    if ('error' in completeness) {
+      return { ok: false, error: 'submit_failed', message: completeness.error }
+    }
+    if (completeness.expected > 0 && completeness.answered < completeness.expected) {
+      const missing = completeness.expected - completeness.answered
+      return {
+        ok: false,
+        error: 'incomplete_submission',
+        message:
+          missing === 1
+            ? '1 question is still unanswered. Please answer every question before submitting.'
+            : `${missing} of ${completeness.expected} questions are still unanswered. Please answer every question before submitting.`,
+      }
     }
   }
 
@@ -1716,6 +1759,7 @@ export async function registerViaLink(
       .from('campaign_assessments')
       .select('assessment_id')
       .eq('campaign_id', link.campaign_id)
+      .is('deleted_at', null)
 
     const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
 

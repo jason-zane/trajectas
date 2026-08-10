@@ -105,6 +105,13 @@ describe.skipIf(!canRun)("assess: save-batch RPC (live schema)", () => {
       item_id: ids.itemInAssessment,
       display_order: 0,
     });
+    // The RPC's ownership predicate requires a LIVE campaign_assessments
+    // attachment for campaign sessions.
+    await ins("campaign_assessments", {
+      campaign_id: ids.campaign,
+      assessment_id: ids.assessment,
+      display_order: 0,
+    });
 
     const { data: participant, error: participantErr } = await admin
       .from("campaign_participants")
@@ -137,6 +144,10 @@ describe.skipIf(!canRun)("assess: save-batch RPC (live schema)", () => {
     // delete cascades sections + section items.
     await admin.from("participant_sessions").delete().eq("id", ids.session);
     await admin.from("campaign_participants").delete().eq("id", ids.participant);
+    await admin
+      .from("campaign_assessments")
+      .delete()
+      .eq("campaign_id", ids.campaign);
     await admin.from("campaigns").delete().eq("id", ids.campaign);
     await admin.from("clients").delete().eq("id", ids.client);
     await admin.from("assessments").delete().eq("id", ids.assessment);

@@ -18,6 +18,7 @@ import {
 
 function makeSweepDb(opts: {
   stuckRows?: Array<{ id: string }>
+  stuckPdfRows?: Array<{ id: string }>
   // One entry per sweep round; the last entry repeats once exhausted.
   pendingBatches?: Array<Array<{ id: string }>>
   generatingCount?: number
@@ -28,7 +29,8 @@ function makeSweepDb(opts: {
     pendingLimit?: number
     pendingOrder?: [string, unknown]
     pendingQueries: number
-  } = { pendingQueries: 0 }
+    updateQueries: number
+  } = { pendingQueries: 0, updateQueries: 0 }
 
   const batches = [...(opts.pendingBatches ?? [[]])]
 
@@ -62,7 +64,15 @@ function makeSweepDb(opts: {
         return
       }
       if (mode.kind === 'update') {
-        resolve({ data: opts.stuckRows ?? [], error: null })
+        // First update chain per sweep = status reset, second = pdf reset.
+        calls.updateQueries += 1
+        resolve({
+          data:
+            calls.updateQueries === 1
+              ? (opts.stuckRows ?? [])
+              : (opts.stuckPdfRows ?? []),
+          error: null,
+        })
         return
       }
       calls.pendingQueries += 1
@@ -136,10 +146,39 @@ describe('sweepReportGeneration', () => {
       processFn: processFn as never,
     })
 
-    expect(result).toEqual({ resetStuck: 2, picked: 2, processed: 2, failed: 0 })
+    expect(result).toEqual({
+      resetStuck: 2,
+      resetStuckPdf: 0,
+      picked: 2,
+      processed: 2,
+      failed: 0,
+    })
     expect(calls.resetCutoff).toBe(
       new Date(now.getTime() - STUCK_GENERATING_THRESHOLD_MS).toISOString(),
     )
+  })
+
+  it('resets stuck pdf generations alongside stuck snapshots', async () => {
+    const { db, calls } = makeSweepDb({
+      stuckPdfRows: [{ id: 'pdf-stuck-1' }],
+      pendingBatches: [[]],
+    })
+    const processFn = vi.fn(async () => {})
+
+    const result = await sweepReportGeneration({
+      client: db as never,
+      processFn: processFn as never,
+    })
+
+    expect(result).toEqual({
+      resetStuck: 0,
+      resetStuckPdf: 1,
+      picked: 0,
+      processed: 0,
+      failed: 0,
+    })
+    // Both the status reset and the pdf reset ran.
+    expect(calls.updateQueries).toBe(2)
   })
 
   it('picks up pending snapshots oldest-first, capped at SWEEP_BATCH per round', async () => {
@@ -153,7 +192,13 @@ describe('sweepReportGeneration', () => {
       processFn: processFn as never,
     })
 
-    expect(result).toEqual({ resetStuck: 0, picked: 2, processed: 2, failed: 0 })
+    expect(result).toEqual({
+      resetStuck: 0,
+      resetStuckPdf: 0,
+      picked: 2,
+      processed: 2,
+      failed: 0,
+    })
     expect(processFn).toHaveBeenCalledWith('a')
     expect(processFn).toHaveBeenCalledWith('b')
     expect(calls.pendingLimit).toBe(SWEEP_BATCH)
@@ -173,7 +218,13 @@ describe('sweepReportGeneration', () => {
       processFn: processFn as never,
     })
 
-    expect(result).toEqual({ resetStuck: 0, picked: 3, processed: 2, failed: 1 })
+    expect(result).toEqual({
+      resetStuck: 0,
+      resetStuckPdf: 0,
+      picked: 3,
+      processed: 2,
+      failed: 1,
+    })
   })
 
   it('drains multiple full batches until the queue is empty', async () => {
@@ -192,6 +243,7 @@ describe('sweepReportGeneration', () => {
 
     expect(result).toEqual({
       resetStuck: 0,
+      resetStuckPdf: 0,
       picked: SWEEP_BATCH * 2 + 1,
       processed: SWEEP_BATCH * 2 + 1,
       failed: 0,

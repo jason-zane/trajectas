@@ -102,23 +102,28 @@ export async function getPendingResponses(
   return limit !== undefined ? rows.slice(0, limit) : rows;
 }
 
-/** Mark a set of (sessionId, itemId) pairs as synced. Idempotent. */
+/**
+ * Mark acknowledged writes as synced. Each ack carries the idempotencyKey of
+ * the row that was actually POSTed — a row is only marked synced when the
+ * key still matches. If the user changed their answer between the POST and
+ * its ACK, the current row carries a fresh key, stays synced=0, and the new
+ * value flushes on the next pass. Idempotent.
+ */
 export async function markSynced(
   sessionId: string,
-  itemIds: string[],
+  acks: Array<{ itemId: string; idempotencyKey: string }>,
 ): Promise<void> {
-  if (itemIds.length === 0) return;
+  if (acks.length === 0) return;
   const db = getResponseDb();
   await db.transaction("rw", db.responses, async () => {
-    for (const itemId of itemIds) {
-      const existing = await db.responses.get([sessionId, itemId]);
-      // Only mark synced if the row still represents the value we sent —
-      // i.e. updatedAt hasn't moved on. If the user changed their answer
-      // between the POST and its ACK, the row's idempotencyKey/updatedAt
-      // will differ from what we sent and we leave synced=0 so the new
-      // value flushes too.
-      if (existing && existing.synced === 0) {
-        await db.responses.update([sessionId, itemId], { synced: 1 });
+    for (const ack of acks) {
+      const existing = await db.responses.get([sessionId, ack.itemId]);
+      if (
+        existing &&
+        existing.synced === 0 &&
+        existing.idempotencyKey === ack.idempotencyKey
+      ) {
+        await db.responses.update([sessionId, ack.itemId], { synced: 1 });
       }
     }
   });

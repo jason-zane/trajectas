@@ -404,6 +404,7 @@ export async function getIntegrationCampaign(
         .from('campaign_assessments')
         .select('*, assessments(title, status)')
         .eq('campaign_id', campaignId)
+        .is('deleted_at', null)
         .order('display_order', { ascending: true }),
       db
         .from('campaign_report_templates')
@@ -733,7 +734,8 @@ export async function getIntegrationParticipantResultSummary(
       db
         .from('campaign_assessments')
         .select('id', { count: 'exact', head: true })
-        .eq('campaign_id', campaignId),
+        .eq('campaign_id', campaignId)
+        .is('deleted_at', null),
     ])
 
   if (sessionsError) throw new Error(sessionsError.message)

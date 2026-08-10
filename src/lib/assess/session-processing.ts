@@ -10,6 +10,7 @@ export type SubmitSessionErrorCode =
   | 'submit_failed'
   | 'scoring_failed'
   | 'report_failed'
+  | 'incomplete_submission'
 
 export type SubmitSessionResult =
   | {
@@ -17,6 +18,13 @@ export type SubmitSessionResult =
       sessionId: string
       outcome: SubmitSessionSuccessOutcome
       processingStatus: ParticipantSessionProcessingStatus
+      /**
+       * Present when this submit completed the participant's final required
+       * assessment: the server rotates the access token at that moment, and
+       * the client must navigate onward with THIS token — the one in the
+       * current URL is already dead.
+       */
+      refreshedAccessToken?: string
     }
   | {
       ok: false

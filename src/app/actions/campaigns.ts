@@ -1062,11 +1062,13 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
     return { error: 'Unable to verify that this assessment has questions. Try again.' }
   }
 
-  // Get max display order
+  // Get max display order among live rows — soft-deleted assessments must
+  // not inflate the next position.
   const { data: existing, error: existingOrderError } = await db
     .from('campaign_assessments')
     .select('display_order')
     .eq('campaign_id', campaignId)
+    .is('deleted_at', null)
     .order('display_order', { ascending: false })
     .limit(1)
 
@@ -1214,6 +1216,7 @@ export async function inviteParticipant(
       .from('campaign_assessments')
       .select('assessment_id')
       .eq('campaign_id', campaignId)
+      .is('deleted_at', null)
 
     if (campaignAssessmentsError) {
       logActionError('inviteParticipant', campaignAssessmentsError)
@@ -2349,6 +2352,7 @@ export async function getCampaignAssessmentId(
     .select('id')
     .eq('campaign_id', campaignId)
     .eq('assessment_id', assessmentId)
+    .is('deleted_at', null)
     .maybeSingle()
   if (error) {
     logActionError('getCampaignAssessmentId', error)

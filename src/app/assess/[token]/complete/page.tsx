@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { validateAccessToken, submitSession } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
@@ -19,6 +20,11 @@ export default async function CompletePage({
   let brandConfig: BrandConfig | null = null;
   let campaignId: string | undefined;
   let participantName: string | undefined;
+  // Set when the auto-submit below completes the final required assessment:
+  // the server rotates the access token at that moment, so onward links must
+  // carry the fresh one.
+  let effectiveToken = token;
+  let bounceToRunner = false;
 
   try {
     const result = await validateAccessToken(token);
@@ -34,14 +40,29 @@ export default async function CompletePage({
     }
     // Auto-submit any in-progress session — handles the case where the review
     // page is disabled and submitSession was never triggered by review-screen.
+    // submitSession enforces the completeness gate, so landing here with
+    // unanswered questions does NOT complete the session — the participant is
+    // bounced back into the runner to finish instead.
     const inProgressSession = result.data?.sessions?.find(
       (s) => s.status === "in_progress",
     );
     if (inProgressSession) {
-      await submitSession(token, inProgressSession.id).catch(() => {});
+      const submitResult = await submitSession(token, inProgressSession.id).catch(
+        () => null,
+      );
+      if (!submitResult || !submitResult.ok) {
+        bounceToRunner = true;
+      } else if (submitResult.refreshedAccessToken) {
+        effectiveToken = submitResult.refreshedAccessToken;
+      }
     }
   } catch {
     // Fall through — brandConfig stays null, resolved below.
+  }
+
+  if (bounceToRunner) {
+    // Outside the try/catch: Next's redirect works by throwing.
+    redirect(`/assess/${token}`);
   }
 
   // Fallback only when token validation fails / no campaign. This preserves
@@ -64,8 +85,10 @@ export default async function CompletePage({
     footerText: interpolated.footerText ?? rawRunnerContent.footerText,
   };
 
-  // Compute next URL from flow router (e.g. Report page if it comes after Complete)
-  const nextUrl = getNextFlowUrl(experience, "complete", token);
+  // Compute next URL from flow router (e.g. Report page if it comes after
+  // Complete) — built with the effective token so it survives the post-submit
+  // rotation.
+  const nextUrl = getNextFlowUrl(experience, "complete", effectiveToken);
 
   // Brand CSS + Google Fonts <link> are injected once by the token layout
   // (src/app/assess/[token]/layout.tsx) and inherited here.
