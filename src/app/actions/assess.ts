@@ -7,7 +7,7 @@ import { likertAnchorOptions } from '@/lib/assess/likert-anchors'
 import { logReportViewed } from '@/lib/auth/support-sessions'
 import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
-import { getSessionCompleteness } from '@/lib/assess/session-completeness'
+import { getSessionCompleteness } from '@/lib/dal/session-completeness'
 import { reportError } from '@/lib/observability/report-error'
 import {
   getCampaignAccessError,
@@ -1409,14 +1409,15 @@ export async function submitSession(
   }
 
   // Hard completeness gate: a session still in progress can only be submitted
-  // once every item in the assessment has a saved response. Already-completed
-  // sessions skip this — their re-submits only retry scoring/report work.
+  // once every item DELIVERED to it has a saved response (the DAL mirrors the
+  // runner's factor-selection filtering). Already-completed sessions skip
+  // this — their re-submits only retry scoring/report work.
   if (session.status === 'in_progress') {
-    const completeness = await getSessionCompleteness(
-      db,
+    const completeness = await getSessionCompleteness(db, {
       sessionId,
-      session.assessment_id,
-    )
+      assessmentId: session.assessment_id,
+      campaignId: session.campaign_id ?? null,
+    })
     if ('error' in completeness) {
       return { ok: false, error: 'submit_failed', message: completeness.error }
     }
