@@ -4,7 +4,9 @@ import { postgresUuid } from "@/lib/validations/uuid";
 /** Single response inside a batched save. Keys mirror the IndexedDB record. */
 export const saveBatchEntrySchema = z.object({
   itemId: postgresUuid(),
-  responseValue: z.number(),
+  // finite() rejects NaN/Infinity; per-item range validation happens in the
+  // save RPC against the item's actual response-format bounds.
+  responseValue: z.number().finite(),
   responseData: z.record(z.string(), z.unknown()).optional(),
   responseTimeMs: z.number().int().optional(),
   /** Client-generated stable key — round-tripped so the client can correlate

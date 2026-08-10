@@ -350,16 +350,23 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     const releasedAt = template.autoRelease ? generatedAt : null
     const nextStatus = template.autoRelease ? 'released' : 'ready'
 
-    await db.from('report_snapshots').update({
+    // These final writes ARE the job — an unchecked failure here left the
+    // snapshot stuck 'generating' while the run was counted as processed.
+    // Throwing routes through the catch below (failed bookkeeping) and lets
+    // the sweep count a genuine failure.
+    const { error: snapshotWriteError } = await db.from('report_snapshots').update({
       status: nextStatus,
       released_at: releasedAt,
       generated_at: generatedAt,
       rendered_data: resolvedBlocks,
       error_message: null,
     }).eq('id', snapshotId)
+    if (snapshotWriteError) {
+      throw new Error(`Failed to persist generated snapshot: ${snapshotWriteError.message}`)
+    }
 
     // Mark session as ready when a report completes
-    await db
+    const { error: sessionWriteError } = await db
       .from('participant_sessions')
       .update({
         processing_status: 'ready',
@@ -367,6 +374,9 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         processed_at: generatedAt,
       })
       .eq('id', snapshot.participantSessionId)
+    if (sessionWriteError) {
+      throw new Error(`Failed to mark session ready: ${sessionWriteError.message}`)
+    }
 
     try {
       await enqueueReportSnapshotEvent({
@@ -427,6 +437,10 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         })
         .eq('id', failedSnapshot.participant_session_id)
     }
+
+    // Propagate so callers (sweep, generate route) record a failure instead
+    // of counting the run as processed.
+    throw err
   }
 }
 
@@ -478,15 +492,20 @@ async function runCustomReport(
   const releasedAt = template.autoRelease ? generatedAt : null
   const nextStatus = template.autoRelease ? 'released' : 'ready'
 
-  await db.from('report_snapshots').update({
+  // Same contract as the block path: a failed final write must throw so the
+  // caller records a failure, not a processed run.
+  const { error: snapshotWriteError } = await db.from('report_snapshots').update({
     status: nextStatus,
     released_at: releasedAt,
     generated_at: generatedAt,
     rendered_data: [resolvedBlock],
     error_message: null,
   }).eq('id', snapshotId)
+  if (snapshotWriteError) {
+    throw new Error(`Failed to persist generated snapshot: ${snapshotWriteError.message}`)
+  }
 
-  await db
+  const { error: sessionWriteError } = await db
     .from('participant_sessions')
     .update({
       processing_status: 'ready',
@@ -494,6 +513,9 @@ async function runCustomReport(
       processed_at: generatedAt,
     })
     .eq('id', snapshot.participantSessionId)
+  if (sessionWriteError) {
+    throw new Error(`Failed to mark session ready: ${sessionWriteError.message}`)
+  }
 
   try {
     await enqueueReportSnapshotEvent({

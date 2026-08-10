@@ -103,7 +103,9 @@ describe('processSnapshot claim guard', () => {
 
     const updateSpy = vi.fn()
     // Claim succeeds; the subsequent snapshot fetch fails, which proves we
-    // passed the guard and lets the catch path mark the snapshot failed.
+    // passed the guard. The catch path marks the snapshot failed and then
+    // RETHROWS so callers (sweep, generate route) record a failure instead
+    // of counting the run as processed.
     const singleSpy = vi.fn(async () => ({
       data: null,
       error: { message: 'not found' },
@@ -116,10 +118,10 @@ describe('processSnapshot claim guard', () => {
       }),
     )
 
-    await expect(processSnapshot('snap-1')).resolves.toBeUndefined()
+    await expect(processSnapshot('snap-1')).rejects.toThrow(/not found/i)
 
     expect(singleSpy).toHaveBeenCalled()
-    // The catch path recorded the failure.
+    // The catch path recorded the failure before rethrowing.
     expect(updateSpy).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' }),
     )
