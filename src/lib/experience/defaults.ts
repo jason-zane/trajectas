@@ -63,7 +63,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     body: '{{answeredCount}} of {{totalItems}} questions answered',
     buttonLabel: 'Submit assessment',
     incompleteWarning:
-      'You have unanswered questions. You can still submit, but incomplete sections may affect your results.',
+      'You have unanswered questions. Every question needs an answer before you can submit.',
   },
 
   complete: {
@@ -74,7 +74,9 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
 
   report: {
     heading: 'Your Report',
-    body: 'Your report is being prepared. You will receive an email when it is ready.',
+    // No automatic participant email exists on release — do not promise one.
+    // The report page polls and updates itself when the report is ready.
+    body: 'Your report is being prepared. It will appear here automatically once it is ready.',
     buttonLabel: 'View Report',
     reportMode: 'holding',
   },

@@ -84,7 +84,10 @@ export default async function ReportViewerPage({ params, searchParams }: Props) 
             <SendReportButton
               snapshotId={snapshotId}
               draft={sendDraft}
-              alreadySent={snapshot.status === 'released'}
+              // Released no longer implies sent: release is recorded before
+              // the email goes out, so a send failure leaves a released-but-
+              // unsent snapshot. Only the actual send marker counts.
+              alreadySent={Boolean(snapshot.sentToParticipantAt)}
             />
           ) : null}
           <ReportPdfButton

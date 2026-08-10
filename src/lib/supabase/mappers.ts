@@ -904,6 +904,7 @@ export function mapReportSnapshotRow(row: any): ReportSnapshot {
     releasedBy: row.released_by ?? undefined,
     generatedAt: row.generated_at ?? undefined,
     errorMessage: row.error_message ?? undefined,
+    sentToParticipantAt: row.sent_to_participant_at ?? undefined,
     created_at: row.created_at,
     updated_at: row.updated_at ?? undefined,
   }
