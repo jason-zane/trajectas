@@ -267,7 +267,10 @@ values
     true,
     '2026-01-01T00:00:00Z'
   )
-on conflict (campaign_id, assessment_id) do update
+-- campaign_assessments_live_unique is a partial index (WHERE deleted_at IS
+-- NULL, migration 20260810092000); ON CONFLICT must state the predicate to
+-- infer it.
+on conflict (campaign_id, assessment_id) where deleted_at is null do update
 set
   display_order = excluded.display_order,
   is_required = excluded.is_required;

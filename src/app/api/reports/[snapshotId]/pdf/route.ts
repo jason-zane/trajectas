@@ -134,6 +134,7 @@ export async function GET(
       .from('campaign_participants')
       .select('id, campaign_id')
       .eq('access_token', participantToken)
+      .is('deleted_at', null)
       .maybeSingle()
     if (tokenError || !tokenData) {
       return Response.json({ error: 'Invalid participant token' }, { status: 403 })

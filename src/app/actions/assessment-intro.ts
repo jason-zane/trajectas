@@ -218,6 +218,7 @@ export async function getCampaignAssessmentIntros(
     .from('campaign_assessments')
     .select('assessment_id, intro_override, display_order')
     .eq('campaign_id', campaignId)
+    .is('deleted_at', null)
     .order('display_order', { ascending: true })
 
   if (caError || !campaignAssessments || campaignAssessments.length === 0) {
