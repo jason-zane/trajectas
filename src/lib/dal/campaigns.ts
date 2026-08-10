@@ -116,7 +116,7 @@ export async function getCampaignSessions(
 }
 
 /**
- * List active/draft assessments as campaign-builder options (with factor/section/
+ * List active assessments as campaign-builder options (with factor/section/
  * item counts + a format label + estimated duration). Serves admin + partner
  * portals; clients use the client assessment library instead.
  *
@@ -146,7 +146,7 @@ export async function listActiveAssessments(
       )
     `,
     )
-    .in("status", ["active", "draft"])
+    .eq("status", "active")
     .is("deleted_at", null)
     .order("title", { ascending: true });
 

@@ -8,9 +8,10 @@ const slug = (s: string) => `dalaa-${s}-${ts}`.toLowerCase();
 /**
  * Validates the listActiveAssessments query against the live local schema: the
  * nested assessment_factors / assessment_sections(response_formats,
- * assessment_section_items) embedded selects resolve, the active+draft status
- * filter, and the partner_id-or-null scope OR. The row → DTO mapping (counts,
- * format label, duration) is unit-tested in dal-campaigns-mappers.test.ts.
+ * assessment_section_items) embedded selects resolve, the active-only status
+ * filter (drafts must not reach the campaign picker — audit H8), and the
+ * partner_id-or-null scope OR. The row → DTO mapping (counts, format label,
+ * duration) is unit-tested in dal-campaigns-mappers.test.ts.
  */
 describe.skipIf(!canRun)("dal/campaigns: listActiveAssessments", () => {
   const admin = createAdminClient();
@@ -51,11 +52,11 @@ describe.skipIf(!canRun)("dal/campaigns: listActiveAssessments", () => {
       .in("id", [ids.active, ids.draft, ids.archived].filter(Boolean));
   });
 
-  it("returns active + draft (not archived) with zero counts for empty assessments", async () => {
+  it("returns active only (not draft or archived) with zero counts for empty assessments", async () => {
     const rows = await listActiveAssessments(admin, { partnerIds: null });
     const byId = Object.fromEntries(rows.map((r) => [r.id, r]));
     expect(byId[ids.active]).toBeDefined();
-    expect(byId[ids.draft]).toBeDefined();
+    expect(byId[ids.draft]).toBeUndefined();
     expect(byId[ids.archived]).toBeUndefined();
     expect(byId[ids.active]).toMatchObject({
       sectionCount: 0,

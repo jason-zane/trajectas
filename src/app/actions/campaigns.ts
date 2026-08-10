@@ -742,6 +742,33 @@ export async function activateCampaign(id: string) {
     return { error: 'Campaign must have at least one assessment before activation.' }
   }
 
+  // Every linked assessment must be active — a draft attached before this
+  // guard existed (or unpublished since) must not go live with the campaign.
+  const { data: linkedStatuses, error: linkedStatusesError } = await db
+    .from('assessments')
+    .select('id, title, status')
+    .in(
+      'id',
+      linkedAssessments.map((row) => String(row.assessment_id)),
+    )
+
+  if (linkedStatusesError) {
+    logActionError('activateCampaign', linkedStatusesError)
+    return { error: 'Unable to check campaign readiness.' }
+  }
+
+  const inactiveAssessments = (linkedStatuses ?? []).filter(
+    (a) => a.status !== 'active',
+  )
+  if (inactiveAssessments.length > 0) {
+    const titles = inactiveAssessments.map((a) => `"${a.title}"`).join(', ')
+    return {
+      error: `${titles} ${
+        inactiveAssessments.length === 1 ? 'is' : 'are'
+      } not active. Publish the assessment in the builder before activating this campaign.`,
+    }
+  }
+
   // Every linked assessment must have materialised questions — an empty one
   // has nothing for the runner to show and its session auto-completes on open.
   // Auto-build missing layouts from each assessment's factors first; only
@@ -982,6 +1009,29 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
 
   const db = createAdminClient()
 
+  // Only active assessments can reach participants — a draft is unfinished
+  // by definition. Applies to every caller, platform admins included.
+  const { data: assessmentRow, error: assessmentStatusError } = await db
+    .from('assessments')
+    .select('status')
+    .eq('id', assessmentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (assessmentStatusError) {
+    logActionError('addAssessmentToCampaign', assessmentStatusError)
+    return { error: 'Unable to verify assessment availability.' }
+  }
+  if (!assessmentRow) {
+    return { error: 'Assessment not found.' }
+  }
+  if (assessmentRow.status !== 'active') {
+    return {
+      error:
+        'This assessment is not active. Publish it in the builder before adding it to a campaign.',
+    }
+  }
+
   // The runner serves questions from the assessment's sections, not its
   // factors — an assessment with none renders empty and auto-completes. Build
   // the default layout from the factors on the spot; only refuse when they
@@ -1139,7 +1189,11 @@ export async function reorderCampaignAssessments(campaignId: string, orderedIds:
 // Participants
 // ---------------------------------------------------------------------------
 
-export async function inviteParticipant(campaignId: string, payload: Record<string, unknown>) {
+export async function inviteParticipant(
+  campaignId: string,
+  payload: Record<string, unknown>,
+  options?: { deferEmail?: boolean },
+) {
   const parsed = inviteParticipantSchema.safeParse(payload)
   if (!parsed.success) {
     return { error: parsed.error.flatten().fieldErrors }
@@ -1210,19 +1264,24 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
 
   // Auto-send invite email — surface failures to the caller so the UI can
   // show a retry button. The participant row is still created even if email
-  // fails, so the admin can retry without re-creating.
+  // fails, so the admin can retry without re-creating. deferEmail skips the
+  // send entirely: quick launch creates participants first, activates the
+  // campaign, and only then emails — so a failed activation never leaves
+  // delivered invitations pointing at a rolled-back campaign.
   let emailSent = false
   let emailError: string | undefined
-  try {
-    const emailResult = await sendParticipantInviteEmail(campaignId, data.id)
-    if (emailResult.success) {
-      emailSent = true
-    } else {
-      emailError = emailResult.error
+  if (!options?.deferEmail) {
+    try {
+      const emailResult = await sendParticipantInviteEmail(campaignId, data.id)
+      if (emailResult.success) {
+        emailSent = true
+      } else {
+        emailError = emailResult.error
+      }
+    } catch (err) {
+      emailError = err instanceof Error ? err.message : 'Email delivery failed'
+      console.warn('[inviteParticipant] Email send failed, participant created:', err)
     }
-  } catch (err) {
-    emailError = err instanceof Error ? err.message : 'Email delivery failed'
-    console.warn('[inviteParticipant] Email send failed, participant created:', err)
   }
 
   revalidatePath(`/campaigns/${campaignId}`)
@@ -1233,6 +1292,66 @@ export async function inviteParticipant(campaignId: string, payload: Record<stri
     emailSent,
     emailError,
   }
+}
+
+/**
+ * Send invite emails for a set of participants with bounded concurrency.
+ * Companion to the deferEmail option on inviteParticipant /
+ * bulkInviteParticipants: quick launch creates rows silently, activates the
+ * campaign, and then calls this — so invitations only ever go out for a
+ * campaign that is confirmed live.
+ */
+export async function sendParticipantInviteEmails(
+  campaignId: string,
+  participantIds: string[],
+): Promise<
+  | { error: string }
+  | {
+      success: true
+      emailsSent: number
+      emailFailures: BulkInviteEmailFailure[]
+    }
+> {
+  try {
+    await requireCampaignAccess(campaignId)
+  } catch (error) {
+    if (error instanceof AuthorizationError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const emailFailures: BulkInviteEmailFailure[] = []
+  let emailsSent = 0
+  const EMAIL_CONCURRENCY = 5
+  for (let i = 0; i < participantIds.length; i += EMAIL_CONCURRENCY) {
+    const chunk = participantIds.slice(i, i + EMAIL_CONCURRENCY)
+    await Promise.all(
+      chunk.map(async (participantId) => {
+        try {
+          const result = await sendParticipantInviteEmail(campaignId, participantId)
+          if (result.success) {
+            emailsSent += 1
+          } else {
+            emailFailures.push({
+              participantId,
+              email: '',
+              error: result.error ?? 'Email delivery failed',
+            })
+          }
+        } catch (emailErr) {
+          emailFailures.push({
+            participantId,
+            email: '',
+            error:
+              emailErr instanceof Error ? emailErr.message : 'Email delivery failed',
+          })
+        }
+      }),
+    )
+  }
+
+  return { success: true, emailsSent, emailFailures }
 }
 
 /**
@@ -1322,7 +1441,7 @@ export async function sendParticipantInviteEmail(
 export async function bulkInviteParticipants(
   campaignId: string,
   participants: { email: string; firstName?: string; lastName?: string }[],
-  options?: { allowExisting?: boolean },
+  options?: { allowExisting?: boolean; deferEmail?: boolean },
 ) {
   let access
   try {
@@ -1458,8 +1577,10 @@ export async function bulkInviteParticipants(
   // bounded concurrency. Previously this ran sequentially (one SMTP call at
   // a time), which made bulk imports of 50-100 participants feel frozen for
   // 10-20 seconds. Chunked Promise.all keeps the SMTP provider from being
-  // overwhelmed while dropping wall-clock time ~5x.
-  if (data && data.length > 0) {
+  // overwhelmed while dropping wall-clock time ~5x. deferEmail skips sending
+  // — quick launch emails only after the campaign is confirmed active (via
+  // sendParticipantInviteEmails).
+  if (!options?.deferEmail && data && data.length > 0) {
     const EMAIL_CONCURRENCY = 5
     for (let i = 0; i < data.length; i += EMAIL_CONCURRENCY) {
       const chunk = data.slice(i, i + EMAIL_CONCURRENCY)
@@ -1504,6 +1625,7 @@ export async function bulkInviteParticipants(
   return {
     success: true as const,
     inserted: data?.length ?? 0,
+    participantIds: (data ?? []).map((row) => row.id),
     existingCount: pendingExisting.length,
     errors: rowErrors,
     emailFailures,
