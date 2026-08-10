@@ -81,8 +81,8 @@ export function IntroPage({
           />
           <HowToCol
             n="03"
-            title="0–100 percentile"
-            body="Scores compare you to a relevant peer group. Higher means more consistently demonstrated; lower means more development room."
+            title="0–100 capability scores"
+            body="Scores show how consistently you reported each capability, as a share of the highest possible score. Higher means more consistently demonstrated; lower means more development room."
           />
           <HowToCol
             n="04"

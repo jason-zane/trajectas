@@ -2277,6 +2277,8 @@ export interface ReportSnapshot {
   releasedBy?: string
   generatedAt?: string
   errorMessage?: string
+  /** When the report email actually reached the provider — released alone does not imply sent. */
+  sentToParticipantAt?: string
   created_at: string
   updated_at?: string
 }

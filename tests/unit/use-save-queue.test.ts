@@ -247,6 +247,67 @@ describe('useSaveQueue (IndexedDB-backed)', () => {
     })
   })
 
+  it('does not mark an answer changed mid-flight as synced (ack/edit race)', async () => {
+    // Repro of the silent data-loss race: answer 2 → POST starts → user
+    // changes to 5 while the POST is in flight → ACK for the value-2 write
+    // arrives. The value-5 row must stay pending (its idempotencyKey differs
+    // from the acknowledged write) and must reach the server on the next
+    // flush pass — never be marked synced by the stale ACK.
+    //
+    // Own sessionId: earlier failure-path tests leave backoff flush timers
+    // running past unmount; with the shared sessionId those zombie flushers
+    // would steal this test's held mock call.
+    const raceCfg = { token: 'tok', sessionId: '00000000-0000-0000-0000-0000000000a2' }
+    let release: (() => void) | null = null
+    mockFetch.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = () => resolve(savedResponse(['item-1']))
+        }),
+    )
+
+    const { result } = renderHook(() => useSaveQueue(raceCfg))
+
+    await act(async () => {
+      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec', value: 2 })
+      // Let the debounce fire — the first POST is now in flight, unresolved.
+      await settle()
+    })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+
+    // Change the same answer while the ACK for value=2 is still in flight.
+    await act(async () => {
+      result.current.enqueueSave({ itemId: 'item-1', sectionId: 'sec', value: 5 })
+      await new Promise((r) => setTimeout(r, 50))
+    })
+
+    // The stale ACK arrives; the flush loop continues and drains the newer
+    // write with its follow-up POST (echoAllSaved handles it).
+    await act(async () => {
+      release?.()
+      await new Promise((r) => setTimeout(r, 100))
+    })
+
+    await vi.waitFor(
+      async () => {
+        expect(await countPending(raceCfg.sessionId)).toBe(0)
+      },
+      { timeout: 10_000, interval: 100 },
+    )
+
+    // The value that survived end-to-end is 5, confirmed by a second POST.
+    const row = await getResponseDb().responses.get([raceCfg.sessionId, 'item-1'])
+    expect(row?.value).toBe(5)
+    expect(row?.synced).toBe(1)
+    expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2)
+    const lastBody = JSON.parse(
+      (mockFetch.mock.calls.at(-1)![1] as RequestInit).body as string,
+    ) as { saves: { itemId: string; responseValue: number }[] }
+    expect(lastBody.saves).toEqual([
+      expect.objectContaining({ itemId: 'item-1', responseValue: 5 }),
+    ])
+  })
+
   it('retryFailedSaves clears the error flag and re-flushes', async () => {
     mockFetch.mockResolvedValue(jsonResponse(500, { error: 'boom' }))
 
