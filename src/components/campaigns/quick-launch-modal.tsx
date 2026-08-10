@@ -31,6 +31,7 @@ import {
   createCampaign,
   deleteCampaign,
   inviteParticipant,
+  sendParticipantInviteEmails,
   type CampaignAssessmentOption,
 } from "@/app/actions/campaigns";
 import { getFactorsForAssessment } from "@/app/actions/factor-selection";
@@ -570,6 +571,9 @@ export function QuickLaunchModal({
 
       let successDetail = "";
       let successDescription: string | undefined;
+      // Participant ids whose invite emails are deferred until after
+      // activation succeeds (see the send step below the activate call).
+      let pendingInviteIds: string[] = [];
 
       // ── 360 branch: set the subject + raters, then (optionally) invite ──────
       if (is360) {
@@ -631,26 +635,30 @@ export function QuickLaunchModal({
         }
         if (notes.length > 0) successDescription = notes.join(" ");
       } else if (state.inviteMode === "single") {
-        const inviteResult = await inviteParticipant(campaignId, {
-          email: state.inviteSingleEmail.trim(),
-          firstName: state.inviteSingleFirstName.trim() || undefined,
-          lastName: state.inviteSingleLastName.trim() || undefined,
-        });
+        // Emails are deferred until the campaign is confirmed active below —
+        // a failed activation must not leave a delivered invitation pointing
+        // at a rolled-back campaign.
+        const inviteResult = await inviteParticipant(
+          campaignId,
+          {
+            email: state.inviteSingleEmail.trim(),
+            firstName: state.inviteSingleFirstName.trim() || undefined,
+            lastName: state.inviteSingleLastName.trim() || undefined,
+          },
+          { deferEmail: true },
+        );
 
         if ("error" in inviteResult && inviteResult.error) {
           throw new Error(getErrorMessage(inviteResult.error));
         }
-
-        if (inviteResult.emailSent) {
-          successDetail = "1 invite sent";
-        } else {
-          successDetail = "participant added";
-          successDescription =
-            inviteResult.emailError ??
-            "Invite email failed. You can resend it from the participants page.";
+        if ("id" in inviteResult && inviteResult.id) {
+          pendingInviteIds = [inviteResult.id];
         }
+        successDetail = "participant added";
       } else if (state.inviteMode === "csv") {
-        const bulkResult = await bulkInviteParticipants(campaignId, csvInviteRows);
+        const bulkResult = await bulkInviteParticipants(campaignId, csvInviteRows, {
+          deferEmail: true,
+        });
 
         if ("error" in bulkResult && bulkResult.error) {
           throw new Error(getErrorMessage(bulkResult.error));
@@ -664,7 +672,8 @@ export function QuickLaunchModal({
         }
 
         const bulkErrors = "errors" in bulkResult ? bulkResult.errors ?? [] : [];
-        successDetail = `${pluralize(bulkResult.inserted, "invite")} sent`;
+        pendingInviteIds = bulkResult.participantIds ?? [];
+        successDetail = `${pluralize(bulkResult.inserted, "participant")} added`;
 
         const notes = [];
         if (bulkResult.existingCount > 0) {
@@ -704,6 +713,45 @@ export function QuickLaunchModal({
       const activateResult = await activateCampaign(campaignId);
       if (activateResult?.error) {
         throw new Error(activateResult.error);
+      }
+
+      // The campaign is live — NOW send the deferred participant invitations.
+      // A send failure here is not a launch failure: the campaign stays
+      // active and invites can be resent from the participants page.
+      if (pendingInviteIds.length > 0) {
+        try {
+          const sendResult = await sendParticipantInviteEmails(
+            campaignId,
+            pendingInviteIds,
+          );
+          if ("success" in sendResult && sendResult.success) {
+            if (sendResult.emailsSent > 0) {
+              successDetail = `${pluralize(sendResult.emailsSent, "invite")} sent`;
+            }
+            if (sendResult.emailFailures.length > 0) {
+              successDescription = [
+                successDescription,
+                `${pluralize(sendResult.emailFailures.length, "invite email")} failed — resend from the participants page.`,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+            }
+          } else {
+            successDescription = [
+              successDescription,
+              "Invite emails could not be sent — resend from the participants page.",
+            ]
+              .filter(Boolean)
+              .join(" · ");
+          }
+        } catch {
+          successDescription = [
+            successDescription,
+            "Invite emails could not be sent — resend from the participants page.",
+          ]
+            .filter(Boolean)
+            .join(" · ");
+        }
       }
 
       handleOpenChange(false);

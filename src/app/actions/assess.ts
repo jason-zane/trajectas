@@ -1696,6 +1696,17 @@ export async function registerViaLink(
     return { error: 'This campaign is not currently accepting registrations' }
   }
 
+  // Enforce the campaign's schedule window — an open link must not accept
+  // enrolments before opens_at or after closes_at.
+  const scheduleError = getCampaignAccessError({
+    status: campaign.status,
+    opensAt: campaign.opens_at,
+    closesAt: campaign.closes_at,
+  })
+  if (scheduleError) {
+    return { error: 'This campaign is not currently accepting registrations' }
+  }
+
   // Every link-based registration creates a fresh participant record.
   // Participants who need to resume use their unique access-token URL.
 

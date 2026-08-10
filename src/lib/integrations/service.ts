@@ -119,6 +119,29 @@ async function ensureAssessmentsAssignedToClient(clientId: string, assessmentIds
       'One or more assessments are not assigned to this client.'
     )
   }
+
+  // Only active assessments may be attached — drafts are unfinished by
+  // definition and must not reach participants via the API either.
+  const { data: activeRows, error: activeError } = await db
+    .from('assessments')
+    .select('id')
+    .in('id', assessmentIds)
+    .eq('status', 'active')
+    .is('deleted_at', null)
+
+  if (activeError) {
+    throw new Error(activeError.message)
+  }
+
+  const activeSet = new Set((activeRows ?? []).map((row) => row.id))
+  const inactive = assessmentIds.filter((id) => !activeSet.has(id))
+  if (inactive.length > 0) {
+    throw new IntegrationApiError(
+      422,
+      'assessment_not_available',
+      'One or more assessments are not active.'
+    )
+  }
 }
 
 async function upsertExternalRefs(input: {
