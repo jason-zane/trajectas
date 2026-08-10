@@ -63,7 +63,7 @@ export const DEFAULT_PAGE_CONTENT: Readonly<PageContentMap> = {
     body: '{{answeredCount}} of {{totalItems}} questions answered',
     buttonLabel: 'Submit assessment',
     incompleteWarning:
-      'You have unanswered questions. You can still submit, but incomplete sections may affect your results.',
+      'You have unanswered questions. Every question needs an answer before you can submit.',
   },
 
   complete: {
