@@ -96,55 +96,68 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
   }
   if (!claim.data || claim.data.length === 0) return
 
-  const summary = await loadSessionSummary(db, String(snapshot.participant_session_id))
-
-  const templateNameRaw = snapshot.report_templates
-  const templateName = Array.isArray(templateNameRaw)
-    ? String(templateNameRaw[0]?.name ?? 'Report')
-    : (templateNameRaw as { name?: string } | null)?.name
-      ? String((templateNameRaw as { name: string }).name)
-      : 'Report'
-
-  const brand = await getEffectiveBrand(campaign.client_id, String(snapshot.campaign_id))
-  const reportUrl =
-    buildSurfaceUrl('admin', `/reports/${snapshotId}`)?.toString() ??
-    `${getConfiguredSurfaceUrl('admin') ?? ''}/reports/${snapshotId}`
-
-  const includeSummary = campaign.consultant_notification_include_summary
-  const attachPdf = campaign.consultant_notification_attach_pdf
-
-  const subject = `${summary.participantName} completed ${summary.assessmentTitle}`
-  const html = buildEmailHtml({
-    brandName: brand.name,
-    templateName,
-    summary,
-    campaignTitle: campaign.title ?? '',
-    reportUrl,
-    includeSummary,
-    attachPdf,
-  })
-  const text = buildEmailText({
-    brandName: brand.name,
-    templateName,
-    summary,
-    campaignTitle: campaign.title ?? '',
-    reportUrl,
-    includeSummary,
-    attachPdf,
-  })
-
-  const attachments = attachPdf
-    ? await (async () => {
-        const pdf = await downloadSnapshotPdfBase64(snapshotId)
-        return pdf ? [{ filename: pdf.filename, content: pdf.content, contentType: 'application/pdf' }] : undefined
-      })()
-    : undefined
-
-  const rawFrom = process.env.EMAIL_FROM ?? 'noreply@mail.trajectas.com'
-  const emailMatch = rawFrom.match(/<([^>]+)>/)
-  const emailAddress = emailMatch ? emailMatch[1] : rawFrom
-
+  // Everything past the claim must either send the email or release the
+  // claim. A failure in the data-load / brand / PDF phase previously left
+  // consultant_notified_at set with no email ever sent — permanently
+  // suppressing the notification.
   try {
+    const summary = await loadSessionSummary(db, String(snapshot.participant_session_id))
+
+    const templateNameRaw = snapshot.report_templates
+    const templateName = Array.isArray(templateNameRaw)
+      ? String(templateNameRaw[0]?.name ?? 'Report')
+      : (templateNameRaw as { name?: string } | null)?.name
+        ? String((templateNameRaw as { name: string }).name)
+        : 'Report'
+
+    const brand = await getEffectiveBrand(campaign.client_id, String(snapshot.campaign_id))
+    const reportUrl =
+      buildSurfaceUrl('admin', `/reports/${snapshotId}`)?.toString() ??
+      `${getConfiguredSurfaceUrl('admin') ?? ''}/reports/${snapshotId}`
+
+    const includeSummary = campaign.consultant_notification_include_summary
+    const attachPdf = campaign.consultant_notification_attach_pdf
+
+    const subject = `${summary.participantName} completed ${summary.assessmentTitle}`
+    const html = buildEmailHtml({
+      brandName: brand.name,
+      templateName,
+      summary,
+      campaignTitle: campaign.title ?? '',
+      reportUrl,
+      includeSummary,
+      attachPdf,
+    })
+    const text = buildEmailText({
+      brandName: brand.name,
+      templateName,
+      summary,
+      campaignTitle: campaign.title ?? '',
+      reportUrl,
+      includeSummary,
+      attachPdf,
+    })
+
+    let attachments:
+      | Array<{ filename: string; content: string; contentType: string }>
+      | undefined
+    if (attachPdf) {
+      const pdf = await downloadSnapshotPdfBase64(snapshotId)
+      if (!pdf) {
+        // The email body says a PDF is attached — sending without one would
+        // be a silent lie. Fail so the claim is released and a later call
+        // (post-PDF re-fire, manual resend) retries with the PDF present.
+        throw new Error('Snapshot PDF could not be downloaded for attachment')
+      }
+      attachments = [
+        { filename: pdf.filename, content: pdf.content, contentType: 'application/pdf' },
+      ]
+    }
+
+    const rawFrom = process.env.EMAIL_FROM ?? 'noreply@mail.trajectas.com'
+    const emailMatch = rawFrom.match(/<([^>]+)>/)
+    const emailAddress = emailMatch ? emailMatch[1] : rawFrom
+
     await sendHtmlEmail({
       to: recipients,
       subject,
@@ -153,19 +166,18 @@ export async function notifyConsultantsForSnapshot(snapshotId: string): Promise<
       from: `${brand.name} <${emailAddress}>`,
       attachments,
     })
-  } catch (sendError) {
+  } catch (notifyError) {
     // Release the idempotency claim so the notification can be retried, then
-    // alert — this is the most likely failure point (email send) and was
-    // previously swallowed into the logs.
+    // alert. Covers the provider send AND every step between claim and send.
     await db
       .from('report_snapshots')
       .update({ consultant_notified_at: null })
       .eq('id', snapshotId)
-    await reportError(sendError, {
+    await reportError(notifyError, {
       source: 'notifications.consultant',
       severity: 'error',
       alert: true,
-      context: { snapshotId, phase: 'send' },
+      context: { snapshotId, phase: 'notify' },
     })
   }
 }
