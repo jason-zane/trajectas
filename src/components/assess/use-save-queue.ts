@@ -177,15 +177,22 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
         }
         setSaveStatus("saving");
         const result = await postBatch(token, sessionId, rows);
-        // Mark ONLY the ids the server confirmed saved. Unconfirmed rows stay
-        // synced=0 so they keep retrying (and eventually trip the error
-        // banner) instead of being silently dropped.
+        // Mark ONLY the ids the server confirmed saved — and only when the
+        // IDB row is still the exact write we sent (idempotency-key match
+        // inside markSynced). An answer changed while this POST was in
+        // flight keeps synced=0 so the newer value flushes on the next loop
+        // pass instead of being silently dropped. Unconfirmed rows likewise
+        // stay pending and keep retrying.
         const confirmedSet = new Set(result.savedItemIds ?? []);
-        const confirmed = rows
-          .map((r) => r.itemId)
-          .filter((id) => confirmedSet.has(id));
+        const confirmed = rows.filter((r) => confirmedSet.has(r.itemId));
         if (confirmed.length > 0) {
-          await markSynced(sessionId, confirmed);
+          await markSynced(
+            sessionId,
+            confirmed.map((r) => ({
+              itemId: r.itemId,
+              idempotencyKey: r.idempotencyKey,
+            })),
+          );
         }
         if (!result.ok || confirmed.length < rows.length) {
           consecutiveFailuresRef.current++;
