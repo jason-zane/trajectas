@@ -197,6 +197,7 @@ async function validateAccessTokenImpl(
     .from('campaign_participants')
     .select('*')
     .eq('access_token', token)
+    .is('deleted_at', null)
     .single()
 
   if (participantErr || !participantRow) {
@@ -225,6 +226,7 @@ async function validateAccessTokenImpl(
         .from('campaign_assessments')
         .select('*, assessments(id, title, description, assessment_sections(count))')
         .eq('campaign_id', participant.campaignId)
+        .is('deleted_at', null)
         .order('display_order', { ascending: true }),
     ])
 
@@ -435,6 +437,7 @@ export async function getSessionState(token: string, sessionId: string) {
         .select('id')
         .eq('campaign_id', session.campaign_id)
         .eq('assessment_id', session.assessment_id)
+        .is('deleted_at', null)
         .maybeSingle(),
       db
         .from('assessment_factors')
@@ -1189,7 +1192,8 @@ async function finalizeCompletedSessionProcessing(input: {
         .from('campaign_assessments')
         .select('assessment_id')
         .eq('campaign_id', input.campaignId)
-        .eq('is_required', true),
+        .eq('is_required', true)
+        .is('deleted_at', null),
       db
         .from('participant_sessions')
         .select('assessment_id')
@@ -1705,6 +1709,7 @@ export async function registerViaLink(
       .from('campaign_assessments')
       .select('assessment_id')
       .eq('campaign_id', link.campaign_id)
+      .is('deleted_at', null)
 
     const assessmentIds = (campaignAssessments ?? []).map((ca) => ca.assessment_id)
 

@@ -33,6 +33,7 @@ export async function requireParticipantRuntimeAccess(
     .from('campaign_participants')
     .select('id, campaign_id, status')
     .eq('access_token', token)
+    .is('deleted_at', null)
     .single()
 
   if (participantError || !participant) {
@@ -108,6 +109,7 @@ export async function requireParticipantRuntimeCampaignAssessmentAccess(input: {
     .select('id')
     .eq('campaign_id', input.campaignId)
     .eq('assessment_id', input.assessmentId)
+    .is('deleted_at', null)
     .single()
 
   if (error || !data) {
