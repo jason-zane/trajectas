@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, AlertCircle, ArrowLeft } from "lucide-react";
 import { submitSession } from "@/app/actions/assess";
+import { clearSession } from "@/lib/assess/response-store";
 import { SavingOverlay } from "./saving-overlay";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { ReviewContent } from "@/lib/experience/types";
@@ -71,6 +72,7 @@ export function ReviewScreen({
   ).length;
 
   const allAnswered = uniqueAnsweredCount >= uniqueTotalItems;
+  const canSubmit = !submitting && allAnswered;
 
   async function handleSubmit() {
     setSubmitError(null);
@@ -80,6 +82,11 @@ export function ReviewScreen({
       if (!result.ok) {
         setSubmitError(result.message);
         setSubmitStage("idle");
+        if (result.error === "incomplete_submission") {
+          // Server counts disagree with what this screen showed — re-render
+          // from server state so the section rows reflect reality.
+          router.refresh();
+        }
         return;
       }
 
@@ -87,7 +94,16 @@ export function ReviewScreen({
         setSubmitStage("preparing_report");
       }
 
-      router.push(nextUrl);
+      // The assessment is submitted — drop the locally cached responses so
+      // they don't linger in IndexedDB on shared devices.
+      await clearSession(sessionId).catch(() => {});
+
+      // Completing the final required assessment rotates the access token
+      // server-side; from here every navigation must use the fresh one.
+      const destination = result.refreshedAccessToken
+        ? nextUrl.replace(`/assess/${token}`, `/assess/${result.refreshedAccessToken}`)
+        : nextUrl;
+      router.push(destination);
     } catch {
       setSubmitError(
         "We couldn't submit your assessment right now. Please try again.",
@@ -317,7 +333,7 @@ export function ReviewScreen({
             {/* CTA Button */}
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={!canSubmit}
               className="inline-flex items-center gap-2 rounded border px-8 py-3.5 font-semibold transition-all duration-200 disabled:opacity-60"
               style={{
                 background: "var(--runner-cta-fill, var(--brand-accent, hsl(var(--primary))))",
@@ -325,10 +341,10 @@ export function ReviewScreen({
                 border: "none",
                 fontSize: "15px",
                 fontFamily: "’Plus Jakarta Sans’, sans-serif",
-                cursor: submitting ? "not-allowed" : "pointer",
+                cursor: canSubmit ? "pointer" : "not-allowed",
               }}
               onMouseEnter={(e) => {
-                if (!submitting) {
+                if (canSubmit) {
                   e.currentTarget.style.background = "var(--runner-cta-fill-hover, var(--brand-accent, hsl(var(--primary))))";
                 }
               }}
