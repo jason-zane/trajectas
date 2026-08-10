@@ -157,6 +157,14 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
       .single();
     ids.campaign = campaign!.id;
 
+    // The RPC's ownership predicate requires a LIVE campaign_assessments
+    // attachment for campaign sessions.
+    await adminDb.from("campaign_assessments").insert({
+      campaign_id: ids.campaign,
+      assessment_id: ids.assessment,
+      display_order: 0,
+    });
+
     const { data: participant } = await adminDb
       .from("campaign_participants")
       .insert({
@@ -190,6 +198,10 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
     await adminDb.from("participant_responses").delete().eq("session_id", ids.session);
     await adminDb.from("participant_sessions").delete().eq("id", ids.session);
     await adminDb.from("campaign_participants").delete().eq("id", ids.participant);
+    await adminDb
+      .from("campaign_assessments")
+      .delete()
+      .eq("campaign_id", ids.campaign);
     await adminDb.from("campaigns").delete().eq("id", ids.campaign);
     await adminDb.from("assessment_section_items").delete().eq("section_id", ids.section);
     await adminDb.from("assessment_sections").delete().eq("id", ids.section);
