@@ -5,9 +5,14 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProgressBar } from "./progress-bar";
 import { ItemCard } from "./item-card";
-import { updateSessionProgressLite } from "@/app/actions/assess";
+import {
+  updateSessionProgressLite,
+  finaliseSection,
+  submitSession,
+} from "@/app/actions/assess";
 import { useSaveQueue } from "./use-save-queue";
 import { SavingOverlay } from "./saving-overlay";
+import { SectionTimer } from "./section-timer";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
 
@@ -243,6 +248,38 @@ export function SectionWrapper({
     [flushProgress, flushSaves, retryFailedSaves, router, section.id],
   );
 
+  // Fired once by SectionTimer when the server-issued deadline is reached
+  // (LR-2 / #332). finaliseSection re-validates the deadline server-side —
+  // a tampered client cannot end a timed section early by firing this early.
+  // Flush first so any answer already in flight gets its best chance to
+  // land inside the RPC's own grace window before the section locks.
+  const expiryHandledRef = useRef(false);
+  const handleExpiry = useCallback(async () => {
+    if (expiryHandledRef.current) return;
+    expiryHandledRef.current = true;
+    setIsBoundaryPending(true);
+
+    await flushSaves().catch(() => {});
+    await finaliseSection(token, sessionId, section.id, "client_timer").catch(() => {});
+
+    if (sectionIndex === totalSections - 1) {
+      // Last section of the assessment: hand off to the normal submit path.
+      // The completeness gate now excludes this section's unanswered items
+      // (they're in an expired section), so a timed-out participant can
+      // still complete instead of being stuck forever on incomplete_submission.
+      const result = await submitSession(token, sessionId);
+      if (result.ok) {
+        router.push(postAssessmentUrl);
+        return;
+      }
+      setIsBoundaryPending(false);
+      return;
+    }
+
+    setIsBoundaryPending(false);
+    router.push(`/assess/${token}/section/${sectionIndex + 1}`);
+  }, [flushSaves, token, sessionId, section.id, sectionIndex, totalSections, router, postAssessmentUrl]);
+
   // If every item in this section is already answered (either from a
   // server-rendered snapshot or after IDB hydration merges in unsynced
   // local rows), push straight through to the next section / completion.
@@ -380,7 +417,12 @@ export function SectionWrapper({
     }
   }
 
-  const canGoBack = localItemIndex > 0 || sectionIndex > 0;
+  // Enforced server-side too (save_response_for_session /
+  // save_responses_batch_for_session refuse to overwrite an already-answered
+  // item in a section with allow_back_nav = false) — this only controls
+  // whether the control is offered.
+  const canGoBack =
+    section.allowBackNav !== false && (localItemIndex > 0 || sectionIndex > 0);
 
   // Percent complete for the header tag
   const pct = totalItems > 0 ? Math.min(100, Math.round((completedCount / totalItems) * 100)) : 0;
@@ -435,7 +477,7 @@ export function SectionWrapper({
           )}
         </div>
 
-        {/* Right side: section + completion % + back button */}
+        {/* Right side: section + completion % + timer + back button */}
         <div className="flex items-center gap-4 sm:gap-6">
           {/* Section overline + completion % tag */}
           <div className="flex items-center gap-3">
@@ -452,6 +494,16 @@ export function SectionWrapper({
               {pct}% COMPLETE
             </p>
           </div>
+
+          {/* Server-authoritative countdown — only for timed sections
+              (deadlineAt is null for untimed/practice sections). */}
+          {section.timing?.deadlineAt && (
+            <SectionTimer
+              deadlineAt={section.timing.deadlineAt}
+              serverNow={section.timing.serverNow}
+              onExpiry={handleExpiry}
+            />
+          )}
 
           {/* Back button — ghost text style */}
           {canGoBack && (

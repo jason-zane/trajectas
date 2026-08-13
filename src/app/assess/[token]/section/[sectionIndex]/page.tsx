@@ -5,6 +5,7 @@ import {
   validateAccessToken,
   startSession,
   getSessionState,
+  startSectionTiming,
 } from "@/app/actions/assess";
 import { getCachedEffectiveBrand } from "@/app/actions/brand";
 import { getCachedEffectiveExperience } from "@/app/actions/experience";
@@ -102,6 +103,17 @@ export default async function SectionPage({
     redirect(`/assess/${token}/complete`);
   }
 
+  // Start (or resume) this section's server-stamped clock. Deliberately
+  // scoped to the section actually being rendered, not done inside
+  // getSessionState — starting every section's clock on first load would
+  // begin timing sections the participant hasn't reached yet. Best-effort:
+  // if this fails, the section still renders, just without a countdown —
+  // enforcement lives in the save RPCs regardless of whether the client got
+  // a timing payload.
+  const timingResult = await startSectionTiming(token, sessionId, section.id);
+  const sectionWithTiming =
+    "data" in timingResult ? { ...section, timing: timingResult.data } : section;
+
   // Load brand + experience in parallel — they're independent.
   const [brandConfig, experience] = await Promise.all([
     getCachedEffectiveBrand(campaign.clientId, campaign.id),
@@ -133,7 +145,7 @@ export default async function SectionPage({
       <SectionWrapper
         token={token}
         sessionId={sessionId}
-        section={section}
+        section={sectionWithTiming}
         sectionIndex={clampedIdx}
         totalSections={sections.length}
         allSections={sections}

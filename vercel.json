@@ -11,6 +11,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/assessment-timing-sweep",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/report-generation-sweep",
       "schedule": "*/5 * * * *"
     },

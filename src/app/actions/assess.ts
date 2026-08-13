@@ -46,6 +46,8 @@ import {
   saveResponseLiteInputSchema,
   updateSessionProgressLiteInputSchema,
   submitSessionInputSchema,
+  startSectionTimingInputSchema,
+  finaliseSectionInputSchema,
   triggerReportGenerationInputSchema,
   getParticipantReportSnapshotInputSchema,
   registerViaLinkInputSchema,
@@ -91,6 +93,24 @@ export type TokenValidationResult = {
   sessions: SessionForRunner[]
 }
 
+/**
+ * Server-authoritative timing for a section (LR-2 / #332). Attached by the
+ * section page (startSectionTiming, below) AFTER getSessionState resolves
+ * which section is actually being rendered — not by getSessionState itself,
+ * which would otherwise start the clock on every section up front, including
+ * ones the participant hasn't reached yet. deadlineAt is null for untimed
+ * sections (and practice sections, which are never timed regardless of the
+ * column) — the client renders no countdown in that case.
+ */
+export type SectionTimingForRunner = {
+  startedAt: string
+  deadlineAt: string | null
+  serverNow: string
+  graceSeconds: number
+  expired: boolean
+  finalised: boolean
+}
+
 export type SectionForRunner = {
   id: string
   title: string
@@ -101,6 +121,13 @@ export type SectionForRunner = {
   responseFormatConfig: Record<string, unknown>
   itemOrdering: string
   timeLimitSeconds?: number
+  /** 'scored' | 'practice' | 'instructions' (assessment_sections.section_role). */
+  sectionRole: string
+  /** Enforced server-side too, not just by hiding the Back control — see
+   *  save_response_for_session / save_responses_batch_for_session. */
+  allowBackNav: boolean
+  /** Present once startSectionTiming has been called for this section. */
+  timing?: SectionTimingForRunner
   items: ItemForRunner[]
 }
 
@@ -149,6 +176,8 @@ type AssessmentSectionRow = {
   response_format_id: string
   item_ordering: string
   time_limit_seconds: number | null
+  section_role: string
+  allow_back_nav: boolean
   response_formats: AssessmentSectionResponseFormatRow
   assessment_section_items: AssessmentSectionItemRow[] | null
 }
@@ -594,6 +623,8 @@ export async function getSessionState(token: string, sessionId: string) {
       responseFormatConfig: formatConfig,
       itemOrdering: s.item_ordering,
       timeLimitSeconds: s.time_limit_seconds ?? undefined,
+      sectionRole: s.section_role ?? 'scored',
+      allowBackNav: s.allow_back_nav ?? true,
       items: sectionItems.map((si) => {
           const itemOptions = (si.items?.item_options ?? [])
             .sort((a, b) => a.display_order - b.display_order)
@@ -647,6 +678,118 @@ export async function getSessionState(token: string, sessionId: string) {
       responses,
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Server-authoritative section timing (LR-2 / #332)
+// ---------------------------------------------------------------------------
+
+/**
+ * Starts (or resumes) the server-side clock for a section. Called by the
+ * section page once it knows which section is actually being rendered — NOT
+ * from getSessionState, which would otherwise start every section's clock on
+ * first page load regardless of whether the participant has reached it.
+ *
+ * Idempotent: the underlying RPC INSERTs the (session, section) row once
+ * (ON CONFLICT DO NOTHING) and always returns the ORIGINAL startedAt/
+ * deadlineAt on every subsequent call — a refresh, a second tab, or a retry
+ * after a network blip all resume against the same deadline, never restart
+ * or extend it.
+ */
+export async function startSectionTiming(
+  token: string,
+  sessionId: string,
+  sectionId: string,
+): Promise<{ data: SectionTimingForRunner } | { error: string }> {
+  const parsed = startSectionTimingInputSchema.safeParse({ token, sessionId, sectionId })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db.rpc('start_section_for_session', {
+    p_access_token: token,
+    p_session_id: sessionId,
+    p_section_id: sectionId,
+  })
+
+  if (error) {
+    logActionError('startSectionTiming.rpc', error)
+    return { error: 'Unable to start this section right now' }
+  }
+  if (!data) {
+    return { error: 'This section is not available right now' }
+  }
+
+  const row = data as SectionTimingForRunner
+  return {
+    data: {
+      startedAt: row.startedAt,
+      deadlineAt: row.deadlineAt,
+      serverNow: row.serverNow,
+      graceSeconds: row.graceSeconds,
+      expired: row.expired,
+      finalised: row.finalised,
+    },
+  }
+}
+
+/**
+ * Ends a section: the participant finished it normally ('participant'), or
+ * the client-side SectionTimer fired ('client_timer'). The RPC is the actual
+ * gate — a 'client_timer' claim is refused unless the server-stamped
+ * deadline has genuinely passed, so a tampered client cannot end a timed
+ * section early. 'participant' is always honoured, timed or not.
+ */
+export async function finaliseSection(
+  token: string,
+  sessionId: string,
+  sectionId: string,
+  reason: 'participant' | 'client_timer',
+): Promise<{ success: true; unansweredCount: number } | { error: string }> {
+  const parsed = finaliseSectionInputSchema.safeParse({ token, sessionId, sectionId, reason })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db.rpc('finalise_section_for_session', {
+    p_access_token: token,
+    p_session_id: sessionId,
+    p_section_id: sectionId,
+    p_reason: reason,
+  })
+
+  if (error) {
+    logActionError('finaliseSection.rpc', error)
+    return { error: 'Unable to finalise this section right now' }
+  }
+  if (!data) {
+    // Either the token/section didn't validate, or (reason='client_timer')
+    // the deadline genuinely hasn't passed yet.
+    return { error: 'This section cannot be finalised yet' }
+  }
+
+  const row = data as { finalised: boolean; unansweredCount: number }
+  return { success: true, unansweredCount: row.unansweredCount }
 }
 
 // ---------------------------------------------------------------------------

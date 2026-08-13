@@ -24,6 +24,15 @@ type DbClient = SupabaseClient
  *
  * Only delivered items count on either side — stale responses to removed or
  * unselected items neither help nor hurt.
+ *
+ * Server-authoritative timing (LR-2 / #332): an item delivered in a section
+ * whose deadline has passed (participant_section_states.finalised_at is set,
+ * or its deadline_at is in the past even if the sweep hasn't finalised it
+ * yet) is dropped from `expected` when unanswered. Without this, a
+ * participant who ran out of time would be permanently unable to submit —
+ * the hard completeness gate below would refuse forever. An item in an
+ * expired section that WAS answered still counts (on both sides) — expiry
+ * excludes only the gap, never a real answer.
  */
 export async function getSessionCompleteness(
   db: DbClient,
@@ -38,7 +47,7 @@ export async function getSessionCompleteness(
     return { error: 'Unable to verify assessment completeness right now' }
   }
 
-  const [itemsResult, responsesResult] = await Promise.all([
+  const [itemsResult, responsesResult, sectionStatesResult] = await Promise.all([
     db
       .from('assessment_section_items')
       .select(
@@ -48,6 +57,10 @@ export async function getSessionCompleteness(
     db
       .from('participant_responses')
       .select('item_id')
+      .eq('session_id', sessionId),
+    db
+      .from('participant_section_states')
+      .select('section_id, deadline_at, finalised_at')
       .eq('session_id', sessionId),
   ])
 
@@ -59,6 +72,21 @@ export async function getSessionCompleteness(
     logActionError('sessionCompleteness.responses', responsesResult.error)
     return { error: 'Unable to verify assessment completeness right now' }
   }
+  if (sectionStatesResult.error) {
+    logActionError('sessionCompleteness.sectionStates', sectionStatesResult.error)
+    return { error: 'Unable to verify assessment completeness right now' }
+  }
+
+  const now = new Date()
+  const expiredSectionIds = new Set(
+    (sectionStatesResult.data ?? [])
+      .filter(
+        (row) =>
+          row.finalised_at != null ||
+          (row.deadline_at != null && new Date(row.deadline_at) < now),
+      )
+      .map((row) => String(row.section_id)),
+  )
 
   type ItemEmbed = {
     purpose: string | null
@@ -145,6 +173,19 @@ export async function getSessionCompleteness(
   const answeredIds = new Set(
     (responsesResult.data ?? []).map((row) => String(row.item_id)),
   )
+
+  // Drop unanswered items whose section has expired — see the function
+  // docstring. Items already answered stay counted either way.
+  if (expiredSectionIds.size > 0) {
+    const itemSectionMap = new Map(rows.map((row) => [row.itemId, row.sectionId]))
+    for (const id of expectedIds) {
+      const sectionId = itemSectionMap.get(id)
+      if (sectionId && expiredSectionIds.has(sectionId) && !answeredIds.has(id)) {
+        expectedIds.delete(id)
+      }
+    }
+  }
+
   let answered = 0
   for (const id of expectedIds) {
     if (answeredIds.has(id)) answered++
