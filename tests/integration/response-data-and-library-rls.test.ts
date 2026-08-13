@@ -1002,7 +1002,31 @@ describe.skipIf(!canRun)(
     // Item Parameters (IRT, wide SELECT)
     // -----------------------------------------------------------------------
     describe("item_parameters isolation", () => {
-      it("any authenticated user can read item parameters", async () => {
+      // Changed by 20260813101000_item_key_privilege_hardening.sql: IRT item
+      // parameters are commercial IP and a partial answer key (difficulty and
+      // discrimination reveal a great deal about an item bank), so they are no
+      // longer readable by every authenticated user. Before that migration
+      // item_parameters carried TWO SELECT policies, _anon and _authenticated,
+      // both effectively "any logged-in user"; both are replaced by a single
+      // is_platform_admin() policy.
+      it("platform admin can read item parameters", async () => {
+        const { data: dataA1 } = await platformAdminDb
+          .from("item_parameters")
+          .select("id")
+          .eq("id", ids.itemParameterA1);
+        const { data: dataB1 } = await platformAdminDb
+          .from("item_parameters")
+          .select("id")
+          .eq("id", ids.itemParameterB1);
+
+        expect((dataA1 ?? []).length).toBeGreaterThan(0);
+        expect((dataB1 ?? []).length).toBeGreaterThan(0);
+      });
+
+      it("non-platform-admin authenticated users cannot read item parameters", async () => {
+        // Their own client's parameter row, not another tenant's — this is a
+        // privilege check, not a tenancy check, so reading nothing here is the
+        // point.
         const { data: dataA1 } = await clientA1AdminDb
           .from("item_parameters")
           .select("id")
@@ -1012,8 +1036,8 @@ describe.skipIf(!canRun)(
           .select("id")
           .eq("id", ids.itemParameterB1);
 
-        expect((dataA1 ?? []).length).toBeGreaterThan(0);
-        expect((dataB1 ?? []).length).toBeGreaterThan(0);
+        expect((dataA1 ?? []).length).toBe(0);
+        expect((dataB1 ?? []).length).toBe(0);
       });
 
       it("client B1 admin cannot update item parameter (platform_admin only)", async () => {
