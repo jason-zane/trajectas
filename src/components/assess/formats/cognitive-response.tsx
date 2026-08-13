@@ -111,7 +111,6 @@ export function CognitiveResponse({
         >
           <div
             style={{ display: "contents" }}
-             
             dangerouslySetInnerHTML={{ __html: stimulus.gridSvg }}
           />
           <div
@@ -177,7 +176,6 @@ export function CognitiveResponse({
               {option.optionSvg ? (
                 <div
                   className="size-full"
-                   
                   dangerouslySetInnerHTML={{ __html: option.optionSvg }}
                 />
               ) : (

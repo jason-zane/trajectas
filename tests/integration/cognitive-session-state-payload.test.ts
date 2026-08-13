@@ -224,7 +224,31 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
     // Content-based isolation check — the actual secret strings we seeded.
     expect(payload).not.toContain(SECRET_RATIONALE);
     expect(payload).not.toContain(SECRET_DIAGNOSTIC);
-    expect(payload).not.toContain(ids.optionIds.B); // the correct_option_id value itself
+
+    // NOT asserted: that the correct option's id is absent from the payload.
+    // It must be present — it is one of the five ids the candidate selects
+    // between, and omitting it would make the item unanswerable. Its presence
+    // leaks nothing, because all five ids are present and nothing marks which
+    // is keyed. The property worth testing is indistinguishability, below.
+    const optionIdsInPayload = Object.values(ids.optionIds);
+    for (const optionId of optionIdsInPayload) {
+      expect(payload, "every option id must be deliverable").toContain(optionId);
+    }
+
+    // The correct option must be shaped exactly like the distractors: same
+    // fields, no extra marker, nothing sortable into "the right one". If a
+    // future change adds a per-option field that is only populated for the
+    // key, this fails.
+    const optionShapes = item!.options.map((o) =>
+      Object.keys(o as Record<string, unknown>).sort().join(","),
+    );
+    expect(new Set(optionShapes).size, "options differ in shape").toBe(1);
+
+    const keyedOption = item!.options.find((o) => o.id === ids.optionIds.B);
+    expect(keyedOption, "keyed option must be delivered like any other").toBeDefined();
+    expect(Object.keys(keyedOption as Record<string, unknown>).sort()).toEqual(
+      Object.keys(item!.options[0] as Record<string, unknown>).sort(),
+    );
 
     // Field/token isolation check — nothing key-shaped anywhere in the payload.
     for (const forbidden of [
