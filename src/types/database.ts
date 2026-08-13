@@ -32,8 +32,10 @@ export type ActiveResponseFormatType =
   | 'likert'
   | 'forced_choice'
   | 'binary'
+  | 'ranking'
   | 'free_text'
   | 'sjt'
+  | 'cognitive'
 
 /** Algorithm family used to convert raw responses into competency scores. */
 export type ScoringMethod = 'irt' | 'ctt' | 'hybrid'

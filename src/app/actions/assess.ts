@@ -8,6 +8,7 @@ import { logReportViewed } from '@/lib/auth/support-sessions'
 import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
 import { getSessionCompleteness } from '@/lib/dal/session-completeness'
+import { getCognitiveItemsForDelivery } from '@/lib/dal/cognitive-items'
 import { reportError } from '@/lib/observability/report-error'
 import {
   getCampaignAccessError,
@@ -131,11 +132,39 @@ export type SectionForRunner = {
   items: ItemForRunner[]
 }
 
+/**
+ * Cognitive (figural-matrix) stimulus, attached only for items delivered
+ * through a `cognitive`-typed response format. `gridSvg` is produced
+ * server-side (src/lib/cognitive/render/matrix-svg.ts) from the item's
+ * spec, projected through `toRenderSpec()` — the answer key never enters
+ * this DTO. See src/lib/dal/cognitive-items.ts.
+ */
+export type CognitiveStimulus = {
+  kind: 'figural_matrix'
+  /** Inline SVG markup for the grid's 8 real cells. */
+  gridSvg: string
+  /** Honest accessibility identification, NOT a cell-by-cell description
+   *  (doc 03-logical-reasoning-design.md §7.4 — a verbal description would
+   *  convert an inductive visual-relational task into a different construct). */
+  ariaLabel: string
+}
+
+export type ItemOptionForRunner = {
+  id: string
+  label: string
+  value: number
+  sortOrder: number
+  /** Present only for cognitive items — server-rendered SVG for this option's tile. */
+  optionSvg?: string
+}
+
 export type ItemForRunner = {
   id: string
   stem: string
   displayOrder: number
-  options: { id: string; label: string; value: number; sortOrder: number }[]
+  options: ItemOptionForRunner[]
+  /** Present only for cognitive (figural-matrix) items. */
+  stimulus?: CognitiveStimulus
 }
 
 type SectionOptionRow = {
@@ -540,9 +569,14 @@ export async function getSessionState(token: string, sessionId: string) {
     }
   }
 
+  // Populated while building `sections` below, for cognitive (figural-matrix)
+  // items only — see the getCognitiveItemsForDelivery pass after the map.
+  const cognitiveItemIds: string[] = []
+
   const sections: SectionForRunner[] = ((sectionRows ?? []) as AssessmentSectionRow[]).map((s) => {
     const formatConfig = s.response_formats?.config ?? {}
     const formatType = s.response_formats?.type ?? 'likert'
+    const isCognitive = formatType === 'cognitive'
 
     // Derive fallback options from response format anchors when item_options is empty.
     // This handles AI-generated items that have stems but no per-item options.
@@ -636,8 +670,10 @@ export async function getSessionState(token: string, sessionId: string) {
             }))
 
           const selfStem = si.items?.stem ?? ''
+          const itemId = si.items?.id ?? si.item_id
+          if (isCognitive) cognitiveItemIds.push(itemId)
           return {
-            id: si.items?.id ?? si.item_id,
+            id: itemId,
             // Observer (rater) sessions show the third-person variant when present.
             stem: isObserverSession
               ? (si.items?.stem_observer ?? selfStem)
@@ -651,6 +687,30 @@ export async function getSessionState(token: string, sessionId: string) {
 
   // Filter out sections that have no items after factor filtering
   .filter(s => s.items.length > 0)
+
+  // Attach cognitive (figural-matrix) stimulus/option SVGs. Done as a
+  // second pass, after `sections` is built, because the item ids to render
+  // aren't known until factor filtering + item-selection + item-ordering
+  // (all synchronous, above) have run, and getCognitiveItemsForDelivery is
+  // the only DAL function allowed to touch cognitive_item_specs /
+  // cognitive_option_specs (see tests/architecture/answer-key-isolation.test.ts
+  // and src/lib/dal/cognitive-items.ts). No-op (and no extra query) for
+  // every non-cognitive assessment.
+  if (cognitiveItemIds.length > 0) {
+    const cognitiveRenders = await getCognitiveItemsForDelivery(db, cognitiveItemIds)
+    for (const section of sections) {
+      if (section.responseFormatType !== 'cognitive') continue
+      for (const item of section.items) {
+        const render = cognitiveRenders.get(item.id)
+        if (!render) continue // spec failed to parse — falls back to the plain stem/options below
+        item.stimulus = { kind: 'figural_matrix', gridSvg: render.gridSvg, ariaLabel: render.ariaLabel }
+        item.options = item.options.map((o) => ({
+          ...o,
+          optionSvg: render.optionSvgByOptionId.get(o.id),
+        }))
+      }
+    }
+  }
 
   const { data: responseRows, error: responseRowsError } = responsesResult
   if (responseRowsError) {

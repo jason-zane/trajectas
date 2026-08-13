@@ -51,8 +51,13 @@ const AUTO_ADVANCE_FORMATS = new Set([
 ]);
 
 /** Formats that need a Continue button (multi-step input — user composes
- *  a response over multiple interactions rather than picking a single option). */
-const CONTINUE_FORMATS = new Set(["free_text", "ranking"]);
+ *  a response over multiple interactions rather than picking a single option).
+ *  `cognitive` (LR-4 / #334) is here too, but for a different reason: doc
+ *  03-logical-reasoning-design.md §7.3 requires an explicit tap + Confirm
+ *  step on figural-matrix items to prevent mis-tap penalties on a dense,
+ *  pattern-heavy answer grid — auto-advancing on the first tap would punish
+ *  a slipped finger the same as a genuine answer. */
+const CONTINUE_FORMATS = new Set(["free_text", "ranking", "cognitive"]);
 
 /** Animation + auto-advance delay. Single source of truth. */
 const ADVANCE_DELAY_MS = 120;
@@ -188,6 +193,28 @@ export function SectionWrapper({
   }, [flushProgress, sessionId, token]);
 
   const currentItem = section.items[localItemIndex];
+
+  // Per-item latency capture (LR-4 / #334). itemShownAtRef marks the moment
+  // the CURRENT item became visible; handleResponse below measures elapsed
+  // time against it and passes it through as responseTimeMs — the field was
+  // already plumbed end-to-end (use-save-queue.ts -> both save RPCs ->
+  // participant_responses.response_time_ms) but nothing populated it.
+  // Server-side answered_at (LR-2 / #332) is the trusted RECEIPT timestamp;
+  // this is a complementary client-measured DURATION signal, not a
+  // duplicate of it — see the column comments in
+  // 20260813102000_cognitive_delivery_and_timing.sql.
+  const itemShownAtRef = useRef<number>(
+    typeof performance !== "undefined" ? performance.now() : Date.now(),
+  );
+  useEffect(() => {
+    itemShownAtRef.current =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    // Re-arm whenever a different item becomes the visible one — including
+    // revisits via Back, so time-on-item is always measured from the moment
+    // THIS render of the item started, not first-ever exposure.
+     
+  }, [currentItem?.id]);
+
   const responseFormatType = section.responseFormatType;
   const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
   const isFinalItemInAssessment =
@@ -406,7 +433,9 @@ export function SectionWrapper({
 
     // 2. Fire-and-forget save. The queue handles ordering, retry, and the
     //    section-boundary flush guarantees persistence before navigation.
-    enqueueSave({ itemId, sectionId: section.id, value, data });
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const responseTimeMs = Math.max(0, Math.round(now - itemShownAtRef.current));
+    enqueueSave({ itemId, sectionId: section.id, value, data, responseTimeMs });
 
     // 3. Auto-advance for single-select formats. We advance immediately — the
     //    selected button has already highlighted via its own CSS, so no extra
