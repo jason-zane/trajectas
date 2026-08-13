@@ -48,15 +48,49 @@ platform, not from this repo's migrations. Without them every table has a NULL
 vacuously — the privilege was never there to remove. Modelling them is what
 caught the `item_options.score_value` bug described below.
 
+## Verifying RLS policies locally
+
+The harness's `auth.uid()` / `auth.role()` / `auth.jwt()` are the real Supabase
+definitions: they read the `request.jwt.claim*` GUCs that PostgREST normally
+sets per request. Nothing here acts as PostgREST — but you can set those GUCs
+yourself, which means **RLS policies can be exercised locally**, not merely
+inspected.
+
+Run with `--keep-running`, then simulate a signed-in user by combining
+`SET ROLE` with the claim GUC:
+
+```sql
+-- Seed a user and profile as the superuser (bypasses RLS)
+INSERT INTO auth.users (id) VALUES ('1111...1111');
+INSERT INTO profiles (id, email, role)
+  VALUES ('1111...1111', 'padmin@example.com', 'platform_admin');
+
+-- Now query as that user would
+SET ROLE authenticated;
+SET request.jwt.claim.sub = '1111...1111';
+SELECT count(*) FROM item_parameters;
+```
+
+Worked example, verified: with one `item_parameters` row present, a
+`platform_admin` sees 1 row and an `org_admin` sees 0, exercising the
+`is_platform_admin()` policy added in `20260813101000`. Swapping only the claim
+GUC changes the result, which is the property you want to test.
+
+Two things to remember: `SET ROLE authenticated` matters as much as the claim,
+because table and column grants are checked before RLS; and the superuser
+bypasses RLS entirely, so seed as `postgres` and always assert as
+`authenticated`.
+
 ## Limitations — read before trusting a green run
 
-- **It does not verify RLS behaviour.** `auth.uid()` is a stub returning NULL,
-  so policies compile and are inspectable via `pg_policies`, but they are not
-  exercised against real JWTs. Use `npm run test:integration:local` against a
-  real Supabase stack for that.
 - It verifies **DDL correctness, migration ordering, constraint and enum
-  hazards, trigger creation, and table/column privilege arithmetic** — which is
-  exactly the class of failure that is otherwise only discovered in CI or prod.
+  hazards, trigger creation, table/column privilege arithmetic, and (per above)
+  RLS policy behaviour** — the classes of failure otherwise only discovered in
+  CI or production.
+- It does **not** exercise PostgREST itself: request shaping, embedded-resource
+  authorization, error-code mapping and the Supabase client's behaviour are out
+  of scope. `npm run test:integration:local` against a real stack still covers
+  those, and CI runs it.
 - Stubs may drift from real Supabase over time. A green run is necessary, not
   sufficient.
 
