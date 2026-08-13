@@ -17,6 +17,13 @@
  * `select('*')` or object-spread leak would fail this test even if it didn't
  * fail the narrower architecture-test regexes in
  * tests/architecture/answer-key-isolation.test.ts.
+ *
+ * LR-3 / #333 note: getSessionState now freezes each session's delivered
+ * item set on first read (participant_section_forms). The "falls back to a
+ * plain item" test below therefore uses its OWN fresh session rather than
+ * the shared `ids.session` the first test already read — a session that has
+ * already been read has an already-frozen form and, correctly, will not
+ * pick up an item added to the section afterwards.
  */
 
 import { randomBytes } from "node:crypto";
@@ -282,9 +289,34 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
       display_order: 1,
     });
 
+    // A FRESH session/participant/token — not the shared `ids.session` the
+    // test above already read. That session's form is now frozen (LR-3 /
+    // #333: getSessionState freezes participant_section_forms on first
+    // read), so it will keep delivering the same single item forever and
+    // would never pick up one added to the section afterwards — that is the
+    // feature working as intended, not a bug to route around. This test
+    // wants a session whose FIRST-EVER read includes the bare item, so it
+    // needs a session that has never been read before.
+    const token2 = randomBytes(32).toString("hex");
+    const participant2 = await insertRow("campaign_participants", {
+      campaign_id: ids.campaign,
+      email: `csp-bare-${ts}@test.local`,
+      first_name: "Bare",
+      last_name: "Item",
+      status: "in_progress",
+      access_token: token2,
+    });
+    const session2 = await insertRow("participant_sessions", {
+      assessment_id: ids.assessment,
+      campaign_id: ids.campaign,
+      campaign_participant_id: participant2,
+      client_id: ids.client,
+      status: "in_progress",
+    });
+
     try {
       const { getSessionState } = await import("@/app/actions/assess");
-      const result = await getSessionState(token, ids.session);
+      const result = await getSessionState(token2, session2);
       if (!("data" in result) || !result.data) throw new Error("getSessionState returned no data");
 
       const section = result.data.sections.find((s) => s.id === ids.section);
@@ -296,6 +328,8 @@ describe.skipIf(!canRun)("cognitive item delivery — getSessionState payload", 
       const goodItem = section!.items.find((it) => it.id === ids.item);
       expect(goodItem!.stimulus).toBeDefined();
     } finally {
+      await adminDb.from("participant_sessions").delete().eq("id", session2);
+      await adminDb.from("campaign_participants").delete().eq("id", participant2);
       await adminDb.from("assessment_section_items").delete().eq("item_id", bareItemId);
       await adminDb.from("items").delete().eq("id", bareItemId);
     }
