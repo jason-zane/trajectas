@@ -54,7 +54,16 @@ import {
   type TransitionItemLifecycleInput,
 } from '@/lib/validations/item-bank'
 
-const ITEM_BANK_PATH = '/dashboard/item-bank'
+/**
+ * URL path of the admin item bank surface, for `revalidatePath`.
+ *
+ * `/item-bank`, NOT `/dashboard/item-bank`: the pages live under
+ * `src/app/(dashboard)/item-bank/`, and `(dashboard)` is a ROUTE GROUP, so it
+ * contributes nothing to the URL — exactly as its siblings `/items` and
+ * `/generate` do. `revalidatePath` matches on the URL, so the previous value
+ * pointed at a path that does not exist and silently revalidated nothing.
+ */
+const ITEM_BANK_PATH = '/item-bank'
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string }
 
