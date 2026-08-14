@@ -26,6 +26,7 @@ import {
   updateCandidateItem,
   softDeleteCandidateItem,
   insertCongruenceRatings,
+  deleteCongruenceRatingsForItems,
   listCongruenceRatingsForBuild,
   updateCandidateItemFairness,
 } from '@/lib/dal/instrument'
@@ -1162,6 +1163,14 @@ export async function runCongruencePanelForBuild(
       )
     }
   })
+
+  // A rerun replaces its previous ratings rather than appending to them —
+  // otherwise two runs' ratings are pooled, inflating rater counts and skewing
+  // every downstream statistic.
+  await deleteCongruenceRatingsForItems(
+    db,
+    itemsToRate.map((i) => i.id),
+  )
 
   // Persist in chunks rather than one all-or-nothing insert at the end: a
   // timeout or navigation part-way through must not discard every provider

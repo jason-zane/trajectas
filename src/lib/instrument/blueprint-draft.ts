@@ -387,8 +387,11 @@ export function parseBlueprintDraft(raw: string): BlueprintDraftResult {
 export function draftToCells(
   draft: BlueprintDraftResult,
   blueprintId: string,
-): BlueprintCell[] {
-  const cells: BlueprintCell[] = []
+): Array<BlueprintCell & { facetDefinition?: string }> {
+  // facetDefinition is carried through: the model writes a definition per facet
+  // and it is the main thing that makes the grid reviewable by a human. Dropping
+  // it here silently discarded it before it ever reached the database.
+  const cells: Array<BlueprintCell & { facetDefinition?: string }> = []
   let displayOrder = 0
 
   for (const facet of draft.facets) {
@@ -396,6 +399,7 @@ export function draftToCells(
       cells.push({
         id: `${blueprintId}-${displayOrder}`,
         facetLabel: facet.facetLabel,
+        facetDefinition: facet.facetDefinition || undefined,
         intensity: cell.intensity,
         targetItemCount: cell.targetItemCount,
         displayOrder,

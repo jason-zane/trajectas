@@ -379,46 +379,89 @@ export async function softDeleteBlueprint(
 export async function replaceBlueprintCells(
   db: DbClient,
   blueprintId: string,
-  cells: Omit<BlueprintCell, "id">[],
+  cells: Array<Omit<BlueprintCell, "id"> & { facetDefinition?: string | null }>,
 ): Promise<BlueprintCell[]> {
-  // Delete existing cells
-  const { error: delError } = await db
+  // Upsert on the natural key rather than delete-all-then-reinsert.
+  //
+  // instrument_candidate_items.blueprint_cell_id is ON DELETE SET NULL, so
+  // dropping every row would orphan every generated item and wipe the coverage
+  // audit the moment an admin pressed Save. Upserting keeps the id — and
+  // therefore the item associations — for any (facet, intensity) that survives
+  // the edit; only genuinely removed cells are deleted.
+  if (cells.length > 0) {
+    const rowsToUpsert = cells.map((cell) => ({
+      blueprint_id: blueprintId,
+      facet_label: cell.facetLabel,
+      facet_definition: cell.facetDefinition ?? null,
+      intensity: cell.intensity,
+      target_item_count: cell.targetItemCount,
+      display_order: cell.displayOrder,
+    }));
+
+    const { error: upsertError } = await db
+      .from("instrument_blueprint_cells")
+      .upsert(rowsToUpsert, {
+        onConflict: "blueprint_id,facet_label,intensity",
+      });
+
+    if (upsertError) {
+      throwActionError(
+        "replaceBlueprintCells (upsert)",
+        "Unable to save blueprint cells.",
+        upsertError,
+      );
+    }
+  }
+
+  // Remove only the cells the caller no longer lists. Items attached to those
+  // cells are intentionally detached — the facet they measured is gone.
+  const { data: existing, error: readError } = await db
     .from("instrument_blueprint_cells")
-    .delete()
+    .select("id, facet_label, intensity")
     .eq("blueprint_id", blueprintId);
 
-  if (delError) {
+  if (readError) {
     throwActionError(
-      "replaceBlueprintCells (delete)",
-      "Unable to delete existing cells.",
-      delError,
+      "replaceBlueprintCells (read)",
+      "Unable to read blueprint cells.",
+      readError,
     );
   }
 
-  if (cells.length === 0) {
-    return [];
+  const keep = new Set(cells.map((c) => `${c.facetLabel}\u0000${c.intensity}`));
+  const staleIds = (existing ?? [])
+    .filter((row) => {
+      const r = row as DbRow;
+      return !keep.has(`${String(r.facet_label)}\u0000${String(r.intensity)}`);
+    })
+    .map((row) => (row as DbRow).id as string);
+
+  if (staleIds.length > 0) {
+    const { error: delError } = await db
+      .from("instrument_blueprint_cells")
+      .delete()
+      .in("id", staleIds);
+
+    if (delError) {
+      throwActionError(
+        "replaceBlueprintCells (delete)",
+        "Unable to remove deleted cells.",
+        delError,
+      );
+    }
   }
 
-  // Insert new cells
-  const rowsToInsert = cells.map((cell) => ({
-    blueprint_id: blueprintId,
-    facet_label: cell.facetLabel,
-    intensity: cell.intensity,
-    target_item_count: cell.targetItemCount,
-    display_order: cell.displayOrder,
-  }));
-
-  const { data, error: insError } = await db
+  const { data, error: finalError } = await db
     .from("instrument_blueprint_cells")
-    .insert(rowsToInsert)
     .select("*")
+    .eq("blueprint_id", blueprintId)
     .order("display_order", { ascending: true });
 
-  if (insError) {
+  if (finalError) {
     throwActionError(
-      "replaceBlueprintCells (insert)",
-      "Unable to insert new cells.",
-      insError,
+      "replaceBlueprintCells (reload)",
+      "Unable to reload blueprint cells.",
+      finalError,
     );
   }
 
@@ -1165,5 +1208,33 @@ export async function updateStageRun(
 
   if (error) {
     throwActionError("updateStageRun", "Unable to update stage run.", error);
+  }
+}
+
+/**
+ * Delete existing congruence ratings for a set of candidate items.
+ *
+ * A panel rerun must REPLACE its prior ratings, not append to them: appending
+ * mixes two independent rating sets, inflates the apparent rater count, and
+ * skews accuracy, Aiken's V and kappa toward whichever run happened to be
+ * larger.
+ */
+export async function deleteCongruenceRatingsForItems(
+  db: DbClient,
+  candidateItemIds: string[],
+): Promise<void> {
+  if (candidateItemIds.length === 0) return;
+
+  const { error } = await db
+    .from("instrument_congruence_ratings")
+    .delete()
+    .in("candidate_item_id", candidateItemIds);
+
+  if (error) {
+    throwActionError(
+      "deleteCongruenceRatingsForItems",
+      "Unable to clear previous congruence ratings.",
+      error,
+    );
   }
 }
