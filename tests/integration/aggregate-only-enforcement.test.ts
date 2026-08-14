@@ -170,6 +170,13 @@ describe.skipIf(!canRun)("aggregate_only confidentiality enforcement", () => {
         .select("id")
         .single();
 
+      // No `percentile` here. 20260813104000_cognitive_scoring.sql's
+      // participant_scores_norm_referenced_requires_group CHECK forbids a
+      // percentile (or either confidence-interval bound, or metric='t_score')
+      // without a versioned norm group backing it. This fixture exists to test
+      // aggregate-only confidentiality, not scoring, and never asserts on
+      // percentile — it was incidental noise that happened to be an unfounded
+      // claim.
       const { data: score } = await adminDb
         .from("participant_scores")
         .insert({
@@ -177,7 +184,6 @@ describe.skipIf(!canRun)("aggregate_only confidentiality enforcement", () => {
           factor_id: ids.factor,
           raw_score: 80,
           scaled_score: 90,
-          percentile: 70,
           scoring_method: "irt",
         })
         .select("id")

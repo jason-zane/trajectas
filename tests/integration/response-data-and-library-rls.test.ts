@@ -406,6 +406,12 @@ describe.skipIf(!canRun)(
       ids.responseB1 = respB1!.id;
 
       // --- Participant Scores ---
+      // No `percentile` here. 20260813104000_cognitive_scoring.sql's
+      // participant_scores_norm_referenced_requires_group CHECK forbids a
+      // percentile (or either confidence-interval bound, or metric='t_score')
+      // without a versioned norm group backing it. These fixtures exist to
+      // test tenant isolation, not scoring, and never assert on percentile —
+      // it was incidental noise that happened to be an unfounded claim.
       const { data: scoreA1 } = await adminDb
         .from("participant_scores")
         .insert({
@@ -413,7 +419,6 @@ describe.skipIf(!canRun)(
           factor_id: ids.factorA1,
           raw_score: 85,
           scaled_score: 92,
-          percentile: 75,
           scoring_method: "irt",
         })
         .select("id")
@@ -427,7 +432,6 @@ describe.skipIf(!canRun)(
           factor_id: ids.factorB1,
           raw_score: 78,
           scaled_score: 85,
-          percentile: 62,
           scoring_method: "irt",
         })
         .select("id")
