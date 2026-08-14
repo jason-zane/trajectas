@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Brain,
   Briefcase,
+  FlaskConical,
   FileQuestion,
   ClipboardList,
   Layers,
@@ -97,6 +98,7 @@ const adminNav: NavSection[] = [
       { title: "Constructs", href: "/constructs", icon: Dna },
       { title: "Items", href: "/items", icon: FileQuestion },
       { title: "Item Generator", href: "/generate", icon: Wand2 },
+      { title: "Instruments", href: "/instruments", icon: FlaskConical },
       { title: "Response Formats", href: "/response-formats", icon: Settings2 },
       { title: "Psychometrics", href: "/psychometrics", icon: BarChart3 },
     ],
