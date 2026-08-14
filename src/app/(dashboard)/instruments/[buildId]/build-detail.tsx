@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import type { InstrumentBuildDto, InstrumentBlueprintDto } from '@/lib/dal/instrument-mappers'
-import { deleteBlueprintAction } from '@/app/actions/instrument'
+import { deleteBlueprintAction, restoreBlueprintAction } from '@/app/actions/instrument'
 
 interface BuildDetailProps {
   build: InstrumentBuildDto
@@ -43,16 +43,32 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  const handleDeleteBlueprint = (blueprintId: string) => {
-    if (!confirm('Delete this blueprint? This action cannot be undone.')) {
-      return
-    }
-
+  const handleDeleteBlueprint = (blueprintId: string, label: string) => {
+    // Deletion is a soft delete, so the house pattern applies: act immediately
+    // and offer Undo rather than gating behind a browser confirm().
     startTransition(async () => {
       try {
         await deleteBlueprintAction(blueprintId)
-        toast.success('Blueprint deleted')
         router.refresh()
+        toast.success(`${label} deleted`, {
+          duration: 5000,
+          action: {
+            label: 'Undo',
+            onClick: () => {
+              startTransition(async () => {
+                try {
+                  await restoreBlueprintAction(blueprintId)
+                  router.refresh()
+                  toast.success(`${label} restored`)
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error ? error.message : 'Failed to restore construct'
+                  )
+                }
+              })
+            },
+          },
+        })
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : 'Failed to delete blueprint'
@@ -140,7 +156,8 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
             {blueprints.map((blueprint) => (
               <Card
                 key={blueprint.id}
-                className="group p-4 transition-all hover:bg-cream dark:hover:bg-slate-800 cursor-pointer"
+                variant="interactive"
+                className="group p-4 cursor-pointer"
                 onClick={() => router.push(`/instruments/${build.id}/blueprints/${blueprint.id}`)}
               >
                 <div className="flex items-start justify-between">
@@ -165,7 +182,10 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
-                        handleDeleteBlueprint(blueprint.id)
+                        handleDeleteBlueprint(
+                          blueprint.id,
+                          blueprint.draftConstructName || 'Construct',
+                        )
                       }}
                       disabled={isPending}
                     >

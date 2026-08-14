@@ -15,13 +15,14 @@ import {
   createBlueprint,
   updateBlueprint,
   softDeleteBlueprint,
+  restoreBlueprint,
   replaceBlueprintCells,
   appendEvidence,
   listCandidateItemsByBlueprint,
   listCandidateItemsForBuild,
   createCandidateItems,
   recordStageRun,
-  findRunningStageRun,
+  claimStageRun,
   updateStageRun,
   updateCandidateItem,
   softDeleteCandidateItem,
@@ -709,21 +710,12 @@ export async function generateItemsForBlueprint(
   // Concurrency guard. Generation is slow (one provider call per cell), so a
   // second invocation can easily start while the first is still running — both
   // would compute the same deficits and each fill them, double-filling every
-  // cell. Claim a `running` row before doing any work and refuse if one is
-  // already open.
-  const inFlight = await findRunningStageRun(db, blueprint.buildId, 'item_generation')
-  if (inFlight) {
-    throw new Error(
-      'Item generation is already running for this instrument. Wait for it to finish before starting another run.',
-    )
-  }
-
-  const stageRun = await recordStageRun(db, {
+  // cell. The claim is atomic: it relies on a partial unique index rather than
+  // a read-then-insert, which has a window where two callers both see no run.
+  const stageRun = await claimStageRun(db, {
     buildId: blueprint.buildId,
     stageKey: 'item_generation',
-    status: 'running',
     startedAt,
-    progressPct: 0,
     detail: `Generating for ${cellsToGenerate.length} cells`,
   })
 
@@ -1472,3 +1464,22 @@ const DEFAULT_FAIRNESS_SYSTEM_PROMPT = `You are an expert in psychometric fairne
 - A well-written, inclusive item that uses precise language should NOT be flagged.
 
 Return ONLY a JSON array with no preamble or explanation.`
+
+/**
+ * Restore a soft-deleted blueprint. Backs the "Undo" affordance on delete.
+ * Platform-admin only.
+ */
+export async function restoreBlueprintAction(blueprintId: string): Promise<void> {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+
+  await restoreBlueprint(db, blueprintId)
+
+  revalidatePath('/instruments')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'instrument_blueprint.restored',
+    targetTable: 'instrument_blueprints',
+    targetId: blueprintId,
+  })
+}

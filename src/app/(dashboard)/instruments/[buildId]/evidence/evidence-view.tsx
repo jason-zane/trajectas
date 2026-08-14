@@ -13,14 +13,16 @@
  * the item table allows sorting by verdict (failures first) for quick remediation.
  */
 
-import { useMemo, useState, useTransition } from 'react'
+import { useMemo, useTransition } from 'react'
 import { toast } from 'sonner'
-import { ArrowUpDown, AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
+import type { ColumnDef } from '@tanstack/react-table'
+import { DataTable, DataTableColumnHeader } from '@/components/data-table'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   runCongruencePanelForBuild,
@@ -37,7 +39,92 @@ interface EvidenceViewProps {
   candidateItems: InstrumentCandidateItemDto[]
 }
 
-type SortKey = 'verdict' | 'accuracy' | 'stem' | 'readingGrade'
+interface EvidenceRow {
+  id: string
+  stem: string
+  verdict: 'pass' | 'review' | 'fail' | 'unrated'
+  accuracy: number | null
+  aikenV: number | null
+  readingGrade: number | null
+  fairnessFlags: string[]
+}
+
+/** fail first: the point of this table is to surface what needs work. */
+const VERDICT_RANK: Record<string, number> = { fail: 0, review: 1, unrated: 2, pass: 3 }
+
+const itemColumns: ColumnDef<EvidenceRow>[] = [
+  {
+    accessorKey: 'stem',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Stem" />,
+    cell: ({ row }) => (
+      <div className="line-clamp-2 max-w-xl text-foreground">{row.original.stem}</div>
+    ),
+  },
+  {
+    accessorKey: 'verdict',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Verdict" />,
+    sortingFn: (a, b) =>
+      (VERDICT_RANK[a.original.verdict] ?? 9) - (VERDICT_RANK[b.original.verdict] ?? 9),
+    cell: ({ row }) =>
+      row.original.verdict === 'unrated' ? (
+        <Badge variant="outline" className="text-xs">unrated</Badge>
+      ) : (
+        <VerdictBadge verdict={row.original.verdict} />
+      ),
+  },
+  {
+    accessorKey: 'accuracy',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Accuracy" />,
+    cell: ({ row }) =>
+      row.original.accuracy === null ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <span className="font-medium tabular-nums">
+          {(row.original.accuracy * 100).toFixed(0)}%
+        </span>
+      ),
+  },
+  {
+    accessorKey: 'aikenV',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Aiken’s V" />,
+    cell: ({ row }) =>
+      row.original.aikenV === null ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <span className="font-medium tabular-nums">{row.original.aikenV.toFixed(2)}</span>
+      ),
+  },
+  {
+    accessorKey: 'readingGrade',
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Reading grade" />,
+    cell: ({ row }) =>
+      row.original.readingGrade === null ? (
+        <span className="text-muted-foreground">—</span>
+      ) : (
+        <span className="font-medium tabular-nums">
+          {row.original.readingGrade.toFixed(1)}
+        </span>
+      ),
+  },
+  {
+    accessorKey: 'fairnessFlags',
+    header: 'Fairness',
+    enableSorting: false,
+    cell: ({ row }) =>
+      row.original.fairnessFlags.length === 0 ? (
+        <span className="text-muted-foreground text-xs">—</span>
+      ) : (
+        <div className="flex flex-wrap gap-1">
+          {row.original.fairnessFlags.map((flag) => (
+            <Badge key={flag} variant="destructive" className="text-xs font-normal">
+              {flag}
+            </Badge>
+          ))}
+        </div>
+      ),
+  },
+]
+
 
 export function EvidenceView({
   buildId,
@@ -45,7 +132,6 @@ export function EvidenceView({
   panelResult,
   candidateItems,
 }: EvidenceViewProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('verdict')
   const [isRunningCongruence, startCongruence] = useTransition()
   const [isRunningFairness, startFairness] = useTransition()
 
@@ -60,50 +146,24 @@ export function EvidenceView({
   }, [panelResult])
 
   // Sort items for display
-  const sortedItems = useMemo(() => {
-    const items = [...candidateItems]
-
-    switch (sortKey) {
-      case 'verdict': {
-        const verdictOrder: Record<string, number> = { fail: 0, review: 1, pass: 2 }
-        items.sort((a, b) => {
-          const aCongruence = itemsWithCongruence.get(a.id)
-          const bCongruence = itemsWithCongruence.get(b.id)
-          const aVerdictOrder = verdictOrder[aCongruence?.verdict ?? 'fail'] ?? 3
-          const bVerdictOrder = verdictOrder[bCongruence?.verdict ?? 'fail'] ?? 3
-          if (aVerdictOrder !== bVerdictOrder) return aVerdictOrder - bVerdictOrder
-          return a.stem.localeCompare(b.stem)
-        })
-        break
-      }
-      case 'accuracy': {
-        items.sort((a, b) => {
-          const aAccuracy = itemsWithCongruence.get(a.id)?.assignmentAccuracy ?? 0
-          const bAccuracy = itemsWithCongruence.get(b.id)?.assignmentAccuracy ?? 0
-          return aAccuracy - bAccuracy
-        })
-        break
-      }
-      case 'readingGrade': {
-        const getGrade = (item: InstrumentCandidateItemDto): number => {
-          if (typeof item.payload === 'object' && item.payload !== null && 'fairness' in item.payload) {
-            const fairness = (item.payload as Record<string, unknown>).fairness
-            if (typeof fairness === 'object' && fairness !== null && 'readingGrade' in fairness) {
-              return Number((fairness as Record<string, unknown>).readingGrade) || 0
-            }
-          }
-          return 0
+  // Flatten congruence + fairness onto each row so the shared DataTable can
+  // sort and search on plain fields.
+  const itemRows: EvidenceRow[] = useMemo(
+    () =>
+      candidateItems.map((item) => {
+        const congruence = itemsWithCongruence.get(item.id)
+        return {
+          id: item.id,
+          stem: item.stem,
+          verdict: congruence?.verdict ?? 'unrated',
+          accuracy: congruence ? congruence.assignmentAccuracy : null,
+          aikenV: congruence ? congruence.aikenV : null,
+          readingGrade: getReadingGrade(item),
+          fairnessFlags: getFairnessFlags(item),
         }
-        items.sort((a, b) => getGrade(a) - getGrade(b))
-        break
-      }
-      case 'stem':
-      default:
-        items.sort((a, b) => a.stem.localeCompare(b.stem))
-    }
-
-    return items
-  }, [candidateItems, sortKey, itemsWithCongruence])
+      }),
+    [candidateItems, itemsWithCongruence],
+  )
 
   function handleRunCongruence() {
     if (!canRunCongruence) return
@@ -281,126 +341,21 @@ export function EvidenceView({
               </p>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                      <SortButton
-                        label="Stem"
-                        active={sortKey === 'stem'}
-                        onClick={() => setSortKey('stem')}
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                      <SortButton
-                        label="Verdict"
-                        active={sortKey === 'verdict'}
-                        onClick={() => setSortKey('verdict')}
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-center font-medium text-muted-foreground">
-                      <SortButton
-                        label="Accuracy"
-                        active={sortKey === 'accuracy'}
-                        onClick={() => setSortKey('accuracy')}
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-center font-medium text-muted-foreground">
-                      Aiken’s V
-                    </th>
-                    <th className="px-3 py-2 text-center font-medium text-muted-foreground">
-                      <SortButton
-                        label="Reading Grade"
-                        active={sortKey === 'readingGrade'}
-                        onClick={() => setSortKey('readingGrade')}
-                      />
-                    </th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">
-                      Fairness Flags
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedItems.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-3 py-8 text-center">
-                        <p className="text-muted-foreground text-sm">
-                          No candidate items yet.
-                        </p>
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedItems.map((item) => {
-                      const congruence = itemsWithCongruence.get(item.id)
-                      const readingGrade = getReadingGrade(item)
-                      const fairnessFlags = getFairnessFlags(item)
-
-                      return (
-                        <tr key={item.id} className="border-b hover:bg-cream dark:hover:bg-slate-800/50">
-                          <td className="px-3 py-3">
-                            <div className="line-clamp-2 text-foreground">
-                              {item.stem}
-                            </div>
-                          </td>
-                          <td className="px-3 py-3">
-                            {congruence ? (
-                              <VerdictBadge verdict={congruence.verdict} />
-                            ) : (
-                              <Badge variant="outline" className="text-xs">
-                                unrated
-                              </Badge>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center tabular-nums">
-                            {congruence ? (
-                              <span className="font-medium">
-                                {(congruence.assignmentAccuracy * 100).toFixed(0)}%
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center tabular-nums">
-                            {congruence ? (
-                              <span className="font-medium">
-                                {congruence.aikenV.toFixed(2)}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3 text-center tabular-nums">
-                            {readingGrade !== null ? (
-                              <span className="font-medium">{readingGrade.toFixed(1)}</span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">
-                            {fairnessFlags.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {fairnessFlags.map((flag) => (
-                                  <Badge
-                                    key={flag}
-                                    variant="destructive"
-                                    className="text-xs font-normal"
-                                  >
-                                    {flag}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">—</span>
-                            )}
-                          </td>
-                        </tr>
-                      )
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={itemColumns}
+              data={itemRows}
+              defaultSort={{ id: 'verdict', desc: false }}
+              searchPlaceholder="Search item stems…"
+              searchableColumns={['stem']}
+              emptyState={
+                <EmptyState
+                  eyebrow="No items"
+                  title="No candidate items yet"
+                  description="Generate items for this instrument's blueprints, then run the congruence panel."
+                  size="sm"
+                />
+              }
+            />
           </Card>
         </>
       ) : (
@@ -428,25 +383,6 @@ export function EvidenceView({
 // Helpers
 // ============================================================================
 
-function SortButton({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-1 hover:text-foreground transition-colors"
-    >
-      {label}
-      {active && <ArrowUpDown className="h-3 w-3" />}
-    </button>
-  )
-}
 
 function VerdictBadge({ verdict }: { verdict: 'pass' | 'review' | 'fail' }) {
   const colors = {
@@ -611,14 +547,10 @@ function ConfusionMatrixFinding({
 }
 
 function getReadingGrade(item: InstrumentCandidateItemDto): number | null {
-  if (typeof item.payload === 'object' && item.payload !== null && 'fairness' in item.payload) {
-    const fairness = (item.payload as Record<string, unknown>).fairness
-    if (typeof fairness === 'object' && fairness !== null && 'readingGrade' in fairness) {
-      const grade = (fairness as Record<string, unknown>).readingGrade
-      return typeof grade === 'number' ? grade : null
-    }
-  }
-  return null
+  // The fairness screen persists readability to the reading_grade COLUMN.
+  // Reading it out of payload.fairness (as this did) meant the column was
+  // written and never read, so every row showed a dash.
+  return typeof item.readingGrade === 'number' ? item.readingGrade : null
 }
 
 function getFairnessFlags(item: InstrumentCandidateItemDto): string[] {

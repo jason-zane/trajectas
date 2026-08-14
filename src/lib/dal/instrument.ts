@@ -1238,3 +1238,74 @@ export async function deleteCongruenceRatingsForItems(
     );
   }
 }
+
+/** Raised when a stage run cannot be claimed because one is already in flight. */
+export class StageRunInFlightError extends Error {
+  constructor(stageKey: string) {
+    super(
+      `A ${stageKey} run is already in progress for this instrument. Wait for it to finish before starting another.`,
+    );
+    this.name = "StageRunInFlightError";
+  }
+}
+
+/**
+ * Atomically claim an in-flight stage run.
+ *
+ * Relies on the partial unique index instrument_stage_runs_single_flight
+ * (build_id, stage_key) WHERE status = 'running'. The insert IS the lock — a
+ * read-then-insert guard has a window in which two callers both see no run and
+ * both proceed. Throws StageRunInFlightError when the claim is already held.
+ */
+export async function claimStageRun(
+  db: DbClient,
+  input: {
+    buildId: string;
+    stageKey: string;
+    startedAt: string;
+    detail?: string | null;
+  },
+): Promise<InstrumentStageRunDto> {
+  const { data, error } = await db
+    .from("instrument_stage_runs")
+    .insert({
+      build_id: input.buildId,
+      stage_key: input.stageKey,
+      status: "running",
+      started_at: input.startedAt,
+      progress_pct: 0,
+      detail: input.detail ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    // 23505 = unique_violation: another run holds the claim.
+    if ((error as { code?: string }).code === "23505") {
+      throw new StageRunInFlightError(input.stageKey);
+    }
+    throwActionError("claimStageRun", "Unable to start the run.", error);
+  }
+
+  return mapInstrumentStageRunRow(data as DbRow);
+}
+
+/**
+ * Clear a blueprint's soft-delete, restoring it.
+ *
+ * Deletion here is reversible by design, which is what lets the UI offer an
+ * "Undo" affordance instead of a modal confirmation.
+ */
+export async function restoreBlueprint(
+  db: DbClient,
+  blueprintId: string,
+): Promise<void> {
+  const { error } = await db
+    .from("instrument_blueprints")
+    .update({ deleted_at: null })
+    .eq("id", blueprintId);
+
+  if (error) {
+    throwActionError("restoreBlueprint", "Unable to restore blueprint.", error);
+  }
+}
