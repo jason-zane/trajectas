@@ -1,9 +1,11 @@
 'use server'
 
+import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { slugify } from '@/lib/utils'
 import {
   listBuilds,
   getBuild,
@@ -30,6 +32,7 @@ import {
   deleteCongruenceRatingsForItems,
   listCongruenceRatingsForBuild,
   updateCandidateItemFairness,
+  StageRunInFlightError,
 } from '@/lib/dal/instrument'
 import {
   instrumentBuildInputSchema,
@@ -40,6 +43,7 @@ import {
   draftBlueprintWithAiOptionsSchema,
   generateItemsForBlueprintOptionsSchema,
   updateCandidateItemStatusSchema,
+  publishBuildInputSchema,
 } from '@/lib/validations/instrument'
 import { validateBlueprint, facetCount, totalTargetItems } from '@/lib/instrument/blueprint'
 import { forecastAlpha } from '@/lib/instrument/reliability'
@@ -1482,4 +1486,563 @@ export async function restoreBlueprintAction(blueprintId: string): Promise<void>
     targetTable: 'instrument_blueprints',
     targetId: blueprintId,
   })
+}
+
+/**
+ * Preview what would happen if the build were published.
+ * Read-only; shows constructs/factors to create, items to publish, and any blockers.
+ * Platform-admin only.
+ */
+export async function previewPublish(buildId: string): Promise<{
+  constructsToCreate: Array<{ blueprintId: string; name: string; slug: string }>
+  constructsToReuse: Array<{ blueprintId: string; name: string; constructId: string }>
+  factorsToCreate: Array<{ blueprintId: string; name: string; slug: string }>
+  itemsToPublish: number
+  itemsAlreadyPublished: number
+  blockers: string[]
+  warnings: string[]
+}> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  const blueprints = await listBlueprints(db, buildId)
+  const allItems = await listCandidateItemsForBuild(db, buildId)
+
+  const blockers: string[] = []
+  const warnings: string[] = []
+  const constructsToCreate: Array<{ blueprintId: string; name: string; slug: string }> = []
+  const constructsToReuse: Array<{ blueprintId: string; name: string; constructId: string }> = []
+  const factorsToCreate: Array<{ blueprintId: string; name: string; slug: string }> = []
+
+  let itemsToPublish = 0
+  let itemsAlreadyPublished = 0
+
+  for (const bp of blueprints) {
+    // Check for construct
+    if (!bp.constructId && !bp.draftConstructName) {
+      blockers.push(
+        `Blueprint "${bp.draftConstructName || 'Unnamed'}" has neither a linked construct nor a draft name`,
+      )
+      continue
+    }
+
+    if (bp.constructId) {
+      constructsToReuse.push({
+        blueprintId: bp.id,
+        name: bp.draftConstructName || 'Unknown',
+        constructId: bp.constructId,
+      })
+    } else if (bp.draftConstructName) {
+      const slug = slugify(bp.draftConstructName)
+      constructsToCreate.push({
+        blueprintId: bp.id,
+        name: bp.draftConstructName,
+        slug,
+      })
+      factorsToCreate.push({
+        blueprintId: bp.id,
+        name: bp.draftConstructName,
+        slug,
+      })
+    }
+
+    // Items belong to a blueprint via blueprint_cell_id. Filtering only on
+    // status would count EVERY accepted item in the build once per blueprint —
+    // with 3 constructs that reported (and would have published) 3x the items,
+    // attaching each construct's items to the other two.
+    // Warn when a draft construct duplicates a name already in the library.
+    // The slug uniquifier will happily create "resilience-1" beside an existing
+    // "Resilience", which is silent taxonomy pollution — the operator should get
+    // the chance to link to the existing construct instead.
+    if (!bp.constructId && bp.draftConstructName) {
+      // The repo slugify strips non-word characters and returns an EMPTY string
+      // for a punctuation-only name, which would insert a construct with a blank
+      // slug rather than fail. Block it here instead.
+      if (slugify(bp.draftConstructName).length === 0) {
+        blockers.push(
+          `Construct name "${bp.draftConstructName}" cannot be turned into a usable slug — give it a name containing letters or numbers`,
+        )
+      }
+
+      const { data: nameClash } = await db
+        .from('constructs')
+        .select('id, name')
+        .ilike('name', bp.draftConstructName)
+        .is('deleted_at', null)
+        .limit(1)
+        .maybeSingle()
+
+      if (nameClash) {
+        warnings.push(
+          `A construct named "${bp.draftConstructName}" already exists in the library. Publishing will create a SECOND one rather than reuse it — set this blueprint's construct instead if they are the same concept.`,
+        )
+      }
+    }
+
+    const blueprintItems = await listCandidateItemsByBlueprint(db, bp.id)
+    const acceptedItems = blueprintItems.filter((i) => i.status === 'accepted')
+
+    if (acceptedItems.length === 0) {
+      warnings.push(`Construct "${bp.draftConstructName || bp.id}" has no accepted items — it will be created with an empty item pool`)
+      continue
+    }
+
+    const newItems = acceptedItems.filter((i) => !i.publishedItemId)
+    const existingItems = acceptedItems.filter((i) => i.publishedItemId)
+
+    itemsToPublish += newItems.length
+    itemsAlreadyPublished += existingItems.length
+  }
+
+  // Check for congruence evidence
+  const ratings = await listCongruenceRatingsForBuild(db, buildId)
+  if (ratings.length === 0) {
+    warnings.push(
+      'No congruence panel evidence recorded for this build. Items have not been checked for discrimination.',
+    )
+  }
+
+  // Check for items with failing congruence
+  const failedItems = allItems.filter((i) => {
+    const itemRatings = ratings.filter((r) => r.candidateItemId === i.id)
+    return itemRatings.length > 0 && itemRatings.some((r) => r.relevance < 2)
+  })
+
+  if (failedItems.length > 0) {
+    warnings.push(
+      `${failedItems.length} items have congruence verdicts below relevance threshold (likely to be poor discriminators)`,
+    )
+  }
+
+  // Check for orphaned items
+  const orphanedItems = allItems.filter((i) => !i.blueprintCellId && i.status === 'accepted')
+  if (orphanedItems.length > 0) {
+    warnings.push(`${orphanedItems.length} accepted items are not attached to any blueprint cell`)
+  }
+
+  return {
+    constructsToCreate,
+    constructsToReuse,
+    factorsToCreate,
+    itemsToPublish,
+    itemsAlreadyPublished,
+    blockers,
+    warnings,
+  }
+}
+
+/**
+ * Publish a build to the live library. Creates constructs, factors, and items.
+ * Platform-admin only.
+ *
+ * Idempotent: candidate items with published_item_id already set are skipped.
+ * Blueprints with construct_id already set reuse that construct.
+ * Re-publishing after adding items publishes only the new ones.
+ */
+export async function publishBuild(
+  buildId: string,
+  input: Record<string, unknown>,
+): Promise<{
+  constructsCreated: number
+  factorsCreated: number
+  itemsPublished: number
+  skipped: number
+  warnings: string[]
+}> {
+  const scope = await requireAdminScope()
+
+  const parsed = publishBuildInputSchema.safeParse(input)
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
+    throw new Error(issues.join(', ') || 'Invalid publish input')
+  }
+
+  const db = createAdminClient()
+
+  // Load build
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  // Validate response format exists
+  const { data: formatRow, error: formatError } = await db
+    .from('response_formats')
+    .select('id, is_active')
+    .eq('id', parsed.data.responseFormatId)
+    .maybeSingle()
+
+  if (formatError || !formatRow) {
+    throw new Error('Response format not found')
+  }
+  if ((formatRow as { is_active?: boolean }).is_active === false) {
+    throw new Error('That response format is inactive and cannot be used for new items')
+  }
+
+  // Check blockers
+  const preview = await previewPublish(buildId)
+  if (preview.blockers.length > 0) {
+    throw new Error(`Cannot publish: ${preview.blockers.join('; ')}`)
+  }
+
+  // Claim stage run for concurrency control
+  let stageRun
+  try {
+    stageRun = await claimStageRun(db, {
+      buildId,
+      stageKey: 'publish_readiness',
+      startedAt: new Date().toISOString(),
+      detail: 'Publishing to library',
+    })
+  } catch (err) {
+    if (err instanceof StageRunInFlightError) {
+      throw new Error('A publish is already in progress for this build. Please wait.')
+    }
+    throw err
+  }
+
+  let constructsCreated = 0
+  let factorsCreated = 0
+  const publishedFactorIds: string[] = []
+  let itemsPublished = 0
+  let skipped = 0
+  const publishWarnings: string[] = []
+
+  try {
+    const blueprints = await listBlueprints(db, buildId)
+    const takenSlugs = new Set<string>()
+
+    // Pre-load taken slugs
+    const { data: constructRows } = await db.from('constructs').select('slug').is('deleted_at', null)
+    const { data: factorRows } = await db.from('factors').select('slug').is('deleted_at', null)
+
+    for (const row of constructRows ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      takenSlugs.add(String((row as any).slug))
+    }
+
+    for (const row of factorRows ?? []) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      takenSlugs.add(String((row as any).slug))
+    }
+
+    // Per blueprint, create/reuse construct, create factor, publish items
+    for (const bp of blueprints) {
+      let constructId = bp.constructId
+
+      // Resolve or create construct
+      if (!constructId && bp.draftConstructName) {
+        let constructSlug = slugify(bp.draftConstructName)
+        let suffix = 1
+
+        while (takenSlugs.has(constructSlug)) {
+          constructSlug = `${slugify(bp.draftConstructName)}-${suffix}`
+          suffix++
+        }
+
+        const { data: constructData, error: constructError } = await db
+          .from('constructs')
+          .insert({
+            name: bp.draftConstructName,
+            slug: constructSlug,
+            description: bp.draftConstructDefinition ?? null,
+            is_active: true,
+          })
+          .select('id')
+          .single()
+
+        if (constructError) {
+          publishWarnings.push(`Failed to create construct for "${bp.draftConstructName}": ${constructError.message}`)
+          continue
+        }
+
+        constructId = constructData.id
+        takenSlugs.add(constructSlug)
+        constructsCreated++
+
+        // Update blueprint to store the created construct
+        await updateBlueprint(db, bp.id, { constructId })
+      }
+
+      if (!constructId) {
+        publishWarnings.push(`No construct for blueprint "${bp.draftConstructName || bp.id}"`)
+        continue
+      }
+
+      // Create factor
+      let factorSlug = slugify(bp.draftConstructName || 'factor')
+      let suffix = 1
+
+      while (takenSlugs.has(factorSlug)) {
+        factorSlug = `${slugify(bp.draftConstructName || 'factor')}-${suffix}`
+        suffix++
+      }
+
+      // Reuse a factor already linked to this construct rather than inserting a
+      // new one. upsert_factor_with_constructs upserts on id, so passing a fresh
+      // uuid every time would make re-publishing create duplicate factors.
+      const { data: existingLink } = await db
+        .from('factor_constructs')
+        .select('factor_id')
+        .eq('construct_id', constructId)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingLink) {
+        // Already published (or hand-linked) — nothing to create for this blueprint.
+        publishedFactorIds.push(String((existingLink as { factor_id: string }).factor_id))
+      } else {
+        const { error: factorError } = await db.rpc('upsert_factor_with_constructs', {
+          p_factor_id: randomUUID(),
+          p_factor: {
+            name: bp.draftConstructName || 'Published Factor',
+            slug: factorSlug,
+            description: bp.draftConstructDefinition ?? null,
+            // The publish form collects this; dropping it silently produced
+            // factors with no dimension despite the admin choosing one.
+            dimension_id: parsed.data.dimensionId ?? null,
+            is_active: true,
+            // Explicitly NOT match-eligible: the Architect filters its
+            // recommendation pool on this column and it defaults to true, so a
+            // never-piloted factor would otherwise start being suggested to
+            // clients the moment it was published.
+            is_match_eligible: false,
+            readiness: 'draft',
+          },
+          p_construct_links: [
+            {
+              construct_id: constructId,
+              weight: 1.0,
+              display_order: 1,
+            },
+          ],
+        })
+
+        // A failed factor means the construct's items can never be served, so this
+        // is a hard failure, not a warning to scroll past.
+        if (factorError) {
+          throw new Error(
+            `Failed to create factor for "${bp.draftConstructName || bp.id}": ${factorError.message}`,
+          )
+        }
+
+        takenSlugs.add(factorSlug)
+        factorsCreated++
+      }
+
+      // Get accepted items for this blueprint (excluding already-published)
+      // Scope to THIS blueprint's items (via blueprint_cell_id) — see the same
+      // note in previewPublish. allItems is also a snapshot taken before the
+      // loop, so its publishedItemId values go stale as we publish.
+      const blueprintItems = await listCandidateItemsByBlueprint(db, bp.id)
+      const acceptedItems = blueprintItems.filter(
+        (i) => i.status === 'accepted' && !i.publishedItemId,
+      )
+
+      // Count existing items in construct for display_order
+      const { data: existingItems, error: countError } = await db
+        .from('items')
+        .select('id, display_order')
+        .eq('construct_id', constructId)
+        .is('deleted_at', null)
+
+      if (countError) {
+        publishWarnings.push(`Failed to count existing items for construct: ${countError.message}`)
+        continue
+      }
+
+      const maxDisplayOrder = (existingItems ?? []).reduce((max, item) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return Math.max(max, Number((item as any).display_order ?? 0))
+      }, 0)
+
+      let nextDisplayOrder = maxDisplayOrder + 1
+
+      // Publish accepted items
+      for (const item of acceptedItems) {
+        const difficultyMap: Record<string, string> = { low: 'easy', mid: 'medium', high: 'hard' }
+        const difficulty = difficultyMap[item.difficultyTier ?? 'mid'] ?? 'medium'
+
+        const { data: publishedItem, error: itemError } = await db
+          .from('items')
+          .insert({
+            construct_id: constructId,
+            response_format_id: parsed.data.responseFormatId,
+            stem: item.stem,
+            stem_observer: item.stemObserver ?? null,
+            reverse_scored: item.reverseScored ?? false,
+            weight: 1.0,
+            status: 'draft',
+            display_order: nextDisplayOrder,
+            purpose: 'construct',
+            difficulty,
+          })
+          .select('id')
+          .single()
+
+        if (itemError) {
+          publishWarnings.push(
+            `Failed to publish item "${item.stem.substring(0, 50)}...": ${itemError.message}`,
+          )
+          continue
+        }
+
+        // Link the candidate to the item it produced. If this fails the item
+        // exists but nothing records it, so a re-publish would insert a second
+        // copy. Roll the item back rather than leave an untracked orphan.
+        try {
+          await updateCandidateItem(db, item.id, {
+            publishedItemId: publishedItem.id,
+          })
+        } catch (linkError) {
+          await db
+            .from('items')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', publishedItem.id)
+          throw new Error(
+            `Published an item but could not link it back to its candidate (rolled back): ${
+              linkError instanceof Error ? linkError.message : 'unknown error'
+            }`,
+          )
+        }
+
+        itemsPublished++
+        nextDisplayOrder++
+      }
+
+      // Already-published items for THIS blueprint (same scoping reason as above).
+      skipped += blueprintItems.filter(
+        (i) => i.status === 'accepted' && i.publishedItemId,
+      ).length
+    }
+
+    // Record evidence
+    await appendEvidence(db, buildId, [
+      {
+        targetType: 'instrument',
+        targetId: buildId,
+        claim: 'items_published',
+        value: itemsPublished,
+        evidenceClass: 'a_priori',
+        method: 'publish_v1',
+        sampleSize: undefined,
+        producedAt: new Date(),
+        supersededAt: null,
+      },
+    ])
+
+    // Close stage run
+    await updateStageRun(db, stageRun.id, {
+      status: 'success',
+      completedAt: new Date().toISOString(),
+      progressPct: 100,
+      detail: `Published ${constructsCreated} constructs, ${factorsCreated} factors, ${itemsPublished} items`,
+      outputSnapshot: {
+        constructsCreated,
+        factorsCreated,
+        itemsPublished,
+        skipped,
+      },
+    })
+
+    revalidatePath('/instruments')
+    revalidatePath('/items')
+    revalidatePath('/constructs')
+    revalidatePath('/factors')
+
+    await logAuditEvent({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'instrument_build.published',
+      targetTable: 'constructs',
+      targetId: buildId,
+      metadata: {
+        constructsCreated,
+        factorsCreated,
+        itemsPublished,
+        skipped,
+      },
+    })
+  } catch (error) {
+    // Close stage run on error
+    try {
+      await updateStageRun(db, stageRun.id, {
+        status: 'failure',
+        completedAt: new Date().toISOString(),
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } catch {
+      // Closing the stage run is best-effort — the original failure is what
+      // matters and is re-thrown below.
+    }
+
+    throw error
+  }
+
+  return {
+    constructsCreated,
+    factorsCreated,
+    itemsPublished,
+    skipped,
+    warnings: publishWarnings,
+  }
+}
+
+/**
+ * Unpublish a build. Soft-deletes items this build created.
+ * Constructs and factors are intentionally left in place — they may have been
+ * hand-edited after publishing, and silently removing library taxonomy is worse
+ * than leaving an empty one.
+ * Platform-admin only.
+ */
+export async function unpublishBuild(buildId: string): Promise<{ itemsUnpublished: number }> {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  // Find all candidate items with published_item_id for this build
+  const allItems = await listCandidateItemsForBuild(db, buildId)
+  const publishedItems = allItems.filter((i) => i.publishedItemId)
+
+  let itemsUnpublished = 0
+
+  // Soft-delete the published items
+  for (const item of publishedItems) {
+    const { error } = await db
+      .from('items')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', item.publishedItemId)
+
+    if (!error) {
+      itemsUnpublished++
+    }
+  }
+
+  // Clear published_item_id on all candidate items
+  for (const item of publishedItems) {
+    await updateCandidateItem(db, item.id, { publishedItemId: null })
+  }
+
+  revalidatePath('/instruments')
+  revalidatePath('/items')
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'instrument_build.unpublished',
+    targetTable: 'items',
+    targetId: buildId,
+    metadata: {
+      itemsUnpublished,
+    },
+  })
+
+  return { itemsUnpublished }
 }
