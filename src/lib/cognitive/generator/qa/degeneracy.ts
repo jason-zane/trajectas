@@ -160,10 +160,31 @@ export function symmetryInvisibleCheck(shape: string, stepDeg: number): CheckRes
   return invisible ? { id: 'SYMMETRY_INVISIBLE', status: 'fail', detail: { shape, stepDeg, order } } : { id: 'SYMMETRY_INVISIBLE', status: 'pass' }
 }
 
-export function optionComplexitySpreadCheck(options: readonly CellLike[]): CheckResult {
+/**
+ * FINDING (surfaced by issue #344's fix): for a family whose governed axis
+ * IS a count (`cellComplexity` reads a repeat element's `count` directly,
+ * doc 03-item-generation-pipeline.md §3.5), the wrong-rule mechanism doc
+ * 03-logical-reasoning-design.md §6 M1 itself specifies — "assumes the step
+ * size itself grows" — necessarily lands 2 past the key in the direction of
+ * travel (key=5, WR=6) while the repetition/stall distractors sit at the
+ * bottom of the row's range (3, 4). That is doc's OWN four values (3, 4, 5,
+ * 6), and their spread is 3, one past this gate's general threshold of 2.
+ * This is the SAME shape of finding `qa/density.ts`'s `inkCoverageGate`
+ * already documents for `INK_VARIANCE`: a spread that IS the rule's own
+ * signal, on a count-governed axis, is not noise to suppress — an item
+ * whose whole point is "count changes by an accelerating amount" cannot
+ * have all its options within 2 elements of each other without either
+ * dropping the wrong-rule distractor (issue #344's original defect) or
+ * capping the progression's own range, which would change the item's
+ * documented difficulty anchor. `varianceIsRuleIntended` therefore widens
+ * the threshold to 3 for count-governed items only — general non-count
+ * items keep the doc-specified cap of 2 unchanged.
+ */
+export function optionComplexitySpreadCheck(options: readonly CellLike[], varianceIsRuleIntended = false): CheckResult {
   const counts = options.map(cellComplexity)
   const spread = Math.max(...counts) - Math.min(...counts)
-  return spread > 2 ? { id: 'OPTION_COMPLEXITY_SPREAD', status: 'fail', detail: { counts, spread } } : { id: 'OPTION_COMPLEXITY_SPREAD', status: 'pass' }
+  const threshold = varianceIsRuleIntended ? 3 : 2
+  return spread > threshold ? { id: 'OPTION_COMPLEXITY_SPREAD', status: 'fail', detail: { counts, spread, threshold } } : { id: 'OPTION_COMPLEXITY_SPREAD', status: 'pass' }
 }
 
 export function optionHomogeneityCheck(options: readonly CellLike[]): CheckResult {

@@ -11,8 +11,9 @@
  * accidental-regularity probes (rules.ts's `accidentalRegularityProbes`),
  * so a G-03 pass already proves both — doc §5.1 says exactly this
  * ("Level A subsumes all three [doc 03-logical-reasoning-design.md §5.4
- * checks]"). G-16/G-17 are batch-level and live in generator/index.ts's
- * `generateBatch`, not here.
+ * checks]"). G-16/G-17 are batch-level: formalised in `qa/batch.ts`
+ * (`runBatchGates`, which also reconciles G-17 — see that file's header
+ * comment) and invoked from generator/index.ts's `generateBatch`, not here.
  */
 import { FiguralMatrixItemSpec, CognitiveOptionSpec, type RuleSpec } from '../../spec/schema'
 import { contentHash } from '../../spec/hash'
@@ -146,10 +147,13 @@ export function runQaBattery(input: QaInput): QaOutcome {
     gates['G-11'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
   }
 
-  // G-09 — option homogeneity.
+  // G-09 — option homogeneity. `countGoverned` (also used by G-15's ink
+  // gate below) widens the complexity-spread threshold for families whose
+  // rule axis IS a count — see optionComplexitySpreadCheck's doc comment.
+  const countGoverned = item.template.axes.some((a) => a.endsWith('.count'))
   const optionCellsForHomog = placedOptions.map((o) => ({ elements: o.elements }))
   const homog = optionHomogeneityCheck(optionCellsForHomog)
-  const spread = optionComplexitySpreadCheck(optionCellsForHomog)
+  const spread = optionComplexitySpreadCheck(optionCellsForHomog, countGoverned)
   gates['G-09'] = homog.status === 'pass' && spread.status === 'pass' ? { status: 'pass' } : { status: 'fail', detail: { homog, spread } }
 
   // G-12 — degeneracy (grid-level).
@@ -174,7 +178,6 @@ export function runQaBattery(input: QaInput): QaOutcome {
   // G-15 — render check (real renderer) + ink coverage + element overlap.
   const cellsForRender = [...item.grid, keyCellForDeg, ...optionCellsForHomog]
   const renderFails = cellsForRender.map((c) => renderLegibilityGate(c, item.template.render)).filter((r) => r.status === 'fail')
-  const countGoverned = item.template.axes.some((a) => a.endsWith('.count'))
   const ink = inkCoverageGate([...item.grid, keyCellForDeg], item.template.render.strokeWidth, countGoverned)
   const overlaps = [...item.grid, keyCellForDeg].map((c) => elementOverlapGate(c)).filter((r) => r.status === 'fail')
   gates['G-15'] = renderFails.length === 0 && ink.status === 'pass' && overlaps.length === 0 ? { status: 'pass' } : { status: 'fail', detail: { renderFails, ink, overlaps } }

@@ -208,11 +208,14 @@ export function renderElement(element: Element, render: RenderDirectives, ink: s
 /**
  * Layout for repeated elements, doc 03-logical-reasoning-design.md §5.1's
  * count convention: 1-3 in a single centred row with 8-unit gaps; 4 = 2+2;
- * 5 = 3+2, top row first, both rows centred (subitisable at a glance).
+ * 5 = 3+2; 6 = 3+3 (top row first, both rows centred, subitisable at a
+ * glance). The 6 = 3+3 case was added alongside the schema's count cap
+ * being raised from 5 to 6 (issue #344) to keep M1's documented "6 circles"
+ * wrong-rule distractor representable and legible.
  */
 export function repeatPositions(count: number, size: number): Pt[] {
   const gap = 8
-  const rowCounts = count <= 3 ? [count] : count === 4 ? [2, 2] : [3, 2]
+  const rowCounts = count <= 3 ? [count] : count === 4 ? [2, 2] : count === 5 ? [3, 2] : [3, 3]
   const rowHeight = size + gap
   const startY = 50 - ((rowCounts.length - 1) * rowHeight) / 2
   const positions: Pt[] = []

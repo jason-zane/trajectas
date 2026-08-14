@@ -8,6 +8,7 @@ import { composeItem, GeneratorError, type FamilyTemplate } from './compose'
 import { type DistractorCandidate, gateDistractor, placeOptions, repairBalance } from './distractors'
 import { detectAllAxes, levelA } from './qa/uniqueness'
 import { runQaBattery, type QaReport } from './qa/index'
+import { runBatchGates, type BatchQaReport } from './qa/batch'
 import { makeRng } from './rng'
 import type { AxisId } from './axes'
 
@@ -161,9 +162,24 @@ export interface GenerateBatchResult {
   items: GeneratedItem[]
   rejects: Record<string, Record<string, number>> // familyCode -> reason -> count
   attempted: Record<string, number>
+  /** G-16/G-17, the batch-level gates (doc §7) — see qa/batch.ts for what G-17 was reconciled to mean. */
+  batchQa: BatchQaReport
 }
 
-/** Generate several families in one run, sharing a batch-wide key-slot round-robin so G-16 balances across the whole bank, not per family. */
+/**
+ * Generate several families in one run, sharing a batch-wide key-slot
+ * round-robin so G-16 balances across the whole bank, not per family.
+ *
+ * "Gates fail the run, not just the item" (doc §7): after assembling every
+ * family's items, G-16 and G-17 are checked over the WHOLE batch via
+ * `runBatchGates` (qa/batch.ts), and this throws if either fails — matching
+ * how `generateFamily` already throws on a per-item invariant violation.
+ * Both are guaranteed to pass by construction as this generator is written
+ * (G-16 by the round-robin key-slot offset below; G-17, reconciled, by
+ * every accepted item already having cleared G-08) — the check exists so a
+ * future change to either mechanism fails loudly here rather than shipping
+ * a skewed or context-blind-leaky bank silently.
+ */
 export function generateBatch(families: readonly FamilyTemplate<unknown>[], seed: string, perFamily: number, opts: GenerateBatchOptions = {}): GenerateBatchResult {
   const items: GeneratedItem[] = []
   const rejects: Record<string, Record<string, number>> = {}
@@ -189,7 +205,19 @@ export function generateBatch(families: readonly FamilyTemplate<unknown>[], seed
     keySlotOffset += result.items.length
   }
 
-  return { items, rejects, attempted }
+  const familyByCode = new Map(families.map((f) => [f.code, f]))
+  const blindItems = items.map((item) => {
+    const keyIndex = item.optionSpecs.findIndex((o) => o.slot === item.keySlot)
+    const family = familyByCode.get(item.familyCode)!
+    return { options: item.optionSpecs.map((o) => ({ elements: o.elements })), keyIndex, axes: family.axes }
+  })
+  const batchQa = runBatchGates({ keySlots: items.map((i) => i.keySlot), blindItems })
+  const failed = Object.entries(batchQa.gates).find(([, g]) => g.status === 'fail')
+  if (failed) {
+    throw new GeneratorError('BATCH_GATE_FAILED', { gate: failed[0], detail: failed[1].detail })
+  }
+
+  return { items, rejects, attempted, batchQa }
 }
 
 export { GeneratorError }

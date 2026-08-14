@@ -9,11 +9,13 @@ import { LRM_2R_XLAYER } from '@/lib/cognitive/generator/families/lrm-2r-xlayer'
 import { LRM_3R_DIST } from '@/lib/cognitive/generator/families/lrm-3r-dist'
 import { LRM_XOR_XLAYER } from '@/lib/cognitive/generator/families/lrm-xor-xlayer'
 import { LRM_MOVE } from '@/lib/cognitive/generator/families/lrm-move'
+import { LRM_XOR_DIST_XLAYER } from '@/lib/cognitive/generator/families/lrm-xor-dist-xlayer'
+import { LRM_3R_XLAYER } from '@/lib/cognitive/generator/families/lrm-3r-xlayer'
 import { toRenderSpec } from '@/lib/cognitive/spec/project'
 import { renderMatrixGrid, renderOptionTile } from '@/lib/cognitive/render/matrix-svg'
 import type { FamilyTemplate } from '@/lib/cognitive/generator/compose'
 
-const FAMILIES: FamilyTemplate<unknown>[] = [LRM_PROG_COUNT, LRM_ROT, LRM_DIST3X2, LRM_ADD, LRM_SUB, LRM_2R_XLAYER, LRM_3R_DIST, LRM_XOR_XLAYER, LRM_MOVE].map((f) => f as FamilyTemplate<unknown>)
+const FAMILIES: FamilyTemplate<unknown>[] = [LRM_PROG_COUNT, LRM_ROT, LRM_DIST3X2, LRM_ADD, LRM_SUB, LRM_2R_XLAYER, LRM_3R_DIST, LRM_XOR_XLAYER, LRM_MOVE, LRM_XOR_DIST_XLAYER, LRM_3R_XLAYER].map((f) => f as FamilyTemplate<unknown>)
 
 describe.each(FAMILIES.map((f) => [f.code, f] as const))('%s smoke test', (_code, family) => {
   it('generates at least half its requested items across a range of seeds', () => {

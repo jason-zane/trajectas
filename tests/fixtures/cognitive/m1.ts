@@ -4,16 +4,24 @@ import { FiguralMatrixItemSpec, CognitiveOptionSpec } from '@/lib/cognitive/spec
  * M1 — Double count progression. Doc 03-logical-reasoning-design.md §6 M1.
  * Family LRM-PROG-COUNT, rule R1 (count, rows + columns), easy band.
  *
- * Deviation from the worked example: doc 03-logical-reasoning-design.md's
- * option D is "6 solid circles", but doc 03-item-generation-pipeline.md
- * §2.2's `RepeatElement.count` caps at 5 (`z.number().int().min(1).max(5)`),
- * and a Cell holds at most 4 `elements` (so six individual `shape` elements
- * aren't representable either). The two spec documents disagree with each
- * other here — flagged in the LR-4 report. This fixture substitutes a
- * schema-valid distractor that keeps the same "near-miss on count" shape of
- * error without exceeding the cap: 5 HATCHED circles (right count, wrong
- * fill — still a single describable error, still visually distinct from
- * option B's 5 SOLID circles).
+ * HISTORICAL NOTE, resolved by issue #344: this fixture used to substitute
+ * a schema-valid "5 hatched circles" for doc 03-logical-reasoning-design.md
+ * §6 M1's own option D ("6 solid circles", the wrong-rule distractor —
+ * "assumes the step size itself grows"), because `RepeatElement.count`
+ * capped at 5 at the time. That substitution meant M1 carried TWO
+ * perceptual-match distractors (the substitute, plus doc's own option E)
+ * and ZERO wrong-rule distractors — the exact defect #344 reported. #344
+ * raised the count cap to 6 (`src/lib/cognitive/spec/schema.ts`,
+ * `render/primitives.ts`'s `repeatPositions`), so this fixture now carries
+ * doc's own literal values again: one of each distractor type (IR, RP, WR,
+ * PM), matching §5.3's grammar exactly.
+ *
+ * This fixture is a hand-pinned exemplar for the renderer/schema/hash
+ * tests, not a generator output — it is not required to clear the QA
+ * battery (see `src/lib/cognitive/generator/families/lrm-prog-count.ts`'s
+ * header comment for why doc's literal 4-option grammar in fact CANNOT
+ * clear gate G-08 on this single-rule-axis family, and how the generator's
+ * own distractor construction differs from doc's for that reason).
  */
 
 const repeatCircle = (count: number) =>
@@ -67,7 +75,7 @@ export const m1OptionSpecs: CognitiveOptionSpec[] = [
   CognitiveOptionSpec.parse({ slot: 'C', ...repeatCircle(3) }),
   CognitiveOptionSpec.parse({
     slot: 'D',
-    elements: [{ type: 'repeat', layer: 'outer', shape: 'circle', fill: 'hatched', size: 'S', count: 5, rotation: 0 }],
+    elements: [{ type: 'repeat', layer: 'outer', shape: 'circle', fill: 'solid', size: 'S', count: 6, rotation: 0 }],
   }),
   CognitiveOptionSpec.parse({
     slot: 'E',

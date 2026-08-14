@@ -5,18 +5,23 @@ import type { CellLike } from '@/lib/cognitive/generator/axes'
 const repeatCircle = (count: number): CellLike => ({ elements: [{ type: 'repeat', layer: 'outer', shape: 'circle', fill: 'solid', size: 'S', count, rotation: 0 }] })
 
 describe('qa/contextblind — context-blind gate', () => {
-  it('REJECTS an option set solvable from the options alone: doc 03-logical-reasoning-design.md M1 as literally written', () => {
-    // doc's own M1 options (§6): A=4, B=5(key), C=3, D=6(schema-invalid,
-    // substituted with 5-hatched here per the LR-4 fixture's own
-    // deviation note — see tests/fixtures/cognitive/m1.ts), E=5 squares.
+  it('REJECTS an option set solvable from the options alone: doc 03-logical-reasoning-design.md M1 as literally written (issue #344: now checked against doc\'s TRUE D value, 6 circles — the count cap was raised from 5 to 6 specifically so this is representable; see tests/fixtures/cognitive/m1.ts)', () => {
+    // doc's own M1 options (§6): A=4, B=5(key), C=3, D=6, E=5 squares.
     // Appendix A's own audit table marks this exact option set as FAILING
     // G-08 ("count 5 (x2), shape circle (x4) -> 5 circles" recovers the
-    // key from the options alone, with no need to look at the grid).
+    // key from the options alone, with no need to look at the grid) — and
+    // that finding is UNCHANGED by restoring D's true value: the culprit is
+    // E (same count as the key, wrong shape), not D. See
+    // src/lib/cognitive/generator/families/lrm-prog-count.ts's header
+    // comment for the proof that NO single-rule-axis M1 variant carrying an
+    // E-style "same count as key" distractor can pass this gate, and for
+    // why the generator's own construction differs from doc's for exactly
+    // that reason.
     const options: CellLike[] = [
       repeatCircle(4), // A
       repeatCircle(5), // B (key)
       repeatCircle(3), // C
-      { elements: [{ type: 'repeat', layer: 'outer', shape: 'circle', fill: 'hatched', size: 'S', count: 5, rotation: 0 }] }, // D
+      repeatCircle(6), // D — doc's true wrong-rule value, representable since issue #344 raised the count cap
       { elements: [{ type: 'repeat', layer: 'outer', shape: 'square', fill: 'solid', size: 'S', count: 5, rotation: 0 }] }, // E
     ]
     const result = contextBlindGate(options, 1, ['outer.count'])
@@ -24,7 +29,7 @@ describe('qa/contextblind — context-blind gate', () => {
     expect(result.reason).toBe('MODAL_RECOVERS_KEY')
   })
 
-  it('REJECTS doc 03-logical-reasoning-design.md M6 as literally written (Appendix A\'s own finding, reproduced independently)', () => {
+  it('HISTORICAL: REJECTS doc 03-logical-reasoning-design.md\'s ORIGINAL (pre-2026-08-14, 90deg-step) M6 as literally written (Appendix A\'s own finding, reproduced independently) — kept as a regression guard against reintroducing a 90deg cross-layer tick step on a 3x3 grid without the aliasing fix', () => {
     const shapeTickOption = (shape: 'circle' | 'diamond' | 'square', tick: number): CellLike => ({
       elements: [
         { type: 'shape', layer: 'outer', shape, fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 },
@@ -44,6 +49,24 @@ describe('qa/contextblind — context-blind gate', () => {
     expect(result.reason).toBe('MODAL_RECOVERS_KEY')
   })
 
+  it('CORRECTED (issue #346): doc 03-logical-reasoning-design.md\'s current M6 table (45deg tick step, duplicate-free — see the "Correction" note under §6 M6) PASSES G-08 with the option set src/lib/cognitive/generator/families/lrm-2r-xlayer.ts\'s own repair search produces for this exact grid (also pinned in tests/fixtures/cognitive/m6.ts)', () => {
+    const shapeTickOption = (shape: 'circle' | 'diamond' | 'square', tick: number): CellLike => ({
+      elements: [
+        { type: 'shape', layer: 'outer', shape, fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 },
+        { type: 'tick', layer: 'inner', length: 30, rotation: tick },
+      ],
+    })
+    const options: CellLike[] = [
+      shapeTickOption('square', 0), // A — copyCell:R1C1 (PM)
+      shapeTickOption('circle', 0), // B (key)
+      shapeTickOption('square', 45), // C — copyCell:R2C3 (PM)
+      shapeTickOption('square', 315), // D — copyCell:R3C2 (RP)
+      shapeTickOption('circle', 45), // E — copyCell:R1C2 (PM)
+    ]
+    const result = contextBlindGate(options, 1, ['outer.shape', 'inner.rotation'])
+    expect(result.ok).toBe(true)
+  })
+
   it('FINDING: doc 03-item-generation-pipeline.md §4.5\'s own repaired M6 option set does NOT actually clear G-08 under doc\'s own specified algorithm, contradicting its prose', () => {
     // Doc's §4.5 prose says of its repair: "No modal composition equals the
     // key; the key's value is in the minority on 2 of 2 axes" and "Passes
@@ -61,7 +84,11 @@ describe('qa/contextblind — context-blind gate', () => {
     // solvable under doc's own algorithm; the prose walkthrough undercounts
     // by treating each axis's tie as already resolved in the key's favour
     // without checking the OTHER tied branch. Reported as a finding, not
-    // "fixed" here — this test pins the discrepancy.
+    // "fixed" here — this test pins the discrepancy. (The actual fix
+    // shipped for M6, issue #346, does not attempt to repair THIS 90deg
+    // table's option set at all — it changes the tick's step magnitude to
+    // 45deg, which removes the duplicate this repair was band-aiding
+    // around; see lrm-2r-xlayer.ts and the "CORRECTED" test above.)
     const shapeTickOption = (shape: 'circle' | 'diamond' | 'square', tick: number): CellLike => ({
       elements: [
         { type: 'shape', layer: 'outer', shape, fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 },

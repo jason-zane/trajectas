@@ -51,18 +51,29 @@ const PI = 0.3
 const DELTA = 0.15
 
 /**
- * doc 03-item-generation-pipeline.md §3.7 flags that doc 03-logical-
- * reasoning-design.md's own stated exemplar b values do NOT reconcile with
- * this formula (M1 -2.0 vs the formula's -1.5, M6 +0.7 vs +0.5, M8 +2.2 vs
- * +0.6 — a 1.6-logit gap the pi/delta terms can't close). That is
- * open question OQ-1 in the pipeline doc, explicitly unresolved and left for
- * a future revision of the weights. This implementation does NOT attempt to
- * "fix" the weights — it implements §3.7 exactly as specified, so this
- * module's numbers reproduce the doc's own formula (verifiable against its
- * worked M1-M8 predicted-b figures) while remaining honest that the doc's
- * OWN prose values for those same items disagree with it. See the LR-7
- * report for this finding; resolving OQ-1 is out of this task's scope
- * (it is a blueprint-authoring decision, not a generator bug).
+ * OQ-1, RESOLVED (issue #346): doc 03-item-generation-pipeline.md §3.7
+ * flagged that doc 03-logical-reasoning-design.md's own hand-typed exemplar
+ * b values did not reconcile with this formula run over those items'
+ * declared radicals (M1 -2.0 vs the formula's -1.5 under the doc's
+ * ORIGINAL "2 rules" reading of M1's double progression; M6 +0.7 vs +0.5;
+ * M8 +2.2 vs +0.9 with the actual family's radicals). **This module's
+ * formula is authoritative.** The weights below are NOT adjusted to hit
+ * the original prose figures — doing so would mean fitting an ad hoc
+ * function to three hand-picked anchor points instead of keeping the
+ * simple, auditable linear composite §12 (of doc 03-logical-reasoning-
+ * design.md) describes as a design prior, and it would be indistinguishable
+ * from silently relabelling items as harder without making them so.
+ * Instead: (a) doc 03-logical-reasoning-design.md's per-item prose figures
+ * for M1/M6/M8 were corrected to match what this formula actually computes
+ * from each item's own (in M6's/M8's case, ALSO corrected — see those
+ * items' "Correction" notes for the duplicate-cell fix) radicals — see that
+ * doc's §4.4 and §6 "Correction" notes; (b) the resulting gap in very-hard
+ * coverage (neither M6 nor M8 reaches b >= 1.5 once computed honestly) is
+ * closed by two NEW families with genuinely more rule content
+ * (`families/lrm-xor-dist-xlayer.ts`, `families/lrm-3r-xlayer.ts`), not by
+ * changing a weight here. See `tests/unit/cognitive-generator-
+ * difficulty.test.ts` for the worked reconciliation and the very-hard
+ * acceptance test.
  */
 export function predictedB(rad: RadicalsForDifficulty, opts: { nonCardinalAsymmetricRotation: boolean }): number {
   const ruleSum = rad.ruleIds.reduce((s, id) => s + (W[id] ?? 0), 0) + (opts.nonCardinalAsymmetricRotation ? 0.3 : 0)

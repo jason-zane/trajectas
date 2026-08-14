@@ -71,12 +71,18 @@ describe('FiguralMatrixItemSpec / CognitiveOptionSpec — .strict() key-isolatio
     expect(CognitiveOptionSpec.safeParse(badRotation).success).toBe(false)
   })
 
-  it('caps repeat.count at 5', () => {
+  it('caps repeat.count at 6 (raised from 5 by issue #344, so doc 03 §6 M1\'s own "6 circles" wrong-rule distractor is representable)', () => {
     const sixCircles = {
       ...m1OptionSpecs[0],
       elements: [{ type: 'repeat', layer: 'outer', shape: 'circle', fill: 'solid', size: 'S', count: 6, rotation: 0 }],
     }
-    expect(CognitiveOptionSpec.safeParse(sixCircles).success).toBe(false)
+    expect(CognitiveOptionSpec.safeParse(sixCircles).success).toBe(true)
+
+    const sevenCircles = {
+      ...m1OptionSpecs[0],
+      elements: [{ type: 'repeat', layer: 'outer', shape: 'circle', fill: 'solid', size: 'S', count: 7, rotation: 0 }],
+    }
+    expect(CognitiveOptionSpec.safeParse(sevenCircles).success).toBe(false)
   })
 
   it('caps elements per cell at 4', () => {

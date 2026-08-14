@@ -2,54 +2,70 @@
  * LRM-PROG-COUNT — M1's family. Doc 03-logical-reasoning-design.md §6 M1:
  * double count progression, R1 on `outer.count`, both directions, step 1.
  *
- * DEVIATION (already found and documented by the LR-4 fixture
- * tests/fixtures/cognitive/m1.ts, reused here): doc 03-logical-reasoning-
- * design.md's option D is "6 solid circles", but `RepeatElement.count` caps
- * at 5 and a `Cell` holds at most 4 `elements`, so 6 individual circles
- * aren't representable either way. That single fact also rules out the
- * WHOLE "step grows" WR mechanism doc 03-logical-reasoning-design.md §6 M1
- * describes for its own option D — ANY double progression that spans the
- * full [1,5] range (which a 3x3 grid with step 1/1 necessarily does, since
- * the diagonal covers 4 steps) leaves zero headroom for a numeric wrong-rule
- * distractor without overflowing the schema's count cap in one direction or
- * underflowing it in the other. This family's `distractorPlan` swaps the WR
- * slot for a second near-miss instead.
+ * HISTORICAL DEVIATION, RESOLVED by issue #344: doc 03-logical-reasoning-
+ * design.md's option D is "6 solid circles", but `RepeatElement.count` used
+ * to cap at 5, so 6 individual circles weren't representable and the LR-4
+ * fixture substituted a schema-valid "5 hatched circles" stand-in — which
+ * collapsed the item to TWO perceptual-match distractors (the substitute,
+ * plus doc's own option E) and ZERO wrong-rule distractors. #344 raised the
+ * cap to 6 (`spec/schema.ts`, `render/primitives.ts`'s `repeatPositions`)
+ * specifically so this family's wrong-rule mechanism — "assumes the step
+ * size itself grows" — is representable again: `stall + 2*stepCol` (a
+ * doubled final step) lands on 6 when the key is 5. `tests/fixtures/
+ * cognitive/m1.ts` now carries doc's true D value (6 circles) again.
  *
- * SECOND FINDING, from actually running this family through the
- * context-blind gate (G-08): doc 03-logical-reasoning-design.md's own M1
+ * That fixture is a hand-pinned exemplar for the renderer/schema/hash
+ * tests, not a generator output, so it is not itself required to clear the
+ * QA battery. THIS family's `buildDistractors`, below, IS required to (it
+ * feeds the pilot bank), and running doc's literal four-option grammar
+ * through the context-blind gate (G-08) shows it cannot pass on a
+ * single-rule-axis item, regardless of the WR-cap fix:
+ *
+ * FINDING, from actually running this family through G-08: doc's own M1
  * option E ("correct count, wrong element identity") is individually
- * plausible but UNSAFE to combine with the family's only other near-misses
- * (which are correct-identity/wrong-count) on a SINGLE-rule item. With only
- * one rule-governed axis (`outer.count`), G-08's modal-vote scorer looks at
- * that one axis alone — so ANY distractor that keeps the key's count
- * (however wrong its shape/fill) inflates the key's count-value frequency
- * among the 5 options, and on a single axis "inflated" very quickly becomes
- * "the modal (or tied-modal) value", which is an automatic G-08 fail. This
- * is doc 03-item-generation-pipeline.md §4.4/Appendix A's own diagnosis
- * ("if most distractors are near-misses wrong on exactly one axis, the
- * key's value is held by all the options not perturbed on that axis — a
- * majority") taken to its most extreme case: a ONE-axis item has nowhere
- * else for that majority to hide. The fix applied here is the same one
- * Appendix A prescribes for M7: make PAIRS of distractors agree on the same
- * WRONG count (4-and-4, 3-and-3) rather than each perturbing a different
- * axis while leaving count untouched — so no value, including the key's,
- * is the single most-represented one. `buildDistractors` below verifies
- * this arithmetic in its own comment; `qa/contextblind.ts` verifies it
- * again at generation time.
+ * plausible but structurally UNSAFE to combine with three other options
+ * that are each wrong on `outer.count` in one place only. With only ONE
+ * rule-governed axis, G-08's modal-vote scorer looks at that axis alone —
+ * so an E-style distractor that KEEPS the key's count ties the key's own
+ * value for the top spot among the 5 options (2 of 5, versus 1 of 5 for
+ * every other value), and a tie for the top spot still counts as
+ * "recovered" (`modalComposition`'s cartesian product over every
+ * tied-for-top value includes the key's own value whenever the key is
+ * among the ties). This holds for ANY single-axis M1 clone, independent of
+ * which concrete numbers are chosen — doc's own grammar is unsatisfiable
+ * here, not just unlucky. doc 03-item-generation-pipeline.md §4.4/Appendix
+ * A's diagnosis ("if most distractors are near-misses wrong on exactly one
+ * axis, the key's value is held by all the options not perturbed on that
+ * axis — a majority") is the general case; a ONE-axis item is the extreme
+ * case, where there is nowhere else for that majority to hide.
+ *
+ * The fix: keep doc's four distinct error TYPES (IR, WR, RP, PM — all four
+ * present, satisfying #344's acceptance criterion) but move the
+ * perceptual-match distractor's count off the key's own value and onto
+ * the repetition distractor's count instead (same count, wrong shape —
+ * still "visually resembles a nearby cell", still a single named error,
+ * still never touching the key's count). That makes the REPETITION value
+ * (not the key's value) the one two options agree on, which is exactly the
+ * "make two distractors agree on a wrong value" repair doc 03-item-
+ * generation-pipeline.md §4.5 prescribes generally. `buildDistractors`
+ * below verifies the resulting count multiset in its own comment;
+ * `qa/contextblind.ts` verifies it again at generation time.
  */
 import type { Element, RuleSpec } from '../../spec/schema'
 import { type AxisValue, numVal } from '../axes'
 import type { AxisDomain } from '../rules'
 import type { FamilyTemplate, DistractorCtx } from '../compose'
-import { chimera, incompleteRule, repetition } from '../distractors'
+import { chimera, incompleteRule, repetition, wrongRule } from '../distractors'
 import type { Rng } from '../rng'
 
 // Restricted to shapes whose per-count-unit ink area (bounding-box width S =
 // 25 canvas units) stays inside qa/density.ts's [0.04, 0.38] coverage band
-// at BOTH count=1 and count=5 — a real finding from running this family
-// through G-15: triangle (~0.027/unit) and diamond (~0.031/unit) both fall
-// below the 0.04 floor at count=1, so a lone triangle/diamond at S reads as
-// too sparse. circle/square/pentagon all clear the floor.
+// at BOTH count=1 and count=6 (re-checked against the raised cap, #344) — a
+// real finding from running this family through G-15: triangle (~0.027/
+// unit) and diamond (~0.031/unit) both fall below the 0.04 floor at
+// count=1, so a lone triangle/diamond at S reads as too sparse; square/
+// diamond reach ~0.375 at count=6, just inside the 0.38 ceiling. circle/
+// square/pentagon all clear both bounds across the whole 1-6 range.
 const SHAPES = ['circle', 'square', 'pentagon'] as const
 const FILLS = ['outline', 'solid', 'hatched'] as const
 
@@ -88,14 +104,28 @@ export const LRM_PROG_COUNT: FamilyTemplate<M1Params> = {
   ],
   radicals: { ruleCount: 1, ruleIds: ['R1'], crossLayer: false, perceptualLoad: 0, elementTypes: 2, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['IR', 'PM', 'RP', 'PM'],
+  // All four doc 03 §5.3 error types, present exactly once each (#344's
+  // acceptance criterion) — IR (stall), WR (accelerating step, now
+  // representable at count 6), RP (repetition), PM (identity confusion, but
+  // paired onto RP's count rather than the key's — see the family header
+  // comment for why pairing onto the KEY's count is unsatisfiable here).
+  distractorPlan: ['IR', 'WR', 'RP', 'PM'],
   sampleParams(rng: Rng): M1Params {
     const shape = rng.pick(SHAPES)
     const altShape = rng.pick(SHAPES.filter((s) => s !== shape))
     const fill = rng.pick(FILLS)
     const altFill = rng.pick(FILLS.filter((f) => f !== fill))
-    const forward = rng.pick([true, false])
-    return { shape, altShape, fill, altFill, base: forward ? 1 : 5, stepCol: forward ? 1 : -1, stepRow: forward ? 1 : -1 }
+    // Forward (counting up) only: doc 03-logical-reasoning-design.md's own
+    // M1 worked example counts up (1..5), and the WR mechanism below —
+    // "assumes the step size itself grows" — only has a schema-representable
+    // continuation (key+2*step) in that direction. A backward/reflected
+    // clone would need key-2*step, which runs below the count floor of 1
+    // for this family's base/step combination. Doc 03 §4.2 licenses
+    // reflection as a general incidental, but doesn't require every family
+    // to use it, and forward-only keeps this family's WR mechanism faithful
+    // to doc's own stated rationale rather than inventing a different one
+    // for the mirror direction.
+    return { shape, altShape, fill, altFill, base: 1, stepCol: 1, stepRow: 1 }
   },
   buildCell(values, params) {
     const v = values[AXIS] as AxisValue
@@ -109,15 +139,33 @@ export const LRM_PROG_COUNT: FamilyTemplate<M1Params> = {
     const rp = ctx.valueAt(AXIS, 3, 1) // doc's option C: "repetition of R3C1"
     if (key.t !== 'num' || stall.t !== 'num' || rp.t !== 'num') throw new Error('outer.count must be numeric')
 
-    // Two PAIRS sharing a wrong count (stall.v twice, rp.v twice) so that,
-    // on this item's single rule axis, no count value — including the
-    // key's — is the outright plurality. See the family-level comment for
-    // why a lone "correct count, wrong identity" distractor is unsafe here.
+    // A (IR): stalls at R3C2's count — correct shape/fill, wrong count.
     const ir = incompleteRule('stall:outer.count@prevColumn', repeatCell(params.shape, params.fill, stall.v), AXIS, key, stall)
-    const pmStallWrongShape = chimera('stall:outer.count@prevColumn+wrongShape', repeatCell(params.altShape, params.fill, stall.v), [AXIS])
+
+    // D (WR): doc's own "assumes the step size itself grows (+1, +2)" —
+    // the final column step doubles instead of staying constant:
+    // stall(4) + 2*stepCol = 4 + 2 = 6, exactly doc's stated value, now
+    // representable under the raised count cap (#344).
+    const wrVal = stall.v + 2 * params.stepCol
+    const wr = wrongRule('wrongRule:acceleratingStep(+1,+2)', repeatCell(params.shape, params.fill, wrVal), AXIS)
+
+    // C (RP): repetition of R3C1 — the naive "copy the row's start".
     const rpCand = repetition('copyCell:R3C1', repeatCell(params.shape, params.fill, rp.v), key.v === rp.v ? [] : [AXIS])
-    const pmRpWrongFill = chimera('copyCell:R3C1+wrongFill', repeatCell(params.shape, params.altFill, rp.v), [AXIS])
-    return [ir, pmStallWrongShape, rpCand, pmRpWrongFill]
+
+    // E (PM): identity confusion — correct RULE reasoning (same count as
+    // the repetition distractor, C, above) but the WRONG element identity.
+    // Doc's own E instead pairs this with the KEY's count (5); the family
+    // header comment proves that variant is unsatisfiable for G-08 on a
+    // single-rule-axis item (it ties the key's own value for modal), so
+    // this pairs onto RP's count instead — still a single named error
+    // (shape only), still never touching the key's count, and it is what
+    // makes RP's count (not the key's) the one two options agree on, per
+    // doc 03-item-generation-pipeline.md §4.5's repair principle. Count
+    // multiset across the 5 options is {stall, wrVal, rp.v, rp.v, key.v} —
+    // rp.v is the only repeated value, so it (not the key) is modal.
+    const pm = chimera('copyCell:R3C1+wrongShape', repeatCell(params.altShape, params.fill, rp.v), [AXIS])
+
+    return [ir, wr, rpCand, pm]
   },
   nonCardinalAsymmetricRotation: () => false,
   // M1 has no distribution to relabel over (a single repeated shape, not a

@@ -124,8 +124,19 @@ export const RepeatElement = z
     shape: ShapeId,
     fill: Fill,
     size: SizeToken,
-    /** 1-5, laid out per doc 03 §5.1's count convention (4 = 2+2, 5 = 3+2). */
-    count: z.number().int().min(1).max(5),
+    /**
+     * 1-6, laid out per doc 03 §5.1's count convention (4 = 2+2, 5 = 3+2,
+     * 6 = 3+3). Cap raised from 5 to 6 by issue #344: doc 03's own worked M1
+     * (§6) specifies a "6 solid circles" wrong-rule distractor (option D,
+     * "assumes the step size itself grows"), which a cap of 5 made
+     * unrepresentable — collapsing M1's distractor grammar to two
+     * perceptual-match distractors and zero wrong-rule distractors. Six is
+     * still subitisable when arranged 3+3, consistent with doc 03's own
+     * convention for laying out multi-element cells, and re-checked against
+     * qa/density.ts's ink-coverage ceiling (six S-sized circles cover
+     * ~0.29 of the canvas, comfortably under the 0.38 INK_MAX gate).
+     */
+    count: z.number().int().min(1).max(6),
     rotation: Rotation.default(0),
   })
   .strict()

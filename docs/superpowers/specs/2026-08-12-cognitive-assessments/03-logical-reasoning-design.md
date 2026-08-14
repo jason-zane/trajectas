@@ -148,6 +148,14 @@ Bands: **Easy** b < −1.0 · **Moderate** −1.0 ≤ b < +0.5 · **Hard** +0.5 
 
 These weights are design priors derived from the published difficulty ordering of the Carpenter rules and Embretson's cognitive-model regressions, not fitted values. §12 requires an LLTM-style regression of calibrated b on these radicals; radicals whose fitted weights diverge from priors trigger blueprint revision.
 
+> **Correction (2026-08-14, issue #346, resolving open question OQ-1).** The b values stated alongside M1, M6 and M8 in §6 (−2.0, +0.7, +2.2 respectively as originally written) were hand-typed illustrative figures and did not reconcile with this formula run over those same items' own declared radicals — confirmed by `src/lib/cognitive/generator/difficulty.ts`, whose implementation of this formula is exercised as a mechanical gate (G-14: `|spec.predictedB − predictedB(spec.radicals)| < 0.005`) against every generated item. **The formula above is authoritative; the per-item prose figures in §6 are corrected to match it, not the reverse.** Three reasons:
+>
+> 1. The formula is the thing G-14 mechanically re-derives from an item's own radicals on every generation run. A hand-typed number that disagrees with it cannot be reproduced from `(generator_version, git_sha, seed, params)` and breaks the audit trail every other design decision in this document depends on.
+> 2. The formula is explicitly a simple, auditable linear composite of a priori weights (§12: "design priors ... not fitted values"). Reverse-engineering a different, more complex function to hit three hand-picked anchor points (−2.0, +0.7, +2.2) exactly would trade that auditability for a curve fitted to three data points — precisely what §12 says the weights are *not* meant to be until the Stage 2 LLTM regression exists.
+> 3. Part of the M6/M8 gap is now explained rather than papered over: both exemplars, as originally written, contained a duplicate cell (see the corrections under M6 and M8 in §6). A duplicate cell hands the solver information for free, so those exemplars were very likely *easier in practice* than their asserted band — which is a plausible, testable reason a hand-guessed "very hard" label overshot what the formula (correctly) computes from the item's actual rule content. Fixing the duplicates does not, by itself, close the reconciliation gap — see the recomputed b values under M6 and M8 above, both of which land in **Hard**, not the band originally claimed — because the gap was never *only* about the duplicates; it was primarily that the prose figures were not computed from the formula at all.
+>
+> **Consequence for the very-hard band.** Under the (unchanged) formula, neither M6 nor M8 reaches b ≥ +1.5 — recomputed, M6 is +0.8 and M8 is +0.9, both Hard. This does not mean the instrument cannot reach very-hard; it means the *M6/M8 exemplar pair specifically* does not, once their difficulty is computed honestly rather than asserted. §9's blueprint-coverage table is revised accordingly: reaching very-hard requires genuinely more rule content (more rules, and/or a rule combination doc's own eight exemplars do not use) — never a change to the weights above, which would relabel existing items as harder without making them so. See §9.1's revised table and the two new very-hard families it introduces.
+
 ---
 
 ## 5. Matrix item specification standard
@@ -241,12 +249,14 @@ Predicted difficulty is computed from §4.4 and stated with its band. Target res
 | **R2** | arrow 90° | arrow 135° | arrow 180° |
 | **R3** | arrow 180° | arrow 225° | **?** |
 
-**Options.** (all outline arrows, size M, CTR)
-- **A:** arrow 315°
-- **B:** arrow 225°
-- **C:** arrow 90°
-- **D:** arrow 270° ← **KEY**
-- **E:** double-headed arrow 270°
+**Options.** (all arrows, size M, CTR)
+- **A:** outline arrow 315°
+- **B:** outline arrow 225°
+- **C:** outline arrow 90°
+- **D:** outline arrow 270° ← **KEY**
+- **E:** hatched arrow 270°
+
+> **Correction (2026-08-14, issue #344's representability check).** Option E was originally "double-headed arrow 270°" — not representable in §5.1's closed shape vocabulary (`ShapeId` has no double-headed-arrow variant, and no element field encodes head count). Corrected to a fill-altered arrow at the same angle, which keeps the intended reading ("correct orientation, but the element looks different — visually louder, attracts candidates matching 'leftward-ness' without checking the fill/style") and is exactly what `src/lib/cognitive/generator/families/lrm-rot.ts`'s own PM distractor already does (a fill-varied option at a shared angle) — that family predates this correction and never used the double-headed-arrow idea.
 
 **Solution rationale.** Orientation advances 45° clockwise per column; each row starts 90° clockwise of the row above (equivalently, orientation = 45°×(column−1) + 90°×(row−1)). R3C3 = 180° + 90° = **270°** (pointing left). Column check: C3 runs 90°, 180°, 270°, a consistent +90° ✓.
 
@@ -254,7 +264,7 @@ Predicted difficulty is computed from §4.4 and stated with its band. Target res
 - **A (WR):** over-rotation — applies +90° (the row step) instead of +45° for the final column step.
 - **B (RP):** repetition of R3C2; the "no change" default.
 - **C (PM):** the 180°-opposite of the key; mirror confusions are the signature error in mental rotation and this catches direction-of-rotation reversal (anticlockwise application).
-- **E (PM):** correct orientation but an altered element (added second head) — visually louder, attracts candidates matching "leftward-ness" without checking element identity.
+- **E (PM):** correct orientation but a hatched fill instead of outline — visually louder, attracts candidates matching "leftward-ness" without checking the fill attribute.
 
 ---
 
@@ -372,6 +382,30 @@ Predicted difficulty is computed from §4.4 and stated with its band. Target res
 - **D (PM):** circle with tick 180° reproduces R3C1's tick inside the correct shape — a chimera of the two nearest cells that looks locally "consistent with the row".
 - **E (RP):** copies R3C2's shape with the correctly rotated tick; catches candidates who finish the rotation rule then grab the adjacent shape instead of running the elimination.
 
+> **Correction (2026-08-14, issues #346/#344).** The table above, as originally written, contains a genuine duplicate: (1,3), (2,2) and (3,1) are all "diamond, tick 180°" — a 90° tick step on a 3×3 grid aliases whenever `(row−1)+(col−1)` (or its difference, depending on step signs) reaches a multiple of 4, since 90°×4 = 360° ≡ 0°. A duplicated cell hands the solver information for free (one fewer genuinely-distinct cell to integrate), so this exemplar was very likely *easier* than its stated band implies — which is plausibly part of why its stated b (§4.4, below) never reconciled with the formula. The taxonomy is unchanged (R6 shape Latin square + R2 tick rotation, cross-layer) but the tick steps by **45°** per column and **−45°** per row instead of 90°/90° — 45° is doc's own first-listed R2 example (§3), not an invented value, and at that magnitude no two of the 9 cells alias. The corrected table, with the *same key* as before (circle, tick pointing up):
+>
+> | | C1 | C2 | C3 |
+> |---|---|---|---|
+> | **R1** | square, tick 0° | circle, tick 45° | diamond, tick 90° |
+> | **R2** | circle, tick 315° | diamond, tick 0° | square, tick 45° |
+> | **R3** | diamond, tick 270° | square, tick 315° | **?** |
+>
+> Key: **circle, tick 0°** (unchanged — the solution rationale above still holds verbatim, only the concrete tick angles elsewhere in the grid changed). No two of the 9 (shape, tick) pairs coincide (verified exhaustively in `src/lib/cognitive/generator/families/lrm-2r-xlayer.ts`, which generates every operational sibling of this family the same way).
+>
+> The distractor set above (A/C/D/E) does **not** carry over unchanged — doc 03-item-generation-pipeline.md §4.5's own repair recipe is tuned to the original 90°-step numbers and, run against the corrected 45°-step grid, still fails gate G-08 (context-blind solvability). The generator's own repair search (same file) finds a gate-clean set for this specific grid by falling back to whole-cell recombination, as it does for many operational siblings:
+>
+> | Slot | Cell | Label | Mechanism |
+> |---|---|---|---|
+> | A | square, tick 0° | PM | `copyCell:R1C1` |
+> | B | circle, tick 45° | PM | `copyCell:R1C2` |
+> | C | square, tick 45° | PM | `copyCell:R2C3` |
+> | D | square, tick 315° | RP | `copyCell:R3C2` |
+> | **key** | **circle, tick 0°** | — | — |
+>
+> This set passes G-08 and G-10 (verified directly against `qa/contextblind.ts`). Its options happen to include more perceptual-match whole-cell copies than doc's original IR/IR/PM/RP mix — that is a property of *this specific* grid-safe parametrisation, not a general rule; other siblings the generator draws recover doc's IR/IR/PM/RP shape when it clears the gates for them (see the family file's own worked example).
+>
+> **Predicted b, recomputed:** with the corrected radicals (`ruleIds: ['R6','R2']`, `ruleCount: 2`, `crossLayer: true`, `perceptualLoad: 1`, and the §4.4 non-cardinal-rotation bonus, since 45° is non-cardinal and the tick is asymmetric): b = −2.0 + (0.9 + 0.3 + 0.3) + 0.5×(2−1) + 0.5×1 + 0.3×1 + 0 = **+0.8 → Hard**, superseding the −2.0…+0.7 figures quoted above the table (see §4.4's own correction note for why the formula, not the hand-typed figure, is authoritative).
+
 ---
 
 ### M7 — Three rules: shape distribution + fill distribution + count progression
@@ -432,6 +466,20 @@ This item's distractor set is deliberately dominated by single-rule near-misses 
 - **D (IR):** inner bars fully correct, outer layer wrong — repeats C2's square; isolates candidates who solved the hard rule but dropped the easy cross-layer progression (goal-management failure, the signature of very hard items).
 - **E (RP):** copies R3C2's inner set inside the correct pentagon — locally plausible chimera of "next contour + last seen interior".
 
+> **Correction (2026-08-14, issues #346/#344).** The table above contains a genuine duplicate: (1,2) and (2,2) are both "square; inner {H-bar, V-bar}" — row 1's C1/C3 operands ({H} and {V}) and row 2's C1/C3 operands ({D1,V} and {D1,H}) both happen to XOR to {H,V}, and the outer shape is constant down each column, so both land on the identical cell. As with M6, a duplicated cell is one fewer genuinely-distinct cell for the solver to integrate, so this exemplar was very likely easier than its stated band implies. The taxonomy is unchanged (R7 symmetric difference on the inner bars, cross-layer with the R1 outer-polygon progression), but the per-cell bar sets are regularised to the construction doc 03-item-generation-pipeline.md's own family file uses: **every** cell carries exactly 2 of the 3 bars (not a mix of 1- and 2-bar cells as above), which is what doc's own "distribution of two" restatement in the solution rationale actually requires (every bar type in exactly 2 of 3 cells per row) — the original table's row 1, with D1 in *zero* cells, did not itself satisfy that restatement. The corrected table, with the **same key** as before:
+>
+> | | C1 | C2 | C3 |
+> |---|---|---|---|
+> | **R1** | triangle; inner {H-bar, V-bar} | square; inner {V-bar, D1-bar} | pentagon; inner {H-bar, D1-bar} |
+> | **R2** | triangle; inner {H-bar, D1-bar} | square; inner {H-bar, V-bar} | pentagon; inner {V-bar, D1-bar} |
+> | **R3** | triangle; inner {V-bar, D1-bar} | square; inner {H-bar, D1-bar} | **?** |
+>
+> Key: **pentagon; inner {H-bar, V-bar}** (unchanged). Row checks: {H,V}△{V,D1}={H,D1} ✓; {H,D1}△{H,V}={V,D1} ✓; {V,D1}△{H,D1}={H,V} ✓. No two of the 9 (shape, bar-set) pairs coincide — within each column the three bar-sets are the three distinct 2-subsets of {H,V,D1}, each used exactly once (verified exhaustively in `src/lib/cognitive/generator/families/lrm-xor-xlayer.ts`, which proves this by construction rather than by search, for every operational sibling of this family).
+>
+> Options **B** (intersection, {D1}) and **D** (square; {H,V}) carry over unchanged — both depend only on row 3's C1/C2 pair or on the key's own bars, which are unchanged. Option **E** changes to **pentagon; inner {H-bar, D1-bar}** (R3C2's bars in the corrected table). This particular recombination still does not clear gate G-08 (the centroid scorer recovers the key — the same "further finding" `lrm-xor-xlayer.ts` documents for several of its own parametrisations); it is retained here as the doc-legible illustration doc 03-item-generation-pipeline.md's Appendix A already treats six of the eight exemplars as (context-blind-solvable-as-written, not gate-clean), while the *generator's* own distractor search — which every operational M8 sibling actually goes through — always produces a gate-clean set, falling back to whole-cell recombination when the doc-style construction does not clear it, exactly as documented for M6 above.
+>
+> **Predicted b, recomputed:** with radicals `ruleIds: ['R7','R1']`, `ruleCount: 2`, `crossLayer: true`, `perceptualLoad: 1` (R1 here is a plain cardinal progression, so the non-cardinal-rotation bonus does not apply): b = −2.0 + (1.6 + 0.0) + 0.5×(2−1) + 0.5×1 + 0.3×1 + 0 = **+0.9 → Hard**, superseding the +2.2 figure quoted above the table — see §4.4's correction note. M8 alone does not reach the very-hard band under the (unchanged) formula; §9 below documents which families do.
+
 ---
 
 ### 6.1 Matrix blueprint summary
@@ -443,11 +491,13 @@ This item's distractor set is deliberately dominated by single-rule near-misses 
 | M3 | R6×2 | double distribution, 1 layer | −0.7 | Easy–Mod | 45 s | A |
 | M4 | R4 | addition, disjoint then overlapping operands | −0.4 | Moderate | 50 s | C |
 | M5 | R5 | subtraction on anchored sets | −0.2 | Moderate | 55 s | E |
-| M6 | R6 + R2 | 2 rules, cross-layer | +0.7 | Hard | 70 s | B |
+| M6 | R6 + R2 | 2 rules, cross-layer | +0.8 † | Hard | 70 s | B |
 | M7 | R6×2 + R1 | 3 rules, near-miss-dominant options | +1.3 | Hard | 85 s | D |
-| M8 | R7 + R1 | XOR, cross-layer | +2.2 | Very hard | 110 s | A |
+| M8 | R7 + R1 | XOR, cross-layer | +0.9 † | Hard (was mislabelled Very hard) | 110 s | A |
 
-Key positions across M1–M8: A×2, B×2, C×1, D×2, E×1 — within the ±1 tolerance for an 8-item exemplar set; the 18-item operational form balances to A–E ± 1 exactly (§9).
+† Recomputed from §4.4's formula per the corrections under M6/M8 in §6 and the OQ-1 resolution note under §4.4 (formula authoritative over the original hand-typed −2.0/+0.7/+2.2 figures). M1 and M2's stated values already matched the formula and are unchanged.
+
+Key positions across M1–M8: A×2, B×2, C×1, D×2, E×1 — within the ±1 tolerance for an 8-item exemplar set; the 18-item operational form balances to A–E ± 1 exactly (§9). With M8 correctly Hard rather than Very hard, **these eight exemplars alone cover no very-hard cell** — §9.1 introduces two new families to fill it (LRM-XOR-DIST-XLAYER and LRM-3R-XLAYER), each built from genuinely more rule content (not a reweighting of these eight).
 
 ---
 

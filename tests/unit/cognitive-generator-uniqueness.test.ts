@@ -80,26 +80,40 @@ describe('qa/uniqueness — Level A/B', () => {
     if (!lb.ok) expect(lb.reason).toBe('KEY_NOT_UNIQUE_AMONG_OPTIONS')
   })
 
-  it('reproduces doc 03-logical-reasoning-design.md §6 M6 exactly: outer.shape Latin square + inner.rotation both admit a single reading implying the documented key (circle, tick 0deg)', () => {
-    // Hand-encode doc's own M6 grid verbatim (not via the generator — this
-    // is the independent check that Level A agrees with doc's own worked
-    // rationale, byte for byte).
+  it('reproduces doc 03-logical-reasoning-design.md §6 M6 exactly (CORRECTED table, issue #346 — 45deg tick step, duplicate-free): outer.shape Latin square + inner.rotation both admit a single reading implying the documented key (circle, tick 0deg)', () => {
+    // Hand-encode doc's own CURRENT M6 grid verbatim (not via the
+    // generator — this is the independent check that Level A agrees with
+    // doc's own worked rationale, byte for byte). Doc's ORIGINAL table
+    // (90deg tick step) contained a genuine triple duplicate — see the
+    // "Correction" note under doc 03-logical-reasoning-design.md §6 M6 —
+    // so this now encodes the corrected 45deg-step table, which keeps the
+    // SAME key doc always stated (circle, tick pointing up).
     const grid: GridCell[] = [
       { row: 1, col: 1, elements: [{ type: 'shape', layer: 'outer', shape: 'square', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 0 }] },
-      { row: 1, col: 2, elements: [{ type: 'shape', layer: 'outer', shape: 'circle', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 90 }] },
-      { row: 1, col: 3, elements: [{ type: 'shape', layer: 'outer', shape: 'diamond', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 180 }] },
-      { row: 2, col: 1, elements: [{ type: 'shape', layer: 'outer', shape: 'circle', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 90 }] },
-      { row: 2, col: 2, elements: [{ type: 'shape', layer: 'outer', shape: 'diamond', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 180 }] },
-      { row: 2, col: 3, elements: [{ type: 'shape', layer: 'outer', shape: 'square', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 270 }] },
-      { row: 3, col: 1, elements: [{ type: 'shape', layer: 'outer', shape: 'diamond', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 180 }] },
-      { row: 3, col: 2, elements: [{ type: 'shape', layer: 'outer', shape: 'square', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 270 }] },
+      { row: 1, col: 2, elements: [{ type: 'shape', layer: 'outer', shape: 'circle', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 45 }] },
+      { row: 1, col: 3, elements: [{ type: 'shape', layer: 'outer', shape: 'diamond', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 90 }] },
+      { row: 2, col: 1, elements: [{ type: 'shape', layer: 'outer', shape: 'circle', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 315 }] },
+      { row: 2, col: 2, elements: [{ type: 'shape', layer: 'outer', shape: 'diamond', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 0 }] },
+      { row: 2, col: 3, elements: [{ type: 'shape', layer: 'outer', shape: 'square', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 45 }] },
+      { row: 3, col: 1, elements: [{ type: 'shape', layer: 'outer', shape: 'diamond', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 270 }] },
+      { row: 3, col: 2, elements: [{ type: 'shape', layer: 'outer', shape: 'square', fill: 'outline', size: 'L', anchor: 'CTR', rotation: 0 }, { type: 'tick', layer: 'inner', length: 30, rotation: 315 }] },
     ]
     const axes = detectAllAxes(grid)
-    const result = levelA(grid, axes, LRM_2R_XLAYER.domains({ shapeSet: ['square', 'circle', 'diamond'], kShape: 1, startShape: 0, rotBase: 0, colSign: 1, rowSign: 1 }))
+    const result = levelA(grid, axes, LRM_2R_XLAYER.domains({ shapeSet: ['square', 'circle', 'diamond'], kShape: 1, startShape: 0, rotBase: 0, colSign: 1, rowSign: -1 }))
     expect(result.ok).toBe(true)
     if (result.ok) {
       expect(result.impliedByAxis['outer.shape']).toEqual({ t: 'enum', v: 'circle' })
       expect(result.impliedByAxis['inner.rotation']).toEqual({ t: 'num', v: 0 })
     }
+
+    // No two of the 9 (shape, tick) pairs coincide — the defect the
+    // correction fixes. Verified here directly, not just asserted in prose.
+    const allCells = [...grid, { row: 3, col: 3, elements: [{ type: 'shape' as const, layer: 'outer' as const, shape: 'circle' as const, fill: 'outline' as const, size: 'L' as const, anchor: 'CTR' as const, rotation: 0 }, { type: 'tick' as const, layer: 'inner' as const, length: 30, rotation: 0 }] }]
+    const pairs = allCells.map((c) => {
+      const shape = c.elements.find((e) => e.type === 'shape')
+      const tick = c.elements.find((e) => e.type === 'tick')
+      return `${shape && 'shape' in shape ? shape.shape : ''}|${tick && 'rotation' in tick ? tick.rotation : ''}`
+    })
+    expect(new Set(pairs).size).toBe(pairs.length)
   })
 })
