@@ -55,6 +55,17 @@ export default defineConfig({
         "src/lib/comparison/session-resolution.ts",  // (100/73.91/100/100)
         // Canvas summaries — tested by canvas/summarize.test.ts
         "src/lib/canvas/summarize.ts",
+        // Instrument builder engine — pure science core, tested by instrument-*.test.ts
+        "src/lib/instrument/blueprint.ts",
+        "src/lib/instrument/congruence.ts",
+        "src/lib/instrument/evidence.ts",
+        "src/lib/instrument/reliability.ts",
+        "src/lib/instrument/blueprint-draft.ts",
+        "src/lib/instrument/stages/registry.ts",
+        "src/lib/instrument/stages/runner.ts",
+        "src/lib/dal/instrument-mappers.ts",
+        "src/lib/instrument/item-generation.ts",
+        "src/lib/instrument/stages/definitions.ts",
       ],
       thresholds: {
         perFile: true,
