@@ -162,7 +162,7 @@ export async function fetchCalibrationResponses(
        participant_sessions!inner(status),
        items!inner(id, construct_id, reverse_scored, deleted_at,
          response_formats!inner(config, type),
-         item_options(value))`,
+         item_options(value, score_value, exclude_from_scoring))`,
     )
     .eq("participant_sessions.status", "completed")
     .is("items.deleted_at", null)
@@ -176,19 +176,31 @@ export async function fetchCalibrationResponses(
     query = query.lte("created_at", options.until);
   }
 
-  const { data, error } = await query;
+  // PostgREST caps a single response at 1000 rows. The production set is
+  // already larger than that, so an unpaged read silently calibrates on a
+  // truncated sample — which looks exactly like full coverage. Page until a
+  // short page comes back.
+  const PAGE_SIZE = 1000;
+  const data: unknown[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data: page, error } = await query.range(offset, offset + PAGE_SIZE - 1);
 
-  if (error) {
-    throwActionError(
-      "fetchCalibrationResponses",
-      "Unable to fetch calibration responses.",
-      error,
-    );
+    if (error) {
+      throwActionError(
+        "fetchCalibrationResponses",
+        "Unable to fetch calibration responses.",
+        error,
+      );
+    }
+
+    const rowsInPage = page ?? [];
+    data.push(...rowsInPage);
+    if (rowsInPage.length < PAGE_SIZE) break;
   }
 
   const rows: CalibrationResponseRow[] = [];
 
-  for (const raw of data ?? []) {
+  for (const raw of data) {
     const dbRow = raw as DbRow;
     const session = Array.isArray(dbRow.participant_sessions)
       ? dbRow.participant_sessions[0]
@@ -215,6 +227,7 @@ export async function fetchCalibrationResponses(
     const sessionId = String(dbRow.session_id);
 
     // Extract option values
+    const optionRows: unknown[] = Array.isArray(options) ? options : [];
     const optionValues: number[] = [];
     if (Array.isArray(options)) {
       for (const opt of options) {
@@ -229,6 +242,22 @@ export async function fetchCalibrationResponses(
     const config = (format.config as Record<string, unknown>) ?? {};
     const formatType = String(format.type ?? "");
     const bounds = deriveItemBounds(config, optionValues, formatType);
+
+    // response_value is the raw captured value. It is NOT the score for items
+    // that are expert-keyed (SJT), that have options excluded from scoring
+    // ("don't know"), or that are free text. Treating the raw value as a score
+    // on those would silently feed wrong numbers into difficulty and alpha, so
+    // they are excluded from CTT calibration rather than mis-scored. Revisit
+    // when keyed scoring is wired through here properly.
+    const isKeyed = optionRows.some(
+      (o) => (o as DbRow).score_value !== null && (o as DbRow).score_value !== undefined,
+    );
+    const hasExcludedOption = optionRows.some(
+      (o) => (o as DbRow).exclude_from_scoring === true,
+    );
+    if (formatType === "free_text" || isKeyed || hasExcludedOption) {
+      continue;
+    }
 
     rows.push({
       sessionId,

@@ -264,6 +264,7 @@ export default async function PsychometricsPage() {
       <RunCalibrationPanel
         lastCalibrationDate={overview.lastCalibrationDate}
         lastCalibrationSampleSize={overview.lastCalibrationSampleSize}
+        lastCalibrationMinConstructN={overview.lastCalibrationMinConstructN}
       />
 
       {/* Empty state — shown when no calibration runs exist */}

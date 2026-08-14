@@ -132,6 +132,12 @@ export type PsychometricOverview = {
   lastCalibrationDate: string | null
   /** Sample size of the latest run — drives the provisional-results banner. */
   lastCalibrationSampleSize: number | null
+  /**
+   * Smallest per-construct complete-case count in the latest run. Each alpha is
+   * governed by ITS construct's n, not the run-wide session count, so gating the
+   * provisional caveat on the run total would understate how thin the data is.
+   */
+  lastCalibrationMinConstructN: number | null
   normGroupCount: number
 }
 
@@ -146,7 +152,7 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
       db.from('item_statistics').select('*', { count: 'exact', head: true }).eq('flagged', true),
       db.from('constructs').select('*', { count: 'exact', head: true }).eq('is_active', true),
       db.from('construct_reliability').select('*', { count: 'exact', head: true }).gte('cronbach_alpha', 0.7),
-      db.from('calibration_runs').select('created_at, sample_size').order('created_at', { ascending: false }).limit(1),
+      db.from('calibration_runs').select('created_at, sample_size, id').order('created_at', { ascending: false }).limit(1),
       db.from('norm_groups').select('*', { count: 'exact', head: true }).eq('is_active', true),
       db.from('calibration_runs').select('*', { count: 'exact', head: true }),
     ])
@@ -162,6 +168,20 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
     throwActionError('getPsychometricOverview', 'Unable to load psychometric overview.', calibrationRunsResult.error)
   }
 
+  // Smallest per-construct n in the latest run.
+  let minConstructN: number | null = null
+  const latestRunId = runs.data?.[0]?.id
+  if (latestRunId) {
+    const { data: crRows } = await db
+      .from('construct_reliability')
+      .select('response_count')
+      .eq('calibration_run_id', latestRunId)
+      .order('response_count', { ascending: true })
+      .limit(1)
+    const n = crRows?.[0]?.response_count
+    minConstructN = typeof n === 'number' ? n : null
+  }
+
   return {
     totalItems: items.count ?? 0,
     activeItems: activeItems.count ?? 0,
@@ -171,6 +191,7 @@ export async function getPsychometricOverview(): Promise<PsychometricOverview> {
     calibrationRuns: calibrationRunsResult.count ?? 0,
     lastCalibrationDate: runs.data?.[0]?.created_at ?? null,
     lastCalibrationSampleSize: runs.data?.[0]?.sample_size ?? null,
+    lastCalibrationMinConstructN: minConstructN,
     normGroupCount: norms.count ?? 0,
   }
 }

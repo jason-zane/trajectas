@@ -13,8 +13,9 @@
 
 import { useTransition } from 'react'
 import { toast } from 'sonner'
-import { Activity } from 'lucide-react'
+import { Activity, AlertTriangle } from 'lucide-react'
 import { Card } from '@/components/ui/card'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { runCalibration } from '@/app/actions/psychometrics'
 
@@ -24,13 +25,18 @@ const MIN_STABLE_SAMPLE = 100
 interface RunCalibrationPanelProps {
   lastCalibrationDate: string | null
   lastCalibrationSampleSize: number | null
+  lastCalibrationMinConstructN: number | null
 }
 
 export function RunCalibrationPanel({
   lastCalibrationDate,
   lastCalibrationSampleSize,
+  lastCalibrationMinConstructN,
 }: RunCalibrationPanelProps) {
   const [isPending, startTransition] = useTransition()
+
+  // Prefer the per-construct floor; fall back to the run total when absent.
+  const gateN = lastCalibrationMinConstructN ?? lastCalibrationSampleSize
 
   function handleRunCalibration() {
     startTransition(async () => {
@@ -87,23 +93,27 @@ export function RunCalibrationPanel({
           </Button>
         </div>
 
-        {/* Persistent, derived from the stored run rather than in-memory state:
-            the previous version lost its result to the revalidate its own
-            success triggered, so the sample-size caveat vanished on reload. */}
-        {lastCalibrationSampleSize !== null &&
-          lastCalibrationSampleSize < MIN_STABLE_SAMPLE && (
-            <div className='mt-4 rounded-md border border-amber-500/40 bg-amber-500/5 p-3'>
-              <p className='text-xs font-medium text-amber-700 dark:text-amber-400'>
-                Provisional — {lastCalibrationSampleSize} complete{' '}
-                {lastCalibrationSampleSize === 1 ? 'case' : 'cases'}
-              </p>
-              <p className='text-muted-foreground mt-1 text-xs leading-relaxed'>
+        {/* Gate on the SMALLEST per-construct n, not the run-wide session
+            count: each alpha is governed by its own construct's sample, so the
+            run total would understate how thin the data is. Persistent rather
+            than component state — the previous version lost the caveat to the
+            revalidate its own success triggered. */}
+        {gateN !== null && gateN < MIN_STABLE_SAMPLE && (
+          <Alert className='mt-4 border-amber-500/40 bg-amber-500/5'>
+            <AlertTriangle className='h-4 w-4 text-amber-600 dark:text-amber-400' />
+            <AlertDescription className='text-xs leading-relaxed'>
+              <span className='font-medium text-amber-700 dark:text-amber-400'>
+                Provisional — as few as {gateN} complete{' '}
+                {gateN === 1 ? 'case' : 'cases'} on some scales
+              </span>
+              <span className='text-muted-foreground mt-1 block'>
                 These are real observations, but stable CTT estimates need roughly{' '}
                 {MIN_STABLE_SAMPLE}+ respondents per scale. At this sample size alpha can come out
                 negative purely by chance. Treat them as a working signal, not a measurement.
-              </p>
-            </div>
-          )}
+              </span>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {formattedDate && (
           <div className='mt-4 flex items-center gap-2 text-xs text-muted-foreground'>

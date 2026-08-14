@@ -146,8 +146,46 @@ function prepareOneConstruct(
   const itemSet = new Set(dedupedRows.map((r) => r.itemId))
   const sessionSet = new Set(dedupedRows.map((r) => r.sessionId))
 
-  const itemIds = [...itemSet].sort()
   const sessionIds = [...sessionSet].sort()
+
+  // Partition sessions by the item set they were actually administered.
+  //
+  // Two assessments can administer different subsets of the same construct. A
+  // single "must have answered every item in the construct" rule then drops
+  // everyone who took the shorter form — silently shrinking n, or emptying the
+  // sample entirely when no session saw every item. Instead, group sessions by
+  // their exact administered set and calibrate the LARGEST coherent form; the
+  // others are reported as dropped rather than mixed in.
+  const setSignature = new Map<string, string[]>()
+  const sessionsBySignature = new Map<string, string[]>()
+  for (const sessionId of sessionIds) {
+    const seen = dedupedRows
+      .filter((r) => r.sessionId === sessionId)
+      .map((r) => r.itemId)
+      .sort()
+    const signature = seen.join('|')
+    setSignature.set(signature, seen)
+    const bucket = sessionsBySignature.get(signature) ?? []
+    bucket.push(sessionId)
+    sessionsBySignature.set(signature, bucket)
+  }
+
+  let dominantSignature = ''
+  let dominantCount = -1
+  for (const [signature, sessions] of sessionsBySignature) {
+    const itemCount = (setSignature.get(signature) ?? []).length
+    // Prefer more sessions; break ties toward the longer form.
+    if (
+      sessions.length > dominantCount ||
+      (sessions.length === dominantCount &&
+        itemCount > (setSignature.get(dominantSignature) ?? []).length)
+    ) {
+      dominantCount = sessions.length
+      dominantSignature = signature
+    }
+  }
+
+  const itemIds = [...(setSignature.get(dominantSignature) ?? [...itemSet])].sort()
 
   // Skip if < 2 items or < 2 responses
   if (itemIds.length < 2) {
