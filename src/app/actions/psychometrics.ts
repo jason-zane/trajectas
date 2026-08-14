@@ -9,6 +9,11 @@ import {
   fetchCalibrationResponses,
   insertItemStatistics,
   insertConstructReliability,
+  countEligibleSessions,
+  listCalibrationRuns,
+  softDeleteCalibrationRun,
+  updateCalibrationRunLabel,
+  type CalibrationRunSummary,
 } from '@/lib/dal/calibration'
 import { requireAdminScope } from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -460,6 +465,10 @@ export async function runCalibration(input?: {
   since?: string
   until?: string
   notes?: string
+  campaignIds?: string[]
+  assessmentId?: string
+  includeInternal?: boolean
+  label?: string
 }): Promise<CalibrationSummary> {
   await requireAdminScope()
   const db = createAdminClient()
@@ -478,6 +487,10 @@ export async function runCalibration(input?: {
       notes: input?.notes,
       dateRangeStart: input?.since,
       dateRangeEnd: input?.until,
+      campaignIds: input?.campaignIds,
+      assessmentId: input?.assessmentId,
+      includeInternal: input?.includeInternal,
+      label: input?.label,
     })
     runId = run.id
 
@@ -493,6 +506,9 @@ export async function runCalibration(input?: {
     const calibrationRows = await fetchCalibrationResponses(db, {
       since: input?.since,
       until: input?.until,
+      campaignIds: input?.campaignIds,
+      assessmentId: input?.assessmentId,
+      includeInternal: input?.includeInternal ?? false,
     })
 
     const uniqueSessions = new Set(calibrationRows.map((r) => r.sessionId))
@@ -660,7 +676,10 @@ export async function runCalibration(input?: {
     // 7. Mark run as completed
     // ───────────────────────────────────────────────────────────────────────
 
-    await completeCalibrationRun(db, runId, { sampleSize: uniqueSessions.size })
+    await completeCalibrationRun(db, runId, {
+      sampleSize: uniqueSessions.size,
+      sessionCount: uniqueSessions.size,
+    })
 
     // ───────────────────────────────────────────────────────────────────────
     // 8. Audit log + revalidate
@@ -697,5 +716,151 @@ export async function runCalibration(input?: {
     }
     throw error
   }
+}
+
+// ---------------------------------------------------------------------------
+// Calibration scope preview
+// ---------------------------------------------------------------------------
+
+export type CalibrationScopePreview = {
+  eligibleSessions: number
+  campaigns: Array<{
+    id: string
+    title: string
+    isInternal: boolean
+    completedSessions: number
+  }>
+}
+
+/**
+ * Preview the scope of a calibration run: how many sessions would be included
+ * with the given scoping criteria, and which campaigns are available.
+ */
+export async function getCalibrationScopePreview(input?: {
+  campaignIds?: string[]
+  assessmentId?: string
+  includeInternal?: boolean
+}): Promise<CalibrationScopePreview> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const eligibleSessions = await countEligibleSessions(db, {
+    campaignIds: input?.campaignIds,
+    assessmentId: input?.assessmentId,
+    includeInternal: input?.includeInternal,
+  })
+
+  // Fetch all campaigns (or filtered ones if specified) with session counts
+  let campaignQuery = db
+    .from('campaigns')
+    .select('id, title, is_internal')
+
+  if (input?.campaignIds && input.campaignIds.length > 0) {
+    campaignQuery = campaignQuery.in('id', input.campaignIds)
+  }
+
+  const { data: campaignRows, error: campaignError } = await campaignQuery
+    .order('title', { ascending: true })
+
+  if (campaignError) {
+    throwActionError('getCalibrationScopePreview', 'Unable to load campaigns.', campaignError)
+  }
+
+  const campaigns: CalibrationScopePreview['campaigns'] = []
+  if (campaignRows) {
+    for (const campaign of campaignRows) {
+      const campaignId = String(campaign.id)
+      let countQuery = db
+        .from('participant_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'completed')
+        .eq('campaign_id', campaignId)
+
+      if (!input?.includeInternal) {
+        countQuery = countQuery.eq('is_internal', false)
+      }
+
+      const { count } = await countQuery
+
+      campaigns.push({
+        id: campaignId,
+        title: String(campaign.title),
+        isInternal: Boolean(campaign.is_internal),
+        completedSessions: count ?? 0,
+      })
+    }
+  }
+
+  await logAuditEvent({
+    eventType: 'calibration_scope_preview',
+    metadata: {
+      eligibleSessions,
+      campaignCount: campaigns.length,
+    },
+  })
+
+  return { eligibleSessions, campaigns }
+}
+
+// ---------------------------------------------------------------------------
+// Calibration run management
+// ---------------------------------------------------------------------------
+
+/**
+ * List all non-deleted calibration runs.
+ */
+export async function listCalibrationRunsAction(): Promise<CalibrationRunSummary[]> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const runs = await listCalibrationRuns(db)
+
+  await logAuditEvent({
+    eventType: 'calibration_runs_listed',
+    metadata: {
+      runCount: runs.length,
+    },
+  })
+
+  return runs
+}
+
+/**
+ * Delete a calibration run (soft delete).
+ */
+export async function deleteCalibrationRun(runId: string): Promise<void> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  await softDeleteCalibrationRun(db, runId)
+
+  await logAuditEvent({
+    eventType: 'calibration_run_deleted',
+    targetTable: 'calibration_runs',
+    targetId: runId,
+  })
+
+  revalidatePath('/psychometrics')
+}
+
+/**
+ * Update the label of a calibration run.
+ */
+export async function labelCalibrationRun(runId: string, label: string): Promise<void> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  await updateCalibrationRunLabel(db, runId, label)
+
+  await logAuditEvent({
+    eventType: 'calibration_run_labeled',
+    targetTable: 'calibration_runs',
+    targetId: runId,
+    metadata: {
+      label,
+    },
+  })
+
+  revalidatePath('/psychometrics')
 }
 
