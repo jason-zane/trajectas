@@ -460,6 +460,19 @@ export type CalibrationSummary = {
  *   8. Emit warnings for skipped/unstable constructs
  *   9. Audit log + revalidatePath
  */
+
+/**
+ * The scope form supplies plain `YYYY-MM-DD` dates. Compared directly against a
+ * timestamptz, a bare date resolves to midnight at the START of that day, so an
+ * inclusive-sounding "until 14 Aug" would silently exclude everything collected
+ * on the 14th. Widen it to the end of that day. Values that already carry a
+ * time component are passed through untouched.
+ */
+function endOfDayIfDateOnly(value?: string): string | undefined {
+  if (!value) return undefined
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T23:59:59.999Z` : value
+}
+
 export async function runCalibration(input?: {
   runType?: 'initial' | 'monitoring' | 'recalibration' | 'on_demand'
   since?: string
@@ -505,7 +518,7 @@ export async function runCalibration(input?: {
     // those items would be inflated.
     const calibrationRows = await fetchCalibrationResponses(db, {
       since: input?.since,
-      until: input?.until,
+      until: endOfDayIfDateOnly(input?.until),
       campaignIds: input?.campaignIds,
       assessmentId: input?.assessmentId,
       includeInternal: input?.includeInternal ?? false,
@@ -737,6 +750,8 @@ export type CalibrationScopePreview = {
  * with the given scoping criteria, and which campaigns are available.
  */
 export async function getCalibrationScopePreview(input?: {
+  since?: string
+  until?: string
   campaignIds?: string[]
   assessmentId?: string
   includeInternal?: boolean
@@ -745,6 +760,8 @@ export async function getCalibrationScopePreview(input?: {
   const db = createAdminClient()
 
   const eligibleSessions = await countEligibleSessions(db, {
+    since: input?.since,
+    until: endOfDayIfDateOnly(input?.until),
     campaignIds: input?.campaignIds,
     assessmentId: input?.assessmentId,
     includeInternal: input?.includeInternal,

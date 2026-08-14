@@ -22,7 +22,11 @@ export default async function ItemsPage({ params }: ItemsPageProps) {
     notFound()
   }
 
-  const items = await listCandidateItemsByBlueprint(db, blueprintId)
+  // The authoring surface shows items from retired cells too, so work done
+  // against a facet that was later dropped stays visible rather than vanishing.
+  const items = await listCandidateItemsByBlueprint(db, blueprintId, {
+    includeRetiredCells: true
+  })
 
   return (
     <CandidateItemsView

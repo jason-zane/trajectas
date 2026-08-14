@@ -208,18 +208,26 @@ export async function fetchCalibrationResponses(
     query = query.eq("participant_sessions.assessment_id", options.assessmentId);
   }
 
-  // Base-table columns are filtered unqualified.
+  // The window scopes whole SESSIONS, not individual responses. Filtering on
+  // participant_responses.created_at would admit part of a session whose
+  // responses straddle the boundary, and a partially-present session silently
+  // corrupts the complete-case partitioning that alpha is computed from.
   if (options?.since) {
-    query = query.gte("created_at", options.since);
+    query = query.gte("participant_sessions.completed_at", options.since);
   }
   if (options?.until) {
-    query = query.lte("created_at", options.until);
+    query = query.lte("participant_sessions.completed_at", options.until);
   }
 
   // PostgREST caps a single response at 1000 rows. The production set is
   // already larger than that, so an unpaged read silently calibrates on a
   // truncated sample — which looks exactly like full coverage. Page until a
   // short page comes back.
+  // Paging without a total order is not stable: Postgres may return rows in a
+  // different order between the two range requests, which duplicates some rows
+  // and drops others. Order by the primary key so the pages tile exactly.
+  query = query.order("id", { ascending: true });
+
   const PAGE_SIZE = 1000;
   const data: unknown[] = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
@@ -475,14 +483,23 @@ export interface CalibrationRunSummary {
 export async function countEligibleSessions(
   db: DbClient,
   options?: {
+    since?: string;
+    until?: string;
     campaignIds?: string[];
     assessmentId?: string;
     includeInternal?: boolean;
   },
 ): Promise<number> {
+  // `campaigns` must be embedded for `campaigns.is_internal` to be a legal
+  // filter target — PostgREST rejects a filter on a resource that is not in
+  // the select. `!inner` also makes the join filtering rather than nullable,
+  // which is what the exclusion needs.
   let query = db
     .from("participant_sessions")
-    .select("id", { count: "exact", head: true })
+    .select("id, campaigns!inner(is_internal)", {
+      count: "exact",
+      head: true,
+    })
     .eq("status", "completed");
 
   // Exclude internal data by default.
@@ -490,6 +507,15 @@ export async function countEligibleSessions(
     query = query.eq("is_internal", false);
     // Also exclude sessions whose campaign is internal.
     query = query.eq("campaigns.is_internal", false);
+  }
+
+  // Same window semantics as fetchCalibrationResponses, so the previewed count
+  // matches the sample the run actually draws.
+  if (options?.since) {
+    query = query.gte("completed_at", options.since);
+  }
+  if (options?.until) {
+    query = query.lte("completed_at", options.until);
   }
 
   // Filter by specific campaigns if provided.

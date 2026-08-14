@@ -10,7 +10,6 @@ import {
   listBuilds,
   getBuild,
   createBuild,
-  updateBuild,
   softDeleteBuild,
   listBlueprints,
   getBlueprintWithCells,
@@ -27,7 +26,6 @@ import {
   claimStageRun,
   updateStageRun,
   updateCandidateItem,
-  softDeleteCandidateItem,
   insertCongruenceRatings,
   deleteCongruenceRatingsForItems,
   listCongruenceRatingsForBuild,
@@ -36,7 +34,6 @@ import {
 } from '@/lib/dal/instrument'
 import {
   instrumentBuildInputSchema,
-  instrumentBuildUpdateSchema,
   blueprintInputSchema,
   blueprintUpdateSchema,
   saveBlueprintCellsInputSchema,
@@ -140,45 +137,6 @@ export async function createInstrumentBuild(
     metadata: {
       name: parsed.data.name,
       measureType: parsed.data.measureType,
-    },
-  })
-
-  return result
-}
-
-/**
- * Update an instrument build. Platform-admin only.
- */
-export async function updateInstrumentBuild(
-  buildId: string,
-  input: Record<string, unknown>,
-): Promise<InstrumentBuildDto> {
-  const scope = await requireAdminScope()
-
-  const parsed = instrumentBuildUpdateSchema.safeParse(input)
-  if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-    throw new Error(issues.join(', ') || 'Invalid instrument build update')
-  }
-
-  const db = createAdminClient()
-  const result = await updateBuild(db, buildId, {
-    name: parsed.data.name,
-    brief: parsed.data.brief as string | null | undefined,
-    audience: parsed.data.audience,
-    useContext: parsed.data.useContext,
-    targetConstructCount: parsed.data.targetConstructCount,
-    targetItemsPerConstruct: parsed.data.targetItemsPerConstruct,
-  })
-
-  revalidatePath('/instruments')
-  await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
-    eventType: 'instrument_build.updated',
-    targetTable: 'instrument_builds',
-    targetId: result.id,
-    metadata: {
-      name: result.name,
     },
   })
 
@@ -946,24 +904,6 @@ export async function updateCandidateItemStatus(
     id: result.id,
     status: result.status,
   }
-}
-
-/**
- * Soft-delete a candidate item. Platform-admin only.
- */
-export async function deleteCandidateItem(itemId: string): Promise<void> {
-  const scope = await requireAdminScope()
-  const db = createAdminClient()
-
-  await softDeleteCandidateItem(db, itemId)
-
-  revalidatePath('/instruments')
-  await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
-    eventType: 'instrument_item.deleted',
-    targetTable: 'instrument_candidate_items',
-    targetId: itemId,
-  })
 }
 
 /**

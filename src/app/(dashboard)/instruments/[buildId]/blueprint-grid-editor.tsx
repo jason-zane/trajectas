@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { ChevronDown, ChevronUp, Plus, X, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -45,6 +45,7 @@ export function BlueprintGridEditor({
   initialCells
 }: BlueprintGridEditorProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [isAIDrafting, setIsAIDrafting] = useState(false)
 
@@ -309,6 +310,13 @@ export function BlueprintGridEditor({
             disabled={isPending || isAIDrafting}
           >
             Cancel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => router.push(`${pathname}/items`)}
+            disabled={isPending || isAIDrafting}
+          >
+            Generate Items
           </Button>
           <Button
             onClick={handleSave}
