@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { predictedB, band } from '@/lib/cognitive/generator/difficulty'
+import { generateFamily } from '@/lib/cognitive/generator'
+import { LRM_XOR_DIST_XLAYER } from '@/lib/cognitive/generator/families/lrm-xor-dist-xlayer'
+import { LRM_3R_XLAYER } from '@/lib/cognitive/generator/families/lrm-3r-xlayer'
 
 describe('generator/difficulty — doc 03-item-generation-pipeline.md §3.7', () => {
   it('reproduces the formula\'s own worked M1 figure (single R1, easy)', () => {
@@ -74,11 +77,25 @@ describe('generator/difficulty — doc 03-item-generation-pipeline.md §3.7', ()
     expect(xorDist).toBeCloseTo(1.8, 5)
     expect(band(xorDist)).toBe('very_hard')
 
-    // LRM-3R-XLAYER: R6 + R6 + R2, cross-layer, 3 rules, 3 near-misses.
-    const threeR = predictedB({ ruleIds: ['R6', 'R6', 'R2'], ruleCount: 3, crossLayer: true, perceptualLoad: 1, nearMissCount: 3 }, { nonCardinalAsymmetricRotation: true })
-    // -2.0 + (0.9+0.9+0.3+0.3) + 0.5*2 + 0.5*1 + 0.3*1 + 0.15*1 = -2.0+2.4+1.0+0.5+0.3+0.15 = 2.35
-    expect(threeR).toBeCloseTo(2.35, 5)
+    // LRM-3R-XLAYER: R6 + R6 + R2, cross-layer, 3 rules, 2 near-misses.
+    const threeR = predictedB({ ruleIds: ['R6', 'R6', 'R2'], ruleCount: 3, crossLayer: true, perceptualLoad: 1, nearMissCount: 2 }, { nonCardinalAsymmetricRotation: true })
+    // -2.0 + (0.9+0.9+0.3+0.3) + 0.5*2 + 0.5*1 + 0.3*1 + 0.15*0 = -2.0+2.4+1.0+0.5+0.3 = 2.20
+    expect(threeR).toBeCloseTo(2.2, 5)
     expect(band(threeR)).toBe('very_hard')
+
+    // nearMissCount CORRECTED 3 -> 2 (and b 2.35 -> 2.20) on 2026-08-14. The
+    // family declared three single-axis IR near-misses, one per rule. That
+    // distractor plan cannot exist: three distractors each wrong on exactly
+    // one of three axes leave the key's own value held by 3 of 5 options on
+    // every axis, so the blind modal composition reconstructs the key and
+    // G-08 rejects the set — which is why the plan executed 0 times in 300
+    // draws and every item fell through to a copy-based fallback. The
+    // radicals now describe the plan the family can actually build (two
+    // single-axis near-misses plus two chimeras). No weight in
+    // generator/difficulty.ts changed; the family stays very_hard on its
+    // rule content, with 0.70 of headroom rather than 0.85.
+    const overstated = predictedB({ ruleIds: ['R6', 'R6', 'R2'], ruleCount: 3, crossLayer: true, perceptualLoad: 1, nearMissCount: 3 }, { nonCardinalAsymmetricRotation: true })
+    expect(overstated - threeR).toBeCloseTo(0.15, 5)
 
     // Neither reaches very_hard by reusing an existing exemplar's radicals
     // under a changed weight — both use rule combinations no M1-M8
@@ -86,5 +103,20 @@ describe('generator/difficulty — doc 03-item-generation-pipeline.md §3.7', ()
     // cross-layer). See families/lrm-xor-dist-xlayer.ts and
     // families/lrm-3r-xlayer.ts for the full construction and duplicate-
     // safety proofs.
+  })
+
+  it('the figures above are what the REGISTERED families actually emit — asserted against generated items, not against a second hand-typed copy of their radicals', () => {
+    const xorDist = generateFamily(LRM_XOR_DIST_XLAYER, 'very-hard-band-check', 4)
+    const threeR = generateFamily(LRM_3R_XLAYER, 'very-hard-band-check', 4)
+    expect(xorDist.items.length).toBeGreaterThan(0)
+    expect(threeR.items.length).toBeGreaterThan(0)
+    for (const item of xorDist.items) {
+      expect(item.qa.predictedB).toBeCloseTo(1.8, 5)
+      expect(item.qa.band).toBe('very_hard')
+    }
+    for (const item of threeR.items) {
+      expect(item.qa.predictedB).toBeCloseTo(2.2, 5)
+      expect(item.qa.band).toBe('very_hard')
+    }
   })
 })

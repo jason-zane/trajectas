@@ -17,7 +17,7 @@
  * rather than downstream in the schema parse.
  */
 import type { GridCell } from '../../spec/schema'
-import { type AxisId, type CellLike, axesPresentIn, cellComplexity, cellEq, readAxis } from '../axes'
+import { type AxisId, type CellLike, axesPresentIn, axisEq, cellComplexity, cellEq, readAxis } from '../axes'
 
 export interface CheckResult {
   id: string
@@ -185,6 +185,108 @@ export function optionComplexitySpreadCheck(options: readonly CellLike[], varian
   const spread = Math.max(...counts) - Math.min(...counts)
   const threshold = varianceIsRuleIntended ? 3 : 2
   return spread > threshold ? { id: 'OPTION_COMPLEXITY_SPREAD', status: 'fail', detail: { counts, spread, threshold } } : { id: 'OPTION_COMPLEXITY_SPREAD', status: 'pass' }
+}
+
+/**
+ * G-11 — copy-elimination resistance. THE invariant: a candidate who applies
+ * the purely perceptual heuristic "eliminate every option that reproduces a
+ * cell I can already see" must never be left holding the key alone.
+ *
+ * The option set is partitioned into two classes by that heuristic — the
+ * options that ARE verbatim copies of a context cell, and the options that
+ * are not. The heuristic hands the candidate one of those two classes
+ * (whichever it does not eliminate). So the invariant is simply: **the class
+ * containing the key must have at least two members**, leaving a genuine
+ * choice either way round.
+ *
+ * That single rule covers both directions of the failure, which used to be
+ * (mis)handled as two unrelated branches in `qa/index.ts`:
+ *
+ *  - The key is NOT a copy (the normal case, enforced by `KEY_EQUALS_CELL`).
+ *    Then "eliminate every copy" must leave >= 2 options — i.e. at least one
+ *    distractor must be a genuinely novel figure, not a lifted cell.
+ *  - The key IS a copy (doc 03-item-generation-pipeline.md's OQ-3, permitted
+ *    for `families/lrm-move.ts` where a 3- or 4-position movement cycle makes
+ *    coincidence unavoidable). Then the MIRROR heuristic — "the answer is the
+ *    one that repeats a cell" — must not isolate it either, so >= 2 options
+ *    must be copies. This is exactly OQ-3's own stated mitigation, so the
+ *    `permitKeyEqualsCell` flag no longer needs to be consulted here: the
+ *    same expression yields the same requirement for those items. The flag
+ *    still governs `KEY_EQUALS_CELL` above, which is a different question.
+ *
+ * Note what this is NOT: it is not the doc's *other* G-11 wording ("in >= 60%
+ * of a batch the key shares a complete layer with a context cell"). That is a
+ * batch-level DESCRIPTIVE measure of how cell-like the key looks, and it was
+ * the only thing the previous implementation computed for non-OQ-3 families —
+ * computed, reported, and then discarded without ever being thresholded. It
+ * is still reported (see `qa/index.ts`) as a measurement; the gate is this.
+ */
+export function copyEliminationCheck(grid: readonly CellLike[], options: readonly CellLike[], keyIndex: number): CheckResult {
+  const isCopy = options.map((o) => grid.some((c) => cellEq(c, o)))
+  const keyIsCopy = isCopy[keyIndex]
+  const copiesCount = isCopy.filter(Boolean).length
+  const survivorsAfterElimination = isCopy.filter((f) => f === keyIsCopy).length
+  const detail = { copiesCount, keyIsCopy, survivorsAfterElimination, copyFlags: isCopy }
+  return survivorsAfterElimination >= 2
+    ? { id: 'COPY_ELIMINATION', status: 'pass', detail }
+    : { id: 'COPY_ELIMINATION', status: 'fail', detail: { ...detail, reason: 'COPY_ELIMINATION_ISOLATES_KEY' } }
+}
+
+/** Boolean form of `copyEliminationCheck`, for families to consult while they are still CHOOSING distractors (so the gate is satisfiable by construction, not just measured after the fact). */
+export function copyEliminationOk(grid: readonly CellLike[], options: readonly CellLike[], keyIndex: number): boolean {
+  return copyEliminationCheck(grid, options, keyIndex).status === 'pass'
+}
+
+/**
+ * G-18 — rule-subset sufficiency (an ADDITION to doc 03-item-generation-
+ * pipeline.md §7's G-01..G-17, not a reading of one of them).
+ *
+ * A multi-rule item claims its difficulty from the number of rules a solver
+ * must compose. That claim is false if ONE of the declared rules, applied
+ * alone, already picks the key out: the other rules then do no discriminating
+ * work, and the item's honest rule count is 1 no matter what its radicals say.
+ *
+ * The check is the direct measurement of that: for each declared rule axis,
+ * count the options carrying the key's true value on that axis. Fewer than 2
+ * means a solver who cracked only that one rule is done.
+ *
+ * Not applicable to single-rule families (LRM-ROT, LRM-ADD, LRM-SUB,
+ * LRM-MOVE, LRM-PROG-COUNT): for those, the one rule isolating the key is
+ * the ITEM, not a shortcut — reported as such rather than silently skipped.
+ *
+ * STRUCTURAL LIMIT, worth stating because it bounds what this gate can ask
+ * for: the corresponding check one level up — "no PAIR of rules suffices in a
+ * 3-rule item" — is unsatisfiable alongside G-08. It would require a
+ * distractor wrong on exactly one axis for each of the three axes; those
+ * three distractors plus the key leave the key's own value in the majority on
+ * every axis, which is precisely `contextBlindGate`'s MODAL_RECOVERS_KEY /
+ * KEY_VALUE_DOMINATES failure. With 5 options, a 3-rule item can guarantee
+ * that no single rule suffices, and cannot also guarantee that no pair does.
+ */
+export function singleRuleSufficiencyCheck(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): CheckResult {
+  if (axes.length < 2) {
+    return { id: 'SINGLE_RULE_SUFFICIENCY', status: 'pass', detail: { note: 'not applicable: single-rule item, its one rule is meant to determine the key' } }
+  }
+  const survivorsByAxis: Record<string, number> = {}
+  const isolating: AxisId[] = []
+  for (const axis of axes) {
+    const keyValue = readAxis(options[keyIndex], axis)
+    if (!keyValue) continue
+    const survivors = options.filter((o) => {
+      const v = readAxis(o, axis)
+      return v !== null && axisEq(v, keyValue)
+    }).length
+    survivorsByAxis[axis] = survivors
+    if (survivors < 2) isolating.push(axis)
+  }
+  return isolating.length === 0
+    ? { id: 'SINGLE_RULE_SUFFICIENCY', status: 'pass', detail: { survivorsByAxis } }
+    : { id: 'SINGLE_RULE_SUFFICIENCY', status: 'fail', detail: { survivorsByAxis, isolating, reason: 'ONE_RULE_ISOLATES_KEY' } }
+}
+
+/** Boolean form of `singleRuleSufficiencyCheck`, for families choosing distractors. */
+export function singleRuleSufficiencyOk(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): boolean {
+  return singleRuleSufficiencyCheck(options, keyIndex, axes).status === 'pass'
 }
 
 export function optionHomogeneityCheck(options: readonly CellLike[]): CheckResult {

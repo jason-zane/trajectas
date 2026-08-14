@@ -32,6 +32,7 @@ import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../comp
 import { repetition } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
+import { copyEliminationOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
 import { combinations4 } from '../combinatorics'
 import { cellEq } from '../axes'
 
@@ -152,12 +153,16 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
     if (rpBars.t !== 'set') throw new Error('bars must be set')
     const rp = repetition('chimera:copyCell:R3C2.bars+correctShape', cell(keyShapeId, rpBars.v as BarId[]), [BARS_AXIS])
 
+    const contextCells = ctx.grid.map((gc) => ({ elements: gc.elements }))
+
     const validSet = (candidates: DistractorCandidate[]): boolean => {
       if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
       if (candidates.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
       for (let i = 0; i < candidates.length; i++)
         for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
       const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
+      if (!copyEliminationOk(contextCells, cells, 0)) return false
+      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes)) return false
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
 
@@ -175,11 +180,36 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
      * other option in aggregate axis-distance regardless of the modal
      * tally. Fall back to a pool-and-search repair, as elsewhere.
      */
+    /**
+     * SECOND FINDING (the copy-elimination leak, G-11): the recombination
+     * pool this fallback originally searched was the 3 shapes x the 3
+     * TWO-bar sets — and that is exactly the 9 cells of the grid. The R7
+     * construction gives every cell a two-bar set, `missingRoleIndex` is a
+     * bijection of `(col-row) mod 3`, and `shapeAt` depends only on column,
+     * so (shape, bar-set) realises all 9 combinations across the 9 cells.
+     * Every 4-subset of that pool was therefore four verbatim copies of
+     * visible cells, and since the key is the one combination the grid does
+     * NOT show, "eliminate every option that reproduces a cell" identified
+     * the key with certainty in 84 of 84 items measured.
+     *
+     * The pool now also carries the ONE-bar and THREE-bar sets. Those are
+     * not a widening for its own sake — they are what the two canonical
+     * wrong-operator errors actually produce (intersection instead of
+     * symmetric difference leaves one bar; union leaves three), i.e. doc's
+     * own wr1/wr2 mechanisms, and no cell in the grid can show either. So
+     * the search now has genuinely novel near-misses available, built from
+     * the same three bar identities the grid uses — not from some out-of-
+     * vocabulary value a candidate could eliminate on sight instead.
+     */
     const shapeValues = SHAPE_LADDER
     const barValues: BarId[][] = [
       [ALL_BARS[0], ALL_BARS[1]],
       [ALL_BARS[0], ALL_BARS[2]],
       [ALL_BARS[1], ALL_BARS[2]],
+      [ALL_BARS[0]],
+      [ALL_BARS[1]],
+      [ALL_BARS[2]],
+      [ALL_BARS[0], ALL_BARS[1], ALL_BARS[2]],
     ]
     const pool = shapeValues
       .flatMap((s) => barValues.map((b) => ({ shape: s, bars: b })))
@@ -193,7 +223,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
       })
       if (validSet(candidates)) return candidates
     }
-    throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared both G-08 and G-10 for params ${JSON.stringify(ctx.params)}`)
+    throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18 for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: M8Params) => ({ barRoles: params.barRoles, shapeDir: params.shapeDir }),

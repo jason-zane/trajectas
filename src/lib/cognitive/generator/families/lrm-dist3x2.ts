@@ -6,6 +6,54 @@
  * start=0` on both — verified by hand against doc 03-logical-reasoning-
  * design.md §6 M3's table while designing this family.
  *
+ * UNREGISTERED (see `families/index.ts`) — THIS FAMILY CANNOT SATISFY G-11,
+ * AND THE REASON IS A THEOREM ABOUT ITS SHAPE, NOT A BUG IN ITS CODE.
+ *
+ * G-11 (`qa/degeneracy.ts`'s `copyEliminationCheck`) requires that at least
+ * two of the five options survive "eliminate every option that reproduces a
+ * visible cell". Measured after the gate was made real: LRM-DIST3X2 fails it
+ * on 120 of 120 draws. No distractor search can fix that, because:
+ *
+ *   1. A cell in this family is fully described by two axes, each with
+ *      exactly three values, and nothing else varies. So there are 3 x 3 = 9
+ *      distinguishable cells in total.
+ *   2. The grid has 9 positions. `CELL_DUPLICATE` (ruleCount >= 2) forbids
+ *      any two of them coinciding. By pigeonhole the 9 positions therefore
+ *      realise all 9 (shape, fill) pairs — 8 of them visible, the 9th being
+ *      the key. That is the family's own Graeco-Latin proof, restated.
+ *   3. Hence EVERY constructible option is either one of the 8 visible pairs
+ *      (a verbatim copy) or the key's pair. Two options cannot both be the
+ *      key's pair (`OPTION_HOMOGENEITY`). So exactly one option can ever be a
+ *      non-copy, and it is always the key.
+ *
+ * The escape hatches are all closed too, and it is worth writing down why,
+ * because "just widen the pool" is the obvious wrong answer:
+ *
+ *   - Loosening orthogonality does not help. Over Z3 two cyclic Latin
+ *     squares are either orthogonal (9 distinct pairs, the case above) or
+ *     rank-deficient (3 distinct pairs, fill a pure function of shape — the
+ *     second rule carries no information, and six cells become duplicates).
+ *     There is no middle case.
+ *   - Adding a THIRD Latin square (e.g. on size) does not help either: a
+ *     complete set of MOLS of order 3 has only two squares, so a third
+ *     attribute of this kind is necessarily correlated with one of the
+ *     first two.
+ *   - Drawing a distractor from OUTSIDE the item's vocabulary (a fourth
+ *     shape, or a size no cell uses) is not a fix but a second leak of the
+ *     same kind: it creates a new one-member eliminable class, so "eliminate
+ *     copies, then eliminate the odd one out" still lands on the key.
+ *
+ * What a working replacement looks like is already in the tree: give the
+ * second or third axis a value space LARGER than the grid can exhaust — a
+ * count progression (`lrm-3r-dist.ts`, count 1..3 over 3 shapes x 3 fills =
+ * 27 combinations, 9 used) or a rotation progression (`lrm-3r-xlayer.ts`,
+ * 8 angles). Both pass G-11 comfortably. Rebuilding M3 that way changes what
+ * the family IS (its rule ids, and so its predicted b), which is a design
+ * decision, not a defect fix — so this file is left intact and unregistered
+ * rather than quietly mutated into a different family. The `hard` band it
+ * used to occupy is still covered by LRM-2R-XLAYER (+0.8), LRM-XOR-XLAYER
+ * (+0.9) and LRM-3R-DIST (+1.1).
+ *
  * FINDING: `kShape` and `kFill` must be DIFFERENT non-zero offsets mod 3.
  * `k=0` degenerates to a constant-per-row square (doc 03-item-generation-
  * pipeline.md §3.5's LATIN_TRIVIAL). `kShape === kFill` (both nonzero)

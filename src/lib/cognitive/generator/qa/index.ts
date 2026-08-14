@@ -14,6 +14,12 @@
  * checks]"). G-16/G-17 are batch-level: formalised in `qa/batch.ts`
  * (`runBatchGates`, which also reconciles G-17 — see that file's header
  * comment) and invoked from generator/index.ts's `generateBatch`, not here.
+ *
+ * G-18 has no doc §7 counterpart at all — it is an addition (rule-subset
+ * sufficiency, `qa/degeneracy.ts`), made alongside the correction to G-11
+ * because both catch the same class of defect: a shortcut that lets a
+ * candidate reach the key without doing the work the item's declared rule
+ * content is credited with.
  */
 import { FiguralMatrixItemSpec, CognitiveOptionSpec, type RuleSpec } from '../../spec/schema'
 import { contentHash } from '../../spec/hash'
@@ -21,12 +27,12 @@ import type { ComposedItem } from '../compose'
 import type { PlacedOption } from '../distractors'
 import { detectAllAxes, levelA, levelB } from './uniqueness'
 import { contextBlindGate, giveawayPairGate } from './contextblind'
-import { gridLevelDegeneracy, optionComplexitySpreadCheck, optionHomogeneityCheck } from './degeneracy'
+import { copyEliminationCheck, gridLevelDegeneracy, optionComplexitySpreadCheck, optionHomogeneityCheck, singleRuleSufficiencyCheck } from './degeneracy'
 import { inkCoverageGate, elementOverlapGate, renderLegibilityGate } from './density'
 import { duplicateGate, structuralHash } from './duplicates'
 import { predictedB, band, type Band } from '../difficulty'
 import type { AxisId } from '../axes'
-import { readAxis, axisEq, cellEq } from '../axes'
+import { readAxis, axisEq } from '../axes'
 
 export const GENERATOR_VERSION = '0.1.0'
 export const BATTERY_VERSION = '0.1.0'
@@ -127,24 +133,41 @@ export function runQaBattery(input: QaInput): QaOutcome {
     // G-10 — giveaway pairs.
     const gp = giveawayPairGate(optionCells, item.template.axes)
     gates['G-10'] = gp.ok ? { status: 'pass' } : { status: 'fail', detail: { reason: gp.reason, ...gp.detail } }
-    // G-11 — repeat-heuristic resistance (measured; batch threshold is G-17-equivalent in
-    // generateBatch). When the family has invoked doc's OQ-3 permission for
-    // KEY_EQUALS_CELL (see qa/degeneracy.ts), OQ-3's own mitigation is
-    // enforced HERE rather than left as a batch-level aspiration: at least
-    // 2 of the 5 options (key included) must fully copy a real context
-    // cell, so "eliminate anything that looks like a copy" cannot isolate
-    // the key.
-    const copiesCount = optionCells.filter((o) => item.grid.some((c) => cellEq(c, o))).length
-    if (item.template.permitKeyEqualsCell) {
-      gates['G-11'] = copiesCount >= 2 ? { status: 'pass', detail: { copiesCount } } : { status: 'fail', detail: { reason: 'OQ3_MITIGATION_INSUFFICIENT', copiesCount } }
-    } else {
-      const sharesLayer = item.grid.some((c) => shareCompleteLayer(c, optionCells[keyIndex]))
-      gates['G-11'] = { status: 'pass', detail: { sharesCompleteLayerWithContextCell: sharesLayer } }
-    }
+    // G-11 — copy-elimination resistance. One rule for every family (see
+    // `copyEliminationCheck`'s doc comment): the class the key falls into
+    // under "is this option a verbatim copy of a visible cell?" must hold at
+    // least 2 options, so the heuristic can never isolate the key — whether
+    // the key is a copy (doc's OQ-3 case, families/lrm-move.ts) or, as in
+    // every other family, is not.
+    //
+    // WAS A MEASUREMENT MISLABELLED AS A GATE: the previous implementation
+    // computed `copiesCount` and then only thresholded it when
+    // `permitKeyEqualsCell` was set. Every other family took an `else` branch
+    // that computed the doc's separate "shares a complete layer" statistic
+    // and returned `{ status: 'pass' }` unconditionally, discarding
+    // `copiesCount`. Measured over 12 seeds x 10 draws x 11 families, that
+    // let five families ship items in which ALL FOUR distractors were
+    // verbatim copies of visible cells and the key never was — solvable with
+    // zero reasoning. The layer statistic is retained in `detail` (it is a
+    // real, useful measurement, and doc's batch-level >= 60% reading of G-11
+    // is computed from it); it is no longer confused with the gate.
+    const copyElim = copyEliminationCheck(item.grid, optionCells, keyIndex)
+    const sharesLayer = item.grid.some((c) => shareCompleteLayer(c, optionCells[keyIndex]))
+    gates['G-11'] =
+      copyElim.status === 'pass'
+        ? { status: 'pass', detail: { ...copyElim.detail, sharesCompleteLayerWithContextCell: sharesLayer } }
+        : { status: 'fail', detail: { ...copyElim.detail, sharesCompleteLayerWithContextCell: sharesLayer } }
+
+    // G-18 — rule-subset sufficiency. Beyond doc §7's G-01..G-17; see
+    // `singleRuleSufficiencyCheck`. Same class of defect as G-11 (a shortcut
+    // that makes the declared rule content a fiction), found the same way.
+    const srs = singleRuleSufficiencyCheck(optionCells, keyIndex, item.template.axes)
+    gates['G-18'] = srs.status === 'pass' ? { status: 'pass', detail: srs.detail } : { status: 'fail', detail: srs.detail }
   } else {
     gates['G-08'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-10'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-11'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
+    gates['G-18'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
   }
 
   // G-09 — option homogeneity. `countGoverned` (also used by G-15's ink

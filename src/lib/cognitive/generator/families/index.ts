@@ -15,10 +15,22 @@ import { LRM_MOVE } from './lrm-move'
 import { LRM_XOR_DIST_XLAYER } from './lrm-xor-dist-xlayer'
 import { LRM_3R_XLAYER } from './lrm-3r-xlayer'
 
+/**
+ * LRM_DIST3X2 is deliberately ABSENT from this list. It cannot satisfy G-11
+ * (copy-elimination resistance) for any parameter draw — not because its
+ * distractor search is weak, but because a cell described by exactly two
+ * three-valued axes has only 9 distinguishable forms, all 9 of which the
+ * duplicate-free grid consumes, leaving the key as the only possible
+ * non-copy. The full proof, the closed escape hatches, and what a
+ * replacement would have to look like are in the header of
+ * `families/lrm-dist3x2.ts`. The family is kept exported (below) so the
+ * analysis and its worked M3 construction stay in the tree and it can be
+ * re-registered the moment it is rebuilt on an axis the grid cannot exhaust.
+ * Registering it as-is would add 0 items and 10 rejects per pilot run.
+ */
 export const ALL_FAMILIES: FamilyTemplate<unknown>[] = [
   LRM_PROG_COUNT,
   LRM_ROT,
-  LRM_DIST3X2,
   LRM_ADD,
   LRM_SUB,
   LRM_2R_XLAYER,

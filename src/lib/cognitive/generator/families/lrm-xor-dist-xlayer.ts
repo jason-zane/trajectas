@@ -53,6 +53,7 @@ import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../comp
 import { chimera, incompleteRule, incompleteSetRule, repetition } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
+import { copyEliminationOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
 import { combinations4 } from '../combinatorics'
 import { cellEq } from '../axes'
 
@@ -175,51 +176,86 @@ export const LRM_XOR_DIST_XLAYER: FamilyTemplate<XorDistParams> = {
     // design.md §5.3's canonical IR shape for a set-valued axis).
     const b = incompleteSetRule(`dropElement:inner.bars[${keyBarsArr[0]}]`, cell(keyShape.v, keyBarsArr.filter((x) => x !== keyBarsArr[0])), BARS_AXIS)
 
-    // C: PM — chimera of R3C2's shape + R3C1's bars.
-    const cShape = ctx.valueAt(SHAPE_AXIS, 3, 2)
-    const cBars = ctx.valueAt(BARS_AXIS, 3, 1)
-    if (cShape.t !== 'enum' || cBars.t !== 'set') throw new Error('shape/bars must be enum/set')
-    const wrongAxesC = [...(cShape.v === keyShape.v ? [] : [SHAPE_AXIS]), ...(cBars.v.length === keyBarsArr.length && cBars.v.every((x) => (keyBarsArr as readonly string[]).includes(x)) ? [] : [BARS_AXIS])]
-    const c = chimera('chimera:{outer.shape<-R3C2,inner.bars<-R3C1}', cell(cShape.v, cBars.v as BarId[]), wrongAxesC)
-
-    // D: RP — full copy of R2C3.
-    const dShape = ctx.valueAt(SHAPE_AXIS, 2, 3)
-    const dBars = ctx.valueAt(BARS_AXIS, 2, 3)
-    if (dShape.t !== 'enum' || dBars.t !== 'set') throw new Error('shape/bars must be enum/set')
-    const wrongAxesD = [...(dShape.v === keyShape.v ? [] : [SHAPE_AXIS]), ...(dBars.v.length === keyBarsArr.length && dBars.v.every((x) => (keyBarsArr as readonly string[]).includes(x)) ? [] : [BARS_AXIS])]
-    const d = repetition('copyCell:R2C3', cell(dShape.v, dBars.v as BarId[]), wrongAxesD)
-
-    const validSet = (candidates: DistractorCandidate[]): boolean => {
-      if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
-      if (candidates.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
-      for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
-      const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
-      return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
-    }
-
-    const primary = [a, b, c, d]
-    if (validSet(primary)) return primary
-
-    // Fallback, same pattern as every other multi-rule family in this
-    // generator: search a pool of context-cell copies for a 4-subset that
-    // clears G-08/G-10 against the fixed key.
     const positions = ctx.grid.map((gc) => {
       const s = ctx.valueAt(SHAPE_AXIS, gc.row, gc.col)
       const bs = ctx.valueAt(BARS_AXIS, gc.row, gc.col)
       if (s.t !== 'enum' || bs.t !== 'set') throw new Error('shape/bars must be enum/set')
       return { row: gc.row, col: gc.col, shape: s.v, bars: bs.v as BarId[] }
     })
+    const contextCells = positions.map((p) => ({ elements: cell(p.shape, p.bars) }))
+    const barsEqKey = (bars: readonly string[]) => bars.length === keyBarsArr.length && bars.every((x) => (keyBarsArr as readonly string[]).includes(x))
+    const wrongAxesFor = (shape: string, bars: readonly string[]) => [...(shape === keyShape.v ? [] : [SHAPE_AXIS]), ...(barsEqKey(bars) ? [] : [BARS_AXIS])]
+
+    const validSet = (candidates: DistractorCandidate[]): boolean => {
+      if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
+      if (candidates.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
+      for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
+      const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
+      if (!copyEliminationOk(contextCells, cells, 0)) return false
+      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes)) return false
+      return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
+    }
+
+    /**
+     * FINDING (the hand-authored plan was DEAD CODE): C and D as originally
+     * written — "chimera of R3C2's shape + R3C1's bars" and "full copy of
+     * R2C3" — are the SAME CELL by construction, for every parameter draw,
+     * so `gateDistractor` rejected the set as DUPLICATE_DISTRACTOR_PAIR and
+     * the primary plan executed 0 times in 300 draws. Proof: `KSHAPE` is
+     * fixed at 1, so `shapeAt(r,c)` depends only on `(r + c) mod 3` and
+     * R3C2 and R2C3 share it; `missingRoleIndex(r,c)` depends only on
+     * `(c - r) mod 3` and `missingRoleIndex(3,1) === missingRoleIndex(2,3)
+     * === 1`, so R3C1 and R2C3 share their bar-set. C and D therefore
+     * coincide on both axes, always. Every item fell through to the copy
+     * fallback below, which is where the copy-elimination leak came from.
+     *
+     * C and D are now SEARCHED rather than hand-pinned, in a fixed
+     * deterministic order, keeping A and B (which are sound) fixed. B is the
+     * load-bearing one for G-11: dropping a bar from the key's two-bar set
+     * leaves a ONE-bar cell, and no cell in this grid ever shows one bar, so
+     * B is a genuinely novel figure built entirely out of bars the candidate
+     * has already seen.
+     */
+    const barSubsets: BarId[][] = [
+      [ALL_BARS[0], ALL_BARS[1]],
+      [ALL_BARS[0], ALL_BARS[2]],
+      [ALL_BARS[1], ALL_BARS[2]],
+      [ALL_BARS[0]],
+      [ALL_BARS[1]],
+      [ALL_BARS[2]],
+      [ALL_BARS[0], ALL_BARS[1], ALL_BARS[2]],
+    ]
+    const shapeValues = [...new Set(positions.map((p) => p.shape))]
+    const recombinations = shapeValues
+      .flatMap((s) => barSubsets.map((bars) => ({ shape: s, bars })))
+      .filter((p) => !(p.shape === keyShape.v && barsEqKey(p.bars)))
+    const describe = (shape: string, bars: readonly BarId[]) => {
+      const at = positions.find((q) => q.shape === shape && q.bars.length === bars.length && q.bars.every((x) => bars.includes(x)))
+      return at ? `copyCell:R${at.row}C${at.col}` : `recombine:{outer.shape=${shape},inner.bars=${bars.join('+')}}`
+    }
+
+    for (const dPos of positions) {
+      const d = repetition(`copyCell:R${dPos.row}C${dPos.col}`, cell(dPos.shape, dPos.bars), wrongAxesFor(dPos.shape, dPos.bars))
+      for (const cCand of recombinations) {
+        const c = chimera(describe(cCand.shape, cCand.bars), cell(cCand.shape, cCand.bars), wrongAxesFor(cCand.shape, cCand.bars))
+        const candidates = [a, b, c, d]
+        if (validSet(candidates)) return candidates
+      }
+    }
+
+    // Last resort, same pattern as every other multi-rule family here: a full
+    // 4-subset search over the recombination pool (which now includes the
+    // one- and three-bar sets, so novel near-misses are reachable).
     const labels: Array<'IR' | 'PM' | 'RP'> = ['IR', 'IR', 'PM', 'RP']
-    for (const chosen of combinations4(positions)) {
+    for (const chosen of combinations4(recombinations)) {
       const candidates: DistractorCandidate[] = chosen.map((p, i) => {
-        const wrongAxes = [...(p.shape === keyShape.v ? [] : [SHAPE_AXIS]), ...(p.bars.length === keyBarsArr.length && p.bars.every((x) => keyBarsArr.includes(x)) ? [] : [BARS_AXIS])]
-        const mechanism = `copyCell:R${p.row}C${p.col}`
+        const wrongAxes = wrongAxesFor(p.shape, p.bars)
         const elements = cell(p.shape, p.bars)
-        return labels[i] === 'RP' ? repetition(mechanism, elements, wrongAxes) : chimera(mechanism, elements, wrongAxes)
+        return labels[i] === 'RP' ? repetition(describe(p.shape, p.bars), elements, wrongAxes) : chimera(describe(p.shape, p.bars), elements, wrongAxes)
       })
       if (validSet(candidates)) return candidates
     }
-    throw new Error(`LRM-XOR-DIST-XLAYER: no distractor construction cleared both G-08 and G-10 for params ${JSON.stringify(ctx.params)}`)
+    throw new Error(`LRM-XOR-DIST-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18 for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: XorDistParams) => ({ startShape: params.startShape, barRoles: params.barRoles }),
