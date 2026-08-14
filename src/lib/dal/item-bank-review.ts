@@ -146,7 +146,16 @@ export async function getItemForReview(db: DbClient, itemId: string): Promise<It
   const { data: itemRow, error: itemError } = await db
     .from('items')
     .select(
-      'id, stem, family_id, lifecycle_state, status, item_version, content_hash, exposure_count, created_at, item_families(code)',
+      // `item_families!items_family_id_fkey(code)`, not `item_families(code)`.
+      // There are TWO foreign keys between these tables — items.family_id ->
+      // item_families.id (items_family_id_fkey) and
+      // item_families.exemplar_item_id -> items.id (item_families_exemplar_fk),
+      // both from 20260813100500. With two relationship paths PostgREST cannot
+      // pick one and fails the whole request with PGRST201, which this function
+      // turns into a null return. Naming the constraint disambiguates it.
+      // pg-migrate-check cannot catch this: it verifies DDL, not PostgREST
+      // request shaping. Only the integration suite does.
+      'id, stem, family_id, lifecycle_state, status, item_version, content_hash, exposure_count, created_at, item_families!items_family_id_fkey(code)',
     )
     .eq('id', itemId)
     .is('deleted_at', null)
