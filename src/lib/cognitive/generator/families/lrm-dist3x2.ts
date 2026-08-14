@@ -14,20 +14,48 @@
  * visible cell". Measured after the gate was made real: LRM-DIST3X2 fails it
  * on 120 of 120 draws. No distractor search can fix that, because:
  *
- *   1. A cell in this family is fully described by two axes, each with
- *      exactly three values, and nothing else varies. So there are 3 x 3 = 9
- *      distinguishable cells in total.
+ *   1. A cell in this family VARIES on two axes, each with exactly three
+ *      values; every other attribute `cellEq` compares (size, anchor,
+ *      rotation, layer composition) is held constant across the whole
+ *      family. So the family's VOCABULARY — the set of figures reachable
+ *      without introducing a value no cell shows — has 3 x 3 = 9 members.
  *   2. The grid has 9 positions. `CELL_DUPLICATE` (ruleCount >= 2) forbids
  *      any two of them coinciding. By pigeonhole the 9 positions therefore
  *      realise all 9 (shape, fill) pairs — 8 of them visible, the 9th being
  *      the key. That is the family's own Graeco-Latin proof, restated.
- *   3. Hence EVERY constructible option is either one of the 8 visible pairs
+ *   3. Hence every IN-VOCABULARY option is either one of the 8 visible pairs
  *      (a verbatim copy) or the key's pair. Two options cannot both be the
- *      key's pair (`OPTION_HOMOGENEITY`). So exactly one option can ever be a
- *      non-copy, and it is always the key.
+ *      key's pair (`OPTION_HOMOGENEITY`). So exactly one in-vocabulary option
+ *      can ever be a non-copy, and it is always the key.
+ *
+ * CORRECTION (2026-08-14). Step 3 as originally written said "EVERY
+ * constructible option", reasoning over the two rule axes as though they
+ * were the whole cell. They are not — `cellEq` compares five attributes, so
+ * an option CAN be constructed that is not a copy and not the key, by
+ * varying size, anchor or rotation. That does not rescue the family; it just
+ * means the theorem has to be stated one level up, where it is also
+ * stronger and applies to any family in this position:
+ *
+ *     While the grid exhausts the vocabulary, EVERY non-key non-copy must
+ *     carry a feature value that appears in ZERO visible cells.
+ *
+ * Because such an option is eliminable by a cue that costs no rule
+ * extraction ("no cell is drawn at that size / with that many bars"), adding
+ * one does not give the key a companion in its class — it creates a second
+ * one-member class. That is now enforced as gate G-19
+ * (`qa/degeneracy.ts`'s `eliminationResistanceCheck`), which partitions the
+ * options by BOTH cues at once. The reason this correction matters beyond
+ * pedantry: `lrm-xor-xlayer.ts` and `lrm-xor-dist-xlayer.ts` were in exactly
+ * this pigeonhole and were "fixed" with precisely the import this file's own
+ * escape-hatch list rules out. Measured, the chained cue isolated their keys
+ * in 121/121 and 129/129 items. They were repaired properly — by widening
+ * the vocabulary, per the closing paragraph below — in the same pass that
+ * corrected this proof.
  *
  * The escape hatches are all closed too, and it is worth writing down why,
- * because "just widen the pool" is the obvious wrong answer:
+ * because "just widen the pool" is the obvious wrong answer (widening the
+ * POOL is not the same as widening the VOCABULARY — the first draws from
+ * outside what the grid shows, the second changes what the grid shows):
  *
  *   - Loosening orthogonality does not help. Over Z3 two cyclic Latin
  *     squares are either orthogonal (9 distinct pairs, the case above) or
@@ -41,7 +69,9 @@
  *   - Drawing a distractor from OUTSIDE the item's vocabulary (a fourth
  *     shape, or a size no cell uses) is not a fix but a second leak of the
  *     same kind: it creates a new one-member eliminable class, so "eliminate
- *     copies, then eliminate the odd one out" still lands on the key.
+ *     copies, then eliminate the odd one out" still lands on the key. This
+ *     is no longer only an argument — it is gate G-19, and it was written
+ *     after two other families were measured leaking through exactly here.
  *
  * What a working replacement looks like is already in the tree: give the
  * second or third axis a value space LARGER than the grid can exhaust — a

@@ -15,11 +15,13 @@
  * (`runBatchGates`, which also reconciles G-17 — see that file's header
  * comment) and invoked from generator/index.ts's `generateBatch`, not here.
  *
- * G-18 has no doc §7 counterpart at all — it is an addition (rule-subset
- * sufficiency, `qa/degeneracy.ts`), made alongside the correction to G-11
- * because both catch the same class of defect: a shortcut that lets a
- * candidate reach the key without doing the work the item's declared rule
- * content is credited with.
+ * G-18 and G-19 have no doc §7 counterpart at all — they are additions
+ * (rule-subset sufficiency and elimination resistance, both in
+ * `qa/degeneracy.ts`), made alongside the correction to G-11 because all
+ * three catch the same class of defect: a shortcut that lets a candidate
+ * reach the key without doing the work the item's declared rule content is
+ * credited with. G-09 gained a third component (`keyBulkExtremumCheck`) for
+ * the same reason.
  */
 import { FiguralMatrixItemSpec, CognitiveOptionSpec, type RuleSpec } from '../../spec/schema'
 import { contentHash } from '../../spec/hash'
@@ -27,7 +29,7 @@ import type { ComposedItem } from '../compose'
 import type { PlacedOption } from '../distractors'
 import { detectAllAxes, levelA, levelB } from './uniqueness'
 import { contextBlindGate, giveawayPairGate } from './contextblind'
-import { copyEliminationCheck, gridLevelDegeneracy, optionComplexitySpreadCheck, optionHomogeneityCheck, singleRuleSufficiencyCheck } from './degeneracy'
+import { copyEliminationCheck, eliminationResistanceCheck, gridLevelDegeneracy, keyBulkExtremumCheck, optionComplexitySpreadCheck, optionHomogeneityCheck, singleRuleSufficiencyCheck } from './degeneracy'
 import { inkCoverageGate, elementOverlapGate, renderLegibilityGate } from './density'
 import { duplicateGate, structuralHash } from './duplicates'
 import { predictedB, band, type Band } from '../difficulty'
@@ -163,11 +165,22 @@ export function runQaBattery(input: QaInput): QaOutcome {
     // that makes the declared rule content a fiction), found the same way.
     const srs = singleRuleSufficiencyCheck(optionCells, keyIndex, item.template.axes)
     gates['G-18'] = srs.status === 'pass' ? { status: 'pass', detail: srs.detail } : { status: 'fail', detail: srs.detail }
+
+    // G-19 — elimination resistance. G-11's invariant, applied to the
+    // conjunction of BOTH rule-blind cues instead of just the copy cue, and
+    // with "copy" read on the declared rule axes rather than on full cell
+    // identity. See `eliminationResistanceCheck`: G-11 alone let two
+    // families ship items that a candidate could still solve with certainty
+    // by eliminating the copies and then the option whose bar count no
+    // visible cell showed.
+    const elim = eliminationResistanceCheck(item.grid, optionCells, keyIndex, item.template.axes)
+    gates['G-19'] = elim.status === 'pass' ? { status: 'pass', detail: elim.detail } : { status: 'fail', detail: elim.detail }
   } else {
     gates['G-08'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-10'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-11'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-18'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
+    gates['G-19'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
   }
 
   // G-09 — option homogeneity. `countGoverned` (also used by G-15's ink
@@ -177,7 +190,14 @@ export function runQaBattery(input: QaInput): QaOutcome {
   const optionCellsForHomog = placedOptions.map((o) => ({ elements: o.elements }))
   const homog = optionHomogeneityCheck(optionCellsForHomog)
   const spread = optionComplexitySpreadCheck(optionCellsForHomog, countGoverned)
-  gates['G-09'] = homog.status === 'pass' && spread.status === 'pass' ? { status: 'pass' } : { status: 'fail', detail: { homog, spread } }
+  // `placedOptions` already carries `isKey`, so the bulk check does not need
+  // Level B to have run — it is available even when G-06 could not resolve a
+  // key index.
+  const bulk = keyBulkExtremumCheck(
+    optionCellsForHomog,
+    placedOptions.findIndex((o) => o.isKey),
+  )
+  gates['G-09'] = homog.status === 'pass' && spread.status === 'pass' && bulk.status === 'pass' ? { status: 'pass' } : { status: 'fail', detail: { homog, spread, bulk } }
 
   // G-12 — degeneracy (grid-level).
   const keyCellForDeg = { elements: placedOptions.find((o) => o.isKey)!.elements }

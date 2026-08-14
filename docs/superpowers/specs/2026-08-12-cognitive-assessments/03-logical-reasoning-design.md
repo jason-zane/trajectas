@@ -324,6 +324,23 @@ Predicted difficulty is computed from §4.4 and stated with its band. Target res
 - **D (IR):** the near-miss — three of four bars, dropping D2; catches candidates who lose one element during mental superimposition (the canonical addition error).
 - **E (RP):** exact copy of R3C1; the no-operation default.
 
+> **Correction (2026-08-14, second copy-elimination pass). The disjoint-operand layout above is solvable by counting, and does not test what it claims to test.** Two measured findings, both over 20 seeds x 8 draws of the operational family:
+>
+> 1. **The key is the strict maximum-ink option in 141 of 141 items (100%).** The grid's bar counts read 1,1,2 / 1,1,2 / 2,2,? and the key is the only four-bar figure that exists over a four-bar vocabulary. "Pick the fullest tile" scores this family perfectly while extracting nothing about R4. Note this is a *stronger* statement than "counting solves it": there is no four-bar distractor available at all, so no distractor search can blunt the cue.
+> 2. **The stated rationale is inverted.** The rationale above argues the disjoint operands establish "no cancellation". They do the opposite: when every operand pair is disjoint, `union` and `symdiff` agree on every cell of the grid *and on the key*, so the cancellation reading is never tested — merely never contradicted. Doc's own M8 (§6) relies on candidates confusing the two operators; M4 as written cannot tell them apart.
+>
+> **The operational family therefore overlaps every row's operands in exactly one bar.** Rows read 2,2,3 throughout; `union` explains the grid and `symdiff` explains no row; and the "cancellation instead of addition" error becomes a real, distinguishable distractor rather than a duplicate of the key. Construction: index the four bars `[b0,b1,b2,b3]`; row *r* draws from the triangle `T_r` = all four minus `b_{r-1}`, its third cell IS `T_r`, and its two operands are two distinct 2-subsets of `T_r` (any two distinct 2-subsets of a 3-set union to the whole set, so R4 holds exactly). The eight visible cells consume all six 2-subsets and three of the four 3-subsets, leaving exactly one in-vocabulary figure the grid never shows — which is what G-11/G-19 need to be satisfiable at all. A worked instance with `[H,V,D1,D2]`:
+>
+> | | C1 | C2 | C3 |
+> |---|---|---|---|
+> | **R1** | {V-bar, D2-bar} | {V-bar, D1-bar} | {V-bar, D1-bar, D2-bar} |
+> | **R2** | {D1-bar, D2-bar} | {H-bar, D1-bar} | {H-bar, D1-bar, D2-bar} |
+> | **R3** | {H-bar, D2-bar} | {H-bar, V-bar} | **?** = {H-bar, V-bar, D2-bar} |
+>
+> Options: **A (RP)** copy of R1C3; **B (IR)** copy of R2C3; **C (WR)** symmetric difference of row 3's operands — {V-bar, D2-bar}, cancelling the shared H-bar instead of keeping it, which under the disjoint layout *was* the key and so could never be offered; **D (WR)** {H-bar, V-bar, D1-bar}, the one three-bar figure the grid never shows, reached by superimposing the wrong operand pair. Option element counts are 3,3,3,2,3 — the key's bulk is shared, and gate **G-09** now enforces that (`keyBulkExtremumCheck`).
+>
+> **Predicted b is unchanged at −0.4**: the radicals (`ruleIds: ['R4']`, `ruleCount: 1`, `crossLayer: false`, `perceptualLoad: 1`, `nearMissCount: 2`) are untouched. No weight and no band cutoff moved — this correction changes what the item *is*, not what it is labelled.
+
 ---
 
 ### M5 — Figure subtraction (positioned dots)
@@ -480,6 +497,24 @@ This item's distractor set is deliberately dominated by single-rule near-misses 
 >
 > **Predicted b, recomputed:** with radicals `ruleIds: ['R7','R1']`, `ruleCount: 2`, `crossLayer: true`, `perceptualLoad: 1` (R1 here is a plain cardinal progression, so the non-cardinal-rotation bonus does not apply): b = −2.0 + (1.6 + 0.0) + 0.5×(2−1) + 0.5×1 + 0.3×1 + 0 = **+0.9 → Hard**, superseding the +2.2 figure quoted above the table — see §4.4's correction note. M8 alone does not reach the very-hard band under the (unchanged) formula; §9 below documents which families do.
 
+> **Second correction (2026-08-14, copy-elimination pass 2). The three-bar vocabulary is too small for this item shape, and the corrected table above inherits the problem.** With 3 shapes and 3 two-bar sets there are exactly 9 distinguishable cells, and the duplicate-free grid plus the key consumes all 9 — which is precisely the pigeonhole `LRM-DIST3X2` was unregistered for. The consequence is not a weak distractor search but a theorem: **while the grid exhausts the vocabulary, every non-key non-copy must carry a feature value appearing in zero visible cells.** Doc's own options B (intersection, one bar) and C (union, three bars) are exactly that, in a grid where every cell shows two bars.
+>
+> Measured on the operational family, over 20 seeds x 8 draws, with the two-step heuristic *(1) eliminate any option that is a verbatim copy of a visible cell, (2) eliminate any option carrying a feature value that appears in no visible cell*: the key was isolated with certainty in **121 of 121** items for LRM-XOR-XLAYER and **129 of 129** for LRM-XOR-DIST-XLAYER, against 0% for all eight other registered families.
+>
+> **The operational families now draw their two-bar sets from all four schema bar positions** ({H, V, D1, D2}), not three. C(4,2) = 6 two-bar sets x 3 shapes = 18 distinguishable cells against 9 grid positions, so nine in-vocabulary (shape, bar-set) combinations are always left over and a genuine non-copy always exists. Row *r* draws from a three-bar triangle omitting one bar, and each cell within the row drops one further bar by role, so each row's three cells are the three 2-subsets of its triangle and `C3 = C1 △ C2` still holds exactly, by construction and without search. The full derivation — including why the grid's three bar-set collision pairs always land in different columns (which is what keeps the item duplicate-free under M8's column-only shape rule *and* under LRM-XOR-DIST-XLAYER's Latin square) — is in `src/lib/cognitive/generator/families/xor-bars.ts`. A worked instance with roles `[H,V,D1,D2]`:
+>
+> | | C1 | C2 | C3 |
+> |---|---|---|---|
+> | **R1** | triangle; inner {V-bar, D2-bar} | square; inner {D1-bar, D2-bar} | pentagon; inner {V-bar, D1-bar} |
+> | **R2** | triangle; inner {H-bar, D2-bar} | square; inner {H-bar, D1-bar} | pentagon; inner {D1-bar, D2-bar} |
+> | **R3** | triangle; inner {H-bar, V-bar} | square; inner {H-bar, D2-bar} | **?** = pentagon; inner {V-bar, D2-bar} |
+>
+> Row checks: {V,D2}△{D1,D2}={V,D1} ✓; {H,D2}△{H,D1}={D1,D2} ✓; {H,V}△{H,D2}={V,D2} ✓. The key's bar-set is also visible at (1,1) — the role map is chosen so the key is *not* the one bar pair the grid never shows, denying a candidate that reading too.
+>
+> **What this costs the doc-style option grammar.** Doc's B (intersection → one bar) and C (union → three bars) remain the honest names for the two wrong-operator errors, and remain offered; they are simply no longer permitted to be the *only* non-copies. Gate **G-19** now requires at least two options in the key's class under both cues at once, and both families' distractor pools were narrowed to the six in-vocabulary two-bar sets so the requirement is met by construction rather than by luck.
+>
+> **Predicted b is unchanged at +0.9 (Hard) for M8 and +1.8 (Very hard) for LRM-XOR-DIST-XLAYER.** The radicals are untouched: same rule ids, same rule count, same cross-layer flag, same perceptual load, same near-miss count. Widening the bar vocabulary changes which figures the grid draws, not how many rules a solver must compose — no weight and no band cutoff moved.
+
 ---
 
 ### 6.1 Matrix blueprint summary
@@ -489,7 +524,7 @@ This item's distractor set is deliberately dominated by single-rule near-misses 
 | M1 | R1×2 (count) | 2 trivial rules, 1 layer | −2.0 | Easy | 30 s | B |
 | M2 | R2 | rotation, cardinal+45°, 1 layer | −1.4 | Easy | 35 s | D |
 | M3 | R6×2 | double distribution, 1 layer | −0.7 | Easy–Mod | 45 s | A |
-| M4 | R4 | addition, disjoint then overlapping operands | −0.4 | Moderate | 50 s | C |
+| M4 | R4 | addition, overlapping operands throughout (see the 2026-08-14 correction under M4 — the disjoint layout was solvable by counting) | −0.4 | Moderate | 50 s | C |
 | M5 | R5 | subtraction on anchored sets | −0.2 | Moderate | 55 s | E |
 | M6 | R6 + R2 | 2 rules, cross-layer | +0.8 † | Hard | 70 s | B |
 | M7 | R6×2 + R1 | 3 rules, near-miss-dominant options | +1.3 | Hard | 85 s | D |

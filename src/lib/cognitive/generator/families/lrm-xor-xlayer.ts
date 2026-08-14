@@ -11,19 +11,21 @@
  * CELL_DUPLICATE in the canonical exemplar, independent of the already-
  * documented G-08 issue doc's own Appendix A raises for M8's bar pattern.
  *
- * This family avoids it by construction rather than by search: doc 03-
- * logical-reasoning-design.md §6 M8 itself notes the row rule is
- * "equivalently stated as distribution-of-two: each bar type appears in
- * exactly two cells per row." Taking that framing literally and applying
- * it to EVERY cell (not just as a side-observation) — bar `i` is missing
- * from column `(col - row - i) mod 3` in every row — makes each cell's
- * bar-set exactly `{all 3 bars} minus {the one missing bar}` and, by
- * construction (proved in the code comment on `missingBarIndex`), (a)
- * satisfies `C3 = C1 xor C2` exactly and (b) gives every one of the 9
- * cells a DIFFERENT bar-set within its own column — so combined with
- * outer.shape's column-only dependence, no two cells can coincide on both
- * axes. No search is needed for this family; the construction is
- * duplicate-free by proof, not by trial.
+ * This family avoids it by construction rather than by search, using the
+ * four-bar XOR construction in `xor-bars.ts` — see that file for the full
+ * derivation and for why the earlier THREE-bar version of it had to be
+ * replaced (it made the 9 grid cells exhaust the family's entire 9-cell
+ * vocabulary, so no in-vocabulary non-copy distractor could exist and the
+ * only available repair was an out-of-vocabulary import that a candidate
+ * could eliminate on sight). Briefly: row `r` draws from a three-bar
+ * triangle that omits `barRoles[r-1]`, each cell drops one further bar by
+ * role, and the result (a) satisfies `C3 = C1 xor C2` exactly in every row,
+ * (b) puts the grid's three bar-set collision pairs in different COLUMNS —
+ * so `outer.shape`'s column-only dependence separates them and no two cells
+ * coincide on both axes, key included — and (c) leaves 9 of the 18
+ * (shape, bar-set) combinations unused and available as honest distractors.
+ * No search is needed for the GRID; the construction is duplicate-free by
+ * proof, not by trial.
  */
 import type { BarId, Element, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, setVal } from '../axes'
@@ -32,32 +34,26 @@ import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../comp
 import { repetition } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
-import { copyEliminationOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
+import { copyEliminationOk, eliminationResistanceOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
 import { combinations4 } from '../combinatorics'
 import { cellEq } from '../axes'
+import { ALL_BAR_IDS, type BarRoles, barsAt as barsAtRole, sameBars, sortBars, twoBarSets } from './xor-bars'
 
 const SHAPE_AXIS = 'outer.shape'
 const BARS_AXIS = 'inner.bars'
 
 /** Sides 3, 4, 5 — the only three regular-polygon shapes in the vocabulary with that side count. */
 const SHAPE_LADDER: ShapeId[] = ['triangle', 'square', 'pentagon']
-const ALL_BARS: BarId[] = ['H', 'V', 'D1']
 
 export interface M8Params {
-  /** Which physical bar plays role 0/1/2 in `missingBarIndex`. */
-  barRoles: [BarId, BarId, BarId]
+  /** `[b0, b1, b2, u]` — row `r` omits `b_{r-1}`; see `xor-bars.ts`. */
+  barRoles: BarRoles
   /** Column direction of the side-count progression. */
   shapeDir: 1 | -1
 }
 
-/** See the file header proof: bar `barRoles[i]` is missing from row `row`'s column `((col - row - i) % 3 + 3) % 3 + 1`. Equivalently, for a given (row, col), the missing role index is `(col - row) mod 3` — proved to make `C3 = C1 xor C2` hold and every column's 3 cells pairwise bar-distinct. */
-function missingRoleIndex(row: number, col: number): number {
-  return (((col - row) % 3) + 3) % 3
-}
-
 function barsAt(params: M8Params, row: number, col: number): BarId[] {
-  const missing = params.barRoles[missingRoleIndex(row, col)]
-  return ALL_BARS.filter((b) => b !== missing)
+  return barsAtRole(params.barRoles, row, col)
 }
 
 function shapeAt(params: M8Params, col: number): ShapeId {
@@ -76,12 +72,8 @@ function cell(shape: ShapeId, bars: readonly BarId[]): Element[] {
     // to M to stay inside the ceiling with headroom; still well clear of
     // the 0.04 floor for every shape in the ladder at this size.
     { type: 'shape', layer: 'outer', shape, fill: 'outline', size: 'M', anchor: 'CTR', rotation: 0 },
-    { type: 'bars', layer: 'inner', bars: [...bars].sort(barOrder), clipToOuter: true },
+    { type: 'bars', layer: 'inner', bars: sortBars(bars), clipToOuter: true },
   ]
-}
-const BAR_ORDER: Record<BarId, number> = { H: 0, V: 1, D1: 2, D2: 3 }
-function barOrder(a: BarId, b: BarId): number {
-  return BAR_ORDER[a] - BAR_ORDER[b]
 }
 
 export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
@@ -116,7 +108,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
   distractorPlan: ['WR', 'WR', 'IR', 'RP'],
   sampleParams(rng: Rng): M8Params {
-    const barRoles = rng.shuffle(ALL_BARS) as [BarId, BarId, BarId]
+    const barRoles = rng.shuffle(ALL_BAR_IDS) as BarRoles
     const shapeDir = rng.pick([1, -1] as const)
     return { barRoles, shapeDir }
   },
@@ -162,6 +154,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
         for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
       const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
       if (!copyEliminationOk(contextCells, cells, 0)) return false
+      if (!eliminationResistanceOk(contextCells, cells, 0, ctx.axes)) return false
       if (!singleRuleSufficiencyOk(cells, 0, ctx.axes)) return false
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
@@ -181,49 +174,44 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
      * tally. Fall back to a pool-and-search repair, as elsewhere.
      */
     /**
-     * SECOND FINDING (the copy-elimination leak, G-11): the recombination
-     * pool this fallback originally searched was the 3 shapes x the 3
-     * TWO-bar sets — and that is exactly the 9 cells of the grid. The R7
-     * construction gives every cell a two-bar set, `missingRoleIndex` is a
-     * bijection of `(col-row) mod 3`, and `shapeAt` depends only on column,
-     * so (shape, bar-set) realises all 9 combinations across the 9 cells.
-     * Every 4-subset of that pool was therefore four verbatim copies of
-     * visible cells, and since the key is the one combination the grid does
-     * NOT show, "eliminate every option that reproduces a cell" identified
-     * the key with certainty in 84 of 84 items measured.
+     * SECOND FINDING (the copy-elimination leak, G-11) AND ITS CORRECTION.
+     * The recombination pool this fallback originally searched was the 3
+     * shapes x the 3 TWO-bar sets a three-bar universe affords — and that is
+     * exactly the 9 cells of the grid. Every 4-subset of it was therefore
+     * four verbatim copies of visible cells, and since the key was the one
+     * combination the grid did not show, "eliminate every option that
+     * reproduces a cell" identified the key in 84 of 84 items measured.
      *
-     * The pool now also carries the ONE-bar and THREE-bar sets. Those are
-     * not a widening for its own sake — they are what the two canonical
-     * wrong-operator errors actually produce (intersection instead of
-     * symmetric difference leaves one bar; union leaves three), i.e. doc's
-     * own wr1/wr2 mechanisms, and no cell in the grid can show either. So
-     * the search now has genuinely novel near-misses available, built from
-     * the same three bar identities the grid uses — not from some out-of-
-     * vocabulary value a candidate could eliminate on sight instead.
+     * The first repair added the ONE-bar and THREE-bar sets (what the
+     * intersection and union wrong-operator errors produce). That did not
+     * work, and could not have: no cell in a three-bar grid shows one or
+     * three bars, so the imported option was eliminable by a second
+     * rule-blind cue and the pair (copy-elimination, then "that bar count is
+     * impossible") isolated the key in 121 of 121 items measured. It is the
+     * same escape hatch `families/lrm-dist3x2.ts` was unregistered for
+     * reaching, and the theorem there applies here verbatim: while the grid
+     * exhausts the vocabulary, EVERY non-key non-copy must carry a feature
+     * value appearing in zero visible cells.
+     *
+     * The real repair is upstream, in `xor-bars.ts`: the bar universe is now
+     * all four schema bar positions, so the grid's 9 cells consume only 9 of
+     * 18 (shape, bar-set) combinations and the remaining 9 are honest
+     * two-bar figures built from bars the candidate has already seen. THIS
+     * pool is exactly those in-vocabulary combinations. It deliberately does
+     * NOT carry one- or three-bar sets: `validSet` now also runs G-19
+     * (`eliminationResistanceOk`), which would reject a set relying on them.
      */
-    const shapeValues = SHAPE_LADDER
-    const barValues: BarId[][] = [
-      [ALL_BARS[0], ALL_BARS[1]],
-      [ALL_BARS[0], ALL_BARS[2]],
-      [ALL_BARS[1], ALL_BARS[2]],
-      [ALL_BARS[0]],
-      [ALL_BARS[1]],
-      [ALL_BARS[2]],
-      [ALL_BARS[0], ALL_BARS[1], ALL_BARS[2]],
-    ]
-    const pool = shapeValues
-      .flatMap((s) => barValues.map((b) => ({ shape: s, bars: b })))
-      .filter((p) => !(p.shape === keyShapeId && p.bars.length === (keyBars.v as BarId[]).length && p.bars.every((x) => (keyBars.v as BarId[]).includes(x))))
+    const pool = SHAPE_LADDER.flatMap((s) => twoBarSets(ctx.params.barRoles).map((b) => ({ shape: s, bars: b }))).filter((p) => !(p.shape === keyShapeId && sameBars(p.bars, keyBars.v)))
     const labels: Array<'WR' | 'IR'> = ['WR', 'WR', 'IR', 'IR']
     for (const chosen of combinations4(pool)) {
       const candidates: DistractorCandidate[] = chosen.map((p, i) => {
-        const wrongAxes = [...(p.shape === keyShapeId ? [] : [SHAPE_AXIS]), ...(p.bars.every((x) => (keyBars.v as BarId[]).includes(x)) && p.bars.length === (keyBars.v as BarId[]).length ? [] : [BARS_AXIS])]
+        const wrongAxes = [...(p.shape === keyShapeId ? [] : [SHAPE_AXIS]), ...(sameBars(p.bars, keyBars.v) ? [] : [BARS_AXIS])]
         const mechanism = `recombine:{outer.shape=${p.shape},inner.bars=${p.bars.join('+')}}`
         return { elements: cell(p.shape, p.bars), label: labels[i], mechanism, wrongAxes }
       })
       if (validSet(candidates)) return candidates
     }
-    throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18 for params ${JSON.stringify(ctx.params)}`)
+    throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18/G-19 for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: M8Params) => ({ barRoles: params.barRoles, shapeDir: params.shapeDir }),

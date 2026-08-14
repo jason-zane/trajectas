@@ -237,6 +237,196 @@ export function copyEliminationOk(grid: readonly CellLike[], options: readonly C
   return copyEliminationCheck(grid, options, keyIndex).status === 'pass'
 }
 
+// ---------------------------------------------------------------------------
+// G-19 — elimination resistance. See `eliminationResistanceCheck`.
+// ---------------------------------------------------------------------------
+
+/**
+ * The "how many of X can I count here" reading of a cell: quantities a
+ * candidate can read off the figure with no rule knowledge at all. A feature
+ * that IS a declared rule axis's own value is excluded — reading it is
+ * solving the item, not shortcutting it. A CARDINALITY is never excluded on
+ * those grounds even when its axis is declared: `inner.bars` declares the
+ * SET, and "count the bars" is a strictly weaker reading that discards the
+ * identities the rule is about.
+ */
+export function surfaceCensus(cell: CellLike, declaredAxes: readonly AxisId[]): Record<string, number> {
+  const declared = new Set(declaredAxes)
+  const out: Record<string, number> = { elements: cell.elements.length }
+  for (const el of cell.elements) {
+    out[`type:${el.type}`] = (out[`type:${el.type}`] ?? 0) + 1
+    switch (el.type) {
+      case 'bars':
+        out[`bars:${el.layer}`] = el.bars.length
+        break
+      case 'dots':
+        out[`dots:${el.layer}`] = el.anchors.length
+        break
+      case 'repeat':
+        if (!declared.has(`${el.layer}.count`)) out[`repeat:${el.layer}`] = el.count
+        break
+      case 'tick':
+        if (!declared.has(`${el.layer}.length`)) out[`length:${el.layer}`] = el.length
+        break
+    }
+  }
+  return out
+}
+
+/**
+ * The "have I seen this ink anywhere on the grid" reading of a cell — every
+ * categorical value it draws. Same exclusion rule as `surfaceCensus`: a value
+ * that IS a declared rule axis's value is the rule, not a cue. Individual
+ * members of a set-valued axis (`bars`, `anchors`) ARE cues, for the same
+ * reason cardinalities are: "that bar appears nowhere" is weaker than the set
+ * relation the rule asserts.
+ */
+export function surfacePalette(cell: CellLike, declaredAxes: readonly AxisId[]): string[] {
+  const declared = new Set(declaredAxes)
+  const out: string[] = []
+  const push = (layer: string, attr: string, value: string | number) => {
+    if (!declared.has(`${layer}.${attr}`)) out.push(`${layer}.${attr}=${value}`)
+  }
+  for (const el of cell.elements) {
+    switch (el.type) {
+      case 'shape':
+        push(el.layer, 'shape', el.shape)
+        push(el.layer, 'fill', el.fill)
+        push(el.layer, 'size', el.size)
+        push(el.layer, 'anchor', el.anchor)
+        push(el.layer, 'rotation', el.rotation)
+        break
+      case 'repeat':
+        push(el.layer, 'shape', el.shape)
+        push(el.layer, 'fill', el.fill)
+        push(el.layer, 'size', el.size)
+        push(el.layer, 'rotation', el.rotation)
+        break
+      case 'tick':
+        push(el.layer, 'rotation', el.rotation)
+        break
+      case 'bars':
+        for (const b of el.bars) out.push(`${el.layer}.bar~${b}`)
+        break
+      case 'dots':
+        for (const a of el.anchors) out.push(`${el.layer}.dot~${a}`)
+        push(el.layer, 'fill', el.fill)
+        push(el.layer, 'size', el.size)
+        break
+    }
+  }
+  return out
+}
+
+/**
+ * "Is this option, as far as the DECLARED RULE AXES are concerned, a cell I
+ * can already see?" — the honest reading of "copy". `cellEq` compares every
+ * axis present, so an option that reproduces a visible cell and changes only
+ * its fill (or size, or anchor — anything no rule governs) counts as a novel
+ * figure to `copyEliminationCheck` while a candidate can still eliminate it
+ * on sight, from the palette rather than from the rules.
+ */
+export function ruleAxisTwinOf(grid: readonly CellLike[], option: CellLike, declaredAxes: readonly AxisId[]): number {
+  if (declaredAxes.length === 0) return -1
+  return grid.findIndex((c) =>
+    declaredAxes.every((axis) => {
+      const a = readAxis(c, axis)
+      const b = readAxis(option, axis)
+      if (a === null || b === null) return a === b
+      return axisEq(a, b)
+    }),
+  )
+}
+
+export interface EliminationCueFlags {
+  /** The option agrees with some visible cell on every declared rule axis. */
+  ruleAxisTwin: boolean
+  /** The option shows a count, or a piece of ink, that no visible cell shows. */
+  outOfVocabulary: boolean
+}
+
+/** The two rule-blind cues, evaluated for one option against the visible grid. */
+export function eliminationCues(grid: readonly CellLike[], option: CellLike, declaredAxes: readonly AxisId[]): EliminationCueFlags {
+  const census: Record<string, Set<number>> = {}
+  for (const c of grid) {
+    for (const [k, v] of Object.entries(surfaceCensus(c, declaredAxes))) (census[k] ??= new Set()).add(v)
+  }
+  const palette = new Set<string>()
+  for (const c of grid) for (const p of surfacePalette(c, declaredAxes)) palette.add(p)
+
+  const censusMiss = Object.entries(surfaceCensus(option, declaredAxes)).some(([k, v]) => !census[k]?.has(v))
+  const paletteMiss = surfacePalette(option, declaredAxes).some((p) => !palette.has(p))
+  return { ruleAxisTwin: ruleAxisTwinOf(grid, option, declaredAxes) >= 0, outOfVocabulary: censusMiss || paletteMiss }
+}
+
+/**
+ * G-19 — elimination resistance (an ADDITION to doc 03-item-generation-
+ * pipeline.md §7's G-01..G-17, and the strengthening of G-11 the
+ * copy-elimination audit asked for).
+ *
+ * G-11 partitions the options by ONE rule-blind cue — "is this a verbatim
+ * copy of a visible cell?" — and requires the key's class to hold at least
+ * two options. Measured over 20 seeds x 8 draws after G-11 was made real,
+ * two families passed it and were still solvable with certainty by a
+ * candidate who chained a SECOND rule-blind cue behind the first:
+ *
+ *     LRM-XOR-DIST-XLAYER   129/129   LRM-XOR-XLAYER   121/121
+ *
+ * because the only non-copy those families could construct carried a bar
+ * count (1 or 3) that appeared in no visible cell — every grid cell showed
+ * exactly two bars. Eliminating copies left two options; eliminating the
+ * impossible-looking one left the key. G-11 was satisfied and the item was
+ * still free.
+ *
+ * The generalisation is that ONE cue is not the unit of the invariant. A
+ * candidate applies every cue available, and the item is only honest if the
+ * INTERSECTION of the surviving classes still leaves a real choice. This
+ * gate therefore partitions the options by the conjunction of the two
+ * rule-blind cues a figural matrix affords (`eliminationCues`) and applies
+ * G-11's own requirement to that finer partition: **the class the key falls
+ * into must hold at least two options.**
+ *
+ * The two cues, and why each is the honest form of the question:
+ *
+ *  - `ruleAxisTwin` — "does this option reproduce a cell I can see?", read
+ *    on the DECLARED RULE AXES rather than on full cell identity. This is
+ *    the correction the audit named: `cellEq` compares every axis present,
+ *    so a distractor that copies a visible cell and changes only its fill is
+ *    a "novel figure" to G-11 while remaining eliminable on sight. Without
+ *    it, any family can clear a raised copy-elimination threshold by
+ *    trading copy-elimination for palette-elimination. (G-08 and G-10 read
+ *    only declared axes and so cannot see the difference at all.)
+ *  - `outOfVocabulary` — "does this option show a count, or a piece of ink,
+ *    that appears nowhere on the grid?". This is the cue the two XOR
+ *    families were leaking through. Features that ARE a declared axis's own
+ *    value are excluded from the vocabulary (see `surfaceCensus`), because
+ *    for those the cue and the rule are the same act: LRM-PROG-COUNT's key
+ *    shows an element count no cell shows, and that is the item, not a
+ *    shortcut.
+ *
+ * What this gate does NOT license: importing an out-of-vocabulary distractor
+ * to satisfy it. Doing so moves the option into the key's class only if the
+ * KEY is also out of vocabulary; otherwise it makes the leak worse, exactly
+ * as `families/lrm-dist3x2.ts`'s header proves. The satisfying move is to
+ * give the item a value space the 9 grid positions cannot exhaust, so that
+ * genuine in-vocabulary non-twins exist.
+ */
+export function eliminationResistanceCheck(grid: readonly CellLike[], options: readonly CellLike[], keyIndex: number, declaredAxes: readonly AxisId[]): CheckResult {
+  const flags = options.map((o) => eliminationCues(grid, o, declaredAxes))
+  const classOf = (f: EliminationCueFlags) => `${f.ruleAxisTwin ? 'twin' : 'novel'}/${f.outOfVocabulary ? 'unseen' : 'invocab'}`
+  const keyClass = classOf(flags[keyIndex])
+  const survivors = flags.filter((f) => classOf(f) === keyClass).length
+  const detail = { keyClass, survivors, classes: flags.map(classOf) }
+  return survivors >= 2
+    ? { id: 'ELIMINATION_RESISTANCE', status: 'pass', detail }
+    : { id: 'ELIMINATION_RESISTANCE', status: 'fail', detail: { ...detail, reason: 'CUE_CHAIN_ISOLATES_KEY' } }
+}
+
+/** Boolean form of `eliminationResistanceCheck`, for families choosing distractors. */
+export function eliminationResistanceOk(grid: readonly CellLike[], options: readonly CellLike[], keyIndex: number, declaredAxes: readonly AxisId[]): boolean {
+  return eliminationResistanceCheck(grid, options, keyIndex, declaredAxes).status === 'pass'
+}
+
 /**
  * G-18 — rule-subset sufficiency (an ADDITION to doc 03-item-generation-
  * pipeline.md §7's G-01..G-17, not a reading of one of them).
@@ -287,6 +477,36 @@ export function singleRuleSufficiencyCheck(options: readonly CellLike[], keyInde
 /** Boolean form of `singleRuleSufficiencyCheck`, for families choosing distractors. */
 export function singleRuleSufficiencyOk(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): boolean {
   return singleRuleSufficiencyCheck(options, keyIndex, axes).status === 'pass'
+}
+
+/**
+ * G-09, third component — the key must not be the option a candidate can pick
+ * by BULK alone. `optionComplexitySpreadCheck` above caps how far apart the
+ * options may sit; this caps who may sit at the end.
+ *
+ * FINDING that made it a gate rather than a measurement: LRM-ADD, built to
+ * doc 03-logical-reasoning-design.md §6 M4's layout, gave every row disjoint
+ * operands, so the union was always the full four-bar set and always the
+ * single busiest figure on offer. Measured over 20 seeds x 8 draws, the key
+ * was the STRICT maximum-ink option in 141 of 141 items — "pick the fullest
+ * tile" solved the family outright, with the bar identities the R4 rule is
+ * about never consulted. That is the same class of defect as G-11's and
+ * G-19's (a cue that reaches the key without the declared rule content), so
+ * it is checked the same way rather than left as a note.
+ *
+ * Sitting at an extremum is only a giveaway when the key sits there ALONE:
+ * an option set of {3,3,3,3,2} is fine, {4,3,2,2,2} with the key on 4 is not.
+ */
+export function keyBulkExtremumCheck(options: readonly CellLike[], keyIndex: number): CheckResult {
+  const counts = options.map(cellComplexity)
+  const keyCount = counts[keyIndex]
+  const sharers = counts.filter((c) => c === keyCount).length
+  if (sharers > 1) return { id: 'KEY_BULK_EXTREMUM', status: 'pass', detail: { counts, sharers } }
+  const isMax = counts.every((c) => c <= keyCount)
+  const isMin = counts.every((c) => c >= keyCount)
+  return isMax || isMin
+    ? { id: 'KEY_BULK_EXTREMUM', status: 'fail', detail: { counts, keyCount, at: isMax ? 'max' : 'min', reason: 'BULK_ALONE_ISOLATES_KEY' } }
+    : { id: 'KEY_BULK_EXTREMUM', status: 'pass', detail: { counts, sharers } }
 }
 
 export function optionHomogeneityCheck(options: readonly CellLike[]): CheckResult {
