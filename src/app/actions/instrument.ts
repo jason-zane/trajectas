@@ -1560,6 +1560,15 @@ export async function previewPublish(buildId: string): Promise<{
     // "Resilience", which is silent taxonomy pollution — the operator should get
     // the chance to link to the existing construct instead.
     if (!bp.constructId && bp.draftConstructName) {
+      // The repo slugify strips non-word characters and returns an EMPTY string
+      // for a punctuation-only name, which would insert a construct with a blank
+      // slug rather than fail. Block it here instead.
+      if (slugify(bp.draftConstructName).length === 0) {
+        blockers.push(
+          `Construct name "${bp.draftConstructName}" cannot be turned into a usable slug — give it a name containing letters or numbers`,
+        )
+      }
+
       const { data: nameClash } = await db
         .from('constructs')
         .select('id, name')
@@ -1794,6 +1803,9 @@ export async function publishBuild(
             name: bp.draftConstructName || 'Published Factor',
             slug: factorSlug,
             description: bp.draftConstructDefinition ?? null,
+            // The publish form collects this; dropping it silently produced
+            // factors with no dimension despite the admin choosing one.
+            dimension_id: parsed.data.dimensionId ?? null,
             is_active: true,
             // Explicitly NOT match-eligible: the Architect filters its
             // recommendation pool on this column and it defaults to true, so a
@@ -1880,10 +1892,24 @@ export async function publishBuild(
           continue
         }
 
-        // Mark candidate item with published_item_id
-        await updateCandidateItem(db, item.id, {
-          publishedItemId: publishedItem.id,
-        })
+        // Link the candidate to the item it produced. If this fails the item
+        // exists but nothing records it, so a re-publish would insert a second
+        // copy. Roll the item back rather than leave an untracked orphan.
+        try {
+          await updateCandidateItem(db, item.id, {
+            publishedItemId: publishedItem.id,
+          })
+        } catch (linkError) {
+          await db
+            .from('items')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', publishedItem.id)
+          throw new Error(
+            `Published an item but could not link it back to its candidate (rolled back): ${
+              linkError instanceof Error ? linkError.message : 'unknown error'
+            }`,
+          )
+        }
 
         itemsPublished++
         nextDisplayOrder++

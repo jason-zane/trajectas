@@ -1678,7 +1678,11 @@ export async function softDeletePublishedItems(
     return 0;
   }
 
-  // Step 2: Soft-delete the items
+  // Step 2: Soft-delete the items.
+  // If this fails we must NOT clear the links below — doing so would strand
+  // live library items with nothing recording where they came from, which is
+  // worse than the failure being handled. throwActionError throws, so step 3
+  // is unreachable on failure; that ordering is deliberate.
   const { error: deleteErr } = await db
     .from("items")
     .update({ deleted_at: new Date().toISOString() })
@@ -1687,12 +1691,14 @@ export async function softDeletePublishedItems(
   if (deleteErr) {
     throwActionError(
       "softDeletePublishedItems",
-      "Unable to delete items.",
+      "Unable to delete items. Candidate links were left intact so the published items remain traceable.",
       deleteErr,
     );
   }
 
-  // Step 3: Clear published_item_id on the candidates
+  // Step 3: Only now clear published_item_id. Safe to re-run: a failure here
+  // leaves items soft-deleted with links intact, and re-running finds the same
+  // ids, re-soft-deletes (a no-op) and clears them.
   const { error: clearErr } = await db
     .from("instrument_candidate_items")
     .update({ published_item_id: null })
