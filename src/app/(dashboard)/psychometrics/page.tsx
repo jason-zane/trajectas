@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/page-header";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { TiltCard } from "@/components/tilt-card";
 import { getPsychometricOverview } from "@/app/actions/psychometrics";
+import { RunCalibrationPanel } from "./run-calibration-panel";
 
 /* ------------------------------------------------------------------ */
 /*  Readiness checks                                                   */
@@ -257,6 +258,12 @@ export default async function PsychometricsPage() {
         eyebrow="Psychometrics"
         title="Psychometric Dashboard"
         description="Monitor item quality, scale reliability, and norm data across your assessment library."
+      />
+
+      {/* Calibration control */}
+      <RunCalibrationPanel
+        lastCalibrationDate={overview.lastCalibrationDate}
+        lastCalibrationSampleSize={overview.lastCalibrationSampleSize}
       />
 
       {/* Empty state — shown when no calibration runs exist */}
