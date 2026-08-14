@@ -58,3 +58,6 @@ next-env.d.ts
 
 # supabase cli scratch
 supabase/.temp/
+
+# Generated artefacts (reproducible from a seed; see scripts/cognitive/)
+/var/
