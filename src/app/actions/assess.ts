@@ -24,7 +24,7 @@ import {
   requireParticipantRuntimeCampaignAssessmentAccess,
   requireParticipantRuntimeSessionAccess,
 } from '@/lib/auth/participant-runtime'
-import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
+import { scoreSession } from '@/lib/scoring/dispatch'
 import {
   shouldGenerateIndividualReports,
   type CampaignConfidentialityMode,
@@ -1281,7 +1281,7 @@ async function finalizeCompletedSessionProcessing(input: {
     }
   }
 
-  const scoringResult = await scoreSessionCTT(input.sessionId)
+  const scoringResult = await scoreSession(input.sessionId)
   if ('error' in scoringResult) {
     logActionError('submitSession.scoring', scoringResult.error)
     await markParticipantSessionProcessing(input.sessionId, {
