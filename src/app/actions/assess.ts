@@ -683,7 +683,11 @@ export async function startSectionTiming(
   token: string,
   sessionId: string,
   sectionId: string,
-): Promise<{ data: SectionTimingForRunner } | { error: string }> {
+): Promise<
+  | { data: SectionTimingForRunner }
+  | { blocked: 'practice_incomplete' }
+  | { error: string }
+> {
   const parsed = startSectionTimingInputSchema.safeParse({ token, sessionId, sectionId })
   if (!parsed.success) {
     return { error: 'Invalid input' }
@@ -711,6 +715,17 @@ export async function startSectionTiming(
   }
   if (!data) {
     return { error: 'This section is not available right now' }
+  }
+
+  // LR-6 / #336 practice-completion gate — start_section_for_session
+  // returns this distinctly-shaped payload (never NULL) instead of the
+  // normal timing row when the section is 'scored' and a 'practice'-role
+  // section in this assessment still has unanswered items for this
+  // session. See supabase/migrations/20260814100000_lr6_practice_completion
+  // _gate.sql. The caller (the section page) must route the participant
+  // back to practice, not render an untimed scored section.
+  if ((data as { blocked?: string }).blocked === 'practice_incomplete') {
+    return { blocked: 'practice_incomplete' }
   }
 
   const row = data as SectionTimingForRunner

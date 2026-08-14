@@ -80,6 +80,13 @@ export const finaliseSectionInputSchema = z.object({
   reason: z.enum(['participant', 'client_timer']),
 })
 
+export const checkPracticeAnswerInputSchema = z.object({
+  token: accessToken,
+  sessionId: postgresUuid(),
+  itemId: postgresUuid(),
+  chosenOptionId: postgresUuid(),
+})
+
 export const triggerReportGenerationInputSchema = z.object({
   sessionId: postgresUuid(),
 })

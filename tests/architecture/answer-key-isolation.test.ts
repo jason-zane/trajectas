@@ -41,6 +41,16 @@ const RUNNER_PATH_FILES = [
   "src/components/assess/item-card.tsx",
   "src/components/assess/section-wrapper.tsx",
   "src/components/assess/use-save-queue.ts",
+  // LR-6 / #336 practice mode: renders the { correct, message } verdict
+  // from src/app/actions/assess-practice.ts#checkPracticeAnswer. Note that
+  // action itself is deliberately NOT listed here — see its file-header
+  // comment. It legitimately reads item_answer_keys /
+  // item_option_diagnostics server-side (the same way
+  // src/lib/scoring/ability-session.ts and ctt-session.ts do, neither of
+  // which is in this list either) specifically so it can derive that safe
+  // verdict; this component is the actual display boundary the key must
+  // never cross.
+  "src/components/assess/practice-feedback.tsx",
 ];
 
 /** Identifiers that carry, or index, the correct answer. */

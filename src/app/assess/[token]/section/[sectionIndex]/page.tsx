@@ -111,6 +111,30 @@ export default async function SectionPage({
   // enforcement lives in the save RPCs regardless of whether the client got
   // a timing payload.
   const timingResult = await startSectionTiming(token, sessionId, section.id);
+
+  // LR-6 / #336 practice-completion gate: this section couldn't start
+  // because a 'practice'-role section still has unanswered items. Route the
+  // participant back to the first practice section with something
+  // unanswered — never render this (scored) section untimed, and never
+  // surface a raw/opaque failure for what is really "go finish practice".
+  if ("blocked" in timingResult && timingResult.blocked === "practice_incomplete") {
+    const practiceSectionIdx = sections.findIndex(
+      (s) => s.sectionRole === "practice" && s.items.some((it) => !(it.id in responses)),
+    );
+    if (practiceSectionIdx !== -1) {
+      redirect(`/assess/${token}/section/${practiceSectionIdx}`);
+    }
+    // Defensive fallback — the gate says practice is incomplete but every
+    // practice item in the delivered payload already has a response. Should
+    // not happen (the gate and this payload read the same underlying
+    // participant_responses rows), but fail loudly with a branded surface
+    // rather than rendering a broken/untimed scored section.
+    return renderBrandedAssessError(
+      "Please finish the practice items before continuing.",
+      token,
+    );
+  }
+
   const sectionWithTiming =
     "data" in timingResult ? { ...section, timing: timingResult.data } : section;
 
