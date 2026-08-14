@@ -1,25 +1,8 @@
 import { z } from 'zod'
 import { postgresUuid } from '@/lib/validations/uuid'
+import { AI_PROMPT_PURPOSES } from '@/lib/ai/purposes'
 
-const aiPromptPurpose = z.enum([
-  'competency_matching',
-  'ranking_explanation',
-  'diagnostic_analysis',
-  'item_generation',
-  'factor_item_generation',
-  'library_import_structuring',
-  'preflight_analysis',
-  'embedding',
-  'chat',
-  'report_narrative',
-  'report_strengths_analysis',
-  'report_development_advice',
-  'item_critique',
-  'synthetic_respondent',
-  'brief_extraction',
-  'architect_overview',
-  'library_field_assist',
-])
+const aiPromptPurpose = z.enum(AI_PROMPT_PURPOSES)
 
 export const getPromptVersionsSchema = z.object({
   purpose: aiPromptPurpose,

@@ -12,11 +12,81 @@
  * raters have judged, `toCongruenceRatings()` prepares the input to the EXISTING
  * `runCongruencePanel()` aggregation function.
  *
+ * Per-rater shuffling: Each rater sees candidates in a different order (deterministic
+ * based on buildId, itemId, raterSlot) to eliminate position bias across independent
+ * raters. The shuffle permutation is tracked and applied as an inverse mapping before
+ * scoring to recover true construct IDs.
+ *
  * @module
  */
 
+import { createHash } from 'node:crypto'
 import type { MeasureType } from './types'
 import type { CongruenceRating } from './congruence'
+
+// ---------------------------------------------------------------------------
+// Seeded Shuffling for Per-Rater Candidate Order
+// ---------------------------------------------------------------------------
+
+/**
+ * Derive a deterministic random seed from (buildId, itemId, raterSlot).
+ * Returns a seed value in range [0, 1) suitable for seeded RNG.
+ *
+ * Uses SHA256 hash for determinism and distribution properties.
+ */
+export function deriveSeed(buildId: string, itemId: string, raterSlot: number): number {
+  const seedString = `${buildId}:${itemId}:${raterSlot}`
+  const hash = createHash('sha256').update(seedString).digest('hex')
+  // Convert first 8 hex chars to integer, then normalize to [0, 1)
+  const hashInt = parseInt(hash.substring(0, 8), 16)
+  return (hashInt % 10000) / 10000
+}
+
+/**
+ * Seeded pseudo-random number generator based on linear congruential method.
+ * Given a seed in [0, 1), generates a sequence of deterministic pseudo-random values.
+ *
+ * This simple LCG is NOT cryptographically secure but is suitable for shuffling
+ * where we care about reproducibility and reasonable distribution, not entropy.
+ *
+ * @param seed - Initial seed value in range [0, 1)
+ * @returns Function that returns next pseudo-random value in [0, 1)
+ */
+export function seededRandom(seed: number) {
+  // LCG constants from Numerical Recipes
+  const a = 1664525
+  const c = 1013904223
+  const m = Math.pow(2, 32)
+  let state = Math.floor(seed * m)
+
+  return function next(): number {
+    state = (a * state + c) % m
+    return state / m
+  }
+}
+
+/**
+ * Shuffle an array using a deterministic seeded RNG (Fisher-Yates algorithm).
+ *
+ * Returns a new array with elements in shuffled order. The shuffle is deterministic:
+ * given the same seed, identical shuffle results.
+ *
+ * @param array - Array to shuffle (original is not modified)
+ * @param seed - Seed value for RNG
+ * @returns Shuffled copy of the array
+ */
+export function shuffleWithSeed<T>(array: T[], seed: number): T[] {
+  const result = [...array]
+  const rng = seededRandom(seed)
+
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+
+  return result
+}
+
 
 // ---------------------------------------------------------------------------
 // System Prompt & Input Types
@@ -120,6 +190,53 @@ export function buildCongruencePrompt(input: CongruencePromptInput): string {
   })
 
   return lines.join('\n')
+}
+
+/**
+ * Build a congruence prompt with per-rater shuffled candidate order and return
+ * the inverse permutation mapping.
+ *
+ * This function:
+ * 1. Derives a deterministic seed from (buildId, itemId, raterSlot)
+ * 2. Shuffles the candidate list using that seed
+ * 3. Builds the prompt with shuffled candidates
+ *
+ * NO inverse mapping is needed, and deliberately none is returned. The prompt
+ * labels each candidate with its construct ID, not its position, and the rater
+ * replies with that ID — which is invariant under reordering. An index-based
+ * protocol WOULD need an inverse here; if the prompt format is ever changed to
+ * ask for a position, this function must return one and the caller must apply
+ * it, or every rating silently becomes garbage while still looking plausible.
+ *
+ * @param buildId - Build ID (part of shuffle seed)
+ * @param itemId - Item ID (part of shuffle seed)
+ * @param raterSlot - Rater index (0, 1, 2; part of shuffle seed)
+ * @param input - Prompt input with original candidate list
+ * @returns Object with prompt string, shuffled candidates, and inverse permutation
+ */
+export function buildShuffledCongruencePrompt(
+  buildId: string,
+  itemId: string,
+  raterSlot: number,
+  input: CongruencePromptInput,
+): {
+  prompt: string
+  shuffledCandidates: typeof input.candidates
+} {
+  // Derive seed and shuffle candidates
+  const seed = deriveSeed(buildId, itemId, raterSlot)
+  const shuffledCandidates = shuffleWithSeed(input.candidates, seed)
+
+  // Build prompt with shuffled candidates
+  const prompt = buildCongruencePrompt({
+    ...input,
+    candidates: shuffledCandidates,
+  })
+
+  return {
+    prompt,
+    shuffledCandidates,
+  }
 }
 
 // ---------------------------------------------------------------------------
