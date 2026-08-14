@@ -251,6 +251,7 @@ export async function getBlueprintWithCells(
     .from("instrument_blueprint_cells")
     .select("*")
     .eq("blueprint_id", blueprintId)
+    .is("retired_at", null)
     .order("display_order", { ascending: true });
 
   if (cellError) {
@@ -396,6 +397,9 @@ export async function replaceBlueprintCells(
       intensity: cell.intensity,
       target_item_count: cell.targetItemCount,
       display_order: cell.displayOrder,
+      // Re-adding a facet+intensity that was previously retired brings the
+      // original row — and the items generated from it — back into the grid.
+      retired_at: null,
     }));
 
     const { error: upsertError } = await db
@@ -413,12 +417,20 @@ export async function replaceBlueprintCells(
     }
   }
 
-  // Remove only the cells the caller no longer lists. Items attached to those
-  // cells are intentionally detached — the facet they measured is gone.
+  // Remove only the cells the caller no longer lists — and only if nothing was
+  // generated from them. A cell with candidate items is RETIRED instead of
+  // deleted: blueprint_cell_id is ON DELETE SET NULL, so deleting it would cut
+  // those items loose from the facet they were written for, and that link is
+  // the content-validity evidence. An AI redraft renames every facet at once,
+  // which is how a single save previously orphaned an entire build.
   const { data: existing, error: readError } = await db
     .from("instrument_blueprint_cells")
     .select("id, facet_label, intensity")
-    .eq("blueprint_id", blueprintId);
+    .eq("blueprint_id", blueprintId)
+    // Already-retired cells are not part of the working grid, so they must not
+    // be re-evaluated as "stale" (which would restamp retired_at every save).
+    // The upsert above has already un-retired any facet the caller re-added.
+    .is("retired_at", null);
 
   if (readError) {
     throwActionError(
@@ -437,17 +449,58 @@ export async function replaceBlueprintCells(
     .map((row) => (row as DbRow).id as string);
 
   if (staleIds.length > 0) {
-    const { error: delError } = await db
-      .from("instrument_blueprint_cells")
-      .delete()
-      .in("id", staleIds);
+    // Which of those cells produced items? Those must survive as provenance.
+    const { data: attached, error: attachedError } = await db
+      .from("instrument_candidate_items")
+      .select("blueprint_cell_id")
+      .in("blueprint_cell_id", staleIds)
+      .is("deleted_at", null);
 
-    if (delError) {
+    if (attachedError) {
       throwActionError(
-        "replaceBlueprintCells (delete)",
-        "Unable to remove deleted cells.",
-        delError,
+        "replaceBlueprintCells (attached items)",
+        "Unable to check cells for generated items.",
+        attachedError,
       );
+    }
+
+    const hasItems = new Set(
+      (attached ?? [])
+        .map((row) => (row as DbRow).blueprint_cell_id as string | null)
+        .filter((id): id is string => Boolean(id)),
+    );
+
+    const toRetire = staleIds.filter((id) => hasItems.has(id));
+    const toDelete = staleIds.filter((id) => !hasItems.has(id));
+
+    if (toRetire.length > 0) {
+      const { error: retireError } = await db
+        .from("instrument_blueprint_cells")
+        .update({ retired_at: new Date().toISOString() })
+        .in("id", toRetire);
+
+      if (retireError) {
+        throwActionError(
+          "replaceBlueprintCells (retire)",
+          "Unable to retire cells that have generated items.",
+          retireError,
+        );
+      }
+    }
+
+    if (toDelete.length > 0) {
+      const { error: delError } = await db
+        .from("instrument_blueprint_cells")
+        .delete()
+        .in("id", toDelete);
+
+      if (delError) {
+        throwActionError(
+          "replaceBlueprintCells (delete)",
+          "Unable to remove deleted cells.",
+          delError,
+        );
+      }
     }
   }
 
@@ -455,6 +508,7 @@ export async function replaceBlueprintCells(
     .from("instrument_blueprint_cells")
     .select("*")
     .eq("blueprint_id", blueprintId)
+    .is("retired_at", null)
     .order("display_order", { ascending: true });
 
   if (finalError) {
@@ -927,12 +981,24 @@ export async function createCandidateItems(
 export async function listCandidateItemsByBlueprint(
   db: DbClient,
   blueprintId: string,
+  options?: { includeRetiredCells?: boolean },
 ): Promise<InstrumentCandidateItemDto[]> {
-  // First, get all cell IDs for this blueprint
-  const { data: cellRows, error: cellError } = await db
+  // First, get all cell IDs for this blueprint.
+  //
+  // Retired cells are EXCLUDED by default. A retired facet was deliberately
+  // removed from the blueprint, so its items must not reach publish — shipping
+  // them would put items measuring a dropped facet into the live instrument.
+  // The authoring surface opts back in so the work stays visible as history.
+  let cellQuery = db
     .from("instrument_blueprint_cells")
     .select("id")
     .eq("blueprint_id", blueprintId);
+
+  if (!options?.includeRetiredCells) {
+    cellQuery = cellQuery.is("retired_at", null);
+  }
+
+  const { data: cellRows, error: cellError } = await cellQuery;
 
   if (cellError) {
     throwActionError(
