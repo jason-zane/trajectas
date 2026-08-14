@@ -1309,3 +1309,403 @@ export async function restoreBlueprint(
     throwActionError("restoreBlueprint", "Unable to restore blueprint.", error);
   }
 }
+
+// ============================================================================
+// PUBLISH DOOR: Library operations
+// ============================================================================
+
+/**
+ * Find a construct by slug (case-insensitive).
+ * Returns the id and name, or null if not found or soft-deleted.
+ */
+export async function findConstructBySlug(
+  db: DbClient,
+  slug: string,
+): Promise<{ id: string; name: string } | null> {
+  const { data, error } = await db
+    .from("constructs")
+    .select("id, name")
+    .eq("slug", slug)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throwActionError("findConstructBySlug", "Unable to find construct.", error);
+  }
+
+  return data as { id: string; name: string } | null;
+}
+
+/**
+ * List all non-deleted slugs from a table (constructs or factors).
+ * Used by uniqueSlug to find a collision-free slug.
+ */
+export async function listTakenSlugs(
+  db: DbClient,
+  table: "constructs" | "factors",
+): Promise<string[]> {
+  const { data, error } = await db
+    .from(table)
+    .select("slug")
+    .is("deleted_at", null);
+
+  if (error) {
+    throwActionError(
+      "listTakenSlugs",
+      `Unable to load ${table} slugs.`,
+      error,
+    );
+  }
+
+  return (data ?? []).map((row) => (row as { slug: string }).slug);
+}
+
+/**
+ * Create a new construct in the library.
+ * Returns the construct id.
+ */
+export async function createLibraryConstruct(
+  db: DbClient,
+  input: {
+    name: string;
+    slug: string;
+    definition?: string | null;
+    description?: string | null;
+    partnerId?: string | null;
+  },
+): Promise<{ id: string }> {
+  const { data, error } = await db
+    .from("constructs")
+    .insert({
+      name: input.name,
+      slug: input.slug,
+      definition: input.definition ?? null,
+      description: input.description ?? null,
+      partner_id: input.partnerId ?? null,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throwActionError(
+      "createLibraryConstruct",
+      "Unable to create construct.",
+      error,
+    );
+  }
+
+  return data as { id: string };
+}
+
+/**
+ * Create a new factor in the library, marked NOT match-eligible and in draft readiness.
+ * Newly published factors must not enter the matcher pool immediately.
+ * Returns the factor id.
+ */
+export async function createLibraryFactor(
+  db: DbClient,
+  input: {
+    name: string;
+    slug: string;
+    definition?: string | null;
+    description?: string | null;
+    dimensionId?: string | null;
+    partnerId?: string | null;
+  },
+): Promise<{ id: string }> {
+  const { data, error } = await db
+    .from("factors")
+    .insert({
+      name: input.name,
+      slug: input.slug,
+      definition: input.definition ?? null,
+      description: input.description ?? null,
+      dimension_id: input.dimensionId ?? null,
+      partner_id: input.partnerId ?? null,
+      is_active: true,
+      is_match_eligible: false,
+      readiness: "draft",
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throwActionError("createLibraryFactor", "Unable to create factor.", error);
+  }
+
+  return data as { id: string };
+}
+
+/**
+ * Link a factor to a construct via factor_constructs.
+ * No-op if the link already exists (idempotent).
+ */
+export async function linkFactorConstruct(
+  db: DbClient,
+  factorId: string,
+  constructId: string,
+  displayOrder: number,
+): Promise<void> {
+  // Check if link already exists
+  const { data: existing, error: checkErr } = await db
+    .from("factor_constructs")
+    .select("id")
+    .eq("factor_id", factorId)
+    .eq("construct_id", constructId)
+    .maybeSingle();
+
+  if (checkErr) {
+    throwActionError(
+      "linkFactorConstruct",
+      "Unable to check factor-construct link.",
+      checkErr,
+    );
+  }
+
+  if (existing) {
+    return; // Link already exists
+  }
+
+  const { error } = await db.from("factor_constructs").insert({
+    factor_id: factorId,
+    construct_id: constructId,
+    weight: 1.0,
+    display_order: displayOrder,
+  });
+
+  if (error) {
+    throwActionError(
+      "linkFactorConstruct",
+      "Unable to link factor to construct.",
+      error,
+    );
+  }
+}
+
+/**
+ * Count items already linked to a construct.
+ * Used to compute display_order for the next item.
+ */
+export async function countConstructItems(
+  db: DbClient,
+  constructId: string,
+): Promise<number> {
+  const { data, error } = await db
+    .from("items")
+    .select("id", { count: "exact" })
+    .eq("construct_id", constructId)
+    .is("deleted_at", null);
+
+  if (error) {
+    throwActionError(
+      "countConstructItems",
+      "Unable to count items for construct.",
+      error,
+    );
+  }
+
+  return data?.length ?? 0;
+}
+
+/**
+ * Bulk insert items into the library (items table).
+ * All items are inserted as status='draft', purpose='construct', weight=1.0.
+ * Difficulty is mapped from candidate row (easy|medium|hard).
+ *
+ * Returns an array of { id (published item id), candidateItemId } mappings
+ * so the caller can write published_item_id back to instrument_candidate_items.
+ *
+ * Returns empty array for empty input without touching the database.
+ */
+export async function createLibraryItems(
+  db: DbClient,
+  rows: Array<{
+    candidateItemId: string;
+    constructId: string;
+    responseFormatId: string;
+    stem: string;
+    stemObserver?: string | null;
+    reverseScored: boolean;
+    difficulty: "easy" | "medium" | "hard";
+    displayOrder: number;
+  }>,
+): Promise<Array<{ id: string; candidateItemId: string }>> {
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const inserts = rows.map((row) => ({
+    construct_id: row.constructId,
+    response_format_id: row.responseFormatId,
+    stem: row.stem,
+    stem_observer: row.stemObserver ?? null,
+    reverse_scored: row.reverseScored,
+    difficulty: row.difficulty,
+    display_order: row.displayOrder,
+    weight: 1.0,
+    purpose: "construct" as const,
+    status: "draft" as const,
+  }));
+
+  const { data, error } = await db
+    .from("items")
+    .insert(inserts)
+    .select("id");
+
+  if (error) {
+    throwActionError("createLibraryItems", "Unable to create items.", error);
+  }
+
+  const published = data as Array<{ id: string }>;
+  return published.map((item, idx) => ({
+    id: item.id,
+    candidateItemId: rows[idx]!.candidateItemId,
+  }));
+}
+
+/**
+ * Mark candidate items as published by writing their published_item_id.
+ * Idempotent: if published_item_id is already set, no update occurs.
+ */
+export async function markCandidatesPublished(
+  db: DbClient,
+  pairs: Array<{ candidateItemId: string; publishedItemId: string }>,
+): Promise<void> {
+  if (pairs.length === 0) {
+    return;
+  }
+
+  for (const pair of pairs) {
+    const { error } = await db
+      .from("instrument_candidate_items")
+      .update({ published_item_id: pair.publishedItemId })
+      .eq("id", pair.candidateItemId);
+
+    if (error) {
+      throwActionError(
+        "markCandidatesPublished",
+        "Unable to mark candidate as published.",
+        error,
+      );
+    }
+  }
+}
+
+/**
+ * Write the published construct id back onto a blueprint.
+ * Used for idempotency: if publish is called again, the blueprint reuses
+ * the same construct.
+ */
+export async function setBlueprintConstruct(
+  db: DbClient,
+  blueprintId: string,
+  constructId: string,
+): Promise<void> {
+  const { error } = await db
+    .from("instrument_blueprints")
+    .update({ construct_id: constructId })
+    .eq("id", blueprintId);
+
+  if (error) {
+    throwActionError(
+      "setBlueprintConstruct",
+      "Unable to set blueprint construct.",
+      error,
+    );
+  }
+}
+
+/**
+ * Validate that a response format exists and is active.
+ * Returns { id, type } if found, or null if not found.
+ */
+export async function getActiveResponseFormat(
+  db: DbClient,
+  responseFormatId: string,
+): Promise<{ id: string; type: string } | null> {
+  const { data, error } = await db
+    .from("response_formats")
+    .select("id, type")
+    .eq("id", responseFormatId)
+    .maybeSingle();
+
+  if (error) {
+    throwActionError(
+      "getActiveResponseFormat",
+      "Unable to validate response format.",
+      error,
+    );
+  }
+
+  return data as { id: string; type: string } | null;
+}
+
+/**
+ * Soft-delete all items published by this build, and clear their published_item_id.
+ * This is the unpublish primitive.
+ *
+ * Returns the count of items deleted. Constructs and factors are left in place
+ * (they may have been edited by hand after publishing; silently removing them
+ * is worse than leaving orphans).
+ *
+ * Throws on query failure.
+ */
+export async function softDeletePublishedItems(
+  db: DbClient,
+  buildId: string,
+): Promise<number> {
+  // Step 1: Find all published_item_id values for this build
+  const { data: candidates, error: selectErr } = await db
+    .from("instrument_candidate_items")
+    .select("published_item_id")
+    .eq("build_id", buildId)
+    .not("published_item_id", "is", null);
+
+  if (selectErr) {
+    throwActionError(
+      "softDeletePublishedItems",
+      "Unable to find published items.",
+      selectErr,
+    );
+  }
+
+  const itemIds = (candidates ?? [])
+    .map((c) => (c as { published_item_id: string | null }).published_item_id)
+    .filter((id) => id !== null) as string[];
+
+  if (itemIds.length === 0) {
+    return 0;
+  }
+
+  // Step 2: Soft-delete the items
+  const { error: deleteErr } = await db
+    .from("items")
+    .update({ deleted_at: new Date().toISOString() })
+    .in("id", itemIds);
+
+  if (deleteErr) {
+    throwActionError(
+      "softDeletePublishedItems",
+      "Unable to delete items.",
+      deleteErr,
+    );
+  }
+
+  // Step 3: Clear published_item_id on the candidates
+  const { error: clearErr } = await db
+    .from("instrument_candidate_items")
+    .update({ published_item_id: null })
+    .eq("build_id", buildId)
+    .in("published_item_id", itemIds);
+
+  if (clearErr) {
+    throwActionError(
+      "softDeletePublishedItems",
+      "Unable to clear published references.",
+      clearErr,
+    );
+  }
+
+  return itemIds.length;
+}

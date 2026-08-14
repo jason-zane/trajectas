@@ -91,3 +91,10 @@ export type RunCongruencePanelOptions = z.infer<typeof runCongruencePanelOptions
 export const runFairnessScreenOptionsSchema = z.object({})
 
 export type RunFairnessScreenOptions = z.infer<typeof runFairnessScreenOptionsSchema>
+
+export const publishBuildInputSchema = z.object({
+  responseFormatId: postgresUuid(),
+  dimensionId: postgresUuid().optional().nullable(),
+})
+
+export type PublishBuildInput = z.infer<typeof publishBuildInputSchema>
