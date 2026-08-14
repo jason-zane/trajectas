@@ -88,12 +88,32 @@ CREATE TRIGGER forbid_option_keys_on_cognitive_items_trg
 -- (verified: 00005_foundation_alignment.sql, untouched since). Restrict to
 -- authenticated, matching item_options' existing policy shape.
 
-DROP POLICY item_media_select ON item_media;
-CREATE POLICY item_media_select ON item_media
-  FOR SELECT TO authenticated USING ((select auth.uid()) IS NOT NULL);
-DROP POLICY item_scoring_rubrics_select ON item_scoring_rubrics;
-CREATE POLICY item_scoring_rubrics_select ON item_scoring_rubrics
-  FOR SELECT TO authenticated USING ((select auth.uid()) IS NOT NULL);
+-- Guarded on existence. These two tables are created by
+-- 00005_foundation_alignment.sql and DO exist in a database built by replaying
+-- the migration history from scratch (which is what scripts/pg-migrate-check.sh
+-- does) — but they are ABSENT from the live project, discovered when this
+-- migration failed against it with `relation "item_media" does not exist`.
+-- The live schema and the migration history have diverged at some earlier
+-- point. Rather than fork a prod-only variant of this file and let source
+-- drift further from live, the tightening applies wherever the tables are
+-- present and is a no-op where they are not. Consequence worth stating: the
+-- anon-readability leak these statements close is real in a from-scratch
+-- database but was never live in production, because the tables were never
+-- there.
+DO $$
+BEGIN
+  IF to_regclass('public.item_media') IS NOT NULL THEN
+    DROP POLICY IF EXISTS item_media_select ON item_media;
+    CREATE POLICY item_media_select ON item_media
+      FOR SELECT TO authenticated USING ((select auth.uid()) IS NOT NULL);
+  END IF;
+
+  IF to_regclass('public.item_scoring_rubrics') IS NOT NULL THEN
+    DROP POLICY IF EXISTS item_scoring_rubrics_select ON item_scoring_rubrics;
+    CREATE POLICY item_scoring_rubrics_select ON item_scoring_rubrics
+      FOR SELECT TO authenticated USING ((select auth.uid()) IS NOT NULL);
+  END IF;
+END $$;
 
 -- ===========================================================================
 -- Item parameters / statistics are commercial IP, not general dashboard data
