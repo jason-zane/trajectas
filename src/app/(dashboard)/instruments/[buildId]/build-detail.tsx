@@ -84,11 +84,19 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
         title={build.name}
         description={build.brief || `Measure type: ${MEASURE_TYPE_LABELS[build.measureType] || build.measureType}`}
       >
+        {/* Evidence and Publish had no entry point anywhere in the app, and the
+            previous "Edit build" action pointed at /settings, which is not a
+            route — it 404'd. */}
         <Button
           variant="outline"
-          onClick={() => router.push(`/instruments/${build.id}/settings`)}
+          onClick={() => router.push(`/instruments/${build.id}/evidence`)}
         >
-          Edit build
+          Evidence
+        </Button>
+        <Button
+          onClick={() => router.push(`/instruments/${build.id}/publish`)}
+        >
+          Publish
         </Button>
       </PageHeader>
 
