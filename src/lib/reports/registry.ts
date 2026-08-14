@@ -138,6 +138,14 @@ export const BLOCK_REGISTRY: Record<BlockType, BlockMeta> = {
     defaultMode: 'carded',
     status: 'deferred',
   },
+  cognitive_profile: {
+    label: 'Cognitive Score',
+    category: 'score',
+    description: 'Raw/ability score for cognitive assessments, gated by the claims-ladder guard — never a norm-referenced rank or band without a versioned norm group.',
+    defaultConfig: { entityIds: [] },
+    supportedModes: ['open', 'featured'],
+    defaultMode: 'open',
+  },
   rater_comparison: {
     label: 'Rater Comparison',
     category: '360',

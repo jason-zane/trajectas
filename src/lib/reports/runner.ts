@@ -32,8 +32,10 @@ import { buildReportContext } from './report-context'
 import { getCustomReport } from './custom'
 import type { ReportTheme } from './presentation'
 import { buildContentsSections, type ContentsDimension } from './contents-sections'
+import { isCognitiveMetric, resolveCognitiveScoreDisplay, CognitiveClaimsViolation } from './cognitive-claims'
+import type { RawCognitiveScoreRow, CognitiveScoreDisplay } from './cognitive-claims'
 import type { BlockConfig, ResolvedBlockData, BandResult } from './types'
-import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig, DimensionChapterConfig, ContentsConfig, ClosingPageConfig } from './types'
+import type { ScoreDetailConfig, ScoreOverviewConfig, StrengthsHighlightsConfig, DevelopmentPlanConfig, AiTextConfig, DimensionChapterConfig, ContentsConfig, ClosingPageConfig, CognitiveProfileConfig } from './types'
 import type { PersonReferenceType, ReportDisplayLevel, ReportSnapshot, ReportTemplate } from '@/types/database'
 
 interface SessionData {
@@ -49,6 +51,67 @@ interface SessionData {
 
 interface ScoreMap {
   [entityId: string]: number  // entityId → scaledScore (POMP 0–100)
+}
+
+/** A cognitive/ability score, already resolved through the claims-ladder guard, tagged with its owning factor id. */
+export interface CognitiveScoreEntry {
+  factorId: string
+  display: CognitiveScoreDisplay
+}
+
+/**
+ * Split raw participant_scores rows into the POMP scoreMap (unchanged
+ * pipeline — factorId → scaled_score 0-100) and cognitive/ability rows
+ * resolved through resolveCognitiveScoreDisplay().
+ *
+ * This is the fix for the gap LR-11/#341 found in the partially-built state:
+ * before this, EVERY row's scaled_score — including percent_correct/t_score
+ * cognitive rows — fed straight into scoreMap and was rendered through the
+ * generic POMP band-scheme pipeline (score_overview, score_detail,
+ * dimension_chapter, strengths_highlights, development_plan,
+ * score_interpretation*). That is exactly the trap
+ * 05-scoring-and-interpretation.md §5.2 warns about: a percent-correct
+ * cognitive score rendered against a competency band scheme (labels like
+ * "Highly Effective") reads exactly like a norm-referenced rank and isn't one.
+ *
+ * Existing pomp_factor assessments are unaffected: every one of their rows
+ * has metric='pomp' (the column's DB default —
+ * 20260813104000_cognitive_scoring.sql), so isCognitiveMetric() is false for
+ * all of them and they flow into scoreMap exactly as before this change —
+ * see tests/unit/runner-cognitive-partition.test.ts for the regression proof.
+ *
+ * A row that fails resolveCognitiveScoreDisplay's fail-closed checks (a
+ * corrupted/inconsistent row) is dropped with a logged violation rather than
+ * thrown — one bad score row must not take the whole report down.
+ */
+export function partitionScoreRows(
+  rows: Array<Record<string, unknown>>,
+): { scoreMap: ScoreMap; cognitiveScores: CognitiveScoreEntry[] } {
+  const scoreMap: ScoreMap = {}
+  const cognitiveScores: CognitiveScoreEntry[] = []
+
+  for (const row of rows) {
+    const factorId = row.factor_id as string | null | undefined
+    if (!factorId) continue
+
+    if (isCognitiveMetric(row.metric as string | null | undefined)) {
+      try {
+        const display = resolveCognitiveScoreDisplay(row as unknown as RawCognitiveScoreRow)
+        cognitiveScores.push({ factorId, display })
+      } catch (err) {
+        if (err instanceof CognitiveClaimsViolation) {
+          console.error(`[runner] cognitive claims violation for factor ${factorId}, session score row dropped:`, err.message)
+          continue
+        }
+        throw err
+      }
+      continue
+    }
+
+    scoreMap[factorId] = row.scaled_score as number
+  }
+
+  return { scoreMap, cognitiveScores }
 }
 
 // ---------------------------------------------------------------------------
@@ -154,13 +217,10 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
       partnerId: template.partnerId ?? null,
     })
 
-    // Build score map: factorId → scaledScore
-    const scoreMap: ScoreMap = {}
-    for (const row of scoresResult.data ?? []) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const r = row as any
-      if (r.factor_id) scoreMap[r.factor_id] = r.scaled_score
-    }
+    // Build score map: factorId → scaledScore (POMP rows only — cognitive/
+    // ability rows are resolved separately through the claims-ladder guard,
+    // never entering the generic band-scheme pipeline). See partitionScoreRows.
+    const { scoreMap, cognitiveScores } = partitionScoreRows(scoresResult.data ?? [])
 
     // Session + participant name for person reference
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,7 +269,11 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
     // Include all scored factor IDs so that score_overview / strengths_highlights /
     // development_plan blocks (which iterate scoreMap directly) can resolve names.
     const entityIds = extractEntityIds(blocks)
-    const allEntityIds = Array.from(new Set([...entityIds, ...Object.keys(scoreMap)]))
+    const allEntityIds = Array.from(new Set([
+      ...entityIds,
+      ...Object.keys(scoreMap),
+      ...cognitiveScores.map((c) => c.factorId),
+    ]))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const taxonomyMap = await fetchTaxonomyEntities(db as any, allEntityIds)
 
@@ -316,6 +380,7 @@ export async function processSnapshot(snapshotId: string): Promise<void> {
         dimensionChildFactors,
         scheme,
         blocks,
+        cognitiveScores,
       )
 
       resolvedBlocks.push({
@@ -714,9 +779,31 @@ async function resolveBlockData(
   dimensionChildFactors: Map<string, string[]>,
   scheme: BandScheme,
   allBlocks: BlockConfig[],
+  cognitiveScores: CognitiveScoreEntry[],
 ): Promise<Record<string, unknown>> {
   if (block.type === 'norm_comparison') {
     return { _deferred: true, message: 'Norm comparison not available in this version.' }
+  }
+
+  if (block.type === 'cognitive_profile') {
+    const config = block.config as CognitiveProfileConfig
+    const filterIds = config.entityIds?.length ? new Set(config.entityIds) : null
+    const entities = cognitiveScores
+      .filter((c) => !filterIds || filterIds.has(c.factorId))
+      .map(({ factorId, display }) => {
+        const entity = taxonomyMap.get(factorId)
+        return {
+          entityId: factorId,
+          entityName: entity?.name ? String(entity.name) : factorId,
+          display,
+        }
+      })
+      .sort((a, b) => a.entityName.localeCompare(b.entityName))
+
+    if (entities.length === 0) {
+      return { _empty: true, reason: 'no cognitive/ability scores found for this session' }
+    }
+    return { entities }
   }
 
   if (block.type === 'contents') {

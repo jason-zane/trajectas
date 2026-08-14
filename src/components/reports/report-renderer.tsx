@@ -15,6 +15,7 @@ import { RaterComparisonBlock } from './blocks/rater-comparison'
 import { GapAnalysisBlock } from './blocks/gap-analysis'
 import { OpenCommentsBlock } from './blocks/open-comments'
 import { AiTextBlock } from './blocks/ai-text'
+import { CognitiveProfileBlock } from './blocks/cognitive-profile'
 import { DimensionChapterBlock } from './blocks/dimension-chapter'
 import { ContentsBlock } from './blocks/contents'
 import { ClosingPageBlock } from './blocks/closing-page'
@@ -44,6 +45,7 @@ const BLOCK_COMPONENTS: Record<BlockType, BlockComponent> = {
   strengths_highlights: StrengthsHighlightsBlock,
   development_plan: DevelopmentPlanBlock,
   norm_comparison: NormComparisonBlock,
+  cognitive_profile: CognitiveProfileBlock,
   rater_comparison: RaterComparisonBlock,
   gap_analysis: GapAnalysisBlock,
   open_comments: OpenCommentsBlock,

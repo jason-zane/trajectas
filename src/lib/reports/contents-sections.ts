@@ -32,6 +32,7 @@ const DEFAULT_LABELS: Partial<Record<BlockConfig['type'], string>> = {
   score_overview: 'Your profile at a glance',
   strengths_highlights: 'Signature strengths',
   development_plan: 'Development priorities',
+  cognitive_profile: 'Your result',
   closing_page: 'About this report',
 }
 
