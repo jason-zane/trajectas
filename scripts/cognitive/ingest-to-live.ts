@@ -1,39 +1,43 @@
 /**
- * Bank-ingest round trip against a REAL PostgreSQL database (LR-8 / #347).
+ * Load a generated figural-matrix bank into a REAL project (LR-8 / #347).
  *
- * Acceptance for #347 is "a generated bank can be ingested and re-ingested
- * without duplication". This harness demonstrates it rather than asserting it:
- * it generates a bank, ingests it, ingests the identical bank a second time,
- * and prints the row counts of every table ingest touches after each pass.
+ * Generates the bank from a seed, ingests it, then ingests the identical bank
+ * a second time to prove the run wrote nothing the first pass had not already
+ * written. Idempotency is by content hash, so re-running after a partial load
+ * completes it rather than duplicating it.
+ *
+ * NOT A TEST HARNESS. Its sibling `ingest-roundtrip.ts` exercises the lifecycle
+ * and sign-off guards by recording reviews and walking an item through the
+ * transition graph — appropriate against the throwaway cluster it targets, and
+ * never against a live project. Nothing here writes to `item_reviews`, creates
+ * users, or moves an item off `draft`: a sign-off has to come from a person
+ * reviewing the item in the admin UI, which is the entire point of that ledger.
+ * Everything this loads lands as `draft` and stays there.
  *
  * WHY IT TALKS TO psql AND NOT SUPABASE. Ingest's production store speaks
- * PostgREST via the Supabase client, which needs a running Supabase stack,
- * which needs Docker — unavailable in the environment this was written in
- * (see scripts/README-pg-migrate-check.md). `scripts/pg-migrate-check.sh` puts
- * up a throwaway Postgres 16 cluster with EVERY migration applied, which is
- * the part that matters here: the real triggers
- * (items_lifecycle_guard, forbid_option_keys_on_cognitive_items,
- * items_review_signoff_guard), the real CHECK constraints
- * (cognitive_item_specs_no_key, cognitive_item_specs_shape), the real
- * composite FK on item_answer_keys, and the real
- * items_live_content_hash_unique index all fire.
+ * PostgREST via the Supabase client. Driving it over psql instead keeps the
+ * ORCHESTRATION and the IDEMPOTENCY DECISION the production ones — both are
+ * imported directly — while making the load a single connection that either
+ * lands or fails loudly. Every real trigger, CHECK, FK and unique index fires
+ * either way.
  *
- * It implements `ItemBankStore` (src/lib/item-bank/store.ts) over psql, so the
- * ORCHESTRATION and the IDEMPOTENCY DECISION under test are the production
- * ones, imported directly. What is NOT covered is the Supabase store's own
- * PostgREST calls; `npm run test:integration:local` covers those when a
- * Docker-capable machine is available.
- *
- * Usage:
- *   scripts/pg-migrate-check.sh --fresh --keep-running
+ * Usage — against a live project (needs the DB password):
  *   node --import ./scripts/cognitive/register-ts-loader.mjs \
- *     scripts/cognitive/ingest-roundtrip.ts --host=<socket-dir> [--port=55432]
+ *     scripts/cognitive/ingest-to-live.ts \
+ *     --conn='postgresql://postgres@db.<ref>.supabase.co:5432/postgres' \
+ *     --requested-by=<your-profile-uuid> --per-family=10 --confirm
+ *
+ * Usage — against a local cluster from scripts/pg-migrate-check.sh:
+ *   scripts/cognitive/ingest-to-live.ts --host=<socket-dir> [--port=55432] --confirm
+ *
+ * `--confirm` is required: without it the script prints what it would write
+ * and exits without touching the database.
  */
 import { execFileSync } from 'node:child_process'
 import { generateBatch } from '@/lib/cognitive/generator/index'
 import { ALL_FAMILIES } from '@/lib/cognitive/generator/families/index'
 import { bankFromGeneration } from '@/lib/item-bank/from-generation'
-import { ingestGeneratedBank, BankIngestConflictError } from '@/lib/item-bank/ingest'
+import { ingestGeneratedBank } from '@/lib/item-bank/ingest'
 import { familySeedKey, type ExistingBankState } from '@/lib/item-bank/plan'
 import type {
   AnswerKeyInsert,
@@ -58,13 +62,25 @@ function parseArgs(argv: string[]): Record<string, string> {
 }
 
 const args = parseArgs(process.argv.slice(2))
+const CONN = args.conn ?? null
 const HOST = args.host ?? `${process.env.TMPDIR ?? '/tmp'}/pg-migrate-check/run`
 const PORT = args.port ?? '55432'
 const PER_FAMILY = Number.parseInt(args['per-family'] ?? '2', 10)
-const SEED = args.seed ?? 'ingest-roundtrip'
+const SEED = args.seed ?? 'pilot-2026-08-13'
+const CONFIRMED = args.confirm === 'true'
+
+/** Non-verbal inductive reasoning — see 20260815073019. NOT a self-report construct. */
+const CONSTRUCT_ID = args.construct ?? 'a2000000-0000-0000-0000-000000000006'
+/** Figural Matrix (5-option), type=cognitive — see 20260815060500. */
+const RESPONSE_FORMAT_ID = args['response-format'] ?? 'a5000000-0000-0000-0000-000000000009'
+/** Whose profile the generation run is attributed to. No default: it is a real person. */
+const REQUESTED_BY = args['requested-by'] ?? null
+
+/** A conninfo string goes in psql's dbname position; otherwise use host/port. */
+const TARGET = CONN ? [CONN] : ['-h', HOST, '-p', PORT, '-U', 'postgres', '-d', 'postgres']
 
 function sql(text: string): string {
-  return execFileSync('psql', ['-h', HOST, '-p', PORT, '-U', 'postgres', '-d', 'postgres', '-tAqc', text], {
+  return execFileSync('psql', [...TARGET, '-tAqc', text], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   }).trim()
@@ -252,31 +268,41 @@ function createPsqlStore(): ItemBankStore {
 }
 
 // ---------------------------------------------------------------------------
-// Fixtures the bank needs to hang off (a construct + a cognitive response
-// format + a reviewer profile). Idempotent so the script can be re-run.
+// Preconditions. The bank hangs off rows that migrations own — this script
+// creates none of them, so a missing one is a migration that has not been
+// applied, not something to paper over with an upsert.
 // ---------------------------------------------------------------------------
-const FIXTURE = {
-  partnerId: '9f000000-0000-0000-0000-0000000000a1',
-  constructId: '9f000000-0000-0000-0000-0000000000a2',
-  reviewerId: '9f000000-0000-0000-0000-0000000000a3',
-  fairnessReviewerId: '9f000000-0000-0000-0000-0000000000a4',
-  responseFormatId: 'a5000000-0000-0000-0000-000000000006', // seeded "Pattern Recognition" (type = cognitive)
-}
+function checkPreconditions(): void {
+  const missing: string[] = []
 
-function seedFixtures(): void {
-  sql(`INSERT INTO partners (id, name, slug) VALUES (${lit(FIXTURE.partnerId)}::uuid, 'Roundtrip Partner', 'roundtrip-partner')
-       ON CONFLICT (id) DO NOTHING`)
-  sql(`INSERT INTO constructs (id, partner_id, name, slug)
-       VALUES (${lit(FIXTURE.constructId)}::uuid, ${lit(FIXTURE.partnerId)}::uuid, 'Figural Matrix Reasoning', 'figural-matrix-reasoning')
-       ON CONFLICT (id) DO NOTHING`)
-  for (const [id, email] of [
-    [FIXTURE.reviewerId, 'content-reviewer@example.com'],
-    [FIXTURE.fairnessReviewerId, 'fairness-reviewer@example.com'],
-  ] as const) {
-    sql(`INSERT INTO auth.users (id) VALUES (${lit(id)}::uuid) ON CONFLICT (id) DO NOTHING`)
-    sql(`INSERT INTO profiles (id, email, role) VALUES (${lit(id)}::uuid, ${lit(email)}, 'platform_admin')
-         ON CONFLICT (id) DO NOTHING`)
+  const construct = sql(
+    `SELECT name || ' / ' || slug FROM constructs WHERE id = ${lit(CONSTRUCT_ID)}::uuid AND deleted_at IS NULL`,
+  )
+  if (!construct) missing.push(`construct ${CONSTRUCT_ID} (migration 20260815073019)`)
+
+  const format = sql(
+    `SELECT name || ' / ' || type FROM response_formats WHERE id = ${lit(RESPONSE_FORMAT_ID)}::uuid`,
+  )
+  if (!format) missing.push(`response format ${RESPONSE_FORMAT_ID} (migration 20260815060500)`)
+  else if (!format.endsWith('/ cognitive')) {
+    missing.push(`response format ${RESPONSE_FORMAT_ID} is "${format}", expected type=cognitive`)
   }
+
+  if (!REQUESTED_BY) {
+    missing.push('--requested-by=<profile-uuid> (the run is attributed to a real person)')
+  } else if (!sql(`SELECT email FROM profiles WHERE id = ${lit(REQUESTED_BY)}::uuid`)) {
+    missing.push(`profile ${REQUESTED_BY} does not exist`)
+  }
+
+  if (missing.length > 0) {
+    console.error('Refusing to load. Missing:')
+    for (const m of missing) console.error(`  - ${m}`)
+    process.exit(1)
+  }
+
+  console.log(`construct       ${construct}  (${CONSTRUCT_ID})`)
+  console.log(`response format ${format}  (${RESPONSE_FORMAT_ID})`)
+  console.log(`attributed to   ${sql(`SELECT email FROM profiles WHERE id = ${lit(REQUESTED_BY!)}::uuid`)}`)
 }
 
 function counts(): Record<string, number> {
@@ -304,50 +330,55 @@ function sameCounts(a: Record<string, number>, b: Record<string, number>): boole
 // Run
 // ---------------------------------------------------------------------------
 async function main(): Promise<void> {
-  seedFixtures()
+  checkPreconditions()
 
   const startedAt = new Date().toISOString()
   const result = generateBatch(ALL_FAMILIES, SEED, PER_FAMILY)
 
-  // Shared projection, and it matters here more than anywhere: this harness
-  // exists to demonstrate that ingest is idempotent. Its own copy of the bank
-  // shape would have made that demonstration prove nothing about the shape the
-  // application actually ingests.
+  // Shared with the admin "generate and ingest" action, so a seed run from here
+  // and a seed run from the UI produce identical content hashes — which is what
+  // lets either one finish a load the other started.
   const bank = bankFromGeneration(result, ALL_FAMILIES, {
     seed: SEED,
     perFamily: PER_FAMILY,
     startedAt,
     finishedAt: new Date().toISOString(),
   })
-  console.log(`Generated ${bank.items.length} items across ${new Set(bank.items.map((i) => i.familyCode)).size} families.`)
+  const familyCount = new Set(bank.items.map((i) => i.familyCode)).size
+  console.log(`\nGenerated ${bank.items.length} items across ${familyCount} families from seed "${SEED}".`)
+
+  if (!CONFIRMED) {
+    console.log('\nDRY RUN — nothing written. Re-run with --confirm to load.')
+    return
+  }
 
   const store = createPsqlStore()
   const before = counts()
   console.log('\nBEFORE      ', JSON.stringify(before))
 
-  const first = await ingestGeneratedBank(store, {
+  const ingestOptions = {
     bank,
-    constructId: FIXTURE.constructId,
-    responseFormatId: FIXTURE.responseFormatId,
-    requestedByProfileId: FIXTURE.reviewerId,
-  })
+    constructId: CONSTRUCT_ID,
+    responseFormatId: RESPONSE_FORMAT_ID,
+    requestedByProfileId: REQUESTED_BY!,
+  }
+
+  const first = await ingestGeneratedBank(store, ingestOptions)
   const afterFirst = counts()
   console.log('PASS 1      ', JSON.stringify(first))
   console.log('AFTER PASS 1', JSON.stringify(afterFirst))
 
-  const second = await ingestGeneratedBank(store, {
-    bank,
-    constructId: FIXTURE.constructId,
-    responseFormatId: FIXTURE.responseFormatId,
-    requestedByProfileId: FIXTURE.reviewerId,
-  })
+  // Second pass over the identical bank. Anything it writes is a duplicate the
+  // content-hash check failed to catch, so it is the load's own verification.
+  const second = await ingestGeneratedBank(store, ingestOptions)
   const afterSecond = counts()
   console.log('PASS 2      ', JSON.stringify(second))
   console.log('AFTER PASS 2', JSON.stringify(afterSecond))
 
   let ok = true
-  if (first.itemsInserted !== bank.items.length) {
-    console.error(`FAIL: pass 1 inserted ${first.itemsInserted}, expected ${bank.items.length}`)
+  const expectedInserts = bank.items.length - first.itemsSkipped
+  if (first.itemsInserted !== expectedInserts) {
+    console.error(`FAIL: pass 1 inserted ${first.itemsInserted}, expected ${expectedInserts}`)
     ok = false
   }
   if (second.itemsInserted !== 0 || second.wroteAnything) {
@@ -363,127 +394,21 @@ async function main(): Promise<void> {
     ok = false
   }
 
-  // A changed item under an existing (family, seed) must be refused outright.
-  const mutated = structuredClone(bank)
-  const victim = mutated.items[0]
-  victim.itemSpec.rules[0].statement = `${victim.itemSpec.rules[0].statement} (edited)`
-  const { contentHash } = await import('@/lib/cognitive/spec/hash')
-  victim.qa.contentHash = contentHash(victim.itemSpec)
-  const countsBeforeConflict = counts()
-  try {
-    await ingestGeneratedBank(store, {
-      bank: mutated,
-      constructId: FIXTURE.constructId,
-      responseFormatId: FIXTURE.responseFormatId,
-      requestedByProfileId: FIXTURE.reviewerId,
-    })
-    console.error('FAIL: a changed item sharing an identity was accepted')
-    ok = false
-  } catch (error) {
-    if (error instanceof BankIngestConflictError) {
-      console.log(`\nCONFLICT    refused as designed: ${error.message}`)
-    } else {
-      console.error('FAIL: unexpected error type', error)
-      ok = false
-    }
-  }
-  if (!sameCounts(countsBeforeConflict, counts())) {
-    console.error('FAIL: the refused ingest wrote rows')
-    ok = false
-  }
-
-  // ------------------------------------------------------------------
-  // Lifecycle + sign-off guard (migration 20260814110000).
-  // ------------------------------------------------------------------
-  const itemId = first.insertedItemIds[0]
-  const checks: Array<[string, () => void]> = [
-    [
-      'draft -> content_reviewed is refused with no content sign-off',
-      () => expectFailure(`UPDATE items SET lifecycle_state='content_reviewed' WHERE id=${lit(itemId)}::uuid`, 'no content review'),
-    ],
-    [
-      'draft -> fairness_reviewed is refused by the transition graph',
-      () => expectFailure(`UPDATE items SET lifecycle_state='fairness_reviewed' WHERE id=${lit(itemId)}::uuid`, 'illegal item lifecycle transition'),
-    ],
-  ]
-  for (const [label, run] of checks) {
-    try {
-      run()
-      console.log(`GUARD OK    ${label}`)
-    } catch (error) {
-      console.error(`FAIL: ${label} — ${(error as Error).message}`)
-      ok = false
-    }
-  }
-
-  sql(`INSERT INTO item_reviews (item_id, review_kind, decision, reviewer_profile_id)
-       VALUES (${lit(itemId)}::uuid, 'content', 'approved', ${lit(FIXTURE.reviewerId)}::uuid)`)
-  sql(`UPDATE items SET lifecycle_state='content_reviewed' WHERE id=${lit(itemId)}::uuid`)
-  console.log('GUARD OK    content sign-off recorded -> draft -> content_reviewed succeeds')
-
-  try {
-    expectFailure(
-      `UPDATE items SET lifecycle_state='fairness_reviewed' WHERE id=${lit(itemId)}::uuid`,
-      'no fairness review',
-    )
-    console.log('GUARD OK    content_reviewed -> fairness_reviewed is refused with no fairness sign-off')
-  } catch (error) {
-    console.error(`FAIL: ${(error as Error).message}`)
-    ok = false
-  }
-
-  sql(`INSERT INTO item_reviews (item_id, review_kind, decision, reviewer_profile_id)
-       VALUES (${lit(itemId)}::uuid, 'fairness', 'approved', ${lit(FIXTURE.fairnessReviewerId)}::uuid)`)
-  sql(`UPDATE items SET lifecycle_state='fairness_reviewed' WHERE id=${lit(itemId)}::uuid`)
-  const actors = sql(
-    `SELECT review_kind || '=' || reviewer_profile_id || '@' || created_at
-       FROM item_reviews WHERE item_id=${lit(itemId)}::uuid ORDER BY review_kind`,
+  // Nothing here is entitled to promote an item. If a load ever produces a row
+  // past `draft`, something wrote a sign-off it had no business writing.
+  const promoted = sql(
+    `SELECT count(*) FROM items i JOIN item_families f ON f.id = i.family_id
+      WHERE f.kind = 'figural_matrix' AND i.lifecycle_state <> 'draft'`,
   )
-  console.log('GUARD OK    both sign-offs recorded -> content_reviewed -> fairness_reviewed succeeds')
-  console.log(`            separate actors + timestamps: ${actors.replace(/\n/g, ' | ')}`)
-
-  // A rejection after an approval revokes it.
-  sql(`INSERT INTO item_reviews (item_id, review_kind, decision, reviewer_profile_id)
-       VALUES (${lit(itemId)}::uuid, 'fairness', 'rejected', ${lit(FIXTURE.fairnessReviewerId)}::uuid)`)
-  try {
-    expectFailure(
-      `UPDATE items SET lifecycle_state='piloting' WHERE id=${lit(itemId)}::uuid`,
-      'standing fairness review is a rejection',
-    )
-    console.log('GUARD OK    a later rejection revokes the standing fairness approval')
-  } catch (error) {
-    console.error(`FAIL: ${(error as Error).message}`)
-    ok = false
-  }
-
-  // Append-only.
-  try {
-    expectFailure(
-      `UPDATE item_reviews SET decision='approved' WHERE item_id=${lit(itemId)}::uuid`,
-      'append-only',
-    )
-    console.log('GUARD OK    item_reviews rejects UPDATE (append-only)')
-  } catch (error) {
-    console.error(`FAIL: ${(error as Error).message}`)
+  if (promoted !== '0') {
+    console.error(`FAIL: ${promoted} figural-matrix items are past draft; a load must never promote`)
     ok = false
   }
 
   console.log(`\nRESULT: ${ok ? 'PASS' : 'FAIL'}`)
+  console.log('Every item is draft. Content and fairness review happen in the admin UI,')
+  console.log('by people, before any of this reaches a respondent.')
   if (!ok) process.exitCode = 1
-}
-
-/** Run a statement expected to raise, asserting the message contains `fragment`. */
-function expectFailure(statement: string, fragment: string): void {
-  let raised: string | null = null
-  try {
-    sql(statement)
-  } catch (error) {
-    raised = String((error as { stderr?: Buffer }).stderr ?? (error as Error).message)
-  }
-  if (raised === null) throw new Error(`expected a failure containing "${fragment}", but the statement succeeded`)
-  if (!raised.includes(fragment)) {
-    throw new Error(`expected a failure containing "${fragment}", got: ${raised.trim()}`)
-  }
 }
 
 void main()

@@ -31,6 +31,7 @@ import { renderMatrixGrid, renderOptionTile } from '@/lib/cognitive/render/matri
 import { m1ItemSpec } from '../../tests/fixtures/cognitive/m1'
 import { m6ItemSpec } from '../../tests/fixtures/cognitive/m6'
 import { batchBlindHitRate } from '@/lib/cognitive/generator/qa/contextblind'
+import { bankFilesFromGeneration } from '@/lib/item-bank/from-generation'
 
 function parseArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {}
@@ -61,17 +62,20 @@ const result = generateBatch(ALL_FAMILIES, seed, perFamily, { existingContentHas
 const finishedAt = new Date().toISOString()
 
 // ---------------------------------------------------------------------------
-// bank/items.json — every accepted item, full provenance.
+// bank/items.json + bank/summary.json — every accepted item, full provenance.
+//
+// Projected by the shared `bankFilesFromGeneration` rather than by hand. The
+// hand-rolled version this replaces emitted `{slot, elements}` per option and
+// silently dropped each distractor's error label and rationale, so a bank
+// produced by this CLI ingested with no `item_option_diagnostics` at all.
 // ---------------------------------------------------------------------------
-const itemsOut = result.items.map((item: GeneratedItem) => ({
-  familyCode: item.familyCode,
-  seed: item.seed,
-  keySlot: item.keySlot,
-  itemSpec: item.itemSpec,
-  optionSpecs: item.optionSpecs,
-  qa: item.qa,
-}))
-writeFileSync(join(outDir, 'items.json'), JSON.stringify(itemsOut, null, 2))
+const files = bankFilesFromGeneration(result, ALL_FAMILIES, {
+  seed,
+  perFamily,
+  startedAt,
+  finishedAt,
+})
+writeFileSync(join(outDir, 'items.json'), JSON.stringify(files.items, null, 2))
 
 // ---------------------------------------------------------------------------
 // bank/summary.json — run-level report.
@@ -88,17 +92,11 @@ const blindItems = result.items.map((item: GeneratedItem) => {
 })
 const blindHitRate = batchBlindHitRate(blindItems)
 
+// The shared summary plus this CLI's two extra diagnostics. Both are stripped
+// by `BankSummaryFile` on ingest (it is a non-strict z.object), so they are
+// here for a human reading the file, not for the database.
 const summary = {
-  generatorVersion: result.items[0]?.qa.generatorVersion ?? null,
-  batteryVersion: result.items[0]?.qa.batteryVersion ?? null,
-  seed,
-  perFamilyRequested: perFamily,
-  startedAt,
-  finishedAt,
-  totalAttempted: Object.values(result.attempted).reduce((a, b) => a + b, 0),
-  totalAccepted: result.items.length,
-  perFamily: Object.fromEntries(ALL_FAMILIES.map((f) => [f.code, { attempted: result.attempted[f.code], accepted: result.items.filter((i) => i.familyCode === f.code).length, rejects: result.rejects[f.code] }])),
-  bandDistribution: bandCounts,
+  ...files.summary,
   keySlotDistribution: keySlotCounts,
   contextBlindBatch: blindHitRate,
 }

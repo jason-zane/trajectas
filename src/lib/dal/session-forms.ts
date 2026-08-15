@@ -60,7 +60,31 @@ type FormItemEmbed = {
   reverse_scored: boolean | null
   item_version: number | null
   content_hash: string | null
+  lifecycle_state: string | null
 } | null
+
+/**
+ * Lifecycle states that mean "stop serving this", whatever a form still says.
+ *
+ * Assembly is the last point at which an item can be kept out of a session, and
+ * until now it filtered on nothing at all — not lifecycle, not deleted_at, not
+ * status. An item withdrawn after it was placed in an assessment kept being
+ * handed to new respondents, because the link is what delivery reads and
+ * withdrawing an item does not remove the link.
+ *
+ * Stated as a DENY list rather than an allow list on purpose. Every item in the
+ * library is `draft`, including the 400+ Likert items in live assessments; an
+ * allow list of reviewed states would empty every existing form. These three
+ * are the states that only ever get set deliberately, and each one already
+ * means the item is withdrawn.
+ *
+ * Not covered here: an item still marked `piloting` whose standing sign-off was
+ * revoked by a later rejection. `cognitive_item_review_gate` refuses to PLACE
+ * such an item (20260815100000), but an item placed while approved and rejected
+ * afterwards keeps its link, and lifecycle_state alone cannot see that. See the
+ * note in that migration.
+ */
+const WITHDRAWN_LIFECYCLE_STATES = new Set(['suspended', 'retired', 'killed'])
 
 type FormSectionItemRow = {
   item_id: string
@@ -269,6 +293,10 @@ function assembleEntries(
 ): SectionFormEntryDTO[] {
   let sectionItems = (section.assessment_section_items ?? [])
     .map(toWorkingItem)
+    // Before anything else: a withdrawn item is not served, even though the
+    // section still links it. Applied ahead of the factor filter and the
+    // per-construct cap so a withdrawn item never occupies one of the slots.
+    .filter((si) => !(si.item?.lifecycle_state && WITHDRAWN_LIFECYCLE_STATES.has(si.item.lifecycle_state)))
     .sort((a, b) => a.displayOrder - b.displayOrder)
 
   if (selection.allowedConstructIds) {
@@ -381,7 +409,7 @@ export async function getOrCreateSectionForms(
         id, item_ordering,
         assessment_section_items(
           item_id, display_order,
-          items(id, construct_id, purpose, difficulty, reverse_scored, item_version, content_hash)
+          items(id, construct_id, purpose, difficulty, reverse_scored, item_version, content_hash, lifecycle_state)
         )
       `,
       )

@@ -246,7 +246,10 @@ function loadBank(constructId: string): BankItem[] {
      WHERE f.kind = 'figural_matrix'
        AND i.construct_id = ${lit(constructId)}::uuid
        AND i.deleted_at IS NULL
-       AND i.lifecycle_state NOT IN ('killed','retired')
+       -- Only states reachable after BOTH sign-offs. 20260815091500 refuses to
+       -- link anything else, so selecting a draft here would fail at the INSERT
+       -- with a trigger error instead of reporting an honest shortfall.
+       AND i.lifecycle_state IN ('piloting','calibrated','operational')
        AND f.band IS NOT NULL
        AND EXISTS (SELECT 1 FROM cognitive_item_specs s WHERE s.item_id = i.id)
      ORDER BY f.predicted_b, f.code, i.content_hash
@@ -593,6 +596,22 @@ function main(): void {
   const constructId = resolveConstructId()
   const bank = loadBank(constructId)
   if (bank.length === 0) {
+    // Distinguish "no bank" from "a bank nobody has reviewed yet" — they look
+    // identical from an empty result and lead to completely different actions.
+    const drafts = sql(`
+      SELECT count(*) FROM items i JOIN item_families f ON f.id = i.family_id
+       WHERE f.kind = 'figural_matrix' AND i.construct_id = ${lit(constructId)}::uuid
+         AND i.deleted_at IS NULL
+         AND i.lifecycle_state NOT IN ('piloting','calibrated','operational','retired','killed')
+    `)
+    if (Number(drafts) > 0) {
+      fail(
+        `construct ${constructId} has ${drafts} figural-matrix items, but none has been ` +
+          'reviewed. Record content and fairness sign-offs in the item bank review queue ' +
+          '(/item-bank/review), move the approved items to "piloting", then re-run. ' +
+          'Nothing composes an assessment out of unreviewed items.',
+      )
+    }
     fail(
       `construct ${constructId} has no deliverable figural-matrix items ` +
         '(each needs a cognitive_item_specs row AND an item_answer_keys row).',

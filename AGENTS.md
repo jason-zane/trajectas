@@ -40,6 +40,41 @@ Hard rule (enforced by `tests/architecture/no-db-in-components.test.ts`):
 or `@/lib/supabase/server`.** They receive data as props or call a DAL function.
 Pages (`src/app/**/page.tsx`) may fetch, preferably via the DAL.
 
+## Cognitive item bank — review gates delivery
+
+Cognitive items (anything with a `cognitive_item_specs` row) may not be placed
+into an assessment until they have cleared **both** content and fairness review.
+Enforced by `assessment_section_items_review_gate`
+(`20260815091500_cognitive_review_gate_on_delivery.sql`): the link is refused
+unless `items.lifecycle_state` is `piloting`, `calibrated` or `operational`.
+
+Consequences worth knowing before you debug one of them:
+
+- **Fixtures break if they link a draft cognitive item.** Create the item at
+  `piloting` directly (the lifecycle guard governs transitions, not INSERT), or
+  record real sign-offs and transition it.
+- **Non-cognitive items are unaffected.** Every item in the library is `draft`,
+  including the 400+ Likert items in live assessments; the lifecycle states were
+  introduced for the cognitive bank and only that bank uses them.
+- **Nothing in the app promotes an item.** Sign-offs come from a person in
+  `/item-bank/review`. `item_reviews` is append-only — a mistaken approval is
+  corrected by adding a rejection, never by editing history. Any script that
+  writes an `item_reviews` row is fabricating a sign-off; that is what
+  `scripts/cognitive/ingest-to-live.ts` was rewritten to stop doing.
+
+To load items, use **`/item-bank/generate`** (seed + per-family count). Ingest is
+idempotent by content hash, so re-running a seed completes a partial load rather
+than duplicating it.
+
+Every producer shapes a bank through `src/lib/item-bank/from-generation.ts` —
+`bankFilesFromGeneration` for the CLI that writes `items.json` to disk,
+`bankFromGeneration` (same projection, then `parseBankFile`) for everyone who
+ingests. **Do not reconstruct that shape by hand.** Two reasons, both learned the
+hard way: identical seeds must produce identical content hashes or idempotency
+stops meaning anything, and each hand-rolled copy silently dropped the
+per-distractor error labels, so reviewers saw four indistinguishable wrong
+answers and no later run could backfill them.
+
 ## Behavioral Rules
 - If uncertain or if multiple interpretations exist, surface it — don't pick silently
 - If a simpler approach exists, push back
