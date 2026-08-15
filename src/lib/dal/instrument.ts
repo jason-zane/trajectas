@@ -1793,3 +1793,71 @@ export async function softDeletePublishedItems(
 
   return itemIds.length;
 }
+
+// ============================================================================
+// Technical Report data assembly
+// ============================================================================
+
+/**
+ * Fetch all data needed for rendering a technical report for an instrument.
+ * Assembles blueprints, candidate items, cells, evidence records, and congruence ratings.
+ * Returns null if the build does not exist.
+ *
+ * Note: Returned data structure is for rendering purposes (not for buildTechnicalReport).
+ * See buildTechnicalReport in @/lib/instrument/technical-report for the builder API.
+ */
+export async function getTechnicalReportData(
+  db: DbClient,
+  buildId: string,
+): Promise<{
+  build: InstrumentBuildDto;
+  blueprints: InstrumentBlueprintDto[];
+  cellsByBlueprintId: Record<string, BlueprintCell[]>;
+  itemsByBlueprintId: Record<string, InstrumentCandidateItemDto[]>;
+  evidenceRecords: EvidenceRecordDto[];
+  congruenceRatings: Array<{ item_id: string; blueprint_id: string; rating: string }>;
+} | null> {
+  const build = await getBuild(db, buildId);
+  if (!build) {
+    return null;
+  }
+
+  const blueprints = await listBlueprints(db, buildId);
+  const cellsByBlueprintId: Record<string, BlueprintCell[]> = {};
+  const itemsByBlueprintId: Record<string, InstrumentCandidateItemDto[]> = {};
+
+  for (const blueprint of blueprints) {
+    const blueprintWithCells = await getBlueprintWithCells(
+      db,
+      blueprint.id,
+    );
+    if (blueprintWithCells) {
+      cellsByBlueprintId[blueprint.id] = blueprintWithCells.cells;
+    }
+
+    const items = await listCandidateItemsByBlueprint(
+      db,
+      blueprint.id,
+    );
+    itemsByBlueprintId[blueprint.id] = items;
+  }
+
+  const evidenceRecords = await listEvidence(db, buildId);
+  const congruenceRatings = await listCongruenceRatingsForBuild(
+    db,
+    buildId,
+  );
+
+  return {
+    build,
+    blueprints,
+    cellsByBlueprintId,
+    itemsByBlueprintId,
+    evidenceRecords,
+    congruenceRatings: congruenceRatings.map((r) => ({
+      item_id: r.candidateItemId,
+      blueprint_id: r.intendedBlueprintId,
+      rating: r.raterModel,
+    })),
+  };
+}

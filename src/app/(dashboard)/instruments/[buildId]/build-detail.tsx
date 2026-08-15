@@ -125,6 +125,12 @@ export function BuildDetail({
           Evidence
         </Button>
         <Button
+          variant="outline"
+          onClick={() => router.push(`/instruments/${build.id}/report`)}
+        >
+          Technical Report
+        </Button>
+        <Button
           onClick={() => router.push(`/instruments/${build.id}/publish`)}
         >
           Publish
