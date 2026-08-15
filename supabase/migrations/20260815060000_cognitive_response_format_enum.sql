@@ -1,0 +1,26 @@
+-- Cognitive response format — Migration A: enum value only.
+--
+-- `ALTER TYPE ... ADD VALUE` cannot be used in the same transaction that
+-- references the new value (SQLSTATE 55P04), the same hazard documented in
+-- 00001_initial_schema.sql and worked around in 20260813100000. The seed row
+-- therefore lives in 20260815060500, which runs in its own transaction.
+--
+-- WHY THIS EXISTS AT ALL, given 00005_foundation_alignment.sql:38 already says
+-- `ALTER TYPE response_format_type ADD VALUE IF NOT EXISTS 'cognitive'`:
+-- the live project does not have the value. Discovered when the item-bank
+-- ingest failed against production with
+--   invalid input value for enum response_format_type: "cognitive"
+-- while a from-scratch replay of the migration history has it.
+--
+-- That is the THIRD divergence found between the live database and this
+-- directory (the others: item_media and item_scoring_rubrics exist in a replay
+-- but not in production — see 20260813101000's guard). The pattern says the
+-- live project was built from a different baseline than these files replay to,
+-- so `pg-migrate-check.sh` passing 220/220 does NOT by itself prove production
+-- matches. Worth its own audit; this migration only closes the one gap that
+-- blocks cognitive items from being ingested.
+--
+-- IF NOT EXISTS makes this a no-op wherever 00005 did land, so it is safe in
+-- both worlds.
+
+ALTER TYPE response_format_type ADD VALUE IF NOT EXISTS 'cognitive';
