@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Info, Settings, Trash2 } from "lucide-react"
+import { Calculator, Info, Settings, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,17 +16,57 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import {
   deleteAssessment,
   restoreAssessment,
   updateAssessmentCustomisation,
+  updateAssessmentScoringProfile,
 } from "@/app/actions/assessments"
+import type { ScoringProfile } from "@/types/database"
+
+/**
+ * What each scorer does, in the words of someone choosing between them.
+ *
+ * `ability_irt` is offered but described honestly: it falls back to
+ * dichotomous scoring until calibrated item parameters exist, so choosing it
+ * today behaves identically to `ability_dichotomous` and only starts to differ
+ * once a bank has been calibrated.
+ */
+const SCORING_PROFILES: Array<{
+  value: ScoringProfile
+  label: string
+  hint: string
+}> = [
+  {
+    value: "pomp_factor",
+    label: "Self-report (percentage of maximum)",
+    hint: "Scores the option values a respondent picked. The default, and correct for every Likert assessment.",
+  },
+  {
+    value: "ability_dichotomous",
+    label: "Ability — right/wrong",
+    hint: "Scores answers against the answer key and counts the correct ones. Required for a keyed test; anything else scores option positions as if they were ratings.",
+  },
+  {
+    value: "ability_irt",
+    label: "Ability — IRT (falls back until calibrated)",
+    hint: "Behaves exactly like right/wrong until calibrated item parameters exist for the bank.",
+  },
+]
 
 interface SettingsPanelProps {
   assessmentId: string
   selectedFactorCount: number
   initialMinCustomFactors: number | null
+  initialScoringProfile: ScoringProfile
   /** Where to send the user after deleting (default: /assessments). */
   listPath?: string
 }
@@ -35,6 +75,7 @@ export function SettingsPanel({
   assessmentId,
   selectedFactorCount,
   initialMinCustomFactors,
+  initialScoringProfile,
   listPath = "/assessments",
 }: SettingsPanelProps) {
   const router = useRouter()
@@ -42,6 +83,9 @@ export function SettingsPanel({
   const [enabled, setEnabled] = useState(initialMinCustomFactors != null)
   const [minValue, setMinValue] = useState<number>(initialMinCustomFactors ?? 1)
   const [saving, setSaving] = useState(false)
+  const [scoringProfile, setScoringProfile] =
+    useState<ScoringProfile>(initialScoringProfile)
+  const [savingProfile, setSavingProfile] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -75,6 +119,26 @@ export function SettingsPanel({
     if (!enabled) return
     const ok = await persist(minValue)
     if (ok) toast.success("Minimum factors updated")
+  }
+
+  async function handleScoringProfile(next: ScoringProfile) {
+    const previous = scoringProfile
+    setScoringProfile(next)
+    setSavingProfile(true)
+    const result = await updateAssessmentScoringProfile(assessmentId, next)
+    setSavingProfile(false)
+    if ("error" in result) {
+      // The action refuses once a respondent has answered, because changing the
+      // scorer would silently re-interpret data already collected. There is no
+      // client-side signal for that, so the revert happens here.
+      setScoringProfile(previous)
+      toast.error(result.error)
+      return
+    }
+    toast.success(
+      `Scoring set to ${SCORING_PROFILES.find((p) => p.value === next)?.label ?? next}`,
+    )
+    router.refresh()
   }
 
   async function handleDelete() {
@@ -178,6 +242,53 @@ export function SettingsPanel({
               </div>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Calculator className="size-5 text-muted-foreground" />
+            <CardTitle>Scoring</CardTitle>
+          </div>
+          <CardDescription>
+            Which scorer a completed session is sent to. This is the difference
+            between an assessment that reports how someone rated themselves and
+            one that reports how many answers they got right.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="scoring-profile">Scoring method</Label>
+            <Select
+              value={scoringProfile}
+              onValueChange={(value) =>
+                handleScoringProfile((value ?? scoringProfile) as ScoringProfile)
+              }
+              disabled={savingProfile}
+            >
+              <SelectTrigger id="scoring-profile" className="max-w-md">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SCORING_PROFILES.map((profile) => (
+                  <SelectItem key={profile.value} value={profile.value}>
+                    {profile.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2">
+              <Info className="size-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {SCORING_PROFILES.find((p) => p.value === scoringProfile)?.hint}
+              </p>
+            </div>
+            <p className="text-caption">
+              Locked once a respondent has answered — changing the scorer after
+              that would re-interpret data already collected.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

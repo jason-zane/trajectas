@@ -56,6 +56,9 @@ export function buildDefaultSectionDrafts(groups: FormatGroup[]): SectionDraft[]
     displayOrder: i,
     itemOrdering: g.formatType === "sjt" ? "fixed" : "randomised",
     timeLimitSeconds: null,
+    // Auto-built sections are always scored. A practice section is a
+    // deliberate authoring choice, never something inferred from item formats.
+    sectionRole: "scored" as const,
     itemCount: g.itemCount,
   }));
 }
@@ -178,6 +181,9 @@ export async function persistSections(
     display_order: s.displayOrder,
     item_ordering: s.itemOrdering,
     time_limit_seconds: s.timeLimitSeconds ?? null,
+    // Defaulted rather than required so every caller that predates section
+    // roles keeps producing scored sections without change.
+    section_role: s.sectionRole ?? "scored",
   }));
 
   const { data: insertedSections, error: secErr } = await db

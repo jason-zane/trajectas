@@ -18,6 +18,7 @@ export default async function PartnerAssessmentSettingsPage({
       assessmentId={assessment.id}
       selectedFactorCount={factors.length}
       initialMinCustomFactors={assessment.minCustomFactors ?? null}
+      initialScoringProfile={assessment.scoringProfile}
       listPath="/partner/assessments"
     />
   )
