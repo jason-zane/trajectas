@@ -133,6 +133,18 @@ export type FormatGroup = {
   itemCount: number
 }
 
+/**
+ * What a section is FOR, which changes how it is delivered and scored.
+ *
+ * `practice` is the load-bearing one: items in a practice section are checked
+ * against the key as the respondent answers, are excluded from the score, and
+ * gate the scored sections until they are complete (20260814100000). Until
+ * this was settable, the only producer of a practice section anywhere was
+ * `scripts/cognitive/seed-lrm-assessment.ts` — so a cognitive test could not
+ * be assembled through the UI at all.
+ */
+export type SectionRole = 'scored' | 'practice' | 'instructions'
+
 /** Section draft state used in the builder before persisting. */
 export type SectionDraft = {
   id?: string
@@ -144,6 +156,7 @@ export type SectionDraft = {
   displayOrder: number
   itemOrdering: ItemOrdering
   timeLimitSeconds: number | null
+  sectionRole: SectionRole
   itemCount: number
 }
 
@@ -170,6 +183,7 @@ export type ExistingSection = {
   displayOrder: number
   itemOrdering: ItemOrdering
   timeLimitSeconds: number | null
+  sectionRole: SectionRole
   itemCount: number
 }
 
@@ -666,6 +680,7 @@ export async function getAssessmentWithFactors(id: string): Promise<{
     displayOrder: s.display_order,
     itemOrdering: s.item_ordering,
     timeLimitSeconds: s.time_limit_seconds ?? null,
+    sectionRole: (s.section_role ?? 'scored') as SectionRole,
     itemCount: s.assessment_section_items?.[0]?.count ?? 0,
   }))
 

@@ -41,7 +41,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { getFormatBreakdown, getFCItemsForFactors } from "@/app/actions/assessments"
 import { generateForcedChoiceBlocks } from "@/lib/forced-choice-generator"
 import type { ForcedChoiceBlockDraft } from "@/lib/forced-choice-generator"
-import type { SectionDraft, FormatGroup, ExistingFCBlock } from "@/app/actions/assessments"
+import type { SectionDraft, SectionRole, FormatGroup, ExistingFCBlock } from "@/app/actions/assessments"
 import type { ItemOrdering, FormatMode } from "@/types/database"
 import type { ConstructShortfall } from "@/app/actions/item-selection-rules"
 
@@ -84,6 +84,31 @@ const ORDERING_INFO: Record<ItemOrdering, { label: string; description: string }
   },
 }
 
+/**
+ * Described by what the respondent experiences, not by the enum value.
+ *
+ * "Practice" is the one with teeth: 20260814100000 refuses to start a scored
+ * section while any practice item is unanswered, and practice responses are
+ * excluded from scoring. Ordering matters as a result — a practice section
+ * placed after a scored one bounces the respondent forward past the scored
+ * section, so the warning says so rather than leaving it to be discovered.
+ */
+const SECTION_ROLE_INFO: Record<SectionRole, { label: string; description: string }> = {
+  scored: {
+    label: "Scored",
+    description: "Counts towards the result. The default for every section.",
+  },
+  practice: {
+    label: "Practice",
+    description:
+      "Answers are checked as the respondent goes and are excluded from the score. Scored sections stay locked until every practice item is answered, so put practice first.",
+  },
+  instructions: {
+    label: "Instructions only",
+    description: "Shown but not scored. Use for a briefing screen carrying no items.",
+  },
+}
+
 function getSectionTitle(section: Pick<SectionDraft, "title" | "formatType">) {
   return section.title.trim() || DEFAULT_TITLES[section.formatType] || "Assessment Section"
 }
@@ -98,6 +123,7 @@ function defaultSectionFromFormat(group: FormatGroup, order: number): SectionDra
     displayOrder: order,
     itemOrdering: group.formatType === "sjt" ? "fixed" : "randomised",
     timeLimitSeconds: null,
+    sectionRole: "scored",
     itemCount: group.itemCount,
   }
 }
@@ -836,6 +862,34 @@ function SectionFields({
             </Link>
           )}
         </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Label className="text-xs">Section role</Label>
+        <Select
+          value={section.sectionRole}
+          onValueChange={(v) => onChange({ sectionRole: (v ?? "scored") as SectionRole })}
+        >
+          <SelectTrigger className="h-9 text-sm sm:max-w-xs">
+            <SelectValue>
+              {(value: string | null) =>
+                (value ? SECTION_ROLE_INFO[value as SectionRole]?.label : null) ?? value
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(SECTION_ROLE_INFO).map(([value, info]) => (
+              <SelectItem key={value} value={value}>
+                {info.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[11px] text-muted-foreground leading-relaxed">
+          {SECTION_ROLE_INFO[section.sectionRole]?.description}
+        </p>
       </div>
 
       <Separator />
