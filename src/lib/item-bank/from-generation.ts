@@ -42,14 +42,31 @@ export function bankFromGeneration(
   families: readonly FamilyTemplate<unknown>[],
   options: BankFromGenerationOptions,
 ): ParsedBank {
-  const items = result.items.map((item) => ({
-    familyCode: item.familyCode,
-    seed: item.seed,
-    keySlot: item.keySlot,
-    itemSpec: item.itemSpec,
-    optionSpecs: item.optionSpecs,
-    qa: item.qa,
-  }))
+  const items = result.items.map((item) => {
+    // `optionSpecs` is the render instruction; `optionDiagnostics` says why each
+    // distractor is wrong. The bank file carries them on one entry per option,
+    // and `parseBankFile` splits them again — the spec goes to
+    // `cognitive_option_specs` (participant-visible), the label and rationale to
+    // `item_option_diagnostics` (admin-only). Merging here rather than in each
+    // caller is what stopped them being silently dropped: the generator emitted
+    // both and every caller reconstructed only the first.
+    const bySlot = new Map(item.optionDiagnostics.map((d) => [d.slot, d]))
+    return {
+      familyCode: item.familyCode,
+      seed: item.seed,
+      keySlot: item.keySlot,
+      itemSpec: item.itemSpec,
+      optionSpecs: item.optionSpecs.map((option) => {
+        const diagnostic = bySlot.get(option.slot)
+        return {
+          ...option,
+          errorLabel: diagnostic?.errorLabel ?? null,
+          rationale: diagnostic?.rationale ?? null,
+        }
+      }),
+      qa: item.qa,
+    }
+  })
 
   // Every band is present even at zero, so a distribution never reads as
   // "no very-hard items generated" when it means "the key was absent".

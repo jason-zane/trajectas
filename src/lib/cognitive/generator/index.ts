@@ -5,7 +5,7 @@
  */
 import { FiguralMatrixItemSpec, CognitiveOptionSpec, type FiguralMatrixItemSpec as ItemSpecType, type CognitiveOptionSpec as OptionSpecType } from '../spec/schema'
 import { composeItem, GeneratorError, type FamilyTemplate } from './compose'
-import { type DistractorCandidate, gateDistractor, placeOptions, repairBalance } from './distractors'
+import { type DistractorCandidate, type ErrorLabel, gateDistractor, placeOptions, repairBalance } from './distractors'
 import { detectAllAxes, levelA } from './qa/uniqueness'
 import { runQaBattery, type QaReport } from './qa/index'
 import { runBatchGates, type BatchQaReport } from './qa/batch'
@@ -14,11 +14,30 @@ import type { AxisId } from './axes'
 
 const SLOTS = ['A', 'B', 'C', 'D', 'E'] as const
 
+/**
+ * Why each distractor is wrong, in the generator's own vocabulary.
+ *
+ * Kept OUT of `optionSpecs`. An option spec is the render instruction that
+ * reaches the participant, and the mechanism that makes an option wrong is a
+ * description of the answer — putting it there would ship the key alongside
+ * the question. It travels separately, is written to `item_option_diagnostics`
+ * by ingest, and is read only by `item-bank-review.ts`, which is admin-gated.
+ */
+export interface OptionDiagnostic {
+  slot: (typeof SLOTS)[number]
+  /** WR / IR / PM / RP and friends. Null for the key, which is not an error. */
+  errorLabel: ErrorLabel | null
+  /** The family's own sentence for the mechanism, e.g. "wrong rule on outer.count". */
+  rationale: string | null
+}
+
 export interface GeneratedItem {
   familyCode: string
   seed: string
   itemSpec: ItemSpecType
   optionSpecs: OptionSpecType[]
+  /** Parallel to `optionSpecs` by slot. See `OptionDiagnostic`. */
+  optionDiagnostics: OptionDiagnostic[]
   keySlot: (typeof SLOTS)[number]
   qa: QaReport
 }
@@ -141,12 +160,25 @@ export function generateFamily<P>(template: FamilyTemplate<P>, seed: string, n: 
       render: template.render,
     })
     const optionSpecs = placed.map((p) => CognitiveOptionSpec.parse({ slot: p.slot, elements: p.elements }))
+    const optionDiagnostics = placed.map((p) => ({
+      slot: p.slot,
+      errorLabel: p.label,
+      rationale: p.mechanism,
+    }))
 
     familyStructuralHashes.add(qa.report.structuralHash)
     existingContentHashes.add(qa.report.contentHash)
     acceptedCount++
 
-    items.push({ familyCode: template.code, seed: itemSeed, itemSpec, optionSpecs, keySlot: SLOTS[keySlotIndex], qa: qa.report })
+    items.push({
+      familyCode: template.code,
+      seed: itemSeed,
+      itemSpec,
+      optionSpecs,
+      optionDiagnostics,
+      keySlot: SLOTS[keySlotIndex],
+      qa: qa.report,
+    })
   }
 
   return { items, rejects, attempted: n }

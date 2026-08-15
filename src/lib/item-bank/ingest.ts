@@ -294,9 +294,10 @@ async function writeItem(
     createdByProfileId: args.createdByProfileId,
   })
 
-  // Only options the bank file actually labelled. See bank-file.ts's header:
-  // the current generator CLI drops distractor labels, so this is usually
-  // empty and the reviewer sees "not recorded" rather than a wrong label.
+  // Only options the bank file actually labelled — the key never is, and an
+  // older bank file may carry none at all, in which case the reviewer sees
+  // "not recorded" rather than a wrong label. Banks shaped by
+  // `bankFromGeneration` carry a label and rationale for all four distractors.
   const diagnostics: OptionDiagnosticInsert[] = []
   planned.options.forEach((option, i) => {
     if (!option.errorLabel) return

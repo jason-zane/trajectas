@@ -106,6 +106,50 @@ describe('bankFromGeneration', () => {
     expect(bank.items.map((i) => i.qa.contentHash)).toEqual(result.items.map((i) => i.qa.contentHash))
   })
 
+  it('carries a distractor rationale for every option that is not the key', () => {
+    const bank = build()
+    for (const item of bank.items) {
+      const distractors = item.options.filter((o) => o.slot !== item.keySlot)
+      expect(distractors).toHaveLength(4)
+      for (const option of distractors) {
+        // Without these the review UI renders four indistinguishable wrong
+        // answers, and a content reviewer has nothing to check the design
+        // against. The generator has always produced them; they used to be
+        // dropped between the generator and the bank file.
+        expect(option.errorLabel).not.toBeNull()
+        expect(option.errorRationale).toBeTruthy()
+      }
+      const key = item.options.find((o) => o.slot === item.keySlot)
+      expect(key?.errorLabel ?? null).toBeNull()
+    }
+  })
+
+  it('keeps the rationale out of the participant-visible option spec', () => {
+    // `spec` is what reaches the browser during delivery. The mechanism that
+    // makes an option wrong is a description of the answer; if it appeared
+    // here it would be shipped alongside the question.
+    const bank = build()
+    for (const item of bank.items) {
+      for (const option of item.options) {
+        const keys = Object.keys(option.spec as Record<string, unknown>)
+        expect(keys).not.toContain('errorLabel')
+        expect(keys).not.toContain('rationale')
+        expect(JSON.stringify(option.spec)).not.toContain('errorLabel')
+      }
+    }
+  })
+
+  it('adding diagnostics did not disturb the content hashes', () => {
+    // Content hash covers the item spec only. If diagnostics ever entered it,
+    // every previously ingested item would re-ingest as new — which would
+    // duplicate the bank already in production rather than completing it.
+    const bank = build('pilot-2026-08-13', 1)
+    const first = bank.items.find((i) => i.familyCode === 'LRM-PROG-COUNT')
+    expect(first?.qa.contentHash).toBe(
+      'sha256:61e5e72331e72da7ce56e15a4bbc61f66116c46606de154d211bb8c266868c92',
+    )
+  })
+
   it('survives the JSON round trip that a file upload would impose', () => {
     const bank = build()
     // No undefined holes, no class instances — anything a file could not carry
