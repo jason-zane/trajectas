@@ -19,7 +19,10 @@ export default function PsychometricsLayout({ children }: { children: React.Reac
 
   return (
     <div>
-      <nav className="flex gap-1 border-b border-border mb-6 px-6">
+      {/* Seven tabs no longer fit on one line at narrow-tablet and split-screen
+          widths. Scroll the tab row itself rather than letting the whole page
+          scroll sideways, which would push later tabs off-screen. */}
+      <nav className="flex gap-1 border-b border-border mb-6 px-6 overflow-x-auto whitespace-nowrap">
         {tabs.map((tab) => {
           const isActive =
             tab.href === "/psychometrics"

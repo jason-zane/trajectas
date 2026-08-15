@@ -100,7 +100,7 @@ export default async function HistoryPage() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              This history shows all completed calibration runs in chronological order. Click any run to explore how item quality, construct reliability, and flagged items changed across your data collection periods.
+              This history shows all completed calibration runs in chronological order, so drift in item quality and construct reliability becomes visible across data-collection periods. To set two runs side by side, use the Compare tab.
             </p>
             <p>
               To see trends for a specific construct across runs, visit the{' '}
