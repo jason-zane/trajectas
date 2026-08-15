@@ -910,6 +910,17 @@ export async function listBlueprintCandidateItems(
 }
 
 /**
+ * List cells for a blueprint.
+ */
+export async function listBlueprintCells(blueprintId: string) {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const result = await getBlueprintWithCells(db, blueprintId)
+  return result?.cells ?? []
+}
+
+/**
  * Update a candidate item's status. Platform-admin only.
  */
 export async function updateCandidateItemStatus(

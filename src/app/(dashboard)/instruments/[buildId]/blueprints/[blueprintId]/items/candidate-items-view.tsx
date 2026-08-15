@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckCircle2, AlertCircle, Zap, X } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Zap, X, Loader2, FileCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -21,6 +21,10 @@ import type {
 import {
   generateItemsForBlueprint,
   updateCandidateItemStatus,
+  runRedundancyPassAction,
+  runCritiquePassAction,
+  clearRedundancyMarksAction,
+  clearCritiqueMarksAction,
 } from '@/app/actions/instrument'
 
 interface CandidateItemsViewProps {
@@ -90,12 +94,17 @@ export function CandidateItemsView({
   const [itemStatuses, setItemStatuses] = useState<Record<string, string>>(
     items.reduce((acc, item) => ({ ...acc, [item.id]: item.status }), {})
   )
+  const [currentItems, setCurrentItems] = useState<InstrumentCandidateItemDto[]>(items)
   const [isPending, startTransition] = useTransition()
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isRunningRedundancy, setIsRunningRedundancy] = useState(false)
+  const [isRunningCritique, setIsRunningCritique] = useState(false)
+  const [redundancyCount, setRedundancyCount] = useState(0)
+  const [critiqueCount, setCritiqueCount] = useState(0)
 
   // Group items by cell
   const cellGroups: CellGroup[] = cells.map((cell) => {
-    const cellItems = items.filter((item) => item.blueprintCellId === cell.id)
+    const cellItems = currentItems.filter((item) => item.blueprintCellId === cell.id)
     return {
       cellId: cell.id,
       facetLabel: cell.facetLabel,
@@ -109,13 +118,13 @@ export function CandidateItemsView({
   }).sort((a, b) => a.displayOrder - b.displayOrder)
 
   // Calculate coverage statistics
-  const coverage = auditCoverage(cells, items)
+  const coverage = auditCoverage(cells, currentItems)
   const completeCells = cellGroups.filter(
     (g) => g.actualCount >= g.targetCount
   ).length
   const totalCells = cellGroups.length
   const totalTarget = totalTargetItems(cells)
-  const currentTotal = items.length
+  const currentTotal = currentItems.length
   const burden = estimateBurdenSeconds(totalTarget)
 
   const coverageState: CoverageState = {
@@ -181,6 +190,125 @@ export function CandidateItemsView({
         toast.success(`Item ${newStatus}`)
       } catch (error) {
         toast.error('Status update failed', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    })
+  }
+
+  const handleRunRedundancy = () => {
+    setIsRunningRedundancy(true)
+    startTransition(async () => {
+      try {
+        const result = await runRedundancyPassAction(blueprint.id)
+        const redundantCount = result.stats.redundantCount
+        setRedundancyCount(redundantCount)
+
+        // Update items with redundancy marks
+        setCurrentItems((prev) =>
+          prev.map((item) => {
+            const peerItem = result.redundantPairs.get(item.id)
+            if (peerItem) {
+              return {
+                ...item,
+                redundancyPeerId: peerItem.peerId,
+                redundancyScore: peerItem.score,
+              }
+            }
+            return item
+          })
+        )
+
+        toast.success(`Redundancy pass complete`, {
+          description: `${redundantCount} near-duplicate(s) marked for review`,
+        })
+        window.location.reload()
+      } catch (error) {
+        toast.error('Redundancy pass failed', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      } finally {
+        setIsRunningRedundancy(false)
+      }
+    })
+  }
+
+  const handleRunCritique = () => {
+    setIsRunningCritique(true)
+    startTransition(async () => {
+      try {
+        const result = await runCritiquePassAction(blueprint.id, blueprint.draftConstructName || '')
+        const { kept, revised, dropped } = result.stats
+
+        setCritiqueCount(revised + dropped)
+
+        // Update items with critique verdicts
+        setCurrentItems((prev) =>
+          prev.map((item) => {
+            const itemResult = result.results.find((r) => r.itemId === item.id)
+            if (itemResult) {
+              return {
+                ...item,
+                critiqueVerdict: itemResult.verdict,
+                critiqueReason: itemResult.reason,
+              }
+            }
+            return item
+          })
+        )
+
+        toast.success(`Critique pass complete`, {
+          description: `${kept} kept, ${revised} revised, ${dropped} dropped`,
+        })
+        window.location.reload()
+      } catch (error) {
+        toast.error('Critique pass failed', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      } finally {
+        setIsRunningCritique(false)
+      }
+    })
+  }
+
+  const handleClearRedundancy = () => {
+    startTransition(async () => {
+      try {
+        await clearRedundancyMarksAction(blueprint.id)
+        setRedundancyCount(0)
+        setCurrentItems((prev) =>
+          prev.map((item) => ({
+            ...item,
+            redundancyPeerId: undefined,
+            redundancyScore: undefined,
+          }))
+        )
+        toast.success('Redundancy marks cleared')
+        window.location.reload()
+      } catch (error) {
+        toast.error('Failed to clear redundancy marks', {
+          description: error instanceof Error ? error.message : 'Unknown error',
+        })
+      }
+    })
+  }
+
+  const handleClearCritique = () => {
+    startTransition(async () => {
+      try {
+        await clearCritiqueMarksAction(blueprint.id)
+        setCritiqueCount(0)
+        setCurrentItems((prev) =>
+          prev.map((item) => ({
+            ...item,
+            critiqueVerdict: undefined,
+            critiqueReason: undefined,
+          }))
+        )
+        toast.success('Critique marks cleared')
+        window.location.reload()
+      } catch (error) {
+        toast.error('Failed to clear critique marks', {
           description: error instanceof Error ? error.message : 'Unknown error',
         })
       }
@@ -276,6 +404,122 @@ export function CandidateItemsView({
         )}
       </div>
 
+      {/* Refine section: redundancy & critique */}
+      {currentTotal > 0 && (
+        <Card className="p-6">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold">Refine items</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Run automated passes to find near-duplicates and review content quality.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {/* Redundancy pass */}
+              <div className="space-y-2 border-l pl-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium">Redundancy analysis</p>
+                    <p className="text-xs text-muted-foreground">
+                      Find near-duplicate items that narrow what the scale measures.
+                    </p>
+                  </div>
+                  {redundancyCount > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {redundancyCount} marked
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRunRedundancy}
+                    disabled={isPending || isRunningRedundancy}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {isRunningRedundancy ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <FileCheck className="h-3.5 w-3.5" />
+                        Run analysis
+                      </>
+                    )}
+                  </Button>
+                  {redundancyCount > 0 && (
+                    <Button
+                      onClick={handleClearRedundancy}
+                      disabled={isPending}
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Critique pass */}
+              <div className="space-y-2 border-l pl-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium">Content critique</p>
+                    <p className="text-xs text-muted-foreground">
+                      AI review for clarity, consistency, and alignment.
+                    </p>
+                  </div>
+                  {critiqueCount > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {critiqueCount} flagged
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRunCritique}
+                    disabled={isPending || isRunningCritique}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                  >
+                    {isRunningCritique ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <FileCheck className="h-3.5 w-3.5" />
+                        Run review
+                      </>
+                    )}
+                  </Button>
+                  {critiqueCount > 0 && (
+                    <Button
+                      onClick={handleClearCritique}
+                      disabled={isPending}
+                      size="sm"
+                      variant="ghost"
+                      className="gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Cell groups */}
       <div className="space-y-4">
         {cellGroups.length === 0 ? (
@@ -356,6 +600,7 @@ export function CandidateItemsView({
                     {group.items.map((item) => {
                       const currentStatus = itemStatuses[item.id] || item.status
                       const isRejected = currentStatus === 'rejected'
+                      const peerItem = currentItems.find((i) => i.id === item.redundancyPeerId)
 
                       return (
                         <div
@@ -365,7 +610,7 @@ export function CandidateItemsView({
                           }`}
                         >
                           <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 space-y-1">
+                            <div className="flex-1 space-y-2">
                               <div className="flex items-start gap-2">
                                 <p className="flex-1 text-sm leading-relaxed">
                                   {item.stem}
@@ -376,10 +621,68 @@ export function CandidateItemsView({
                                   </Badge>
                                 )}
                               </div>
+
+                              {/* Rationale */}
                               {item.rationale && (
                                 <p className="text-xs text-muted-foreground italic">
                                   {item.rationale}
                                 </p>
+                              )}
+
+                              {/* Redundancy mark */}
+                              {item.redundancyPeerId && item.redundancyScore !== undefined && item.redundancyScore !== null && (
+                                <div className="flex items-start gap-2 pt-1">
+                                  <Badge
+                                    variant="outline"
+                                    className="border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-xs"
+                                  >
+                                    ⚠ Near-duplicate
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">
+                                    {peerItem ? (
+                                      <>
+                                        Matches: <span className="font-mono">{Math.round((item.redundancyScore as number) * 100)}%</span>
+                                      </>
+                                    ) : (
+                                      <>Score: <span className="font-mono">{Math.round((item.redundancyScore as number) * 100)}%</span></>
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Critique mark */}
+                              {item.critiqueVerdict && (
+                                <div className="flex items-start gap-2 pt-1">
+                                  {item.critiqueVerdict === 'keep' && (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400 text-xs"
+                                    >
+                                      ✓ Keep
+                                    </Badge>
+                                  )}
+                                  {item.critiqueVerdict === 'revise' && (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400 text-xs"
+                                    >
+                                      ⚠ Revise
+                                    </Badge>
+                                  )}
+                                  {item.critiqueVerdict === 'drop' && (
+                                    <Badge
+                                      variant="outline"
+                                      className="border-destructive/40 bg-destructive/5 text-destructive text-xs"
+                                    >
+                                      ✕ Drop
+                                    </Badge>
+                                  )}
+                                  {item.critiqueReason && (
+                                    <span className="text-xs text-muted-foreground">
+                                      {item.critiqueReason}
+                                    </span>
+                                  )}
+                                </div>
                               )}
                             </div>
 
