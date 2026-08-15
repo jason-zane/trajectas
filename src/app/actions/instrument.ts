@@ -15,6 +15,7 @@ import {
   getBlueprintWithCells,
   createBlueprint,
   updateBlueprint,
+  updateBuild,
   softDeleteBlueprint,
   restoreBlueprint,
   replaceBlueprintCells,
@@ -2230,6 +2231,11 @@ export async function proposeStructureAction(buildId: string): Promise<{
 export async function confirmStructureAction(
   buildId: string,
   constructs: Array<Record<string, unknown>>,
+  preflightPairs?: Array<{
+    constructAName: string
+    constructBName: string
+    cosineSimilarity: number
+  }>,
 ): Promise<InstrumentBlueprintDto[]> {
   await requireAdminScope()
 
@@ -2296,6 +2302,38 @@ export async function confirmStructureAction(
     })
     created.push(blueprint)
     existingNames.add(nameLower)
+  }
+
+  // Persist the pairwise overlap as evidence. Previously it lived only in the
+  // wizard's client state, so the technical report's discriminant section was
+  // permanently empty — which reads as "no overlap found" rather than "never
+  // recorded". It is stored as SYNTHETIC evidence: it comes from embeddings,
+  // not from respondents.
+  if (preflightPairs && preflightPairs.length > 0) {
+    const idByName = new Map(
+      created.map((bp) => [(bp.draftConstructName || '').toLowerCase(), bp.id]),
+    )
+    const producedAt = new Date()
+    const evidenceRows = preflightPairs.flatMap((pair) => {
+      const aId = idByName.get(pair.constructAName.toLowerCase())
+      const bId = idByName.get(pair.constructBName.toLowerCase())
+      if (!aId || !bId) return []
+      return [
+        {
+          targetType: 'construct' as const,
+          targetId: aId,
+          claim: 'construct_overlap',
+          value: pair.cosineSimilarity,
+          evidenceClass: 'synthetic' as const,
+          method: 'construct_preflight_v1',
+          detail: { source: bId },
+          producedAt,
+        },
+      ]
+    })
+    if (evidenceRows.length > 0) {
+      await appendEvidence(db, buildId, evidenceRows)
+    }
   }
 
   revalidatePath('/instruments')
@@ -2450,13 +2488,11 @@ export async function quickBuildInstrumentAction(
     throw new Error('Build ID is required')
   }
 
-  // NOTE: These are parsed for future use in item generation controls and fairness screening
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _itemsPerConstruct = typeof options.itemsPerConstruct === 'number' ? options.itemsPerConstruct : 10
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _targetAlpha = typeof options.targetAlpha === 'number' ? options.targetAlpha : 0.8
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _readingLevel = typeof options.readingLevel === 'string' ? options.readingLevel : 'mixed'
+  const itemsPerConstruct =
+    typeof options.itemsPerConstruct === 'number' ? options.itemsPerConstruct : 10
+  const targetAlpha = typeof options.targetAlpha === 'number' ? options.targetAlpha : 0.8
+  const readingLevel =
+    typeof options.readingLevel === 'string' ? options.readingLevel : 'mixed'
 
   // Fetch build and blueprints
   const build = await getBuild(db, buildId)
@@ -2467,6 +2503,19 @@ export async function quickBuildInstrumentAction(
   const blueprints = await listBlueprints(db, buildId)
   if (blueprints.length === 0) {
     throw new Error('No blueprints found')
+  }
+
+  // The Scope step's three controls are the whole point of that step, and they
+  // were previously parsed and discarded — the blueprint stage kept its own
+  // hardcoded target regardless of what the operator chose. Persist them onto
+  // the build and its blueprints BEFORE drafting, so the AI drafts against the
+  // requested scope and the technical report reads back the same numbers.
+  await updateBuild(db, buildId, {
+    targetItemsPerConstruct: itemsPerConstruct,
+    config: { ...(build.config ?? {}), readingLevel },
+  })
+  for (const blueprint of blueprints) {
+    await updateBlueprint(db, blueprint.id, { targetAlpha })
   }
 
   const startedAt = new Date().toISOString()
@@ -2480,7 +2529,9 @@ export async function quickBuildInstrumentAction(
       try {
         await draftBlueprintWithAI(blueprint.id, {
           temperature: 0.7,
-          maxTokens: 4096,
+          // draftBlueprintWithAiOptionsSchema caps maxTokens at 4000; passing
+          // 4096 failed validation and threw on every blueprint.
+          maxTokens: 4000,
         })
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Unknown error'
@@ -2513,24 +2564,25 @@ export async function quickBuildInstrumentAction(
         // Don't continue — continue to congruence even if critique fails
       }
 
-      // Stage 4: Congruence panel
-      try {
-        await runCongruencePanelForBuild(buildId)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Unknown error'
-        errors.push({ blueprint: blueprint.draftConstructName || blueprint.id, error: `Congruence: ${msg}` })
-        // Don't continue — continue to fairness even if congruence fails
-      }
-
-      // Stage 5: Fairness screen (once per build, not per blueprint)
-      // We'll run this once after all blueprints, outside the loop
+      // Congruence is build-wide and runs once, after the loop. Calling it here
+      // re-rated every previously generated item on each iteration and replaced
+      // those ratings, so an n-construct build did n full panels and only the
+      // last one survived.
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       errors.push({ blueprint: blueprint.draftConstructName || blueprint.id, error: msg })
     }
   }
 
-  // Run fairness screen once for the entire build
+  // Congruence and fairness are both build-wide: they run once, after every
+  // construct's items exist, so the panel sees the whole instrument.
+  try {
+    await runCongruencePanelForBuild(buildId)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    errors.push({ blueprint: 'congruence_panel', error: msg })
+  }
+
   try {
     await runFairnessScreenForBuild(buildId)
   } catch (err) {

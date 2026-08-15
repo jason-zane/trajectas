@@ -37,14 +37,37 @@ export async function assembleTechnicalReport(
   const blueprintCells = blueprints.flatMap(
     (bp) => cellsByBlueprintId[bp.id] ?? [],
   );
-  const candidateItems = blueprints.flatMap((bp) =>
-    (itemsByBlueprintId[bp.id] ?? []).map((item) => ({
-      id: item.id,
-      blueprintCellId: item.blueprintCellId ?? null,
-      stem: item.stem,
-      status: item.status,
-    })),
-  );
+  const allItems = blueprints.flatMap((bp) => itemsByBlueprintId[bp.id] ?? []);
+
+  const candidateItems = allItems.map((item) => ({
+    id: item.id,
+    blueprintCellId: item.blueprintCellId ?? null,
+    stem: item.stem,
+    status: item.status,
+  }));
+
+  // The fairness screen persists its verdict under the item's payload. Dropping
+  // payload here made every report claim zero items reviewed and zero flagged —
+  // including a report opened straight after a screen that had just flagged
+  // items. An empty fairness section reads as "we checked and it is clean",
+  // which is a false statement when nothing was read at all.
+  const fairnessResults = allItems.flatMap((item) => {
+    const fairness = (item.payload as { fairness?: unknown } | null | undefined)
+      ?.fairness as
+      | { flags?: unknown; note?: unknown }
+      | undefined;
+    if (!fairness) return [];
+    const flags = Array.isArray(fairness.flags)
+      ? fairness.flags.filter((f): f is string => typeof f === "string")
+      : [];
+    return [
+      {
+        id: item.id,
+        flags,
+        note: typeof fairness.note === "string" ? fairness.note : undefined,
+      },
+    ];
+  });
 
   // Rebuild the congruence panel from stored ratings. Absent ratings must yield
   // undefined, NOT an empty panel: an empty panel would report 0% assignment
@@ -87,6 +110,13 @@ export async function assembleTechnicalReport(
     updatedAt: new Date(bp.updatedAt),
   })) satisfies Blueprint[];
 
+  const nameById = new Map(
+    blueprints.map((bp) => [
+      bp.id,
+      bp.draftConstructName ?? bp.constructId ?? "Unnamed construct",
+    ]),
+  );
+
   const report = buildTechnicalReport(
     {
       buildId,
@@ -108,6 +138,19 @@ export async function assembleTechnicalReport(
       blueprintCells,
       candidateItems,
       congruenceResult,
+      fairnessResults,
+      // Pairwise overlap persisted by the structure step. Reading it back is
+      // what makes the report's discriminant section reflect a real check
+      // rather than always reporting nothing.
+      discriminantScores: data.evidenceRecords
+        .filter((r) => r.claim === "construct_overlap")
+        .flatMap((r) => {
+          const peerId = r.detail?.source;
+          const a = nameById.get(r.targetId);
+          const b = peerId ? nameById.get(peerId) : undefined;
+          if (!a || !b) return [];
+          return [{ construct1: a, construct2: b, cosineSimilarity: r.value }];
+        }),
       evidenceRecords: data.evidenceRecords,
     },
     alphaForecast,

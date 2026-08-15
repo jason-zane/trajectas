@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import {
   createInstrumentBuild,
   proposeStructureAction,
+  deleteInstrumentBuild,
   confirmStructureAction,
   quickBuildInstrumentAction,
 } from '@/app/actions/instrument'
@@ -182,7 +183,22 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
   }
 
   function handleOpenChange(next: boolean) {
-    if (!next) reset()
+    if (!next) {
+      // The build row is created when leaving the Brief step, before the user
+      // has confirmed anything. Abandoning the wizard after that point used to
+      // leave a permanent empty instrument in the list. Discard it — unless
+      // generation has started, in which case the build holds real work.
+      const abandoned = buildId
+      const startedGenerating = generationProgress !== null
+      if (abandoned && !startedGenerating) {
+        void deleteInstrumentBuild(abandoned).catch(() => {
+          // Non-fatal: an orphan build is untidy, not harmful, and the user has
+          // already closed the dialog. Never surface an error for this.
+        })
+      }
+      reset()
+      router.refresh()
+    }
     onOpenChange(next)
   }
 
@@ -249,7 +265,17 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
       try {
         // Use renamed constructs if available, otherwise use proposed
         const toConfirm = renamedConstructs.length > 0 ? renamedConstructs : proposedConstructs
-        await confirmStructureAction(buildId, toConfirm.filter((c) => c.included))
+        // Pass the overlap pairs through so they are persisted as evidence and
+        // reach the technical report's discriminant section.
+        await confirmStructureAction(
+          buildId,
+          toConfirm.filter((c) => c.included),
+          preflightPairs.map((p) => ({
+            constructAName: p.constructAName,
+            constructBName: p.constructBName,
+            cosineSimilarity: p.cosineSimilarity,
+          }))
+        )
       } catch (err) {
         toast.error('Failed to confirm constructs', {
           description: err instanceof Error ? err.message : 'Please try again.',

@@ -303,12 +303,12 @@ describe('buildTechnicalReport', () => {
 
       expect(construct.constructId).toBe('construct-1');
       expect(construct.assignmentAccuracy.value).toBe(0.75);
-      expect(construct.assignmentAccuracy.evidenceClass).toBe('empirical');
+      expect(construct.assignmentAccuracy.evidenceClass).toBe('a_priori');
       expect(construct.assignmentAccuracy.sampleSize).toBe(2);
       expect(construct.aikenV.value).toBe(0.8);
-      expect(construct.aikenV.evidenceClass).toBe('empirical');
+      expect(construct.aikenV.evidenceClass).toBe('a_priori');
       expect(construct.passRate.value).toBe(0.5);
-      expect(construct.passRate.evidenceClass).toBe('empirical');
+      expect(construct.passRate.evidenceClass).toBe('a_priori');
 
       // Check for confusion pair (item-2 leaked to construct-2)
       expect(construct.confusionPairs).toContainEqual({
@@ -324,9 +324,9 @@ describe('buildTechnicalReport', () => {
       const report = buildTechnicalReport(input);
 
       expect(report.contentValidity.overall.itemCount.value).toBe(2);
-      expect(report.contentValidity.overall.itemCount.evidenceClass).toBe('empirical');
+      expect(report.contentValidity.overall.itemCount.evidenceClass).toBe('a_priori');
       expect(report.contentValidity.overall.fleissKappa.value).toBe(0.75);
-      expect(report.contentValidity.overall.fleissKappa.evidenceClass).toBe('empirical');
+      expect(report.contentValidity.overall.fleissKappa.evidenceClass).toBe('a_priori');
     });
 
     it('should mark all claims as a_priori when no congruence result', () => {
@@ -511,7 +511,7 @@ describe('buildTechnicalReport', () => {
       const validityClaim = report.limitations.claims.find(
         (c) => c.claim.includes('Content validity')
       );
-      expect(validityClaim?.evidenceClass).toBe('empirical');
+      expect(validityClaim?.evidenceClass).toBe('a_priori');
       expect(validityClaim?.sampleSizeProvided).toBe(2);
     });
 
@@ -601,8 +601,8 @@ describe('buildTechnicalReport', () => {
       const report = buildTechnicalReport(input);
 
       // Empirical claims from congruence
-      expect(report.contentValidity.overall.fleissKappa.evidenceClass).toBe('empirical');
-      expect(report.contentValidity.overall.assignmentAccuracy.evidenceClass).toBe('empirical');
+      expect(report.contentValidity.overall.fleissKappa.evidenceClass).toBe('a_priori');
+      expect(report.contentValidity.overall.assignmentAccuracy.evidenceClass).toBe('a_priori');
 
       // A priori claims
       expect(report.specification.totalInstrumentItems.evidenceClass).toBe('a_priori');
@@ -614,9 +614,11 @@ describe('buildTechnicalReport', () => {
       const input = createMockInput({ congruenceResult: congruence });
       const report = buildTechnicalReport(input);
 
-      const empiricalLabel = report.contentValidity.overall.fleissKappa.label;
-      expect(empiricalLabel).toContain('observed');
-      expect(empiricalLabel).toContain('n=2');
+      // The congruence panel's raters are language models, so its output is
+      // design-time evidence and must be labelled forecast, never observed.
+      const congruenceLabel = report.contentValidity.overall.fleissKappa.label;
+      expect(congruenceLabel).toContain('forecast');
+      expect(congruenceLabel).toContain('n=2');
 
       const aprioriLabel = report.specification.totalInstrumentItems.label;
       expect(aprioriLabel).toBe('forecast (no data)');

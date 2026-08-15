@@ -209,6 +209,21 @@ export interface TechnicalReportInput {
 // Helper Functions
 // ---------------------------------------------------------------------------
 
+/**
+ * The congruence panel's raters are language models, not human subject-matter
+ * experts and not respondents. Its accuracy, Aiken's V and Fleiss' kappa are
+ * therefore DESIGN-TIME evidence about how the items read, not observations of
+ * how people answered them. Labelling them 'empirical' in a customer-facing
+ * report would present an AI judgement as measured data — the single most
+ * damaging thing this document could do.
+ */
+const CONGRUENCE_EVIDENCE_CLASS: EvidenceClass = 'a_priori';
+
+/** Respondents needed before alpha may be reported with an interval. */
+const MIN_SAMPLE_FOR_ALPHA = 50;
+/** Respondents needed before IRT, DIF and norms may be reported at all. */
+const MIN_SAMPLE_FOR_IRT_DIF = 200;
+
 function createEvidenceClaim<T>(
   value: T,
   evidenceClass: EvidenceClass,
@@ -379,22 +394,22 @@ function buildContentValiditySection(
       constructName: input.constructNames?.[summary.constructId] ?? summary.constructId,
       itemCount: createEvidenceClaim(
         summary.itemCount,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       assignmentAccuracy: createEvidenceClaim(
         summary.meanAccuracy,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       aikenV: createEvidenceClaim(
         summary.meanAikenV,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       passRate: createEvidenceClaim(
         summary.passRate,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       confusionPairs,
@@ -406,27 +421,27 @@ function buildContentValiditySection(
     overall: {
       itemCount: createEvidenceClaim(
         input.congruenceResult.overall.itemCount,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       assignmentAccuracy: createEvidenceClaim(
         input.congruenceResult.overall.meanAccuracy,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       aikenV: createEvidenceClaim(
         input.congruenceResult.overall.meanAikenV,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       passRate: createEvidenceClaim(
         input.congruenceResult.overall.passRate,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
       fleissKappa: createEvidenceClaim(
         input.congruenceResult.fleissKappa,
-        'empirical',
+        CONGRUENCE_EVIDENCE_CLASS,
         input.congruenceResult.overall.raterCount
       ),
     },
@@ -511,7 +526,27 @@ function buildReliabilitySection(
     });
   }
 
+  // An empirical alpha, when one exists, must actually be RENDERED. Deriving
+  // the report's standing from a record and then not showing it produced a
+  // document that announced "calibrated" beside an empty reliability section.
+  const empiricalAlphaRecord = input.evidenceRecords.find(
+    (r) =>
+      r.targetType === 'instrument' &&
+      r.claim === 'alpha' &&
+      r.evidenceClass === 'empirical'
+  );
+
   return {
+    observedAlpha: empiricalAlphaRecord
+      ? createEvidenceClaim(
+          {
+            point: empiricalAlphaRecord.value,
+            interval: empiricalAlphaRecord.interval,
+          },
+          'empirical',
+          empiricalAlphaRecord.sampleSize
+        )
+      : undefined,
     alpha: createEvidenceClaim(
       {
         point: alphaValue,
@@ -586,8 +621,9 @@ function buildLimitationsSection(
   } else {
     const congruenceRaters = input.congruenceResult?.overall.raterCount ?? 0;
     claims.push({
+      // Model raters, not respondents: design-time evidence.
       claim: 'Content validity (assignment accuracy, Aiken\'s V, Fleiss\' kappa)',
-      evidenceClass: 'empirical',
+      evidenceClass: CONGRUENCE_EVIDENCE_CLASS,
       sampleSizeProvided: congruenceRaters,
     });
   }
@@ -598,16 +634,29 @@ function buildLimitationsSection(
     sampleSizeNeeded: 50,
   });
 
+  // The respondent sample size comes from the alpha evidence record itself.
+  // Using the congruence panel's itemCount here treated "number of items an AI
+  // rater looked at" as "number of people who answered", so a 200-item
+  // instrument could be labelled calibrated on a handful of respondents.
+  const empiricalAlphaRecord = input.evidenceRecords.find(
+    (r) =>
+      r.targetType === 'instrument' &&
+      r.claim === 'alpha' &&
+      r.evidenceClass === 'empirical'
+  );
+  const respondentN = empiricalAlphaRecord?.sampleSize ?? 0;
+
   if (hasEmpiricalAlpha) {
     claims.push({
       claim: 'Reliability (Cronbach\'s alpha, observed)',
       evidenceClass: 'empirical',
-      sampleSizeProvided: input.congruenceResult?.overall.itemCount,
+      sampleSizeProvided: respondentN,
+      sampleSizeNeeded: MIN_SAMPLE_FOR_ALPHA,
     });
   }
 
   const validationStatus: 'designed_to_standard' | 'piloting' | 'calibrated' =
-    hasEmpiricalAlpha && (input.congruenceResult?.overall.itemCount ?? 0) >= 200
+    hasEmpiricalAlpha && respondentN >= MIN_SAMPLE_FOR_IRT_DIF
       ? 'calibrated'
       : hasEmpiricalAlpha
         ? 'piloting'
@@ -616,8 +665,8 @@ function buildLimitationsSection(
   return {
     claims,
     validationStatus,
-    minSampleSizeForAlpha: 50,
-    minSampleSizeForIrtDif: 200,
+    minSampleSizeForAlpha: MIN_SAMPLE_FOR_ALPHA,
+    minSampleSizeForIrtDif: MIN_SAMPLE_FOR_IRT_DIF,
   };
 }
 
