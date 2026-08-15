@@ -1,6 +1,7 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { familySeedKey, type ExistingBankState } from './plan'
+import { logActionError } from '@/lib/security/action-errors'
 
 /**
  * The write port for bank ingest.
@@ -122,6 +123,25 @@ export interface ItemBankStore {
   createAnswerKey(row: AnswerKeyInsert): Promise<void>
   createOptionDiagnostics(rows: readonly OptionDiagnosticInsert[]): Promise<void>
   setFamilyExemplar(familyId: string, itemId: string): Promise<void>
+  /**
+   * Remove a partially-written item, addressed by content hash.
+   *
+   * An item is written across several statements and there is no transaction
+   * spanning them (see the module header on ingest.ts). If one of the child
+   * writes fails, the `items` row is already committed, and because ingest
+   * decides "already present" from the content hash alone, EVERY later run
+   * would skip that item and never write the children it is missing — a
+   * permanent orphan that the documented "re-running completes a partial load"
+   * behaviour cannot repair.
+   *
+   * Addressed by content hash rather than id because the id is what the failed
+   * call was in the middle of returning. Every child row cascades on delete
+   * (20260813100500), so this is a complete undo.
+   *
+   * Best-effort by contract: implementations must not throw, since this runs
+   * while another error is already propagating and must not mask it.
+   */
+  deletePartialItemByContentHash(contentHash: string): Promise<void>
 }
 
 function fail(context: string, error: { message: string } | null): void {
@@ -343,6 +363,15 @@ export function createSupabaseItemBankStore(db: SupabaseClient): ItemBankStore {
     async setFamilyExemplar(familyId, itemId) {
       const { error } = await db.from('item_families').update({ exemplar_item_id: itemId }).eq('id', familyId)
       fail('item_families exemplar update', error)
+    },
+
+    async deletePartialItemByContentHash(contentHash) {
+      // Deliberately does not use `fail()`. This runs inside a catch while the
+      // real error is propagating; turning a cleanup failure into a throw would
+      // replace a precise error with a vague one. A failed cleanup leaves
+      // exactly the orphan that existed before this method was added.
+      const { error } = await db.from('items').delete().eq('content_hash', contentHash)
+      if (error) logActionError('itemBankStore.deletePartialItem', error)
     },
   }
 }

@@ -256,6 +256,14 @@ function createPsqlStore(): ItemBankStore {
     async setFamilyExemplar(familyId: string, itemId: string): Promise<void> {
       sql(`UPDATE item_families SET exemplar_item_id = ${lit(itemId)}::uuid WHERE id = ${lit(familyId)}::uuid`)
     },
+    async deletePartialItemByContentHash(contentHash: string): Promise<void> {
+      // Best-effort: runs while another error is propagating. Children cascade.
+      try {
+        sql(`DELETE FROM items WHERE content_hash = ${lit(contentHash)}`)
+      } catch {
+        // Leaving the orphan is no worse than before this existed.
+      }
+    },
   }
 }
 

@@ -2,17 +2,22 @@
  * Shape a generator run into the two files `parseBankFile` reads.
  *
  * The generator emits `GenerateBatchResult`; ingest reads an `items.json` and a
- * `summary.json`. Three callers needed that conversion — the CLI generator, the
- * roundtrip harness, and the admin "generate and ingest" action — and had three
- * copies of it. Identical seeds have to produce identical banks across all
- * three or idempotency-by-content-hash stops meaning anything: a bank shaped
- * slightly differently by the UI would re-ingest as new items rather than
- * skipping the ones the CLI already wrote.
+ * `summary.json`. Four callers need that conversion — the bank-file CLI
+ * (`generate-matrix-bank.ts`), the roundtrip harness, the live loader, and the
+ * admin "generate and ingest" action — and each used to carry its own copy.
+ * That is not a tidiness problem:
  *
- * The round trip through JSON is deliberate. `parseBankFile` is the validation
- * boundary, and it should see the same plain data an uploaded file would
- * present — not live objects carrying class instances or `undefined` holes that
- * a file could never contain.
+ *   - Identical seeds must produce identical banks, or idempotency-by-content-
+ *     hash stops meaning anything; a bank shaped differently by one caller
+ *     re-ingests as new items instead of skipping what another already wrote.
+ *   - The copies drifted in a way nobody noticed. Every hand-rolled projection
+ *     emitted `{slot, elements}` per option and dropped the generator's
+ *     `errorLabel` and `rationale`, so `item_option_diagnostics` was never
+ *     written and reviewers saw four indistinguishable wrong answers.
+ *
+ * Two entry points, one projection: `bankFilesFromGeneration` returns the plain
+ * documents (for the CLI, which writes them to disk), and `bankFromGeneration`
+ * validates them (for everyone who ingests).
  *
  * @module
  */
@@ -31,17 +36,29 @@ export interface BankFromGenerationOptions {
   finishedAt?: string
 }
 
+/** The two plain-JSON documents a bank is made of, before validation. */
+export interface BankFiles {
+  /** The contents of `items.json`. */
+  items: unknown[]
+  /** The contents of `summary.json`. */
+  summary: Record<string, unknown>
+}
+
 /**
- * Convert a batch result into a parsed, validated bank.
+ * Project a batch result into the two documents, WITHOUT validating them.
  *
- * @throws BankFileError if the generator produced something the bank schema
- *   refuses — which is a generator bug, not a caller error.
+ * Exists separately from `bankFromGeneration` for one caller:
+ * `scripts/cognitive/generate-matrix-bank.ts` writes these to disk rather than
+ * ingesting them, so it needs the pre-parse shape. Sharing the projection is
+ * what keeps a file written by the CLI identical to a bank ingested by the
+ * admin UI — before this split, the CLI had its own copy that silently omitted
+ * every distractor's error label.
  */
-export function bankFromGeneration(
+export function bankFilesFromGeneration(
   result: GenerateBatchResult,
   families: readonly FamilyTemplate<unknown>[],
   options: BankFromGenerationOptions,
-): ParsedBank {
+): BankFiles {
   const items = result.items.map((item) => {
     // `optionSpecs` is the render instruction; `optionDiagnostics` says why each
     // distractor is wrong. The bank file carries them on one entry per option,
@@ -96,8 +113,27 @@ export function bankFromGeneration(
     bandDistribution,
   }
 
-  return parseBankFile(
-    JSON.parse(JSON.stringify(items)) as unknown,
-    JSON.parse(JSON.stringify(summary)) as unknown,
-  )
+  // The round trip through JSON is deliberate, and belongs here rather than at
+  // each caller: it is what guarantees a bank held in memory and a bank read
+  // back off disk are the same document, with no `undefined` holes or class
+  // instances a file could never carry.
+  return {
+    items: JSON.parse(JSON.stringify(items)) as unknown[],
+    summary: JSON.parse(JSON.stringify(summary)) as Record<string, unknown>,
+  }
+}
+
+/**
+ * Project a batch result into a parsed, validated bank.
+ *
+ * @throws BankFileError if the generator produced something the bank schema
+ *   refuses — which is a generator bug, not a caller error.
+ */
+export function bankFromGeneration(
+  result: GenerateBatchResult,
+  families: readonly FamilyTemplate<unknown>[],
+  options: BankFromGenerationOptions,
+): ParsedBank {
+  const files = bankFilesFromGeneration(result, families, options)
+  return parseBankFile(files.items, files.summary)
 }

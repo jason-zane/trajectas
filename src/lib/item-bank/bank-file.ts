@@ -27,17 +27,21 @@ import {
  * KNOWN GAP — per-distractor error labels
  * ---------------------------------------------------------------------------
  * #347 wants a reviewer to see per-distractor error labels (WR/IR/PM/RP...),
- * which is what `item_option_diagnostics` stores. The generator KNOWS them —
- * `distractors.ts`'s `PlacedOption` carries `label` and `mechanism` — but
- * `GeneratedItem.optionSpecs` (src/lib/cognitive/generator/index.ts) narrows
- * each placed option to `CognitiveOptionSpec` = `{ slot, elements }` before
- * returning, so the labels never reach `items.json`.
+ * which is what `item_option_diagnostics` stores. The generator has always
+ * KNOWN them — `distractors.ts`'s `PlacedOption` carries `label` and
+ * `mechanism` — but `GeneratedItem.optionSpecs` narrows each placed option to
+ * `CognitiveOptionSpec` = `{ slot, elements }`, and for a long time every
+ * caller rebuilt the bank from `optionSpecs` alone, so the labels reached no
+ * bank file and no reviewer ever saw one.
  *
- * That is a generator-side change and the generator is owned elsewhere, so
- * this schema accepts `errorLabel` / `rationale` as OPTIONAL per-option
- * fields: a bank file that carries them gets `item_option_diagnostics` rows,
- * one that does not gets none, and nothing else changes. When the generator
- * starts emitting them, ingest picks them up with no further work here.
+ * They now travel alongside, in `GeneratedItem.optionDiagnostics`, and
+ * `bankFilesFromGeneration` (src/lib/item-bank/from-generation.ts) merges them
+ * back per option. Every producer routes through it, so a bank file carries
+ * them whether it came from the CLI or the admin UI.
+ *
+ * The fields stay OPTIONAL here regardless: a bank file that carries them gets
+ * `item_option_diagnostics` rows, one that does not gets none, and nothing else
+ * changes. That keeps older bank files readable.
  */
 
 /** Mirrors the DB CHECK on item_option_diagnostics.error_label. */

@@ -119,6 +119,7 @@ type Recorded = {
   answerKeys: AnswerKeyInsert[]
   diagnostics: OptionDiagnosticInsert[][]
   exemplars: Array<[string, string]>
+  deletedPartials: string[]
 }
 
 function fakeStore(existing: ExistingBankState = emptyState()): {
@@ -136,6 +137,7 @@ function fakeStore(existing: ExistingBankState = emptyState()): {
     optionSpecs: [],
     answerKeys: [],
     diagnostics: [],
+    deletedPartials: [],
     exemplars: [],
   }
   const optionIdsByItem = new Map<string, string[]>()
@@ -181,6 +183,9 @@ function fakeStore(existing: ExistingBankState = emptyState()): {
     },
     async setFamilyExemplar(familyId, itemId) {
       recorded.exemplars.push([familyId, itemId])
+    },
+    async deletePartialItemByContentHash(contentHash) {
+      recorded.deletedPartials.push(contentHash)
     },
   }
 
@@ -463,5 +468,47 @@ describe('ingestGeneratedBank', () => {
     expect(result.itemsSkipped).toBe(1)
     // Only the family the new item needs; the existing one is left untouched.
     expect(recorded.families.map((f) => f.code)).toEqual(['LRM-LATIN'])
+  })
+
+  it('removes the half-written item when a child write fails', async () => {
+    // There is no transaction around an item's several writes. Without this
+    // cleanup the `items` row survives, and because the idempotency decision is
+    // content-hash-only, every later run skips it — so the answer key it is
+    // missing can never be written. "Re-run to complete a partial load" would
+    // silently not apply to that one item.
+    const { store, recorded } = fakeStore()
+    const failing: ItemBankStore = {
+      ...store,
+      async createAnswerKey() {
+        throw new Error('connection reset')
+      },
+    }
+
+    await expect(
+      ingestGeneratedBank(failing, { bank: parse([M1()]), ...ingestArgs }),
+    ).rejects.toThrow('connection reset')
+
+    expect(recorded.deletedPartials).toEqual([contentHash(m1ItemSpec)])
+    // The run is closed out as failed rather than left running.
+    expect(recorded.runFinishes.at(-1)?.status).toBe('failed')
+  })
+
+  it('does not let a cleanup failure mask the real error', async () => {
+    const { store } = fakeStore()
+    const failing: ItemBankStore = {
+      ...store,
+      async createAnswerKey() {
+        throw new Error('the error worth reading')
+      },
+      async deletePartialItemByContentHash() {
+        throw new Error('cleanup also failed')
+      },
+    }
+
+    // The contract says implementations must not throw; if one does anyway, the
+    // original error is still the one that surfaces.
+    await expect(
+      ingestGeneratedBank(failing, { bank: parse([M1()]), ...ingestArgs }),
+    ).rejects.toThrow('the error worth reading')
   })
 })

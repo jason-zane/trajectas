@@ -184,16 +184,36 @@ export async function ingestGeneratedBank(
       const familyId = familyIdByCode.get(planned.familyCode)
       if (!familyId) throw new Error(`no family row for ${planned.familyCode}`)
 
-      const itemId = await writeItem(store, {
-        planned,
-        familyId,
-        runId,
-        displayOrder: displayOrder++,
-        constructId: input.constructId,
-        responseFormatId: input.responseFormatId,
-        purpose: input.purpose ?? 'construct',
-        createdByProfileId: input.requestedByProfileId ?? null,
-      })
+      // An item is several statements with no transaction around them. If a
+      // child write fails, the `items` row is already committed, and the
+      // content hash it carries would make every later run skip it — so the
+      // missing children could never be written and the documented "re-run to
+      // complete a partial load" would quietly not apply to that item. Undoing
+      // the parent (all children cascade) is what keeps that promise true.
+      let itemId: string
+      try {
+        itemId = await writeItem(store, {
+          planned,
+          familyId,
+          runId,
+          displayOrder: displayOrder++,
+          constructId: input.constructId,
+          responseFormatId: input.responseFormatId,
+          purpose: input.purpose ?? 'construct',
+          createdByProfileId: input.requestedByProfileId ?? null,
+        })
+      } catch (error) {
+        // The store contract says this must not throw, but a cleanup that
+        // replaced "answer key insert failed: connection reset" with its own
+        // error would cost the only useful diagnostic. Guard at the call site
+        // rather than trusting the contract.
+        try {
+          await store.deletePartialItemByContentHash(planned.contentHash)
+        } catch {
+          // Leaves the orphan, which is the state before this cleanup existed.
+        }
+        throw error
+      }
       insertedItemIds.push(itemId)
 
       // First item written for a family this ingest created becomes its

@@ -1,7 +1,9 @@
 /**
- * `bankFromGeneration` is the join between the generator and ingest, and it now
- * has three callers: the CLI generator, the live loader, and the admin
- * "generate and ingest" action.
+ * `bankFromGeneration` is the join between the generator and ingest. Four
+ * producers go through it or its unvalidated twin `bankFilesFromGeneration`:
+ * the bank-file CLI (`generate-matrix-bank.ts`, which writes the files), the
+ * roundtrip harness, the live loader, and the admin "generate and ingest"
+ * action.
  *
  * The invariant that matters is that they cannot drift. Ingest decides what is
  * already present by content hash, so if the UI shaped a bank even slightly
@@ -14,7 +16,7 @@
 import { describe, expect, it } from 'vitest'
 import { generateBatch } from '@/lib/cognitive/generator/index'
 import { ALL_FAMILIES } from '@/lib/cognitive/generator/families/index'
-import { bankFromGeneration } from '@/lib/item-bank/from-generation'
+import { bankFilesFromGeneration, bankFromGeneration } from '@/lib/item-bank/from-generation'
 
 const SEED = 'from-generation-test'
 const PER_FAMILY = 2
@@ -148,6 +150,35 @@ describe('bankFromGeneration', () => {
     expect(first?.qa.contentHash).toBe(
       'sha256:61e5e72331e72da7ce56e15a4bbc61f66116c46606de154d211bb8c266868c92',
     )
+  })
+
+  it('writes the diagnostics into the FILE shape, not just the parsed bank', () => {
+    // scripts/cognitive/generate-matrix-bank.ts serialises this straight to
+    // items.json. Its own hand-rolled projection used to emit {slot, elements}
+    // only, so a bank produced by the documented CLI ingested with zero
+    // item_option_diagnostics — and because ingest skips by content hash, a
+    // later run through the UI could not backfill them.
+    const result = generateBatch(ALL_FAMILIES, SEED, PER_FAMILY)
+    const files = bankFilesFromGeneration(result, ALL_FAMILIES, { seed: SEED, perFamily: PER_FAMILY, ...FIXED })
+
+    expect(files.items.length).toBe(result.items.length)
+    for (const raw of files.items as Array<{
+      keySlot: string
+      optionSpecs: Array<{ slot: string; errorLabel: string | null; rationale: string | null }>
+    }>) {
+      expect(raw.optionSpecs).toHaveLength(5)
+      for (const option of raw.optionSpecs) {
+        if (option.slot === raw.keySlot) {
+          expect(option.errorLabel).toBeNull()
+        } else {
+          expect(option.errorLabel).not.toBeNull()
+          expect(option.rationale).toBeTruthy()
+        }
+      }
+    }
+
+    // Serialisable as-is — this is what hits disk.
+    expect(() => JSON.stringify(files)).not.toThrow()
   })
 
   it('survives the JSON round trip that a file upload would impose', () => {
