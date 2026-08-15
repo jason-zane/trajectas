@@ -6,6 +6,7 @@ import { BinaryResponse } from "./formats/binary-response";
 import { RankingResponse } from "./formats/ranking-response";
 import { FreeTextResponse } from "./formats/free-text-response";
 import { SJTResponse } from "./formats/sjt-response";
+import { CognitiveResponse } from "./formats/cognitive-response";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import type { ItemForRunner } from "@/app/actions/assess";
@@ -105,6 +106,14 @@ export function ItemCard({
         )}
         {responseFormatType === "sjt" && (
           <SJTResponse
+            options={item.options}
+            selectedValue={selectedValue}
+            onSelect={onResponse}
+          />
+        )}
+        {responseFormatType === "cognitive" && (
+          <CognitiveResponse
+            stimulus={item.stimulus}
             options={item.options}
             selectedValue={selectedValue}
             onSelect={onResponse}

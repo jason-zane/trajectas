@@ -67,6 +67,26 @@ export const submitSessionInputSchema = z.object({
   sessionId: postgresUuid(),
 })
 
+export const startSectionTimingInputSchema = z.object({
+  token: accessToken,
+  sessionId: postgresUuid(),
+  sectionId: postgresUuid(),
+})
+
+export const finaliseSectionInputSchema = z.object({
+  token: accessToken,
+  sessionId: postgresUuid(),
+  sectionId: postgresUuid(),
+  reason: z.enum(['participant', 'client_timer']),
+})
+
+export const checkPracticeAnswerInputSchema = z.object({
+  token: accessToken,
+  sessionId: postgresUuid(),
+  itemId: postgresUuid(),
+  chosenOptionId: postgresUuid(),
+})
+
 export const triggerReportGenerationInputSchema = z.object({
   sessionId: postgresUuid(),
 })

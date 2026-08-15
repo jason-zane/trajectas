@@ -190,7 +190,16 @@ export async function fetchCalibrationResponses(
     )
     .eq("participant_sessions.status", "completed")
     .is("items.deleted_at", null)
-    .not("items.construct_id", "is", null);
+    .not("items.construct_id", "is", null)
+    // purpose='construct' only. construct_id is NOT a sufficient filter on its
+    // own: items_purpose_construct_check (20260813100500) REQUIRES 'practice'
+    // and 'seed' items to carry a construct_id too, so without this line a
+    // practice section's responses would be calibrated as if they were real
+    // measurements. Harmless until a practice section exists — items.purpose is
+    // NOT NULL DEFAULT 'construct' (00016_validity_items.sql:11) — and LR-6
+    // (#336) introduces the first one. Same filter, same reason, as the one in
+    // scoreSessionCTT.
+    .eq("items.purpose", "construct");
 
   // Exclude internal data by default (belt-and-braces: filter both session and campaign).
   if (!options?.includeInternal) {

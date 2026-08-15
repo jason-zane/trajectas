@@ -5,9 +5,20 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ProgressBar } from "./progress-bar";
 import { ItemCard } from "./item-card";
-import { updateSessionProgressLite } from "@/app/actions/assess";
+import {
+  updateSessionProgressLite,
+  finaliseSection,
+  submitSession,
+} from "@/app/actions/assess";
+import { checkPracticeAnswer } from "@/app/actions/assess-practice";
 import { useSaveQueue } from "./use-save-queue";
 import { SavingOverlay } from "./saving-overlay";
+import { SectionTimer } from "./section-timer";
+import {
+  PracticeCheckButton,
+  PracticeCheckError,
+  PracticeFeedback,
+} from "./practice-feedback";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
 
@@ -46,8 +57,13 @@ const AUTO_ADVANCE_FORMATS = new Set([
 ]);
 
 /** Formats that need a Continue button (multi-step input — user composes
- *  a response over multiple interactions rather than picking a single option). */
-const CONTINUE_FORMATS = new Set(["free_text", "ranking"]);
+ *  a response over multiple interactions rather than picking a single option).
+ *  `cognitive` (LR-4 / #334) is here too, but for a different reason: doc
+ *  03-logical-reasoning-design.md §7.3 requires an explicit tap + Confirm
+ *  step on figural-matrix items to prevent mis-tap penalties on a dense,
+ *  pattern-heavy answer grid — auto-advancing on the first tap would punish
+ *  a slipped finger the same as a genuine answer. */
+const CONTINUE_FORMATS = new Set(["free_text", "ranking", "cognitive"]);
 
 /** Animation + auto-advance delay. Single source of truth. */
 const ADVANCE_DELAY_MS = 120;
@@ -66,6 +82,14 @@ function getAssessmentBoundaryActionLabel(postAssessmentUrl: string): string {
 function countAllItems(sections: SectionForRunner[]): number {
   return sections.reduce((acc, s) => acc + s.items.length, 0);
 }
+
+/** Per-item practice-check state (LR-6 / #336) — keyed by item id so it
+ *  survives back-navigation within a practice section. */
+type PracticeCheckState =
+  | { status: "unchecked" }
+  | { status: "checking" }
+  | { status: "checked"; correct: boolean; message?: string }
+  | { status: "error"; error: string };
 
 export function SectionWrapper({
   token,
@@ -122,6 +146,14 @@ export function SectionWrapper({
     return firstUnanswered >= 0 ? firstUnanswered : 0;
   });
   const [responses, setResponses] = useState(existingResponses);
+
+  // Practice-mode answer checking (LR-6 / #336). A 'practice'-role section
+  // never auto-advances and never shows ItemCard's own Continue button —
+  // every item goes through Check answer -> feedback -> Continue instead,
+  // via the controls rendered below (see the `isPractice` branches in the
+  // render and in handleResponse/goToNextItem's neighbours).
+  const isPractice = section.sectionRole === "practice";
+  const [practiceChecks, setPracticeChecks] = useState<Record<string, PracticeCheckState>>({});
 
   // When IndexedDB-backed local responses hydrate, merge them into the
   // server-rendered snapshot. Local writes that haven't synced yet take
@@ -183,6 +215,28 @@ export function SectionWrapper({
   }, [flushProgress, sessionId, token]);
 
   const currentItem = section.items[localItemIndex];
+
+  // Per-item latency capture (LR-4 / #334). itemShownAtRef marks the moment
+  // the CURRENT item became visible; handleResponse below measures elapsed
+  // time against it and passes it through as responseTimeMs — the field was
+  // already plumbed end-to-end (use-save-queue.ts -> both save RPCs ->
+  // participant_responses.response_time_ms) but nothing populated it.
+  // Server-side answered_at (LR-2 / #332) is the trusted RECEIPT timestamp;
+  // this is a complementary client-measured DURATION signal, not a
+  // duplicate of it — see the column comments in
+  // 20260813102000_cognitive_delivery_and_timing.sql.
+  const itemShownAtRef = useRef<number>(
+    typeof performance !== "undefined" ? performance.now() : Date.now(),
+  );
+  useEffect(() => {
+    itemShownAtRef.current =
+      typeof performance !== "undefined" ? performance.now() : Date.now();
+    // Re-arm whenever a different item becomes the visible one — including
+    // revisits via Back, so time-on-item is always measured from the moment
+    // THIS render of the item started, not first-ever exposure.
+     
+  }, [currentItem?.id]);
+
   const responseFormatType = section.responseFormatType;
   const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
   const isFinalItemInAssessment =
@@ -190,13 +244,21 @@ export function SectionWrapper({
     localItemIndex === section.items.length - 1;
   const hasCurrentResponse =
     currentItem != null && responses[currentItem.id] !== undefined;
+  const currentPracticeCheck: PracticeCheckState =
+    isPractice && currentItem
+      ? practiceChecks[currentItem.id] ?? { status: "unchecked" }
+      : { status: "unchecked" };
   // Continue is only for multi-step formats (free_text, ranking) where the
   // user composes a response over several interactions and needs an explicit
   // commit. Auto-advance formats (likert, binary, sjt, forced_choice) never
   // show Continue — they advance to the next *unanswered* item on click, so
   // a returning participant naturally skips past items they've already
-  // answered without re-clicking and without a flashing button.
-  const showManualAdvanceButton = hasCurrentResponse && needsContinue;
+  // answered without re-clicking and without a flashing button. Practice
+  // items are the third case: ItemCard never renders its own Continue for
+  // them (see showContinue below) — the Check-answer/feedback controls
+  // rendered alongside it own the Continue affordance instead.
+  const showManualAdvanceButton =
+    !isPractice && hasCurrentResponse && needsContinue;
   const manualAdvanceLabel = isFinalItemInAssessment
     ? isBoundaryPending
       ? "Completing assessment..."
@@ -243,14 +305,59 @@ export function SectionWrapper({
     [flushProgress, flushSaves, retryFailedSaves, router, section.id],
   );
 
+  // Fired once by SectionTimer when the server-issued deadline is reached
+  // (LR-2 / #332). finaliseSection re-validates the deadline server-side —
+  // a tampered client cannot end a timed section early by firing this early.
+  // Flush first so any answer already in flight gets its best chance to
+  // land inside the RPC's own grace window before the section locks.
+  const expiryHandledRef = useRef(false);
+  const handleExpiry = useCallback(async () => {
+    if (expiryHandledRef.current) return;
+    expiryHandledRef.current = true;
+    setIsBoundaryPending(true);
+
+    await flushSaves().catch(() => {});
+    await finaliseSection(token, sessionId, section.id, "client_timer").catch(() => {});
+
+    if (sectionIndex === totalSections - 1) {
+      // Last section of the assessment: hand off to the normal submit path.
+      // The completeness gate now excludes this section's unanswered items
+      // (they're in an expired section), so a timed-out participant can
+      // still complete instead of being stuck forever on incomplete_submission.
+      const result = await submitSession(token, sessionId);
+      if (result.ok) {
+        router.push(postAssessmentUrl);
+        return;
+      }
+      setIsBoundaryPending(false);
+      return;
+    }
+
+    setIsBoundaryPending(false);
+    router.push(`/assess/${token}/section/${sectionIndex + 1}`);
+  }, [flushSaves, token, sessionId, section.id, sectionIndex, totalSections, router, postAssessmentUrl]);
+
   // If every item in this section is already answered (either from a
   // server-rendered snapshot or after IDB hydration merges in unsynced
   // local rows), push straight through to the next section / completion.
   // Means a returning participant who finished this section in a previous
   // sitting never lands on it — they keep moving.
+  //
+  // Skipped entirely for practice sections (LR-6 / #336): `responses` flips
+  // to "all answered" the instant the LAST item gets a selection — before
+  // its Check-answer/feedback step ever runs — so this effect would fire
+  // mid-walkthrough and race the participant straight past their own
+  // feedback on the final practice item. Practice sections cross the
+  // section boundary through the explicit path instead: goToNextItem's own
+  // "no more unanswered items in this section" branch (below) already
+  // calls pushAcrossBoundary, and that only runs from a practice item's
+  // Continue click, after feedback has been shown. The cost is a resume
+  // edge case (a participant who navigates back into an already-fully-
+  // checked practice section must click through it again instead of being
+  // auto-skipped) — no data loss, no dead end, just a few extra clicks.
   const autoSkipFiredRef = useRef(false);
   useEffect(() => {
-    if (autoSkipFiredRef.current || section.items.length === 0) return;
+    if (autoSkipFiredRef.current || section.items.length === 0 || isPractice) return;
     const allAnswered = section.items.every(
       (it) => responses[it.id] !== undefined,
     );
@@ -267,6 +374,7 @@ export function SectionWrapper({
   }, [
     section.items,
     responses,
+    isPractice,
     sectionIndex,
     totalSections,
     token,
@@ -367,20 +475,74 @@ export function SectionWrapper({
       [itemId]: { value, data: data ?? {} },
     }));
 
+    // Practice items: a (re)selection invalidates any previous check result
+    // for this item — the participant must explicitly Check answer again
+    // before Continue reappears. Matters most on revision (Back into an
+    // earlier practice item, pick a different option).
+    if (isPractice) {
+      setPracticeChecks((prev) => ({ ...prev, [itemId]: { status: "unchecked" } }));
+    }
+
     // 2. Fire-and-forget save. The queue handles ordering, retry, and the
     //    section-boundary flush guarantees persistence before navigation.
-    enqueueSave({ itemId, sectionId: section.id, value, data });
+    const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+    const responseTimeMs = Math.max(0, Math.round(now - itemShownAtRef.current));
+    enqueueSave({ itemId, sectionId: section.id, value, data, responseTimeMs });
 
     // 3. Auto-advance for single-select formats. We advance immediately — the
     //    selected button has already highlighted via its own CSS, so no extra
     //    pre-fade delay is needed. The navigateToItem crossfade provides the
-    //    transition feedback.
-    if (!isFinalItemInAssessment && shouldAutoAdvance(responseFormatType, value, data)) {
+    //    transition feedback. Never for practice items — Check
+    //    answer/feedback/Continue (rendered below) owns advancing instead.
+    if (
+      !isPractice &&
+      !isFinalItemInAssessment &&
+      shouldAutoAdvance(responseFormatType, value, data)
+    ) {
       goToNextItem();
     }
   }
 
-  const canGoBack = localItemIndex > 0 || sectionIndex > 0;
+  /**
+   * Practice-mode answer check (LR-6 / #336). Resolves the selected value
+   * back to its option id (options are already part of the delivered,
+   * key-free item payload) and calls the server action, which is the only
+   * place that ever consults the answer key. Never receives or stores the
+   * correct option id itself — only the derived `correct`/`message` result.
+   */
+  const handleCheckPracticeAnswer = useCallback(async () => {
+    if (!currentItem) return;
+    const response = responses[currentItem.id];
+    if (!response) return;
+    const option = currentItem.options.find((o) => o.value === response.value);
+    if (!option) return;
+    const itemId = currentItem.id;
+
+    setPracticeChecks((prev) => ({ ...prev, [itemId]: { status: "checking" } }));
+    const result = await checkPracticeAnswer(token, sessionId, itemId, option.id);
+
+    if ("error" in result) {
+      setPracticeChecks((prev) => ({
+        ...prev,
+        [itemId]: { status: "error", error: result.error },
+      }));
+      return;
+    }
+
+    setPracticeChecks((prev) => ({
+      ...prev,
+      [itemId]: result.correct
+        ? { status: "checked", correct: true }
+        : { status: "checked", correct: false, message: result.message },
+    }));
+  }, [currentItem, responses, token, sessionId]);
+
+  // Enforced server-side too (save_response_for_session /
+  // save_responses_batch_for_session refuse to overwrite an already-answered
+  // item in a section with allow_back_nav = false) — this only controls
+  // whether the control is offered.
+  const canGoBack =
+    section.allowBackNav !== false && (localItemIndex > 0 || sectionIndex > 0);
 
   // Percent complete for the header tag
   const pct = totalItems > 0 ? Math.min(100, Math.round((completedCount / totalItems) * 100)) : 0;
@@ -435,7 +597,7 @@ export function SectionWrapper({
           )}
         </div>
 
-        {/* Right side: section + completion % + back button */}
+        {/* Right side: section + completion % + timer + back button */}
         <div className="flex items-center gap-4 sm:gap-6">
           {/* Section overline + completion % tag */}
           <div className="flex items-center gap-3">
@@ -445,6 +607,14 @@ export function SectionWrapper({
             >
               {assessmentName}
             </p>
+            {isPractice && (
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                style={{ background: "var(--runner-accent)", color: "var(--runner-ink)" }}
+              >
+                Practice
+              </span>
+            )}
             <p
               className="text-[10px] font-semibold uppercase tracking-[0.12em]"
               style={{ color: "var(--runner-text-meta)" }}
@@ -452,6 +622,16 @@ export function SectionWrapper({
               {pct}% COMPLETE
             </p>
           </div>
+
+          {/* Server-authoritative countdown — only for timed sections
+              (deadlineAt is null for untimed/practice sections). */}
+          {section.timing?.deadlineAt && (
+            <SectionTimer
+              deadlineAt={section.timing.deadlineAt}
+              serverNow={section.timing.serverNow}
+              onExpiry={handleExpiry}
+            />
+          )}
 
           {/* Back button — ghost text style */}
           {canGoBack && (
@@ -533,6 +713,34 @@ export function SectionWrapper({
               continueButtonLabel={manualAdvanceLabel}
               continueButtonDisabled={isBoundaryPending}
             />
+
+            {/* Practice-mode controls (LR-6 / #336) — replace ItemCard's own
+                Continue button (suppressed above via showContinue) with an
+                explicit Check answer -> feedback -> Continue sequence. */}
+            {isPractice &&
+              hasCurrentResponse &&
+              (currentPracticeCheck.status === "unchecked" ||
+                currentPracticeCheck.status === "checking") && (
+                <PracticeCheckButton
+                  onCheck={handleCheckPracticeAnswer}
+                  checking={currentPracticeCheck.status === "checking"}
+                />
+              )}
+            {isPractice && currentPracticeCheck.status === "error" && (
+              <PracticeCheckError
+                message={currentPracticeCheck.error}
+                onRetry={handleCheckPracticeAnswer}
+              />
+            )}
+            {isPractice && currentPracticeCheck.status === "checked" && (
+              <PracticeFeedback
+                correct={currentPracticeCheck.correct}
+                message={currentPracticeCheck.message}
+                onContinue={goToNextItem}
+                continueLabel={manualAdvanceLabel}
+                continueDisabled={isBoundaryPending}
+              />
+            )}
           </div>
         </div>
       </main>

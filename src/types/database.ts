@@ -32,11 +32,30 @@ export type ActiveResponseFormatType =
   | 'likert'
   | 'forced_choice'
   | 'binary'
+  | 'ranking'
   | 'free_text'
   | 'sjt'
+  | 'cognitive'
 
 /** Algorithm family used to convert raw responses into competency scores. */
 export type ScoringMethod = 'irt' | 'ctt' | 'hybrid'
+
+/**
+ * Dispatch key for `src/lib/scoring/dispatch.ts#scoreSession` — which scorer a
+ * completed session is routed to. Distinct from `ScoringMethod`, which is the
+ * psychometric-model LABEL each scorer writes to `participant_scores`
+ * (sum-correct ability scoring is also CTT, so the two are indistinguishable
+ * on that column).
+ * - `pomp_factor`         – `scoreSessionCTT`, the default for every
+ *                           self-report assessment
+ * - `ability_dichotomous` – `scoreSessionAbility`, sum-correct against
+ *                           `item_answer_keys`. Required for a keyed ability
+ *                           test; scoring a cognitive assessment as
+ *                           `pomp_factor` treats option VALUES as scores.
+ * - `ability_irt`         – `scoreSessionAbilityIRT`; falls back to
+ *                           dichotomous until calibrated parameters exist.
+ */
+export type ScoringProfile = 'pomp_factor' | 'ability_dichotomous' | 'ability_irt'
 
 /**
  * Strategy that governs which items are presented to a participant.
@@ -892,6 +911,8 @@ export interface Assessment {
   itemSelectionStrategy: ItemSelectionStrategy
   /** Algorithm used to convert responses to scores. */
   scoringMethod: ScoringMethod
+  /** Which scorer a completed session is dispatched to. */
+  scoringProfile: ScoringProfile
   /** How the assessment was created. */
   creationMode: AssessmentCreationMode
   /** Delivery format — traditional per-item or forced-choice blocks. */

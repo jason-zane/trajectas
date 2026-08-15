@@ -73,8 +73,10 @@ const formatConfig: Record<ActiveResponseFormatType, { label: string }> = {
   likert: { label: "Likert" },
   forced_choice: { label: "Forced Choice" },
   binary: { label: "Binary" },
+  ranking: { label: "Ranking" },
   free_text: { label: "Free Text" },
   sjt: { label: "SJT" },
+  cognitive: { label: "Cognitive" },
 }
 
 const purposeConfig: Record<ItemPurpose, { label: string; icon: typeof Shield; color: string }> = {

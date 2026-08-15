@@ -925,6 +925,33 @@ function AiTextContent({ block, promptOptions, onUpdateConfig }: BlockContentPan
 }
 
 // ---------------------------------------------------------------------------
+// Cognitive Profile
+// ---------------------------------------------------------------------------
+
+function CognitiveProfileContent({ block, entityOptions, onUpdateConfig }: BlockContentPanelProps) {
+  const config = block.config as Record<string, unknown>
+  const entityIds = (config.entityIds as string[] | undefined) ?? []
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Renders the session&apos;s cognitive/ability score(s) — a raw count
+        only, with no percentile or band, unless a versioned norm group is
+        attached to the score. Every score is gated by the claims-ladder
+        guard; there is no way to configure this block to show a claim the
+        data does not support.
+      </p>
+      <Field label="Limit to specific factors" help="Leave empty to include every cognitive score on the session">
+        <EntityMultiSelect
+          value={entityIds}
+          onChange={(ids) => onUpdateConfig('entityIds', ids)}
+          options={entityOptions}
+        />
+      </Field>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Coming soon stubs
 // ---------------------------------------------------------------------------
 
@@ -953,6 +980,7 @@ const CONTENT_PANELS: Record<BlockType, React.ComponentType<BlockContentPanelPro
   development_plan: DevelopmentContent,
   ai_text: AiTextContent,
   norm_comparison: ComingSoonPanel,
+  cognitive_profile: CognitiveProfileContent,
   rater_comparison: ComingSoonPanel,
   gap_analysis: ComingSoonPanel,
   open_comments: ComingSoonPanel,

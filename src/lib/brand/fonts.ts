@@ -249,7 +249,7 @@ export const MONO_FONTS: FontOption[] = [
     family: '"Geist Mono", ui-monospace, monospace',
     category: 'mono',
     weights: [400, 500, 600],
-    googleId: null, // loaded via next/font/google in layout.tsx
+    googleId: null, // vendored woff2, loaded via next/font/local in layout.tsx
   },
   {
     name: 'JetBrains Mono',
@@ -291,8 +291,10 @@ export function getFontByName(name: string): FontOption | undefined {
 
 // The assessment runner's type stack (Source Serif 4 / Plus Jakarta Sans /
 // Geist Mono) is FIXED — per the design system, a client brand changes
-// colours, not typography. All three families are self-hosted via next/font
-// in the root layout; the runner does not load brand fonts.
+// colours, not typography. All three families are vendored as woff2 under
+// `src/app/fonts/` (latin + latin-ext subsets) and loaded with next/font/local
+// in the root layout — no build-time CDN fetch; the runner does not load brand
+// fonts.
 
 /** Build a Google Fonts <link> URL for the given font names. */
 export function buildGoogleFontsUrl(fontNames: string[]): string | null {

@@ -28,7 +28,7 @@ import {
   persistSections,
 } from '@/lib/dal/assessment-sections'
 import { seedAssessmentPreview } from '@/lib/sample-data/seed-preview'
-import type { Assessment, ItemOrdering } from '@/types/database'
+import type { Assessment, ItemOrdering, ScoringProfile } from '@/types/database'
 import type { ForcedChoiceBlockDraft } from '@/lib/forced-choice-generator'
 
 /**
@@ -1292,6 +1292,84 @@ export async function updateAssessmentCustomisation(
     targetTable: 'assessments',
     targetId: assessmentId,
     metadata: { minCustomFactors },
+  })
+  return { success: true }
+}
+
+/**
+ * Set which scorer a completed session is dispatched to
+ * (`src/lib/scoring/dispatch.ts#scoreSession`).
+ *
+ * Before this action existed, nothing in the app wrote
+ * `assessments.scoring_profile`: the column defaulted to `'pomp_factor'`
+ * (20260813104000) and every assessment — including a keyed cognitive one —
+ * routed to `scoreSessionCTT`, which treats an option's `value` as its score
+ * rather than checking it against `item_answer_keys`. A figural-matrix test
+ * built through the UI was silently unscoreable as an ability test.
+ *
+ * Refuses to change profile once responses exist: the two scorers write
+ * different rows (`participant_item_outcomes` vs POMP factor scores) from the
+ * same responses, so switching mid-collection would leave a cohort scored two
+ * incompatible ways with nothing recording which is which.
+ */
+export async function updateAssessmentScoringProfile(
+  assessmentId: string,
+  scoringProfile: ScoringProfile,
+): Promise<ActionResult> {
+  const allowed: ScoringProfile[] = ['pomp_factor', 'ability_dichotomous', 'ability_irt']
+  if (!allowed.includes(scoringProfile)) {
+    return { error: 'Unknown scoring profile.' }
+  }
+
+  let scope = null as Awaited<ReturnType<typeof resolveAuthorizedScope>> | null
+  try {
+    ;({ scope } = await requireAssessmentAccess(assessmentId, { forWrite: true }))
+  } catch (error) {
+    if (error instanceof AuthorizationError) return { error: error.message }
+    if (error instanceof AuthenticationRequiredError) return { error: SESSION_EXPIRED_ERROR }
+    throw error
+  }
+  if (!scope) return { error: 'Unable to resolve assessment scope.' }
+
+  const db = createAdminClient()
+
+  const { data: current, error: readErr } = await db
+    .from('assessments')
+    .select('scoring_profile')
+    .eq('id', assessmentId)
+    .is('deleted_at', null)
+    .maybeSingle()
+  if (readErr || !current) {
+    logActionError('updateAssessmentScoringProfile.load', readErr)
+    return { error: 'Unable to load this assessment.' }
+  }
+  if (current.scoring_profile === scoringProfile) return { success: true }
+
+  const responseCheck = await assertNoParticipantResponses(db, assessmentId)
+  if (responseCheck) {
+    return {
+      error:
+        'Participants have already answered questions in this assessment, so its scoring profile is locked. ' +
+        'Duplicate the assessment to change how it scores.',
+    }
+  }
+
+  const { error } = await db
+    .from('assessments')
+    .update({ scoring_profile: scoringProfile })
+    .eq('id', assessmentId)
+
+  if (error) {
+    logActionError('updateAssessmentScoringProfile', error)
+    return { error: 'Unable to update the scoring profile.' }
+  }
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'assessment.scoringProfile.updated',
+    targetTable: 'assessments',
+    targetId: assessmentId,
+    metadata: { from: current.scoring_profile, to: scoringProfile },
   })
   return { success: true }
 }

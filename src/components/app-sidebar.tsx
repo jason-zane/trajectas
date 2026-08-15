@@ -97,6 +97,7 @@ const adminNav: NavSection[] = [
       { title: "Factors", href: "/factors", icon: Brain },
       { title: "Constructs", href: "/constructs", icon: Dna },
       { title: "Items", href: "/items", icon: FileQuestion },
+      { title: "Item Bank", href: "/item-bank", icon: Layers },
       { title: "Item Generator", href: "/generate", icon: Wand2 },
       { title: "Instruments", href: "/instruments", icon: FlaskConical },
       { title: "Response Formats", href: "/response-formats", icon: Settings2 },

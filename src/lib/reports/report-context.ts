@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { mapReportSnapshotRow, mapReportTemplateRow } from '@/lib/supabase/mappers'
 import { resolveTemplateBandScheme } from './resolve-template-band-scheme'
 import { resolveBand } from './band-resolution'
+import { isCognitiveMetric } from './cognitive-claims'
 import { DEFAULT_REPORT_THEME, type ReportTheme } from './presentation'
 import { getEffectiveBrand, getBrandConfig, getCachedPlatformBrand } from '@/app/actions/brand'
 import type { BandScheme } from './band-scheme'
@@ -128,11 +129,18 @@ export async function buildReportContext(
     partnerId: template.partnerId ?? null,
   })
 
-  // Score map (factor level)
+  // Score map (factor level). Cognitive/ability rows (metric IN
+  // ('percent_correct','t_score')) are excluded here — ReportContext.scores
+  // is a plain POMP 0-100 map with no claims-ladder gating, so a cognitive
+  // score in it would be free to reach a custom report's band/norm-rank
+  // logic unresolved. Custom reports that need a cognitive score should read
+  // it via src/lib/reports/cognitive-claims.ts#resolveCognitiveScoreDisplay
+  // directly, the same as the block-path runner. See LR-11/#341 and the
+  // mirror fix in runner.ts's partitionScoreRows.
   const scoreMap: ScoreMap = {}
   for (const row of (scoresResult.data ?? []) as Array<Record<string, unknown>>) {
     const factorId = row.factor_id
-    if (typeof factorId === 'string' && factorId) {
+    if (typeof factorId === 'string' && factorId && !isCognitiveMetric(row.metric as string | null | undefined)) {
       scoreMap[factorId] = row.scaled_score as number
     }
   }

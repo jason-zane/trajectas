@@ -24,6 +24,7 @@ export type BlockType =
   | 'strengths_highlights'
   | 'development_plan'
   | 'norm_comparison'   // registered but deferred — runner skips if included
+  | 'cognitive_profile' // LR-11/#341 — the only block that renders a cognitive/ability score
   // AI
   | 'ai_text'
   // 360-only
@@ -176,6 +177,18 @@ export interface NormComparisonConfig {
   _deferred: true
 }
 
+/**
+ * cognitive_profile — LR-11/#341. Renders every cognitive/ability score
+ * (participant_scores.metric IN ('percent_correct','t_score')) on the
+ * session, each resolved through resolveCognitiveScoreDisplay() in
+ * src/lib/reports/cognitive-claims.ts. Never reads the claims-ladder columns
+ * off a row directly — see tests/architecture/cognitive-claims-ladder.test.ts.
+ */
+export interface CognitiveProfileConfig {
+  /** Restrict to specific factor IDs; empty/omitted = every cognitive/ability score on the session. */
+  entityIds?: string[]
+}
+
 export interface RaterComparisonConfig {
   entityIds?: string[]
   raterGroups: Array<'self' | 'manager' | 'peers' | 'direct_reports'>
@@ -220,6 +233,7 @@ export type BlockConfigMap = {
   development_plan: DevelopmentPlanConfig
   ai_text: AiTextConfig
   norm_comparison: NormComparisonConfig
+  cognitive_profile: CognitiveProfileConfig
   rater_comparison: RaterComparisonConfig
   gap_analysis: GapAnalysisConfig
   open_comments: OpenCommentsConfig

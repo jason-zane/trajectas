@@ -8,6 +8,8 @@ import { logReportViewed } from '@/lib/auth/support-sessions'
 import { requireAppUrl } from '@/lib/hosts'
 import { logActionError } from '@/lib/security/action-errors'
 import { getSessionCompleteness } from '@/lib/dal/session-completeness'
+import { getOrCreateSectionForms } from '@/lib/dal/session-forms'
+import { getCognitiveItemsForDelivery } from '@/lib/dal/cognitive-items'
 import { reportError } from '@/lib/observability/report-error'
 import {
   getCampaignAccessError,
@@ -22,14 +24,11 @@ import {
   requireParticipantRuntimeCampaignAssessmentAccess,
   requireParticipantRuntimeSessionAccess,
 } from '@/lib/auth/participant-runtime'
-import { scoreSessionCTT } from '@/lib/scoring/ctt-session'
+import { scoreSession } from '@/lib/scoring/dispatch'
 import {
   shouldGenerateIndividualReports,
   type CampaignConfidentialityMode,
 } from '@/lib/reports/confidentiality'
-import { selectItemsByDifficulty } from '@/lib/item-selection/distribution'
-import { applyItemOrdering } from '@/lib/item-ordering'
-import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
 import {
   mapCampaignRow,
   mapCampaignParticipantRow,
@@ -46,6 +45,8 @@ import {
   saveResponseLiteInputSchema,
   updateSessionProgressLiteInputSchema,
   submitSessionInputSchema,
+  startSectionTimingInputSchema,
+  finaliseSectionInputSchema,
   triggerReportGenerationInputSchema,
   getParticipantReportSnapshotInputSchema,
   registerViaLinkInputSchema,
@@ -91,6 +92,24 @@ export type TokenValidationResult = {
   sessions: SessionForRunner[]
 }
 
+/**
+ * Server-authoritative timing for a section (LR-2 / #332). Attached by the
+ * section page (startSectionTiming, below) AFTER getSessionState resolves
+ * which section is actually being rendered — not by getSessionState itself,
+ * which would otherwise start the clock on every section up front, including
+ * ones the participant hasn't reached yet. deadlineAt is null for untimed
+ * sections (and practice sections, which are never timed regardless of the
+ * column) — the client renders no countdown in that case.
+ */
+export type SectionTimingForRunner = {
+  startedAt: string
+  deadlineAt: string | null
+  serverNow: string
+  graceSeconds: number
+  expired: boolean
+  finalised: boolean
+}
+
 export type SectionForRunner = {
   id: string
   title: string
@@ -101,14 +120,49 @@ export type SectionForRunner = {
   responseFormatConfig: Record<string, unknown>
   itemOrdering: string
   timeLimitSeconds?: number
+  /** 'scored' | 'practice' | 'instructions' (assessment_sections.section_role). */
+  sectionRole: string
+  /** Enforced server-side too, not just by hiding the Back control — see
+   *  save_response_for_session / save_responses_batch_for_session. */
+  allowBackNav: boolean
+  /** Present once startSectionTiming has been called for this section. */
+  timing?: SectionTimingForRunner
   items: ItemForRunner[]
+}
+
+/**
+ * Cognitive (figural-matrix) stimulus, attached only for items delivered
+ * through a `cognitive`-typed response format. `gridSvg` is produced
+ * server-side (src/lib/cognitive/render/matrix-svg.ts) from the item's
+ * spec, projected through `toRenderSpec()` — the answer key never enters
+ * this DTO. See src/lib/dal/cognitive-items.ts.
+ */
+export type CognitiveStimulus = {
+  kind: 'figural_matrix'
+  /** Inline SVG markup for the grid's 8 real cells. */
+  gridSvg: string
+  /** Honest accessibility identification, NOT a cell-by-cell description
+   *  (doc 03-logical-reasoning-design.md §7.4 — a verbal description would
+   *  convert an inductive visual-relational task into a different construct). */
+  ariaLabel: string
+}
+
+export type ItemOptionForRunner = {
+  id: string
+  label: string
+  value: number
+  sortOrder: number
+  /** Present only for cognitive items — server-rendered SVG for this option's tile. */
+  optionSvg?: string
 }
 
 export type ItemForRunner = {
   id: string
   stem: string
   displayOrder: number
-  options: { id: string; label: string; value: number; sortOrder: number }[]
+  options: ItemOptionForRunner[]
+  /** Present only for cognitive (figural-matrix) items. */
+  stimulus?: CognitiveStimulus
 }
 
 type SectionOptionRow = {
@@ -149,6 +203,8 @@ type AssessmentSectionRow = {
   response_format_id: string
   item_ordering: string
   time_limit_seconds: number | null
+  section_role: string
+  allow_back_nav: boolean
   response_formats: AssessmentSectionResponseFormatRow
   assessment_section_items: AssessmentSectionItemRow[] | null
 }
@@ -411,13 +467,16 @@ export async function getSessionState(token: string, sessionId: string) {
   // Fan out all queries that depend only on session.assessment_id / session.campaign_id
   // / sessionId in parallel. Previously participant_responses ran serially after
   // the construct-filter work despite being fully independent.
-  const [
-    sectionResult,
-    campaignAssessmentResult,
-    assessmentFactorsResult,
-    responsesResult,
-    participantRaterResult,
-  ] =
+  //
+  // The campaign factor filter + selectItemsByDifficulty + applyItemOrdering
+  // pipeline that used to run inline here (LR-3 / #333) now lives in
+  // src/lib/dal/session-forms.ts, invoked below via getOrCreateSectionForms.
+  // It freezes the delivered item set (id, order, item_version, content_hash)
+  // per (session, section) the first time it is computed, and every
+  // subsequent read — this call included — returns that frozen form instead
+  // of recomputing it. See that module and
+  // supabase/migrations/20260813103000_frozen_session_forms.sql for why.
+  const [sectionResult, formsResult, responsesResult, participantRaterResult] =
     await Promise.all([
       db
         .from('assessment_sections')
@@ -433,17 +492,11 @@ export async function getSessionState(token: string, sessionId: string) {
         `)
         .eq('assessment_id', session.assessment_id)
         .order('display_order', { ascending: true }),
-      db
-        .from('campaign_assessments')
-        .select('id')
-        .eq('campaign_id', session.campaign_id)
-        .eq('assessment_id', session.assessment_id)
-        .is('deleted_at', null)
-        .maybeSingle(),
-      db
-        .from('assessment_factors')
-        .select('factor_id')
-        .eq('assessment_id', session.assessment_id),
+      getOrCreateSectionForms(db, {
+        sessionId,
+        assessmentId: session.assessment_id,
+        campaignId: session.campaign_id ?? null,
+      }),
       db
         .from('participant_responses')
         .select('item_id, response_value, response_data')
@@ -465,8 +518,11 @@ export async function getSessionState(token: string, sessionId: string) {
     return { error: 'Unable to load this assessment right now' }
   }
 
-  const campaignAssessment = campaignAssessmentResult.data
-  const assessmentFactorIds = assessmentFactorsResult.data
+  if ('error' in formsResult) {
+    logActionError('getSessionState.forms', new Error(formsResult.error))
+    return { error: 'Unable to load this assessment right now' }
+  }
+
   // 360 rater sessions render the observer-worded stem; everyone else (subject /
   // self participants) gets the first-person stem.
   const isObserverSession = Boolean(
@@ -474,46 +530,14 @@ export async function getSessionState(token: string, sessionId: string) {
       ?.campaign_rater_id,
   )
 
-  // -------------------------------------------------------------------------
-  // Resolve allowed construct IDs based on campaign selection
-  // -------------------------------------------------------------------------
-  let allowedConstructIds: Set<string> | null = null
-  let itemsPerConstruct: number | null = null
-
-  if (campaignAssessment) {
-    // Factor-level: existing campaign factor selection logic
-    const { data: factorRows } = await db
-      .from('campaign_assessment_factors')
-      .select('factor_id')
-      .eq('campaign_assessment_id', campaignAssessment.id)
-
-    if (factorRows && factorRows.length > 0) {
-      const selectedFactorIds = new Set(factorRows.map(r => r.factor_id))
-
-      const assessmentFactorSet = new Set(
-        (assessmentFactorIds ?? []).map(af => af.factor_id)
-      )
-
-      const { data: fcLinks } = await db
-        .from('factor_constructs')
-        .select('construct_id, factor_id')
-        .in('factor_id', Array.from(assessmentFactorSet))
-
-      if (fcLinks) {
-        allowedConstructIds = new Set(
-          fcLinks
-            .filter(fc => selectedFactorIds.has(fc.factor_id))
-            .map(fc => fc.construct_id)
-        )
-
-        itemsPerConstruct = await getItemsPerConstructForCount(allowedConstructIds.size)
-      }
-    }
-  }
+  // Populated while building `sections` below, for cognitive (figural-matrix)
+  // items only — see the getCognitiveItemsForDelivery pass after the map.
+  const cognitiveItemIds: string[] = []
 
   const sections: SectionForRunner[] = ((sectionRows ?? []) as AssessmentSectionRow[]).map((s) => {
     const formatConfig = s.response_formats?.config ?? {}
     const formatType = s.response_formats?.type ?? 'likert'
+    const isCognitive = formatType === 'cognitive'
 
     // Derive fallback options from response format anchors when item_options is empty.
     // This handles AI-generated items that have stems but no per-item options.
@@ -529,60 +553,21 @@ export async function getSessionState(token: string, sessionId: string) {
 
     const fallbackOptions = deriveOptionsFromFormat()
 
-    // Sort section items by display_order first
-    let sectionItems = [...(s.assessment_section_items ?? [])]
-      .sort((a, b) => a.display_order - b.display_order)
-
-    // Filter items by campaign factor selection when active
-    if (allowedConstructIds) {
-      sectionItems = sectionItems.filter((si) => {
-        const item = si.items
-        // Always include non-construct items (attention checks, impression management, infrequency)
-        if (item?.purpose && item.purpose !== 'construct') return true
-        // Include if construct belongs to a selected factor
-        return item?.construct_id && allowedConstructIds!.has(item.construct_id)
-      })
-
-      // Apply per-construct item count scaling — spread picks evenly across
-      // easy/medium/hard and meet the 25% reverse-coded floor. Non-construct
-      // items (attention checks, IM, infrequency) bypass the cap.
-      if (itemsPerConstruct !== null) {
-        const constructItems = sectionItems.filter(
-          (si) => (!si.items?.purpose || si.items.purpose === 'construct') && si.items?.construct_id
-        )
-        const nonConstructItems = sectionItems.filter(
-          (si) => si.items?.purpose && si.items.purpose !== 'construct'
-        )
-
-        const byConstruct = new Map<string, typeof constructItems>()
-        for (const si of constructItems) {
-          const key = si.items?.construct_id ?? ''
-          const group = byConstruct.get(key)
-          if (group) group.push(si)
-          else byConstruct.set(key, [si])
-        }
-
-        const keptConstructItems: typeof constructItems = []
-        for (const [, group] of byConstruct) {
-          const wrapped = group.map((si) => ({
-            si,
-            difficulty: si.items?.difficulty ?? 'medium',
-            reverseScored: si.items?.reverse_scored ?? false,
-            displayOrder: si.display_order,
-          }))
-          const picked = selectItemsByDifficulty(wrapped, itemsPerConstruct!)
-          keptConstructItems.push(...picked.map((p) => p.si))
-        }
-
-        sectionItems = [...nonConstructItems, ...keptConstructItems]
-          .sort((a, b) => a.display_order - b.display_order)
-      }
+    // Delivery order comes from the frozen form, not a live recomputation —
+    // look each entry's item id up against this section's (unfiltered) joined
+    // rows for its stem/options. An entry whose item no longer resolves here
+    // (e.g. soft-deleted since the freeze) is skipped defensively rather than
+    // rendering a broken item; per-content drift detection is the future
+    // scorer's job (it has itemVersion/contentHash to compare against), not
+    // delivery's.
+    const rawByItemId = new Map<string, AssessmentSectionItemRow>()
+    for (const si of s.assessment_section_items ?? []) {
+      rawByItemId.set(si.item_id, si)
     }
-
-    // Apply the section's item-ordering mode. Seeded by sessionId + section id
-    // so the order is stable across refreshes within a sitting but fresh for
-    // every new session (i.e. every time the assessment is taken).
-    sectionItems = applyItemOrdering(sectionItems, s.item_ordering, `${sessionId}:${s.id}`)
+    const form = formsResult.get(s.id)
+    const sectionItems = (form?.entries ?? [])
+      .map((entry) => rawByItemId.get(entry.itemId))
+      .filter((si): si is AssessmentSectionItemRow => Boolean(si))
 
     return {
       id: s.id,
@@ -594,6 +579,8 @@ export async function getSessionState(token: string, sessionId: string) {
       responseFormatConfig: formatConfig,
       itemOrdering: s.item_ordering,
       timeLimitSeconds: s.time_limit_seconds ?? undefined,
+      sectionRole: s.section_role ?? 'scored',
+      allowBackNav: s.allow_back_nav ?? true,
       items: sectionItems.map((si) => {
           const itemOptions = (si.items?.item_options ?? [])
             .sort((a, b) => a.display_order - b.display_order)
@@ -605,8 +592,10 @@ export async function getSessionState(token: string, sessionId: string) {
             }))
 
           const selfStem = si.items?.stem ?? ''
+          const itemId = si.items?.id ?? si.item_id
+          if (isCognitive) cognitiveItemIds.push(itemId)
           return {
-            id: si.items?.id ?? si.item_id,
+            id: itemId,
             // Observer (rater) sessions show the third-person variant when present.
             stem: isObserverSession
               ? (si.items?.stem_observer ?? selfStem)
@@ -618,8 +607,33 @@ export async function getSessionState(token: string, sessionId: string) {
     }
   })
 
-  // Filter out sections that have no items after factor filtering
+  // Filter out sections with no frozen entries (no items after factor
+  // filtering, or an instructions-only section with nothing to deliver).
   .filter(s => s.items.length > 0)
+
+  // Attach cognitive (figural-matrix) stimulus/option SVGs. Done as a
+  // second pass, after `sections` is built, because the item ids to render
+  // aren't known until factor filtering + item-selection + item-ordering
+  // (all synchronous, above) have run, and getCognitiveItemsForDelivery is
+  // the only DAL function allowed to touch cognitive_item_specs /
+  // cognitive_option_specs (see tests/architecture/answer-key-isolation.test.ts
+  // and src/lib/dal/cognitive-items.ts). No-op (and no extra query) for
+  // every non-cognitive assessment.
+  if (cognitiveItemIds.length > 0) {
+    const cognitiveRenders = await getCognitiveItemsForDelivery(db, cognitiveItemIds)
+    for (const section of sections) {
+      if (section.responseFormatType !== 'cognitive') continue
+      for (const item of section.items) {
+        const render = cognitiveRenders.get(item.id)
+        if (!render) continue // spec failed to parse — falls back to the plain stem/options below
+        item.stimulus = { kind: 'figural_matrix', gridSvg: render.gridSvg, ariaLabel: render.ariaLabel }
+        item.options = item.options.map((o) => ({
+          ...o,
+          optionSvg: render.optionSvgByOptionId.get(o.id),
+        }))
+      }
+    }
+  }
 
   const { data: responseRows, error: responseRowsError } = responsesResult
   if (responseRowsError) {
@@ -647,6 +661,133 @@ export async function getSessionState(token: string, sessionId: string) {
       responses,
     },
   }
+}
+
+// ---------------------------------------------------------------------------
+// Server-authoritative section timing (LR-2 / #332)
+// ---------------------------------------------------------------------------
+
+/**
+ * Starts (or resumes) the server-side clock for a section. Called by the
+ * section page once it knows which section is actually being rendered — NOT
+ * from getSessionState, which would otherwise start every section's clock on
+ * first page load regardless of whether the participant has reached it.
+ *
+ * Idempotent: the underlying RPC INSERTs the (session, section) row once
+ * (ON CONFLICT DO NOTHING) and always returns the ORIGINAL startedAt/
+ * deadlineAt on every subsequent call — a refresh, a second tab, or a retry
+ * after a network blip all resume against the same deadline, never restart
+ * or extend it.
+ */
+export async function startSectionTiming(
+  token: string,
+  sessionId: string,
+  sectionId: string,
+): Promise<
+  | { data: SectionTimingForRunner }
+  | { blocked: 'practice_incomplete' }
+  | { error: string }
+> {
+  const parsed = startSectionTimingInputSchema.safeParse({ token, sessionId, sectionId })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db.rpc('start_section_for_session', {
+    p_access_token: token,
+    p_session_id: sessionId,
+    p_section_id: sectionId,
+  })
+
+  if (error) {
+    logActionError('startSectionTiming.rpc', error)
+    return { error: 'Unable to start this section right now' }
+  }
+  if (!data) {
+    return { error: 'This section is not available right now' }
+  }
+
+  // LR-6 / #336 practice-completion gate — start_section_for_session
+  // returns this distinctly-shaped payload (never NULL) instead of the
+  // normal timing row when the section is 'scored' and a 'practice'-role
+  // section in this assessment still has unanswered items for this
+  // session. See supabase/migrations/20260814100000_lr6_practice_completion
+  // _gate.sql. The caller (the section page) must route the participant
+  // back to practice, not render an untimed scored section.
+  if ((data as { blocked?: string }).blocked === 'practice_incomplete') {
+    return { blocked: 'practice_incomplete' }
+  }
+
+  const row = data as SectionTimingForRunner
+  return {
+    data: {
+      startedAt: row.startedAt,
+      deadlineAt: row.deadlineAt,
+      serverNow: row.serverNow,
+      graceSeconds: row.graceSeconds,
+      expired: row.expired,
+      finalised: row.finalised,
+    },
+  }
+}
+
+/**
+ * Ends a section: the participant finished it normally ('participant'), or
+ * the client-side SectionTimer fired ('client_timer'). The RPC is the actual
+ * gate — a 'client_timer' claim is refused unless the server-stamped
+ * deadline has genuinely passed, so a tampered client cannot end a timed
+ * section early. 'participant' is always honoured, timed or not.
+ */
+export async function finaliseSection(
+  token: string,
+  sessionId: string,
+  sectionId: string,
+  reason: 'participant' | 'client_timer',
+): Promise<{ success: true; unansweredCount: number } | { error: string }> {
+  const parsed = finaliseSectionInputSchema.safeParse({ token, sessionId, sectionId, reason })
+  if (!parsed.success) {
+    return { error: 'Invalid input' }
+  }
+
+  try {
+    await requireParticipantRuntimeSessionAccess(token, sessionId)
+  } catch (error) {
+    if (error instanceof ParticipantRuntimeAccessError) {
+      return { error: error.message }
+    }
+    throw error
+  }
+
+  const db = createAdminClient()
+  const { data, error } = await db.rpc('finalise_section_for_session', {
+    p_access_token: token,
+    p_session_id: sessionId,
+    p_section_id: sectionId,
+    p_reason: reason,
+  })
+
+  if (error) {
+    logActionError('finaliseSection.rpc', error)
+    return { error: 'Unable to finalise this section right now' }
+  }
+  if (!data) {
+    // Either the token/section didn't validate, or (reason='client_timer')
+    // the deadline genuinely hasn't passed yet.
+    return { error: 'This section cannot be finalised yet' }
+  }
+
+  const row = data as { finalised: boolean; unansweredCount: number }
+  return { success: true, unansweredCount: row.unansweredCount }
 }
 
 // ---------------------------------------------------------------------------
@@ -1155,7 +1296,7 @@ async function finalizeCompletedSessionProcessing(input: {
     }
   }
 
-  const scoringResult = await scoreSessionCTT(input.sessionId)
+  const scoringResult = await scoreSession(input.sessionId)
   if ('error' in scoringResult) {
     logActionError('submitSession.scoring', scoringResult.error)
     await markParticipantSessionProcessing(input.sessionId, {

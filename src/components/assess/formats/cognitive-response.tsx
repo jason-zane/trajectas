@@ -1,0 +1,198 @@
+"use client";
+
+import { useCallback, useRef, useState } from "react";
+
+interface CognitiveOption {
+  id: string;
+  label: string;
+  value: number;
+  /** Server-rendered SVG markup for this option's tile. Absent only if the
+   *  item's cognitive spec failed to load — falls back to a plain label. */
+  optionSvg?: string;
+}
+
+interface CognitiveStimulus {
+  /** Inline SVG markup for the 8 real grid cells (blank cell is UI chrome — see below). */
+  gridSvg: string;
+  /** Honest accessibility identification, not a cell-by-cell description. */
+  ariaLabel: string;
+}
+
+interface CognitiveResponseProps {
+  stimulus?: CognitiveStimulus;
+  options: CognitiveOption[];
+  selectedValue?: number;
+  onSelect: (value: number) => void;
+}
+
+/**
+ * Figural-matrix (LR-M) response format (dark-editorial re-skin).
+ *
+ * 3x3 stimulus grid (server-rendered SVG, inlined) above a 3-then-2 option
+ * block — doc 03-logical-reasoning-design.md §7.3 / §5.2. Options form a
+ * `radiogroup`: click/tap or Enter/Space selects; arrow keys move focus
+ * between tiles (3-per-row layout, so Up/Down move by 3). Selecting does
+ * NOT auto-advance — `cognitive` is in section-wrapper.tsx's
+ * `CONTINUE_FORMATS`, so the existing Continue button in item-card.tsx is
+ * the required explicit "tap + Confirm" step (doc 03 §7.3: prevents
+ * mis-tap penalties on a dense, pattern-heavy answer grid).
+ *
+ * The blank R3C3 "?" placeholder is rendered here as ordinary UI chrome, not
+ * spec-derived content — it is the same for every figural-matrix item, so it
+ * stays outside the deterministic-content boundary the renderer guarantees
+ * (see src/lib/cognitive/render/matrix-svg.ts). It occupies the grid's 9th
+ * CSS-grid slot via the `display: contents` wrapper around the injected
+ * `gridSvg`, which makes its 8 `.cog-cell` children participate directly in
+ * this component's 3-column grid alongside the marker.
+ *
+ * Safety of `dangerouslySetInnerHTML`: both `gridSvg` and each `optionSvg`
+ * are produced server-side by a pure renderer reading a zod-`.strict()`-
+ * validated, closed vocabulary — no free text, no user input, no
+ * admin-authored HTML. See the safety argument in
+ * docs/superpowers/specs/2026-08-13-logical-reasoning-build-plan/
+ * 02-platform-architecture.md §2.4.
+ */
+export function CognitiveResponse({
+  stimulus,
+  options,
+  selectedValue,
+  onSelect,
+}: CognitiveResponseProps) {
+  const tileRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const initialActive = Math.max(
+    0,
+    options.findIndex((o) => o.value === selectedValue),
+  );
+  const [activeIndex, setActiveIndex] = useState(initialActive);
+
+  const focusTile = useCallback(
+    (index: number) => {
+      if (options.length === 0) return;
+      const clamped = ((index % options.length) + options.length) % options.length;
+      tileRefs.current[clamped]?.focus();
+    },
+    [options.length],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+      switch (event.key) {
+        case "ArrowRight":
+          event.preventDefault();
+          focusTile(index + 1);
+          break;
+        case "ArrowLeft":
+          event.preventDefault();
+          focusTile(index - 1);
+          break;
+        case "ArrowDown":
+          event.preventDefault();
+          focusTile(index + 3);
+          break;
+        case "ArrowUp":
+          event.preventDefault();
+          focusTile(index - 3);
+          break;
+        default:
+          break;
+      }
+    },
+    [focusTile],
+  );
+
+  return (
+    <div className="space-y-6">
+      {stimulus && (
+        <div
+          role="img"
+          aria-label={stimulus.ariaLabel}
+          className="grid grid-cols-3 gap-1.5 sm:gap-2"
+          style={{ maxWidth: 420 }}
+        >
+          <div
+            style={{ display: "contents" }}
+            dangerouslySetInnerHTML={{ __html: stimulus.gridSvg }}
+          />
+          <div
+            aria-hidden="true"
+            className="flex items-center justify-center text-2xl font-semibold"
+            style={{
+              aspectRatio: "1 / 1",
+              borderRadius: "6px",
+              border: "1px dashed var(--runner-ghost-border)",
+              color: "var(--runner-text-faint)",
+            }}
+          >
+            ?
+          </div>
+        </div>
+      )}
+
+      <div
+        role="radiogroup"
+        aria-label="Answer options"
+        className="grid grid-cols-3 gap-2 sm:gap-3"
+        style={{ maxWidth: 420 }}
+      >
+        {options.map((option, index) => {
+          const isSelected = selectedValue === option.value;
+          const isTabStop = selectedValue !== undefined ? isSelected : index === activeIndex;
+          return (
+            <button
+              key={option.id}
+              ref={(el) => {
+                tileRefs.current[index] = el;
+              }}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              aria-label={`Option ${option.label}`}
+              tabIndex={isTabStop ? 0 : -1}
+              onFocus={() => setActiveIndex(index)}
+              onClick={() => onSelect(option.value)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
+              className="
+                flex items-center justify-center p-1.5
+                transition-all duration-150 ease-out
+                focus-visible:outline-none focus-visible:ring-2
+                focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
+                min-h-[64px] min-w-[64px]
+                active:scale-95
+              "
+              style={{
+                aspectRatio: "1 / 1",
+                borderRadius: "10px",
+                border: "1px solid",
+                borderColor: isSelected
+                  ? "var(--runner-selected-fill)"
+                  : "var(--runner-ghost-border)",
+                backgroundColor: isSelected
+                  ? "var(--runner-selected-fill)"
+                  : "var(--runner-ghost-fill)",
+                boxShadow: isSelected ? "var(--runner-selected-shadow)" : "none",
+                cursor: "pointer",
+              }}
+            >
+              {option.optionSvg ? (
+                <div
+                  className="size-full"
+                  dangerouslySetInnerHTML={{ __html: option.optionSvg }}
+                />
+              ) : (
+                <span
+                  style={{
+                    color: isSelected
+                      ? "var(--runner-selected-text)"
+                      : "var(--runner-text)",
+                  }}
+                >
+                  {option.label}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

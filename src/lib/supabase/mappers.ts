@@ -431,6 +431,10 @@ export function mapAssessmentRow(row: any): Assessment {
     status: row.status,
     itemSelectionStrategy: row.item_selection_strategy,
     scoringMethod: row.scoring_method,
+    // Defaulted rather than asserted: callers that select a narrow column set
+    // (or a pre-20260813104000 cached row) must not surface `undefined` for a
+    // NOT NULL column whose DB default is exactly this.
+    scoringProfile: row.scoring_profile ?? 'pomp_factor',
     creationMode: row.creation_mode,
     formatMode: row.format_mode ?? 'traditional',
     fcBlockSize: row.fc_block_size != null ? Number(row.fc_block_size) : undefined,
@@ -453,6 +457,7 @@ export function toAssessmentInsert(a: Omit<Assessment, 'id' | 'matchingRunId' | 
     status: a.status,
     item_selection_strategy: a.itemSelectionStrategy,
     scoring_method: a.scoringMethod,
+    scoring_profile: a.scoringProfile ?? 'pomp_factor',
     creation_mode: a.creationMode,
     format_mode: a.formatMode ?? 'traditional',
     fc_block_size: a.fcBlockSize ?? null,

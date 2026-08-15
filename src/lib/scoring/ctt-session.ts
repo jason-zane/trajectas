@@ -140,7 +140,7 @@ export async function scoreSessionCTT(
   const itemIds = responses.map((r) => r.item_id)
   const { data: itemRows, error: itemErr } = await db
     .from('items')
-    .select('id, construct_id, reverse_scored, weight, response_format_id')
+    .select('id, construct_id, reverse_scored, weight, response_format_id, purpose')
     .in('id', itemIds)
 
   if (itemErr) return { error: itemErr.message }
@@ -196,6 +196,25 @@ export async function scoreSessionCTT(
   const itemMap = new Map<string, ItemMeta>()
   for (const item of itemRows ?? []) {
     if (!item.construct_id) continue
+
+    // LR-6 / #336: practice (and seed/calibration-only) responses must never
+    // reach a participant's own POMP score. Before items.purpose gained the
+    // 'practice'/'seed' values (20260813100000_cognitive_enums.sql), every
+    // item with a construct_id WAS purpose='construct' — the construct_id
+    // check above was an adequate implicit filter on its own. It no longer
+    // is: items_purpose_construct_check (20260813100500_cognitive_item_bank
+    // .sql) requires 'practice' and 'seed' items to ALSO carry a
+    // construct_id (so practice items draw from, and seed items calibrate
+    // onto, the right bank metric), so an unfiltered read here would
+    // silently fold a practice section's responses into the participant's
+    // real construct/factor scores for any assessment using CTT/POMP
+    // scoring (scoring_profile defaults to 'pomp_factor' — see
+    // src/lib/scoring/dispatch.ts — and nothing restricts a 'practice'-role
+    // section to ability-scored assessments only). Mirrors the equivalent,
+    // already-correct purpose check in the ability-dichotomous path — see
+    // classifyEntry's `purpose === 'practice'` branch in
+    // src/lib/scoring/ability-scoring.ts.
+    if (item.purpose !== 'construct') continue
 
     const format = formatMap.get(item.response_format_id)
 

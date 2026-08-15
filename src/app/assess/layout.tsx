@@ -54,8 +54,9 @@ export default async function AssessLayout({ children }: AssessLayoutProps) {
       <style dangerouslySetInnerHTML={{ __html: runnerCss }} />
 
       {/* Runner type stack (Source Serif 4 / Plus Jakarta Sans / Geist Mono)
-          is fixed and self-hosted via next/font in the root layout —
-          brand fonts do not apply to the runner. */}
+          is fixed and self-hosted via next/font/local in the root layout
+          (woff2 vendored under src/app/fonts) — brand fonts do not apply
+          to the runner. */}
 
       {/* Keep dashboard dark-class from leaking into --brand-* fallbacks
           on screens not yet migrated to --runner-* tokens. */}

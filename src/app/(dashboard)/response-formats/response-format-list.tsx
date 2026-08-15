@@ -24,8 +24,10 @@ const typeConfig: Record<ActiveResponseFormatType, { label: string }> = {
   likert: { label: "Likert" },
   forced_choice: { label: "Forced Choice" },
   binary: { label: "Binary" },
+  ranking: { label: "Ranking" },
   free_text: { label: "Free Text" },
   sjt: { label: "SJT" },
+  cognitive: { label: "Cognitive" },
 }
 
 const allTypes: { value: ActiveResponseFormatType | "all"; label: string }[] = [
@@ -33,8 +35,10 @@ const allTypes: { value: ActiveResponseFormatType | "all"; label: string }[] = [
   { value: "likert", label: "Likert" },
   { value: "forced_choice", label: "Forced Choice" },
   { value: "binary", label: "Binary" },
+  { value: "ranking", label: "Ranking" },
   { value: "free_text", label: "Free Text" },
   { value: "sjt", label: "SJT" },
+  { value: "cognitive", label: "Cognitive" },
 ]
 
 export function ResponseFormatList({ formats }: { formats: ResponseFormatWithMeta[] }) {

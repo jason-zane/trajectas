@@ -627,6 +627,29 @@ function generateBlockSampleData(
     case 'norm_comparison':
       return { _deferred: true }
 
+    case 'cognitive_profile': {
+      // Preview-only sample. Deliberately mirrors the real uncalibrated
+      // shape only (raw count, no comparison group) — never fabricates a
+      // norm-referenced rank, T-score, or band, even for a builder preview.
+      // See src/lib/reports/cognitive-claims.ts.
+      const filtered = filterEntities(entities, config)
+      const source = (filtered.length > 0 ? filtered : entities).slice(0, 2)
+      if (source.length === 0) return {}
+      return {
+        entities: source.map((e, i) => ({
+          entityId: e.id,
+          entityName: e.name,
+          display: {
+            kind: 'uncalibrated' as const,
+            provisional: true as const,
+            rawCorrect: 19 - i * 4,
+            itemsUsed: 28 - i * 8,
+            itemsAttempted: 26 - i * 6,
+          },
+        })),
+      }
+    }
+
     default:
       return {}
   }

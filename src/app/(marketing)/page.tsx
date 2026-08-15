@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Source_Serif_4 } from "next/font/google";
+import localFont from "next/font/local";
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import { PUBLIC_SITE_NAME, buildPublicUrl } from "@/lib/seo/public-site";
 import "./welcome.css";
@@ -8,12 +8,70 @@ import "./welcome.css";
 // Display type for the runner-flavoured editorial surface. The rest of the
 // stack (Plus Jakarta Sans, Geist Mono) is already provided by the marketing
 // layout this route nests inside.
-const serif = Source_Serif_4({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  style: ["normal", "italic"],
+//
+// Vendored latin + latin-ext subset files — see the block comment in
+// `src/app/layout.tsx` for why each family is two calls, why the ext call's
+// `declarations` font-family must match the latin call's `const` name, and
+// which subsets are deliberately dropped.
+//
+// The binding is `marketingSerif`, not `serif`: the binding name becomes the
+// @font-face family, and a family literally called `serif` would shadow the
+// CSS generic if anything ever unquoted it. It is also distinct from the root
+// layout's `sourceSerif` so the two weight sets stay in separate families.
+const marketingSerifLatinExt = localFont({
+  src: [
+    { path: "../fonts/source-serif-4-latin-ext-variable.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/source-serif-4-latin-ext-variable.woff2", weight: "500", style: "normal" },
+    { path: "../fonts/source-serif-4-latin-ext-variable.woff2", weight: "600", style: "normal" },
+    {
+      path: "../fonts/source-serif-4-latin-ext-variable-italic.woff2",
+      weight: "400",
+      style: "italic",
+    },
+    {
+      path: "../fonts/source-serif-4-latin-ext-variable-italic.woff2",
+      weight: "500",
+      style: "italic",
+    },
+    {
+      path: "../fonts/source-serif-4-latin-ext-variable-italic.woff2",
+      weight: "600",
+      style: "italic",
+    },
+  ],
+  variable: "--font-serif-ext",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [
+    { prop: "font-family", value: "marketingSerif" },
+    {
+      prop: "unicode-range",
+      value:
+        "U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF",
+    },
+  ],
+});
+
+const marketingSerif = localFont({
+  src: [
+    { path: "../fonts/source-serif-4-latin-variable.woff2", weight: "400", style: "normal" },
+    { path: "../fonts/source-serif-4-latin-variable.woff2", weight: "500", style: "normal" },
+    { path: "../fonts/source-serif-4-latin-variable.woff2", weight: "600", style: "normal" },
+    { path: "../fonts/source-serif-4-latin-variable-italic.woff2", weight: "400", style: "italic" },
+    { path: "../fonts/source-serif-4-latin-variable-italic.woff2", weight: "500", style: "italic" },
+    { path: "../fonts/source-serif-4-latin-variable-italic.woff2", weight: "600", style: "italic" },
+  ],
   variable: "--font-serif",
   display: "swap",
+  adjustFontFallback: "Times New Roman",
+  declarations: [
+    {
+      prop: "unicode-range",
+      value:
+        "U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD",
+    },
+  ],
 });
 
 const title = `${PUBLIC_SITE_NAME} — Capabilities, contextualised`;
@@ -144,7 +202,10 @@ function TrajectoryFigure() {
 
 export default function HomePage() {
   return (
-    <div data-surface="welcome" className={serif.variable}>
+    <div
+      data-surface="welcome"
+      className={`${marketingSerifLatinExt.variable} ${marketingSerif.variable}`}
+    >
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
