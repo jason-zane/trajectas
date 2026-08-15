@@ -6,6 +6,7 @@ import { requireAdminScope } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import type { AIPromptPurpose } from '@/types/database'
+import { TEXT_AI_PROMPT_PURPOSES } from '@/lib/ai/purposes'
 import {
   aiPromptPurposeSchema,
   applyModelToAllPurposesSchema,
@@ -131,20 +132,13 @@ export async function getDefaultModelIdForPurpose(
   return getDefaultModelIdForPurposeCached(purpose)
 }
 
-/** All non-embedding purposes that the global selector applies to. */
-const TEXT_PURPOSES: AIPromptPurpose[] = [
-  'chat',
-  'item_generation',
-  'factor_item_generation',
-  'library_import_structuring',
-  'preflight_analysis',
-  'competency_matching',
-  'ranking_explanation',
-  'diagnostic_analysis',
-  'report_narrative',
-  'report_strengths_analysis',
-  'report_development_advice',
-]
+/**
+ * All non-embedding purposes that the global selector applies to.
+ *
+ * Derived, not restated: a hand-kept list silently skipped the six instrument
+ * stages while still reporting success, leaving them on their old models.
+ */
+const TEXT_PURPOSES: AIPromptPurpose[] = [...TEXT_AI_PROMPT_PURPOSES]
 
 /**
  * Applies the same model to all non-embedding purposes in one operation.

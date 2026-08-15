@@ -220,6 +220,12 @@ export type AIPromptPurpose =
   | 'brief_extraction'
   | 'architect_overview'
   | 'library_field_assist'
+  | 'instrument_blueprint'
+  | 'instrument_congruence'
+  | 'instrument_critique'
+  | 'instrument_fairness'
+  | 'instrument_items'
+  | 'instrument_structure'
 
 /** Report assessment type. */
 export type ReportType = 'self_report' | '360'

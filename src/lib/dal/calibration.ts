@@ -48,6 +48,10 @@ export async function createCalibrationRun(
     notes?: string | null;
     dateRangeStart?: string | null;
     dateRangeEnd?: string | null;
+    campaignIds?: string[] | null;
+    assessmentId?: string | null;
+    includeInternal?: boolean;
+    label?: string | null;
   },
 ): Promise<{ id: string }> {
   const { data, error } = await db
@@ -59,6 +63,10 @@ export async function createCalibrationRun(
       notes: input.notes ?? null,
       date_range_start: input.dateRangeStart ?? null,
       date_range_end: input.dateRangeEnd ?? null,
+      campaign_ids: input.campaignIds ?? null,
+      assessment_id: input.assessmentId ?? null,
+      include_internal: input.includeInternal ?? false,
+      label: input.label ?? null,
       started_at: new Date().toISOString(),
     })
     .select("id")
@@ -81,13 +89,14 @@ export async function createCalibrationRun(
 export async function completeCalibrationRun(
   db: DbClient,
   runId: string,
-  input: { sampleSize: number; notes?: string | null },
+  input: { sampleSize: number; sessionCount?: number; notes?: string | null },
 ): Promise<void> {
   const { error } = await db
     .from("calibration_runs")
     .update({
       status: "completed",
       sample_size: input.sampleSize,
+      session_count: input.sessionCount ?? null,
       notes: input.notes ?? null,
       completed_at: new Date().toISOString(),
     })
@@ -134,11 +143,12 @@ export async function failCalibrationRun(
 
 /**
  * Fetch all calibration responses from completed sessions, optionally filtered
- * by date range.
+ * by date range, campaigns, assessment, and internal-data flags.
  *
  * Joins:
  *   participant_responses
  *   -> participant_sessions (status='completed' only)
+ *   -> campaigns (for is_internal filtering)
  *   -> items (construct_id NOT NULL, deleted_at IS NULL)
  *   -> response_formats (config, type)
  *   -> item_options (value)
@@ -146,11 +156,24 @@ export async function failCalibrationRun(
  * Each row carries itemId, constructId, reverseScored, responseValue, and
  * computed minValue/maxValue bounds using deriveItemBounds.
  *
+ * Filters:
+ *   - includeInternal=false (default): exclude sessions with is_internal=true AND
+ *     campaigns with is_internal=true (belt-and-braces, as a session may be created
+ *     before its campaign is flagged).
+ *   - campaignIds: when non-empty, include only sessions from these campaign IDs.
+ *   - assessmentId: when set, include only sessions from this assessment.
+ *
  * Throws via throwActionError on query failure.
  */
 export async function fetchCalibrationResponses(
   db: DbClient,
-  options?: { since?: string; until?: string },
+  options?: {
+    since?: string;
+    until?: string;
+    campaignIds?: string[];
+    assessmentId?: string;
+    includeInternal?: boolean;
+  },
 ): Promise<CalibrationResponseRow[]> {
   let query = db
     .from("participant_responses")
@@ -159,7 +182,8 @@ export async function fetchCalibrationResponses(
       // participant_responses — selecting them at the top level makes PostgREST
       // reject the whole query.
       `id, session_id, item_id, response_value, created_at,
-       participant_sessions!inner(status),
+       participant_sessions!inner(status, is_internal, campaign_id, assessment_id,
+         campaigns!inner(is_internal)),
        items!inner(id, construct_id, reverse_scored, deleted_at,
          response_formats!inner(config, type),
          item_options(value, score_value, exclude_from_scoring))`,
@@ -177,18 +201,42 @@ export async function fetchCalibrationResponses(
     // scoreSessionCTT.
     .eq("items.purpose", "construct");
 
-  // Base-table columns are filtered unqualified.
+  // Exclude internal data by default (belt-and-braces: filter both session and campaign).
+  if (!options?.includeInternal) {
+    query = query.eq("participant_sessions.is_internal", false);
+    query = query.eq("participant_sessions.campaigns.is_internal", false);
+  }
+
+  // Filter by specific campaigns if provided.
+  if (options?.campaignIds && options.campaignIds.length > 0) {
+    query = query.in("participant_sessions.campaign_id", options.campaignIds);
+  }
+
+  // Filter by specific assessment if provided.
+  if (options?.assessmentId) {
+    query = query.eq("participant_sessions.assessment_id", options.assessmentId);
+  }
+
+  // The window scopes whole SESSIONS, not individual responses. Filtering on
+  // participant_responses.created_at would admit part of a session whose
+  // responses straddle the boundary, and a partially-present session silently
+  // corrupts the complete-case partitioning that alpha is computed from.
   if (options?.since) {
-    query = query.gte("created_at", options.since);
+    query = query.gte("participant_sessions.completed_at", options.since);
   }
   if (options?.until) {
-    query = query.lte("created_at", options.until);
+    query = query.lte("participant_sessions.completed_at", options.until);
   }
 
   // PostgREST caps a single response at 1000 rows. The production set is
   // already larger than that, so an unpaged read silently calibrates on a
   // truncated sample — which looks exactly like full coverage. Page until a
   // short page comes back.
+  // Paging without a total order is not stable: Postgres may return rows in a
+  // different order between the two range requests, which duplicates some rows
+  // and drops others. Order by the primary key so the pages tile exactly.
+  query = query.order("id", { ascending: true });
+
   const PAGE_SIZE = 1000;
   const data: unknown[] = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
@@ -408,6 +456,234 @@ export async function insertConstructReliability(
   }
 
   return (data ?? []).length;
+}
+
+// ============================================================================
+// calibration_runs queries - continued
+// ============================================================================
+
+/**
+ * Calibration run summary for listing and management.
+ * Includes statistics on the data included in this run.
+ */
+export interface CalibrationRunSummary {
+  id: string;
+  label: string | null;
+  runType: string;
+  method: string;
+  status: string;
+  sampleSize: number | null;
+  sessionCount: number | null;
+  includeInternal: boolean;
+  campaignIds: string[] | null;
+  assessmentId: string | null;
+  createdAt: string;
+  completedAt: string | null;
+  errorMessage: string | null;
+  itemStatisticsCount: number;
+  constructReliabilityCount: number;
+}
+
+/**
+ * Count the number of distinct completed sessions that would be included in a
+ * calibration run with the given options. This is used to preview sample size
+ * before running calibration.
+ */
+export async function countEligibleSessions(
+  db: DbClient,
+  options?: {
+    since?: string;
+    until?: string;
+    campaignIds?: string[];
+    assessmentId?: string;
+    includeInternal?: boolean;
+  },
+): Promise<number> {
+  // `campaigns` must be embedded for `campaigns.is_internal` to be a legal
+  // filter target — PostgREST rejects a filter on a resource that is not in
+  // the select. `!inner` also makes the join filtering rather than nullable,
+  // which is what the exclusion needs.
+  let query = db
+    .from("participant_sessions")
+    .select("id, campaigns!inner(is_internal)", {
+      count: "exact",
+      head: true,
+    })
+    .eq("status", "completed");
+
+  // Exclude internal data by default.
+  if (!options?.includeInternal) {
+    query = query.eq("is_internal", false);
+    // Also exclude sessions whose campaign is internal.
+    query = query.eq("campaigns.is_internal", false);
+  }
+
+  // Same window semantics as fetchCalibrationResponses, so the previewed count
+  // matches the sample the run actually draws.
+  if (options?.since) {
+    query = query.gte("completed_at", options.since);
+  }
+  if (options?.until) {
+    query = query.lte("completed_at", options.until);
+  }
+
+  // Filter by specific campaigns if provided.
+  if (options?.campaignIds && options.campaignIds.length > 0) {
+    query = query.in("campaign_id", options.campaignIds);
+  }
+
+  // Filter by specific assessment if provided.
+  if (options?.assessmentId) {
+    query = query.eq("assessment_id", options.assessmentId);
+  }
+
+  const { count, error } = await query;
+
+  if (error) {
+    throwActionError(
+      "countEligibleSessions",
+      "Unable to count eligible sessions.",
+      error,
+    );
+  }
+
+  return count ?? 0;
+}
+
+/**
+ * List calibration runs (non-deleted, newest first) with summary statistics.
+ */
+export async function listCalibrationRuns(
+  db: DbClient,
+  limit?: number,
+): Promise<CalibrationRunSummary[]> {
+  const { data: runs, error: runsError } = await db
+    .from("calibration_runs")
+    .select("*")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(limit ?? 50);
+
+  if (runsError) {
+    throwActionError(
+      "listCalibrationRuns",
+      "Unable to fetch calibration runs.",
+      runsError,
+    );
+  }
+
+  if (!runs || runs.length === 0) {
+    return [];
+  }
+
+  // Fetch statistics counts for each run in parallel.
+  const runIds = runs.map((r) => (r as DbRow).id) as string[];
+  const [itemStats, constructStats] = await Promise.all([
+    db
+      .from("item_statistics")
+      .select("calibration_run_id", { count: "exact", head: false })
+      .in("calibration_run_id", runIds),
+    db
+      .from("construct_reliability")
+      .select("calibration_run_id", { count: "exact", head: false })
+      .in("calibration_run_id", runIds),
+  ]);
+
+  const itemStatsByRunId = new Map<string, number>();
+  const constructStatsByRunId = new Map<string, number>();
+
+  if (itemStats.data) {
+    // Count rows per run_id.
+    const grouped: Record<string, number> = {};
+    for (const row of itemStats.data as DbRow[]) {
+      const id = String(row.calibration_run_id);
+      grouped[id] = (grouped[id] ?? 0) + 1;
+    }
+    Object.entries(grouped).forEach(([id, count]) => {
+      itemStatsByRunId.set(id, count);
+    });
+  }
+
+  if (constructStats.data) {
+    const grouped: Record<string, number> = {};
+    for (const row of constructStats.data as DbRow[]) {
+      const id = String(row.calibration_run_id);
+      grouped[id] = (grouped[id] ?? 0) + 1;
+    }
+    Object.entries(grouped).forEach(([id, count]) => {
+      constructStatsByRunId.set(id, count);
+    });
+  }
+
+  return runs.map((raw) => {
+    const run = raw as DbRow;
+    const id = String(run.id);
+    return {
+      id,
+      label: run.label ? String(run.label) : null,
+      runType: String(run.run_type),
+      method: String(run.method),
+      status: String(run.status),
+      sampleSize: run.sample_size ? Number(run.sample_size) : null,
+      sessionCount: run.session_count ? Number(run.session_count) : null,
+      includeInternal: Boolean(run.include_internal),
+      campaignIds: Array.isArray(run.campaign_ids) ? run.campaign_ids : null,
+      assessmentId: run.assessment_id ? String(run.assessment_id) : null,
+      createdAt: String(run.created_at),
+      completedAt: run.completed_at ? String(run.completed_at) : null,
+      errorMessage: run.error_message ? String(run.error_message) : null,
+      itemStatisticsCount: itemStatsByRunId.get(id) ?? 0,
+      constructReliabilityCount: constructStatsByRunId.get(id) ?? 0,
+    };
+  });
+}
+
+/**
+ * Soft-delete a calibration run by setting deleted_at.
+ * Runs are never hard-deleted to preserve audit trail and reproducibility.
+ */
+export async function softDeleteCalibrationRun(
+  db: DbClient,
+  runId: string,
+): Promise<void> {
+  const { error } = await db
+    .from("calibration_runs")
+    .update({
+      deleted_at: new Date().toISOString(),
+    })
+    .eq("id", runId);
+
+  if (error) {
+    throwActionError(
+      "softDeleteCalibrationRun",
+      "Unable to delete calibration run.",
+      error,
+    );
+  }
+}
+
+/**
+ * Update the human-readable label of a calibration run.
+ */
+export async function updateCalibrationRunLabel(
+  db: DbClient,
+  runId: string,
+  label: string,
+): Promise<void> {
+  const { error } = await db
+    .from("calibration_runs")
+    .update({
+      label,
+    })
+    .eq("id", runId);
+
+  if (error) {
+    throwActionError(
+      "updateCalibrationRunLabel",
+      "Unable to update calibration run label.",
+      error,
+    );
+  }
 }
 
 // ============================================================================

@@ -140,6 +140,47 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     icon: MessageSquare,
     glowColor: "var(--primary)",
   },
+  instrument_blueprint: {
+    label: "Instrument Blueprint",
+    description:
+      "Turns a construct into a facet × intensity grid with target item counts.",
+    icon: FileCog,
+    glowColor: "var(--primary)",
+  },
+  instrument_congruence: {
+    label: "Instrument Congruence",
+    description:
+      "Blind rater that assigns an item back to a construct without seeing its intended target.",
+    icon: ScanSearch,
+    glowColor: "var(--primary)",
+  },
+  instrument_critique: {
+    label: "Instrument Critique",
+    description:
+      "Second-pass review of generated items: keep, revise or drop, with a reason.",
+    icon: ScanSearch,
+    glowColor: "var(--primary)",
+  },
+  instrument_fairness: {
+    label: "Instrument Fairness",
+    description:
+      "Screens items for reading level, idiom and protected-class references.",
+    icon: ScanSearch,
+    glowColor: "var(--primary)",
+  },
+  instrument_items: {
+    label: "Instrument Items",
+    description: "Writes candidate items for a single blueprint cell.",
+    icon: Cpu,
+    glowColor: "var(--primary)",
+  },
+  instrument_structure: {
+    label: "Instrument Structure",
+    description:
+      "Proposes the full construct set from a brief: names, definitions and exclusions, with pairwise discriminability.",
+    icon: Layers,
+    glowColor: "var(--primary)",
+  },
 }
 
 export const PURPOSE_ORDER: AIPromptPurpose[] = [
@@ -150,6 +191,12 @@ export const PURPOSE_ORDER: AIPromptPurpose[] = [
   "preflight_analysis",
   "item_critique",
   "synthetic_respondent",
+  "instrument_structure",
+  "instrument_blueprint",
+  "instrument_items",
+  "instrument_critique",
+  "instrument_fairness",
+  "instrument_congruence",
   "embedding",
   "brief_extraction",
   "architect_overview",

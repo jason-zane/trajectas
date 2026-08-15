@@ -65,6 +65,8 @@ export interface BlueprintDraftInput {
   indicatorsHigh?: string[]
   measureType: MeasureType
   targetItemCount: number
+  targetAlpha?: number | null
+  exclusions?: string[] | null
   contrastConstructs?: Array<{
     name: string
     definition?: string
@@ -101,7 +103,8 @@ export interface BlueprintDraftResult {
  * - Indicator examples at each intensity level
  * - Measure type and guidance
  * - Contrast constructs (to prevent scope creep)
- * - Target item count
+ * - Target item count and target alpha (reliability target)
+ * - Existing exclusions (for refinement/review)
  * - Audience and use-context hints
  */
 export function buildBlueprintDraftPrompt(input: BlueprintDraftInput): string {
@@ -170,6 +173,21 @@ export function buildBlueprintDraftPrompt(input: BlueprintDraftInput): string {
   // Target item count
   lines.push(`Target total item count: ${input.targetItemCount}`)
   lines.push('')
+
+  // Target alpha (reliability)
+  if (input.targetAlpha && input.targetAlpha > 0) {
+    lines.push(`Target alpha (internal consistency): ${input.targetAlpha}`)
+    lines.push('')
+  }
+
+  // Existing exclusions (for review/refinement)
+  if (input.exclusions && input.exclusions.length > 0) {
+    lines.push('Review existing exclusions and suggest refinements:')
+    input.exclusions.forEach(ex => {
+      lines.push(`  • ${ex}`)
+    })
+    lines.push('')
+  }
 
   // Audience and context
   if (input.audienceLevel) {

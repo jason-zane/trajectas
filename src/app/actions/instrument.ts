@@ -10,7 +10,6 @@ import {
   listBuilds,
   getBuild,
   createBuild,
-  updateBuild,
   softDeleteBuild,
   listBlueprints,
   getBlueprintWithCells,
@@ -27,7 +26,6 @@ import {
   claimStageRun,
   updateStageRun,
   updateCandidateItem,
-  softDeleteCandidateItem,
   insertCongruenceRatings,
   deleteCongruenceRatingsForItems,
   listCongruenceRatingsForBuild,
@@ -36,7 +34,6 @@ import {
 } from '@/lib/dal/instrument'
 import {
   instrumentBuildInputSchema,
-  instrumentBuildUpdateSchema,
   blueprintInputSchema,
   blueprintUpdateSchema,
   saveBlueprintCellsInputSchema,
@@ -57,6 +54,7 @@ import {
   DEFAULT_BLUEPRINT_SYSTEM_PROMPT,
 } from '@/lib/instrument/blueprint-draft'
 import { getModelForTask } from '@/lib/ai/model-config'
+import { getActiveSystemPrompt, AISystemPromptError } from '@/lib/ai/prompt-config'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import type {
   InstrumentBuildDto,
@@ -73,7 +71,7 @@ import {
 import { auditCoverage } from '@/lib/instrument/blueprint'
 import { mapWithConcurrency, chunk, DEFAULT_CONCURRENCY } from '@/lib/instrument/concurrency'
 import {
-  buildCongruencePrompt,
+  buildShuffledCongruencePrompt,
   parseCongruenceResponse,
   toCongruenceRatings,
   DEFAULT_CONGRUENCE_SYSTEM_PROMPT,
@@ -84,6 +82,7 @@ import {
   buildFairnessPrompt,
   parseFairnessResponse,
   READING_GRADE_CEILING_BY_AUDIENCE,
+  DEFAULT_FAIRNESS_SYSTEM_PROMPT,
 } from '@/lib/instrument/fairness'
 import type { PanelResult } from '@/lib/instrument/congruence'
 
@@ -140,45 +139,6 @@ export async function createInstrumentBuild(
     metadata: {
       name: parsed.data.name,
       measureType: parsed.data.measureType,
-    },
-  })
-
-  return result
-}
-
-/**
- * Update an instrument build. Platform-admin only.
- */
-export async function updateInstrumentBuild(
-  buildId: string,
-  input: Record<string, unknown>,
-): Promise<InstrumentBuildDto> {
-  const scope = await requireAdminScope()
-
-  const parsed = instrumentBuildUpdateSchema.safeParse(input)
-  if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`)
-    throw new Error(issues.join(', ') || 'Invalid instrument build update')
-  }
-
-  const db = createAdminClient()
-  const result = await updateBuild(db, buildId, {
-    name: parsed.data.name,
-    brief: parsed.data.brief as string | null | undefined,
-    audience: parsed.data.audience,
-    useContext: parsed.data.useContext,
-    targetConstructCount: parsed.data.targetConstructCount,
-    targetItemsPerConstruct: parsed.data.targetItemsPerConstruct,
-  })
-
-  revalidatePath('/instruments')
-  await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
-    eventType: 'instrument_build.updated',
-    targetTable: 'instrument_builds',
-    targetId: result.id,
-    metadata: {
-      name: result.name,
     },
   })
 
@@ -423,6 +383,8 @@ export async function draftBlueprintWithAI(
       ? blueprint.measureType
       : 'competency_behavioural'),
     targetItemCount: 15, // Default target item count
+    targetAlpha: blueprint.targetAlpha ?? undefined,
+    exclusions: blueprint.exclusions ?? undefined,
   }
 
   // Build prompt and call AI
@@ -432,15 +394,27 @@ export async function draftBlueprintWithAI(
   if (parsedOptions.data.modelId) {
     modelId = parsedOptions.data.modelId
   } else {
-    // Get default model for item_generation task (reusing existing purpose)
-    const taskConfig = await getModelForTask('item_generation')
+    // Get default model for blueprint drafting
+    const taskConfig = await getModelForTask('instrument_blueprint')
     modelId = taskConfig.modelId
+  }
+
+  // Get system prompt (DB-backed, with hardcoded fallback)
+  let systemPrompt = DEFAULT_BLUEPRINT_SYSTEM_PROMPT
+  try {
+    const promptConfig = await getActiveSystemPrompt('instrument_blueprint')
+    systemPrompt = promptConfig.content
+  } catch (err) {
+    // If no DB-backed prompt exists, use hardcoded default
+    if (!(err instanceof AISystemPromptError)) {
+      throw err
+    }
   }
 
   const response = await openRouterProvider.complete({
     model: modelId,
     prompt,
-    systemPrompt: DEFAULT_BLUEPRINT_SYSTEM_PROMPT,
+    systemPrompt,
     temperature: parsedOptions.data.temperature,
     maxTokens: parsedOptions.data.maxTokens,
     responseFormat: 'json',
@@ -679,13 +653,25 @@ export async function generateItemsForBlueprint(
     return hasDeficit
   })
 
-  // Resolve model
+  // Resolve model and system prompt for item generation
   let modelId: string
   if (parsedOptions.data.modelId) {
     modelId = parsedOptions.data.modelId
   } else {
-    const taskConfig = await getModelForTask('item_generation')
+    const taskConfig = await getModelForTask('instrument_items')
     modelId = taskConfig.modelId
+  }
+
+  // Get system prompt (DB-backed, with hardcoded fallback)
+  let itemGenerationSystemPrompt = DEFAULT_ITEM_GENERATION_SYSTEM_PROMPT
+  try {
+    const promptConfig = await getActiveSystemPrompt('instrument_items')
+    itemGenerationSystemPrompt = promptConfig.content
+  } catch (err) {
+    // If no DB-backed prompt exists, use hardcoded default
+    if (!(err instanceof AISystemPromptError)) {
+      throw err
+    }
   }
 
   // Seed with existing stems for deduplication
@@ -775,7 +761,7 @@ export async function generateItemsForBlueprint(
       const response = await openRouterProvider.complete({
         model: modelId,
         prompt,
-        systemPrompt: DEFAULT_ITEM_GENERATION_SYSTEM_PROMPT,
+        systemPrompt: itemGenerationSystemPrompt,
         temperature: parsedOptions.data.temperature,
         maxTokens: parsedOptions.data.maxTokens,
         responseFormat: undefined,
@@ -949,24 +935,6 @@ export async function updateCandidateItemStatus(
 }
 
 /**
- * Soft-delete a candidate item. Platform-admin only.
- */
-export async function deleteCandidateItem(itemId: string): Promise<void> {
-  const scope = await requireAdminScope()
-  const db = createAdminClient()
-
-  await softDeleteCandidateItem(db, itemId)
-
-  revalidatePath('/instruments')
-  await logAuditEvent({
-    actorProfileId: scope.actor?.id ?? null,
-    eventType: 'instrument_item.deleted',
-    targetTable: 'instrument_candidate_items',
-    targetId: itemId,
-  })
-}
-
-/**
  * Run congruence panel: blind multi-rater content-validity sort. Platform-admin only.
  *
  * Requires at least 2 blueprints (constructs). Each item gets rated by 3 raters
@@ -1062,16 +1030,14 @@ export async function runCongruencePanelForBuild(
     const intendedBlueprint = intendedBlueprintData.blueprint
 
     try {
-      // Build prompt (blind to intended construct)
-      const prompt = buildCongruencePrompt({
-        stem: item.stem,
-        candidates: blueprintDtos.map((bp) => ({
-          id: bp.id,
-          name: bp.draftConstructName || bp.constructId || 'Unnamed',
-          definition: bp.draftConstructDefinition || undefined,
-        })),
-        measureType: isMeasureType(build.measureType) ? build.measureType : undefined,
-      })
+      // Fetch system prompt from DB with fallback
+      let systemPrompt = DEFAULT_CONGRUENCE_SYSTEM_PROMPT
+      try {
+        const promptConfig = await getActiveSystemPrompt('instrument_congruence')
+        systemPrompt = promptConfig.content
+      } catch {
+        // Fallback to default if DB fetch fails
+      }
 
       // Get models (prefer variety)
       const models = typeof options === 'object' && options !== null && 'models' in options && Array.isArray(options.models)
@@ -1079,9 +1045,25 @@ export async function runCongruencePanelForBuild(
         : []
 
       if (models.length === 0) {
-        const taskConfig = await getModelForTask('item_generation')
-        models.push(taskConfig.modelId)
+        const taskConfig = await getModelForTask('instrument_congruence')
+        // Prefer a configured list of DIFFERENT model families over one model
+        // used three times. Same-model raters are not independent: repeated
+        // sampling from one model agrees at r ~= 0.88-0.92 versus r ~= 0.75-0.85
+        // across families, so a single-model panel reports an agreement figure
+        // that is partly just the model agreeing with itself.
+        const configured = (taskConfig.config as { models?: unknown } | null)?.models
+        const configuredModels = Array.isArray(configured)
+          ? configured.filter((m): m is string => typeof m === 'string')
+          : []
+        models.push(...(configuredModels.length > 0 ? configuredModels : [taskConfig.modelId]))
       }
+
+      // Prepare candidate list (without shuffling yet; each rater gets its own shuffle)
+      const candidateList = blueprintDtos.map((bp) => ({
+        id: bp.id,
+        name: bp.draftConstructName || bp.constructId || 'Unnamed',
+        definition: bp.draftConstructDefinition || undefined,
+      }))
 
       // Rate with multiple raters
       const raterResults: Array<{
@@ -1097,11 +1079,23 @@ export async function runCongruencePanelForBuild(
         Array.from({ length: raterCount }, (_, i) => i),
         raterCount,
         async (raterIndex) => {
+          // Build shuffled prompt for this rater (deterministic shuffle per rater)
+          const { prompt: raterPrompt } = buildShuffledCongruencePrompt(
+            buildId,
+            item.id,
+            raterIndex,
+            {
+              stem: item.stem,
+              candidates: candidateList,
+              measureType: isMeasureType(build.measureType) ? build.measureType : undefined,
+            },
+          )
+
           const model = models[raterIndex % models.length]
           const response = await openRouterProvider.complete({
             model,
-            prompt,
-            systemPrompt: DEFAULT_CONGRUENCE_SYSTEM_PROMPT,
+            prompt: raterPrompt,
+            systemPrompt,
             temperature: 0.5,
             maxTokens: 500,
             responseFormat: 'json',
@@ -1323,6 +1317,15 @@ export async function runFairnessScreenForBuild(buildId: string): Promise<{
   const chunkSize = 25
   const validIds = new Set(items.map((i) => i.id))
 
+  // Fetch system prompt from DB with fallback
+  let fairnessSystemPrompt = DEFAULT_FAIRNESS_SYSTEM_PROMPT
+  try {
+    const promptConfig = await getActiveSystemPrompt('instrument_fairness')
+    fairnessSystemPrompt = promptConfig.content
+  } catch {
+    // Fallback to default if DB fetch fails
+  }
+
   for (let i = 0; i < items.length; i += chunkSize) {
     const chunk = items.slice(i, i + chunkSize)
 
@@ -1336,11 +1339,11 @@ export async function runFairnessScreenForBuild(buildId: string): Promise<{
       )
 
       // Call LLM
-      const taskConfig = await getModelForTask('item_generation')
+      const taskConfig = await getModelForTask('instrument_fairness')
       const response = await openRouterProvider.complete({
         model: taskConfig.modelId,
         prompt,
-        systemPrompt: DEFAULT_FAIRNESS_SYSTEM_PROMPT,
+        systemPrompt: fairnessSystemPrompt,
         temperature: 0.3,
         maxTokens: 2000,
         responseFormat: 'json',
@@ -1450,24 +1453,6 @@ export async function listBuildCongruence(buildId: string): Promise<PanelResult>
 
   return runCongruencePanel(congruenceRatings)
 }
-
-// Import for DEFAULT_FAIRNESS_SYSTEM_PROMPT
-const DEFAULT_FAIRNESS_SYSTEM_PROMPT = `You are an expert in psychometric fairness and assessment design. Your task is to review assessment items for fairness concerns.
-
-**Your job:** flag items that exhibit genuine fairness problems:
-1. **Idiom** — Uses colloquialisms, slang, or culturally-specific expressions (e.g., "hit the nail on the head", "raining cats and dogs").
-2. **Metaphor** — Contains sports or military metaphors (e.g., "attacking the problem", "winning the battle").
-3. **Sensory assumption** — Assumes respondents can see, hear, or perceive in a way that excludes people with sensory disabilities (e.g., "imagine the scene" or "as you can see").
-4. **Protected class** — Proximity to age, family status, health, disability, religion, or sexual orientation (e.g., "as a father" or "when you get older").
-5. **Jargon** — Domain-specific terminology that may not be universally understood.
-
-**Critical rules:**
-- Flag ONLY genuine fairness issues. Benign wording that is merely formal or technical is NOT a fairness problem.
-- False positives (flagging items that are actually fair) are a failure of the review. Be strict and accurate.
-- If an item is unclear, do not flag it — ask the human reviewer instead.
-- A well-written, inclusive item that uses precise language should NOT be flagged.
-
-Return ONLY a JSON array with no preamble or explanation.`
 
 /**
  * Restore a soft-deleted blueprint. Backs the "Undo" affordance on delete.

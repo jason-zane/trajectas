@@ -17,8 +17,9 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { ScrollReveal } from "@/components/scroll-reveal";
 import { TiltCard } from "@/components/tilt-card";
-import { getPsychometricOverview } from "@/app/actions/psychometrics";
+import { getPsychometricOverview, listCalibrationRunsAction } from "@/app/actions/psychometrics";
 import { RunCalibrationPanel } from "./run-calibration-panel";
+import { CalibrationRunsList } from "./calibration-runs-list";
 
 /* ------------------------------------------------------------------ */
 /*  Readiness checks                                                   */
@@ -248,6 +249,7 @@ const statCards: StatCardConfig[] = [
 export default async function PsychometricsPage() {
   const overview = await getPsychometricOverview();
   const readiness = deriveReadiness(overview);
+  const runs = await listCalibrationRunsAction();
 
   const hasCalibrationData = overview.calibrationRuns > 0;
 
@@ -279,54 +281,65 @@ export default async function PsychometricsPage() {
 
       {/* Readiness Checklist — shown when calibration data exists */}
       {hasCalibrationData && (
-        <ScrollReveal delay={60}>
-          <Card className="overflow-hidden">
-            <CardHeader>
-              <CardTitle>Assessment Readiness</CardTitle>
-              <CardDescription>
-                Status checks across the four pillars of psychometric quality
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pb-5">
-              <div className="grid gap-2">
-                {readiness.map((check) => {
-                  const Icon = statusIcon[check.status];
-                  return (
-                    <div
-                      key={check.label}
-                      className={`flex items-center gap-4 rounded-lg border-l-[3px] bg-muted/40 px-4 py-3 transition-colors ${statusBorderColor[check.status]}`}
-                    >
-                      <Icon
-                        className={`size-5 shrink-0 ${statusColor[check.status]}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium">{check.label}</p>
-                        <p className="text-caption text-muted-foreground">
-                          {check.description}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          check.status === "green"
-                            ? "default"
-                            : check.status === "amber"
-                              ? "secondary"
-                              : "destructive"
-                        }
+        <>
+          <ScrollReveal delay={60}>
+            <Card className="overflow-hidden">
+              <CardHeader>
+                <CardTitle>Assessment Readiness</CardTitle>
+                <CardDescription>
+                  Status checks across the four pillars of psychometric quality
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-5">
+                <div className="grid gap-2">
+                  {readiness.map((check) => {
+                    const Icon = statusIcon[check.status];
+                    return (
+                      <div
+                        key={check.label}
+                        className={`flex items-center gap-4 rounded-lg border-l-[3px] bg-muted/40 px-4 py-3 transition-colors ${statusBorderColor[check.status]}`}
                       >
-                        {check.status === "green"
-                          ? "Pass"
-                          : check.status === "amber"
-                            ? "Review"
-                            : "Action"}
-                      </Badge>
-                    </div>
-                  );
-                })}
+                        <Icon
+                          className={`size-5 shrink-0 ${statusColor[check.status]}`}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium">{check.label}</p>
+                          <p className="text-caption text-muted-foreground">
+                            {check.description}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            check.status === "green"
+                              ? "default"
+                              : check.status === "amber"
+                                ? "secondary"
+                                : "destructive"
+                          }
+                        >
+                          {check.status === "green"
+                            ? "Pass"
+                            : check.status === "amber"
+                              ? "Review"
+                              : "Action"}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </ScrollReveal>
+
+          <ScrollReveal delay={120}>
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-section">Calibration Run History</h2>
               </div>
-            </CardContent>
-          </Card>
-        </ScrollReveal>
+              <CalibrationRunsList runs={runs} />
+            </div>
+          </ScrollReveal>
+        </>
       )}
 
       {/* Stat Cards */}
