@@ -619,7 +619,7 @@ export function ConstructForm({
                           Observer wording (360)
                         </Button>
                       )}
-                      <Link href={`/generate/new?constructId=${construct.id}`}>
+                      <Link href="/instruments">
                         <Button type="button" variant="outline" size="sm">
                           <Wand2 className="size-4" />
                           Generate Items
@@ -651,7 +651,7 @@ export function ConstructForm({
                     </p>
                     {construct?.slug && (
                       <div className="flex items-center gap-2">
-                        <Link href={`/generate/new?constructId=${construct.id}`}>
+                        <Link href="/instruments">
                           <Button type="button" variant="outline" size="sm">
                             <Wand2 className="size-4" />
                             Generate Items

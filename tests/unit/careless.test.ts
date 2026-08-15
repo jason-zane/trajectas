@@ -24,8 +24,16 @@ describe("detectLongString", () => {
     expect(detectLongString([1, 1])).toBeNull();
   });
 
-  it("returns null when all responses are identical", () => {
-    expect(detectLongString([5, 5, 5, 5, 5])).toBeNull();
+  it("treats an all-identical vector as the maximal long string, not as unmeasurable", () => {
+    // A perfectly straight-lined session is the canonical careless case. Returning
+    // null here meant it produced no flag at all, because the other indices also
+    // bail on a zero-variance vector — so the clearest careless respondent in the
+    // dataset would have passed.
+    const result = detectLongString([5, 5, 5, 5, 5]);
+    expect(result).not.toBeNull();
+    expect(result!.maxRunLength).toBe(5);
+    expect(result!.value).toBe(5);
+    expect(result!.itemIndices).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("detects a long string of 5s at the start", () => {

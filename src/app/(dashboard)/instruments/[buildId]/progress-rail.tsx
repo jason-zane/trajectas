@@ -64,14 +64,18 @@ export function ProgressRail({ buildId, steps, nextStep }: ProgressRailProps) {
   const getRoute = (stepKey: string): string => {
     const baseUrl = `/instruments/${buildId}`
     switch (stepKey) {
+      // The build page itself is where the brief lives; there is no /settings
+      // route, and a rail whose whole purpose is that nothing dead-ends must
+      // not be the thing serving 404s.
       case 'brief':
-        return `${baseUrl}/settings` // Would be settings page if it exists
+        return baseUrl
       case 'structure':
         return `${baseUrl}/structure`
+      // There is no /blueprints index either — blueprints are listed on the
+      // build page, and items hang off a specific blueprint.
       case 'blueprint':
-        return `${baseUrl}/blueprints`
       case 'items':
-        return `${baseUrl}/blueprints` // Items are accessed through blueprint detail
+        return baseUrl
       case 'evidence':
         return `${baseUrl}/evidence`
       case 'publish':

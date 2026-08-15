@@ -157,7 +157,28 @@ export async function runRedundancyPass(
     }
   }
 
-  // Step 4: Persist results (with error isolation)
+  // Step 4: Clear marks from the previous pass first.
+  //
+  // Persisting only the newly-redundant items leaves an item that WAS flagged
+  // but is no longer (because stems, the item set, or the cutoff changed) still
+  // carrying its old peer pointer. The UI would keep reporting a near-duplicate
+  // that this pass did not find, and the marked count would disagree with the
+  // marks on screen.
+  const previouslyMarked = items.filter(
+    (item) => item.redundancyPeerId != null && !redundantPairs.has(item.id),
+  )
+  await mapWithConcurrency(
+    previouslyMarked,
+    DEFAULT_CONCURRENCY,
+    async (item) => {
+      await updateCandidateItem(db, item.id, {
+        redundancyPeerId: null,
+        redundancyScore: null,
+      })
+    },
+  )
+
+  // Step 5: Persist results (with error isolation)
   const updateResults = await mapWithConcurrency(
     Array.from(redundantPairs.entries()),
     DEFAULT_CONCURRENCY,

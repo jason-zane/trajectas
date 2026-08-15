@@ -711,6 +711,31 @@ export async function runCalibration(input?: {
     await insertConstructReliability(db, runId, constructStatsToInsert)
 
     // ───────────────────────────────────────────────────────────────────────
+    // 6b. Careless-responding flags for every session in this run
+    // ───────────────────────────────────────────────────────────────────────
+    //
+    // These indices are WITHIN-person, so unlike alpha they are meaningful at
+    // this platform's current sample sizes — they are the highest-value signal
+    // available at n < 50, telling you which of a handful of respondents to
+    // discard. Computed here because calibration is the only place that knows
+    // which sessions were in scope; without this hook nothing ever populated
+    // session_quality_flags and the whole feature sat inert.
+    //
+    // A failure to score one session must not fail the calibration run: the
+    // statistics above are already committed.
+    for (const sessionId of uniqueSessions) {
+      try {
+        await computeSessionCarelessFlags(sessionId)
+      } catch (error) {
+        warnings.push(
+          `Careless-responding flags could not be computed for session ${sessionId}: ${
+            error instanceof Error ? error.message : 'unknown error'
+          }`,
+        )
+      }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
     // 7. Mark run as completed
     // ───────────────────────────────────────────────────────────────────────
 
@@ -982,6 +1007,7 @@ export async function computeSessionCarelessFlags(
       response_time_ms,
       items!inner(
         id,
+        construct_id,
         reverse_scored,
         response_format_id,
         response_formats!inner(config, type),
@@ -1008,6 +1034,7 @@ export async function computeSessionCarelessFlags(
     reverseScored: boolean
     minValue: number
     maxValue: number
+    constructId: string | null
   }> = []
 
   for (const resp of responses) {
@@ -1040,6 +1067,7 @@ export async function computeSessionCarelessFlags(
       reverseScored: Boolean(item?.reverse_scored),
       minValue,
       maxValue,
+      constructId: item?.construct_id ? String(item.construct_id) : null,
     })
   }
 

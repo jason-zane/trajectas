@@ -52,10 +52,14 @@ export default async function ConstructDetailPage(props: ConstructDetailPageProp
         description="Detailed reliability analysis for this construct"
       />
 
-      {n < 5 ? (
+      {n < 50 ? (
         <EmptyState
-          title="Insufficient data"
-          description={`This construct has only ${n} response${n !== 1 ? 's' : ''}. A minimum of 5 complete responses is required to compute reliability statistics.`}
+          title={n < 5 ? 'Insufficient data' : 'Reliability withheld'}
+          description={
+            n < 5
+              ? `This construct has only ${n} response${n !== 1 ? 's' : ''}. Nothing is computable below 5.`
+              : `This construct has ${n} responses. Reliability statistics need 50 or more: below that alpha is unstable enough to come out negative by chance, so it is withheld rather than shown with a caveat.`
+          }
         />
       ) : (
         <>

@@ -182,7 +182,10 @@ export async function runCritiquePass(
     systemPrompt = null
   }
 
-  const modelConfig = await getModelForTask('item_critique')
+  // Must be the instrument_critique config, not the legacy item_critique one:
+  // Phase C seeds a distinct model for this stage, and reading the old purpose
+  // silently ignores whatever the admin selected for this task.
+  const modelConfig = await getModelForTask('instrument_critique')
   const model = modelConfig.modelId
 
   if (!model) {

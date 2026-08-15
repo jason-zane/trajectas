@@ -92,7 +92,7 @@ export interface ResponseTimeFloorResult {
  *
  * Returns null if:
  * - Fewer than 3 items
- * - All responses are identical (trivial run)
+ * (An all-identical vector is NOT uncomputable: it is the maximal long string.)
  *
  * @param responses - Response values in item order (length = number of items).
  * @returns Longest run details, or null if not computable.
@@ -102,10 +102,17 @@ export function detectLongString(responses: number[]): LongStringResult | null {
     return null;
   }
 
-  // If all responses are identical, the run is trivial
+  // An all-identical vector is the LONGEST POSSIBLE long string, not an
+  // uncomputable one. Returning null here meant a perfectly straight-lined
+  // session — the canonical careless case — produced no flag at all, because
+  // the other indices also bail on a zero-variance vector.
   const allSame = responses.every((v) => v === responses[0]);
   if (allSame) {
-    return null;
+    return {
+      maxRunLength: responses.length,
+      itemIndices: responses.map((_, i) => i),
+      value: responses[0],
+    };
   }
 
   let maxRunLength = 1;
@@ -206,8 +213,18 @@ export function detectEvenOddInconsistency(
     oddNormalized = oddResponses.map((v, i) => oddMaxes[i] > 0 ? v / oddMaxes[i] : 0);
   }
 
+  // With an odd number of items the even-indexed half has one extra value, and
+  // pearsonR rejects unequal lengths — which silently disabled this index for
+  // EVERY odd-length assessment. Drop the unpaired trailing value.
+  const pairedLength = Math.min(evenNormalized.length, oddNormalized.length);
+  if (pairedLength < 2) {
+    return null;
+  }
+  const evenPaired = evenNormalized.slice(0, pairedLength);
+  const oddPaired = oddNormalized.slice(0, pairedLength);
+
   // Compute Pearson r between the two halves
-  const r = pearsonR(evenNormalized, oddNormalized);
+  const r = pearsonR(evenPaired, oddPaired);
 
   // Check for NaN (e.g., zero variance)
   if (!Number.isFinite(r)) {
@@ -257,6 +274,13 @@ export function detectPsychometricAntonyms(
     maxValue: number;
     /** Scale floor. Defaults to 0 only when genuinely absent. */
     minValue?: number;
+    /**
+     * Construct this item belongs to. Pairs are only formed WITHIN a construct:
+     * a forward item on one trait and a reverse item on an unrelated trait are
+     * not antonyms, and a respondent legitimately scoring high on one and low
+     * on the other would otherwise look careless.
+     */
+    constructId?: string | null;
   }>
 ): PsychometricAntonymsResult | null {
   if (responses.length < 2 || itemMetadata.length !== responses.length) {
@@ -264,8 +288,15 @@ export function detectPsychometricAntonyms(
   }
 
   // Separate forward and reverse-scored items
-  const forwardItems: Array<{ index: number; itemId: string; minValue: number; maxValue: number }> = [];
-  const reverseItems: Array<{ index: number; itemId: string; minValue: number; maxValue: number }> = [];
+  type PairItem = {
+    index: number;
+    itemId: string;
+    minValue: number;
+    maxValue: number;
+    constructId: string | null;
+  };
+  const forwardItems: PairItem[] = [];
+  const reverseItems: PairItem[] = [];
 
   for (let i = 0; i < itemMetadata.length; i++) {
     if (itemMetadata[i].reverseScored) {
@@ -274,6 +305,7 @@ export function detectPsychometricAntonyms(
         itemId: itemMetadata[i].itemId,
         minValue: itemMetadata[i].minValue ?? 0,
         maxValue: itemMetadata[i].maxValue,
+        constructId: itemMetadata[i].constructId ?? null,
       });
     } else {
       forwardItems.push({
@@ -281,6 +313,7 @@ export function detectPsychometricAntonyms(
         itemId: itemMetadata[i].itemId,
         minValue: itemMetadata[i].minValue ?? 0,
         maxValue: itemMetadata[i].maxValue,
+        constructId: itemMetadata[i].constructId ?? null,
       });
     }
   }
@@ -294,6 +327,10 @@ export function detectPsychometricAntonyms(
 
   for (const fwd of forwardItems) {
     for (const rev of reverseItems) {
+      // Only pair items measuring the SAME construct. Across constructs these
+      // are not antonyms at all, and a genuine trait difference would read as
+      // inconsistency and falsely flag an attentive respondent.
+      if (fwd.constructId !== rev.constructId) continue;
       // Once the reverse-keyed item is scored in the same direction as the
       // forward item, a CONSISTENT respondent's two answers should land close
       // together. A straight-liner's do not: answering 5 to both "I am
