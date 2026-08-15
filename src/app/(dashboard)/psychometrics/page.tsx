@@ -199,7 +199,7 @@ const statCards: StatCardConfig[] = [
     key: "calibrationRuns",
     title: "Calibration Runs",
     icon: Activity,
-    href: "/psychometrics/calibrations",
+    href: "/psychometrics/history",
     bgClass: "bg-competency-bg",
     iconClass: "text-competency-accent",
     accentClass: "bg-competency-accent",

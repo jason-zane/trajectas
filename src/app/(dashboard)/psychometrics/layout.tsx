@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils"
 const tabs = [
   { label: "Overview", href: "/psychometrics" },
   { label: "Item Health", href: "/psychometrics/items" },
+  { label: "Constructs", href: "/psychometrics/constructs" },
   { label: "Reliability", href: "/psychometrics/reliability" },
+  { label: "History", href: "/psychometrics/history" },
+  { label: "Compare", href: "/psychometrics/compare" },
   { label: "Norms", href: "/psychometrics/norms" },
 ]
 
