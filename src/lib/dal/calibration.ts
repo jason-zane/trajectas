@@ -22,6 +22,21 @@ import type { CTTItemStatistics } from "@/types/scoring";
 type DbClient = SupabaseClient;
 
 /**
+ * PostgREST returns an embedded to-one relation as either an object or a
+ * single-element array depending on how it infers the relationship. Normalise
+ * once rather than casting to `any` at every use site.
+ */
+function unwrapEmbedded(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  if (Array.isArray(value)) {
+    return value[0] as Record<string, unknown> | undefined;
+  }
+  return (value ?? undefined) as Record<string, unknown> | undefined;
+}
+
+
+/**
  * Calibration response row: a single participant's response to a single item,
  * enriched with item metadata and bounds so the scoring pipeline can use it directly.
  */
@@ -721,6 +736,272 @@ export async function getLatestCompletedRun(
     createdAt: String(dbRow.created_at),
     sampleSize: dbRow.sample_size ? Number(dbRow.sample_size) : null,
   };
+}
+
+// ============================================================================
+// Pivot view queries: construct, assessment, historical
+// ============================================================================
+
+export type ConstructDetailRow = {
+  constructId: string;
+  constructName: string;
+  runId: string;
+  runLabel: string | null;
+  runCreatedAt: string;
+  responseCount: number;
+  cronbachAlpha: number | null;
+  omegaTotal: number | null;
+  splitHalf: number | null;
+  sem: number | null;
+  itemCount: number | null;
+  mean: number | null;
+  standardDeviation: number | null;
+  skewness: number | null;
+  kurtosis: number | null;
+};
+
+/**
+ * Fetch detailed stats for a specific construct in the latest completed run.
+ * Includes per-construct response count (n) which governs threshold withholding.
+ */
+export async function getConstructDetail(
+  db: DbClient,
+  constructId: string,
+): Promise<ConstructDetailRow | null> {
+  // Get latest completed run
+  const { data: latestRun, error: runError } = await db
+    .from("calibration_runs")
+    .select("id, label, created_at")
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (runError || !latestRun) return null;
+
+  const { data: reliability, error: relError } = await db
+    .from("construct_reliability")
+    .select(`
+      construct_id,
+      cronbach_alpha,
+      omega_total,
+      split_half,
+      sem,
+      item_count,
+      response_count,
+      mean,
+      standard_deviation,
+      skewness,
+      kurtosis,
+      constructs(name)
+    `)
+    .eq("calibration_run_id", latestRun.id as string)
+    .eq("construct_id", constructId)
+    .maybeSingle();
+
+  if (relError || !reliability) return null;
+
+  const dbRow = reliability as DbRow;
+  return {
+    constructId: String(dbRow.construct_id),
+    constructName: dbRow.constructs ? String((dbRow.constructs as DbRow).name) : "Unknown",
+    runId: String(latestRun.id),
+    runLabel: latestRun.label as string | null,
+    runCreatedAt: String(latestRun.created_at),
+    responseCount: dbRow.response_count ? Number(dbRow.response_count) : 0,
+    cronbachAlpha: dbRow.cronbach_alpha ? Number(dbRow.cronbach_alpha) : null,
+    omegaTotal: dbRow.omega_total ? Number(dbRow.omega_total) : null,
+    splitHalf: dbRow.split_half ? Number(dbRow.split_half) : null,
+    sem: dbRow.sem ? Number(dbRow.sem) : null,
+    itemCount: dbRow.item_count ? Number(dbRow.item_count) : null,
+    mean: dbRow.mean ? Number(dbRow.mean) : null,
+    standardDeviation: dbRow.standard_deviation ? Number(dbRow.standard_deviation) : null,
+    skewness: dbRow.skewness ? Number(dbRow.skewness) : null,
+    kurtosis: dbRow.kurtosis ? Number(dbRow.kurtosis) : null,
+  };
+}
+
+export type HistoricalConstructStatRow = {
+  runId: string;
+  runLabel: string | null;
+  runCreatedAt: string;
+  responseCount: number;
+  cronbachAlpha: number | null;
+  discrimination: number | null;
+};
+
+/**
+ * Fetch historical alpha and discrimination trends for a construct across the last N runs.
+ * Used for the "over time" pivot view.
+ */
+export async function getConstructHistoricalStats(
+  db: DbClient,
+  constructId: string,
+  limit: number = 10,
+): Promise<HistoricalConstructStatRow[]> {
+  // Get completed runs ordered by created_at DESC, limit N
+  const { data: runs, error: runsError } = await db
+    .from("calibration_runs")
+    .select("id, label, created_at")
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (runsError || !runs) return [];
+
+  const runIds = runs.map((r: DbRow) => String(r.id));
+
+  // Fetch construct_reliability for all runs
+  const { data: reliabilities, error: relError } = await db
+    .from("construct_reliability")
+    .select(`
+      calibration_run_id,
+      cronbach_alpha,
+      response_count,
+      constructs(name)
+    `)
+    .eq("construct_id", constructId)
+    .in("calibration_run_id", runIds);
+
+  if (relError || !reliabilities) return [];
+
+  // Fetch item_statistics to get average discrimination for this construct
+  const { data: items, error: itemsError } = await db
+    .from("item_statistics")
+    .select(`
+      calibration_run_id,
+      discrimination,
+      items!inner(construct_id)
+    `)
+    .eq("items.construct_id", constructId)
+    .in("calibration_run_id", runIds);
+
+  if (itemsError && items === null) return [];
+
+  // Build discrimination map: { runId -> avg discrimination }
+  const discriminationMap: Record<string, number> = {};
+  if (items) {
+    for (const item of items) {
+      const runId = String((item as DbRow).calibration_run_id);
+      const disc = (item as DbRow).discrimination ? Number((item as DbRow).discrimination) : 0;
+      if (!discriminationMap[runId]) discriminationMap[runId] = 0;
+      discriminationMap[runId] += disc;
+    }
+  }
+
+  // Map results back to runs with discrimination averages
+  return reliabilities
+    .map((rel: DbRow) => {
+      const runId = String(rel.calibration_run_id);
+      const run = runs.find((r: DbRow) => String(r.id) === runId);
+      if (!run) return null;
+
+      const itemsInRun = (items || []).filter((it: DbRow) => String(it.calibration_run_id) === runId);
+      const avgDiscrimination = itemsInRun.length > 0
+        ? discriminationMap[runId] / itemsInRun.length
+        : null;
+
+      return {
+        runId,
+        runLabel: run.label as string | null,
+        runCreatedAt: String(run.created_at),
+        responseCount: rel.response_count ? Number(rel.response_count) : 0,
+        cronbachAlpha: rel.cronbach_alpha ? Number(rel.cronbach_alpha) : null,
+        discrimination: avgDiscrimination,
+      };
+    })
+    .filter((r: HistoricalConstructStatRow | null): r is HistoricalConstructStatRow => r !== null)
+    .sort((a, b) => new Date(a.runCreatedAt).getTime() - new Date(b.runCreatedAt).getTime());
+}
+
+export type ItemWithDistractorsRow = {
+  itemId: string;
+  stem: string;
+  constructName: string;
+  formatType: string;
+  difficulty: number | null;
+  discrimination: number | null;
+  alphaIfDeleted: number | null;
+  responseCount: number | null;
+  flagged: boolean;
+  flagReasons: string[];
+  reverseScored: boolean;
+  hasOptions: boolean;
+  responseDistribution: Record<number, number>;
+};
+
+/**
+ * Fetch item statistics with format metadata to enable distractor analysis.
+ * Latest run only.
+ */
+export async function getItemsWithDistractors(
+  db: DbClient,
+): Promise<ItemWithDistractorsRow[]> {
+  const { data: latestRun, error: latestRunError } = await db
+    .from("calibration_runs")
+    .select("id")
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestRunError || !latestRun) return [];
+
+  const { data: stats, error: statsError } = await db
+    .from("item_statistics")
+    .select(`
+      item_id,
+      difficulty,
+      discrimination,
+      alpha_if_deleted,
+      response_count,
+      flagged,
+      flag_reasons,
+      response_distribution,
+      items(
+        stem,
+        construct_id,
+        reverse_scored,
+        response_format_id,
+        constructs(name),
+        response_formats(type)
+      )
+    `)
+    .eq("calibration_run_id", latestRun.id as string)
+    .order("flagged", { ascending: false })
+    .order("discrimination", { ascending: true });
+
+  if (statsError || !stats) return [];
+
+  return stats.map((row) => {
+    const itemData = unwrapEmbedded(row.items);
+    const constructs = unwrapEmbedded(itemData?.constructs);
+    const responseFormats = unwrapEmbedded(itemData?.response_formats);
+
+    const formatType = String(responseFormats?.type ?? "unknown");
+
+    // `x ? Number(x) : null` is wrong for these: a difficulty of exactly 0 (an
+    // item nobody endorsed) is falsy, so it would be reported as "not computed"
+    // rather than as the real, and quite informative, value 0.
+    const num = (v: unknown): number | null =>
+      v == null ? null : Number(v);
+
+    return {
+      itemId: String(row.item_id),
+      stem: String(itemData?.stem ?? ""),
+      constructName: String(constructs?.name ?? "Unknown"),
+      formatType,
+      difficulty: num(row.difficulty),
+      discrimination: num(row.discrimination),
+      alphaIfDeleted: num(row.alpha_if_deleted),
+      responseCount: num(row.response_count),
+      flagged: Boolean(row.flagged),
+      flagReasons: Array.isArray(row.flag_reasons) ? (row.flag_reasons as string[]) : [],
+      reverseScored: Boolean(itemData?.reverse_scored),
+      hasOptions: ["likert", "multiple_choice", "select_multiple"].includes(formatType),
+      responseDistribution: (row.response_distribution as Record<number, number>) ?? {},
+    };
+  });
 }
 
 // ============================================================================

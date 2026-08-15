@@ -88,6 +88,11 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
             previous "Edit build" action pointed at /settings, which is not a
             route — it 404'd. */}
         <Button
+          onClick={() => router.push(`/instruments/${build.id}/structure`)}
+        >
+          Propose constructs
+        </Button>
+        <Button
           variant="outline"
           onClick={() => router.push(`/instruments/${build.id}/evidence`)}
         >

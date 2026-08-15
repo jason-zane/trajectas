@@ -191,6 +191,10 @@ export interface InstrumentCandidateItemDto {
   payload?: Record<string, unknown> | null;
   status: string;
   publishedItemId?: string | null;
+  redundancyPeerId?: string | null;
+  redundancyScore?: number | null;
+  critiqueVerdict?: string | null;
+  critiqueReason?: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string | null;
@@ -215,6 +219,10 @@ export function mapInstrumentCandidateItemRow(
     payload: jsonOpt(row.payload),
     status: str(row.status) || "candidate",
     publishedItemId: strOpt(row.published_item_id),
+    redundancyPeerId: strOpt(row.redundancy_peer_id),
+    redundancyScore: numericToNumber(row.redundancy_score),
+    critiqueVerdict: strOpt(row.critique_verdict),
+    critiqueReason: strOpt(row.critique_reason),
     createdAt: str(row.created_at),
     updatedAt: str(row.updated_at),
     deletedAt: strOpt(row.deleted_at),

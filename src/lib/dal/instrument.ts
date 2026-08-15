@@ -646,6 +646,10 @@ export async function updateCandidateItem(
     payload: Record<string, unknown> | null;
     status: string;
     publishedItemId: string | null;
+    redundancyPeerId: string | null;
+    redundancyScore: number | null;
+    critiqueVerdict: string | null;
+    critiqueReason: string | null;
   }>,
 ): Promise<InstrumentCandidateItemDto> {
   const updates: Record<string, unknown> = {};
@@ -668,6 +672,14 @@ export async function updateCandidateItem(
   if (patch.status !== undefined) updates.status = patch.status;
   if (patch.publishedItemId !== undefined)
     updates.published_item_id = patch.publishedItemId;
+  if (patch.redundancyPeerId !== undefined)
+    updates.redundancy_peer_id = patch.redundancyPeerId;
+  if (patch.redundancyScore !== undefined)
+    updates.redundancy_score = patch.redundancyScore;
+  if (patch.critiqueVerdict !== undefined)
+    updates.critique_verdict = patch.critiqueVerdict;
+  if (patch.critiqueReason !== undefined)
+    updates.critique_reason = patch.critiqueReason;
 
   const { data, error } = await db
     .from("instrument_candidate_items")
