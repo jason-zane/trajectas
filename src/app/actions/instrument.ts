@@ -15,6 +15,7 @@ import {
   getBlueprintWithCells,
   createBlueprint,
   updateBlueprint,
+  updateBuild,
   softDeleteBlueprint,
   restoreBlueprint,
   replaceBlueprintCells,
@@ -2060,22 +2061,36 @@ export async function unpublishBuild(buildId: string): Promise<{ itemsUnpublishe
  *
  * Takes the build brief, measure type, audience, and use context,
  * calls the structure-step LLM to generate proposed constructs,
- * and computes a pairwise similarity matrix for human review.
+ * and runs construct-preflight (embedding + LLM discrimination review) for high-overlap pairs.
  *
- * Returns constructs, warnings, and similarity pairs (highest overlap first).
- * The similarity matrix is a HEURISTIC FOR HUMAN REVIEW, not an automated gate.
+ * Returns constructs, warnings, and preflight results with rich discriminability guidance.
+ * Preflight pairs include shared signals, unique signals, and refinement guidance.
+ *
+ * The similarity scores are a HEURISTIC FOR HUMAN REVIEW, not an automated gate.
+ * Measured separation on this platform is Cohen's d ~ 0.63–1.03.
  *
  * Platform-admin only.
  */
 export async function proposeStructureAction(buildId: string): Promise<{
   constructs: Array<{ name: string; definition: string; exclusions: string[] }>
   warnings: string[]
-  similarityPairs: Array<{
+  preflightPairs: Array<{
     constructAIndex: number
     constructBIndex: number
     constructAName: string
     constructBName: string
     cosineSimilarity: number
+    status: 'green' | 'amber' | 'red'
+    reviewedByLlm: boolean
+    overlapSummary?: string
+    sharedSignals?: string[]
+    uniqueSignalsA?: string[]
+    uniqueSignalsB?: string[]
+    discriminatingItemsA?: string[]
+    discriminatingItemsB?: string[]
+    refinementGuidanceA?: string
+    refinementGuidanceB?: string
+    llmExplanation?: string
   }>
 }> {
   await requireAdminScope()
@@ -2086,14 +2101,13 @@ export async function proposeStructureAction(buildId: string): Promise<{
     throw new Error('Build not found')
   }
 
-  // Import structure module
+  // Import modules
   const {
     buildStructurePrompt,
     parseStructureProposal,
-    computeSimilarityMatrix,
     DEFAULT_STRUCTURE_SYSTEM_PROMPT,
   } = await import('@/lib/instrument/structure')
-  const { embedTexts } = await import('@/lib/ai/generation/embeddings')
+  const { runConstructPreflight } = await import('@/lib/ai/generation/construct-preflight')
 
   // Build the prompt
   const prompt = buildStructurePrompt({
@@ -2132,29 +2146,65 @@ export async function proposeStructureAction(buildId: string): Promise<{
   // Parse response
   const proposal = parseStructureProposal(response.content)
 
-  // Compute embeddings for similarity matrix
-  let similarityPairs: Array<{
+  // Run construct preflight for discriminability analysis
+  let preflightPairs: Array<{
     constructAIndex: number
     constructBIndex: number
     constructAName: string
     constructBName: string
     cosineSimilarity: number
+    status: 'green' | 'amber' | 'red'
+    reviewedByLlm: boolean
+    overlapSummary?: string
+    sharedSignals?: string[]
+    uniqueSignalsA?: string[]
+    uniqueSignalsB?: string[]
+    discriminatingItemsA?: string[]
+    discriminatingItemsB?: string[]
+    refinementGuidanceA?: string
+    refinementGuidanceB?: string
+    llmExplanation?: string
   }> = []
 
   if (proposal.constructs.length > 1) {
     try {
-      const texts = proposal.constructs.map(
-        (c) => `${c.name}. ${c.definition}`,
-      )
-      const embeddingModel = await getModelForTask('embedding')
-      const embeddings = await embedTexts(texts, embeddingModel.modelId)
+      // Convert proposed constructs to the format expected by runConstructPreflight
+      // ConstructDraftInput requires id, name, definition (and optionally dimensionId)
+      const constructsForPreflight = proposal.constructs.map((c, idx) => ({
+        id: `draft_${idx}`,
+        name: c.name,
+        definition: c.definition,
+      }))
 
-      const matrix = computeSimilarityMatrix(embeddings, proposal.constructs)
-      similarityPairs = matrix.pairs
+      const preflightResult = await runConstructPreflight(constructsForPreflight)
+
+      // Transform preflight pairs to the UI format (mapping constructId to indices)
+      preflightPairs = preflightResult.pairs.map((p) => {
+        const aIdx = constructsForPreflight.findIndex((c) => c.id === p.constructAId)
+        const bIdx = constructsForPreflight.findIndex((c) => c.id === p.constructBId)
+        return {
+          constructAIndex: aIdx >= 0 ? aIdx : 0,
+          constructBIndex: bIdx >= 0 ? bIdx : 1,
+          constructAName: p.constructAName,
+          constructBName: p.constructBName,
+          cosineSimilarity: p.cosineSimilarity,
+          status: p.status,
+          reviewedByLlm: p.reviewedByLlm ?? false,
+          overlapSummary: p.overlapSummary,
+          sharedSignals: p.sharedSignals,
+          uniqueSignalsA: p.uniqueSignalsA,
+          uniqueSignalsB: p.uniqueSignalsB,
+          discriminatingItemsA: p.discriminatingItemsA,
+          discriminatingItemsB: p.discriminatingItemsB,
+          refinementGuidanceA: p.refinementGuidanceA,
+          refinementGuidanceB: p.refinementGuidanceB,
+          llmExplanation: p.llmExplanation,
+        }
+      })
     } catch (err) {
-      // Embedding failure is not fatal; just skip similarity matrix
+      // Preflight failure is not fatal; just skip discriminability analysis
       proposal.warnings.push(
-        `Could not compute similarity matrix: ${err instanceof Error ? err.message : 'unknown error'}`,
+        `Could not run discriminability analysis: ${err instanceof Error ? err.message : 'unknown error'}`,
       )
     }
   }
@@ -2162,7 +2212,7 @@ export async function proposeStructureAction(buildId: string): Promise<{
   return {
     constructs: proposal.constructs,
     warnings: proposal.warnings,
-    similarityPairs,
+    preflightPairs,
   }
 }
 
@@ -2181,6 +2231,11 @@ export async function proposeStructureAction(buildId: string): Promise<{
 export async function confirmStructureAction(
   buildId: string,
   constructs: Array<Record<string, unknown>>,
+  preflightPairs?: Array<{
+    constructAName: string
+    constructBName: string
+    cosineSimilarity: number
+  }>,
 ): Promise<InstrumentBlueprintDto[]> {
   await requireAdminScope()
 
@@ -2247,6 +2302,38 @@ export async function confirmStructureAction(
     })
     created.push(blueprint)
     existingNames.add(nameLower)
+  }
+
+  // Persist the pairwise overlap as evidence. Previously it lived only in the
+  // wizard's client state, so the technical report's discriminant section was
+  // permanently empty — which reads as "no overlap found" rather than "never
+  // recorded". It is stored as SYNTHETIC evidence: it comes from embeddings,
+  // not from respondents.
+  if (preflightPairs && preflightPairs.length > 0) {
+    const idByName = new Map(
+      created.map((bp) => [(bp.draftConstructName || '').toLowerCase(), bp.id]),
+    )
+    const producedAt = new Date()
+    const evidenceRows = preflightPairs.flatMap((pair) => {
+      const aId = idByName.get(pair.constructAName.toLowerCase())
+      const bId = idByName.get(pair.constructBName.toLowerCase())
+      if (!aId || !bId) return []
+      return [
+        {
+          targetType: 'construct' as const,
+          targetId: aId,
+          claim: 'construct_overlap',
+          value: pair.cosineSimilarity,
+          evidenceClass: 'synthetic' as const,
+          method: 'construct_preflight_v1',
+          detail: { source: bId },
+          producedAt,
+        },
+      ]
+    })
+    if (evidenceRows.length > 0) {
+      await appendEvidence(db, buildId, evidenceRows)
+    }
   }
 
   revalidatePath('/instruments')
@@ -2366,4 +2453,181 @@ export async function clearCritiqueMarksAction(blueprintId: string): Promise<voi
   const db = createAdminClient()
   await clearCritiqueMarks(db, blueprintId)
   revalidatePath('/instruments')
+}
+
+/**
+ * Orchestrating action for the quick-build wizard.
+ *
+ * Runs the full generation pipeline for all blueprints in a build:
+ * 1. Blueprint draft (facet/intensity grid) per construct
+ * 2. Item generation with deduplication
+ * 3. Critique pass for consistency
+ * 4. Congruence panel for alignment
+ * 5. Fairness screen for accessibility
+ *
+ * Resilient to partial failures: if one construct's pipeline fails, the others
+ * continue and the error is reported in the result. Uses instrument_stage_runs
+ * to track progress and enable re-run safety (blueprint draft is idempotent via
+ * replaceBlueprintCells; item generation checks for existing items; other stages
+ * overwrite previous runs).
+ *
+ * Platform-admin only.
+ */
+export async function quickBuildInstrumentAction(
+  buildId: string,
+  options: Record<string, unknown>,
+): Promise<{
+  totalItems: number
+  error?: string
+}> {
+  const scope = await requireAdminScope()
+  const db = createAdminClient()
+
+  // Validate input
+  if (!buildId || typeof buildId !== 'string') {
+    throw new Error('Build ID is required')
+  }
+
+  const itemsPerConstruct =
+    typeof options.itemsPerConstruct === 'number' ? options.itemsPerConstruct : 10
+  const targetAlpha = typeof options.targetAlpha === 'number' ? options.targetAlpha : 0.8
+  const readingLevel =
+    typeof options.readingLevel === 'string' ? options.readingLevel : 'mixed'
+
+  // Fetch build and blueprints
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  const blueprints = await listBlueprints(db, buildId)
+  if (blueprints.length === 0) {
+    throw new Error('No blueprints found')
+  }
+
+  // The Scope step's three controls are the whole point of that step, and they
+  // were previously parsed and discarded — the blueprint stage kept its own
+  // hardcoded target regardless of what the operator chose. Persist them onto
+  // the build and its blueprints BEFORE drafting, so the AI drafts against the
+  // requested scope and the technical report reads back the same numbers.
+  await updateBuild(db, buildId, {
+    targetItemsPerConstruct: itemsPerConstruct,
+    config: { ...(build.config ?? {}), readingLevel },
+  })
+  for (const blueprint of blueprints) {
+    await updateBlueprint(db, blueprint.id, { targetAlpha })
+  }
+
+  const startedAt = new Date().toISOString()
+  let totalItems = 0
+  const errors: Array<{ blueprint: string; error: string }> = []
+
+  // Process each blueprint in sequence
+  for (const blueprint of blueprints) {
+    try {
+      // Stage 1: Blueprint draft (generate facet/intensity grid)
+      try {
+        await draftBlueprintWithAI(blueprint.id, {
+          temperature: 0.7,
+          // draftBlueprintWithAiOptionsSchema caps maxTokens at 4000; passing
+          // 4096 failed validation and threw on every blueprint.
+          maxTokens: 4000,
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error'
+        errors.push({ blueprint: blueprint.draftConstructName || blueprint.id, error: `Draft: ${msg}` })
+        continue
+      }
+
+      // Stage 2: Item generation
+      try {
+        const genResult = await generateItemsForBlueprint(blueprint.id, {
+          temperature: 0.8,
+          maxTokens: 3000,
+        })
+        totalItems += genResult.generated
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error'
+        errors.push({ blueprint: blueprint.draftConstructName || blueprint.id, error: `Generation: ${msg}` })
+        continue
+      }
+
+      // Stage 3: Critique pass
+      try {
+        const critiqueOptions: Record<string, unknown> = {}
+        if (build.audience) critiqueOptions.audience = build.audience
+        if (build.useContext) critiqueOptions.useContext = build.useContext
+        await runCritiquePassAction(blueprint.id, blueprint.draftConstructName || 'Unnamed', critiqueOptions)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error'
+        errors.push({ blueprint: blueprint.draftConstructName || blueprint.id, error: `Critique: ${msg}` })
+        // Don't continue — continue to congruence even if critique fails
+      }
+
+      // Congruence is build-wide and runs once, after the loop. Calling it here
+      // re-rated every previously generated item on each iteration and replaced
+      // those ratings, so an n-construct build did n full panels and only the
+      // last one survived.
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      errors.push({ blueprint: blueprint.draftConstructName || blueprint.id, error: msg })
+    }
+  }
+
+  // Congruence and fairness are both build-wide: they run once, after every
+  // construct's items exist, so the panel sees the whole instrument.
+  try {
+    await runCongruencePanelForBuild(buildId)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    errors.push({ blueprint: 'congruence_panel', error: msg })
+  }
+
+  try {
+    await runFairnessScreenForBuild(buildId)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error'
+    errors.push({ blueprint: 'fairness_screen', error: msg })
+  }
+
+  const completedAt = new Date().toISOString()
+
+  // Record overall stage run
+  await recordStageRun(db, {
+    buildId,
+    stageKey: 'quick_build_pipeline',
+    status: errors.length > 0 && totalItems === 0 ? 'failure' : 'success',
+    startedAt,
+    completedAt,
+    progressPct: 100,
+    detail: `Generated ${totalItems} items across ${blueprints.length} blueprints${
+      errors.length > 0 ? ` (${errors.length} errors)` : ''
+    }`,
+    outputSnapshot: {
+      totalItems,
+      blueprintCount: blueprints.length,
+      errorCount: errors.length,
+    },
+    errorMessage: errors.length > 0 ? `${errors.length} stages failed` : null,
+  })
+
+  revalidatePath('/instruments')
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'instrument_quick_build.completed',
+    targetTable: 'instrument_builds',
+    targetId: buildId,
+    metadata: {
+      totalItems,
+      blueprintCount: blueprints.length,
+      errorCount: errors.length,
+    },
+  })
+
+  // Return result
+  const errorMessage = errors.length > 0 ? `${errors.length} stage(s) had warnings or errors` : undefined
+  return {
+    totalItems,
+    error: errorMessage,
+  }
 }

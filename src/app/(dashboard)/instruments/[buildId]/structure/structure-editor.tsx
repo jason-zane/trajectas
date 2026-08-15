@@ -20,12 +20,23 @@ interface ProposedConstruct {
   exclusions: string[]
 }
 
-interface ConstructSimilarityPair {
+interface PreflightPair {
   constructAIndex: number
   constructBIndex: number
   constructAName: string
   constructBName: string
   cosineSimilarity: number
+  status: 'green' | 'amber' | 'red'
+  reviewedByLlm: boolean
+  overlapSummary?: string
+  sharedSignals?: string[]
+  uniqueSignalsA?: string[]
+  uniqueSignalsB?: string[]
+  discriminatingItemsA?: string[]
+  discriminatingItemsB?: string[]
+  refinementGuidanceA?: string
+  refinementGuidanceB?: string
+  llmExplanation?: string
 }
 
 interface StructureEditorProps {
@@ -36,7 +47,7 @@ export function StructureEditor({ build }: StructureEditorProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [constructs, setConstructs] = useState<ProposedConstruct[]>([])
-  const [similarityPairs, setSimilarityPairs] = useState<ConstructSimilarityPair[]>([])
+  const [preflightPairs, setPreflightPairs] = useState<PreflightPair[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [isProposing, setIsProposing] = useState(false)
 
@@ -46,7 +57,7 @@ export function StructureEditor({ build }: StructureEditorProps) {
       try {
         const result = await proposeStructureAction(build.id)
         setConstructs(result.constructs)
-        setSimilarityPairs(result.similarityPairs)
+        setPreflightPairs(result.preflightPairs)
         setWarnings(result.warnings)
         if (result.warnings.length > 0) {
           toast.info(`Generated with ${result.warnings.length} warning(s)`)
@@ -58,7 +69,7 @@ export function StructureEditor({ build }: StructureEditorProps) {
           error instanceof Error ? error.message : 'Failed to propose constructs'
         )
         setConstructs([])
-        setSimilarityPairs([])
+        setPreflightPairs([])
       } finally {
         setIsProposing(false)
       }
@@ -294,39 +305,127 @@ export function StructureEditor({ build }: StructureEditorProps) {
           </div>
 
           {/* Discriminability matrix */}
-          {similarityPairs.length > 0 && (
+          {preflightPairs.length > 0 && (
             <div className="space-y-4">
               <div>
                 <h2 className="text-lg font-semibold mb-2">Discriminability Review</h2>
                 <Alert className="mb-4">
                   <AlertDescription className="text-sm">
-                    Similarity scores are a heuristic for human review, not a decision gate.
+                    Similarity and discrimination results are heuristics for human review, not automated gates.
+                    Measured separation on this platform is Cohen&rsquo;s d ~ 0.63–1.03.
                     Review high-overlap pairs below to ensure constructs are genuinely distinct.
                   </AlertDescription>
                 </Alert>
               </div>
 
               <div className="space-y-3">
-                {similarityPairs.map((pair, idx) => {
-                  const isHighOverlap = pair.cosineSimilarity > 0.7
+                {preflightPairs.map((pair, idx) => {
+                  const statusColors = {
+                    green: 'border-green-300 bg-green-50 dark:bg-green-950/20',
+                    amber: 'border-amber-300 bg-amber-50 dark:bg-amber-950/20',
+                    red: 'border-red-300 bg-red-50 dark:bg-red-950/20',
+                  }
+                  const statusBadgeColors = {
+                    green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100',
+                    amber: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100',
+                    red: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100',
+                  }
+                  const statusLabels = {
+                    green: 'Distinct',
+                    amber: 'Review',
+                    red: 'Similar',
+                  }
+
                   return (
                     <Card
                       key={idx}
-                      className={`p-4 ${isHighOverlap ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/20' : ''}`}
+                      className={`p-4 ${statusColors[pair.status]}`}
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold">
-                            {pair.constructAName} ↔ {pair.constructBName}
+                      <div className="space-y-3">
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="text-sm font-semibold">
+                              {pair.constructAName} ↔ {pair.constructBName}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Similarity: {(pair.cosineSimilarity * 100).toFixed(1)}%
+                              {pair.reviewedByLlm && ' (LLM reviewed)'}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground mt-1">
-                            Similarity: {(pair.cosineSimilarity * 100).toFixed(1)}%
-                          </div>
-                        </div>
-                        {isHighOverlap && (
-                          <Badge variant="secondary" className="shrink-0">
-                            High overlap — check these are really distinct
+                          <Badge className={`shrink-0 ${statusBadgeColors[pair.status]}`}>
+                            {statusLabels[pair.status]}
                           </Badge>
+                        </div>
+
+                        {/* Overlap summary */}
+                        {pair.overlapSummary && (
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold text-foreground">Overlap:</div>
+                            <div className="text-muted-foreground">{pair.overlapSummary}</div>
+                          </div>
+                        )}
+
+                        {/* Shared signals */}
+                        {pair.sharedSignals && pair.sharedSignals.length > 0 && (
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold text-foreground">Shared signals:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                              {pair.sharedSignals.map((signal, sidx) => (
+                                <li key={sidx}>{signal}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Unique signals A */}
+                        {pair.uniqueSignalsA && pair.uniqueSignalsA.length > 0 && (
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold text-foreground">Unique to {pair.constructAName}:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                              {pair.uniqueSignalsA.map((signal, sidx) => (
+                                <li key={sidx}>{signal}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Unique signals B */}
+                        {pair.uniqueSignalsB && pair.uniqueSignalsB.length > 0 && (
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold text-foreground">Unique to {pair.constructBName}:</div>
+                            <ul className="list-disc list-inside space-y-0.5 text-muted-foreground">
+                              {pair.uniqueSignalsB.map((signal, sidx) => (
+                                <li key={sidx}>{signal}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {/* Refinement guidance */}
+                        {(pair.refinementGuidanceA || pair.refinementGuidanceB) && (
+                          <div className="text-xs space-y-1 border-t pt-2">
+                            {pair.refinementGuidanceA && (
+                              <div className="space-y-1">
+                                <div className="font-semibold text-foreground">Guidance for {pair.constructAName}:</div>
+                                <div className="text-muted-foreground">{pair.refinementGuidanceA}</div>
+                              </div>
+                            )}
+                            {pair.refinementGuidanceB && (
+                              <div className="space-y-1">
+                                <div className="font-semibold text-foreground">Guidance for {pair.constructBName}:</div>
+                                <div className="text-muted-foreground">{pair.refinementGuidanceB}</div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* LLM explanation */}
+                        {pair.llmExplanation && (
+                          <div className="text-xs space-y-1 border-t pt-2">
+                            <div className="font-semibold text-foreground">Analysis:</div>
+                            <div className="text-muted-foreground">{pair.llmExplanation}</div>
+                          </div>
                         )}
                       </div>
                     </Card>
