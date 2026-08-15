@@ -1,10 +1,10 @@
 import { PageHeader } from "@/components/page-header"
 import { EmptyState } from "@/components/empty-state"
-import { getItemHealth } from "@/app/actions/psychometrics"
+import { getItemHealthWithThresholds } from "@/app/actions/psychometrics"
 import { ItemHealthList } from "./item-health-list"
 
 export default async function ItemHealthPage() {
-  const items = await getItemHealth()
+  const items = await getItemHealthWithThresholds()
 
   return (
     <div className="space-y-8 max-w-6xl">

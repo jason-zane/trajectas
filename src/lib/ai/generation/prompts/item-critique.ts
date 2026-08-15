@@ -4,14 +4,45 @@ import type {
   PlaybookSnapshot,
   UseContext,
 } from '@/types/database'
-import type { GeneratedItemRaw } from './item-generation'
-import {
-  renderAudienceBlock,
-  renderCritiqueEmphasisBlock,
-  renderCritiqueStrictnessBlock,
-  renderMeasurementModeBlock,
-  renderUseContextBlock,
-} from './steering'
+
+/**
+ * Item stem as produced by the generator.
+ * Minimal schema for critique input.
+ */
+export interface GeneratedItemRaw {
+  stem: string
+  reverseScored?: boolean
+  rationale?: string
+}
+
+/**
+ * Render steering blocks for critique prompts.
+ * Extracted from steering.ts to keep item-critique.ts independent of legacy modules.
+ */
+function renderMeasurementModeBlock(mode?: MeasurementMode, description?: string): string {
+  if (!mode) return ''
+  return `**Measurement Mode:** ${mode}${description ? ` — ${description}` : ''}`
+}
+
+function renderAudienceBlock(audience?: Audience): string {
+  if (!audience) return ''
+  return `**Audience:** ${typeof audience === 'string' ? audience : audience.level || 'general'}`
+}
+
+function renderUseContextBlock(context?: UseContext, description?: string): string {
+  if (!context) return ''
+  return `**Use Context:** ${context}${description ? ` — ${description}` : ''}`
+}
+
+function renderCritiqueEmphasisBlock(playbook?: PlaybookSnapshot): string {
+  if (!playbook?.critiqueEmphasis) return ''
+  return `**Critique Emphasis:** ${playbook.critiqueEmphasis}`
+}
+
+function renderCritiqueStrictnessBlock(playbook?: PlaybookSnapshot): string {
+  if (!playbook?.critiqueStrictness) return ''
+  return `**Critique Strictness:** ${playbook.critiqueStrictness}`
+}
 
 export interface CritiqueInput {
   items: GeneratedItemRaw[]

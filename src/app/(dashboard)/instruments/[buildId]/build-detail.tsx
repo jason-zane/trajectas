@@ -8,12 +8,23 @@ import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import type { InstrumentBuildDto, InstrumentBlueprintDto } from '@/lib/dal/instrument-mappers'
+import type {
+  InstrumentBuildDto,
+  InstrumentBlueprintDto,
+  InstrumentCandidateItemDto,
+} from '@/lib/dal/instrument-mappers'
+import type { BlueprintCell } from '@/lib/instrument/types'
+import type { PanelResult } from '@/lib/instrument/congruence'
+import { computeBuildProgress } from '@/lib/instrument/progress'
+import { ProgressRail } from './progress-rail'
 import { deleteBlueprintAction, restoreBlueprintAction } from '@/app/actions/instrument'
 
 interface BuildDetailProps {
   build: InstrumentBuildDto
   blueprints: InstrumentBlueprintDto[]
+  cellsByBlueprintId: Record<string, BlueprintCell[]>
+  itemsByBlueprintId: Record<string, InstrumentCandidateItemDto[]>
+  panelResult: PanelResult | null
 }
 
 const MEASURE_TYPE_LABELS: Record<string, string> = {
@@ -39,9 +50,24 @@ const STATUS_COLORS: Record<string, BadgeVariant> = {
   failed: 'destructive'
 }
 
-export function BuildDetail({ build, blueprints }: BuildDetailProps) {
+export function BuildDetail({
+  build,
+  blueprints,
+  cellsByBlueprintId,
+  itemsByBlueprintId,
+  panelResult,
+}: BuildDetailProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+
+  // Compute progress for the rail
+  const progress = computeBuildProgress(
+    build,
+    blueprints,
+    cellsByBlueprintId,
+    itemsByBlueprintId,
+    panelResult,
+  )
 
   const handleDeleteBlueprint = (blueprintId: string, label: string) => {
     // Deletion is a soft delete, so the house pattern applies: act immediately
@@ -88,6 +114,11 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
             previous "Edit build" action pointed at /settings, which is not a
             route — it 404'd. */}
         <Button
+          onClick={() => router.push(`/instruments/${build.id}/structure`)}
+        >
+          Propose constructs
+        </Button>
+        <Button
           variant="outline"
           onClick={() => router.push(`/instruments/${build.id}/evidence`)}
         >
@@ -99,6 +130,13 @@ export function BuildDetail({ build, blueprints }: BuildDetailProps) {
           Publish
         </Button>
       </PageHeader>
+
+      {/* Progress rail */}
+      <ProgressRail
+        buildId={build.id}
+        steps={progress.steps}
+        nextStep={progress.nextStep}
+      />
 
       {/* Build metadata */}
       <Card className="p-6">

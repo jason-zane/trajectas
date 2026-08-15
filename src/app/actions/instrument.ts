@@ -44,8 +44,9 @@ import {
 } from '@/lib/validations/instrument'
 import { validateBlueprint, facetCount, totalTargetItems } from '@/lib/instrument/blueprint'
 import { forecastAlpha } from '@/lib/instrument/reliability'
-import { isMeasureType } from '@/lib/instrument/types'
+import { isMeasureType, type MeasureType } from '@/lib/instrument/types'
 import type { BlueprintCell } from '@/lib/instrument/types'
+import type { MeasurementMode } from '@/types/database'
 import {
   buildBlueprintDraftPrompt,
   draftToCells,
@@ -85,6 +86,17 @@ import {
   DEFAULT_FAIRNESS_SYSTEM_PROMPT,
 } from '@/lib/instrument/fairness'
 import type { PanelResult } from '@/lib/instrument/congruence'
+import {
+  runRedundancyPass,
+  clearRedundancyMarks,
+  type RedundancyPassResult,
+  DEFAULT_WTO_CUTOFF,
+} from '@/lib/instrument/redundancy'
+import {
+  runCritiquePass,
+  clearCritiqueMarks,
+  type CritiqueBatchResult,
+} from '@/lib/instrument/critique'
 
 /**
  * List all instrument builds (newest first). Platform-admin only.
@@ -895,6 +907,17 @@ export async function listBlueprintCandidateItems(
   // so a narrowed projection that drops it would make the coverage view
   // impossible to build.
   return listCandidateItemsByBlueprint(db, blueprintId)
+}
+
+/**
+ * List cells for a blueprint.
+ */
+export async function listBlueprintCells(blueprintId: string) {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const result = await getBlueprintWithCells(db, blueprintId)
+  return result?.cells ?? []
 }
 
 /**
@@ -2030,4 +2053,317 @@ export async function unpublishBuild(buildId: string): Promise<{ itemsUnpublishe
   })
 
   return { itemsUnpublished }
+}
+
+/**
+ * Propose a construct set for a build using AI.
+ *
+ * Takes the build brief, measure type, audience, and use context,
+ * calls the structure-step LLM to generate proposed constructs,
+ * and computes a pairwise similarity matrix for human review.
+ *
+ * Returns constructs, warnings, and similarity pairs (highest overlap first).
+ * The similarity matrix is a HEURISTIC FOR HUMAN REVIEW, not an automated gate.
+ *
+ * Platform-admin only.
+ */
+export async function proposeStructureAction(buildId: string): Promise<{
+  constructs: Array<{ name: string; definition: string; exclusions: string[] }>
+  warnings: string[]
+  similarityPairs: Array<{
+    constructAIndex: number
+    constructBIndex: number
+    constructAName: string
+    constructBName: string
+    cosineSimilarity: number
+  }>
+}> {
+  await requireAdminScope()
+
+  const db = createAdminClient()
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  // Import structure module
+  const {
+    buildStructurePrompt,
+    parseStructureProposal,
+    computeSimilarityMatrix,
+    DEFAULT_STRUCTURE_SYSTEM_PROMPT,
+  } = await import('@/lib/instrument/structure')
+  const { embedTexts } = await import('@/lib/ai/generation/embeddings')
+
+  // Build the prompt
+  const prompt = buildStructurePrompt({
+    buildName: build.name,
+    brief: build.brief,
+    measureType: (build.measureType as MeasureType),
+    audience: build.audience,
+    useContext: build.useContext,
+    targetConstructCount: build.targetConstructCount,
+  })
+
+  // Get model and system prompt
+  let systemPrompt: string
+  try {
+    const activePrompt = await getActiveSystemPrompt('instrument_structure')
+    systemPrompt = activePrompt.content
+  } catch (err) {
+    if (err instanceof AISystemPromptError) {
+      systemPrompt = DEFAULT_STRUCTURE_SYSTEM_PROMPT
+    } else {
+      throw err
+    }
+  }
+
+  // Call LLM
+  const model = await getModelForTask('instrument_structure')
+  const response = await openRouterProvider.complete({
+    model: model.modelId,
+    systemPrompt,
+    prompt,
+    temperature: 0.7,
+    maxTokens: 4096,
+    responseFormat: 'json',
+  })
+
+  // Parse response
+  const proposal = parseStructureProposal(response.content)
+
+  // Compute embeddings for similarity matrix
+  let similarityPairs: Array<{
+    constructAIndex: number
+    constructBIndex: number
+    constructAName: string
+    constructBName: string
+    cosineSimilarity: number
+  }> = []
+
+  if (proposal.constructs.length > 1) {
+    try {
+      const texts = proposal.constructs.map(
+        (c) => `${c.name}. ${c.definition}`,
+      )
+      const embeddingModel = await getModelForTask('embedding')
+      const embeddings = await embedTexts(texts, embeddingModel.modelId)
+
+      const matrix = computeSimilarityMatrix(embeddings, proposal.constructs)
+      similarityPairs = matrix.pairs
+    } catch (err) {
+      // Embedding failure is not fatal; just skip similarity matrix
+      proposal.warnings.push(
+        `Could not compute similarity matrix: ${err instanceof Error ? err.message : 'unknown error'}`,
+      )
+    }
+  }
+
+  return {
+    constructs: proposal.constructs,
+    warnings: proposal.warnings,
+    similarityPairs,
+  }
+}
+
+/**
+ * Confirm a proposed construct set by creating blueprint rows.
+ *
+ * Takes an array of editable constructs (user may have edited names, definitions, exclusions,
+ * and may have added/deleted constructs from the AI proposal) and creates one blueprint
+ * row per construct via the existing DAL.
+ *
+ * Commit is idempotent/safe: if the user commits twice, duplicate checks match on
+ * (build + construct name) to prevent duplication.
+ *
+ * Platform-admin only.
+ */
+export async function confirmStructureAction(
+  buildId: string,
+  constructs: Array<Record<string, unknown>>,
+): Promise<InstrumentBlueprintDto[]> {
+  await requireAdminScope()
+
+  if (!Array.isArray(constructs) || constructs.length === 0) {
+    throw new Error('At least one construct is required')
+  }
+
+  const db = createAdminClient()
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  // Validate and normalize constructs
+  const normalized: Array<{ name: string; definition: string; exclusions: string[] }> = []
+  for (const c of constructs) {
+    const name = String(c.name ?? '').trim()
+    const definition = String(c.definition ?? '').trim()
+    const exclusionsRaw = c.exclusions
+    let exclusions: string[] = []
+
+    if (!name || !definition) {
+      throw new Error('All constructs must have a name and definition')
+    }
+
+    if (Array.isArray(exclusionsRaw)) {
+      exclusions = exclusionsRaw
+        .map((e) => String(e).trim())
+        .filter((e) => e.length > 0)
+    }
+
+    normalized.push({ name, definition, exclusions })
+  }
+
+  // Create blueprints (with duplicate checking on name)
+  const existingBlueprints = await listBlueprints(db, buildId)
+  const existingNames = new Set(
+    existingBlueprints.map((b) =>
+      (b.draftConstructName || '').toLowerCase(),
+    ),
+  )
+
+  const created: InstrumentBlueprintDto[] = []
+  for (const construct of normalized) {
+    const nameLower = construct.name.toLowerCase()
+
+    // Skip if already exists (idempotent)
+    if (existingNames.has(nameLower)) {
+      const existing = existingBlueprints.find(
+        (b) => (b.draftConstructName || '').toLowerCase() === nameLower,
+      )
+      if (existing) {
+        created.push(existing)
+      }
+      continue
+    }
+
+    const blueprint = await createBlueprint(db, {
+      buildId,
+      draftConstructName: construct.name,
+      draftConstructDefinition: construct.definition,
+      measureType: build.measureType,
+      exclusions: construct.exclusions.length > 0 ? construct.exclusions : null,
+    })
+    created.push(blueprint)
+    existingNames.add(nameLower)
+  }
+
+  revalidatePath('/instruments')
+  await logAuditEvent({
+    actorProfileId: (await requireAdminScope()).actor?.id ?? null,
+    eventType: 'instrument_structure.confirmed',
+    targetTable: 'instrument_blueprints',
+    targetId: buildId,
+    metadata: {
+      constructCount: created.length,
+    },
+  })
+
+  return created
+}
+
+/**
+ * Run within-construct redundancy detection on a blueprint's candidate items.
+ *
+ * Embeds stems, builds correlation/network, computes wTO overlap, and marks
+ * near-duplicate items with redundancy_peer_id (keeper) and redundancy_score.
+ *
+ * Platform-admin only. Idempotent — can be re-run; previous marks are overwritten.
+ */
+export async function runRedundancyPassAction(
+  blueprintId: string,
+  cutoff: number = DEFAULT_WTO_CUTOFF,
+): Promise<RedundancyPassResult> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const result = await runRedundancyPass(db, blueprintId, cutoff)
+
+  revalidatePath('/instruments')
+  await logAuditEvent({
+    actorProfileId: (await requireAdminScope()).actor?.id ?? null,
+    eventType: 'instrument_redundancy.ran',
+    targetTable: 'instrument_candidate_items',
+    targetId: blueprintId,
+    metadata: {
+      redundantCount: result.stats.redundantCount,
+      keptCount: result.stats.keptCount,
+      cutoff: result.stats.cutoff,
+    },
+  })
+
+  return result
+}
+
+/**
+ * Run critique pass on a blueprint's candidate items.
+ *
+ * Calls the seeded 'instrument_critique' system prompt via LLM,
+ * getting keep | revise | drop verdicts + reasons.
+ * Persists results to critique_verdict and critique_reason.
+ *
+ * Platform-admin only. Handles partial failures gracefully (one item's error
+ * does not fail the batch). Idempotent — re-running overwrites previous verdicts.
+ */
+export async function runCritiquePassAction(
+  blueprintId: string,
+  constructName: string,
+  options?: {
+    constructDefinition?: string
+    constructDescription?: string
+    constructIndicatorsLow?: string
+    constructIndicatorsMid?: string
+    constructIndicatorsHigh?: string
+    contrastConstructs?: string[]
+    measurementMode?: MeasurementMode
+    measurementModeDescription?: string
+    audience?: Record<string, unknown>
+    useContext?: string
+    useContextDescription?: string
+  },
+): Promise<CritiqueBatchResult> {
+  await requireAdminScope()
+  const db = createAdminClient()
+
+  const result = await runCritiquePass(db, blueprintId, constructName, options as Parameters<typeof runCritiquePass>[3])
+
+  revalidatePath('/instruments')
+  await logAuditEvent({
+    actorProfileId: (await requireAdminScope()).actor?.id ?? null,
+    eventType: 'instrument_critique.ran',
+    targetTable: 'instrument_candidate_items',
+    targetId: blueprintId,
+    metadata: {
+      kept: result.stats.kept,
+      revised: result.stats.revised,
+      dropped: result.stats.dropped,
+      failedParses: result.stats.failedParses,
+      providerErrors: result.stats.providerErrors,
+    },
+  })
+
+  return result
+}
+
+/**
+ * Clear redundancy marks on a blueprint's items (for rollback).
+ * Platform-admin only.
+ */
+export async function clearRedundancyMarksAction(blueprintId: string): Promise<void> {
+  await requireAdminScope()
+  const db = createAdminClient()
+  await clearRedundancyMarks(db, blueprintId)
+  revalidatePath('/instruments')
+}
+
+/**
+ * Clear critique marks on a blueprint's items (for rollback).
+ * Platform-admin only.
+ */
+export async function clearCritiqueMarksAction(blueprintId: string): Promise<void> {
+  await requireAdminScope()
+  const db = createAdminClient()
+  await clearCritiqueMarks(db, blueprintId)
+  revalidatePath('/instruments')
 }

@@ -242,7 +242,7 @@ function stripCodeFence(raw: string): string {
  * First tries direct JSON parse; if that fails, searches for the outermost {...} block.
  * Returns null if no valid JSON is found.
  */
-function extractJson(raw: string): unknown {
+export function extractJson(raw: string): unknown {
   const cleaned = stripCodeFence(raw)
 
   try {
