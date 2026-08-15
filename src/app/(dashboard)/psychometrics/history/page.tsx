@@ -36,12 +36,12 @@ export default async function HistoryPage() {
 
       <ScrollReveal>
         <div className="space-y-3">
+          {/* Deliberately not links: there is no per-run detail route, and a
+              card that navigates to a 404 is worse than one that does not
+              navigate at all. Run comparison lives on the Compare tab. */}
           {runs.map((run) => (
-            <Link
-              key={run.id}
-              href={`/psychometrics/calibrations/${run.id}`}
-            >
-              <Card variant="interactive">
+            <div key={run.id}>
+              <Card>
                 <CardContent className="py-4">
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1">
@@ -85,7 +85,7 @@ export default async function HistoryPage() {
                   </div>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           ))}
         </div>
       </ScrollReveal>
@@ -100,7 +100,7 @@ export default async function HistoryPage() {
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground space-y-2">
             <p>
-              This history shows all completed calibration runs in chronological order. Click any run to explore how item quality, construct reliability, and flagged items changed across your data collection periods.
+              This history shows all completed calibration runs in chronological order, so drift in item quality and construct reliability becomes visible across data-collection periods. To set two runs side by side, use the Compare tab.
             </p>
             <p>
               To see trends for a specific construct across runs, visit the{' '}
