@@ -146,24 +146,17 @@ CREATE INDEX IF NOT EXISTS idx_session_quality_flags_time_floor_detected
 
 ALTER TABLE session_quality_flags ENABLE ROW LEVEL SECURITY;
 
--- Admins only (platform_admin = true)
-CREATE POLICY session_quality_flags_admin_read
-  ON session_quality_flags FOR SELECT
-  USING (
-    (
-      SELECT auth.users.raw_app_meta_data->>'platform_admin' = 'true'
-      FROM auth.users
-      WHERE auth.users.id = auth.uid()
-    )
-  );
+-- Platform-admin only, matching every other engine table. Uses the shared
+-- is_platform_admin() helper rather than reading auth.users.raw_app_meta_data
+-- directly: one definition of "admin" is the only way this stays consistent
+-- when the rule changes.
+-- DROP-then-CREATE so the migration is replayable against a database that
+-- already has the policy; CREATE POLICY has no IF NOT EXISTS.
+DROP POLICY IF EXISTS session_quality_flags_admin_read ON session_quality_flags;
+DROP POLICY IF EXISTS session_quality_flags_admin_insert ON session_quality_flags;
+DROP POLICY IF EXISTS session_quality_flags_platform_admin_all ON session_quality_flags;
 
--- Admins only for inserts (via Server Actions only)
-CREATE POLICY session_quality_flags_admin_insert
-  ON session_quality_flags FOR INSERT
-  WITH CHECK (
-    (
-      SELECT auth.users.raw_app_meta_data->>'platform_admin' = 'true'
-      FROM auth.users
-      WHERE auth.users.id = auth.uid()
-    )
-  );
+CREATE POLICY "session_quality_flags_platform_admin_all" ON session_quality_flags
+  FOR ALL TO authenticated
+  USING (is_platform_admin())
+  WITH CHECK (is_platform_admin());
