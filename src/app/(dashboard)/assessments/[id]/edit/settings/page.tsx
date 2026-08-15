@@ -18,6 +18,7 @@ export default async function AssessmentSettingsPage({
       assessmentId={assessment.id}
       selectedFactorCount={factors.length}
       initialMinCustomFactors={assessment.minCustomFactors ?? null}
+      initialScoringProfile={assessment.scoringProfile}
     />
   )
 }
