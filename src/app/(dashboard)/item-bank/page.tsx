@@ -8,7 +8,7 @@
  */
 
 import Link from 'next/link'
-import { ClipboardCheck, FlaskConical } from 'lucide-react'
+import { ClipboardCheck, FlaskConical, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
@@ -49,6 +49,12 @@ export default async function ItemBankPage() {
         description="Cognitive item families, their lifecycle state and their provenance. Every item must clear content and fairness review before it can enter service."
       >
         <div className="flex items-center gap-2">
+          <Link href="/item-bank/generate">
+            <Button variant="outline">
+              <Sparkles className="size-4" />
+              Generate items
+            </Button>
+          </Link>
           <Link href="/item-bank/runs">
             <Button variant="outline">
               <FlaskConical className="size-4" />
@@ -108,6 +114,8 @@ export default async function ItemBankPage() {
           eyebrow="Item bank"
           title="No item families yet"
           description="Families appear here once a generated bank has been ingested. Ingest is idempotent by content hash, so re-running a bank cannot duplicate it."
+          actionLabel="Generate items"
+          actionHref="/item-bank/generate"
         />
       ) : (
         <FamiliesTable families={rows} />

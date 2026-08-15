@@ -33,8 +33,10 @@ import {
   listFamilyItems,
   listGenerationRuns,
   listItemFamilies,
+  listGenerationTargets,
   listItemsByLifecycleState,
   type BankItemSummary,
+  type GenerationTargets,
   type GenerationRunDetail,
   type GenerationRunSummary,
   type ItemBankOverview,
@@ -45,10 +47,15 @@ import { getItemForReview as getItemForReviewDal, type ItemForReview } from '@/l
 import { parseBankFile, BankFileError } from '@/lib/item-bank/bank-file'
 import { BankIngestConflictError, ingestGeneratedBank } from '@/lib/item-bank/ingest'
 import { createSupabaseItemBankStore } from '@/lib/item-bank/store'
+import { bankFromGeneration } from '@/lib/item-bank/from-generation'
+import { generateBatch } from '@/lib/cognitive/generator/index'
+import { ALL_FAMILIES } from '@/lib/cognitive/generator/families/index'
 import {
+  generateAndIngestBankSchema,
   ingestGeneratedBankSchema,
   recordItemReviewSchema,
   transitionItemLifecycleSchema,
+  type GenerateAndIngestBankInput,
   type IngestGeneratedBankInput,
   type RecordItemReviewInput,
   type TransitionItemLifecycleInput,
@@ -134,6 +141,11 @@ export async function getBankGenerationRuns(limit = 50): Promise<GenerationRunSu
 export async function getBankGenerationRun(runId: string): Promise<GenerationRunDetail | null> {
   await requireAdminScope()
   return getGenerationRun(createAdminClient(), runId)
+}
+
+export async function getGenerationTargets(): Promise<GenerationTargets> {
+  await requireAdminScope()
+  return listGenerationTargets(createAdminClient())
 }
 
 /**
@@ -306,5 +318,113 @@ export async function ingestBank(input: IngestGeneratedBankInput): Promise<
     logActionError('itemBank.ingestBank', error)
     if (error instanceof BankIngestConflictError) return failure(error.message)
     return failure('The bank could not be ingested.')
+  }
+}
+
+export interface GenerateAndIngestResult {
+  generationRunId: string | null
+  itemsGenerated: number
+  itemsInserted: number
+  itemsSkipped: number
+  familiesCreated: number
+  /** Accepted-item counts by difficulty prior band, for the result summary. */
+  bandDistribution: Record<string, number>
+  /** QA gate that rejected each discarded candidate, by gate id. */
+  rejectionReasons: Record<string, number>
+}
+
+/**
+ * Generate a bank from a seed and ingest it in one step.
+ *
+ * The same two functions the CLI uses — `generateBatch` then
+ * `ingestGeneratedBank` — with `bankFromGeneration` in between, so a seed run
+ * here and a seed run from a terminal produce identical content hashes. That
+ * equality is what makes this safe to re-run: ingest skips every item it has
+ * already written, so pointing this at a seed that is half-loaded finishes the
+ * load instead of duplicating it.
+ *
+ * Generating does NOT make anything takeable. Every item lands `draft`, and the
+ * lifecycle guards refuse to move it further until a person records content and
+ * fairness sign-offs against it in the review queue.
+ */
+export async function generateAndIngestBank(
+  input: GenerateAndIngestBankInput,
+): Promise<ActionResult<GenerateAndIngestResult>> {
+  const scope = await requireAdminScope()
+  const parsed = generateAndIngestBankSchema.safeParse(input)
+  if (!parsed.success) return failure('Invalid generation request.')
+
+  const startedAt = new Date().toISOString()
+  let bank
+  let generated
+  try {
+    generated = generateBatch(ALL_FAMILIES, parsed.data.seed, parsed.data.perFamily)
+    if (generated.items.length === 0) {
+      return failure('The generator produced no items that cleared QA. Try a different seed.')
+    }
+    bank = bankFromGeneration(generated, ALL_FAMILIES, {
+      seed: parsed.data.seed,
+      perFamily: parsed.data.perFamily,
+      startedAt,
+      finishedAt: new Date().toISOString(),
+    })
+  } catch (error) {
+    if (error instanceof BankFileError) return failure(error.message)
+    logActionError('itemBank.generateAndIngestBank.generate', error)
+    return failure('The bank could not be generated.')
+  }
+
+  const db = createAdminClient()
+  try {
+    const result = await ingestGeneratedBank(createSupabaseItemBankStore(db), {
+      bank,
+      constructId: parsed.data.constructId,
+      responseFormatId: parsed.data.responseFormatId,
+      purpose: parsed.data.purpose,
+      requestedByProfileId: scope.actor?.id ?? null,
+      stem: parsed.data.stem,
+    })
+
+    await logAuditEventSafe({
+      actorProfileId: scope.actor?.id ?? null,
+      eventType: 'item_bank.generate_and_ingest',
+      targetTable: 'cognitive_generation_runs',
+      targetId: result.generationRunId,
+      metadata: {
+        seed: parsed.data.seed,
+        perFamily: parsed.data.perFamily,
+        constructId: parsed.data.constructId,
+        itemsGenerated: bank.items.length,
+        itemsInserted: result.itemsInserted,
+        itemsSkipped: result.itemsSkipped,
+        familiesCreated: result.familiesCreated,
+      },
+    })
+
+    revalidatePath(ITEM_BANK_PATH)
+
+    const rejectionReasons: Record<string, number> = {}
+    for (const perFamily of Object.values(generated.rejects)) {
+      for (const [gate, count] of Object.entries(perFamily)) {
+        rejectionReasons[gate] = (rejectionReasons[gate] ?? 0) + count
+      }
+    }
+
+    return {
+      ok: true,
+      data: {
+        generationRunId: result.generationRunId,
+        itemsGenerated: bank.items.length,
+        itemsInserted: result.itemsInserted,
+        itemsSkipped: result.itemsSkipped,
+        familiesCreated: result.familiesCreated,
+        bandDistribution: bank.summary.bandDistribution,
+        rejectionReasons,
+      },
+    }
+  } catch (error) {
+    logActionError('itemBank.generateAndIngestBank', error)
+    if (error instanceof BankIngestConflictError) return failure(error.message)
+    return failure('The generated bank could not be ingested.')
   }
 }

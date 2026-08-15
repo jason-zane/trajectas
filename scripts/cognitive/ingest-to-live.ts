@@ -34,9 +34,9 @@
  * and exits without touching the database.
  */
 import { execFileSync } from 'node:child_process'
-import { generateBatch, type GeneratedItem } from '@/lib/cognitive/generator/index'
+import { generateBatch } from '@/lib/cognitive/generator/index'
 import { ALL_FAMILIES } from '@/lib/cognitive/generator/families/index'
-import { parseBankFile } from '@/lib/item-bank/bank-file'
+import { bankFromGeneration } from '@/lib/item-bank/from-generation'
 import { ingestGeneratedBank } from '@/lib/item-bank/ingest'
 import { familySeedKey, type ExistingBankState } from '@/lib/item-bank/plan'
 import type {
@@ -324,42 +324,18 @@ function sameCounts(a: Record<string, number>, b: Record<string, number>): boole
 async function main(): Promise<void> {
   checkPreconditions()
 
+  const startedAt = new Date().toISOString()
   const result = generateBatch(ALL_FAMILIES, SEED, PER_FAMILY)
-  const itemsJson = result.items.map((item: GeneratedItem) => ({
-    familyCode: item.familyCode,
-    seed: item.seed,
-    keySlot: item.keySlot,
-    itemSpec: item.itemSpec,
-    optionSpecs: item.optionSpecs,
-    qa: item.qa,
-  }))
-  const bandDistribution: Record<string, number> = { easy: 0, moderate: 0, hard: 0, very_hard: 0 }
-  for (const item of result.items) bandDistribution[item.qa.band]++
-  const summaryJson = {
-    generatorVersion: result.items[0]?.qa.generatorVersion ?? null,
-    batteryVersion: result.items[0]?.qa.batteryVersion ?? null,
-    seed: SEED,
-    perFamilyRequested: PER_FAMILY,
-    startedAt: new Date().toISOString(),
-    finishedAt: new Date().toISOString(),
-    totalAttempted: Object.values(result.attempted).reduce((a: number, b: number) => a + b, 0),
-    totalAccepted: result.items.length,
-    perFamily: Object.fromEntries(
-      ALL_FAMILIES.map((f) => [
-        f.code,
-        {
-          attempted: result.attempted[f.code],
-          accepted: result.items.filter((i) => i.familyCode === f.code).length,
-          rejects: result.rejects[f.code],
-        },
-      ]),
-    ),
-    bandDistribution,
-  }
 
-  // Round-trip the JSON exactly as the file would, so the parse under test is
-  // the parse a real upload gets.
-  const bank = parseBankFile(JSON.parse(JSON.stringify(itemsJson)), JSON.parse(JSON.stringify(summaryJson)))
+  // Shared with the admin "generate and ingest" action, so a seed run from here
+  // and a seed run from the UI produce identical content hashes — which is what
+  // lets either one finish a load the other started.
+  const bank = bankFromGeneration(result, ALL_FAMILIES, {
+    seed: SEED,
+    perFamily: PER_FAMILY,
+    startedAt,
+    finishedAt: new Date().toISOString(),
+  })
   const familyCount = new Set(bank.items.map((i) => i.familyCode)).size
   console.log(`\nGenerated ${bank.items.length} items across ${familyCount} families from seed "${SEED}".`)
 

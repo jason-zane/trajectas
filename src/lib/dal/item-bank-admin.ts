@@ -763,3 +763,95 @@ export async function getLifecycleTransitionGraph(
   }
   return graph
 }
+
+export type GenerationTarget = { id: string; name: string; itemCount: number }
+export type GenerationResponseFormat = { id: string; name: string; optionCount: number | null }
+export type GenerationTargets = {
+  constructs: GenerationTarget[]
+  responseFormats: GenerationResponseFormat[]
+}
+
+/**
+ * The constructs and response formats a generated figural-matrix bank may be
+ * ingested into.
+ *
+ * Constructs are restricted to those that already carry a `figural_matrix`
+ * family. That restriction is the point, not an oversight. The pilot bank was
+ * once loaded against a Likert self-report construct that happened to be named
+ * plausibly, which would have let a construct-level rollup average 1–5 self
+ * ratings with 0/1 correctness. A free picker over every construct in the
+ * library invites exactly that, and the mistake is invisible afterwards — the
+ * rows look fine, the scores are meaningless. A construct with no matrices in
+ * it yet has to be introduced by a migration, which is a place where someone
+ * writes down why.
+ *
+ * Response formats are restricted to `type = 'cognitive'`, which ingest
+ * requires anyway; listing them here turns a failed insert into an empty
+ * dropdown with a reason.
+ */
+export async function listGenerationTargets(db: DbClient): Promise<GenerationTargets> {
+  const empty: GenerationTargets = { constructs: [], responseFormats: [] }
+
+  const [familyResult, formatResult] = await Promise.all([
+    db.from('item_families').select('construct_id, kind').eq('kind', 'figural_matrix'),
+    db.from('response_formats').select('id, name, config').eq('type', 'cognitive'),
+  ])
+
+  if (familyResult.error) {
+    logActionError('itemBankAdmin.generationTargets.families', familyResult.error)
+    return empty
+  }
+  if (formatResult.error) {
+    logActionError('itemBankAdmin.generationTargets.formats', formatResult.error)
+    return empty
+  }
+
+  const constructIds = [
+    ...new Set(
+      (familyResult.data ?? [])
+        .map((row) => (row as { construct_id: string | null }).construct_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ]
+
+  let constructs: GenerationTarget[] = []
+  if (constructIds.length > 0) {
+    const { data, error } = await db
+      .from('constructs')
+      .select('id, name')
+      .in('id', constructIds)
+      .is('deleted_at', null)
+    if (error) {
+      logActionError('itemBankAdmin.generationTargets.constructs', error)
+      return empty
+    }
+    // Item counts come from the same query the overview uses, so the number
+    // beside a construct means the same thing it means everywhere else.
+    const counts = new Map<string, number>()
+    const { data: itemRows } = await db
+      .from('items')
+      .select('construct_id')
+      .in('construct_id', constructIds)
+      .is('deleted_at', null)
+    for (const row of (itemRows ?? []) as Array<{ construct_id: string | null }>) {
+      if (row.construct_id) counts.set(row.construct_id, (counts.get(row.construct_id) ?? 0) + 1)
+    }
+    constructs = (data ?? [])
+      .map((row) => {
+        const r = row as { id: string; name: string }
+        return { id: r.id, name: r.name, itemCount: counts.get(r.id) ?? 0 }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  const responseFormats = (formatResult.data ?? [])
+    .map((row) => {
+      const r = row as { id: string; name: string; config: unknown }
+      const config = (r.config ?? {}) as { option_count?: unknown }
+      const optionCount = typeof config.option_count === 'number' ? config.option_count : null
+      return { id: r.id, name: r.name, optionCount }
+    })
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return { constructs, responseFormats }
+}

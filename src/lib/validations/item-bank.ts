@@ -46,3 +46,27 @@ export const ingestGeneratedBankSchema = z.object({
   stem: z.string().trim().min(1).max(500).optional(),
 })
 export type IngestGeneratedBankInput = z.infer<typeof ingestGeneratedBankSchema>
+
+/**
+ * Generate a bank server-side from a seed, then ingest it.
+ *
+ * Same destination as `ingestGeneratedBankSchema`, different source: instead of
+ * uploading files the caller names a seed, and the server runs the generator.
+ * Generation is deterministic, so a seed identifies a bank as precisely as a
+ * file does — and ingest is idempotent by content hash, so re-running a seed
+ * completes a partial load rather than duplicating it.
+ *
+ * `perFamily` is capped at 20. There are ten families, so 20 is 200 candidate
+ * items before QA rejection, which is already at the edge of what fits in a
+ * request; the cap exists so a mistyped number cannot turn into a request that
+ * times out halfway through writing.
+ */
+export const generateAndIngestBankSchema = z.object({
+  seed: z.string().trim().min(1).max(120),
+  perFamily: z.number().int().min(1).max(20),
+  constructId: postgresUuid(),
+  responseFormatId: postgresUuid(),
+  purpose: z.enum(['construct', 'practice', 'seed']).default('construct'),
+  stem: z.string().trim().min(1).max(500).optional(),
+})
+export type GenerateAndIngestBankInput = z.infer<typeof generateAndIngestBankSchema>
