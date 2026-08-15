@@ -64,8 +64,16 @@ Consequences worth knowing before you debug one of them:
 
 To load items, use **`/item-bank/generate`** (seed + per-family count). Ingest is
 idempotent by content hash, so re-running a seed completes a partial load rather
-than duplicating it, and the UI and the CLI shape banks identically via
-`bankFromGeneration` — do not reconstruct that shape by hand anywhere else.
+than duplicating it.
+
+Every producer shapes a bank through `src/lib/item-bank/from-generation.ts` —
+`bankFilesFromGeneration` for the CLI that writes `items.json` to disk,
+`bankFromGeneration` (same projection, then `parseBankFile`) for everyone who
+ingests. **Do not reconstruct that shape by hand.** Two reasons, both learned the
+hard way: identical seeds must produce identical content hashes or idempotency
+stops meaning anything, and each hand-rolled copy silently dropped the
+per-distractor error labels, so reviewers saw four indistinguishable wrong
+answers and no later run could backfill them.
 
 ## Behavioral Rules
 - If uncertain or if multiple interpretations exist, surface it — don't pick silently
