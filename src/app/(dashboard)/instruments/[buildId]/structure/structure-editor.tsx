@@ -130,7 +130,19 @@ export function StructureEditor({ build }: StructureEditorProps) {
 
     startTransition(async () => {
       try {
-        await confirmStructureAction(build.id, constructs as unknown as Array<Record<string, unknown>>)
+        // Pass the overlap pairs so they persist as evidence and reach the
+        // technical report's discriminant section. Without this the pairs are
+        // computed, shown on screen, and then thrown away — the report then
+        // reports no pairwise comparison, which reads as "none was done".
+        await confirmStructureAction(
+          build.id,
+          constructs as unknown as Array<Record<string, unknown>>,
+          preflightPairs.map((p) => ({
+            constructAName: p.constructAName,
+            constructBName: p.constructBName,
+            cosineSimilarity: p.cosineSimilarity
+          }))
+        )
         toast.success(`Created ${constructs.length} blueprint(s)`)
         router.push(`/instruments/${build.id}`)
       } catch (error) {
