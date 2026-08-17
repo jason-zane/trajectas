@@ -253,16 +253,34 @@ export function DataTable<TData, TValue>({
       />
     );
 
-  function shouldIgnoreRowEvent(target: EventTarget | null) {
+  /**
+   * True when the event started on a real control nested inside the row — a
+   * row-actions button, a select checkbox, a link in a cell — which owns the
+   * click and must not also trigger the row's navigation.
+   *
+   * `rowElement` is the `<tr>` and has to be passed in. An interactive row
+   * carries `role="link"` or `role="button"` itself, and those are two of the
+   * selectors below, so a bare `target.closest(...)` matches the row for
+   * EVERY click — including clicks on plain text — and swallows the lot. That
+   * was the behaviour from #281 until this comment was written: every
+   * clickable row in the app rendered with `cursor-pointer`, hover feedback
+   * and `role="link"`, and did nothing at all when clicked. `closest` returns
+   * the nearest ancestor-or-self, so comparing the match against the row
+   * itself separates "clicked a control in a cell" from "clicked the row".
+   */
+  function shouldIgnoreRowEvent(
+    target: EventTarget | null,
+    rowElement: HTMLElement
+  ) {
     if (!(target instanceof HTMLElement)) {
       return false;
     }
 
-    return Boolean(
-      target.closest(
-        'a,button,input,select,textarea,[role="button"],[role="link"],[data-stop-row-click]'
-      )
+    const match = target.closest(
+      'a,button,input,select,textarea,[role="button"],[role="link"],[data-stop-row-click]'
     );
+
+    return Boolean(match) && match !== rowElement;
   }
 
   function activateRow(row: TData) {
@@ -274,7 +292,7 @@ export function DataTable<TData, TValue>({
   }
 
   function handleRowClick(event: MouseEvent<HTMLTableRowElement>, row: TData) {
-    if (shouldIgnoreRowEvent(event.target)) {
+    if (shouldIgnoreRowEvent(event.target, event.currentTarget)) {
       return;
     }
 
@@ -286,7 +304,7 @@ export function DataTable<TData, TValue>({
       return;
     }
 
-    if (shouldIgnoreRowEvent(event.target)) {
+    if (shouldIgnoreRowEvent(event.target, event.currentTarget)) {
       return;
     }
 
