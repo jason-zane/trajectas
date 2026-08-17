@@ -101,6 +101,8 @@ type FormSectionItemRow = {
 type FormSectionRow = {
   id: string
   item_ordering: string
+  /** 'scored' | 'practice' | 'instructions'; null on rows predating the column. */
+  section_role: string | null
   assessment_section_items: FormSectionItemRow[] | null
 }
 
@@ -247,18 +249,27 @@ function entryFor(
   itemId: string,
   item: FormItemEmbed,
   position: number,
+  sectionRole: string,
 ): SectionFormEntryDTO {
   const purpose = item?.purpose ?? 'construct'
+  // Two independent exclusions, matching ability-scoring.ts#classifyEntry —
+  // the frozen form must not record a claim the scorer will contradict.
+  //
+  //  - The section's role. An author marking a section "Practice" in the
+  //    composition editor is the only signal there is when the practice
+  //    items are ordinary bank items, which is the normal case: the same
+  //    `items` row can be practice in one assessment and scored in another.
+  //  - The item's own purpose. Practice/seed items are delivered (and
+  //    required by the completeness gate — doc 02-platform-architecture.md
+  //    §5.3) but never count toward a scoring aggregate.
+  const sectionCounts = sectionRole !== 'practice' && sectionRole !== 'instructions'
   return {
     position,
     itemId,
     itemVersion: item?.item_version ?? 1,
     contentHash: item?.content_hash ?? null,
     purpose,
-    // Practice/seed items are delivered (and required by the completeness
-    // gate — doc 02-platform-architecture.md §5.3) but never count toward a
-    // scoring aggregate.
-    countsTowardScore: purpose !== 'practice' && purpose !== 'seed',
+    countsTowardScore: sectionCounts && purpose !== 'practice' && purpose !== 'seed',
   }
 }
 
@@ -351,8 +362,9 @@ function assembleEntries(
     `${sessionId}:${section.id}`,
   )
 
+  const sectionRole = (section.section_role as string | null) ?? 'scored'
   const entries: SectionFormEntryDTO[] = sectionItems.map((si, i) =>
-    entryFor(si.itemId, si.item, i + 1),
+    entryFor(si.itemId, si.item, i + 1, sectionRole),
   )
 
   // In-flight-at-deploy compatibility (see migration header): never let a
@@ -370,7 +382,7 @@ function assembleEntries(
     let position = entries.length
     for (const itemId of stillMissing) {
       position += 1
-      entries.push(entryFor(itemId, byItemId.get(itemId) ?? null, position))
+      entries.push(entryFor(itemId, byItemId.get(itemId) ?? null, position, sectionRole))
     }
   }
 
@@ -406,7 +418,7 @@ export async function getOrCreateSectionForms(
       .from('assessment_sections')
       .select(
         `
-        id, item_ordering,
+        id, item_ordering, section_role,
         assessment_section_items(
           item_id, display_order,
           items(id, construct_id, purpose, difficulty, reverse_scored, item_version, content_hash, lifecycle_state)

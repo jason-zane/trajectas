@@ -37,6 +37,79 @@ describe('classifyEntry', () => {
     sectionHighWaterMark: 5,
   }
 
+  describe('a section marked Practice never contributes', () => {
+    // The case that motivated this: practice items in a real pilot are
+    // ordinary bank items with purpose 'construct'. Nothing about the ITEM
+    // says practice — only the section it was placed in does. Reading
+    // items.purpose alone scored the practice section.
+    it('excludes an ordinary construct item delivered in a practice section', () => {
+      expect(
+        classifyEntry({
+          ...base,
+          purpose: 'construct',
+          sectionRole: 'practice',
+          hasResponse: true,
+          resolvedOptionId: 'opt-correct',
+        }),
+      ).toEqual({
+        outcome: 'excluded',
+        countsTowardScore: false,
+        chosenOptionId: 'opt-correct',
+      })
+    })
+
+    it('excludes it even when the answer was right', () => {
+      const scored = classifyEntry({
+        ...base,
+        purpose: 'construct',
+        sectionRole: 'scored',
+        hasResponse: true,
+        resolvedOptionId: 'opt-correct',
+      })
+      const practice = classifyEntry({
+        ...base,
+        purpose: 'construct',
+        sectionRole: 'practice',
+        hasResponse: true,
+        resolvedOptionId: 'opt-correct',
+      })
+      expect(scored.outcome).toBe('correct')
+      expect(scored.countsTowardScore).toBe(true)
+      expect(practice.outcome).toBe('excluded')
+      expect(practice.countsTowardScore).toBe(false)
+    })
+
+    it('excludes an instructions section too', () => {
+      expect(
+        classifyEntry({ ...base, purpose: 'construct', sectionRole: 'instructions' }).countsTowardScore,
+      ).toBe(false)
+    })
+
+    it('scores normally when the section is scored, or when no role is supplied', () => {
+      for (const sectionRole of ['scored', undefined, null]) {
+        const result = classifyEntry({
+          ...base,
+          purpose: 'construct',
+          sectionRole,
+          hasResponse: true,
+          resolvedOptionId: 'opt-correct',
+        })
+        expect(result).toEqual({
+          outcome: 'correct',
+          countsTowardScore: true,
+          chosenOptionId: 'opt-correct',
+        })
+      }
+    })
+
+    it('still excludes a practice-purpose item inside a scored section', () => {
+      // The two rules are independent; neither replaces the other.
+      expect(
+        classifyEntry({ ...base, purpose: 'practice', sectionRole: 'scored' }).countsTowardScore,
+      ).toBe(false)
+    })
+  })
+
   it('practice items are always excluded, regardless of response', () => {
     expect(classifyEntry({ ...base, purpose: 'practice', hasResponse: true, resolvedOptionId: 'x' })).toEqual({
       outcome: 'excluded',
