@@ -171,7 +171,7 @@ export async function scoreSessionAbility(
 
   // 3. Item metadata, current answer keys, options, responses, section
   // timing state — all in parallel.
-  const [itemsResult, responsesResult, sectionStatesResult] = await Promise.all([
+  const [itemsResult, responsesResult, sectionStatesResult, sectionRolesResult] = await Promise.all([
     db
       .from('items')
       .select('id, construct_id, item_version, content_hash, family_id')
@@ -186,11 +186,28 @@ export async function scoreSessionAbility(
       .select('section_id, started_at, deadline_at, finalised_at')
       .eq('session_id', sessionId)
       .in('section_id', sectionIds),
+    // Section role decides whether a section contributes at all. It is a
+    // property of the PLACEMENT, not of the item: a figural matrix used for
+    // practice is the same `items` row as one used for scoring, so
+    // `items.purpose` cannot express it and reading only that column scored
+    // practice sections as if they counted.
+    db
+      .from('assessment_sections')
+      .select('id, section_role')
+      .in('id', sectionIds),
   ])
 
   if (itemsResult.error) return { error: itemsResult.error.message }
   if (responsesResult.error) return { error: responsesResult.error.message }
   if (sectionStatesResult.error) return { error: sectionStatesResult.error.message }
+  if (sectionRolesResult.error) return { error: sectionRolesResult.error.message }
+
+  const sectionRoleById = new Map<string, string>(
+    (sectionRolesResult.data ?? []).map((r) => [
+      r.id as string,
+      (r.section_role as string | null) ?? 'scored',
+    ]),
+  )
 
   const itemMetaById = new Map<string, ItemMeta>()
   for (const row of itemsResult.data ?? []) {
@@ -230,7 +247,13 @@ export async function scoreSessionAbility(
   // item_answer_keys is service-role only by grant and RLS (20260813100500).
   const keyedItemIds = [
     ...new Set(
-      entries.filter((e) => e.purpose === 'construct' || e.purpose === 'seed').map((e) => e.itemId),
+      entries
+        .filter((e) => {
+          const role = sectionRoleById.get(e.sectionId) ?? 'scored'
+          if (role === 'practice' || role === 'instructions') return false
+          return e.purpose === 'construct' || e.purpose === 'seed'
+        })
+        .map((e) => e.itemId),
     ),
   ]
   const keysById = new Map<string, string>()
@@ -382,6 +405,7 @@ export async function scoreSessionAbility(
 
       const classification = classifyEntry({
         purpose: entry.purpose,
+        sectionRole: sectionRoleById.get(entry.sectionId) ?? 'scored',
         hasResponse,
         resolvedOptionId,
         correctOptionId,

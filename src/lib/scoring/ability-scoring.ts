@@ -102,18 +102,35 @@ export interface OutcomeClassification {
 /**
  * Classify a single delivered-form entry into its scored outcome.
  *
- * Only `construct` and `seed` purposes are ability-keyed (both require an
- * item_answer_keys row and are scored right/wrong); `practice` is always
- * `excluded`. Any OTHER purpose (impression_management / infrequency /
- * attention_check — personality-style validity items that don't carry an
- * answer key) is also `excluded` rather than treated as a missing-key abort
- * condition: those purposes are not expected in a cognitive-scored
- * assessment, but excluding them defensively means an unrelated validity
- * item accidentally present in the section can never abort scoring for
- * everyone else in the cohort.
+ * Two independent ways an entry is excluded, and both are needed:
+ *
+ *   - **The section it was delivered in.** `assessment_sections.section_role`
+ *     is what an author sets in the composition editor when they mark a
+ *     section "Practice", and it is the only signal available when the
+ *     practice items are ordinary bank items — which is the normal case. A
+ *     figural matrix used for practice is the same row in `items` as one used
+ *     for scoring; nothing about the item says "practice", only its
+ *     placement does. This check was missing until 2026-08-17, so a section
+ *     marked Practice was scored anyway.
+ *   - **The item's own purpose.** `practice` is always excluded. Only
+ *     `construct` and `seed` are ability-keyed (both require an
+ *     item_answer_keys row and are scored right/wrong). Any OTHER purpose
+ *     (impression_management / infrequency / attention_check —
+ *     personality-style validity items that carry no answer key) is also
+ *     `excluded` rather than treated as a missing-key abort condition: those
+ *     purposes are not expected in a cognitive-scored assessment, but
+ *     excluding them defensively means an unrelated validity item
+ *     accidentally present in the section can never abort scoring for
+ *     everyone else in the cohort.
  */
 export function classifyEntry(input: {
   purpose: string
+  /**
+   * The role of the section this entry was delivered in. Optional so that
+   * callers which genuinely have no section context keep the old behaviour,
+   * but the scorer always passes it.
+   */
+  sectionRole?: string | null
   hasResponse: boolean
   resolvedOptionId: string | null
   correctOptionId: string | null
@@ -123,6 +140,7 @@ export function classifyEntry(input: {
 }): OutcomeClassification {
   const {
     purpose,
+    sectionRole,
     hasResponse,
     resolvedOptionId,
     correctOptionId,
@@ -130,6 +148,12 @@ export function classifyEntry(input: {
     position,
     sectionHighWaterMark,
   } = input
+
+  // Placement first. A section marked Practice or Instructions never
+  // contributes, whatever the items in it happen to be.
+  if (sectionRole === 'practice' || sectionRole === 'instructions') {
+    return { outcome: 'excluded', countsTowardScore: false, chosenOptionId: resolvedOptionId }
+  }
 
   if (purpose === 'practice') {
     return { outcome: 'excluded', countsTowardScore: false, chosenOptionId: resolvedOptionId }
