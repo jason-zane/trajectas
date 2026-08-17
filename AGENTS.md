@@ -215,6 +215,17 @@ Apply the migration to live **before** opening the PR (step 3 before step 6) bec
 
 Do NOT apply the migration to live after merging — the time between merge and Vercel's production deploy is when the schema and code can be out of sync.
 
+### Production does not match the migrations
+
+`pg-migrate-check.sh` reporting all-green proves the files replay cleanly
+against an empty database. It does **not** prove production matches — three
+divergences have been found the hard way, each by tripping over it. A deliberate
+comparison and the current known gaps are in
+`docs/schema-drift-audit-2026-08-16.md`, along with the queries to re-run it.
+
+Before assuming a production failure is a code bug, check whether the object
+you are relying on actually exists in the live database.
+
 ### Pre-existing CI debt — `npm audit`
 
 The `security → Audit production dependencies` step (`npm audit --omit=dev --audit-level=high`) is fragile because Next.js publishes high-severity advisories frequently. If a PR fails on this step and the failures are upstream of the PR's diff, treat it as repo maintenance, not feature work:
