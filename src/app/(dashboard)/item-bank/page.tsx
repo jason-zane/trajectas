@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/page-header'
 import { EmptyState } from '@/components/empty-state'
 import { getBankFamilies, getBankOverview } from '@/app/actions/item-bank'
 import { DifficultyPriorBandDistribution, DifficultyPriorNote } from './difficulty-prior'
+import { HowItWorks } from './how-it-works'
 import { LifecycleBreakdown, StatTile } from './bank-stats'
 import { FamiliesTable, type FamilyRow } from './families-table'
 import { formatDate } from '@/lib/formatting'
@@ -64,7 +65,7 @@ export default async function ItemBankPage() {
           <Link href="/item-bank/review">
             <Button>
               <ClipboardCheck className="size-4" />
-              Review queue
+              View &amp; review items
               {reviewable > 0 ? (
                 <span className="ml-1 tabular-nums opacity-80">{reviewable}</span>
               ) : null}
@@ -72,6 +73,11 @@ export default async function ItemBankPage() {
           </Link>
         </div>
       </PageHeader>
+
+      <HowItWorks
+        itemCount={overview.itemCount}
+        lifecycleCounts={overview.lifecycleCounts}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Families" value={overview.familyCount} />

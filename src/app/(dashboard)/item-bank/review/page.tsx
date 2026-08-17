@@ -50,7 +50,7 @@ export default async function ReviewQueuePage({
         <PageHeader
           eyebrow="Review"
           title="Review queue"
-          description="Content and fairness are separate judgements, recorded separately. An item needs both before it can enter piloting, calibration or live service."
+          description="Every item in the bank, listed by lifecycle state. Open a row to see the puzzle drawn full size with its answer key — this is the only screen that renders it. Content and fairness are separate judgements, recorded separately, and an item needs both before it can enter piloting, calibration or live service."
         />
       </div>
 
