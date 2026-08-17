@@ -302,6 +302,20 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
         </div>
       </PageHeader>
 
+      {/*
+        This library holds the self-report items. The cognitive bank is a
+        separate store with its own lifecycle and review gate, and "Items" is
+        the first place anyone looks for it — so say where it actually is
+        rather than letting the absence read as "they were never generated".
+      */}
+      <p className="text-caption text-muted-foreground">
+        Cognitive items — the figural matrix puzzles — are not listed here. They live in the{" "}
+        <Link href="/item-bank" className="underline underline-offset-2 hover:text-foreground">
+          Item Bank
+        </Link>
+        , which carries its own lifecycle states and review gate.
+      </p>
+
       {items.length === 0 ? (
         <EmptyState
           variant="item"

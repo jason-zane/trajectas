@@ -19,7 +19,28 @@ export default function ItemBankLoading() {
         <div className="flex gap-2">
           <Skeleton className="h-9 w-36 rounded-lg" />
           <Skeleton className="h-9 w-32 rounded-lg" />
+          <Skeleton className="h-9 w-44 rounded-lg" />
         </div>
+      </div>
+
+      <div className="rounded-xl bg-card shadow-sm ring-1 ring-foreground/[0.06]">
+        <div className="space-y-2 border-b border-foreground/[0.06] px-4 py-3">
+          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-3 w-full max-w-xl" />
+        </div>
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-start gap-3 border-b border-foreground/[0.06] px-4 py-3 last:border-b-0"
+            style={{ animationDelay: `${i * 60}ms` }}
+          >
+            <Skeleton className="size-6 shrink-0 rounded-full" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-3 w-full" />
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
