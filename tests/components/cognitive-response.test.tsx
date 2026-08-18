@@ -80,12 +80,16 @@ describe('CognitiveResponse', () => {
     expect(document.activeElement).toBe(radios[1])
   })
 
-  it('ArrowDown moves focus by a row of three', () => {
+  it('ArrowDown is a no-op in the single-row layout (wired ±5, wraps to itself)', () => {
+    // Options render as ONE row of five since the pilot-feedback layout
+    // change; vertical arrows move by the row length, so with five options
+    // they wrap back to the same tile. If a second row ever exists this
+    // starts moving by five — the wiring is already correct for it.
     render(<CognitiveResponse stimulus={STIMULUS} options={OPTIONS} onSelect={vi.fn()} />)
     const radios = screen.getAllByRole('radio')
     radios[0].focus()
     fireEvent.keyDown(radios[0], { key: 'ArrowDown' })
-    expect(document.activeElement).toBe(radios[3])
+    expect(document.activeElement).toBe(radios[0])
   })
 
   it('renders without a stimulus (defensive: no crash when the spec failed to load)', () => {
