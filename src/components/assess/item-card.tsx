@@ -52,18 +52,39 @@ export function ItemCard({
           constant height, so the answer options below stay anchored in the
           same place as the participant advances instead of jumping up and
           down with each question's length. */}
-      <div className="mb-8 flex min-h-[8.5rem] items-end">
-        <p
-          className="max-w-[620px] text-[33px] font-semibold leading-tight"
-          style={{
-            color: "var(--runner-display)",
-            fontFamily: '"Source Serif 4", Georgia, serif',
-            letterSpacing: "-0.01em",
-          }}
-        >
-          {item.stem}
-        </p>
-      </div>
+      {responseFormatType === "cognitive" ? (
+        // The figural-matrix stem is one short instruction ("Which figure
+        // completes the matrix?"), and the stimulus below it is tall. The
+        // Likert stem band reserves 8.5rem for three lines of 33px serif —
+        // spending that on a one-liner is what pushed the option row below
+        // the fold on the pilot's laptop. Compact and centred instead: the
+        // puzzle is the display moment here, not the sentence.
+        <div className="mb-5 flex justify-center">
+          <p
+            className="text-center text-[21px] font-semibold leading-tight"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {item.stem}
+          </p>
+        </div>
+      ) : (
+        <div className="mb-8 flex min-h-[8.5rem] items-end">
+          <p
+            className="max-w-[620px] text-[33px] font-semibold leading-tight"
+            style={{
+              color: "var(--runner-display)",
+              fontFamily: '"Source Serif 4", Georgia, serif',
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {item.stem}
+          </p>
+        </div>
+      )}
 
       {/* Response format */}
       <div>
@@ -121,9 +142,14 @@ export function ItemCard({
         )}
       </div>
 
-      {/* Continue button for multi-step formats */}
+      {/* Continue button for multi-step formats. Centred for cognitive so
+          the whole column — stem, grid, options, button — shares one axis. */}
       {showContinue && hasResponse && (
-        <div className="mt-8 flex justify-start">
+        <div
+          className={`mt-8 flex ${
+            responseFormatType === "cognitive" ? "mt-5 justify-center" : "justify-start"
+          }`}
+        >
           <Button
             onClick={onContinue}
             disabled={continueButtonDisabled}

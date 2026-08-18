@@ -28,10 +28,16 @@ interface CognitiveResponseProps {
 /**
  * Figural-matrix (LR-M) response format (dark-editorial re-skin).
  *
- * 3x3 stimulus grid (server-rendered SVG, inlined) above a 3-then-2 option
- * block — doc 03-logical-reasoning-design.md §7.3 / §5.2. Options form a
- * `radiogroup`: click/tap or Enter/Space selects; arrow keys move focus
- * between tiles (3-per-row layout, so Up/Down move by 3). Selecting does
+ * 3x3 stimulus grid (server-rendered SVG, inlined) above a single row of
+ * five option tiles, the whole block centred and sized against the viewport
+ * HEIGHT as well as width — the first pilot sitting had to scroll to see
+ * the options, which on a timed test costs seconds per item and hides the
+ * answer set while the puzzle is being read. `--cog-size` caps the grid at
+ * min(420px, 88vw, 44dvh); the option row matches the grid's width, so a
+ * shorter viewport shrinks everything proportionally instead of scrolling.
+ * Options form a `radiogroup`: click/tap or Enter/Space selects; arrow keys
+ * move focus between tiles (one row, so Left/Right walk it; Up/Down are
+ * wired ±5 and hence no-ops until a second row ever exists). Selecting does
  * NOT auto-advance — `cognitive` is in section-wrapper.tsx's
  * `CONTINUE_FORMATS`, so the existing Continue button in item-card.tsx is
  * the required explicit "tap + Confirm" step (doc 03 §7.3: prevents
@@ -87,11 +93,11 @@ export function CognitiveResponse({
           break;
         case "ArrowDown":
           event.preventDefault();
-          focusTile(index + 3);
+          focusTile(index + 5);
           break;
         case "ArrowUp":
           event.preventDefault();
-          focusTile(index - 3);
+          focusTile(index - 5);
           break;
         default:
           break;
@@ -101,13 +107,16 @@ export function CognitiveResponse({
   );
 
   return (
-    <div className="space-y-6">
+    <div
+      className="mx-auto flex flex-col items-center gap-5"
+      style={{ "--cog-size": "min(420px, 88vw, 44dvh)" } as React.CSSProperties}
+    >
       {stimulus && (
         <div
           role="img"
           aria-label={stimulus.ariaLabel}
           className="grid grid-cols-3 gap-1.5 sm:gap-2"
-          style={{ maxWidth: 420 }}
+          style={{ width: "var(--cog-size)" }}
         >
           <div
             style={{ display: "contents" }}
@@ -131,8 +140,8 @@ export function CognitiveResponse({
       <div
         role="radiogroup"
         aria-label="Answer options"
-        className="grid grid-cols-3 gap-2 sm:gap-3"
-        style={{ maxWidth: 420 }}
+        className="grid grid-cols-5 gap-2"
+        style={{ width: "var(--cog-size)" }}
       >
         {options.map((option, index) => {
           const isSelected = selectedValue === option.value;
@@ -156,7 +165,6 @@ export function CognitiveResponse({
                 transition-all duration-150 ease-out
                 focus-visible:outline-none focus-visible:ring-2
                 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
-                min-h-[64px] min-w-[64px]
                 active:scale-95
               "
               style={{

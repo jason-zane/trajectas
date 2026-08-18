@@ -39,6 +39,54 @@ const FIXTURES = [
   { name: 'M6', spec: toRenderSpec(m6ItemSpec, m6OptionSpecs) },
 ]
 
+describe('inner elements over a solid outer shape render in paper, not ink', () => {
+  // The first pilot sitting found a tick inside a solid square that was
+  // invisible except where it crossed the boundary — ink on ink. Contrast is
+  // part of correctness: these pins hold the white-on-black convention.
+  const render = { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 } as const
+  const tick = { type: 'tick', layer: 'inner', length: 30, rotation: 0 } as const
+
+  it('a tick inside a SOLID outer shape is paper-coloured', () => {
+    const svg = renderOptionTile(
+      [
+        { type: 'shape', layer: 'outer', shape: 'square', anchor: 'CTR', size: 'L', fill: 'solid', rotation: 0 },
+        tick,
+      ],
+      render,
+    )
+    // The line element (the tick) must carry the paper colour, and the solid
+    // shape the ink colour.
+    expect(svg).toContain('stroke="#FFFFFF"')
+    expect(svg).toMatch(/<polygon[^>]*fill="#111827"/)
+  })
+
+  it('the same tick inside an OUTLINE outer shape stays ink', () => {
+    const svg = renderOptionTile(
+      [
+        { type: 'shape', layer: 'outer', shape: 'square', anchor: 'CTR', size: 'L', fill: 'outline', rotation: 0 },
+        tick,
+      ],
+      render,
+    )
+    expect(svg).not.toContain('#FFFFFF" stroke')
+    expect(svg).toMatch(/<line[^>]*stroke="#111827"/)
+  })
+
+  it('a satellite next to a SOLID outer shape stays ink — it sits on paper', () => {
+    const svg = renderOptionTile(
+      [
+        { type: 'shape', layer: 'outer', shape: 'square', anchor: 'CTR', size: 'M', fill: 'solid', rotation: 0 },
+        { type: 'shape', layer: 'satellite', shape: 'circle', anchor: 'TR', size: 'S', fill: 'solid', rotation: 0 },
+      ],
+      render,
+    )
+    // Both the outer square and the satellite circle are solid ink; nothing
+    // in this cell is paper-coloured except the background rect.
+    const paperUses = svg.match(/#FFFFFF/g) ?? []
+    expect(paperUses).toHaveLength(1) // the background <rect> only
+  })
+})
+
 describe('renderMatrixGrid / renderOptionTile — determinism and output discipline', () => {
   for (const { name, spec } of FIXTURES) {
     describe(name, () => {

@@ -76,10 +76,33 @@ export async function POST(request: Request) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // The RPC returns the item_ids it actually upserted. Items that failed the
-  // assessment-membership check are absent — the client must NOT mark those
-  // synced, or the responses are silently lost from its IndexedDB queue.
-  if (!Array.isArray(data)) {
+  // Two RPC result shapes are in play across the deploy boundary:
+  //
+  //   old: ["<itemId>", ...]                          — saved ids only
+  //   new: { acked: [...], terminal: [...] }          — 20260818230000
+  //
+  // `acked` means "a response for this (session, item) is durably stored" —
+  // whether this write stored it or an earlier identical one did. `terminal`
+  // means "this entry can never be saved" (item not in the assessment, or the
+  // answer arrived after the section closed and no earlier save landed): the
+  // client must stop retrying it, or its queue wedges and the participant
+  // hangs at every section boundary. This code ships BEFORE the migration is
+  // applied, so both shapes must parse; anything else is a hard error.
+  let savedItemIds: string[];
+  let terminalItemIds: string[] = [];
+  if (Array.isArray(data)) {
+    savedItemIds = data as string[];
+  } else if (
+    data !== null &&
+    typeof data === "object" &&
+    Array.isArray((data as { acked?: unknown }).acked)
+  ) {
+    const shaped = data as { acked: unknown[]; terminal?: unknown[] };
+    savedItemIds = shaped.acked.filter((id): id is string => typeof id === "string");
+    terminalItemIds = (shaped.terminal ?? []).filter(
+      (id): id is string => typeof id === "string",
+    );
+  } else {
     logActionError(
       "apiAssessSaveBatch.rpc",
       new Error(`unexpected RPC result shape: ${typeof data}`),
@@ -87,13 +110,13 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unable to save batch" }, { status: 500 });
   }
 
-  const savedItemIds = data as string[];
   const savedSet = new Set(savedItemIds);
   return Response.json(
     {
       success: true,
       saved: savedItemIds.length,
       savedItemIds,
+      terminalItemIds,
       idempotencyKeys: saves
         .filter((s) => savedSet.has(s.itemId))
         .map((s) => s.idempotencyKey),

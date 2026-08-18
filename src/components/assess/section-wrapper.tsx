@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { ProgressBar } from "./progress-bar";
 import { ItemCard } from "./item-card";
@@ -119,11 +120,29 @@ export function SectionWrapper({
     flushSaves,
     saveStatus,
     saveError,
+    lostSaves,
     localResponses,
   } = useSaveQueue({
     token,
     sessionId,
   });
+
+  // An answer the server definitively refused (it arrived after the section
+  // closed, and no earlier save landed) is dropped from the retry queue so
+  // the participant is never wedged behind it — but the loss must not be
+  // silent. Once per increment, not per render.
+  const lostAnnouncedRef = useRef(0);
+  useEffect(() => {
+    if (lostSaves > lostAnnouncedRef.current) {
+      const delta = lostSaves - lostAnnouncedRef.current;
+      lostAnnouncedRef.current = lostSaves;
+      toast.error(
+        delta === 1
+          ? "One answer arrived after its section closed and could not be counted."
+          : `${delta} answers arrived after their section closed and could not be counted.`,
+      );
+    }
+  }, [lostSaves]);
 
   // Total item count across all sections — denominator for the progress bar.
   const totalItems = countAllItems(allSections);

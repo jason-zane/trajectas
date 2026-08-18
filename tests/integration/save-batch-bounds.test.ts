@@ -46,7 +46,10 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
       })),
     });
     expect(error).toBeNull();
-    return data as string[] | number;
+    // 20260818230000 changed the result to {acked, terminal}; normalise the
+    // legacy array shape so each assertion states the protocol explicitly.
+    if (Array.isArray(data)) return { acked: data as string[], terminal: [] as string[] };
+    return data as { acked: string[]; terminal: string[] } | number;
   }
 
   beforeAll(async () => {
@@ -224,17 +227,24 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
       { itemId: ids.itemDefault, responseValue: 3 },
       { itemId: ids.itemWithOptions, responseValue: 6 },
     ]);
-    expect(saved).toEqual(
-      expect.arrayContaining([ids.itemDefault, ids.itemWithOptions]),
-    );
+    expect(saved).toEqual({
+      acked: expect.arrayContaining([ids.itemDefault, ids.itemWithOptions]),
+      terminal: [],
+    });
   });
 
   it("rejects out-of-range values without touching stored rows", async () => {
+    // Out-of-range is TERMINAL under 20260818230000: the value can never
+    // save, so the client is told to stop retrying it — not left to retry
+    // forever behind an ack that will never come.
     const saved = await callRpc([
       { itemId: ids.itemDefault, responseValue: 999 },
       { itemId: ids.itemWithOptions, responseValue: -50 },
     ]);
-    expect(saved).toEqual([]);
+    expect(saved).toEqual({
+      acked: [],
+      terminal: expect.arrayContaining([ids.itemDefault, ids.itemWithOptions]),
+    });
 
     const { data: rows } = await adminDb
       .from("participant_responses")
@@ -253,19 +263,19 @@ describe.skipIf(!canRun)("save_responses_batch_for_session bounds", () => {
     // 6 is valid for the option-bounds item (options 1–6) but out of range
     // for the default-bounds item (Likert fallback 1–5).
     const saved = await callRpc([{ itemId: ids.itemDefault, responseValue: 6 }]);
-    expect(saved).toEqual([]);
+    expect(saved).toEqual({ acked: [], terminal: [ids.itemDefault] });
   });
 
   it("accepts an excluded option's sentinel value outside the scored scale", async () => {
     // "Don't know" = 9 is a real option the runner offers; it must save even
     // though the scored bounds are 1–6. An unlisted 8 must still be rejected.
     const saved = await callRpc([{ itemId: ids.itemWithOptions, responseValue: 9 }]);
-    expect(saved).toEqual([ids.itemWithOptions]);
+    expect(saved).toEqual({ acked: [ids.itemWithOptions], terminal: [] });
 
     const rejected = await callRpc([
       { itemId: ids.itemWithOptions, responseValue: 8 },
     ]);
-    expect(rejected).toEqual([]);
+    expect(rejected).toEqual({ acked: [], terminal: [ids.itemWithOptions] });
 
     const { data: row } = await adminDb
       .from("participant_responses")
