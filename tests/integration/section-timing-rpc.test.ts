@@ -295,7 +295,11 @@ describe.skipIf(!canRun)("section timing RPCs", () => {
     expect(Number(row!.response_value)).toBe(3);
     expect(row!.answered_at).toBeTruthy();
 
-    // The batch RPC enforces the same deadline+grace window.
+    // The batch RPC enforces the same deadline+grace window — but with the
+    // ack semantics of 20260818230000: a late REPLAY of an answer that is
+    // already stored is acknowledged (the client may stop retrying it),
+    // while the stored value stands untouched. The guard that matters is
+    // the second assertion: the late 5 must not overwrite the in-time 3.
     const { data: batchResult } = await adminDb.rpc("save_responses_batch_for_session", {
       p_access_token: tokenA,
       p_session_id: ids.sessionA,
@@ -303,7 +307,15 @@ describe.skipIf(!canRun)("section timing RPCs", () => {
         { itemId: ids.itemShort, responseValue: 5, responseData: {}, responseTimeMs: null },
       ],
     });
-    expect(batchResult).toEqual([]);
+    expect(batchResult).toEqual({ acked: [ids.itemShort], terminal: [] });
+
+    const { data: afterBatch } = await adminDb
+      .from("participant_responses")
+      .select("response_value")
+      .eq("session_id", ids.sessionA)
+      .eq("item_id", ids.itemShort)
+      .single();
+    expect(Number(afterBatch!.response_value)).toBe(3);
   }, 20_000);
 
   it("finalise_section_for_session refuses a 'client_timer' claim before the deadline, honours 'participant' always, and locks the section against further writes", async () => {

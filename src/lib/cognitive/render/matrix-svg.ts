@@ -49,8 +49,29 @@ export function renderCellSvg(elements: readonly Element[], render: RenderSpec['
   const palette = PALETTE[theme]
   const outerGeom = findOuterGeometry(elements)
   const ordered = canonicalElementOrder(elements)
+
+  // Contrast is part of correctness, not styling. When the outer shape is
+  // SOLID, an inner-layer element drawn in the same ink is ink-on-ink —
+  // invisible except where it happens to poke past the shape's boundary.
+  // The first pilot sitting hit exactly that: a tick inside a solid square
+  // read as "a little bit at the top" and nothing else, which turns a
+  // reasoning item into an eyesight item. Inner-layer elements over a solid
+  // outer therefore render in the paper colour (white-on-black, the
+  // convention every printed figural-matrix test uses). Satellite elements
+  // sit outside the outer shape, on paper, and keep the ink colour — as
+  // does everything when the outer is outline/hatched, where paper is the
+  // ground the ink sits on.
+  const outerIsSolid = elements.some(
+    (el) => el.type === 'shape' && el.layer === 'outer' && el.fill === 'solid',
+  )
+
   const background = `<rect width="100" height="100" fill="${palette.paper}" />`
-  const inner = ordered.flatMap((el) => renderElement(el, render, palette.ink, outerGeom)).join('')
+  const inner = ordered
+    .flatMap((el) => {
+      const elementInk = outerIsSolid && el.layer === 'inner' ? palette.paper : palette.ink
+      return renderElement(el, render, elementInk, outerGeom)
+    })
+    .join('')
   return `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false" shape-rendering="geometricPrecision">${background}${inner}</svg>`
 }
 
