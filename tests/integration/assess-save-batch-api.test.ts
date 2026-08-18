@@ -53,6 +53,7 @@ describe('POST /api/assess/save-batch', () => {
       success: true,
       saved: 2,
       savedItemIds: [VALID_UUID_2, VALID_UUID],
+      terminalItemIds: [],
       idempotencyKeys: ['idem-1', 'idem-2'],
     })
 
@@ -98,6 +99,36 @@ describe('POST /api/assess/save-batch', () => {
     expect(body.saved).toBe(1)
     expect(body.savedItemIds).toEqual([VALID_UUID_2])
     expect(body.savedItemIds).not.toContain(VALID_UUID)
+    expect(body.idempotencyKeys).toEqual(['idem-1'])
+  })
+
+  it('accepts the object shape from 20260818230000 — acked maps to savedItemIds, terminal passes through', async () => {
+    // The RPC and the route deploy at different moments (code first, then
+    // the migration), so both result shapes must parse. `acked` includes
+    // idempotent replays of already-stored answers — the fix for the queue
+    // that could never drain after a sendBeacon flush.
+    mockRpc.mockResolvedValue({
+      data: { acked: [VALID_UUID_2], terminal: [VALID_UUID] },
+      error: null,
+    })
+
+    const res = await POST(
+      makeRequest({
+        token: 'test-token',
+        sessionId: VALID_UUID,
+        saves: [
+          { itemId: VALID_UUID_2, responseValue: 3, idempotencyKey: 'idem-1' },
+          { itemId: VALID_UUID, responseValue: 5, idempotencyKey: 'idem-2' },
+        ],
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.savedItemIds).toEqual([VALID_UUID_2])
+    expect(body.terminalItemIds).toEqual([VALID_UUID])
+    // Only ACKED entries earn an idempotency-key confirmation; a terminal
+    // entry is dropped by the client via terminalItemIds, never claimed saved.
     expect(body.idempotencyKeys).toEqual(['idem-1'])
   })
 

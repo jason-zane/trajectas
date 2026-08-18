@@ -43,7 +43,12 @@ async function postBatch(
   token: string,
   sessionId: string,
   rows: ResponseRecord[],
-): Promise<{ ok: boolean; status?: number; savedItemIds: string[] | null }> {
+): Promise<{
+  ok: boolean;
+  status?: number;
+  savedItemIds: string[] | null;
+  terminalItemIds: string[];
+}> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), SAVE_TIMEOUT_MS);
   try {
@@ -70,20 +75,35 @@ async function postBatch(
     // stay pending in IDB. A 2xx with no readable savedItemIds array counts
     // as unconfirmed (null), NOT as all-saved.
     let savedItemIds: string[] | null = null;
+    let terminalItemIds: string[] = [];
     if (res.ok) {
       try {
         const body: unknown = await res.json();
-        const ids = (body as { savedItemIds?: unknown } | null)?.savedItemIds;
+        const parsedBody = body as
+          | { savedItemIds?: unknown; terminalItemIds?: unknown }
+          | null;
+        const ids = parsedBody?.savedItemIds;
         if (Array.isArray(ids)) {
           savedItemIds = ids.filter((id): id is string => typeof id === "string");
+        }
+        // Entries the server has DEFINITIVELY refused (item not in the
+        // assessment, or the answer arrived after the section closed with no
+        // earlier save landed). Retrying one of these can never succeed —
+        // they must leave the queue, or it wedges and the participant hangs
+        // at every section boundary behind a drain that cannot finish.
+        const terminals = parsedBody?.terminalItemIds;
+        if (Array.isArray(terminals)) {
+          terminalItemIds = terminals.filter(
+            (id): id is string => typeof id === "string",
+          );
         }
       } catch {
         // Unparseable body — leave savedItemIds null so nothing is marked.
       }
     }
-    return { ok: res.ok, status: res.status, savedItemIds };
+    return { ok: res.ok, status: res.status, savedItemIds, terminalItemIds };
   } catch {
-    return { ok: false, savedItemIds: null };
+    return { ok: false, savedItemIds: null, terminalItemIds: [] };
   } finally {
     clearTimeout(timeoutId);
   }
@@ -109,6 +129,10 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [saveError, setSaveError] = useState(false);
   const [localResponses, setLocalResponses] = useState<LocalResponses | null>(null);
+  // Count of answers the server has definitively refused (see postBatch).
+  // Surfaced so the runner can tell the participant an answer was not
+  // counted, instead of either hanging on it or staying silent.
+  const [lostSaves, setLostSaves] = useState(0);
 
   const configRef = useRef(config);
   useEffect(() => {
@@ -185,16 +209,28 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
         // stay pending and keep retrying.
         const confirmedSet = new Set(result.savedItemIds ?? []);
         const confirmed = rows.filter((r) => confirmedSet.has(r.itemId));
-        if (confirmed.length > 0) {
+        // Terminal entries leave the queue exactly like confirmed ones —
+        // the difference is only what we tell the participant. Marking them
+        // synced is what unwedges the drain; counting them is what keeps
+        // the loss from being silent.
+        const terminalSet = new Set(result.terminalItemIds);
+        const terminal = rows.filter(
+          (r) => terminalSet.has(r.itemId) && !confirmedSet.has(r.itemId),
+        );
+        const resolved = [...confirmed, ...terminal];
+        if (resolved.length > 0) {
           await markSynced(
             sessionId,
-            confirmed.map((r) => ({
+            resolved.map((r) => ({
               itemId: r.itemId,
               idempotencyKey: r.idempotencyKey,
             })),
           );
         }
-        if (!result.ok || confirmed.length < rows.length) {
+        if (terminal.length > 0) {
+          setLostSaves((n) => n + terminal.length);
+        }
+        if (!result.ok || resolved.length < rows.length) {
           consecutiveFailuresRef.current++;
           if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
             setSaveError(true);
@@ -441,6 +477,10 @@ export function useSaveQueue(config: { token: string; sessionId: string }) {
     retryFailedSaves,
     saveStatus,
     saveError,
+    /** Answers the server definitively refused (arrived after a section
+     *  closed, with no earlier save landed). Monotonic count for the
+     *  session; the runner surfaces it once per increment. */
+    lostSaves,
     /** IDB-hydrated map of responses for this session. Null until hydration completes. */
     localResponses,
   };
