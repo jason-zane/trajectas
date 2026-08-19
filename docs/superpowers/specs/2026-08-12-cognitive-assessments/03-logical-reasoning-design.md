@@ -549,7 +549,7 @@ Only culture-fair geometric primitives (§5.1). Prohibited: letters, digits (as 
 ### 7.3 Device and mobile constraints
 - Layout is portrait-first: 3×3 grid above a 2–3-per-row option block; the whole item fits a 360×640 CSS-px viewport without horizontal scrolling; grid remains visible while options are scrolled if vertical overflow occurs.
 - Vector rendering (SVG) only; no raster stimuli. Minimum on-screen element dimension 8 CSS px; minimum stroke 1.5 CSS px; minimum contrast 4.5:1 against the cell background.
-- Option cells are tap targets ≥ 64×64 CSS px with ≥ 8 px separation; selection requires tap + explicit "Confirm" to prevent mis-tap penalties on small screens.
+- Option cells are tap targets ≥ 64×64 CSS px with ≥ 8 px separation. A mis-tap must be recoverable: a tap advances to the next item (as in every other single-select format) *only* in sections that allow back-navigation, where Back is the undo; a section with `allow_back_nav = false` falls back to tap + explicit "Confirm". (Revised 2026-08-19 after the Mensa Norway benchmark sitting — originally tap + Confirm unconditionally.)
 - Item rendering is deterministic across DPR settings (integer-snapped strokes) so no candidate sees a degraded stimulus.
 - Timer pauses on documented connection loss and the item is re-served; response latencies from interrupted exposures are excluded from timing analytics.
 

@@ -37,11 +37,12 @@ interface CognitiveResponseProps {
  * shorter viewport shrinks everything proportionally instead of scrolling.
  * Options form a `radiogroup`: click/tap or Enter/Space selects; arrow keys
  * move focus between tiles (one row, so Left/Right walk it; Up/Down are
- * wired ±5 and hence no-ops until a second row ever exists). Selecting does
- * NOT auto-advance — `cognitive` is in section-wrapper.tsx's
- * `CONTINUE_FORMATS`, so the existing Continue button in item-card.tsx is
- * the required explicit "tap + Confirm" step (doc 03 §7.3: prevents
- * mis-tap penalties on a dense, pattern-heavy answer grid).
+ * wired ±5 and hence no-ops until a second row ever exists). Selecting
+ * auto-advances like every other single-select format — `cognitive` is in
+ * section-wrapper.tsx's `AUTO_ADVANCE_FORMATS` — provided the section allows
+ * back-nav, which is what makes a slipped tap recoverable (doc 03 §7.3's
+ * concern). In a section with `allow_back_nav = false` the wrapper falls back
+ * to the explicit tap + Continue step instead.
  *
  * The blank R3C3 "?" placeholder is rendered here as ordinary UI chrome, not
  * spec-derived content — it is the same for every figural-matrix item, so it

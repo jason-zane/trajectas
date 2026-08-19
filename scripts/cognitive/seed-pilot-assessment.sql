@@ -81,8 +81,13 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- `fixed` ordering, because difficulty ascends and the default is `randomised`.
--- `allow_back_nav=false` on the scored section is the ability-test convention:
--- revisiting earlier items turns a timed power test into something else.
+-- `allow_back_nav=true` on the scored section: a tap advances to the next
+-- puzzle and Back is how a slipped tap is undone — the same interaction as
+-- every other assessment (decision after the Mensa Norway benchmark sitting,
+-- docs/superpowers/specs/2026-08-19-mensa-norway-benchmark.md §5.3). The
+-- section clock is server-issued, so revisiting costs time, not integrity;
+-- src/lib/scoring/ability-session.ts documents what a revision does to the
+-- recorded latency. Round 1 ran with `false` (tap + Continue, no Back).
 INSERT INTO assessment_sections (id, assessment_id, response_format_id, title, instructions, display_order, section_role, item_ordering, allow_back_nav, time_limit_seconds)
 VALUES
  ('b4000000-0000-0000-0000-000000000001','b3000000-0000-0000-0000-000000000001','a5000000-0000-0000-0000-000000000009',
@@ -91,9 +96,18 @@ VALUES
   1, 'practice', 'fixed', true, NULL),
  ('b4000000-0000-0000-0000-000000000002','b3000000-0000-0000-0000-000000000001','a5000000-0000-0000-0000-000000000009',
   'Matrix Reasoning',
-  'Twenty-four puzzles, ordered from easiest to hardest. Each grid follows one or more rules; pick the figure that completes it. There is exactly one correct answer. You cannot go back to a previous item, and an unanswered item is scored as incorrect — so answer every one, even if you are guessing. You have 30 minutes, which is generous for 24 items.',
-  2, 'scored', 'fixed', false, 1800)
+  'Twenty-four puzzles, ordered from easiest to hardest. Each grid follows one or more rules; pick the figure that completes it. There is exactly one correct answer. Choosing an answer takes you to the next puzzle; use Back if you want to change one. An unanswered item is scored as incorrect — so answer every one, even if you are guessing. You have 30 minutes, which is generous for 24 items.',
+  2, 'scored', 'fixed', true, 1800)
 ON CONFLICT (id) DO NOTHING;
+
+-- Round-1 rows already exist in production (ON CONFLICT DO NOTHING above
+-- leaves them alone), so the flag and the wording are also applied as an
+-- update — idempotent, and a no-op once the row already says this.
+UPDATE assessment_sections
+SET allow_back_nav = true,
+    instructions = 'Twenty-four puzzles, ordered from easiest to hardest. Each grid follows one or more rules; pick the figure that completes it. There is exactly one correct answer. Choosing an answer takes you to the next puzzle; use Back if you want to change one. An unanswered item is scored as incorrect — so answer every one, even if you are guessing. You have 30 minutes, which is generous for 24 items.'
+WHERE id = 'b4000000-0000-0000-0000-000000000002'
+  AND (allow_back_nav IS DISTINCT FROM true OR instructions NOT LIKE '%use Back if you want to change one%');
 
 INSERT INTO assessment_factors (assessment_id, factor_id, display_order, weight, composite_weight)
 VALUES ('b3000000-0000-0000-0000-000000000001','b2000000-0000-0000-0000-000000000001',1,1,1)
