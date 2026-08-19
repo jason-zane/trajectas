@@ -37,7 +37,8 @@ interface CognitiveResponseProps {
  * shorter viewport shrinks everything proportionally instead of scrolling.
  * Options form a `radiogroup`: click/tap or Enter/Space selects; arrow keys
  * move focus between tiles (one row, so Left/Right walk it; Up/Down are
- * wired ±5 and hence no-ops until a second row ever exists). Selecting
+ * wired ±N and hence no-ops until a second row ever exists; N is 5 for items
+ * generated before v3 and 6 from v3 on — the row is one row either way). Selecting
  * auto-advances like every other single-select format — `cognitive` is in
  * section-wrapper.tsx's `AUTO_ADVANCE_FORMATS` — provided the section allows
  * back-nav, which is what makes a slipped tap recoverable (doc 03 §7.3's
@@ -94,11 +95,11 @@ export function CognitiveResponse({
           break;
         case "ArrowDown":
           event.preventDefault();
-          focusTile(index + 5);
+          focusTile(index + options.length);
           break;
         case "ArrowUp":
           event.preventDefault();
-          focusTile(index - 5);
+          focusTile(index - options.length);
           break;
         default:
           break;
@@ -141,7 +142,7 @@ export function CognitiveResponse({
       <div
         role="radiogroup"
         aria-label="Answer options"
-        className="grid grid-cols-5 gap-2"
+        className={options.length === 6 ? "grid grid-cols-6 gap-1.5 sm:gap-2" : "grid grid-cols-5 gap-2"}
         style={{ width: "var(--cog-size)" }}
       >
         {options.map((option, index) => {

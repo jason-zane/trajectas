@@ -194,7 +194,9 @@ export const GridCell = Cell.extend({
 }).strict()
 export type GridCell = z.infer<typeof GridCell>
 
-export const OptionSlot = z.enum(['A', 'B', 'C', 'D', 'E'])
+/** Six slots from v3 (2026-08-19 v3 build plan §1); items generated before
+ *  that carry five (A–E) and stay valid — option count is a per-item fact. */
+export const OptionSlot = z.enum(['A', 'B', 'C', 'D', 'E', 'F'])
 export type OptionSlot = z.infer<typeof OptionSlot>
 
 export const OptionSpec = Cell.extend({
@@ -318,7 +320,8 @@ export type CognitiveOptionSpec = z.infer<typeof CognitiveOptionSpec>
 // ---------------------------------------------------------------------------
 
 export const FiguralMatrixSpec = FiguralMatrixItemSpec.and(
-  z.object({ options: z.array(OptionSpec).length(5) }),
+  // 5 = items generated before v3 (the v1/v2 banks in production); 6 = v3 on.
+  z.object({ options: z.array(OptionSpec).min(5).max(6) }),
 )
 export type FiguralMatrixSpec = z.infer<typeof FiguralMatrixSpec>
 

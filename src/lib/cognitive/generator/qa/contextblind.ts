@@ -168,9 +168,9 @@ export interface BatchBlindResult {
 
 /**
  * G-17 (batch): across a whole run, the modal/centroid scorer's hit rate
- * must be indistinguishable from chance (0.2 for 5 options). The acceptance
+ * must be indistinguishable from chance (1/N for N options). The acceptance
  * interval is computed as an exact two-sided binomial interval at alpha=.05
- * around p=0.2 using a normal approximation with continuity correction —
+ * around p=1/N using a normal approximation with continuity correction —
  * documented deviation from doc 03-item-generation-pipeline.md §4.4's
  * "exact binomial test": this repo has no stats dependency to invert the
  * exact binomial CDF, so the interval is approximated. For n=144 the doc
@@ -209,7 +209,10 @@ export function batchBlindHitRate(items: readonly { options: readonly CellLike[]
     const centroidHit = centroid.length === 1 && centroid[0] === item.keyIndex
     if (modalHit || centroidHit) hits++
   }
-  const p = 0.2
+  // Chance for the batch's option count (1/5 for v1/v2 items, 1/6 from v3);
+  // a mixed batch uses the modal option count.
+  const counts = items.map((it) => it.options.length)
+  const p = counts.length ? 1 / counts.sort((a, b) => a - b)[Math.floor(counts.length / 2)] : 0.2
   const sd = Math.sqrt(n * p * (1 - p))
   const z = 1.959963984540054 // two-sided 95%
   const lower = Math.max(0, Math.ceil(n * p - z * sd - 0.5))

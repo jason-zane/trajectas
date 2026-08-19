@@ -165,7 +165,7 @@ export function familySeedKey(familyCode: string, generatorSeed: string): string
 /** Default instruction stem for a figural matrix; matches the delivery fixtures. */
 export const DEFAULT_MATRIX_STEM = 'Which figure completes the pattern?'
 
-const SLOT_ORDER: OptionSlot[] = ['A', 'B', 'C', 'D', 'E']
+const SLOT_ORDER: OptionSlot[] = ['A', 'B', 'C', 'D', 'E', 'F']
 
 export type BuildPlanOptions = {
   /** `items.stem`. Cognitive matrices carry an instruction, not a question. */

@@ -47,21 +47,28 @@ export interface BatchQaReport {
   gates: Record<'G-16' | 'G-17', BatchGateEntry>
 }
 
-export interface KeySlotCounts {
-  A: number
-  B: number
-  C: number
-  D: number
-  E: number
-}
+export type KeySlot = 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+export type KeySlotCounts = Record<KeySlot, number>
 
-/** G-16 (batch): key slot counts across the run differ by <= 1 (doc §9 rule 2). Guaranteed by construction here (distractors.ts's round-robin `keySlotIndex`), so this re-checks the guarantee rather than searching for a fix. */
-export function keySlotBalanceGate(slots: readonly ('A' | 'B' | 'C' | 'D' | 'E')[]): BatchGateEntry {
-  const counts: KeySlotCounts = { A: 0, B: 0, C: 0, D: 0, E: 0 }
+/**
+ * G-16 (batch): key slot counts across the run differ by <= 1 (doc §9 rule
+ * 2). Guaranteed by construction (generator/index.ts's round-robin
+ * `keySlotIndex` over each family's own option count), so this re-checks the
+ * guarantee rather than searching for a fix. Counted over the slots the
+ * batch actually USES: a run of six-option families balances A–F, a run of
+ * five-option families A–E, and a mixed run (v2 families alongside v3 ones)
+ * is checked over A–E only, because F can only ever be hit by the
+ * six-option items — its count is structurally lower and is reported, not
+ * judged.
+ */
+export function keySlotBalanceGate(slots: readonly KeySlot[], optionCounts: readonly number[] = []): BatchGateEntry {
+  const counts: KeySlotCounts = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 }
   for (const s of slots) counts[s]++
-  const values = Object.values(counts)
+  const minCount = optionCounts.length > 0 ? Math.min(...optionCounts) : slots.includes('F') ? 6 : 5
+  const judged: KeySlot[] = (['A', 'B', 'C', 'D', 'E', 'F'] as KeySlot[]).slice(0, minCount)
+  const values = judged.map((k) => counts[k])
   const spread = Math.max(...values) - Math.min(...values)
-  return spread <= 1 ? { status: 'pass', detail: { counts } } : { status: 'fail', detail: { counts, spread } }
+  return spread <= 1 ? { status: 'pass', detail: { counts, judgedSlots: judged } } : { status: 'fail', detail: { counts, judgedSlots: judged, spread } }
 }
 
 /**
@@ -79,10 +86,10 @@ export function batchBlindGuaranteeGate(items: readonly { options: readonly Cell
     : { status: 'fail', detail: { hits: result.hits, n: result.n, chanceInterval: [result.lowerBound, result.upperBound] } }
 }
 
-export function runBatchGates(input: { keySlots: readonly ('A' | 'B' | 'C' | 'D' | 'E')[]; blindItems: readonly { options: readonly CellLike[]; keyIndex: number; axes: readonly AxisId[] }[] }): BatchQaReport {
+export function runBatchGates(input: { keySlots: readonly KeySlot[]; blindItems: readonly { options: readonly CellLike[]; keyIndex: number; axes: readonly AxisId[] }[] }): BatchQaReport {
   return {
     gates: {
-      'G-16': keySlotBalanceGate(input.keySlots),
+      'G-16': keySlotBalanceGate(input.keySlots, input.blindItems.map((b) => b.options.length)),
       'G-17': batchBlindGuaranteeGate(input.blindItems),
     },
   }
