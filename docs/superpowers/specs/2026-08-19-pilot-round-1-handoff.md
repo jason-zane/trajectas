@@ -47,8 +47,9 @@ it is not a percentile and must not inform any selection decision.
    G-08's `KEY_VALUE_DOMINATES` check FORCING the key to be a per-axis
    minority. Full redesign is specified in
    `docs/superpowers/specs/2026-08-19-distractor-redesign-after-first-pilot.md`
-   — new option-set contract, G-08 re-formalisation, new G-19 gate, five
-   families to re-author. **This is the next implementation branch.**
+   — new option-set contract, G-08 re-formalisation, new G-20 gate
+   (G-19 already exists), five families to re-author. **This is the next
+   implementation branch.**
    Consequence worth repeating: the 18/24 above is an upper bound, and
    the predicted-b values for multi-rule families are inflated until the
    redesign is re-piloted.
@@ -64,24 +65,34 @@ proportion correct; treat our 75% as inflated by finding 4.
 **Mensa Norway sitting done and analysed** (JH, 2026-08-19: IQ 118,
 88th percentile, ≈24–28/35 by triangulation) — see
 `2026-08-19-mensa-norway-benchmark.md`. Two things from it change the
-plan above: (a) the pilot's 75% is inflated a *second* way — the form
-was blocked by family and five of the six misses were the first item of
-a block, so items 2–3 of each block look like rule reuse, not induction;
-(b) the "ran out of clock at item 21" below is wrong — every answer was
-in by 17:12, the rest was the wedged finish screen. The next form needs
-a no-adjacent-family constraint, ~25 min for 20 items, and the new gate
-in the redesign spec is G-20 (G-19 already exists).
+plan above: (a) a **hypothesis** that the pilot's 75% is inflated a
+*second* way — the form was blocked by family and five of the six
+misses were the first item of a block, so items 2–3 of each block may
+be rule reuse rather than induction; one sitting cannot separate that
+from unequal exemplar difficulty or the save-error banner, and the
+interleaved re-pilot is the test; (b) the "ran out of clock at item 21"
+below is wrong — every answer was in by 17:12, the rest was the wedged
+finish screen. The next form needs a no-adjacent-family constraint,
+~25 min for 20 items, and the new gate in the redesign spec is G-20
+(G-19 already exists).
 
 ## The next session picks up here
 
-1. **Distractor redesign implementation** (the spec above): implement
-   G-19, re-formalise G-08, re-author the five leaking families'
-   distractor plans, regenerate the bank, build a fresh pilot form
-   (~20 items, 35–40 min — round 1 ran out of clock at item 21), second
-   sitting, before/after comparison.
+1. **Distractor redesign implementation** (the spec above, plus §7 of
+   the benchmark doc): implement G-20, re-formalise G-08, re-author the
+   five leaking families' distractor plans using HeiQ's facet-design
+   construction rule, regenerate the bank, build a fresh pilot form
+   (~20 items, **25 min** — round 1 used 17 of its 30 minutes; the rest
+   was the wedged finish screen), ordered by b with **no two adjacent
+   items from the same family** and practice items from a family the
+   scored section does not use, with an OMIB anchor block; 2–3 fresh
+   internal sitters (each with a Mensa Norway comparator), before/after
+   comparison.
 2. **Three suspect easy-middle items**: round 1 missed positions 3
-   (LRM-MOVE), 6 (LRM-ROT), 9 (LRM-SUB) with long response times — eyeball
-   those in `/item-bank/review` for ambiguity while reviewing.
+   (LRM-MOVE), 6 (LRM-ROT), 9 (LRM-SUB) with long response times — each
+   was the first item of its family block, which is the benchmark doc's
+   leading (unproven) explanation; still eyeball them in
+   `/item-bank/review` for ambiguity while reviewing.
 3. **Outstanding, human-only**: make the repo private (the bank AND its
    answer key are reproducible from the public repo); record content +
    fairness sign-offs before any real candidate ever sits the

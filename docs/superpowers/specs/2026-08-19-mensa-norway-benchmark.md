@@ -32,17 +32,20 @@ in its own right.
   distracted", finding it "challenging around 20–22" and "really
   difficult from 28–30".
 - **Raw score is not shown and the raw→IQ table is unpublished.**
-  Best triangulation puts IQ 118 at **≈24–28 of 35 correct (69–80%)**
-  (§2). Treat as a band, not a number.
-- **Our pilot: 18/24 (75%) — but the item-level record says that number
-  is inflated twice over**, not once, by two independent mechanisms with
-  separate fixes. The known distractor leak (handoff finding 4; an
-  option-set problem, fixed by the redesign spec) is one. The other, new
-  here, is a form-construction problem: **the form was blocked by
-  family, and five of the six misses were the first item of a family
-  block** — items 2–3 of each block look like rule *reuse*, not
-  induction (§3.3). Mensa never presents the same format twice in a
-  row.
+  Best triangulation puts IQ 118 at **≈24–28 of 35 correct (69–80%)**,
+  with a floor near 19–20 if Mensa's map is a flat 85–145 line (§2).
+  Treat as a band, not a number.
+- **Our pilot: 18/24 (75%) — inflated by the known distractor leak, and
+  possibly a second way.** The leak (handoff finding 4; an option-set
+  problem, fixed by the redesign spec) is established. The second is a
+  **hypothesis from this one sitting**: the form was blocked by family,
+  and five of the six misses were the first item of a family block —
+  consistent with items 2–3 of each block being rule *reuse*, not
+  induction (§3.3), but one sitting cannot separate that from unequal
+  exemplar difficulty or the save-error banner. The fix is the same
+  either way and cheap (no adjacent same-family items), and the
+  interleaved re-pilot is the test. Mensa never presents the same
+  format twice in a row.
 - **The Mensa items span a difficulty range ours does not reach.** An
   88th-percentile-on-Mensa candidate ran out of ability on Mensa around
   item 28 of 35; on our form the same candidate answered all four
@@ -71,17 +74,22 @@ online IQ test); Norsk Mensa says it is still collecting data to widen
 the range. Nothing published on item parameters, reliability, or
 validity against supervised instruments.
 
-Three independent routes to a raw score for 118:
+Three routes to a raw score for 118 (z = 1.2 on SD 15; the page's "88th
+percentile" is z ≈ 1.175 — it rounds):
 
 | Route | Raw estimate | Basis |
 |---|---|---|
-| Linear inversion (research agent) | ≈23–25 | Assume 0→85, 35→145 roughly linear with mean ≈17–18; z = 1.2 for 118 (the page's "88th percentile" is z ≈ 1.175 — it rounds) |
+| Linear map, two anchorings | 19 … 28 | A flat line 0→85, 35→145 puts 118 at (118−85)·35/60 = **19**. Anchoring instead at "mean ≈ 100 at 17–18 raw, ceiling 145 at 35" gives 17.5 + 1.2·(35−17.5)/3 ≈ **25**, or ≈ 28 with a raw SD of 8.5. The route only brackets — it does not locate — and the "mean 17–18" premise is itself an assumption, not a published figure |
 | Community table (Japanese review, note.com) | ≈27–28 | 18–20 → ~100; 24–26 → ~110; 28–30 → ~120; 32–33 → ~130; 34–35 → 140+ |
 | Anecdote (HN, 2022) | ≈26–29 | "hit 118 but ran out of time around question 32" on a first attempt; 133 on a practised retake |
 
-Working band: **24–28 correct, 69–80%.** The community table is the only
-one with multiple anchor points and is consistent with the anecdote, so
-the upper half of the band is more likely than the lower.
+Working band: **24–28 correct, 69–80%** — resting on the community table
+(the only route with multiple anchor points) and the anecdote, which
+agree. The honest floor is lower: if Mensa's map is closer to the flat
+85–145 line, 118 could be as low as ≈19–20 (54–57%). Note which way that
+cuts: a *lower* Mensa proportion correct at the 88th percentile makes
+the Mensa items harder relative to ours, not easier, so every conclusion
+in §3 about our ceiling survives the wider band.
 
 Caveats that matter for the comparison: (a) 88th percentile is of
 Mensa's own online sample, which skews above the general population —
@@ -95,7 +103,7 @@ test — some of the "guessing from 28" is clock, not ceiling.
 
 | | Mensa Norway | Our pilot (24 scored) |
 |---|---|---|
-| Proportion correct | ≈69–80% (est.) | 75% |
+| Proportion correct | ≈69–80% (est.; floor ≈54–57%, §2) | 75% |
 | Nominal time / item | 43 s | 75 s |
 | Time actually used | 22:54 of 25:00 (39 s/item) | 17:12 of 30:00 (43 s/item) — then 13 min on a wedged finish screen |
 | Longest single item | ≈1:48 (item 24, upper bound) | 2:36 (pos 9), 2:19 (pos 18), 2:13 (pos 17) |
