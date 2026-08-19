@@ -20,6 +20,7 @@ import {
   PracticeCheckError,
   PracticeFeedback,
 } from "./practice-feedback";
+import { formatAutoAdvances, formatNeedsContinue } from "./advance-policy";
 import type { SectionForRunner } from "@/app/actions/assess";
 import type { RunnerContent } from "@/lib/experience/types";
 
@@ -48,23 +49,6 @@ interface SectionWrapperProps {
   /** Whether to show the progress bar. Defaults to true. */
   showProgress?: boolean;
 }
-
-/** Formats that auto-advance on selection (single-select). */
-const AUTO_ADVANCE_FORMATS = new Set([
-  "likert",
-  "forced_choice",
-  "binary",
-  "sjt",
-]);
-
-/** Formats that need a Continue button (multi-step input — user composes
- *  a response over multiple interactions rather than picking a single option).
- *  `cognitive` (LR-4 / #334) is here too, but for a different reason: doc
- *  03-logical-reasoning-design.md §7.3 requires an explicit tap + Confirm
- *  step on figural-matrix items to prevent mis-tap penalties on a dense,
- *  pattern-heavy answer grid — auto-advancing on the first tap would punish
- *  a slipped finger the same as a genuine answer. */
-const CONTINUE_FORMATS = new Set(["free_text", "ranking", "cognitive"]);
 
 /** Animation + auto-advance delay. Single source of truth. */
 const ADVANCE_DELAY_MS = 120;
@@ -257,7 +241,14 @@ export function SectionWrapper({
   }, [currentItem?.id]);
 
   const responseFormatType = section.responseFormatType;
-  const needsContinue = CONTINUE_FORMATS.has(responseFormatType);
+  // Per-format advance policy lives in ./advance-policy.ts (pure, tested).
+  // The one section-dependent case: a cognitive item in a section the
+  // participant cannot revisit keeps the explicit tap + Continue, because
+  // with no Back there is no way to undo a slipped tap on the answer grid.
+  const needsContinue = formatNeedsContinue(
+    responseFormatType,
+    section.allowBackNav,
+  );
   const isFinalItemInAssessment =
     sectionIndex === totalSections - 1 &&
     localItemIndex === section.items.length - 1;
@@ -269,7 +260,8 @@ export function SectionWrapper({
       : { status: "unchecked" };
   // Continue is only for multi-step formats (free_text, ranking) where the
   // user composes a response over several interactions and needs an explicit
-  // commit. Auto-advance formats (likert, binary, sjt, forced_choice) never
+  // commit — plus a cognitive item in a locked section (above). Auto-advance
+  // formats (likert, binary, sjt, forced_choice, cognitive) never
   // show Continue — they advance to the next *unanswered* item on click, so
   // a returning participant naturally skips past items they've already
   // answered without re-clicking and without a flashing button. Practice
@@ -403,6 +395,8 @@ export function SectionWrapper({
 
   // For forced_choice, auto-advance only after both most+least are selected
   // For SJT, auto-advance only if single-select mode
+  // Everything else (incl. cognitive's back-nav coupling) is the format-level
+  // policy in ./advance-policy.ts.
   const shouldAutoAdvance = useCallback(
     (formatType: string, _value: number, data?: Record<string, unknown>) => {
       if (formatType === "forced_choice") {
@@ -412,9 +406,9 @@ export function SectionWrapper({
         // SJT auto-advances on single select
         return true;
       }
-      return AUTO_ADVANCE_FORMATS.has(formatType);
+      return formatAutoAdvances(formatType, section.allowBackNav);
     },
-    []
+    [section.allowBackNav]
   );
 
   const navigateToItem = useCallback(
