@@ -12,7 +12,7 @@ import { runBatchGates, type BatchQaReport } from './qa/batch'
 import { makeRng } from './rng'
 import type { AxisId } from './axes'
 
-const SLOTS = ['A', 'B', 'C', 'D', 'E'] as const
+const SLOTS = ['A', 'B', 'C', 'D', 'E', 'F'] as const
 
 /**
  * Why each distractor is wrong, in the generator's own vocabulary.
@@ -132,7 +132,10 @@ export function generateFamily<P>(template: FamilyTemplate<P>, seed: string, n: 
 
     // Tentative — only advances `acceptedCount` (and so the slot sequence)
     // once this item actually clears the QA battery below.
-    const keySlotIndex = (keySlotOffset + acceptedCount) % 5
+    // Round-robin over the family's own option count (distractor plan + key):
+    // five for four-distractor plans, six for five-distractor plans.
+    const optionCount = template.distractorPlan.length + 1
+    const keySlotIndex = (keySlotOffset + acceptedCount) % optionCount
     const placed = placeOptions(composed.keyCell, repaired.accepted, keySlotIndex, rng.sub('keyPosition'))
 
     const qa = runQaBattery({

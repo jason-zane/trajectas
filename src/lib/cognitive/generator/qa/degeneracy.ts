@@ -151,7 +151,7 @@ export function latinTrivialCheck(rows: readonly (readonly string[])[]): CheckRe
 }
 
 /** Rotational-symmetry-order per shape, per doc 03-item-generation-pipeline.md §3.5's ROTATION_ALIAS/SYMMETRY_INVISIBLE. 0 = infinite (circle: any rotation is invisible). */
-const SHAPE_SYMMETRY_ORDER: Record<string, number> = { circle: 0, square: 4, diamond: 4, triangle: 3, pentagon: 5, arrow: 1 }
+const SHAPE_SYMMETRY_ORDER: Record<string, number> = { circle: 0, square: 4, diamond: 4, triangle: 3, pentagon: 5, arrow: 1, hexagon: 6, star: 5, cross: 4, semicircle: 1, flag: 1, lshape: 1, trapezoid: 1 }
 
 export function symmetryInvisibleCheck(shape: string, stepDeg: number): CheckResult {
   const order = SHAPE_SYMMETRY_ORDER[shape] ?? 1
@@ -258,13 +258,24 @@ export function copyEliminationOk(grid: readonly CellLike[], options: readonly C
  * The defence against the context-BLIND attack built the context-AWARE one.
  *
  * The invariant this gate states: no strategy cheaper than solving the hard
- * rule may beat chance among fewer than N−1 options. Concretely:
- *   1. on EVERY declared cheap axis, ≥ N−1 options carry the key's value
- *      (4 of 5): the cheap rule's answer is given away, deliberately — it was
- *      never what the item measured (Embretson 1998: radicals drive
+ * rule may beat a 25% guess — cheap elimination must leave at least FOUR
+ * options. Concretely, with T = max(4, N−2):
+ *   1. on EVERY declared cheap axis, ≥ T options carry the key's value (4 of
+ *      5; 4 of 6): the cheap rule's answer is given away, deliberately — it
+ *      was never what the item measured (Embretson 1998: radicals drive
  *      difficulty; surface variation is incidental) — and its filter removes
- *      at most one option;
- *   2. the INTERSECTION of all cheap-axis filters still holds ≥ N−1 options.
+ *      at most N−T options;
+ *   2. the INTERSECTION of all cheap-axis filters still holds ≥ T options.
+ *
+ * Why T is an absolute floor rather than N−1 (v3, six options): the
+ * guarantee that matters psychometrically is the guess rate left to a
+ * cheap-only solver, and 25% is what the v2 contract established at N=5.
+ * At N=6, N−1 would demand FIVE distinct wrong values on the hard axis
+ * inside one option set, which a hard axis with four states (reflection's
+ * D4 orbit minus symmetric duplicates, when mixed with a cheap axis) or a
+ * count axis under G-09's spread cap cannot supply. Families whose hard
+ * axis is rich (rotation, set operators) still give N−1 = 5; the floor lets
+ * the others give 4 rather than be unbuildable at six options.
  *
  * Fails `CHEAP_AXIS_ISOLATES` / `CHEAP_INTERSECTION_ISOLATES`. Skips
  * `NO_CHEAP_AXES` when the family declares none (single-rule families; the
@@ -282,9 +293,9 @@ export function cheapEliminationCheck(options: readonly CellLike[], keyIndex: nu
   }
 
   const N = options.length
-  const threshold = N - 1
+  const threshold = Math.max(4, N - 2)
 
-  // Per-axis check: each cheap axis must have >= N-1 options with the key's value.
+  // Per-axis check: each cheap axis must have >= T options with the key's value.
   for (const axis of cheapAxes) {
     const keyValue = readAxis(options[keyIndex], axis)
     if (!keyValue) continue
@@ -297,7 +308,7 @@ export function cheapEliminationCheck(options: readonly CellLike[], keyIndex: nu
     }
   }
 
-  // Intersection check: all cheap axes together must leave >= N-1 options.
+  // Intersection check: all cheap axes together must leave >= T options.
   let intersection = Array.from({ length: N }, (_, i) => i)
   for (const axis of cheapAxes) {
     const keyValue = readAxis(options[keyIndex], axis)
@@ -348,6 +359,12 @@ export function surfaceCensus(cell: CellLike, declaredAxes: readonly AxisId[]): 
         out[`bitgrid:${el.layer}:black`] = el.black.length
         out[`bitgrid:${el.layer}:hatched`] = el.hatched.length
         break
+      case 'strokes':
+        out[`strokes:${el.layer}`] = el.strokes.length
+        break
+      case 'nest':
+        out[`nest:${el.layer}`] = el.rings.length
+        break
       case 'repeat':
         if (!declared.has(`${el.layer}.count`)) out[`repeat:${el.layer}`] = el.count
         break
@@ -381,6 +398,7 @@ export function surfacePalette(cell: CellLike, declaredAxes: readonly AxisId[]):
         push(el.layer, 'size', el.size)
         push(el.layer, 'anchor', el.anchor)
         push(el.layer, 'rotation', el.rotation)
+        push(el.layer, 'flip', el.flip ?? 'none')
         break
       case 'repeat':
         push(el.layer, 'shape', el.shape)
@@ -402,6 +420,12 @@ export function surfacePalette(cell: CellLike, declaredAxes: readonly AxisId[]):
       case 'bitgrid':
         for (const b of el.black) out.push(`${el.layer}.bitgrid~black~${b}`)
         for (const h of el.hatched) out.push(`${el.layer}.bitgrid~hatched~${h}`)
+        break
+      case 'strokes':
+        for (const k of el.strokes) out.push(`${el.layer}.stroke~${k}`)
+        break
+      case 'nest':
+        for (const r of el.rings) out.push(`${el.layer}.ring~${r}`)
         break
     }
   }

@@ -24,8 +24,8 @@ export type CognitiveItemRender = {
  * different construct. The label is a descriptive IDENTIFICATION, not a
  * description of content (WCAG 2.2 SC 1.1.1's test-and-exercise exception).
  */
-const COGNITIVE_ARIA_LABEL =
-  'A three-by-three grid of geometric figures with the bottom-right cell missing, and five answer options.'
+const ariaLabelFor = (optionCount: number): string =>
+  `A three-by-three grid of geometric figures with the bottom-right cell missing, and ${optionCount === 6 ? 'six' : 'five'} answer options.`
 
 /**
  * The ONLY DAL module allowed to read `cognitive_item_specs` /
@@ -112,7 +112,7 @@ export async function getCognitiveItemsForDelivery(
       optionSvgByOptionId.set(parsedOptions[i].optionId, renderOptionTile(option.elements, renderSpec.render))
     })
 
-    result.set(itemId, { gridSvg, ariaLabel: COGNITIVE_ARIA_LABEL, optionSvgByOptionId })
+    result.set(itemId, { gridSvg, ariaLabel: ariaLabelFor(optionSvgByOptionId.size), optionSvgByOptionId })
   }
 
   return result

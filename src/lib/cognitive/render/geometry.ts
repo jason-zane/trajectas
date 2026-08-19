@@ -39,6 +39,106 @@ export function polygon(n: number, cx: number, cy: number, size: number, deg: nu
   })
 }
 
+export type FlipState = 'none' | 'h' | 'v' | 'hv' | 'd1' | 'd2' | 'r90' | 'r270'
+
+/**
+ * The eight D4 orientation states as 2×2 integer matrices acting on the
+ * offset (dx, dy) from the anchor, in screen coordinates (y down). Shared by
+ * the renderer (`mirror`) and the verifier (`rules.ts` composes them).
+ */
+export const FLIP_MATRIX: Record<FlipState, readonly [number, number, number, number]> = {
+  none: [1, 0, 0, 1],
+  h: [-1, 0, 0, 1],
+  v: [1, 0, 0, -1],
+  hv: [-1, 0, 0, -1],
+  d1: [0, 1, 1, 0],
+  d2: [0, -1, -1, 0],
+  r90: [0, -1, 1, 0],
+  r270: [0, 1, -1, 0],
+}
+
+/** Apply an orientation state to (x,y) about (cx,cy). */
+export function mirror(x: number, y: number, cx: number, cy: number, flip: FlipState): Pt {
+  const [a, b, c, d] = FLIP_MATRIX[flip]
+  const dx = x - cx
+  const dy = y - cy
+  return [cx + a * dx + b * dy, cy + c * dx + d * dy]
+}
+
+/**
+ * Points along a circular arc, centre (cx,cy), radius r, from angle a0 to a1
+ * (degrees, SVG convention: 0 = +x, 90 = +y i.e. downward), `segments` chords.
+ * Used for the half-disc shape and the arc strokes — every curve in this
+ * renderer is emitted as straight chords so hatching, clipping and ink
+ * estimates all work on one polygon representation.
+ */
+export function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, segments: number): Pt[] {
+  const out: Pt[] = []
+  for (let i = 0; i <= segments; i++) {
+    const a = ((a0 + ((a1 - a0) * i) / segments) * Math.PI) / 180
+    out.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
+  }
+  return out
+}
+
+/** True iff the (simple) polygon is convex — every consecutive edge pair turns the same way. */
+export function isConvex(points: readonly Pt[]): boolean {
+  const n = points.length
+  let sign = 0
+  for (let i = 0; i < n; i++) {
+    const [ax, ay] = points[i]
+    const [bx, by] = points[(i + 1) % n]
+    const [cx, cy] = points[(i + 2) % n]
+    const cross = (bx - ax) * (cy - by) - (by - ay) * (cx - bx)
+    if (Math.abs(cross) < 1e-9) continue
+    const s = cross > 0 ? 1 : -1
+    if (sign === 0) sign = s
+    else if (s !== sign) return false
+  }
+  return true
+}
+
+/**
+ * Clip the infinite line through p0/p1 to a SIMPLE (possibly non-convex)
+ * polygon by the even-odd rule: every crossing of the line with a polygon
+ * edge is found, sorted along the line, and paired up into inside runs.
+ * Returns zero or more segments. Cyrus-Beck (`clipLineToPolygon`) is only
+ * correct for convex polygons, which is all the v1 shapes were; the v3 star,
+ * cross, flag and L-shape need this one. (The arrow was non-convex all
+ * along; it is hatched through this path from v3 on.)
+ */
+export function clipLineToPolygonEvenOdd(p0: Pt, p1: Pt, points: readonly Pt[]): [Pt, Pt][] {
+  const dx = p1[0] - p0[0]
+  const dy = p1[1] - p0[1]
+  const n = points.length
+  const ts: number[] = []
+  for (let i = 0; i < n; i++) {
+    const a = points[i]
+    const b = points[(i + 1) % n]
+    const ex = b[0] - a[0]
+    const ey = b[1] - a[1]
+    const denom = dx * ey - dy * ex
+    if (Math.abs(denom) < 1e-12) continue // parallel edge: no crossing
+    // Solve p0 + t*d = a + u*e.
+    const t = ((a[0] - p0[0]) * ey - (a[1] - p0[1]) * ex) / denom
+    const u = ((a[0] - p0[0]) * dy - (a[1] - p0[1]) * dx) / denom
+    // Half-open edge interval so a vertex exactly on the line counts once.
+    if (u >= 0 && u < 1) ts.push(t)
+  }
+  ts.sort((x, y) => x - y)
+  const segs: [Pt, Pt][] = []
+  for (let i = 0; i + 1 < ts.length; i += 2) {
+    const t0 = ts[i]
+    const t1 = ts[i + 1]
+    if (t1 - t0 < 1e-9) continue
+    segs.push([
+      [p0[0] + t0 * dx, p0[1] + t0 * dy],
+      [p0[0] + t1 * dx, p0[1] + t1 * dy],
+    ])
+  }
+  return segs
+}
+
 /** Fixed number formatting — the single source of truth for hash/render stability. */
 export function fmt(n: number): string {
   const r = Math.round(n * 1000) / 1000

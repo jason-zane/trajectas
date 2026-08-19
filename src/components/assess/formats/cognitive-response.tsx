@@ -37,7 +37,8 @@ interface CognitiveResponseProps {
  * shorter viewport shrinks everything proportionally instead of scrolling.
  * Options form a `radiogroup`: click/tap or Enter/Space selects; arrow keys
  * move focus between tiles (one row, so Left/Right walk it; Up/Down are
- * wired ±5 and hence no-ops until a second row ever exists). Selecting
+ * wired ±N and hence no-ops until a second row ever exists; N is 5 for items
+ * generated before v3 and 6 from v3 on — the row is one row either way). Selecting
  * auto-advances like every other single-select format — `cognitive` is in
  * section-wrapper.tsx's `AUTO_ADVANCE_FORMATS` — provided the section allows
  * back-nav, which is what makes a slipped tap recoverable (doc 03 §7.3's
@@ -72,6 +73,21 @@ export function CognitiveResponse({
   );
   const [activeIndex, setActiveIndex] = useState(initialActive);
 
+  const optionCount = options.length;
+  /**
+   * The number of grid columns the option row is RENDERED with, so vertical
+   * arrows move between visible rows (codex review, PR #369): six options
+   * wrap 3+3 under the 400 px breakpoint (the min-[400px] classes below);
+   * five options and six-in-one-row keep a single row, where a vertical
+   * arrow wraps to the same tile (the pre-v3 behaviour). Read at event time
+   * — a resize between keydowns must not act on a stale column count.
+   */
+  const renderedColumns = useCallback(() => {
+    if (optionCount === 6 && typeof window !== "undefined" && !window.matchMedia("(min-width: 400px)").matches) {
+      return 3;
+    }
+    return optionCount;
+  }, [optionCount]);
   const focusTile = useCallback(
     (index: number) => {
       if (options.length === 0) return;
@@ -94,17 +110,17 @@ export function CognitiveResponse({
           break;
         case "ArrowDown":
           event.preventDefault();
-          focusTile(index + 5);
+          focusTile(index + renderedColumns());
           break;
         case "ArrowUp":
           event.preventDefault();
-          focusTile(index - 5);
+          focusTile(index - renderedColumns());
           break;
         default:
           break;
       }
     },
-    [focusTile],
+    [focusTile, renderedColumns],
   );
 
   return (
@@ -141,7 +157,11 @@ export function CognitiveResponse({
       <div
         role="radiogroup"
         aria-label="Answer options"
-        className="grid grid-cols-5 gap-2"
+        className={
+          options.length === 6
+            ? "grid grid-cols-3 gap-2 min-[400px]:grid-cols-6 min-[400px]:gap-1.5 sm:gap-2"
+            : "grid grid-cols-5 gap-2"
+        }
         style={{ width: "var(--cog-size)" }}
       >
         {options.map((option, index) => {

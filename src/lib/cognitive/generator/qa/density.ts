@@ -20,7 +20,7 @@
  * doc §7.3/§10.2 "round-trip through the renderer".
  */
 import type { Element, LayerName, RenderDirectives } from '../../spec/schema'
-import { shapeGeometry, hatchSegments } from '../../render/primitives'
+import { shapeGeometry, hatchSegments, RING_SIZE } from '../../render/primitives'
 import { signedArea } from '../../render/geometry'
 import { renderCellSvg } from '../../render/matrix-svg'
 import { type CellLike, cellComplexity } from '../axes'
@@ -31,10 +31,23 @@ const CANVAS_AREA = 100 * 100
 
 function shapeArea(shape: string, size: number): number {
   if (shape === 'circle') return Math.PI * (size / 2) ** 2
-  const n = shape === 'square' || shape === 'diamond' ? 4 : shape === 'triangle' ? 3 : shape === 'pentagon' ? 5 : 0
-  if (n === 0) return size * size * 0.5 // arrow — rough closed-polygon estimate, adequate for the coverage band check
+  // Arrow keeps its v1 rough estimate (the coverage band was tuned against
+  // it; the exact polygon is ~0.16·size² and would push M arrows under the
+  // floor). Every other shape — v1 regular polygons and the v3 additions —
+  // uses the exact shoelace area of its render polygon (all are simple).
+  if (shape === 'arrow') return size * size * 0.5
   const geom = shapeGeometry(shape as never, 0, 0, size, 0)
   return geom.kind === 'polygon' ? Math.abs(signedArea(geom.points)) : Math.PI * (size / 2) ** 2
+}
+
+/** Perimeter-ish ink for an outline ring: ~3.5·width for every admissible ring shape. */
+function ringInk(shape: string, width: number, fill: string, strokeWidth: number): number {
+  const perimeter = shape === 'circle' ? Math.PI * width : shape === 'hexagon' ? 6 * (width / Math.sqrt(3)) : 4 * (shape === 'diamond' ? width / Math.SQRT2 : width)
+  const area = shapeArea(shape, width)
+  if (fill === 'solid') return area
+  if (fill === 'grey') return 0.45 * area + perimeter * strokeWidth
+  if (fill === 'hatched') return 0.3 * area + perimeter * strokeWidth
+  return perimeter * strokeWidth
 }
 
 /** Analytic ink area for one element, in canvas-unit^2 (before /CANVAS_AREA normalisation). */
@@ -54,6 +67,14 @@ export function elementInkArea(el: Element, strokeWidth: number): number {
       // Each mini-cell is 8×8 units; black cells are solid fill, hatched cells are
       // approximately equivalent. Total ink = (black + hatched cell count) × 64.
       return (el.black.length + el.hatched.length) * 64
+    case 'strokes':
+      // Straight strokes are 70 units; arcs are half the 70-unit circle (≈110).
+      return el.strokes.reduce((sum, k) => sum + (k === 'ARC_T' || k === 'ARC_B' ? Math.PI * 35 : 70) * strokeWidth, 0)
+    case 'nest':
+      return el.rings.reduce((sum, ring) => {
+        const idx = ring === 'R1' ? 0 : ring === 'R2' ? 1 : 2
+        return sum + ringInk(el.ringShapes[idx], RING_SIZE[ring], el.ringFills[idx], strokeWidth)
+      }, 0)
   }
 }
 
@@ -78,7 +99,7 @@ export function cellInkFraction(cell: CellLike, strokeWidth: number): number {
  * still applies to every cell regardless of composition.
  */
 function isLineOnlyCell(cell: CellLike): boolean {
-  return cell.elements.length > 0 && cell.elements.every((el) => el.type === 'bars' || el.type === 'tick')
+  return cell.elements.length > 0 && cell.elements.every((el) => el.type === 'bars' || el.type === 'tick' || el.type === 'strokes')
 }
 
 export interface DensityGateResult {
@@ -90,8 +111,9 @@ const INK_MIN = 0.04
 const INK_MAX = 0.38
 const INK_VARIANCE_MAX = 4.0
 
+/** Bitgrid, nest and stroke cells: set-valued rule axes whose per-cell ink is the rule's own signal (see inkCoverageGate) — one ring vs three, one stroke vs four, is what the item shows, not clutter. A lone 24-unit ring or a single 70-unit stroke is legible by construction (well above minElementUnits), so the area floor does not apply either. */
 function isBitgridCell(cell: CellLike): boolean {
-  return cell.elements.length > 0 && cell.elements.some((el) => el.type === 'bitgrid')
+  return cell.elements.length > 0 && cell.elements.some((el) => el.type === 'bitgrid' || el.type === 'nest' || el.type === 'strokes')
 }
 
 /**
@@ -167,6 +189,11 @@ function boundsOf(el: Element): { minX: number; minY: number; maxX: number; maxY
     const end = start + gridSize // 63 units
     return { minX: start, maxX: end, minY: start, maxY: end }
   }
+  if (el.type === 'nest') {
+    const w = Math.max(...el.rings.map((r) => RING_SIZE[r]))
+    return { minX: 50 - w / 2, maxX: 50 + w / 2, minY: 50 - w / 2, maxY: 50 + w / 2 }
+  }
+  if (el.type === 'strokes') return { minX: 15, maxX: 85, minY: 15, maxY: 85 }
   return null
 }
 function areaOf(b: { minX: number; minY: number; maxX: number; maxY: number }): number {
@@ -200,7 +227,7 @@ export function renderLegibilityGate(cell: CellLike, render: RenderDirectives): 
 
   for (const el of cell.elements) {
     if (el.type === 'shape' && el.fill === 'hatched') {
-      const geom = shapeGeometry(el.shape, 50, 50, SIZE_PX[el.size], el.rotation)
+      const geom = shapeGeometry(el.shape, 50, 50, SIZE_PX[el.size], el.rotation, el.flip ?? 'none')
       const segs = hatchSegments(geom, render.hatchPitch)
       const tooShort = segs.some(([a, b]) => Math.hypot(b[0] - a[0], b[1] - a[1]) < 2)
       if (tooShort) return { status: 'fail', detail: { reason: 'HATCH_RUN_TOO_SHORT' } }

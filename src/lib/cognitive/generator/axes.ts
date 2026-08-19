@@ -134,6 +134,12 @@ export function readAxis(cell: CellLike, axis: AxisId): AxisValue | null {
       return el.type === 'bitgrid' ? setVal(el.black.map((x) => x.toString())) : null
     case 'hatched':
       return el.type === 'bitgrid' ? setVal(el.hatched.map((x) => x.toString())) : null
+    case 'flip':
+      return el.type === 'shape' ? enumVal(el.flip ?? 'none') : null
+    case 'strokes':
+      return el.type === 'strokes' ? setVal(el.strokes) : null
+    case 'rings':
+      return el.type === 'nest' ? setVal(el.rings) : null
     default:
       return null
   }
@@ -151,6 +157,7 @@ export function axesPresentIn(cell: CellLike): AxisId[] {
         out.add(makeAxisId(layer, 'size'))
         out.add(makeAxisId(layer, 'rotation'))
         out.add(makeAxisId(layer, 'anchor'))
+        out.add(makeAxisId(layer, 'flip'))
         break
       case 'repeat':
         out.add(makeAxisId(layer, 'shape'))
@@ -175,6 +182,12 @@ export function axesPresentIn(cell: CellLike): AxisId[] {
         out.add(makeAxisId(layer, 'black'))
         out.add(makeAxisId(layer, 'hatched'))
         break
+      case 'strokes':
+        out.add(makeAxisId(layer, 'strokes'))
+        break
+      case 'nest':
+        out.add(makeAxisId(layer, 'rings'))
+        break
     }
   }
   return [...out]
@@ -188,6 +201,8 @@ export function cellComplexity(cell: CellLike): number {
     else if (el.type === 'bars') n += el.bars.length
     else if (el.type === 'dots') n += el.anchors.length
     else if (el.type === 'bitgrid') n += el.black.length + el.hatched.length
+    else if (el.type === 'strokes') n += el.strokes.length
+    else if (el.type === 'nest') n += el.rings.length
     else n += 1
   }
   return n

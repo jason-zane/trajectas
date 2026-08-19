@@ -8,6 +8,15 @@
  * pattern). `arrow` has rotational symmetry order 1 (doc 03-item-
  * generation-pipeline.md §3.5's SYMMETRY_INVISIBLE table), so no step
  * choice here can make a rotation invisible.
+ *
+ * SIX OPTIONS (v3): five distractors with mechanisms IR (stall at R2C3),
+ * PM (stalled rotation with altFill), WR (wrong step rule), and RP
+ * (repetition from R3C2, plus a second RP from R2C2). Rotation multiset:
+ * {key, irVal, irVal, wrVal, rpVal, rp2Val} where irVal appears 2x (modal
+ * on numeric axis, but key not modal). Modal hit rate P(hit) = 0 if key
+ * rotation not in {irVal, rpVal, rp2Val}. Complexity spread over 6 rotation
+ * values, with fill variation (solid, outline, hatched) on first two
+ * rotation values only.
  */
 import type { Element, RuleSpec } from '../../spec/schema'
 import { numVal } from '../axes'
@@ -22,16 +31,22 @@ const STEP_ROW_MAG = 90
 
 const FILLS = ['outline', 'solid', 'hatched'] as const
 
+/** Glyphs with rotational-symmetry order 1 (qa/degeneracy.ts SHAPE_SYMMETRY_ORDER), so no 45° step is ever invisible. v3 widened the set from the arrow alone. */
+const GLYPHS = ['arrow', 'flag', 'trapezoid', 'lshape'] as const
+type Glyph = (typeof GLYPHS)[number]
+
 export interface M2Params {
   base: number
   stepCol: number // +-45
   stepRow: number // +-90
   fill: (typeof FILLS)[number]
   altFill: (typeof FILLS)[number]
+  glyph: Glyph
 }
 
-function arrowCell(rotation: number, fill: (typeof FILLS)[number] = 'outline'): Element[] {
-  return [{ type: 'shape', layer: 'outer', shape: 'arrow', fill, size: 'M', anchor: 'CTR', rotation: ((rotation % 360) + 360) % 360 }]
+/** Size L: the flag's ink at M sits under qa/density.ts's 4% floor; at L every glyph clears it and a 45° turn still fits the cell. */
+function arrowCell(rotation: number, fill: (typeof FILLS)[number] = 'outline', glyph: Glyph = 'arrow'): Element[] {
+  return [{ type: 'shape', layer: 'outer', shape: glyph, fill, size: 'L', anchor: 'CTR', rotation: ((rotation % 360) + 360) % 360 }]
 }
 
 export const LRM_ROT: FamilyTemplate<M2Params> = {
@@ -59,10 +74,10 @@ export const LRM_ROT: FamilyTemplate<M2Params> = {
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
   // IR and its fill-varied twin below SHARE one wrong rotation value (see
   // the family-level comment on why a single-axis item needs a paired wrong
-  // value at all, and why one pair is enough here — unlike LRM-PROG-COUNT,
-  // which needed two pairs because it has no secondary incidental besides
-  // shape to carry a twin on).
-  distractorPlan: ['IR', 'PM', 'WR', 'RP'],
+  // value at all, and why one pair is enough here). For six options, a
+  // second RP is added from R2C2 (different row/column, different rotation
+  // value than the first RP).
+  distractorPlan: ['IR', 'PM', 'WR', 'RP', 'RP'],
   sampleParams(rng: Rng): M2Params {
     const base = rng.int(0, 7) * 45
     // FINDING: only two of the four (colSign, rowSign) combinations are
@@ -78,12 +93,13 @@ export const LRM_ROT: FamilyTemplate<M2Params> = {
     const sign = rng.pick([1, -1])
     const fill = rng.pick(FILLS)
     const altFill = rng.pick(FILLS.filter((f) => f !== fill))
-    return { base, stepCol: STEP_COL_MAG * sign, stepRow: STEP_ROW_MAG * sign, fill, altFill }
+    const glyph = rng.pick(GLYPHS)
+    return { base, stepCol: STEP_COL_MAG * sign, stepRow: STEP_ROW_MAG * sign, fill, altFill, glyph }
   },
   buildCell(values, params) {
     const v = values[AXIS]
     if (v.t !== 'num') throw new Error('outer.rotation must be numeric')
-    return arrowCell(v.v, params.fill)
+    return arrowCell(v.v, params.fill, params.glyph)
   },
   buildDistractors(ctx: DistractorCtx<M2Params>) {
     const { params } = ctx
@@ -94,24 +110,31 @@ export const LRM_ROT: FamilyTemplate<M2Params> = {
     // the previous row's value for this column (drops the row offset).
     const irVal = ctx.valueAt(AXIS, 2, 3)
     if (irVal.t !== 'num') throw new Error('outer.rotation must be numeric')
-    const ir = incompleteRule('stall:outer.rotation@prevRow', arrowCell(irVal.v, params.fill), AXIS, key, irVal)
+    const ir = incompleteRule('stall:outer.rotation@prevRow', arrowCell(irVal.v, params.fill, params.glyph), AXIS, key, irVal)
 
     // PM: the SAME stalled rotation as IR, but with the wrong fill — a
     // chimera of "the stalled angle" and "a fill that doesn't belong to any
     // cell showing that angle". Pairs with IR on the rule axis (context-blind repair).
-    const pm = chimera('stall:outer.rotation@prevRow+wrongFill', arrowCell(irVal.v, params.altFill), irVal.v === key.v ? [] : [AXIS])
+    const pm = chimera('stall:outer.rotation@prevRow+wrongFill', arrowCell(irVal.v, params.altFill, params.glyph), irVal.v === key.v ? [] : [AXIS])
 
     // WR (doc option A): over-rotation — applies the ROW step magnitude instead of the column step for the final column increment.
     const wrVal = (((key.v - params.stepCol + params.stepRow) % 360) + 360) % 360
-    const wr = { elements: arrowCell(wrVal, params.fill), label: 'WR' as const, mechanism: 'wrongRule:appliesRowStepAsColumnStep', wrongAxes: wrVal === key.v ? [] : [AXIS] }
+    const wr = { elements: arrowCell(wrVal, params.fill, params.glyph), label: 'WR' as const, mechanism: 'wrongRule:appliesRowStepAsColumnStep', wrongAxes: wrVal === key.v ? [] : [AXIS] }
 
     // RP (doc option B): repetition of R3C2 — the "no change" default.
     const rpVal = ctx.valueAt(AXIS, 3, 2)
     if (rpVal.t !== 'num') throw new Error('outer.rotation must be numeric')
-    const rp = repetition('copyCell:R3C2', arrowCell(rpVal.v, params.fill), rpVal.v === key.v ? [] : [AXIS])
+    const rp = repetition('copyCell:R3C2', arrowCell(rpVal.v, params.fill, params.glyph), rpVal.v === key.v ? [] : [AXIS])
 
-    return [ir, pm, wr, rp]
+    // RP2: repetition of R2C2 — alternative diagonal position with different
+    // rotation value, adding structural diversity without changing the modal
+    // value (which is already irVal, held by both IR and PM).
+    const rp2Val = ctx.valueAt(AXIS, 2, 2)
+    if (rp2Val.t !== 'num') throw new Error('outer.rotation must be numeric')
+    const rp2 = repetition('copyCell:R2C2', arrowCell(rp2Val.v, params.fill, params.glyph), rp2Val.v === key.v ? [] : [AXIS])
+
+    return [ir, pm, wr, rp, rp2]
   },
-  nonCardinalAsymmetricRotation: () => true, // step magnitude 45deg on an asymmetric element (arrow) — doc 03-logical-reasoning-design.md §4.4's non-cardinal bump applies.
-  structuralExtra: (params: M2Params) => ({ fill: params.fill, altFill: params.altFill }),
+  nonCardinalAsymmetricRotation: () => true, // step magnitude 45deg on an asymmetric element (arrow/flag/trapezoid/L) — doc 03-logical-reasoning-design.md §4.4's non-cardinal bump applies.
+  structuralExtra: (params: M2Params) => ({ fill: params.fill, altFill: params.altFill, glyph: params.glyph }),
 }

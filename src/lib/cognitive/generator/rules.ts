@@ -17,9 +17,10 @@
  *    independent check rather than the generator grading its own homework.
  */
 import { type AxisId, type AxisLattice, type AxisValue, axisEq, axisKey, distinctValueCount, enumVal, numVal, setVal } from './axes'
+import { FLIP_MATRIX, type FlipState } from '../render/geometry'
 
 export type Direction = 'row' | 'column' | 'both' | 'row_operator' | 'column_operator'
-export type CandidateRuleId = 'R0' | 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | `PROBE_${string}`
+export type CandidateRuleId = 'R0' | 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R10' | 'R11' | 'R12' | `PROBE_${string}`
 
 export interface AxisRule {
   readonly id: CandidateRuleId
@@ -214,9 +215,9 @@ export function latinSquareRule(axis: AxisId, values: readonly AxisValue[]): Axi
 // ---------------------------------------------------------------------------
 // R4 / R5 / R7 — binary set operators applied along rows or columns.
 // ---------------------------------------------------------------------------
-export type SetOp = 'union' | 'difference' | 'reverseDifference' | 'symdiff'
+export type SetOp = 'union' | 'difference' | 'reverseDifference' | 'symdiff' | 'intersection'
 
-function applySetOp(op: SetOp, a: readonly string[], b: readonly string[]): readonly string[] {
+export function applySetOp(op: SetOp, a: readonly string[], b: readonly string[]): readonly string[] {
   const A = new Set(a)
   const B = new Set(b)
   switch (op) {
@@ -228,10 +229,13 @@ function applySetOp(op: SetOp, a: readonly string[], b: readonly string[]): read
       return b.filter((x) => !A.has(x)).sort()
     case 'symdiff':
       return [...a.filter((x) => !B.has(x)), ...b.filter((x) => !A.has(x))].sort()
+    case 'intersection':
+      return a.filter((x) => B.has(x)).sort()
   }
 }
 
-const OP_TO_RULE_ID: Record<SetOp, CandidateRuleId> = { union: 'R4', difference: 'R5', reverseDifference: 'R5', symdiff: 'R7' }
+/** R11 intersection (v3 build plan §2; BOLT's AND) joins the set-operator family. */
+const OP_TO_RULE_ID: Record<SetOp, CandidateRuleId> = { union: 'R4', difference: 'R5', reverseDifference: 'R5', symdiff: 'R7', intersection: 'R11' }
 
 export function setOperatorRule(axis: AxisId, op: SetOp, direction: 'row_operator' | 'column_operator'): AxisRule {
   const operandsOf = (lat: AxisLattice, r: number, c: number): [AxisValue | null, AxisValue | null] =>
@@ -259,6 +263,124 @@ export function setOperatorRule(axis: AxisId, op: SetOp, direction: 'row_operato
       const [x, y] = operandsOf(lat, row, col)
       if (!x || !y || x.t !== 'set' || y.t !== 'set') return null
       return setVal(applySetOp(op, x.v, y.v))
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// R10 — reflection as an OPERATION (v3 build plan §2). A shape's orientation
+// state is one of the eight elements of the dihedral group D4 (spec/schema.ts
+// `Flip`; matrices in render/geometry.ts). Along the operator direction,
+// cell 2 = reflect(cell 1, axis1) and cell 3 = reflect(cell 2, axis2), with
+// the same (axis1, axis2) in every row (or column) and each row's starting
+// orientation free. Reflection axes: vertical (h), horizontal (v), the two
+// diagonals (d1, d2). Two successive reflections compose to a rotation, so
+// the three cells of a line are always three distinct orientations of the
+// glyph. This is what "mirror it about …, then about …" means as a matrix
+// rule; it is deliberately NOT a ladder over fixed states (a ladder would
+// make column 3 a constant, copyable from the rows above — the shortcut the
+// first pilot taught us to design out).
+// ---------------------------------------------------------------------------
+export type { FlipState }
+export type FlipOp = 'h' | 'v' | 'd1' | 'd2'
+export const FLIP_OPS: readonly FlipOp[] = ['h', 'v', 'd1', 'd2']
+const FLIP_STATES = Object.keys(FLIP_MATRIX) as FlipState[]
+
+/** The state reached by applying `a` and THEN `b` (matrix product M_b · M_a). */
+export function composeFlip(a: FlipState, b: FlipState): FlipState {
+  const [a1, b1, c1, d1] = FLIP_MATRIX[a]
+  const [a2, b2, c2, d2] = FLIP_MATRIX[b]
+  const m: [number, number, number, number] = [a2 * a1 + b2 * c1, a2 * b1 + b2 * d1, c2 * a1 + d2 * c1, c2 * b1 + d2 * d1]
+  const found = FLIP_STATES.find((st) => FLIP_MATRIX[st].every((x, i) => x === m[i]))
+  if (!found) throw new Error(`D4 composition left the group: ${a} then ${b}`)
+  return found
+}
+
+export function reflectionRule(axis: AxisId, op1: FlipOp, op2: FlipOp, direction: 'row' | 'column'): AxisRule {
+  const asFlip = (v: AxisValue | null): FlipState | null => (v && v.t === 'enum' && v.v in FLIP_MATRIX ? (v.v as FlipState) : null)
+  // Position along the operator direction (1..3) and the line index.
+  const pos = (r: number, c: number) => (direction === 'row' ? c : r)
+  const lineOf = (r: number, c: number) => (direction === 'row' ? r : c)
+  const at = (lat: AxisLattice, line: number, p: number) => (direction === 'row' ? lat[line - 1][p - 1] : lat[p - 1][line - 1])
+  // State at position p given the state at position q in the same line.
+  const transport = (state: FlipState, from: number, to: number): FlipState => {
+    let s = state
+    if (from < to) {
+      for (let p = from; p < to; p++) s = composeFlip(s, p === 1 ? op1 : op2)
+    } else {
+      for (let p = from; p > to; p--) s = composeFlip(s, p === 2 ? op1 : op2) // inverse of a reflection is itself
+    }
+    return s
+  }
+  return {
+    id: 'R10',
+    axis,
+    direction,
+    label: `reflect(${axis},${direction},${op1}>${op2})`,
+    explains(lat) {
+      let any = false
+      for (let line = 1; line <= 3; line++) {
+        const obs = [1, 2, 3].map((p) => ({ p, v: asFlip(at(lat, line, p)) })).filter((x) => x.v !== null) as { p: number; v: FlipState }[]
+        if (obs.length === 0) continue
+        // Every observed pair in the line must be consistent with transport from the first.
+        const base = obs[0]
+        for (const o of obs) {
+          any = true
+          if (transport(base.v, base.p, o.p) !== o.v) return false
+        }
+      }
+      // Reject if any observed cell is not a flip value at all.
+      for (const c of cellsOf(lat)) if (asFlip(c.v) === null) return false
+      return any
+    },
+    implies(lat, row, col) {
+      const line = lineOf(row, col)
+      const p = pos(row, col)
+      const obs = [1, 2, 3].map((q) => ({ q, v: asFlip(at(lat, line, q)) })).filter((x) => x.v !== null && x.q !== p) as { q: number; v: FlipState }[]
+      if (obs.length === 0) return null
+      return enumVal(transport(obs[0].v, obs[0].q, p))
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// R12 — count arithmetic (v3 build plan §2): along the operator direction,
+// cell 3 = cell 1 + cell 2 (or cell 1 − cell 2) on a numeric axis. Distinct
+// from a progression unless cell 1 = step, which the families avoid.
+// ---------------------------------------------------------------------------
+export type ArithmeticOp = 'sum' | 'difference'
+
+export function arithmeticRule(axis: AxisId, op: ArithmeticOp, direction: 'row_operator' | 'column_operator'): AxisRule {
+  const operandsOf = (lat: AxisLattice, r: number, c: number): [AxisValue | null, AxisValue | null] =>
+    direction === 'row_operator' ? [lat[r - 1][0], lat[r - 1][1]] : [lat[0][c - 1], lat[1][c - 1]]
+  const isTarget = (r: number, c: number) => (direction === 'row_operator' ? c : r) === 3
+  const apply = (a: number, b: number) => (op === 'sum' ? a + b : a - b)
+  return {
+    id: 'R12',
+    axis,
+    direction,
+    label: `${op}(${axis},${direction})`,
+    explains(lat) {
+      let any = false
+      for (let r = 1; r <= 3; r++)
+        for (let c = 1; c <= 3; c++) {
+          if (!isTarget(r, c)) continue
+          const obs = lat[r - 1][c - 1]
+          if (!obs) continue
+          const [x, y] = operandsOf(lat, r, c)
+          if (!x || !y || x.t !== 'num' || y.t !== 'num' || obs.t !== 'num') return false
+          if (apply(x.v, y.v) !== obs.v) return false
+          any = true
+        }
+      return any
+    },
+    implies(lat, row, col) {
+      if (!isTarget(row, col)) return null
+      const [x, y] = operandsOf(lat, row, col)
+      if (!x || !y || x.t !== 'num' || y.t !== 'num') return null
+      const v = apply(x.v, y.v)
+      // A count below one is not drawable, so no reading is implied.
+      return v >= 1 ? numVal(v) : null
     },
   }
 }
@@ -373,7 +495,7 @@ export function accidentalRegularityProbes(axis: AxisId): AxisRule[] {
 // ---------------------------------------------------------------------------
 // Domain description + rule-space enumeration for Level A verification.
 // ---------------------------------------------------------------------------
-export type AxisKind = 'numeric-linear' | 'numeric-angle' | 'ordered-enum' | 'unordered-enum' | 'set'
+export type AxisKind = 'numeric-linear' | 'numeric-angle' | 'ordered-enum' | 'unordered-enum' | 'set' | 'reflection'
 
 export interface AxisDomain {
   kind: AxisKind
@@ -411,6 +533,27 @@ export function ruleSpaceFor(axis: AxisId, domain: AxisDomain, observed: AxisLat
         out.push(progressionRule(axis, ladder, stepCol, stepRow))
       }
     }
+    // R12 count arithmetic, both operations, both directions (v3). Where a
+    // progression and a sum both explain a grid they imply the same (3,3)
+    // value (only when base = step and stepRow = 0), so adding these never
+    // makes an already-unique progression item ambiguous.
+    for (const op of ['sum', 'difference'] as const) {
+      out.push(arithmeticRule(axis, op, 'row_operator'))
+      out.push(arithmeticRule(axis, op, 'column_operator'))
+    }
+  }
+
+  if (domain.kind === 'reflection') {
+    for (const op1 of FLIP_OPS)
+      for (const op2 of FLIP_OPS) {
+        out.push(reflectionRule(axis, op1, op2, 'row'))
+        out.push(reflectionRule(axis, op1, op2, 'column'))
+      }
+    // A solver might also read the three flip states as a distribution.
+    if (distinctValueCount(observed) === 3) {
+      const values = uniqueValues(observed)
+      if (values.length === 3) out.push(latinSquareRule(axis, values))
+    }
   }
 
   if (domain.kind === 'numeric-angle') {
@@ -446,7 +589,7 @@ export function ruleSpaceFor(axis: AxisId, domain: AxisDomain, observed: AxisLat
   }
 
   if (domain.kind === 'set') {
-    const ops: SetOp[] = ['union', 'difference', 'reverseDifference', 'symdiff']
+    const ops: SetOp[] = ['union', 'difference', 'reverseDifference', 'symdiff', 'intersection']
     for (const op of ops) {
       out.push(setOperatorRule(axis, op, 'row_operator'))
       out.push(setOperatorRule(axis, op, 'column_operator'))

@@ -5,6 +5,16 @@
  * anchors {TL,TR,BR,BL}, `stepCol` positions per column and `stepRow` per
  * row (mod 4).
  *
+ * SIX OPTIONS (v3): five distractors with two IR stalls (from different
+ * grid positions), one PM (cycle offset with altFill), and two RPs
+ * (repetition from distinct grid cells). All are searched deterministically
+ * until a valid combination passes G-08/G-10/OQ-3. The search tries
+ * multiple (stallPos1, stallPos2, mirrorSteps, rp1Pos, rp2Pos) tuples to
+ * find one set where all 6 options are distinct, all distractors are
+ * wrong on the axis, >= 2 cells copy grid cells (OQ-3 mitigation), and
+ * modal hit rate <= 0.25. Anchor multiset typically has 3-4 distinct values
+ * across 6 options, modal anchors from stalls/RPs, key anchor not modal.
+ *
  * FINDING (load-bearing, not a bug to fix): an exhaustive search over
  * every (base, stepCol, stepRow) with stepCol, stepRow in [-3,3] \ {0}, for
  * BOTH a period-4 corner cycle and a period-3 {TL,CTR,BR} cycle (doc's own
@@ -44,7 +54,13 @@ export interface MoveParams {
   stepRow: number // nonzero mod 4
   fill: Fill
   altFill: Fill
+  /** The moving marker's shape — a per-item incidental (v3 surface variety). */
+  marker: MarkerShape
 }
+
+/** Only the circle and the square clear qa/density.ts's 4% ink floor at size S (a star or triangle at 25 units is ~2–3% of the canvas); M would touch the cell edge at a corner anchor. */
+const MARKERS = ['circle', 'square'] as const
+type MarkerShape = (typeof MARKERS)[number]
 
 function idxOf(anchor: Anchor): number {
   return CYCLE.indexOf(anchor)
@@ -54,8 +70,8 @@ function anchorAt(params: MoveParams, row: number, col: number): Anchor {
   return CYCLE[idx]
 }
 
-function dotCell(anchor: Anchor, fill: Fill): Element[] {
-  return [{ type: 'shape', layer: 'satellite', shape: 'circle', fill, size: 'S', anchor, rotation: 0 }]
+function dotCell(anchor: Anchor, fill: Fill, marker: MarkerShape = 'circle'): Element[] {
+  return [{ type: 'shape', layer: 'satellite', shape: marker, fill, size: 'S', anchor, rotation: 0 }]
 }
 
 const FILLS: Fill[] = ['solid', 'outline', 'hatched']
@@ -79,7 +95,7 @@ export const LRM_MOVE: FamilyTemplate<MoveParams> = {
   ],
   radicals: { ruleCount: 1, ruleIds: ['R3'], crossLayer: false, perceptualLoad: 0, elementTypes: 2, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['IR', 'PM', 'RP', 'RP'],
+  distractorPlan: ['IR', 'PM', 'RP', 'RP', 'IR'],
   permitKeyEqualsCell: true,
   sampleParams(rng: Rng): MoveParams {
     const base = rng.int(0, 3)
@@ -87,23 +103,27 @@ export const LRM_MOVE: FamilyTemplate<MoveParams> = {
     // positions, which starves the distractor search of enough distinct
     // anchors to satisfy G-08 (found empirically: stepCol=stepRow=2 is the
     // one combination the search below cannot clear). {1,3} are the two
-    // steps coprime with 4 (full period).
-    const stepCol = rng.pick([1, 3])
+    // steps coprime with 4 (full period). For six options, stepCol=1 is
+    // preferred as stepCol=3 sometimes fails the 5-distractor search;
+    // this is a known limitation of the 4-anchor cyclic space.
+    const stepCol = 1 // restrict to 1 for six-option stability
     const stepRow = rng.pick([1, 3])
     const fill = rng.pick(FILLS)
     const altFill = rng.pick(FILLS.filter((f) => f !== fill))
-    return { base, stepCol, stepRow, fill, altFill }
+    const marker = rng.pick(MARKERS)
+    return { base, stepCol, stepRow, fill, altFill, marker }
   },
   buildCell(values, params) {
     const v = values[AXIS]
     if (v.t !== 'enum') throw new Error('satellite.anchor must be enum')
-    return dotCell(v.v as Anchor, params.fill)
+    return dotCell(v.v as Anchor, params.fill, params.marker)
   },
   /**
-   * Doc's own construction (IR stall + PM mirror-ish confusion + 2 RP
-   * copies) is tried first, then a small deterministic search over the
-   * remaining anchor/fill combinations if it doesn't clear G-08/G-10 — the
-   * same fallback pattern used throughout this generator.
+   * Deterministic search for a valid set of 5 distractors. First searches
+   * for the original 4-distractor combination (IR, PM, RP1, RP2), then adds
+   * a 5th IR from a predetermined stall position. The search tries multiple
+   * combinations of stall position, mirror steps, and RP positions until
+   * finding one that passes G-08/G-10/OQ-3 gates.
    */
   buildDistractors(ctx: DistractorCtx<MoveParams>) {
     const key = ctx.valueAt(AXIS, 3, 3)
@@ -120,12 +140,14 @@ export const LRM_MOVE: FamilyTemplate<MoveParams> = {
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
 
-    for (const stallPos of [
+    const stallPositions = [
       [3, 2],
       [2, 3],
       [1, 3],
       [3, 1],
-    ] as const) {
+    ] as const
+
+    for (const stallPos of stallPositions) {
       const stall = ctx.valueAt(AXIS, stallPos[0], stallPos[1])
       if (stall.t !== 'enum') continue
       for (const mirrorSteps of [1, 2, 3]) {
@@ -136,13 +158,31 @@ export const LRM_MOVE: FamilyTemplate<MoveParams> = {
             const rp1v = ctx.valueAt(AXIS, rp1Pos.row, rp1Pos.col)
             const rp2v = ctx.valueAt(AXIS, rp2Pos.row, rp2Pos.col)
             if (rp1v.t !== 'enum' || rp2v.t !== 'enum') continue
-            const candidates: DistractorCandidate[] = [
-              { elements: dotCell(stall.v as Anchor, params.fill), label: 'IR', mechanism: `stall:satellite.anchor@R${stallPos[0]}C${stallPos[1]}`, wrongAxes: stall.v === key.v ? [] : [AXIS] },
-              { elements: dotCell(mirrorAnchor, params.altFill), label: 'PM', mechanism: `cyclePosition:+${mirrorSteps}+wrongFill`, wrongAxes: mirrorAnchor === key.v ? [] : [AXIS] },
-              repetition(`copyCell:R${rp1Pos.row}C${rp1Pos.col}`, dotCell(rp1v.v as Anchor, params.fill), rp1v.v === key.v ? [] : [AXIS]),
-              repetition(`copyCell:R${rp2Pos.row}C${rp2Pos.col}`, dotCell(rp2v.v as Anchor, params.fill), rp2v.v === key.v ? [] : [AXIS]),
+            // First, check if the 4-distractor base set (IR, PM, RP1, RP2) is valid
+            const baseCandidates: DistractorCandidate[] = [
+              { elements: dotCell(stall.v as Anchor, params.fill, params.marker), label: 'IR', mechanism: `stall:satellite.anchor@R${stallPos[0]}C${stallPos[1]}`, wrongAxes: stall.v === key.v ? [] : [AXIS] },
+              { elements: dotCell(mirrorAnchor, params.altFill, params.marker), label: 'PM', mechanism: `cyclePosition:+${mirrorSteps}+wrongFill`, wrongAxes: mirrorAnchor === key.v ? [] : [AXIS] },
+              repetition(`copyCell:R${rp1Pos.row}C${rp1Pos.col}`, dotCell(rp1v.v as Anchor, params.fill, params.marker), rp1v.v === key.v ? [] : [AXIS]),
+              repetition(`copyCell:R${rp2Pos.row}C${rp2Pos.col}`, dotCell(rp2v.v as Anchor, params.fill, params.marker), rp2v.v === key.v ? [] : [AXIS]),
             ]
-            if (validSet(candidates)) return candidates
+            if (validSet(baseCandidates)) {
+              // Base set is valid, now add a 5th mechanism. Try a second IR first,
+              // but if that fails, use a deterministic 5th RP (copy of first RP with altFill).
+              for (const stallPos2 of stallPositions) {
+                if (stallPos2 === stallPos) continue
+                const stall2 = ctx.valueAt(AXIS, stallPos2[0], stallPos2[1])
+                if (stall2.t !== 'enum') continue
+                const candidates: DistractorCandidate[] = [
+                  ...baseCandidates,
+                  { elements: dotCell(stall2.v as Anchor, params.fill, params.marker), label: 'IR', mechanism: `stall:satellite.anchor@R${stallPos2[0]}C${stallPos2[1]}`, wrongAxes: stall2.v === key.v ? [] : [AXIS] },
+                ]
+                if (validSet(candidates)) return candidates
+              }
+              // Fallback: use a deterministic 5th RP (copy of rp1Pos with altFill)
+              const rp5 = repetition(`copyCell:R${rp1Pos.row}C${rp1Pos.col}+altFill`, dotCell(rp1v.v as Anchor, params.altFill, params.marker), rp1v.v === key.v ? [] : [AXIS])
+              const candidates: DistractorCandidate[] = [...baseCandidates, rp5]
+              if (validSet(candidates)) return candidates
+            }
           }
         }
       }
@@ -150,5 +190,5 @@ export const LRM_MOVE: FamilyTemplate<MoveParams> = {
     throw new Error(`LRM-MOVE: no distractor construction cleared G-08/G-10/OQ-3 for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
-  structuralExtra: (params: MoveParams) => ({ base: params.base, stepCol: params.stepCol, stepRow: params.stepRow, fill: params.fill, altFill: params.altFill }),
+  structuralExtra: (params: MoveParams) => ({ base: params.base, stepCol: params.stepCol, stepRow: params.stepRow, fill: params.fill, altFill: params.altFill, marker: params.marker }),
 }

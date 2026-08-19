@@ -50,6 +50,13 @@ const W: Partial<Record<RuleId, number>> = {
   R5: 0.8,
   R6: 0.9,
   R7: 1.6,
+  // v3 build plan §2: reflection sits between rotation (0.3) and movement
+  // (0.6) — harder to track than a turn (Mittring & Rost's reflection items
+  // outrank rotation items); intersection is a set operator like union (0.8);
+  // count arithmetic is a numeric operator a notch under it.
+  R10: 0.5,
+  R11: 0.8,
+  R12: 0.7,
 }
 
 const BETA0 = -2.0

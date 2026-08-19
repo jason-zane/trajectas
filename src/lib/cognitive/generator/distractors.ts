@@ -173,22 +173,32 @@ function mostKeyDominatedAxis(cells: readonly CellLike[], keyIndex: number, axes
 }
 
 export interface PlacedOption {
-  slot: 'A' | 'B' | 'C' | 'D' | 'E'
+  slot: 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
   elements: Element[]
   isKey: boolean
   label: ErrorLabel | null
   mechanism: string | null
 }
 
-const SLOTS: PlacedOption['slot'][] = ['A', 'B', 'C', 'D', 'E']
+const SLOTS: PlacedOption['slot'][] = ['A', 'B', 'C', 'D', 'E', 'F']
 
-/** Deterministic key-slot placement: `keySlotIndex` (0-4) is chosen by the CALLER from a batch-wide round-robin counter, guaranteeing exact G-16 balance across any run whose size is a multiple of 5. Distractor order among the other 4 slots is still randomised (per-item) via `rng`. */
+/**
+ * Deterministic key-slot placement over N = distractors + 1 options (five
+ * for the v1/v2 families' four-distractor plans, six from v3's five-
+ * distractor plans — 2026-08-19 v3 build plan §1). `keySlotIndex` (0..N−1)
+ * is chosen by the CALLER from a batch-wide round-robin counter, guaranteeing
+ * exact G-16 balance across any run whose size is a multiple of N. Distractor
+ * order among the other slots is still randomised (per-item) via `rng`.
+ */
 export function placeOptions(keyCell: CellLike, distractors: readonly DistractorCandidate[], keySlotIndex: number, rng: Rng): PlacedOption[] {
+  const n = distractors.length + 1
+  if (n < 5 || n > SLOTS.length) throw new Error(`placeOptions: ${distractors.length} distractors — an item carries 5 or 6 options`)
+  if (keySlotIndex < 0 || keySlotIndex >= n) throw new Error(`placeOptions: keySlotIndex ${keySlotIndex} out of range for ${n} options`)
   const shuffledDistractors = rng.shuffle(distractors)
-  const out: PlacedOption[] = new Array(5)
+  const out: PlacedOption[] = new Array(n)
   out[keySlotIndex] = { slot: SLOTS[keySlotIndex], elements: [...keyCell.elements], isKey: true, label: null, mechanism: null }
   let di = 0
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < n; i++) {
     if (i === keySlotIndex) continue
     const d = shuffledDistractors[di++]
     out[i] = { slot: SLOTS[i], elements: d.elements, isKey: false, label: d.label, mechanism: d.mechanism }

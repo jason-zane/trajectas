@@ -46,14 +46,19 @@ describe('generator — full pilot-scale batch (9 families x 8 = up to 72 items)
   })
 
   it('key slots are balanced within +-1 across the whole batch (doc §9 rule 2 / gate G-16)', () => {
-    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 }
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 }
     for (const item of result.items) counts[item.keySlot]++
     const values = Object.values(counts)
     expect(Math.max(...values) - Math.min(...values)).toBeLessThanOrEqual(1)
     // G-16, formalised as a real gate (qa/batch.ts) rather than only an
     // emergent property of the round-robin offset — same assertion, now
     // made through the gate function itself.
-    expect(keySlotBalanceGate(result.items.map((i) => i.keySlot)).status).toBe('pass')
+    expect(
+      keySlotBalanceGate(
+        result.items.map((i) => i.keySlot),
+        result.items.map((i) => i.optionSpecs.length),
+      ).status,
+    ).toBe('pass')
   })
 
   it('FINDING, RECONCILED (issue #346, item 3): doc\'s literal G-17 ("hit rate within the ~20%-of-chance interval") is unreachable once G-08 is enforced per item — the hit COUNT is mechanically driven to exactly 0, far outside that interval. G-17 is redefined (qa/batch.ts\'s batchBlindGuaranteeGate) to the criterion that IS satisfiable: hits === 0, confirming G-08\'s guarantee held for every item in the batch. Both computations are asserted here so the historical tension stays visible.', () => {
@@ -62,15 +67,20 @@ describe('generator — full pilot-scale batch (9 families x 8 = up to 72 items)
       const family = ALL_FAMILIES.find((f) => f.code === item.familyCode)!
       return { options: item.optionSpecs.map((o) => ({ elements: o.elements })), keyIndex: keyIdx, axes: family.axes }
     })
-    // Doc's literal computation: hits=0 sits outside the ~20%-of-chance
-    // interval doc's original G-17 wording asks for — the historical
-    // tension, pinned rather than hidden.
+    // Doc's literal computation: the binary hit count sits outside the
+    // ~20%-of-chance interval doc's original G-17 wording asks for — the
+    // historical tension, pinned rather than hidden. Under G-08′ (v2/v3)
+    // the count is no longer mechanically 0: an item whose options are
+    // pairwise distinct on every axis (LRM-MIRROR) ties the scorer across
+    // all six, which the literal count records as a "hit" at P = 1/6.
     const rate = batchBlindHitRate(blindItems)
-    expect(rate.hits).toBe(0)
     expect(rate.withinBinomialInterval).toBe(false)
-    // The reconciled gate: this SAME fact (hits === 0) is what G-17 now
-    // means, and it passes — a batch where it did not would indicate G-08
-    // had a hole somewhere.
+    expect(rate.hits).toBeLessThan(rate.lowerBound)
+    // The reconciled gate: the scorer's EXPECTED hits over the batch do not
+    // exceed chance — the faithful generalisation of "hits === 0" once the
+    // per-item criterion is an expected hit rate. A batch where it did not
+    // hold would indicate G-08′ had a hole somewhere.
+    expect(rate.expectedHits).toBeLessThanOrEqual(rate.n * rate.chance + 1e-9)
     expect(batchBlindGuaranteeGate(blindItems).status).toBe('pass')
   })
 

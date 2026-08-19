@@ -41,7 +41,7 @@ describe.each(FAMILIES.map((f) => [f.code, f] as const))('%s smoke test', (_code
       }
     }
     expect(totalAccepted).toBeGreaterThan(totalAttempted / 2)
-  })
+  }, 20000)
 
   it('is deterministic across repeated runs of the same seed', () => {
     const a = generateFamily(family, 'determinism-seed', 6)

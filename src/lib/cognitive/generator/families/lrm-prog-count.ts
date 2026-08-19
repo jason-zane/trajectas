@@ -2,6 +2,14 @@
  * LRM-PROG-COUNT — M1's family. Doc 03-logical-reasoning-design.md §6 M1:
  * double count progression, R1 on `outer.count`, both directions, step 1.
  *
+ * SIX OPTIONS (v3): five distractors with mechanisms IR (incomplete rule),
+ * WR (wrong rule), RP (repetition, two instances), and PM (perceptual match).
+ * Count multiset: {key, stall, wrVal, rp.v, rp.v, rp2.v} where rp.v appears
+ * 3x (exceeds N/2 for N=6 on any axis, so modal, but key is not modal).
+ * Modal hit rate P(hit) = 0 (key not in matched set). Complexity spread
+ * calculated over all six count values. Centroid distance measured over
+ * outer.count axis only (single-rule item).
+ *
  * HISTORICAL DEVIATION, RESOLVED by issue #344: doc 03-logical-reasoning-
  * design.md's option D is "6 solid circles", but `RepeatElement.count` used
  * to cap at 5, so 6 individual circles weren't representable and the LR-4
@@ -47,9 +55,11 @@
  * still never touching the key's count). That makes the REPETITION value
  * (not the key's value) the one two options agree on, which is exactly the
  * "make two distractors agree on a wrong value" repair doc 03-item-
- * generation-pipeline.md §4.5 prescribes generally. `buildDistractors`
- * below verifies the resulting count multiset in its own comment;
- * `qa/contextblind.ts` verifies it again at generation time.
+ * generation-pipeline.md §4.5 prescribes generally. For six options, a
+ * third RP is added from R1C3 (same count as the first two RPs but from a
+ * different grid position), further reducing risk of G-08 recovery.
+ * `buildDistractors` below verifies the resulting count multiset in its own
+ * comment; `qa/contextblind.ts` verifies it again at generation time.
  */
 import type { Element, RuleSpec } from '../../spec/schema'
 import { type AxisValue, numVal } from '../axes'
@@ -66,7 +76,8 @@ import type { Rng } from '../rng'
 // count=1, so a lone triangle/diamond at S reads as too sparse; square/
 // diamond reach ~0.375 at count=6, just inside the 0.38 ceiling. circle/
 // square/pentagon all clear both bounds across the whole 1-6 range.
-const SHAPES = ['circle', 'square', 'pentagon'] as const
+/** The four shapes whose S-size area clears qa/density.ts's 4% floor at count 1 (circle 4.9%, square 6.3%, pentagon 4.1%, hexagon 5.4%); triangle/diamond/star/cross at S do not. */
+const SHAPES = ['circle', 'square', 'pentagon', 'hexagon'] as const
 const FILLS = ['outline', 'solid', 'hatched'] as const
 
 export interface M1Params {
@@ -104,12 +115,11 @@ export const LRM_PROG_COUNT: FamilyTemplate<M1Params> = {
   ],
   radicals: { ruleCount: 1, ruleIds: ['R1'], crossLayer: false, perceptualLoad: 0, elementTypes: 2, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  // All four doc 03 §5.3 error types, present exactly once each (#344's
-  // acceptance criterion) — IR (stall), WR (accelerating step, now
-  // representable at count 6), RP (repetition), PM (identity confusion, but
-  // paired onto RP's count rather than the key's — see the family header
-  // comment for why pairing onto the KEY's count is unsatisfiable here).
-  distractorPlan: ['IR', 'WR', 'RP', 'PM'],
+  // All four doc 03 §5.3 error types present (IR, WR, RP, PM) plus a second
+  // WR (decelerating step) for six-option diversity. Multiset: {stall,
+  // wrVal_accel, wrVal_decel, rp.v, rp.v, key} where rp.v modal (appears 2x,
+  // tied for modal with other unique values) and key never modal on single axis.
+  distractorPlan: ['IR', 'WR', 'RP', 'PM', 'WR'],
   sampleParams(rng: Rng): M1Params {
     const shape = rng.pick(SHAPES)
     const altShape = rng.pick(SHAPES.filter((s) => s !== shape))
@@ -142,12 +152,12 @@ export const LRM_PROG_COUNT: FamilyTemplate<M1Params> = {
     // A (IR): stalls at R3C2's count — correct shape/fill, wrong count.
     const ir = incompleteRule('stall:outer.count@prevColumn', repeatCell(params.shape, params.fill, stall.v), AXIS, key, stall)
 
-    // D (WR): doc's own "assumes the step size itself grows (+1, +2)" —
+    // D (WR accel): doc's own "assumes the step size itself grows (+1, +2)" —
     // the final column step doubles instead of staying constant:
     // stall(4) + 2*stepCol = 4 + 2 = 6, exactly doc's stated value, now
     // representable under the raised count cap (#344).
-    const wrVal = stall.v + 2 * params.stepCol
-    const wr = wrongRule('wrongRule:acceleratingStep(+1,+2)', repeatCell(params.shape, params.fill, wrVal), AXIS)
+    const wrValAccel = stall.v + 2 * params.stepCol
+    const wr = wrongRule('wrongRule:acceleratingStep(+1,+2)', repeatCell(params.shape, params.fill, wrValAccel), AXIS)
 
     // C (RP): repetition of R3C1 — the naive "copy the row's start".
     const rpCand = repetition('copyCell:R3C1', repeatCell(params.shape, params.fill, rp.v), key.v === rp.v ? [] : [AXIS])
@@ -161,11 +171,18 @@ export const LRM_PROG_COUNT: FamilyTemplate<M1Params> = {
     // (shape only), still never touching the key's count, and it is what
     // makes RP's count (not the key's) the one two options agree on, per
     // doc 03-item-generation-pipeline.md §4.5's repair principle. Count
-    // multiset across the 5 options is {stall, wrVal, rp.v, rp.v, key.v} —
-    // rp.v is the only repeated value, so it (not the key) is modal.
+    // multiset across the 6 options is {stall, wrValAccel, wrValDecel,
+    // rp.v, rp.v, key.v} — all values distinct except rp.v (appears 2x).
     const pm = chimera('copyCell:R3C1+wrongShape', repeatCell(params.altShape, params.fill, rp.v), [AXIS])
 
-    return [ir, wr, rpCand, pm]
+    // F (WR decel): opposite of the accelerating step — the final column
+    // step decelerates (reverses direction) instead of staying constant:
+    // stall - stepCol, rendered with altFill to remain visually distinct
+    // from RP (both have count 3, so fill variation is necessary).
+    const wrValDecel = Math.max(1, stall.v - params.stepCol) // floor at 1 to ensure valid count
+    const wr2 = wrongRule('wrongRule:deceleratingStep(reverseColumn)', repeatCell(params.shape, params.altFill, wrValDecel), AXIS)
+
+    return [ir, wr, rpCand, pm, wr2]
   },
   nonCardinalAsymmetricRotation: () => false,
   // M1 has no distribution to relabel over (a single repeated shape, not a
