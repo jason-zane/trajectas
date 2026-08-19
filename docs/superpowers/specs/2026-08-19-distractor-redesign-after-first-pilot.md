@@ -106,10 +106,15 @@ Consequences:
   counts as full recovery, which over-rejects exactly the balanced
   designs we now want — a 5-way hard-axis tie is a 1-in-4-or-5 guess,
   not an identification).
-- **Add G-19 — cheap-elimination resistance:** for every declared cheap
+- **Add G-20 — cheap-elimination resistance:** for every declared cheap
   axis, ≥ 4 of 5 options share the key's implied value; and the
   intersection of all cheap-axis filters contains ≥ 4 options. Fails
-  closed at generation, like G-11/G-18.
+  closed at generation, like G-11/G-18/G-19. (Numbered G-20 because
+  G-19 already exists — elimination resistance via cue-chaining,
+  `qa/degeneracy.ts`; an earlier draft of this spec called the new gate
+  G-19. Note also that G-18's header already states the structural limit
+  this section resolves: "no pair of rules suffices in a 3-rule item" is
+  unsatisfiable alongside G-08's minority requirement.)
 
 ### Families needing re-authored plans
 

@@ -59,9 +59,18 @@ Comparators, best first: Mensa Norway (test.mensa.no — 35 figural
 matrices, 25 min, IQ-scaled score; closest format), SAPA Project
 (sapa-project.org — ICAR items with real norms and percentile feedback),
 TestMyBrain matrix reasoning, OpenPsychometrics FSIQ. Compare on
-proportion correct; treat our 75% as inflated by finding 4. A Mensa
-Norway sitting has been done — results to be analysed in the next
-session.
+proportion correct; treat our 75% as inflated by finding 4.
+
+**Mensa Norway sitting done and analysed** (JH, 2026-08-19: IQ 118,
+88th percentile, ≈24–28/35 by triangulation) — see
+`2026-08-19-mensa-norway-benchmark.md`. Two things from it change the
+plan above: (a) the pilot's 75% is inflated a *second* way — the form
+was blocked by family and five of the six misses were the first item of
+a block, so items 2–3 of each block look like rule reuse, not induction;
+(b) the "ran out of clock at item 21" below is wrong — every answer was
+in by 17:12, the rest was the wedged finish screen. The next form needs
+a no-adjacent-family constraint, ~25 min for 20 items, and the new gate
+in the redesign spec is G-20 (G-19 already exists).
 
 ## The next session picks up here
 
