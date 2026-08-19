@@ -160,7 +160,12 @@ export function giveawayPairGate(options: readonly CellLike[], axes: readonly Ax
 
 export interface BatchBlindResult {
   n: number
+  /** Items where SOME modal composition matches the key, or the centroid is the key alone — the literal per-doc count. */
   hits: number
+  /** Σ per-item expected hit rate of the modal scorer (`modalHitRate().pHit`), with a centroid-singleton hit counted as 1. */
+  expectedHits: number
+  /** Chance for this batch's option count: 1/N. */
+  chance: number
   withinBinomialInterval: boolean
   lowerBound: number
   upperBound: number
@@ -198,16 +203,26 @@ export interface BatchBlindResult {
  * aggregate, not as a G-17 failure) alongside the acceptance interval, and
  * this finding is reported rather than papered over with an invented
  * tie-breaking rule.
+ *
+ * v3 (2026-08-19): G-08′ accepts an item whose six options are pairwise
+ * distinct on every axis (every option then matches a tied composition and
+ * the key is "hit" in the literal count, with P = 1/6 — chance). The
+ * per-item criterion is the EXPECTED hit rate (`modalHitRate`), so the
+ * batch criterion is the same quantity summed: `expectedHits` ≤ n·chance
+ * means the modal scorer does no better than guessing over the run. The
+ * literal `hits` count is kept for visibility.
  */
 export function batchBlindHitRate(items: readonly { options: readonly CellLike[]; keyIndex: number; axes: readonly AxisId[] }[]): BatchBlindResult {
   const n = items.length
   let hits = 0
+  let expectedHits = 0
   for (const item of items) {
     const modal = modalComposition(item.options, item.axes)
     const modalHit = modal.some((m) => compositionMatchesCell(m.values, item.options[item.keyIndex], item.axes))
     const centroid = centroidPick(item.options, item.axes)
     const centroidHit = centroid.length === 1 && centroid[0] === item.keyIndex
     if (modalHit || centroidHit) hits++
+    expectedHits += centroidHit ? 1 : modalHitRate(item.options, item.keyIndex, item.axes).pHit
   }
   // Chance for the batch's option count (1/5 for v1/v2 items, 1/6 from v3);
   // a mixed batch uses the modal option count.
@@ -217,7 +232,7 @@ export function batchBlindHitRate(items: readonly { options: readonly CellLike[]
   const z = 1.959963984540054 // two-sided 95%
   const lower = Math.max(0, Math.ceil(n * p - z * sd - 0.5))
   const upper = Math.min(n, Math.floor(n * p + z * sd + 0.5))
-  return { n, hits, withinBinomialInterval: hits >= lower && hits <= upper, lowerBound: lower, upperBound: upper }
+  return { n, hits, expectedHits, chance: p, withinBinomialInterval: hits >= lower && hits <= upper, lowerBound: lower, upperBound: upper }
 }
 
 export { cellEq }

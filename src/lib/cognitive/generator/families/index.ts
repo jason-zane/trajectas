@@ -16,6 +16,15 @@ import { LRM_XOR_DIST_XLAYER } from './lrm-xor-dist-xlayer'
 import { LRM_3R_XLAYER } from './lrm-3r-xlayer'
 import { LRM_BITS_XOR } from './lrm-bits-xor'
 import { LRM_BITS_2OP } from './lrm-bits-2op'
+// v3 (2026-08-19 v3 build plan §3): eight families on the widened surface.
+import { LRM_MIRROR } from './lrm-mirror'
+import { LRM_FILL_ROT } from './lrm-fill-rot'
+import { LRM_FILL_COUNT } from './lrm-fill-count'
+import { LRM_SUM } from './lrm-sum'
+import { LRM_DOTS_AND } from './lrm-dots-and'
+import { LRM_CORNER_XOR } from './lrm-corner-xor'
+import { LRM_STROKE_XOR } from './lrm-stroke-xor'
+import { LRM_NEST_ADD } from './lrm-nest-add'
 
 /**
  * LRM_DIST3X2 is deliberately ABSENT from this list. It cannot satisfy G-11
@@ -49,6 +58,14 @@ export const ALL_FAMILIES: FamilyTemplate<unknown>[] = [
   // (LRM-BITS-XOR as on-ramp moderate, LRM-BITS-2OP as ceiling very-hard).
   LRM_BITS_XOR,
   LRM_BITS_2OP,
+  LRM_MIRROR,
+  LRM_FILL_ROT,
+  LRM_FILL_COUNT,
+  LRM_SUM,
+  LRM_DOTS_AND,
+  LRM_CORNER_XOR,
+  LRM_STROKE_XOR,
+  LRM_NEST_ADD,
 ].map((f) => f as FamilyTemplate<unknown>)
 
 export const FAMILY_REGISTRY: Record<string, FamilyTemplate<unknown>> = Object.fromEntries(ALL_FAMILIES.map((f) => [f.code, f]))
@@ -67,4 +84,12 @@ export {
   LRM_3R_XLAYER,
   LRM_BITS_XOR,
   LRM_BITS_2OP,
+  LRM_MIRROR,
+  LRM_FILL_ROT,
+  LRM_FILL_COUNT,
+  LRM_SUM,
+  LRM_DOTS_AND,
+  LRM_CORNER_XOR,
+  LRM_STROKE_XOR,
+  LRM_NEST_ADD,
 }

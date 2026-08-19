@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest'
 import { generateBatch } from '@/lib/cognitive/generator/index'
 import { ALL_FAMILIES } from '@/lib/cognitive/generator/families/index'
 import { bankFilesFromGeneration, bankFromGeneration } from '@/lib/item-bank/from-generation'
+import { contentHash } from '@/lib/cognitive/spec/hash'
 
 const SEED = 'from-generation-test'
 const PER_FAMILY = 2
@@ -149,11 +150,17 @@ describe('bankFromGeneration', () => {
     // Content hash covers the item spec only. If diagnostics ever entered it,
     // every previously ingested item would re-ingest as new — which would
     // duplicate the bank already in production rather than completing it.
+    // Asserted as the invariant itself rather than a pinned digest: the hash
+    // is the item spec's, and nothing the bank adds (diagnostics, rationale,
+    // labels) moves it. (A pinned v1 digest would also move whenever a
+    // family's sampler legitimately changes — v3 widened PROG-COUNT's shape
+    // palette — which is not the regression this test is for.)
     const bank = build('pilot-2026-08-13', 1)
     const first = bank.items.find((i) => i.familyCode === 'LRM-PROG-COUNT')
-    expect(first?.qa.contentHash).toBe(
-      'sha256:61e5e72331e72da7ce56e15a4bbc61f66116c46606de154d211bb8c266868c92',
-    )
+    expect(first).toBeDefined()
+    expect(first!.qa.contentHash).toBe(contentHash(first!.itemSpec))
+    expect(first!.qa.contentHash).toMatch(/^sha256:[0-9a-f]{64}$/)
+    expect(JSON.stringify(first!.itemSpec)).not.toMatch(/rationale|errorLabel|mechanism/)
   })
 
   it('writes the diagnostics into the FILE shape, not just the parsed bank', () => {

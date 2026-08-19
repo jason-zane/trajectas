@@ -67,15 +67,20 @@ describe('generator — full pilot-scale batch (9 families x 8 = up to 72 items)
       const family = ALL_FAMILIES.find((f) => f.code === item.familyCode)!
       return { options: item.optionSpecs.map((o) => ({ elements: o.elements })), keyIndex: keyIdx, axes: family.axes }
     })
-    // Doc's literal computation: hits=0 sits outside the ~20%-of-chance
-    // interval doc's original G-17 wording asks for — the historical
-    // tension, pinned rather than hidden.
+    // Doc's literal computation: the binary hit count sits outside the
+    // ~20%-of-chance interval doc's original G-17 wording asks for — the
+    // historical tension, pinned rather than hidden. Under G-08′ (v2/v3)
+    // the count is no longer mechanically 0: an item whose options are
+    // pairwise distinct on every axis (LRM-MIRROR) ties the scorer across
+    // all six, which the literal count records as a "hit" at P = 1/6.
     const rate = batchBlindHitRate(blindItems)
-    expect(rate.hits).toBe(0)
     expect(rate.withinBinomialInterval).toBe(false)
-    // The reconciled gate: this SAME fact (hits === 0) is what G-17 now
-    // means, and it passes — a batch where it did not would indicate G-08
-    // had a hole somewhere.
+    expect(rate.hits).toBeLessThan(rate.lowerBound)
+    // The reconciled gate: the scorer's EXPECTED hits over the batch do not
+    // exceed chance — the faithful generalisation of "hits === 0" once the
+    // per-item criterion is an expected hit rate. A batch where it did not
+    // hold would indicate G-08′ had a hole somewhere.
+    expect(rate.expectedHits).toBeLessThanOrEqual(rate.n * rate.chance + 1e-9)
     expect(batchBlindGuaranteeGate(blindItems).status).toBe('pass')
   })
 

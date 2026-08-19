@@ -72,18 +72,20 @@ export function keySlotBalanceGate(slots: readonly KeySlot[], optionCounts: read
 }
 
 /**
- * G-17 (batch), reconciled per this file's header comment: the hit count
- * from BOTH blind scorers, across the whole batch, must be exactly 0 — the
- * batch-level confirmation that G-08's per-item guarantee held throughout.
- * The theoretical ~20%-of-chance interval from doc's original wording is
- * still computed and returned for visibility (`chanceInterval`), but it is
- * informational, not the pass/fail criterion.
+ * G-17 (batch), reconciled per this file's header comment and re-stated
+ * for G-08′ (v2/v3): the blind scorer's EXPECTED hit rate, summed over the
+ * batch, must not exceed chance — Σ pHit ≤ n/N. Under the original G-08 the
+ * sum was mechanically 0; under G-08′ an item whose options are pairwise
+ * distinct on every axis contributes exactly 1/N (the scorer ties across
+ * all six and guesses), so the criterion "no better than chance over the
+ * run" is the faithful generalisation of "hits === 0". The literal per-doc
+ * hit count and its ~20%-of-chance interval are still reported for
+ * visibility (`hits`, `chanceInterval`).
  */
 export function batchBlindGuaranteeGate(items: readonly { options: readonly CellLike[]; keyIndex: number; axes: readonly AxisId[] }[]): BatchGateEntry {
   const result: BatchBlindResult = batchBlindHitRate(items)
-  return result.hits === 0
-    ? { status: 'pass', detail: { hits: result.hits, n: result.n, chanceInterval: [result.lowerBound, result.upperBound] } }
-    : { status: 'fail', detail: { hits: result.hits, n: result.n, chanceInterval: [result.lowerBound, result.upperBound] } }
+  const detail = { hits: result.hits, expectedHits: Number(result.expectedHits.toFixed(3)), chanceHits: Number((result.n * result.chance).toFixed(3)), n: result.n, chanceInterval: [result.lowerBound, result.upperBound] }
+  return result.expectedHits <= result.n * result.chance + 1e-9 ? { status: 'pass', detail } : { status: 'fail', detail }
 }
 
 export function runBatchGates(input: { keySlots: readonly KeySlot[]; blindItems: readonly { options: readonly CellLike[]; keyIndex: number; axes: readonly AxisId[] }[] }): BatchQaReport {

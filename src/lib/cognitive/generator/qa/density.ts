@@ -111,9 +111,9 @@ const INK_MIN = 0.04
 const INK_MAX = 0.38
 const INK_VARIANCE_MAX = 4.0
 
-/** Bitgrid and nest cells: set-valued rule axes whose per-cell ink is the rule's own signal (see inkCoverageGate). A lone 24-unit ring is also legible by construction (well above minElementUnits), so the area floor does not apply to nest cells either. */
+/** Bitgrid, nest and stroke cells: set-valued rule axes whose per-cell ink is the rule's own signal (see inkCoverageGate) — one ring vs three, one stroke vs four, is what the item shows, not clutter. A lone 24-unit ring or a single 70-unit stroke is legible by construction (well above minElementUnits), so the area floor does not apply either. */
 function isBitgridCell(cell: CellLike): boolean {
-  return cell.elements.length > 0 && cell.elements.some((el) => el.type === 'bitgrid' || el.type === 'nest')
+  return cell.elements.length > 0 && cell.elements.some((el) => el.type === 'bitgrid' || el.type === 'nest' || el.type === 'strokes')
 }
 
 /**

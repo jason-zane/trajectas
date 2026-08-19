@@ -143,7 +143,11 @@ export function CognitiveResponse({
       <div
         role="radiogroup"
         aria-label="Answer options"
-        className={options.length === 6 ? "grid grid-cols-6 gap-1.5 sm:gap-2" : "grid grid-cols-5 gap-2"}
+        className={
+          options.length === 6
+            ? "grid grid-cols-3 gap-2 min-[400px]:grid-cols-6 min-[400px]:gap-1.5 sm:gap-2"
+            : "grid grid-cols-5 gap-2"
+        }
         style={{ width: "var(--cog-size)" }}
       >
         {options.map((option, index) => {
