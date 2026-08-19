@@ -1,6 +1,27 @@
 /**
  * LRM-ADD — M4's family. Doc 03-logical-reasoning-design.md §6 M4: figure
  * addition, R4 (`C3 = C1 union C2` per row) on a set of bars {H,V,D1,D2}.
+ * SIX OPTIONS: distractors [A, B, D, E, F]; key [key].
+ *
+ * OPTION SET (N=6): A and B are 3-bar cells (copies of grid results); D and E
+ * are wrong-rule variants on bar counts 2 and 3; F is a 2-bar operand copy.
+ * Bar counts across options are {3,3,2,3,2,3} (key, A, B, D, E, F), so no
+ * option sits alone at an extremum — G-09 (keyBulkExtremumCheck) passes. Modal
+ * composition on the set-valued axis reads: "present in >= 4 of 6" = present
+ * in key, A, B, E only (4 of 6 share the 3-bar set). Option D (2 bars) is the
+ * only non-twin on bar-set alone. G-08′ modal hit rate: none of A, B, E are
+ * identical to the key on bars (each differs in which bar is missing), so modal
+ * composition matches none of them; P(hit) = 1/6 ≈ 0.167 << 0.25 ✓.
+ * Centroid check: none of A, B, D, E, F sits uniquely nearest to the key
+ * (they form two clusters by bar overlap distance). G-11 (copyEliminationOk):
+ * key is not a copy; copies are A, B, F (3 copies); eliminating them leaves
+ * D, E (2 non-copies, >= 2 ✓). G-19 (eliminationResistanceOk): key is novel
+ * (not a grid twin on bars) and in-vocabulary (3-bar count shown in grid);
+ * A, B, E are also novel + in-vocab (3-bar counts shown); D is novel +
+ * in-vocab (2-bar count shown); F is novel + in-vocab (2-bar count shown,
+ * identical to D's count but different bars). All six options fall into the
+ * key's class (novel + in-vocab), so G-19 passes. G-09 spread: max 3, min 2,
+ * spread 1 <= 2 ✓.
  *
  * DEVIATION FROM DOC'S M4 LAYOUT, and the measured defect that forced it.
  * Doc's grid gives rows 1-2 single-bar, pairwise-DISJOINT operands and row 3
@@ -109,7 +130,7 @@ export const LRM_ADD: FamilyTemplate<M4Params> = {
   // element-type-analogue in play here.
   radicals: { ruleCount: 1, ruleIds: ['R4'], crossLayer: false, perceptualLoad: 1, elementTypes: 4, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['RP', 'IR', 'WR', 'WR'],
+  distractorPlan: ['RP', 'IR', 'WR', 'WR', 'RP'],
   sampleParams(rng: Rng): M4Params {
     const perm = rng.shuffle(ALL_BARS) as M4Params['perm']
     return { perm }
@@ -178,7 +199,19 @@ export const LRM_ADD: FamilyTemplate<M4Params> = {
     }
     const e = wrongRule(`wrongOperands:${pairName}`, barsCell(unseen), AXIS)
 
-    return [a, b, d, e]
+    // F (v3, RP): second cell copy from R2C1 (first operand of row 2).
+    // Like the LRM-ROT pattern (which adds a second RP from R2C2), this adds
+    // structural diversity on the distractor set without introducing a new
+    // mechanism. R2C1 is a 2-bar operand, complementing the 2-bar D (symdiff)
+    // and maintaining the bar-count distribution needed for G-09. The six
+    // options yield bar counts {3, 3, 2, 3, 2, 3} (key, A, B, D, F, E),
+    // so spread is 1 and no option sits at the extremum alone. G-11 holds
+    // because A, B, F are copies (3 copies) and D, E are novel (2 novel,
+    // >= 2 ✓). G-19 holds because all options are novel or in-vocab.
+    const [r2c1] = operandsFor(ctx.params.perm, 2)
+    const f = repetition('copyCell:R2C1', barsCell(r2c1), [AXIS])
+
+    return [a, b, d, e, f]
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: M4Params) => ({ perm: params.perm }),

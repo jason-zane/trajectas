@@ -21,7 +21,7 @@
  * then identical, the key equalled two visible cells, and nothing could pass
  * G-12 — the "0/160 accepted" the first review reported.)
  *
- * OPTION SET (single hard axis, five options; every distractor is a specific
+ * OPTION SET (single hard axis, six options; every distractor is a specific
  * wrong application of the rule — the plan is `distractorPlan` below):
  *   key   XOR                          (4 positions)
  *   IR    XOR minus one position       (3)   — the incomplete result
@@ -29,19 +29,17 @@
  *         operands have belongs in the result": the classic XOR/OR confusion
  *         made local, so its cardinality stays in vocabulary
  *   WR-b  the same, dropping a different position (4)
+ *   WR-c  the same, dropping a third position (4)
  *   RP    a verbatim copy of R3C1        (3)   — perseveration on an operand
- * Cardinalities {4,3,4,4,3}: G-09 spread 1, key not a sole extremum. Every
+ * Cardinalities {4,3,4,4,4,3}: G-09 spread 1, key not a sole extremum. Every
  * count (3, 4) and every position each distractor uses is realised in the
- * grid, so G-19's out-of-vocabulary cue has nothing to bite on. The
- * per-position modal composition over the five options is the operand UNION
- * (5 positions) — a set no option shows — so the blind scorer guesses among
- * all five (P = 1/5, G-08′). All options distinct on the axis, so the
- * centroid is a five-way tie. RP is the one copy; key + IR + both WRs are
- * non-copies (G-11 ≥ 2 in the key's class).
- *
- * The plain union (5 positions) is deliberately NOT a distractor: no grid
- * cell shows five black positions, so it would be eliminable on sight — the
- * exact leak G-19 was added to catch in the bar families.
+ * grid, so G-19's out-of-vocabulary cue has nothing to bite on. The key has
+ * four positions {A,B,C,D}; IR drops one, WR-a/b/c each drop different ones,
+ * leaving all four key positions dropped exactly once across IR and WRs.
+ * Per-position modal (>3 of 6 = at least 4 of 6): at most three positions
+ * appear in > 3 options, so the modal doesn't uniquely identify the key.
+ * All options distinct on the axis, so the centroid is well-separated.
+ * RP is the one copy; key + IR + three WRs are non-copies (G-11 ≥ 2).
  *
  * Predicted b (difficulty.ts): −2.0 + 1.6 (R7) + 0.3·2 (perceptualLoad) =
  * +0.20, moderate.
@@ -137,7 +135,7 @@ export const LRM_BITS_XOR: FamilyTemplate<BitsXorParams> = {
   // schema's floor; the visual vocabulary here is two states (empty/black).
   radicals: { ruleCount: 1, ruleIds: ['R7'], crossLayer: false, perceptualLoad: 2, elementTypes: 2, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['IR', 'WR', 'WR', 'RP'],
+  distractorPlan: ['IR', 'WR', 'WR', 'WR', 'RP'],
   sampleParams(rng: Rng): BitsXorParams {
     return { rows: sampleRows(rng) }
   },
@@ -170,28 +168,26 @@ export const LRM_BITS_XOR: FamilyTemplate<BitsXorParams> = {
       return giveawayPairGate(cells, ctx.axes).ok
     }
 
-    // Deterministic search over the plan's free choices: which position IR
-    // drops, which two (distinct) positions the WR swaps drop, which operand
-    // RP copies. First set to clear every gate wins; no rng — the plan is a
+    // Deterministic search over the plan's free choices (N=6, so 5 distractors):
+    // IR drops one key position, WRs drop the other three (one each), RP copies
+    // an operand. First set to clear every gate wins; no rng — the plan is a
     // pure function of the composed item (doc §3.6 determinism).
     for (const copyOf of [c1, c2]) {
       const copyMech = sameSet(copyOf, c1) ? 'copyCell:R3C1' : 'copyCell:R3C2'
-      for (const drop of key) {
-        const ir = mk(minusSet(key, [drop]), 'IR', `incomplete:xor_minus_${drop}`)
-        for (const a of key) {
-          for (const b of key) {
-            if (b <= a) continue
-            const wrA = mk(unionSet(minusSet(key, [a]), shared), 'WR', `wrongRule:shared_kept_drop_${a}`)
-            const wrB = mk(unionSet(minusSet(key, [b]), shared), 'WR', `wrongRule:shared_kept_drop_${b}`)
-            const rp = mk(copyOf, 'RP', copyMech)
-            const cands = [ir, wrA, wrB, rp]
-            if (validSet(cands)) return cands
-          }
-        }
+      for (const irDrop of key) {
+        // IR drops irDrop; WRs drop the three other key positions
+        const wrDrops = key.filter((p) => p !== irDrop).sort((a, b) => a - b)
+        const ir = mk(minusSet(key, [irDrop]), 'IR', `incomplete:xor_minus_${irDrop}`)
+        const wrA = mk(unionSet(minusSet(key, [wrDrops[0]]), shared), 'WR', `wrongRule:shared_kept_drop_${wrDrops[0]}`)
+        const wrB = mk(unionSet(minusSet(key, [wrDrops[1]]), shared), 'WR', `wrongRule:shared_kept_drop_${wrDrops[1]}`)
+        const wrC = mk(unionSet(minusSet(key, [wrDrops[2]]), shared), 'WR', `wrongRule:shared_kept_drop_${wrDrops[2]}`)
+        const rp = mk(copyOf, 'RP', copyMech)
+        const cands = [ir, wrA, wrB, wrC, rp]
+        if (validSet(cands)) return cands
       }
     }
 
-    // Last resort: any four distinct in-vocabulary sets built from the row's
+    // Last resort: any five distinct in-vocabulary sets built from the row's
     // own material (subsets of the result, result-with-shared swaps, operand
     // copies, other rows' cells), labelled by how they were made.
     const pool: Array<{ black: Pos[]; label: 'IR' | 'WR' | 'RP' | 'PM'; mech: string }> = []
@@ -204,10 +200,11 @@ export const LRM_BITS_XOR: FamilyTemplate<BitsXorParams> = {
     for (let i = 0; i < uniq.length; i++)
       for (let j = i + 1; j < uniq.length; j++)
         for (let k = j + 1; k < uniq.length; k++)
-          for (let l = k + 1; l < uniq.length; l++) {
-            const cands = [uniq[i], uniq[j], uniq[k], uniq[l]].map((p) => mk(p.black, p.label, p.mech))
-            if (validSet(cands)) return cands
-          }
+          for (let l = k + 1; l < uniq.length; l++)
+            for (let m = l + 1; m < uniq.length; m++) {
+              const cands = [uniq[i], uniq[j], uniq[k], uniq[l], uniq[m]].map((p) => mk(p.black, p.label, p.mech))
+              if (validSet(cands)) return cands
+            }
     throw new Error(`LRM-BITS-XOR: no distractor construction cleared the gates for rows ${JSON.stringify(ctx.params.rows)}`)
   },
   nonCardinalAsymmetricRotation: () => false,

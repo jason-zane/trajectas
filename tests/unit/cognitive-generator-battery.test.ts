@@ -46,14 +46,19 @@ describe('generator — full pilot-scale batch (9 families x 8 = up to 72 items)
   })
 
   it('key slots are balanced within +-1 across the whole batch (doc §9 rule 2 / gate G-16)', () => {
-    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 }
+    const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 }
     for (const item of result.items) counts[item.keySlot]++
     const values = Object.values(counts)
     expect(Math.max(...values) - Math.min(...values)).toBeLessThanOrEqual(1)
     // G-16, formalised as a real gate (qa/batch.ts) rather than only an
     // emergent property of the round-robin offset — same assertion, now
     // made through the gate function itself.
-    expect(keySlotBalanceGate(result.items.map((i) => i.keySlot)).status).toBe('pass')
+    expect(
+      keySlotBalanceGate(
+        result.items.map((i) => i.keySlot),
+        result.items.map((i) => i.optionSpecs.length),
+      ).status,
+    ).toBe('pass')
   })
 
   it('FINDING, RECONCILED (issue #346, item 3): doc\'s literal G-17 ("hit rate within the ~20%-of-chance interval") is unreachable once G-08 is enforced per item — the hit COUNT is mechanically driven to exactly 0, far outside that interval. G-17 is redefined (qa/batch.ts\'s batchBlindGuaranteeGate) to the criterion that IS satisfiable: hits === 0, confirming G-08\'s guarantee held for every item in the batch. Both computations are asserted here so the historical tension stays visible.', () => {

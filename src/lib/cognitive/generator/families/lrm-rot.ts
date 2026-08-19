@@ -8,6 +8,15 @@
  * pattern). `arrow` has rotational symmetry order 1 (doc 03-item-
  * generation-pipeline.md §3.5's SYMMETRY_INVISIBLE table), so no step
  * choice here can make a rotation invisible.
+ *
+ * SIX OPTIONS (v3): five distractors with mechanisms IR (stall at R2C3),
+ * PM (stalled rotation with altFill), WR (wrong step rule), and RP
+ * (repetition from R3C2, plus a second RP from R2C2). Rotation multiset:
+ * {key, irVal, irVal, wrVal, rpVal, rp2Val} where irVal appears 2x (modal
+ * on numeric axis, but key not modal). Modal hit rate P(hit) = 0 if key
+ * rotation not in {irVal, rpVal, rp2Val}. Complexity spread over 6 rotation
+ * values, with fill variation (solid, outline, hatched) on first two
+ * rotation values only.
  */
 import type { Element, RuleSpec } from '../../spec/schema'
 import { numVal } from '../axes'
@@ -59,10 +68,10 @@ export const LRM_ROT: FamilyTemplate<M2Params> = {
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
   // IR and its fill-varied twin below SHARE one wrong rotation value (see
   // the family-level comment on why a single-axis item needs a paired wrong
-  // value at all, and why one pair is enough here — unlike LRM-PROG-COUNT,
-  // which needed two pairs because it has no secondary incidental besides
-  // shape to carry a twin on).
-  distractorPlan: ['IR', 'PM', 'WR', 'RP'],
+  // value at all, and why one pair is enough here). For six options, a
+  // second RP is added from R2C2 (different row/column, different rotation
+  // value than the first RP).
+  distractorPlan: ['IR', 'PM', 'WR', 'RP', 'RP'],
   sampleParams(rng: Rng): M2Params {
     const base = rng.int(0, 7) * 45
     // FINDING: only two of the four (colSign, rowSign) combinations are
@@ -110,7 +119,14 @@ export const LRM_ROT: FamilyTemplate<M2Params> = {
     if (rpVal.t !== 'num') throw new Error('outer.rotation must be numeric')
     const rp = repetition('copyCell:R3C2', arrowCell(rpVal.v, params.fill), rpVal.v === key.v ? [] : [AXIS])
 
-    return [ir, pm, wr, rp]
+    // RP2: repetition of R2C2 — alternative diagonal position with different
+    // rotation value, adding structural diversity without changing the modal
+    // value (which is already irVal, held by both IR and PM).
+    const rp2Val = ctx.valueAt(AXIS, 2, 2)
+    if (rp2Val.t !== 'num') throw new Error('outer.rotation must be numeric')
+    const rp2 = repetition('copyCell:R2C2', arrowCell(rp2Val.v, params.fill), rp2Val.v === key.v ? [] : [AXIS])
+
+    return [ir, pm, wr, rp, rp2]
   },
   nonCardinalAsymmetricRotation: () => true, // step magnitude 45deg on an asymmetric element (arrow) — doc 03-logical-reasoning-design.md §4.4's non-cardinal bump applies.
   structuralExtra: (params: M2Params) => ({ fill: params.fill, altFill: params.altFill }),

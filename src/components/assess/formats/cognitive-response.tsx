@@ -73,6 +73,7 @@ export function CognitiveResponse({
   );
   const [activeIndex, setActiveIndex] = useState(initialActive);
 
+  const optionCount = options.length;
   const focusTile = useCallback(
     (index: number) => {
       if (options.length === 0) return;
@@ -95,17 +96,17 @@ export function CognitiveResponse({
           break;
         case "ArrowDown":
           event.preventDefault();
-          focusTile(index + options.length);
+          focusTile(index + optionCount);
           break;
         case "ArrowUp":
           event.preventDefault();
-          focusTile(index - options.length);
+          focusTile(index - optionCount);
           break;
         default:
           break;
       }
     },
-    [focusTile],
+    [focusTile, optionCount],
   );
 
   return (

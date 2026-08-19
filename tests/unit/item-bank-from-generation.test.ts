@@ -112,7 +112,11 @@ describe('bankFromGeneration', () => {
     const bank = build()
     for (const item of bank.items) {
       const distractors = item.options.filter((o) => o.slot !== item.keySlot)
-      expect(distractors).toHaveLength(4)
+      // v3 families carry five distractors (six options); the contract is
+      // every non-key option, whatever the count.
+      expect(distractors).toHaveLength(item.options.length - 1)
+      expect(item.options.length).toBeGreaterThanOrEqual(5)
+      expect(item.options.length).toBeLessThanOrEqual(6)
       for (const option of distractors) {
         // Without these the review UI renders four indistinguishable wrong
         // answers, and a content reviewer has nothing to check the design
@@ -166,7 +170,8 @@ describe('bankFromGeneration', () => {
       keySlot: string
       optionSpecs: Array<{ slot: string; errorLabel: string | null; rationale: string | null }>
     }>) {
-      expect(raw.optionSpecs).toHaveLength(5)
+      expect(raw.optionSpecs.length).toBeGreaterThanOrEqual(5)
+      expect(raw.optionSpecs.length).toBeLessThanOrEqual(6)
       for (const option of raw.optionSpecs) {
         if (option.slot === raw.keySlot) {
           expect(option.errorLabel).toBeNull()

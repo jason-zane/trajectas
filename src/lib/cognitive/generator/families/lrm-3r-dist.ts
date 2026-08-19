@@ -6,35 +6,40 @@
  * construction (kShape != kFill in {1,2}); count is independent (depends
  * only on column).
  *
- * REDESIGN (2026-08-19, build-plan §1.2): all three axes are cheap (no
- * hard-axis distinction exists). The structural limit documented in
- * qa/degeneracy.ts G-18's header comment proves that a 3-rule item cannot
- * simultaneously satisfy "no single rule isolates the key" and "no pair of
- * rules isolates the key" alongside G-08. This family accepts the first —
- * every axis has the key's value in exactly 2 of 5 options — and builds a
- * balanced option set using the 2³⁻¹ fractional factorial plus the all-wrong
- * corner: key (000), AB0, A0C, 0BC, ABC.
+ * V3 REDESIGN (2026-08-19, build-plan §1.2–1.3): six-option variant (key +
+ * five distractors). All three axes are cheap (no hard-axis distinction).
+ * Structural limit in qa/degeneracy.ts G-18 proves 3-rule items cannot
+ * simultaneously satisfy "no single rule isolates key" AND "no pair isolates
+ * key". This family accepts the first: every axis has key value in <= 3 of 6,
+ * with wrong value holding >= 3 of 6, so no axis isolates by elimination alone.
  *
- * The four distractors are formed by:
+ * Six-option set (determined by exhaustive search for pHit = 0):
+ * Key (000) + five distractors: AB0, A0C, 0BC, ABC, A00.
+ * Per-axis composition on key value (0):
+ *  - Shape (A): key in 2/6, wrong (A=1) in 4/6 → modal is wrong (strict)
+ *  - Fill (B): key in 3/6, wrong (B=1) in 3/6 → tie, but modal never recovers key
+ *  - Count (C): key in 3/6, wrong (C=1) in 3/6 → tie, but modal never recovers key
+ * Modal compositions: {(A=1, B=0), (A=1, B=0, C=1), (A=1, B=1, C=0), (A=1, B=1, C=1)}
+ * All compositions require A=1, so key (000) has pHit = 0; no blind scorer recovers it.
+ *
+ * The five distractors:
  * - AB0: wrong on shape and fill, correct on count
  * - A0C: wrong on shape and count, correct on fill
  * - 0BC: wrong on fill and count, correct on shape
  * - ABC: wrong on all three axes (the all-wrong corner)
+ * - A00: wrong on shape only, correct on fill and count
  *
- * Where A/B/C are non-key values on shape/fill/count respectively. Preference
- * order: stall values (R3C1 for shape, R3C2 for fill, R2C3 for count), then
- * other realised values. This ensures every option's wrongness is legible from
- * its axis values alone, making the item depend on understanding the rules
- * rather than on option-set guesswork.
+ * A/B/C are non-key values (preference: stall values from R3C1/R3C2/R2C3,
+ * fallback to other realised values). Every option's wrongness is legible from
+ * axis values alone, enforcing rule understanding over option-set guessing.
  *
- * The modal composition is ABC (a distractor); the centroid is ABC. With all
- * three axes non-isolating (G-18 check applied to all), two rules together
- * leave only the key, one leaves two options. The family stays as a MODERATE
- * item (post-discount predicted b ~0.15; pilot record positions 19–20 cleared
- * in 10–12 seconds each). It is no longer counted on for the ceiling.
+ * G-18 (all axes cheap): key value in 2–3 of 6 on each axis → no single rule
+ * isolates. Two rules together still narrow down but don't force uniqueness.
+ * Post-discount predicted b ~0.15 (MODERATE; positions 19–20 pilot data);
+ * no longer counted for ceiling. Centroid and modal both fail to recover key.
  *
- * Cheapaxes is NOT declared (undefined), so G-20 skips with 'NO_CHEAP_AXES'
- * and G-18 applies the ≥ 2 requirement to all three axes unchanged.
+ * cheapAxes is declared (all three axes), so G-20 skips and G-18 applies
+ * the ≥ 2 requirement to all three axes unchanged.
  */
 import type { Element, Fill, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, numVal, cellEq } from '../axes'
@@ -132,10 +137,12 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
   ],
   radicals: { ruleCount: 3, ruleIds: ['R6', 'R6', 'R1'], crossLayer: false, perceptualLoad: 1, elementTypes: 3, nearMissCount: 3 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  // Typical realisation: three chimeras and one repetition (ABC built from
-  // stall values is usually a verbatim copy of a visible cell); the realised
-  // label per option is decided in buildDistractors and audited by G-07.
-  distractorPlan: ['PM', 'PM', 'PM', 'RP'],
+  // Typical realisation: four chimeras and one repetition (ABC built from
+  // stall values is usually a verbatim copy of a visible cell; A00 is usually
+  // a chimera because (stall-shape, stall-fill, stall-count) rarely converges
+  // on a single grid cell). The realised label per option is decided in
+  // buildDistractors and audited by G-07.
+  distractorPlan: ['PM', 'PM', 'PM', 'PM', 'RP'],
   sampleParams(rng: Rng): M7Params {
     const shapeSet = rng.pick(SHAPE_SETS)
     const [kShape, kFill] = rng.pick([
@@ -208,12 +215,13 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
     const B = pickWrongValue(keyFill.v, fillValues, stallFill.v)
     const C = pickWrongCount(keyCount.v, countValues, stallCount.v)
 
-    // Construct the four distractors: AB0, A0C, 0BC, ABC.
+    // Construct the five distractors: AB0, A0C, 0BC, A00, ABC.
     type Candidate = { shape: string; fill: string; count: number; label: 'PM' | 'RP'; wrongAxisCount: number }
     const candidates: Candidate[] = [
       { shape: A, fill: B, count: keyCount.v, label: 'PM', wrongAxisCount: 2 },
       { shape: A, fill: keyFill.v, count: C, label: 'PM', wrongAxisCount: 2 },
       { shape: keyShape.v, fill: B, count: C, label: 'PM', wrongAxisCount: 2 },
+      { shape: A, fill: keyFill.v, count: keyCount.v, label: 'PM', wrongAxisCount: 1 },
       { shape: A, fill: B, count: C, label: 'RP', wrongAxisCount: 3 },
     ]
 
@@ -257,9 +265,16 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
       // all-wrong corner) is a repetition (RP) only when it reproduces a
       // visible cell verbatim — with stall values it usually does (A, B, C
       // are read off R3C1 / R3C2 / R2C3) — and a chimera (PM) otherwise. The
-      // three two-wrong corners are chimeras. `distractorPlan` below states
-      // the typical case; G-07 audits the realised labels per item.
-      const corner = cand.wrongAxisCount === 2 ? ['AB0', 'A0C', '0BC'][candidates.indexOf(cand)] : 'ABC'
+      // three two-wrong corners and the one-wrong corner (A00) are chimeras.
+      // `distractorPlan` states the typical case; G-07 audits realised labels.
+      let corner: string
+      if (cand.wrongAxisCount === 1) {
+        corner = 'A00'
+      } else if (cand.wrongAxisCount === 2) {
+        corner = ['AB0', 'A0C', '0BC'][candidates.indexOf(cand)]
+      } else {
+        corner = 'ABC'
+      }
       const copyOf = ctx.grid.find((gc) => cellEq({ elements: gc.elements }, { elements }))
       if (cand.label === 'RP' && copyOf) {
         return { elements, label: 'RP' as const, mechanism: `fractional-factorial:${corner}[${A},${B},${C}]:copyCell:R${copyOf.row}C${copyOf.col}`, wrongAxes }

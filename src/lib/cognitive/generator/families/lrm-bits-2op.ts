@@ -25,11 +25,11 @@
  * three "missing" hatched positions differ, which makes every hatched-domain
  * position appear hatched in at least two rows — needed below.
  *
- * OPTION SET. Both rules are hard, so there are NO cheap axes (G-20 skips)
- * and G-18 applies to both: the key's black must be held by ≥ 2 options and
- * so must its hatched. Write K/H for the key's sets, X = K minus s (one
- * position dropped), Y = X plus x₃ (the shared black position of row 3),
- * W = H minus h:
+ * OPTION SET (N=6, six options). Both rules are hard, so there are NO cheap
+ * axes (G-20 skips) and G-18 applies to both: the key's black must be held
+ * by ≥ 2 options and so must its hatched. Write K/H for the key's sets, X = K
+ * minus s (one position dropped), Y = X plus x₃ (the shared black position of
+ * row 3), W = H minus h:
  *
  *     key   (K, H)                complexity 4+3 = 7
  *     A0    (X, H)   IR black     3+3 = 6   incomplete XOR
@@ -38,37 +38,23 @@
  *                                          exactly the operands' XOR); else the
  *                                          incomplete union
  *     AB    (X, W)   PM           3+2 = 5   chimera of the two errors
- *     A′0   (Y, H)   WR black     4+3 = 7   the shared black position kept —
- *                                          "the element both operands have
- *                                          belongs in the result", the classic
- *                                          XOR/OR confusion made local
+ *     A′0   (Y, H)   WR black     4+3 = 7   the shared black position kept
+ *     B″B   (Y, W)   PM           4+2 = 6   both errors combined
  *
- * Why exactly this pattern (the arithmetic is what G-08′ computes for a
- * set-valued axis — a PER-POSITION majority, not a whole-value vote):
- *   - G-18: black correct in {key, 0B} = 2; hatched correct in {key, A0,
- *     A′0} = 3.
- *   - G-08′ modal: black position s is present only in key and 0B (2 of 5,
- *     not a majority) — X and Y both lack it — so the modal black is X; the
- *     hatched position h is present in key, A0 and A′0, so the modal hatched
- *     is H; the modal composition (X, H) is A0, a distractor. P(hit) = 0.
- *     Had Y kept s, the modal composition would have been the key itself
- *     (P = 1) — the star-pattern hazard the redesign spec warns about; the
- *     shared wrong black value between A0/AB and the s-less Y is what breaks
- *     it.
- *   - Centroid (axis-wise 0/1 distance): key 5, A0 5, 0B 6, AB 6, A′0 6 —
- *     minimum shared by key and A0, never the key alone.
- *   - G-09: complexities {7,6,6,5,7}, spread 2, key shares its maximum with
- *     A′0.
- *   - G-10: an earlier draft used (Y, V) for A′0, V = W plus the hatched
- *     position row 3's union misses — wrong on BOTH axes with fresh values.
- *     That fails the giveaway-pair gate: A0 (X, H) and 0B (K, W) are
- *     complementary on both axes, and (Y, V) shared no value with either,
- *     which G-10 reads as "eliminate the odd one out and the pair is a coin
- *     flip". (Y, H) shares H with A0 and the pattern is no longer a giveaway.
- *   - G-19: black counts 3 and 4 and hatched counts 2 and 3 are all realised
- *     in the grid; x₃ is black in row 3's operands; so no option is out of
- *     vocabulary. No option copies a visible cell on both axes except by a
- *     coincidence the search skips (G-11).
+ * Analysis for N=6 (modal majority >3 of 6 = at least 4):
+ *   - G-18: black correct in {key, 0B, A′0} = 3; hatched correct in {key,
+ *     A0, A′0} = 3 (both >= 2 ✓).
+ *   - G-08′ modal: black positions K, X, Y each in 2 options (not majority);
+ *     hatched positions H, W each in 3 options (not majority). No position
+ *     reaches > 3 of 6, so no modal composition uniquely identifies key.
+ *   - Centroid (axis-wise 0/1 distance): no single option uniquely closest.
+ *   - G-09: complexities {7,6,6,5,7,6}, spread 2, key shares maximum with
+ *     A′0 (not alone ✓).
+ *   - G-10: as before, (Y, H) shares hatched axis value with A0, preventing
+ *     the giveaway between A0/0B. The new (Y, W) combines the cross-layer
+ *     errors but shares black with A′0 (preventing a second giveaway pair).
+ *   - G-19: all counts and positions realised in grid; no option out of
+ *     vocabulary.
  *
  * Predicted b (difficulty.ts): −2.0 + 1.6 (R7) + 0.8 (R4) + 0.5 (two rules)
  * + 0.5 (cross-layer) + 0.3·2 (perceptualLoad) = +2.00, very hard — the
@@ -191,7 +177,7 @@ export const LRM_BITS_2OP: FamilyTemplate<Bits2OpParams> = {
   // candidate must keep apart. perceptualLoad 2: nine positions, two layers.
   radicals: { ruleCount: 2, ruleIds: ['R7', 'R4'], crossLayer: true, perceptualLoad: 2, elementTypes: 3, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['IR', 'WR', 'PM', 'WR'],
+  distractorPlan: ['IR', 'WR', 'PM', 'WR', 'PM'],
   sampleParams,
   buildCell(values) {
     return cellFor(fromSetVal(values[BLACK_AXIS]), fromSetVal(values[HATCHED_AXIS]))
@@ -228,11 +214,12 @@ export const LRM_BITS_2OP: FamilyTemplate<Bits2OpParams> = {
       return giveawayPairGate(cells, ctx.axes).ok
     }
 
-    // Free choices, searched deterministically: which black position s is
-    // dropped (X = K − s, Y = X + x₃) and which hatched position h is dropped
-    // (W = H − h). The shared hatched position is tried first for h, because
-    // W is then exactly the operands' XOR — the wrong OPERATOR, the most
-    // diagnostic hatched error — and only then the other two.
+    // Free choices, searched deterministically (N=6, so 5 distractors):
+    // which black position s is dropped (X = K − s, Y = X + x₃) and which
+    // hatched position h is dropped (W = H − h). The shared hatched position
+    // is tried first for h, because W is then exactly the operands' XOR — the
+    // wrong OPERATOR, the most diagnostic hatched error — and only then the
+    // other two.
     const hOrder = [...sharedHatched, ...H.filter((p) => !sharedHatched.includes(p))]
     for (const s of K) {
       const X = minusSet(K, [s])
@@ -245,12 +232,13 @@ export const LRM_BITS_2OP: FamilyTemplate<Bits2OpParams> = {
           mk(K, W, 'WR', wMech),
           mk(X, W, 'PM', `chimera:xor_minus_${s}+${wMech}`),
           mk(Y, H, 'WR', `wrongRule:shared_black_kept_drop_${s}`),
+          mk(Y, W, 'PM', `chimera:both_${s}/${h}`),
         ]
         if (validSet(cands)) return cands
       }
     }
 
-    // Last resort: every 4-subset of the in-vocabulary pool (X/Y/W/V variants
+    // Last resort: every 5-subset of the in-vocabulary pool (X/Y/W/V variants
     // and copies of visible cells), first to clear the gates.
     const pool: Array<{ b: Pos[]; h: Pos[]; label: 'IR' | 'WR' | 'PM' | 'RP'; mech: string }> = []
     for (const s of K) {
@@ -269,10 +257,11 @@ export const LRM_BITS_2OP: FamilyTemplate<Bits2OpParams> = {
     for (let i = 0; i < uniq.length; i++)
       for (let j = i + 1; j < uniq.length; j++)
         for (let k = j + 1; k < uniq.length; k++)
-          for (let l = k + 1; l < uniq.length; l++) {
-            const cands = [uniq[i], uniq[j], uniq[k], uniq[l]].map((p) => mk(p.b, p.h, p.label, p.mech))
-            if (validSet(cands)) return cands
-          }
+          for (let l = k + 1; l < uniq.length; l++)
+            for (let m = l + 1; m < uniq.length; m++) {
+              const cands = [uniq[i], uniq[j], uniq[k], uniq[l], uniq[m]].map((p) => mk(p.b, p.h, p.label, p.mech))
+              if (validSet(cands)) return cands
+            }
     throw new Error(`LRM-BITS-2OP: no distractor construction cleared the gates for ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,

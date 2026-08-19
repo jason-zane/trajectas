@@ -97,7 +97,7 @@ const BankItemEntry = z.object({
   seed: z.string().min(1),
   keySlot: OptionSlot,
   itemSpec: FiguralMatrixItemSpec,
-  optionSpecs: z.array(BankOptionEntry).length(5),
+  optionSpecs: z.array(BankOptionEntry).min(5).max(6),
   qa: BankQaReport,
 })
 

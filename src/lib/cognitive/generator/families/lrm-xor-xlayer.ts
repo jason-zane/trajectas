@@ -27,13 +27,24 @@
  * No search is needed for the GRID; the construction is duplicate-free by
  * proof, not by trial.
  *
- * DISTRACTOR REDESIGN (2026-08-19): re-authored to the asymmetric contract
- * (build-plan §1.1). Hard axis: inner.bars (R7 XOR, weight 1.6). Cheap axis:
- * outer.shape (R1 progression, weight 0). Since R1's weight is 0, the
- * predicted-b of +0.9 is unchanged. The distractor plan (D1/D2/D3 matching
- * key shape + three distinct bar errors, D4 wrong shape + D1 bars) is
- * attempted first; if it fails G-19 (in-vocabulary), fallback search handles
- * it like before.
+ * SIX-OPTION CONTRACT (2026-08-19, build-plan §1.1): asymmetric with
+ * hard axis inner.bars (R7 XOR, weight 1.6) and cheap axis outer.shape
+ * (R1 progression, weight 0). Predicted-b unchanged at +0.9. D1–D3 hold
+ * key shape with three distinct in-vocabulary bar errors; D4–D5 break the
+ * cheap axis. Modal computation (per-position majority > 3 of 6): if all
+ * six options show the same bars in position i, modal hit rate >= 1/2
+ * (fails G-08); if key shape appears in all six, G-20 requires >= 5
+ * options to carry key shape. Centroid distance (sum of per-axis differences
+ * over 2 axes): key minimizes iff distractor complexity spread is tightly
+ * controlled. Elimination gates: G-20 requires >= 5/6 options with key
+ * shape on cheap axis and >= 5/6 in their intersection; G-19 requires >= 2
+ * in key's (ruleAxisTwin, outOfVocab) class; G-10 requires >= 2 options
+ * differing on exactly one axis (giveaway pair). The planned construction
+ * attempts first; if it fails G-19, the in-vocabulary search tries three
+ * distinct key-shape operand copies + one operand+shared pair, on key
+ * shape; D4/D5 = wrong-shape copies of D1 bars (incompleteCorrelate,
+ * breaks cheap axis). Fallback searches 5-element subsets of recombined
+ * (shape, bars) pairs, with labels fixed IR/WR/RP/RP/RP.
  */
 import type { BarId, Element, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, setVal } from '../axes'
@@ -42,7 +53,7 @@ import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../comp
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
 import { cheapEliminationOk, copyEliminationOk, eliminationResistanceOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
-import { combinations4 } from '../combinatorics'
+import { combinations5 } from '../combinatorics'
 import { cellEq } from '../axes'
 import { ALL_BAR_IDS, type BarRoles, barsAt as barsAtRole, sameBars, sortBars, twoBarSets } from './xor-bars'
 
@@ -114,7 +125,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
   ],
   radicals: { ruleCount: 2, ruleIds: ['R7', 'R1'], crossLayer: true, perceptualLoad: 1, elementTypes: 4, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['IR', 'WR', 'RP', 'RP'],
+  distractorPlan: ['IR', 'WR', 'RP', 'RP', 'RP'],
   sampleParams(rng: Rng): M8Params {
     const barRoles = rng.shuffle(ALL_BAR_IDS) as BarRoles
     const shapeDir = rng.pick([1, -1] as const)
@@ -142,42 +153,47 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
     const contextCells = ctx.grid.map((gc) => ({ elements: gc.elements }))
 
     /**
-     * ASYMMETRIC CONTRACT (build-plan §1.1, 2026-08-19 redesign).
+     * ASYMMETRIC CONTRACT (build-plan §1.1, 2026-08-19 redesign, six options).
      *
      * D1 (IR): key shape + "XOR result minus one bar" — ideally a 1-bar set
-     * representing the stall error (lost one element from the XOR). This will
-     * be out-of-vocabulary per G-19 (grid shows only 2-bar sets), but we
-     * attempt it anyway; if it clears the gates, use it; if it fails G-19, the
-     * fallback search handles it.
+     * representing the stall error. Out-of-vocabulary per G-19; attempted
+     * first, fallback search handles if it fails.
      *
-     * D2 (WR): key shape + wrong operator (UNION instead of XOR). If operands
-     * are disjoint (share zero bars), UNION = 4 bars; if they share 1 bar, UNION
-     * = 3 bars; if they share both bars, UNION = 2 bars (same as key). In the
-     * last case, use INTERSECTION (0 bars) if available; otherwise use operand
-     * difference (keep C1 only, or C2 only, whichever differs from the key).
+     * D2 (WR): key shape + wrong operator (UNION instead of XOR). Apply the
+     * same logic as before: if union equals XOR, use intersection or difference.
      *
-     * D3 (RP/PM): key shape + copy of one operand bar set (perseveration).
-     * Prefer C2 (the more recent/salient operand); fall back to C1 if needed.
+     * D3 (RP): key shape + copy of one operand bar set (perseveration).
+     * Prefer C2; fall back to C1 if needed.
      *
      * D4 (RP): wrong shape (R3C2) + D1 bars (shared hard value with D1).
+     *
+     * D5 (RP): another wrong shape + D1 bars. On six options, break the
+     * cheap axis with two distinct wrong shapes.
      */
     const c2Shape = ctx.valueAt(SHAPE_AXIS, 3, 2)
     if (c2Shape.t !== 'enum') throw new Error('shape must be enum')
     const c2ShapeId = c2Shape.v as ShapeId
 
+    // Find a third shape for D5 (different from keyShape and c2Shape).
+    let d5ShapeId: ShapeId = 'triangle'
+    for (const candidate of SHAPE_LADDER) {
+      if (candidate !== keyShapeId && candidate !== c2ShapeId) {
+        d5ShapeId = candidate
+        break
+      }
+    }
+
     // D1: attempt a 1-bar set (lose one bar from the 2-bar result).
-    const d1Bars: BarId[] = [keyBarsArr[0]] // Just the first bar of the XOR result
+    const d1Bars: BarId[] = [keyBarsArr[0]]
 
     // D2: union instead of XOR (wrong operator).
     const union = [...new Set([...c1Bars, ...c2Bars])].sort() as BarId[]
     let d2Bars: BarId[]
     if (union.length === keyBarsArr.length && union.every((b) => keyBarsArr.includes(b))) {
-      // Union equals XOR (operands are disjoint or both equal). Use intersection or difference.
       const intersection = c1Bars.filter((b) => c2Bars.includes(b))
       if (intersection.length > 0) {
         d2Bars = intersection as BarId[]
       } else {
-        // Operands are disjoint; use the difference (one operand only).
         d2Bars = c1Bars.length > c2Bars.length ? c1Bars : c2Bars
       }
     } else {
@@ -187,13 +203,15 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
     // D3: copy one operand (perseveration).
     const d3Bars = c2Bars.length === keyBarsArr.length && c2Bars.every((b) => keyBarsArr.includes(b)) ? c1Bars : c2Bars
 
-    // D4 bars: same as D1.
+    // D4 and D5 bars: same as D1.
     const d4Bars = d1Bars
+    const d5Bars = d1Bars
 
     const d1: DistractorCandidate = { elements: cell(keyShapeId, d1Bars), label: 'IR', mechanism: 'stall:inner.bars@dropOneElement', wrongAxes: [BARS_AXIS] }
     const d2: DistractorCandidate = { elements: cell(keyShapeId, d2Bars), label: 'WR', mechanism: 'wrongRule:unionInsteadOfXor', wrongAxes: [BARS_AXIS] }
     const d3: DistractorCandidate = { elements: cell(keyShapeId, d3Bars), label: 'RP', mechanism: `perseverate:copyOperand:${sameBars(d3Bars, c1Bars) ? 'C1' : 'C2'}`, wrongAxes: [BARS_AXIS] }
     const d4: DistractorCandidate = { elements: cell(c2ShapeId, d4Bars), label: 'RP', mechanism: 'incompleteCorrelate:wrongShape@R3C2+sharedHardValue', wrongAxes: [SHAPE_AXIS] }
+    const d5: DistractorCandidate = { elements: cell(d5ShapeId, d5Bars), label: 'RP', mechanism: 'incompleteCorrelate:wrongShape+sharedHardValue', wrongAxes: [SHAPE_AXIS] }
 
     const validSet = (candidates: DistractorCandidate[]): boolean => {
       if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
@@ -208,26 +226,20 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
 
-    const planned = [d1, d2, d3, d4]
+    const planned = [d1, d2, d3, d4, d5]
     if (validSet(planned)) return planned
 
     /**
-     * IN-VOCABULARY PRIMARY SEARCH (2026-08-19). Every visible cell in this
-     * construction shows exactly two bars, so the two "wrong operator" sets —
-     * union (three bars) and intersection (one bar) — and any one-bar stall
-     * are out of vocabulary by construction and G-19 rejects them on sight
-     * (which is right: a candidate would too). The plan above therefore
-     * never clears the gates, and before this block every item paid for the
-     * exhaustive recombination search below (~20 ms/item, 30× the other
-     * families — enough to time out the smoke test under CI coverage). The
-     * wrong bar sets a candidate CAN be shown are the other two-bar sets:
-     * the two operand copies (perseveration, RP), the sets pairing one XOR
-     * bar with the row's unused bar (a half-right result, IR), and the
-     * shared bar with the unused bar (PM). Three of those, in preference
-     * order, on the key's shape; D4 = the wrong shape with D1's bars. The
-     * contract (D1–D3 hold the cheap value with three distinct hard errors;
-     * D4 breaks the cheap axis and shares D1's hard value) is unchanged —
-     * only the mechanisms are the ones this construction can honestly show.
+     * IN-VOCABULARY PRIMARY SEARCH (2026-08-19, six options). Every visible
+     * cell shows exactly two bars, so 1-bar (union/intersection/stall) are
+     * out-of-vocabulary and G-19 rejects them. The plan above therefore never
+     * clears the gates, and this block searches for honest in-vocabulary
+     * constructions. Honest bar sets are the two operand copies (RP), pairs
+     * of one XOR bar with the unused bar (IR), and shared bar with unused
+     * (PM). Four of those on the key's shape; D4/D5 = wrong shapes with D1's
+     * bars. The contract (D1–D3 hold key shape with three distinct hard
+     * errors; D4–D5 break the cheap axis and share D1's hard value) extends
+     * to six options — only the mechanisms change to match this construction.
      */
     {
       const allBars = ALL_BAR_IDS
@@ -242,29 +254,35 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
       const distinct = inVocab.filter((v, i) => !barsEqKey(v.bars) && inVocab.findIndex((w) => sameBars(w.bars, v.bars)) === i)
       for (let i = 0; i < distinct.length; i++)
         for (let j = 0; j < distinct.length; j++)
-          for (let k = 0; k < distinct.length; k++) {
-            if (i === j || j === k || i === k) continue
-            const [p, q, r] = [distinct[i], distinct[j], distinct[k]]
-            const cands: DistractorCandidate[] = [
-              { elements: cell(keyShapeId, p.bars), label: p.label, mechanism: p.mech, wrongAxes: [BARS_AXIS] },
-              { elements: cell(keyShapeId, q.bars), label: q.label, mechanism: q.mech, wrongAxes: [BARS_AXIS] },
-              { elements: cell(keyShapeId, r.bars), label: r.label, mechanism: r.mech, wrongAxes: [BARS_AXIS] },
-              { elements: cell(c2ShapeId, p.bars), label: 'PM', mechanism: 'incompleteCorrelate:wrongShape@R3C2+sharedHardValue', wrongAxes: [SHAPE_AXIS] },
-            ]
-            if (validSet(cands)) return cands
-          }
+          for (let k = 0; k < distinct.length; k++)
+            for (let l = 0; l < distinct.length; l++) {
+              if (i === j || i === k || i === l || j === k || j === l || k === l) continue
+              const [p, q, r, s] = [distinct[i], distinct[j], distinct[k], distinct[l]]
+              // Six-option asymmetric contract (v3 build plan §1): D1–D4 hold the
+              // key's shape with four distinct in-vocabulary wrong bar sets; D5
+              // breaks the cheap axis (the stall shape, R3C2's) and shares D1's
+              // bars. 5 of 6 options carry the key's shape — G-20's ≥ N−1.
+              const cands: DistractorCandidate[] = [
+                { elements: cell(keyShapeId, p.bars), label: p.label, mechanism: p.mech, wrongAxes: [BARS_AXIS] },
+                { elements: cell(keyShapeId, q.bars), label: q.label, mechanism: q.mech, wrongAxes: [BARS_AXIS] },
+                { elements: cell(keyShapeId, r.bars), label: r.label, mechanism: r.mech, wrongAxes: [BARS_AXIS] },
+                { elements: cell(keyShapeId, s.bars), label: s.label, mechanism: s.mech, wrongAxes: [BARS_AXIS] },
+                { elements: cell(c2ShapeId, p.bars), label: 'PM', mechanism: 'incompleteCorrelate:wrongShape@R3C2+sharedHardValue', wrongAxes: [SHAPE_AXIS] },
+              ]
+              if (validSet(cands)) return cands
+            }
     }
 
     /**
      * FALLBACK SEARCH: The planned construction may fail G-19 (in-vocabulary)
      * because the 1-bar set for D1 does not appear in the grid. Search all
      * 2-bar combinations (the 6 two-bar sets across 3 shapes = 18 candidates,
-     * minus the key) for a 4-subset that clears all gates. Labels are fixed
-     * per the distractorPlan: IR, WR, RP, RP.
+     * minus the key) for a 5-subset that clears all gates. Labels are fixed
+     * per the distractorPlan: IR, WR, RP, RP, RP.
      */
     const pool = SHAPE_LADDER.flatMap((s) => twoBarSets(ctx.params.barRoles).map((b) => ({ shape: s, bars: b }))).filter((p) => !(p.shape === keyShapeId && sameBars(p.bars, keyBarsArr)))
-    const labels: Array<'IR' | 'WR' | 'RP' | 'RP'> = ['IR', 'WR', 'RP', 'RP']
-    for (const chosen of combinations4(pool)) {
+    const labels: Array<'IR' | 'WR' | 'RP' | 'RP' | 'RP'> = ['IR', 'WR', 'RP', 'RP', 'RP']
+    for (const chosen of combinations5(pool)) {
       const candidates: DistractorCandidate[] = chosen.map((p, i) => {
         const wrongAxes = [...(p.shape === keyShapeId ? [] : [SHAPE_AXIS]), ...(sameBars(p.bars, keyBarsArr) ? [] : [BARS_AXIS])]
         const mechanism = `recombine:{outer.shape=${p.shape},inner.bars=${p.bars.join('+')}}`
