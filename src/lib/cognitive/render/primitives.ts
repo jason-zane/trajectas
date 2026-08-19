@@ -111,12 +111,22 @@ function flagPoints(cx: number, cy: number, size: number): Pt[] {
   ]
 }
 
-/** L-shape: stem down the left (0.32·size wide), foot along the bottom (0.32·size tall). */
+/** L-shape: stem down the left (0.3·size wide, full height), SHORT foot along the bottom (0.65·size long, 0.3·size tall) — unequal arms so the glyph has no symmetry. Centred on its bounding box. */
 function lshapePoints(cx: number, cy: number, size: number): Pt[] {
   const h = size / 2
-  const t = 0.32 * size
+  const t = 0.3 * size
+  const footLen = 0.65 * size
+  const left = cx - footLen / 2
   return [
-    [cx - h, cy - h], [cx - h + t, cy - h], [cx - h + t, cy + h - t], [cx + h, cy + h - t], [cx + h, cy + h], [cx - h, cy + h],
+    [left, cy - h], [left + t, cy - h], [left + t, cy + h - t], [left + footLen, cy + h - t], [left + footLen, cy + h], [left, cy + h],
+  ]
+}
+
+/** Right trapezoid: vertical left side, top edge 0.55·size, bottom edge size, slanted right side. */
+function trapezoidPoints(cx: number, cy: number, size: number): Pt[] {
+  const h = size / 2
+  return [
+    [cx - h, cy - h], [cx - h + 0.55 * size, cy - h], [cx + h, cy + h], [cx - h, cy + h],
   ]
 }
 
@@ -155,6 +165,8 @@ export function shapeGeometry(shape: ShapeId, cx: number, cy: number, size: numb
       return finish(rotated(flagPoints(cx, cy, size)))
     case 'lshape':
       return finish(rotated(lshapePoints(cx, cy, size)))
+    case 'trapezoid':
+      return finish(rotated(trapezoidPoints(cx, cy, size)))
   }
 }
 

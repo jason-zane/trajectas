@@ -71,23 +71,24 @@ describe('v3 shape vocabulary', () => {
 })
 
 describe('R10 reflection — flip attribute, geometry and verifier rule', () => {
-  it('flip mirrors the rotated polygon about the anchor; the four states of an asymmetric glyph are pairwise distinct; hv equals a half turn', () => {
-    const states = ['none', 'h', 'v', 'hv'] as const
-    const geoms = states.map((f) => shapeGeometry('flag', 50, 50, 60, 0, f))
+  it('flip applies a D4 orientation about the anchor; the eight states of a glyph with no symmetry are pairwise distinct; hv equals a half turn, r90 a quarter turn', () => {
+    const states = ['none', 'h', 'v', 'hv', 'd1', 'd2', 'r90', 'r270'] as const
     const key = (g: ReturnType<typeof shapeGeometry>) => (g.kind === 'polygon' ? g.points.map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).sort().join(';') : '')
-    const keys = geoms.map(key)
-    expect(new Set(keys).size).toBe(4)
-    const half = shapeGeometry('flag', 50, 50, 60, 180, 'none')
-    expect(key(half)).toBe(keys[3])
+    for (const glyph of ['flag', 'lshape', 'trapezoid'] as const) {
+      const keys = states.map((f) => key(shapeGeometry(glyph, 50, 50, 60, 0, f)))
+      expect(new Set(keys).size).toBe(8)
+      expect(key(shapeGeometry(glyph, 50, 50, 60, 180, 'none'))).toBe(keys[3])
+      expect(key(shapeGeometry(glyph, 50, 50, 60, 90, 'none'))).toBe(keys[6])
+    }
     expect(mirror(10, 20, 50, 50, 'h')).toEqual([90, 20])
     expect(mirror(10, 20, 50, 50, 'hv')).toEqual([90, 80])
+    expect(mirror(10, 20, 50, 50, 'd1')).toEqual([20, 10])
   })
 
-  it('a symmetric glyph does not change under the flip its symmetry absorbs (why MIRROR draws only asymmetric glyphs)', () => {
-    const a = shapeGeometry('arrow', 50, 50, 40, 0, 'none')
-    const b = shapeGeometry('arrow', 50, 50, 40, 0, 'h')
+  it('a symmetric glyph does not change under the flip its symmetry absorbs (why MIRROR draws only flag / lshape / trapezoid)', () => {
     const key = (g: ReturnType<typeof shapeGeometry>) => (g.kind === 'polygon' ? g.points.map(([x, y]) => `${x.toFixed(3)},${y.toFixed(3)}`).sort().join(';') : '')
-    expect(key(a)).toBe(key(b))
+    expect(key(shapeGeometry('arrow', 50, 50, 40, 0, 'none'))).toBe(key(shapeGeometry('arrow', 50, 50, 40, 0, 'h')))
+    expect(key(shapeGeometry('semicircle', 50, 50, 40, 0, 'none'))).toBe(key(shapeGeometry('semicircle', 50, 50, 40, 0, 'h')))
   })
 
   it('flip is optional in the spec (absent = none) and readable as an axis', () => {
@@ -99,11 +100,24 @@ describe('R10 reflection — flip attribute, geometry and verifier rule', () => 
     expect(axesPresentIn({ elements: [without] })).toContain('outer.flip')
   })
 
-  it('composeFlip is the Klein four-group', () => {
+  it('composeFlip is D4: reflections are involutions, two reflections compose to a rotation, the group is closed', () => {
     expect(composeFlip('h', 'h')).toBe('none')
     expect(composeFlip('h', 'v')).toBe('hv')
     expect(composeFlip('hv', 'v')).toBe('h')
     expect(composeFlip('none', 'hv')).toBe('hv')
+    expect(composeFlip('d1', 'd1')).toBe('none')
+    expect(['r90', 'r270']).toContain(composeFlip('h', 'd1'))
+    expect(composeFlip('r90', 'r90')).toBe('hv')
+    const all = ['none', 'h', 'v', 'hv', 'd1', 'd2', 'r90', 'r270'] as const
+    for (const a of all) for (const b of all) expect(all).toContain(composeFlip(a, b))
+    // three cells of a reflection line are three distinct orientations
+    for (const op1 of ['h', 'v', 'd1', 'd2'] as const)
+      for (const op2 of ['h', 'v', 'd1', 'd2'] as const) {
+        if (op1 === op2) continue
+        const s1 = composeFlip('none', op1)
+        const s2 = composeFlip(s1, op2)
+        expect(new Set(['none', s1, s2]).size).toBe(3)
+      }
   })
 
   it('reflectionRule(h>v, row) explains a grid whose rows start anywhere and implies the transported state at (3,3); the wrong op pair does not', () => {

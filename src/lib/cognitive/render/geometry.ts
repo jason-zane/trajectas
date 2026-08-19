@@ -39,11 +39,30 @@ export function polygon(n: number, cx: number, cy: number, size: number, deg: nu
   })
 }
 
-/** Mirror (x,y) about the vertical line x=cx (`h`), the horizontal line y=cy (`v`), or both (`hv`). */
-export function mirror(x: number, y: number, cx: number, cy: number, flip: 'none' | 'h' | 'v' | 'hv'): Pt {
-  const mx = flip === 'h' || flip === 'hv' ? 2 * cx - x : x
-  const my = flip === 'v' || flip === 'hv' ? 2 * cy - y : y
-  return [mx, my]
+export type FlipState = 'none' | 'h' | 'v' | 'hv' | 'd1' | 'd2' | 'r90' | 'r270'
+
+/**
+ * The eight D4 orientation states as 2×2 integer matrices acting on the
+ * offset (dx, dy) from the anchor, in screen coordinates (y down). Shared by
+ * the renderer (`mirror`) and the verifier (`rules.ts` composes them).
+ */
+export const FLIP_MATRIX: Record<FlipState, readonly [number, number, number, number]> = {
+  none: [1, 0, 0, 1],
+  h: [-1, 0, 0, 1],
+  v: [1, 0, 0, -1],
+  hv: [-1, 0, 0, -1],
+  d1: [0, 1, 1, 0],
+  d2: [0, -1, -1, 0],
+  r90: [0, -1, 1, 0],
+  r270: [0, 1, -1, 0],
+}
+
+/** Apply an orientation state to (x,y) about (cx,cy). */
+export function mirror(x: number, y: number, cx: number, cy: number, flip: FlipState): Pt {
+  const [a, b, c, d] = FLIP_MATRIX[flip]
+  const dx = x - cx
+  const dy = y - cy
+  return [cx + a * dx + b * dy, cy + c * dx + d * dy]
 }
 
 /**

@@ -151,7 +151,7 @@ export function latinTrivialCheck(rows: readonly (readonly string[])[]): CheckRe
 }
 
 /** Rotational-symmetry-order per shape, per doc 03-item-generation-pipeline.md §3.5's ROTATION_ALIAS/SYMMETRY_INVISIBLE. 0 = infinite (circle: any rotation is invisible). */
-const SHAPE_SYMMETRY_ORDER: Record<string, number> = { circle: 0, square: 4, diamond: 4, triangle: 3, pentagon: 5, arrow: 1, hexagon: 6, star: 5, cross: 4, semicircle: 1, flag: 1, lshape: 1 }
+const SHAPE_SYMMETRY_ORDER: Record<string, number> = { circle: 0, square: 4, diamond: 4, triangle: 3, pentagon: 5, arrow: 1, hexagon: 6, star: 5, cross: 4, semicircle: 1, flag: 1, lshape: 1, trapezoid: 1 }
 
 export function symmetryInvisibleCheck(shape: string, stepDeg: number): CheckResult {
   const order = SHAPE_SYMMETRY_ORDER[shape] ?? 1
@@ -348,6 +348,12 @@ export function surfaceCensus(cell: CellLike, declaredAxes: readonly AxisId[]): 
         out[`bitgrid:${el.layer}:black`] = el.black.length
         out[`bitgrid:${el.layer}:hatched`] = el.hatched.length
         break
+      case 'strokes':
+        out[`strokes:${el.layer}`] = el.strokes.length
+        break
+      case 'nest':
+        out[`nest:${el.layer}`] = el.rings.length
+        break
       case 'repeat':
         if (!declared.has(`${el.layer}.count`)) out[`repeat:${el.layer}`] = el.count
         break
@@ -381,6 +387,7 @@ export function surfacePalette(cell: CellLike, declaredAxes: readonly AxisId[]):
         push(el.layer, 'size', el.size)
         push(el.layer, 'anchor', el.anchor)
         push(el.layer, 'rotation', el.rotation)
+        push(el.layer, 'flip', el.flip ?? 'none')
         break
       case 'repeat':
         push(el.layer, 'shape', el.shape)
@@ -402,6 +409,12 @@ export function surfacePalette(cell: CellLike, declaredAxes: readonly AxisId[]):
       case 'bitgrid':
         for (const b of el.black) out.push(`${el.layer}.bitgrid~black~${b}`)
         for (const h of el.hatched) out.push(`${el.layer}.bitgrid~hatched~${h}`)
+        break
+      case 'strokes':
+        for (const k of el.strokes) out.push(`${el.layer}.stroke~${k}`)
+        break
+      case 'nest':
+        for (const r of el.rings) out.push(`${el.layer}.ring~${r}`)
         break
     }
   }

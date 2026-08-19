@@ -17,6 +17,7 @@
  *    independent check rather than the generator grading its own homework.
  */
 import { type AxisId, type AxisLattice, type AxisValue, axisEq, axisKey, distinctValueCount, enumVal, numVal, setVal } from './axes'
+import { FLIP_MATRIX, type FlipState } from '../render/geometry'
 
 export type Direction = 'row' | 'column' | 'both' | 'row_operator' | 'column_operator'
 export type CandidateRuleId = 'R0' | 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R10' | 'R11' | 'R12' | `PROBE_${string}`
@@ -267,26 +268,36 @@ export function setOperatorRule(axis: AxisId, op: SetOp, direction: 'row_operato
 }
 
 // ---------------------------------------------------------------------------
-// R10 — reflection as an OPERATION (v3 build plan §2). The flip states
-// {none,h,v,hv} form the Klein four-group under composition (h∘h = none,
-// h∘v = hv, …). Along the operator direction, cell 2 = cell 1 ∘ op1 and
-// cell 3 = cell 2 ∘ op2, with the same (op1, op2) in every row (or column);
-// the starting state of each row is free. This is what "mirror it left-
-// right, then top-bottom" means as a matrix rule, and it is deliberately
-// NOT a ladder: a ladder over three fixed states would make column 3 a
-// constant (copyable from the rows above), which is the shortcut the
-// first pilot taught us to design out.
+// R10 — reflection as an OPERATION (v3 build plan §2). A shape's orientation
+// state is one of the eight elements of the dihedral group D4 (spec/schema.ts
+// `Flip`; matrices in render/geometry.ts). Along the operator direction,
+// cell 2 = reflect(cell 1, axis1) and cell 3 = reflect(cell 2, axis2), with
+// the same (axis1, axis2) in every row (or column) and each row's starting
+// orientation free. Reflection axes: vertical (h), horizontal (v), the two
+// diagonals (d1, d2). Two successive reflections compose to a rotation, so
+// the three cells of a line are always three distinct orientations of the
+// glyph. This is what "mirror it about …, then about …" means as a matrix
+// rule; it is deliberately NOT a ladder over fixed states (a ladder would
+// make column 3 a constant, copyable from the rows above — the shortcut the
+// first pilot taught us to design out).
 // ---------------------------------------------------------------------------
-export type FlipState = 'none' | 'h' | 'v' | 'hv'
-export type FlipOp = 'h' | 'v' | 'hv'
-const FLIP_BITS: Record<FlipState, number> = { none: 0, h: 1, v: 2, hv: 3 }
-const FLIP_FROM_BITS: FlipState[] = ['none', 'h', 'v', 'hv']
+export type { FlipState }
+export type FlipOp = 'h' | 'v' | 'd1' | 'd2'
+export const FLIP_OPS: readonly FlipOp[] = ['h', 'v', 'd1', 'd2']
+const FLIP_STATES = Object.keys(FLIP_MATRIX) as FlipState[]
+
+/** The state reached by applying `a` and THEN `b` (matrix product M_b · M_a). */
 export function composeFlip(a: FlipState, b: FlipState): FlipState {
-  return FLIP_FROM_BITS[FLIP_BITS[a] ^ FLIP_BITS[b]]
+  const [a1, b1, c1, d1] = FLIP_MATRIX[a]
+  const [a2, b2, c2, d2] = FLIP_MATRIX[b]
+  const m: [number, number, number, number] = [a2 * a1 + b2 * c1, a2 * b1 + b2 * d1, c2 * a1 + d2 * c1, c2 * b1 + d2 * d1]
+  const found = FLIP_STATES.find((st) => FLIP_MATRIX[st].every((x, i) => x === m[i]))
+  if (!found) throw new Error(`D4 composition left the group: ${a} then ${b}`)
+  return found
 }
 
 export function reflectionRule(axis: AxisId, op1: FlipOp, op2: FlipOp, direction: 'row' | 'column'): AxisRule {
-  const asFlip = (v: AxisValue | null): FlipState | null => (v && v.t === 'enum' && v.v in FLIP_BITS ? (v.v as FlipState) : null)
+  const asFlip = (v: AxisValue | null): FlipState | null => (v && v.t === 'enum' && v.v in FLIP_MATRIX ? (v.v as FlipState) : null)
   // Position along the operator direction (1..3) and the line index.
   const pos = (r: number, c: number) => (direction === 'row' ? c : r)
   const lineOf = (r: number, c: number) => (direction === 'row' ? r : c)
@@ -533,9 +544,8 @@ export function ruleSpaceFor(axis: AxisId, domain: AxisDomain, observed: AxisLat
   }
 
   if (domain.kind === 'reflection') {
-    const ops: FlipOp[] = ['h', 'v', 'hv']
-    for (const op1 of ops)
-      for (const op2 of ops) {
+    for (const op1 of FLIP_OPS)
+      for (const op2 of FLIP_OPS) {
         out.push(reflectionRule(axis, op1, op2, 'row'))
         out.push(reflectionRule(axis, op1, op2, 'column'))
       }

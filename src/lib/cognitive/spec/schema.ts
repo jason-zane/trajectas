@@ -56,11 +56,15 @@ import { z } from 'zod'
  *   - `hexagon`, `star`, `cross` — symmetric (orders 6, 5, 4), shape-set filler;
  *   - `semicircle` — a half-disc, flat edge down at rotation 0 (one mirror axis);
  *   - `flag` — a pole with a pennant to the upper right (no symmetry);
- *   - `lshape` — an L: upright stem, foot to the right (no symmetry).
+ *   - `lshape` — an L with a tall stem and a SHORT foot to the right (no
+ *     symmetry — equal arms would be mirror-symmetric about the diagonal,
+ *     collapsing the D4 orbit from eight orientations to four);
+ *   - `trapezoid` — a right trapezoid, vertical left side, slanted right side
+ *     (no symmetry).
  * Render geometry for each lives in render/primitives.ts; rotational-symmetry
  * orders in qa/degeneracy.ts; analytic ink areas in qa/density.ts.
  */
-export const ShapeId = z.enum(['circle', 'square', 'triangle', 'diamond', 'pentagon', 'arrow', 'hexagon', 'star', 'cross', 'semicircle', 'flag', 'lshape'])
+export const ShapeId = z.enum(['circle', 'square', 'triangle', 'diamond', 'pentagon', 'arrow', 'hexagon', 'star', 'cross', 'semicircle', 'flag', 'lshape', 'trapezoid'])
 export type ShapeId = z.infer<typeof ShapeId>
 
 export const BarId = z.enum(['H', 'V', 'D1', 'D2'])
@@ -72,12 +76,20 @@ export const Fill = z.enum(['outline', 'solid', 'hatched', 'grey'])
 export type Fill = z.infer<typeof Fill>
 
 /**
- * Reflection state of a shape (v3, rule R10). Applied AFTER rotation, about
- * the element's own anchor point: `h` mirrors left-right, `v` top-bottom,
- * `hv` both (= a 180° turn). The four states form the Klein four-group under
- * composition, which is what `rules.ts`'s `reflectionRule` relies on.
+ * Orientation state of a shape under the dihedral group D4 (v3, rule R10).
+ * Applied AFTER `rotation`, about the element's own anchor point:
+ *   reflections — `h` mirrors left-right (about the vertical axis), `v`
+ *   top-bottom (horizontal axis), `d1` about the TL–BR diagonal, `d2` about
+ *   the TR–BL diagonal;
+ *   rotations   — `r90` / `r270` quarter turns clockwise, `hv` a half turn
+ *   (= h then v).
+ * Eight states, closed under composition (`rules.ts` `composeFlip`), so a
+ * glyph with no symmetry has eight visibly distinct orientations — enough for
+ * a six-option item whose only rule is a reflection. `rotation` is kept at 0
+ * on the axis a reflection rule governs; mixing the two would let one image
+ * have two spec encodings (hv ≡ rotation 180).
  */
-export const Flip = z.enum(['none', 'h', 'v', 'hv'])
+export const Flip = z.enum(['none', 'h', 'v', 'hv', 'd1', 'd2', 'r90', 'r270'])
 export type Flip = z.infer<typeof Flip>
 
 /** Stroke kinds for the `strokes` element (v3): four straight strokes through
