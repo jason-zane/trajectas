@@ -99,6 +99,9 @@ const SHAPE_SETS = [
   ['circle', 'triangle', 'square'],
   ['diamond', 'circle', 'triangle'],
   ['square', 'circle', 'pentagon'],
+  ['hexagon', 'circle', 'square'],
+  ['triangle', 'hexagon', 'diamond'],
+  ['pentagon', 'hexagon', 'circle'],
 ] as const
 const FILL_LADDER = ['outline', 'solid', 'hatched'] as const
 

@@ -60,14 +60,19 @@ import { ALL_BAR_IDS, type BarRoles, barsAt as barsAtRole, sameBars, sortBars, t
 const SHAPE_AXIS = 'outer.shape'
 const BARS_AXIS = 'inner.bars'
 
-/** Sides 3, 4, 5 — the only three regular-polygon shapes in the vocabulary with that side count. */
-const SHAPE_LADDER: ShapeId[] = ['triangle', 'square', 'pentagon']
+/** Side-count ladders: 3-4-5 (v1) and 4-5-6 (v3, hexagon joined the vocabulary) — a per-item incidental. */
+const SHAPE_LADDERS: readonly ShapeId[][] = [
+  ['triangle', 'square', 'pentagon'],
+  ['square', 'pentagon', 'hexagon'],
+]
 
 export interface M8Params {
   /** `[b0, b1, b2, u]` — row `r` omits `b_{r-1}`; see `xor-bars.ts`. */
   barRoles: BarRoles
   /** Column direction of the side-count progression. */
   shapeDir: 1 | -1
+  /** Index into SHAPE_LADDERS. */
+  ladderIdx: 0 | 1
 }
 
 function barsAt(params: M8Params, row: number, col: number): BarId[] {
@@ -75,8 +80,9 @@ function barsAt(params: M8Params, row: number, col: number): BarId[] {
 }
 
 function shapeAt(params: M8Params, col: number): ShapeId {
-  const idx = params.shapeDir === 1 ? col - 1 : SHAPE_LADDER.length - col
-  return SHAPE_LADDER[idx]
+  const ladder = SHAPE_LADDERS[params.ladderIdx]
+  const idx = params.shapeDir === 1 ? col - 1 : ladder.length - col
+  return ladder[idx]
 }
 
 function cell(shape: ShapeId, bars: readonly BarId[]): Element[] {
@@ -98,8 +104,8 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
   code: 'LRM-XOR-XLAYER',
   axes: [BARS_AXIS, SHAPE_AXIS],
   cheapAxes: [SHAPE_AXIS],
-  domains: () => ({
-    [SHAPE_AXIS]: { kind: 'ordered-enum', ladder: SHAPE_LADDER.map(enumVal) } as AxisDomain,
+  domains: (params) => ({
+    [SHAPE_AXIS]: { kind: 'ordered-enum', ladder: SHAPE_LADDERS[params.ladderIdx].map(enumVal) } as AxisDomain,
     [BARS_AXIS]: { kind: 'set' } as AxisDomain,
   }),
   valueAt: (axis, row, col, params) => {
@@ -119,7 +125,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
       id: 'R1',
       axis: SHAPE_AXIS,
       direction: 'column',
-      params: { ladder: SHAPE_LADDER, stepPerColumn: params.shapeDir, stepPerRow: 0 },
+      params: { ladder: SHAPE_LADDERS[params.ladderIdx], stepPerColumn: params.shapeDir, stepPerRow: 0 },
       statement: 'The outer polygon gains one side per column (triangle, square, pentagon), the same in every row.',
     },
   ],
@@ -129,7 +135,8 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
   sampleParams(rng: Rng): M8Params {
     const barRoles = rng.shuffle(ALL_BAR_IDS) as BarRoles
     const shapeDir = rng.pick([1, -1] as const)
-    return { barRoles, shapeDir }
+    const ladderIdx = rng.pick([0, 1] as const)
+    return { barRoles, shapeDir, ladderIdx }
   },
   buildCell(values) {
     const shape = values[SHAPE_AXIS]
@@ -176,7 +183,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
 
     // Find a third shape for D5 (different from keyShape and c2Shape).
     let d5ShapeId: ShapeId = 'triangle'
-    for (const candidate of SHAPE_LADDER) {
+    for (const candidate of SHAPE_LADDERS[ctx.params.ladderIdx]) {
       if (candidate !== keyShapeId && candidate !== c2ShapeId) {
         d5ShapeId = candidate
         break
@@ -280,7 +287,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
      * minus the key) for a 5-subset that clears all gates. Labels are fixed
      * per the distractorPlan: IR, WR, RP, RP, RP.
      */
-    const pool = SHAPE_LADDER.flatMap((s) => twoBarSets(ctx.params.barRoles).map((b) => ({ shape: s, bars: b }))).filter((p) => !(p.shape === keyShapeId && sameBars(p.bars, keyBarsArr)))
+    const pool = SHAPE_LADDERS[ctx.params.ladderIdx].flatMap((s) => twoBarSets(ctx.params.barRoles).map((b) => ({ shape: s, bars: b }))).filter((p) => !(p.shape === keyShapeId && sameBars(p.bars, keyBarsArr)))
     const labels: Array<'IR' | 'WR' | 'RP' | 'RP' | 'RP'> = ['IR', 'WR', 'RP', 'RP', 'RP']
     for (const chosen of combinations5(pool)) {
       const candidates: DistractorCandidate[] = chosen.map((p, i) => {
@@ -293,5 +300,5 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
     throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18/G-19/G-20 for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
-  structuralExtra: (params: M8Params) => ({ barRoles: params.barRoles, shapeDir: params.shapeDir }),
+  structuralExtra: (params: M8Params) => ({ barRoles: params.barRoles, shapeDir: params.shapeDir, ladderIdx: params.ladderIdx }),
 }

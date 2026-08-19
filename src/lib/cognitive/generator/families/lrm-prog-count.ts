@@ -76,7 +76,8 @@ import type { Rng } from '../rng'
 // count=1, so a lone triangle/diamond at S reads as too sparse; square/
 // diamond reach ~0.375 at count=6, just inside the 0.38 ceiling. circle/
 // square/pentagon all clear both bounds across the whole 1-6 range.
-const SHAPES = ['circle', 'square', 'pentagon'] as const
+/** The four shapes whose S-size area clears qa/density.ts's 4% floor at count 1 (circle 4.9%, square 6.3%, pentagon 4.1%, hexagon 5.4%); triangle/diamond/star/cross at S do not. */
+const SHAPES = ['circle', 'square', 'pentagon', 'hexagon'] as const
 const FILLS = ['outline', 'solid', 'hatched'] as const
 
 export interface M1Params {

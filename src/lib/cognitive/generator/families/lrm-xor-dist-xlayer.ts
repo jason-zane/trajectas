@@ -76,6 +76,9 @@ const SHAPE_SETS = [
   ['circle', 'triangle', 'square'],
   ['diamond', 'circle', 'triangle'],
   ['square', 'circle', 'pentagon'],
+  ['hexagon', 'circle', 'square'],
+  ['triangle', 'hexagon', 'diamond'],
+  ['pentagon', 'hexagon', 'circle'],
 ] as const
 
 const KSHAPE = 1 // see the file header proof — 2 is unsafe for this construction, not offered.

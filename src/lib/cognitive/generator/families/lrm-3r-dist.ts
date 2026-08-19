@@ -62,7 +62,13 @@ const COUNT_AXIS = 'outer.count'
 // clear the floor, so there is exactly one safe 3-element set; incidental
 // diversity comes from `kShape`/`startShape` (which physical shape plays
 // which Latin-square role) rather than from swapping the set itself.
-const SHAPE_SETS = [['circle', 'square', 'pentagon']] as const
+/** Shapes whose S-size area clears the 4% ink floor (the size Latin square puts every shape at S somewhere): circle, square, pentagon, hexagon. */
+const SHAPE_SETS = [
+  ['circle', 'square', 'pentagon'],
+  ['hexagon', 'circle', 'square'],
+  ['pentagon', 'hexagon', 'circle'],
+  ['square', 'hexagon', 'pentagon'],
+] as const
 const FILL_LADDER = ['outline', 'solid', 'hatched'] as const
 
 export interface M7Params {
