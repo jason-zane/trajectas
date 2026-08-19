@@ -212,6 +212,50 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
     if (validSet(planned)) return planned
 
     /**
+     * IN-VOCABULARY PRIMARY SEARCH (2026-08-19). Every visible cell in this
+     * construction shows exactly two bars, so the two "wrong operator" sets —
+     * union (three bars) and intersection (one bar) — and any one-bar stall
+     * are out of vocabulary by construction and G-19 rejects them on sight
+     * (which is right: a candidate would too). The plan above therefore
+     * never clears the gates, and before this block every item paid for the
+     * exhaustive recombination search below (~20 ms/item, 30× the other
+     * families — enough to time out the smoke test under CI coverage). The
+     * wrong bar sets a candidate CAN be shown are the other two-bar sets:
+     * the two operand copies (perseveration, RP), the sets pairing one XOR
+     * bar with the row's unused bar (a half-right result, IR), and the
+     * shared bar with the unused bar (PM). Three of those, in preference
+     * order, on the key's shape; D4 = the wrong shape with D1's bars. The
+     * contract (D1–D3 hold the cheap value with three distinct hard errors;
+     * D4 breaks the cheap axis and shares D1's hard value) is unchanged —
+     * only the mechanisms are the ones this construction can honestly show.
+     */
+    {
+      const allBars = ALL_BAR_IDS
+      const barsEqKey = (bars: readonly BarId[]) => bars.length === keyBarsArr.length && bars.every((x) => keyBarsArr.includes(x))
+      const usedInRow = new Set<BarId>([...c1Bars, ...c2Bars])
+      const unused = allBars.filter((b) => !usedInRow.has(b))
+      const inVocab: Array<{ bars: BarId[]; label: 'IR' | 'WR' | 'PM' | 'RP'; mech: string }> = []
+      inVocab.push({ bars: sortBars(c1Bars), label: 'RP', mech: 'perseverate:copyOperand:C1' }, { bars: sortBars(c2Bars), label: 'RP', mech: 'perseverate:copyOperand:C2' })
+      for (const kb of keyBarsArr) for (const u of unused) inVocab.push({ bars: sortBars([kb, u]), label: 'IR', mech: `stall:oneElementKept:${kb}+unused:${u}` })
+      const shared = c1Bars.filter((b) => c2Bars.includes(b))
+      for (const sb of shared) for (const u of unused) inVocab.push({ bars: sortBars([sb, u]), label: 'PM', mech: `chimera:sharedBar:${sb}+unused:${u}` })
+      const distinct = inVocab.filter((v, i) => !barsEqKey(v.bars) && inVocab.findIndex((w) => sameBars(w.bars, v.bars)) === i)
+      for (let i = 0; i < distinct.length; i++)
+        for (let j = 0; j < distinct.length; j++)
+          for (let k = 0; k < distinct.length; k++) {
+            if (i === j || j === k || i === k) continue
+            const [p, q, r] = [distinct[i], distinct[j], distinct[k]]
+            const cands: DistractorCandidate[] = [
+              { elements: cell(keyShapeId, p.bars), label: p.label, mechanism: p.mech, wrongAxes: [BARS_AXIS] },
+              { elements: cell(keyShapeId, q.bars), label: q.label, mechanism: q.mech, wrongAxes: [BARS_AXIS] },
+              { elements: cell(keyShapeId, r.bars), label: r.label, mechanism: r.mech, wrongAxes: [BARS_AXIS] },
+              { elements: cell(c2ShapeId, p.bars), label: 'PM', mechanism: 'incompleteCorrelate:wrongShape@R3C2+sharedHardValue', wrongAxes: [SHAPE_AXIS] },
+            ]
+            if (validSet(cands)) return cands
+          }
+    }
+
+    /**
      * FALLBACK SEARCH: The planned construction may fail G-19 (in-vocabulary)
      * because the 1-bar set for D1 does not appear in the grid. Search all
      * 2-bar combinations (the 6 two-bar sets across 3 shapes = 18 candidates,
