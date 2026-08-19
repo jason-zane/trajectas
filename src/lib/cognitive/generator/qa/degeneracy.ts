@@ -21,7 +21,7 @@ import { type AxisId, type CellLike, axesPresentIn, axisEq, cellComplexity, cell
 
 export interface CheckResult {
   id: string
-  status: 'pass' | 'fail'
+  status: 'pass' | 'fail' | 'skip'
   detail?: Record<string, unknown>
 }
 
@@ -238,6 +238,88 @@ export function copyEliminationOk(grid: readonly CellLike[], options: readonly C
 }
 
 // ---------------------------------------------------------------------------
+// G-20 — cheap-elimination resistance (2026-08-19, build-plan §2).
+// ---------------------------------------------------------------------------
+
+/**
+ * G-20 — cheap-elimination resistance (an ADDITION, 2026-08-19; build-plan
+ * §2, redesign spec §"The redesign"). Applies when a family declares a
+ * cheap/hard split of its rule axes. Verifies that a solver who applies ONLY
+ * the cheap rules — and then eliminates — is left with a real choice.
+ *
+ * FINDING that made it a gate (the first pilot sitting, benchmark doc §3.2):
+ * the four 3-rule items on the form — the two highest predicted-b values it
+ * carried — were answered correctly in 3.5–12 s each. That is not the pace of
+ * inducing three rules; it is the pace of reading two Latin squares off the
+ * grid, matching shape+fill against five options, and finding one left. The
+ * old G-08 (`KEY_VALUE_DOMINATES`) had FORCED that: it required the key to be
+ * a per-axis minority on half the axes, and families satisfied it on the axes
+ * cheapest to vary — the cheap ones — so cheap elimination left 1–2 options.
+ * The defence against the context-BLIND attack built the context-AWARE one.
+ *
+ * The invariant this gate states: no strategy cheaper than solving the hard
+ * rule may beat chance among fewer than N−1 options. Concretely:
+ *   1. on EVERY declared cheap axis, ≥ N−1 options carry the key's value
+ *      (4 of 5): the cheap rule's answer is given away, deliberately — it was
+ *      never what the item measured (Embretson 1998: radicals drive
+ *      difficulty; surface variation is incidental) — and its filter removes
+ *      at most one option;
+ *   2. the INTERSECTION of all cheap-axis filters still holds ≥ N−1 options.
+ *
+ * Fails `CHEAP_AXIS_ISOLATES` / `CHEAP_INTERSECTION_ISOLATES`. Skips
+ * `NO_CHEAP_AXES` when the family declares none (single-rule families; the
+ * bit-grid families, whose rules are comparably hard and HeiQ-balanced), and
+ * `ALL_AXES_CHEAP` when every declared axis is cheap (LRM-3R-DIST): there is
+ * then no hard rule for the invariant to protect, the family carries the
+ * balanced fractional design instead, and G-18 applies to all its axes.
+ */
+export function cheapEliminationCheck(options: readonly CellLike[], keyIndex: number, cheapAxes: readonly AxisId[] | undefined, axes?: readonly AxisId[]): CheckResult {
+  if (!cheapAxes || cheapAxes.length === 0) {
+    return { id: 'CHEAP_ELIMINATION', status: 'skip', detail: { reason: 'NO_CHEAP_AXES' } }
+  }
+  if (axes && axes.length > 0 && axes.every((a) => cheapAxes.includes(a))) {
+    return { id: 'CHEAP_ELIMINATION', status: 'skip', detail: { reason: 'ALL_AXES_CHEAP', axes } }
+  }
+
+  const N = options.length
+  const threshold = N - 1
+
+  // Per-axis check: each cheap axis must have >= N-1 options with the key's value.
+  for (const axis of cheapAxes) {
+    const keyValue = readAxis(options[keyIndex], axis)
+    if (!keyValue) continue
+    const survivors = options.filter((o) => {
+      const v = readAxis(o, axis)
+      return v !== null && axisEq(v, keyValue)
+    }).length
+    if (survivors < threshold) {
+      return { id: 'CHEAP_ELIMINATION', status: 'fail', detail: { reason: 'CHEAP_AXIS_ISOLATES', axis, survivors, threshold } }
+    }
+  }
+
+  // Intersection check: all cheap axes together must leave >= N-1 options.
+  let intersection = Array.from({ length: N }, (_, i) => i)
+  for (const axis of cheapAxes) {
+    const keyValue = readAxis(options[keyIndex], axis)
+    if (!keyValue) continue
+    intersection = intersection.filter((i) => {
+      const v = readAxis(options[i], axis)
+      return v !== null && axisEq(v, keyValue)
+    })
+  }
+  if (intersection.length < threshold) {
+    return { id: 'CHEAP_ELIMINATION', status: 'fail', detail: { reason: 'CHEAP_INTERSECTION_ISOLATES', survivors: intersection.length, threshold } }
+  }
+
+  return { id: 'CHEAP_ELIMINATION', status: 'pass' }
+}
+
+/** Boolean form of `cheapEliminationCheck`, for families choosing distractors. */
+export function cheapEliminationOk(options: readonly CellLike[], keyIndex: number, cheapAxes: readonly AxisId[] | undefined, axes?: readonly AxisId[]): boolean {
+  return cheapEliminationCheck(options, keyIndex, cheapAxes, axes).status === 'pass'
+}
+
+// ---------------------------------------------------------------------------
 // G-19 — elimination resistance. See `eliminationResistanceCheck`.
 // ---------------------------------------------------------------------------
 
@@ -261,6 +343,10 @@ export function surfaceCensus(cell: CellLike, declaredAxes: readonly AxisId[]): 
         break
       case 'dots':
         out[`dots:${el.layer}`] = el.anchors.length
+        break
+      case 'bitgrid':
+        out[`bitgrid:${el.layer}:black`] = el.black.length
+        out[`bitgrid:${el.layer}:hatched`] = el.hatched.length
         break
       case 'repeat':
         if (!declared.has(`${el.layer}.count`)) out[`repeat:${el.layer}`] = el.count
@@ -312,6 +398,10 @@ export function surfacePalette(cell: CellLike, declaredAxes: readonly AxisId[]):
         for (const a of el.anchors) out.push(`${el.layer}.dot~${a}`)
         push(el.layer, 'fill', el.fill)
         push(el.layer, 'size', el.size)
+        break
+      case 'bitgrid':
+        for (const b of el.black) out.push(`${el.layer}.bitgrid~black~${b}`)
+        for (const h of el.hatched) out.push(`${el.layer}.bitgrid~hatched~${h}`)
         break
     }
   }
@@ -438,7 +528,11 @@ export function eliminationResistanceOk(grid: readonly CellLike[], options: read
  *
  * The check is the direct measurement of that: for each declared rule axis,
  * count the options carrying the key's true value on that axis. Fewer than 2
- * means a solver who cracked only that one rule is done.
+ * means a solver who cracked only that one rule is done. With cheapAxes
+ * declared (2026-08-19, build-plan §1.1), the ≥ 2 requirement applies to the
+ * cheap axes only — the hard axis may isolate, and that is the deliberate
+ * property of the contract (solving the hard rule solves the item). When no
+ * cheap axes are declared, the requirement applies to all axes unchanged.
  *
  * Not applicable to single-rule families (LRM-ROT, LRM-ADD, LRM-SUB,
  * LRM-MOVE, LRM-PROG-COUNT): for those, the one rule isolating the key is
@@ -449,16 +543,19 @@ export function eliminationResistanceOk(grid: readonly CellLike[], options: read
  * 3-rule item" — is unsatisfiable alongside G-08. It would require a
  * distractor wrong on exactly one axis for each of the three axes; those
  * three distractors plus the key leave the key's own value in the majority on
- * every axis, which is precisely `contextBlindGate`'s MODAL_RECOVERS_KEY /
- * KEY_VALUE_DOMINATES failure. With 5 options, a 3-rule item can guarantee
- * that no single rule suffices, and cannot also guarantee that no pair does.
+ * every axis, which is precisely `contextBlindGate`'s MODAL_HIT_RATE failure.
+ * With 5 options, a 3-rule item can guarantee that no single rule suffices,
+ * and cannot also guarantee that no pair does.
  */
-export function singleRuleSufficiencyCheck(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): CheckResult {
+export function singleRuleSufficiencyCheck(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[], cheapAxes?: readonly AxisId[]): CheckResult {
   if (axes.length < 2) {
     return { id: 'SINGLE_RULE_SUFFICIENCY', status: 'pass', detail: { note: 'not applicable: single-rule item, its one rule is meant to determine the key' } }
   }
   const survivorsByAxis: Record<string, number> = {}
   const isolating: AxisId[] = []
+  const axesToCheck = cheapAxes && cheapAxes.length > 0 ? cheapAxes : axes
+  const hardAxes = cheapAxes && cheapAxes.length > 0 ? axes.filter((a) => !cheapAxes.includes(a)) : []
+
   for (const axis of axes) {
     const keyValue = readAxis(options[keyIndex], axis)
     if (!keyValue) continue
@@ -467,16 +564,20 @@ export function singleRuleSufficiencyCheck(options: readonly CellLike[], keyInde
       return v !== null && axisEq(v, keyValue)
     }).length
     survivorsByAxis[axis] = survivors
-    if (survivors < 2) isolating.push(axis)
+    if (axesToCheck.includes(axis) && survivors < 2) {
+      isolating.push(axis)
+    }
   }
+
+  const permittedToIsolate = hardAxes.filter((a) => (survivorsByAxis[a] ?? 0) < 2)
   return isolating.length === 0
-    ? { id: 'SINGLE_RULE_SUFFICIENCY', status: 'pass', detail: { survivorsByAxis } }
+    ? { id: 'SINGLE_RULE_SUFFICIENCY', status: 'pass', detail: { survivorsByAxis, ...(permittedToIsolate.length > 0 && { permittedToIsolate }) } }
     : { id: 'SINGLE_RULE_SUFFICIENCY', status: 'fail', detail: { survivorsByAxis, isolating, reason: 'ONE_RULE_ISOLATES_KEY' } }
 }
 
 /** Boolean form of `singleRuleSufficiencyCheck`, for families choosing distractors. */
-export function singleRuleSufficiencyOk(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): boolean {
-  return singleRuleSufficiencyCheck(options, keyIndex, axes).status === 'pass'
+export function singleRuleSufficiencyOk(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[], cheapAxes?: readonly AxisId[]): boolean {
+  return singleRuleSufficiencyCheck(options, keyIndex, axes, cheapAxes).status === 'pass'
 }
 
 /**

@@ -130,6 +130,10 @@ export function readAxis(cell: CellLike, axis: AxisId): AxisValue | null {
       return el.type === 'dots' ? setVal(el.anchors) : null
     case 'anchor':
       return el.type === 'shape' ? enumVal(el.anchor) : null
+    case 'black':
+      return el.type === 'bitgrid' ? setVal(el.black.map((x) => x.toString())) : null
+    case 'hatched':
+      return el.type === 'bitgrid' ? setVal(el.hatched.map((x) => x.toString())) : null
     default:
       return null
   }
@@ -167,6 +171,10 @@ export function axesPresentIn(cell: CellLike): AxisId[] {
         out.add(makeAxisId(layer, 'fill'))
         out.add(makeAxisId(layer, 'size'))
         break
+      case 'bitgrid':
+        out.add(makeAxisId(layer, 'black'))
+        out.add(makeAxisId(layer, 'hatched'))
+        break
     }
   }
   return [...out]
@@ -179,6 +187,7 @@ export function cellComplexity(cell: CellLike): number {
     if (el.type === 'repeat') n += el.count
     else if (el.type === 'bars') n += el.bars.length
     else if (el.type === 'dots') n += el.anchors.length
+    else if (el.type === 'bitgrid') n += el.black.length + el.hatched.length
     else n += 1
   }
   return n

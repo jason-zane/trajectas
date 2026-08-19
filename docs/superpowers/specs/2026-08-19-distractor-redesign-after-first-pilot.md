@@ -1,6 +1,12 @@
 # Distractor redesign after the first pilot sitting
 
-**Status: design, agreed problem statement — implementation is its own branch.**
+**Status: IMPLEMENTED (2026-08-19, branch `feat/cognitive-v2-defensible-form`)
+— G-08′ and G-20 in `qa/`, the four cheap+hard families re-authored to the
+asymmetric contract, LRM-3R-DIST moved to a balanced fractional design, and a
+cheap-rule discount on the priors. The build plan that executed this spec,
+including where it refines it (G-18 re-scoped to cheap axes; 3R-DIST has no
+hard axis; G-20 skips when every axis is cheap), is
+`2026-08-19-cognitive-v2-build-plan.md`.**
 Written 2026-08-19, after the first real sitting of the internal pilot
 (24 scored items, participant: JH) surfaced a structural flaw in how the
 generator builds option sets.

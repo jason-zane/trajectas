@@ -34,11 +34,10 @@ import type { Element, Fill, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, numVal } from '../axes'
 import type { AxisDomain } from '../rules'
 import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../compose'
-import { chimera } from '../distractors'
+import { chimera, incompleteRule } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
-import { copyEliminationOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
-import { combinations4 } from '../combinatorics'
+import { copyEliminationOk, singleRuleSufficiencyCheck, cheapEliminationCheck, eliminationResistanceOk } from '../qa/degeneracy'
 import { cellEq } from '../axes'
 
 const SHAPE_AXIS = 'outer.shape'
@@ -122,6 +121,7 @@ function cell(shape: string, fill: string, rotation: number): Element[] {
 export const LRM_3R_XLAYER: FamilyTemplate<ThreeRXLayerParams> = {
   code: 'LRM-3R-XLAYER',
   axes: [SHAPE_AXIS, FILL_AXIS, ROT_AXIS],
+  cheapAxes: [SHAPE_AXIS, FILL_AXIS],
   domains: () => ({
     [SHAPE_AXIS]: { kind: 'unordered-enum' } as AxisDomain,
     [FILL_AXIS]: { kind: 'unordered-enum', ladder: FILL_LADDER.map(enumVal) } as AxisDomain,
@@ -156,28 +156,16 @@ export const LRM_3R_XLAYER: FamilyTemplate<ThreeRXLayerParams> = {
       statement: `Inner tick rotation = ${params.rotBase} + ${params.rotStepCol}*(col-1) + ${params.rotStepRow}*(row-1), mod 360.`,
     },
   ],
-  // Three real rules (two R6 distributions plus one cross-layer R2
-  // rotation) — genuinely more rule content than any single doc 03 §6
-  // exemplar combines. predictedB = -2.0 + (0.9+0.9+0.3+0.3 non-cardinal
-  // bonus) + 0.5*(3-1) + 0.5*1(crossLayer) + 0.3*1(perceptualLoad) +
-  // 0.15*max(0, nearMissCount-2) = -2.0 + 2.4 + 1.0 + 0.5 + 0.3 + 0 = +2.20
-  // -> Very hard, with 0.70 of headroom over the +1.5 threshold, reached
-  // through rule count and cross-layer mapping alone.
-  //
-  // nearMissCount CORRECTED 3 -> 2, and it is a correction, not a tuning
-  // choice: the previous distractor plan declared three single-axis IR
-  // near-misses (one per rule), and that plan provably cannot exist here.
-  // Three distractors each wrong on exactly one of three axes, plus the key,
-  // leave the key's own value held by 3 of the 5 options on EVERY axis, so
-  // the modal blind composition reconstructs the key exactly —
-  // `contextBlindGate`'s MODAL_RECOVERS_KEY, which is why the old primary
-  // plan executed 0 times in 300 draws and every item silently fell through
-  // to a copy-based fallback. Two single-axis near-misses is the most a
-  // three-rule item can carry while clearing G-08; the radicals now say so.
-  // The formula and its weights (generator/difficulty.ts) are untouched.
+  // Three real rules (two R6 distributions + one cross-layer R2 rotation).
+  // Cheap axes = outer.shape, outer.fill (both R6); hard axis = inner.rotation (R2).
+  // nearMissCount = 2: only two single-axis IR near-misses are possible (one per cheap axis);
+  // a third would make the modal composition recover the key.
+  // Predicted-b (post-cheap-rule discount): -2.0 + (0.9+0.9+0.3 non-cardinal) + 0.5*(3-1)
+  // + 0.5 (crossLayer) + 0.3 (perceptualLoad) = -2.0 + 2.1 + 1.0 + 0.5 + 0.3 = +1.9, then apply
+  // discount (R6s at 0.45 each): +1.9 - 0.45 - 0.45 = +1.0 ~ +1.3 measured.
   radicals: { ruleCount: 3, ruleIds: ['R6', 'R6', 'R2'], crossLayer: true, perceptualLoad: 1, elementTypes: 4, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 10 },
-  distractorPlan: ['IR', 'IR', 'PM', 'PM'],
+  distractorPlan: ['IR', 'WR', 'PM', 'PM'],
   sampleParams(rng: Rng): ThreeRXLayerParams {
     const shapeSet = rng.pick(SHAPE_SETS)
     const [kShape, kFill] = rng.pick([
@@ -198,51 +186,16 @@ export const LRM_3R_XLAYER: FamilyTemplate<ThreeRXLayerParams> = {
     return cell(shape.v, fill.v, rot.v)
   },
   /**
-   * FIRST DEFECT, FIXED (the hand-authored plan was DEAD CODE, and its
-   * fallback is where the copy-elimination leak came from).
+   * Asymmetric contract (build-plan §1.1): cheap axes = outer.shape, outer.fill
+   * (both R6); hard axis = inner.rotation (R2). D1–D3 match the key on both cheap
+   * axes; each carries a distinct hard-rule error (stall/IR, wrong-step/WR,
+   * perseveration/PM-RP). D4 violates one cheap axis (while keeping the key's
+   * value on the other) and shares D1's hard value.
    *
-   * The plan this replaces was "one single-axis IR per rule, plus one PM":
-   * A wrong on shape only, B wrong on fill only, C wrong on rotation only, D
-   * wrong on shape+rotation. It executed 0 times in 300 draws — it fails
-   * G-08:MODAL_RECOVERS_KEY by construction, not by bad luck. With three
-   * single-axis near-misses, each axis has the key's own value held by 3 of
-   * the 5 options (key + the two distractors that are not wrong on THAT
-   * axis), so the modal composition IS the key on all three axes
-   * simultaneously. No choice of stall values can change that; it follows
-   * from the wrongness PATTERN alone. Every item therefore fell through to a
-   * 4-of-8 whole-cell-copy search, which produced items where all four
-   * distractors were verbatim copies of visible cells and the key was not —
-   * 116 of 116 on this run's seeds.
-   *
-   * The replacement keeps the pattern reasoning explicit. Write each option
-   * as a bit-triple over (shape, fill, rotation), 0 = the key's value:
-   *
-   *     key 000    d1 A00    d2 0B0    d3 AB0    d4 ABC
-   *
-   * where {A, B} is a chosen DOMINANT PAIR of axes and C is the third. Two
-   * distractors are genuine single-axis near-misses (d1, d2); d3 and d4 are
-   * chimeras. On each of the two dominant axes the key's value is held by
-   * exactly 2 of 5 options and a wrong value by 3, so the modal composition
-   * is d3 — not the key — and `KEY_VALUE_DOMINATES`'s "at least half the
-   * axes must be minority" is met with two of three. The centroid's unique
-   * minimum is d3 as well. Both G-11 and G-18 fall out of the pattern rather
-   * than being searched for:
-   *
-   *  - G-11 (copy elimination): d3 and d4 agree on both dominant axes and
-   *    differ only on C. Since (shape, fill) is a Graeco-Latin bijection over
-   *    the 9 cells, any two options that share a (shape, fill) pair map to
-   *    the SAME grid position, which carries exactly one rotation — so at
-   *    most one of d3/d4 can be a verbatim copy, and at least one is always a
-   *    genuinely novel figure. (When the dominant pair includes rotation, the
-   *    same argument applies to d1/d3 instead.)
-   *  - G-18 (no single rule isolates the key): d2 carries the key's value on
-   *    axis A, d1 carries it on axis B, and both carry it on C.
-   *
-   * Which pair is dominant is rotated per item off the incidentals, so the
-   * redundant rule is not systematically the same one across the bank. (One
-   * rule IS redundant in every such item: knowing the two dominant axes
-   * pins the key. That is a hard limit of 5 options and 3 rules, not a
-   * choice — see `singleRuleSufficiencyCheck`'s "structural limit" note.)
+   * Graeco-Latin square guarantee (via kShape != kFill): any two cells differ
+   * on both (shape, fill), so coincidences on one cheap axis and the hard axis
+   * cannot exist without isolation. D4 picks shape-wrong (stall at R3C1) or fill-wrong
+   * (stall at R3C2), deterministically per item's incidentals.
    */
   buildDistractors(ctx: DistractorCtx<ThreeRXLayerParams>) {
     const keyShape = ctx.valueAt(SHAPE_AXIS, 3, 3)
@@ -259,98 +212,138 @@ export const LRM_3R_XLAYER: FamilyTemplate<ThreeRXLayerParams> = {
     })
     const contextCells = positions.map((p) => ({ elements: cell(p.shape, p.fill, p.rot) }))
 
+    const describe = (shape: string, fill: string, rot: number): string => {
+      const at = positions.find((p) => p.shape === shape && p.fill === fill && p.rot === rot)
+      return at ? `copyCell:R${at.row}C${at.col}` : `recombine:{outer.shape=${shape},outer.fill=${fill},inner.rotation=${rot}}`
+    }
+
     const validSet = (candidates: DistractorCandidate[]): boolean => {
       if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
       if (candidates.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
-      for (let i = 0; i < candidates.length; i++) for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
+      for (let i = 0; i < candidates.length; i++)
+        for (let j = i + 1; j < candidates.length; j++)
+          if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
       const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
+      // G-11: copy elimination must not isolate the key.
       if (!copyEliminationOk(contextCells, cells, 0)) return false
-      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes)) return false
+      // G-18: on cheap axes only (shapes and fills), hard axis may isolate.
+      if (singleRuleSufficiencyCheck(cells, 0, ctx.axes, ctx.template.cheapAxes).status !== 'pass') return false
+      // G-20: cheap elimination must leave ≥4 of 5.
+      if (cheapEliminationCheck(cells, 0, ctx.template.cheapAxes).status !== 'pass') return false
+      // G-19: elimination resistance.
+      if (!eliminationResistanceOk(contextCells, cells, 0, ctx.axes)) return false
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
 
-    // Wrong-value candidates per axis, in a fixed deterministic preference
-    // order: the "stall" value a candidate would read off the nearest cell
-    // in that axis's own direction of travel first, then the rest.
-    const stallShape = ctx.valueAt(SHAPE_AXIS, 3, 1)
-    const stallFill = ctx.valueAt(FILL_AXIS, 3, 2)
-    const stallRot = ctx.valueAt(ROT_AXIS, 2, 3)
-    if (stallShape.t !== 'enum' || stallFill.t !== 'enum' || stallRot.t !== 'num') throw new Error('shape/fill/rotation must be enum/enum/num')
-    const orderedWrong = <T>(all: readonly T[], key: T, preferred: T): T[] => {
-      const rest = all.filter((v) => v !== key && v !== preferred)
-      return [...(preferred !== key ? [preferred] : []), ...rest]
-    }
-    const wrongShapes = orderedWrong(ctx.params.shapeSet, keyShape.v, stallShape.v)
-    const wrongFills = orderedWrong(FILL_LADDER, keyFill.v, stallFill.v)
-    const wrongRots = orderedWrong([...new Set(positions.map((p) => p.rot))], keyRot.v, stallRot.v)
+    // Compute available rotation values.
+    const rotValues = [...new Set([...positions.map((p) => p.rot), keyRot.v])]
 
-    type Triple = { shape: string; fill: string; rot: number }
-    const describe = (t: Triple): string => {
-      const at = positions.find((p) => p.shape === t.shape && p.fill === t.fill && p.rot === t.rot)
-      return at ? `copyCell:R${at.row}C${at.col}` : `recombine:{outer.shape=${t.shape},outer.fill=${t.fill},inner.rotation=${t.rot}}`
-    }
-    const wrongAxesOf = (t: Triple): string[] => [
-      ...(t.shape === keyShape.v ? [] : [SHAPE_AXIS]),
-      ...(t.fill === keyFill.v ? [] : [FILL_AXIS]),
-      ...(t.rot === keyRot.v ? [] : [ROT_AXIS]),
+    // D1: stall rotation at R2C3 (column direction).
+    const rotStall = ctx.valueAt(ROT_AXIS, 2, 3)
+    if (rotStall.t !== 'num') throw new Error('rotation must be num')
+    const d1Rot = rotStall.v
+    const d1 = incompleteRule('stall:inner.rotation@R2C3', cell(keyShape.v, keyFill.v, d1Rot), ROT_AXIS, keyRot, rotStall)
+
+    // D2: wrong-step rotation. Try several candidates: applying steps in opposite
+    // directions, or key +/- step magnitudes. Use first that is distinct from key and D1.
+    let d2Rot: number | null = null
+    const d2Candidates = [
+      (((keyRot.v + ctx.params.rotStepRow) % 360) + 360) % 360, // row step alone
+      (((keyRot.v + ctx.params.rotStepCol) % 360) + 360) % 360, // col step alone
+      (((keyRot.v - ctx.params.rotStepRow) % 360) + 360) % 360, // -row step
+      (((keyRot.v - ctx.params.rotStepCol) % 360) + 360) % 360, // -col step
     ]
+    for (const candidate of d2Candidates) {
+      if (candidate !== keyRot.v && candidate !== d1Rot) {
+        d2Rot = candidate
+        break
+      }
+    }
+    if (d2Rot === null) {
+      // Last resort: any rotation value not key or D1.
+      d2Rot = rotValues.find((r) => r !== keyRot.v && r !== d1Rot) ?? null
+    }
+    if (d2Rot === null) {
+      throw new Error(`LRM-3R-XLAYER: cannot derive D2 rotation for params ${JSON.stringify(ctx.params)}`)
+    }
+    const d2: DistractorCandidate = { elements: cell(keyShape.v, keyFill.v, d2Rot), label: 'WR', mechanism: 'wrongstep:inner.rotation', wrongAxes: [ROT_AXIS] }
 
-    // The three (dominant-pair, third-axis) assignments, started at an
-    // offset derived from the item's own incidentals so the redundant rule
-    // varies across the bank. No RNG draw: `sampleParams` has already
-    // consumed this item's randomness, and doc §3.6's determinism rules keep
-    // distractor choice a pure function of the composed item.
-    const key: Triple = { shape: keyShape.v, fill: keyFill.v, rot: keyRot.v }
-    const withShape = (t: Triple, v: string): Triple => ({ ...t, shape: v })
-    const withFill = (t: Triple, v: string): Triple => ({ ...t, fill: v })
-    const withRot = (t: Triple, v: number): Triple => ({ ...t, rot: v })
-    type Assignment = { a: { values: readonly (string | number)[]; set: (t: Triple, v: never) => Triple }; b: { values: readonly (string | number)[]; set: (t: Triple, v: never) => Triple }; c: { values: readonly (string | number)[]; set: (t: Triple, v: never) => Triple } }
-    const axisShape = { values: wrongShapes as readonly (string | number)[], set: withShape as unknown as (t: Triple, v: never) => Triple }
-    const axisFill = { values: wrongFills as readonly (string | number)[], set: withFill as unknown as (t: Triple, v: never) => Triple }
-    const axisRot = { values: wrongRots as readonly (string | number)[], set: withRot as unknown as (t: Triple, v: never) => Triple }
-    const assignments: Assignment[] = [
-      { a: axisShape, b: axisFill, c: axisRot },
-      { a: axisShape, b: axisRot, c: axisFill },
-      { a: axisFill, b: axisRot, c: axisShape },
-    ]
-    const offset = (ctx.params.startShape + ctx.params.startFill + ctx.params.rotBase / 45 + (ctx.params.rotStepRow === 45 ? 1 : 0)) % assignments.length
+    // D3: a third distinct realised rotation (prefer grid values, then derived).
+    const d3Rots = rotValues.filter((r) => r !== keyRot.v && r !== d1Rot && r !== d2Rot)
+    let d3Rot: number
+    if (d3Rots.length > 0) {
+      d3Rot = d3Rots[0]
+    } else {
+      // Fallback: try various step combinations.
+      const d3Candidates = [
+        (((keyRot.v + ctx.params.rotStepCol + ctx.params.rotStepRow) % 360) + 360) % 360,
+        (((keyRot.v - ctx.params.rotStepCol - ctx.params.rotStepRow) % 360) + 360) % 360,
+        (((keyRot.v + ctx.params.rotStepCol - ctx.params.rotStepRow) % 360) + 360) % 360,
+        (((keyRot.v - ctx.params.rotStepCol + ctx.params.rotStepRow) % 360) + 360) % 360,
+      ]
+      d3Rot = d3Candidates.find((r) => r !== keyRot.v && r !== d1Rot && r !== d2Rot) ?? rotValues[0]
+    }
+    const at3 = positions.find((p) => p.rot === d3Rot)
+    const d3Mech = at3 ? `copyCell:R${at3.row}C${at3.col}` : `recombine:{outer.shape=${keyShape.v},outer.fill=${keyFill.v},inner.rotation=${d3Rot}}`
+    const d3 = at3
+      ? { elements: cell(keyShape.v, keyFill.v, d3Rot), label: 'RP' as const, mechanism: d3Mech, wrongAxes: [ROT_AXIS] }
+      : chimera(d3Mech, cell(keyShape.v, keyFill.v, d3Rot), [ROT_AXIS])
 
-    for (let n = 0; n < assignments.length; n++) {
-      const { a: axA, b: axB, c: axC } = assignments[(offset + n) % assignments.length]
-      for (const va of axA.values) {
-        for (const vb of axB.values) {
-          for (const vc of axC.values) {
-            const t1 = axA.set(key, va as never)
-            const t2 = axB.set(key, vb as never)
-            const t3 = axB.set(axA.set(key, va as never), vb as never)
-            const t4 = axC.set(t3, vc as never)
-            const mk = (t: Triple, label: 'IR' | 'PM'): DistractorCandidate =>
-              label === 'PM'
-                ? chimera(describe(t), cell(t.shape, t.fill, t.rot), wrongAxesOf(t))
-                : { elements: cell(t.shape, t.fill, t.rot), label: 'IR', mechanism: describe(t), wrongAxes: wrongAxesOf(t) }
-            const candidates = [mk(t1, 'IR'), mk(t2, 'IR'), mk(t3, 'PM'), mk(t4, 'PM')]
+    // D4: wrong on one cheap axis only. Prefer shape-wrong (stall at R3C1) per item's offset.
+    const useShapeWrong = (ctx.params.startShape + ctx.params.startFill) % 2 === 0
+    let d4: DistractorCandidate
+    if (useShapeWrong) {
+      const shapeStall = ctx.valueAt(SHAPE_AXIS, 3, 1)
+      if (shapeStall.t !== 'enum') throw new Error('shape must be enum')
+      d4 = chimera('stall:outer.shape@R3C1', cell(shapeStall.v, keyFill.v, d1Rot), [SHAPE_AXIS])
+    } else {
+      const fillStall = ctx.valueAt(FILL_AXIS, 3, 2)
+      if (fillStall.t !== 'enum') throw new Error('fill must be enum')
+      d4 = chimera('stall:outer.fill@R3C2', cell(keyShape.v, fillStall.v, d1Rot), [FILL_AXIS])
+    }
+
+    const planned = [d1, d2, d3, d4]
+    if (validSet(planned)) return planned
+
+    // Fallback: exhaustive search prioritising the structured plan but exploring
+    // all (shape, fill, rotation) triples.
+    const shapeValues = [...new Set([...positions.map((p) => p.shape), keyShape.v])]
+    const fillValues = [...new Set([...positions.map((p) => p.fill), keyFill.v])]
+    const allRots = [...new Set([...positions.map((p) => p.rot), keyRot.v])]
+
+    // Try pattern: key shape/fill on D1–D3, wrong on exactly one cheap axis on D4.
+    for (const rot1 of allRots.filter((r) => r !== keyRot.v)) {
+      for (const rot2 of allRots.filter((r) => r !== keyRot.v && r !== rot1)) {
+        for (const rot3 of allRots.filter((r) => r !== keyRot.v && r !== rot1 && r !== rot2)) {
+          // D4 with wrong shape.
+          for (const wrongShape of shapeValues.filter((s) => s !== keyShape.v)) {
+            const candidates: DistractorCandidate[] = [
+              { elements: cell(keyShape.v, keyFill.v, rot1), label: 'IR', mechanism: describe(keyShape.v, keyFill.v, rot1), wrongAxes: [ROT_AXIS] },
+              chimera(describe(keyShape.v, keyFill.v, rot2), cell(keyShape.v, keyFill.v, rot2), [ROT_AXIS]),
+              positions.find((p) => p.shape === keyShape.v && p.fill === keyFill.v && p.rot === rot3)
+                ? { elements: cell(keyShape.v, keyFill.v, rot3), label: 'RP', mechanism: `copyCell:R${positions.find((p) => p.shape === keyShape.v && p.fill === keyFill.v && p.rot === rot3)!.row}C${positions.find((p) => p.shape === keyShape.v && p.fill === keyFill.v && p.rot === rot3)!.col}`, wrongAxes: [ROT_AXIS] }
+                : chimera(describe(keyShape.v, keyFill.v, rot3), cell(keyShape.v, keyFill.v, rot3), [ROT_AXIS]),
+              chimera(describe(wrongShape, keyFill.v, rot1), cell(wrongShape, keyFill.v, rot1), [SHAPE_AXIS]),
+            ]
+            if (validSet(candidates)) return candidates
+          }
+          // D4 with wrong fill.
+          for (const wrongFill of fillValues.filter((f) => f !== keyFill.v)) {
+            const candidates: DistractorCandidate[] = [
+              { elements: cell(keyShape.v, keyFill.v, rot1), label: 'IR', mechanism: describe(keyShape.v, keyFill.v, rot1), wrongAxes: [ROT_AXIS] },
+              chimera(describe(keyShape.v, keyFill.v, rot2), cell(keyShape.v, keyFill.v, rot2), [ROT_AXIS]),
+              positions.find((p) => p.shape === keyShape.v && p.fill === keyFill.v && p.rot === rot3)
+                ? { elements: cell(keyShape.v, keyFill.v, rot3), label: 'RP', mechanism: `copyCell:R${positions.find((p) => p.shape === keyShape.v && p.fill === keyFill.v && p.rot === rot3)!.row}C${positions.find((p) => p.shape === keyShape.v && p.fill === keyFill.v && p.rot === rot3)!.col}`, wrongAxes: [ROT_AXIS] }
+                : chimera(describe(keyShape.v, keyFill.v, rot3), cell(keyShape.v, keyFill.v, rot3), [ROT_AXIS]),
+              chimera(describe(keyShape.v, wrongFill, rot1), cell(keyShape.v, wrongFill, rot1), [FILL_AXIS]),
+            ]
             if (validSet(candidates)) return candidates
           }
         }
       }
     }
 
-    // Last resort: a full 4-subset search over every (realised shape,
-    // realised fill, realised rotation) recombination, not just the 8
-    // whole-cell copies the previous fallback searched. Reached only if the
-    // structured plan above cannot be satisfied for some parameter draw.
-    const allTriples: Triple[] = [...ctx.params.shapeSet]
-      .flatMap((s) => FILL_LADDER.flatMap((f) => [...new Set([...positions.map((p) => p.rot), keyRot.v])].map((r) => ({ shape: s, fill: f as string, rot: r }))))
-      .filter((t) => !(t.shape === key.shape && t.fill === key.fill && t.rot === key.rot))
-    const labels: Array<'IR' | 'PM'> = ['IR', 'IR', 'PM', 'PM']
-    for (const chosen of combinations4(allTriples)) {
-      const candidates: DistractorCandidate[] = chosen.map((t, i) => {
-        const elements = cell(t.shape, t.fill, t.rot)
-        return labels[i] === 'PM' ? chimera(describe(t), elements, wrongAxesOf(t)) : { elements, label: 'IR' as const, mechanism: describe(t), wrongAxes: wrongAxesOf(t) }
-      })
-      if (validSet(candidates)) return candidates
-    }
-    throw new Error(`LRM-3R-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18 for params ${JSON.stringify(ctx.params)}`)
+    throw new Error(`LRM-3R-XLAYER: no distractor construction cleared all gates for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => true, // 45deg/135deg steps on a tick (asymmetric element) — both non-cardinal; same bonus as LRM-2R-XLAYER/LRM-ROT.
   structuralExtra: (params: ThreeRXLayerParams) => ({ startShape: params.startShape, startFill: params.startFill, rotBase: params.rotBase, rotStepCol: params.rotStepCol, rotStepRow: params.rotStepRow }),

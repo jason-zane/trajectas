@@ -141,12 +141,38 @@ export const RepeatElement = z
   })
   .strict()
 
+/**
+ * BitgridElement — a 3×3 mini-grid filling one cell (doc 2026-08-19-cognitive-v2-build-plan.md §4).
+ * Each of 9 mini-cells is rendered as empty (outline only), black (solid fill),
+ * or hatched (cross-hatch pattern). Two independent set-valued axes: black and hatched.
+ * Positions 0–8 are indexed row-major (top-left = 0, top-right = 2, bottom-right = 8).
+ * The schema enforces disjoint sets: no position can be both black AND hatched.
+ */
+export const BitgridElement = z
+  .object({
+    type: z.literal('bitgrid'),
+    layer: z.literal('outer'),
+    /** Set of mini-cell positions (0–8) to fill with solid black. Canonical ascending order. */
+    black: z.array(z.number().int().min(0).max(8)).default([]),
+    /** Set of mini-cell positions (0–8) to fill with cross-hatch. Canonical ascending order. */
+    hatched: z.array(z.number().int().min(0).max(8)).default([]),
+  })
+  .strict()
+  .refine(
+    (el) => {
+      const blackSet = new Set(el.black)
+      return !el.hatched.some((x) => blackSet.has(x))
+    },
+    { message: 'bitgrid black and hatched sets must be disjoint' },
+  )
+
 export const Element = z.discriminatedUnion('type', [
   ShapeElement,
   TickElement,
   BarsElement,
   DotsElement,
   RepeatElement,
+  BitgridElement,
 ])
 export type Element = z.infer<typeof Element>
 

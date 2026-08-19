@@ -14,6 +14,8 @@ import { LRM_XOR_XLAYER } from './lrm-xor-xlayer'
 import { LRM_MOVE } from './lrm-move'
 import { LRM_XOR_DIST_XLAYER } from './lrm-xor-dist-xlayer'
 import { LRM_3R_XLAYER } from './lrm-3r-xlayer'
+import { LRM_BITS_XOR } from './lrm-bits-xor'
+import { LRM_BITS_2OP } from './lrm-bits-2op'
 
 /**
  * LRM_DIST3X2 is deliberately ABSENT from this list. It cannot satisfy G-11
@@ -43,6 +45,10 @@ export const ALL_FAMILIES: FamilyTemplate<unknown>[] = [
   // genuinely more rule content, not a reweighting of the existing eight.
   LRM_XOR_DIST_XLAYER,
   LRM_3R_XLAYER,
+  // Added by 2026-08-19-cognitive-v2-build-plan.md §4: bitgrid Boolean families
+  // (LRM-BITS-XOR as on-ramp moderate, LRM-BITS-2OP as ceiling very-hard).
+  LRM_BITS_XOR,
+  LRM_BITS_2OP,
 ].map((f) => f as FamilyTemplate<unknown>)
 
 export const FAMILY_REGISTRY: Record<string, FamilyTemplate<unknown>> = Object.fromEntries(ALL_FAMILIES.map((f) => [f.code, f]))
@@ -59,4 +65,6 @@ export {
   LRM_MOVE,
   LRM_XOR_DIST_XLAYER,
   LRM_3R_XLAYER,
+  LRM_BITS_XOR,
+  LRM_BITS_2OP,
 }

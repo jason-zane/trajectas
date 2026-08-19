@@ -118,12 +118,15 @@ export interface BalanceRepairResult {
 
 /**
  * doc §4.5's balance repair: mutate distractors ONLY (never the key) until
- * the context-blind gate passes. This generic version does not itself
- * generate replacement candidates (that requires family-specific knowledge
- * of what other mechanisms exist) — it accepts a `regenerate` callback
- * supplied by the caller (families/index.ts's assembly step) and reports
- * failure if no repair is found within the attempt budget, matching doc's
- * `BALANCE_UNREPAIRABLE`.
+ * the context-blind gate passes. This is a heuristic fallback under G-08' for
+ * families whose distractor plan does not satisfy G-08' on first generation.
+ * Families under the new contract (declaring `cheapAxes` in their template)
+ * do not call this — their distractor plan is written to pass G-08' directly.
+ * This generic version does not itself generate replacement candidates (that
+ * requires family-specific knowledge of what other mechanisms exist) — it
+ * accepts a `regenerate` callback supplied by the caller (families/index.ts's
+ * assembly step) and reports failure if no repair is found within the attempt
+ * budget, matching doc's `BALANCE_UNREPAIRABLE`.
  */
 export function repairBalance(
   keyCell: CellLike,

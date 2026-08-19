@@ -1,23 +1,40 @@
 /**
- * LRM-3R-DIST — M7's family. Doc 03-logical-reasoning-design.md §6 M7:
- * three rules — R6 (shape, Latin square) + R6 (fill, Latin square) + R1
- * (count = column index: 1, 2, 3). Shape and fill reuse LRM-DIST3X2's
- * orthogonal cyclic-Latin-square construction (kShape != kFill in {1,2} —
- * see that family's header note for why that pairing is what guarantees
- * every (shape, fill) combination across the 9 cells is distinct); count
- * is independent of both (it depends only on column).
+ * LRM-3R-DIST — balanced fractional design for a three-cheap-rules item.
+ * Doc 03-logical-reasoning-design.md §6 M7: three rules — R6 (shape,
+ * Latin square) + R6 (fill, Latin square) + R1 (count = column index: 1, 2,
+ * 3). Shape and fill reuse LRM-DIST3X2's orthogonal cyclic-Latin-square
+ * construction (kShape != kFill in {1,2}); count is independent (depends
+ * only on column).
  *
- * FINDING: doc 03-item-generation-pipeline.md Appendix A marks M7 as the
- * WORST context-blind failure of the eight exemplars ("the key is modal on
- * all three axes") and works through an iterative, MANUALLY-TUNED repair
- * (§ Appendix A, "Worked for M7") that ends up moving one distractor's
- * shape TWICE before it clears G-08. That repair is specific to doc's own
- * fixed shape/fill choice and is not a formula this family can reuse
- * across arbitrary incidental draws. As with LRM-DIST3X2/LRM-2R-XLAYER,
- * this family instead searches a candidate pool (context-cell copies, and
- * context-cell copies with count overridden to each of the other two
- * values) for a 4-subset that clears the real gates — the same repair
- * PRINCIPLE doc's manual pass follows, executed generally.
+ * REDESIGN (2026-08-19, build-plan §1.2): all three axes are cheap (no
+ * hard-axis distinction exists). The structural limit documented in
+ * qa/degeneracy.ts G-18's header comment proves that a 3-rule item cannot
+ * simultaneously satisfy "no single rule isolates the key" and "no pair of
+ * rules isolates the key" alongside G-08. This family accepts the first —
+ * every axis has the key's value in exactly 2 of 5 options — and builds a
+ * balanced option set using the 2³⁻¹ fractional factorial plus the all-wrong
+ * corner: key (000), AB0, A0C, 0BC, ABC.
+ *
+ * The four distractors are formed by:
+ * - AB0: wrong on shape and fill, correct on count
+ * - A0C: wrong on shape and count, correct on fill
+ * - 0BC: wrong on fill and count, correct on shape
+ * - ABC: wrong on all three axes (the all-wrong corner)
+ *
+ * Where A/B/C are non-key values on shape/fill/count respectively. Preference
+ * order: stall values (R3C1 for shape, R3C2 for fill, R2C3 for count), then
+ * other realised values. This ensures every option's wrongness is legible from
+ * its axis values alone, making the item depend on understanding the rules
+ * rather than on option-set guesswork.
+ *
+ * The modal composition is ABC (a distractor); the centroid is ABC. With all
+ * three axes non-isolating (G-18 check applied to all), two rules together
+ * leave only the key, one leaves two options. The family stays as a MODERATE
+ * item (post-discount predicted b ~0.15; pilot record positions 19–20 cleared
+ * in 10–12 seconds each). It is no longer counted on for the ceiling.
+ *
+ * Cheapaxes is NOT declared (undefined), so G-20 skips with 'NO_CHEAP_AXES'
+ * and G-18 applies the ≥ 2 requirement to all three axes unchanged.
  */
 import type { Element, Fill, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, numVal, cellEq } from '../axes'
@@ -26,7 +43,7 @@ import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../comp
 import { chimera } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
-import { combinations4 } from '../combinatorics'
+import { copyEliminationOk, singleRuleSufficiencyOk, eliminationResistanceOk } from '../qa/degeneracy'
 
 const SHAPE_AXIS = 'outer.shape'
 const FILL_AXIS = 'outer.fill'
@@ -63,6 +80,22 @@ function repeatCell(shape: string, fill: string, count: number): Element[] {
 export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
   code: 'LRM-3R-DIST',
   axes: [SHAPE_AXIS, FILL_AXIS, COUNT_AXIS],
+  // ALL three axes are cheap — two Latin squares on the dominant attributes
+  // and a count that equals the column index — and the family says so. With
+  // every declared axis cheap, G-20 skips (`ALL_AXES_CHEAP`: there is no hard
+  // rule for the cheap-elimination invariant to protect) and G-18 applies
+  // the ≥ 2 requirement to all three axes; the balanced fractional design
+  // below gives every axis the key's value in exactly 2 of 5 options, so no
+  // single rule isolates the key. The structural limit in qa/degeneracy.ts's
+  // G-18 header still holds — a 3-rule item cannot also stop a solver who
+  // has TWO rules — and this family accepts it: two cheap rules leave the
+  // key. That is why it is MODERATE by design, not hard: with the cheap-rule
+  // discount (difficulty.ts) predictedB = -2.0 + (0.45 + 0.45 + 0) +
+  // 0.5*(3-1) + 0 + 0.3 + 0.15*max(0, 3-2) = +0.35, which is what the first
+  // pilot measured operationally (positions 19–20 cleared in 10–12 s each,
+  // single-rule pace). It stays in the bank as the three-cheap-rules
+  // working-memory item and is no longer counted on for the ceiling.
+  cheapAxes: [SHAPE_AXIS, FILL_AXIS, COUNT_AXIS],
   domains: () => ({
     [SHAPE_AXIS]: { kind: 'unordered-enum' } as AxisDomain,
     [FILL_AXIS]: { kind: 'unordered-enum', ladder: FILL_LADDER.map(enumVal) } as AxisDomain,
@@ -99,7 +132,7 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
   ],
   radicals: { ruleCount: 3, ruleIds: ['R6', 'R6', 'R1'], crossLayer: false, perceptualLoad: 1, elementTypes: 3, nearMissCount: 3 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['IR', 'IR', 'IR', 'PM'],
+  distractorPlan: ['PM', 'PM', 'PM', 'RP'],
   sampleParams(rng: Rng): M7Params {
     const shapeSet = rng.pick(SHAPE_SETS)
     const [kShape, kFill] = rng.pick([
@@ -118,53 +151,115 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
     return repeatCell(shape.v, fill.v, count.v)
   },
   /**
-   * Pool: every context cell's own (shape, fill, count), PLUS the same
-   * cell with count overridden to each of the other two values (1, 2, 3
-   * minus its own) — 8 + 16 = 24 candidates. Search 4-subsets (labelled
-   * IR, IR, IR, PM per doc's own "three IR + one PM" M7 design note,
-   * doc 03-logical-reasoning-design.md §6 M7's closing paragraph) for one
-   * that clears G-08 and G-10 against the fixed key.
+   * Balanced fractional design: construct distractors AB0, A0C, 0BC, ABC
+   * where each pattern has exactly two axes wrong and forms a 2³⁻¹ fractional
+   * factorial plus the all-wrong corner.
+   *
+   * Algorithm: collect all realised values for each axis on the grid, then
+   * pick non-key values (preference: stall values from R3C1/R3C2/R2C3,
+   * fallback to any other realised value). Construct the four distractors
+   * deterministically from those values, then validate against all gates.
    */
   buildDistractors(ctx: DistractorCtx<M7Params>) {
     const keyShape = ctx.valueAt(SHAPE_AXIS, 3, 3)
     const keyFill = ctx.valueAt(FILL_AXIS, 3, 3)
     const keyCount = ctx.valueAt(COUNT_AXIS, 3, 3)
-    if (keyShape.t !== 'enum' || keyFill.t !== 'enum' || keyCount.t !== 'num') throw new Error('shape/fill/count must be enum/enum/num')
+    if (keyShape.t !== 'enum' || keyFill.t !== 'enum' || keyCount.t !== 'num')
+      throw new Error('shape/fill/count must be enum/enum/num')
 
-    type Candidate = { shape: string; fill: string; count: number; mechanism: string }
-    const pool: Candidate[] = []
+    // Collect all realised values for each axis.
+    const shapeValues: Set<string> = new Set()
+    const fillValues: Set<string> = new Set()
+    const countValues: Set<number> = new Set()
     for (const gc of ctx.grid) {
       const s = ctx.valueAt(SHAPE_AXIS, gc.row, gc.col)
       const f = ctx.valueAt(FILL_AXIS, gc.row, gc.col)
       const c = ctx.valueAt(COUNT_AXIS, gc.row, gc.col)
-      if (s.t !== 'enum' || f.t !== 'enum' || c.t !== 'num') throw new Error('shape/fill/count must be enum/enum/num')
-      pool.push({ shape: s.v, fill: f.v, count: c.v, mechanism: `copyCell:R${gc.row}C${gc.col}` })
-      for (const altCount of [1, 2, 3]) {
-        if (altCount === c.v) continue
-        pool.push({ shape: s.v, fill: f.v, count: altCount, mechanism: `copyCell:R${gc.row}C${gc.col}+recount[${altCount}]` })
-      }
-    }
-    const filteredPool = pool.filter((p) => !(p.shape === keyShape.v && p.fill === keyFill.v && p.count === keyCount.v))
-
-    const labels: Array<'IR' | 'PM'> = ['IR', 'IR', 'IR', 'PM']
-    const validSet = (candidates: DistractorCandidate[]): boolean => {
-      if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
-      if (candidates.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
-      for (let i = 0; i < candidates.length; i++)
-        for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
-      const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
-      return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
+      if (s.t === 'enum') shapeValues.add(s.v)
+      if (f.t === 'enum') fillValues.add(f.v)
+      if (c.t === 'num') countValues.add(c.v)
     }
 
-    for (const chosen of combinations4(filteredPool)) {
-      const candidates: DistractorCandidate[] = chosen.map((p, i) => {
-        const wrongAxes = [...(p.shape === keyShape.v ? [] : [SHAPE_AXIS]), ...(p.fill === keyFill.v ? [] : [FILL_AXIS]), ...(p.count === keyCount.v ? [] : [COUNT_AXIS])]
-        const elements = repeatCell(p.shape, p.fill, p.count)
-        return labels[i] === 'PM' ? chimera(p.mechanism, elements, wrongAxes) : { elements, label: 'IR' as const, mechanism: p.mechanism, wrongAxes }
-      })
-      if (validSet(candidates)) return candidates
+    // Stall value preference: R3C1 for shape, R3C2 for fill, R2C3 for count.
+    const stallShape = ctx.valueAt(SHAPE_AXIS, 3, 1)
+    const stallFill = ctx.valueAt(FILL_AXIS, 3, 2)
+    const stallCount = ctx.valueAt(COUNT_AXIS, 2, 3)
+    if (stallShape.t !== 'enum' || stallFill.t !== 'enum' || stallCount.t !== 'num')
+      throw new Error('stall values must be enum/enum/num')
+
+    // Pick A, B, C (wrong values on shape, fill, count).
+    const pickWrongValue = (keyValue: string, values: Set<string>, stallValue: string): string => {
+      if (stallValue !== keyValue) return stallValue
+      // Fallback: pick any other realised value.
+      for (const v of values) if (v !== keyValue) return v
+      throw new Error('no alternative value available')
     }
-    throw new Error(`LRM-3R-DIST: no distractor construction cleared both G-08 and G-10 for params ${JSON.stringify(ctx.params)}`)
+
+    const pickWrongCount = (keyValue: number, values: Set<number>, stallValue: number): number => {
+      if (stallValue !== keyValue) return stallValue
+      for (const c of values) if (c !== keyValue) return c
+      throw new Error('no alternative count available')
+    }
+
+    const A = pickWrongValue(keyShape.v, shapeValues, stallShape.v)
+    const B = pickWrongValue(keyFill.v, fillValues, stallFill.v)
+    const C = pickWrongCount(keyCount.v, countValues, stallCount.v)
+
+    // Construct the four distractors: AB0, A0C, 0BC, ABC.
+    type Candidate = { shape: string; fill: string; count: number; label: 'PM' | 'RP'; wrongAxisCount: number }
+    const candidates: Candidate[] = [
+      { shape: A, fill: B, count: keyCount.v, label: 'PM', wrongAxisCount: 2 },
+      { shape: A, fill: keyFill.v, count: C, label: 'PM', wrongAxisCount: 2 },
+      { shape: keyShape.v, fill: B, count: C, label: 'PM', wrongAxisCount: 2 },
+      { shape: A, fill: B, count: C, label: 'RP', wrongAxisCount: 3 },
+    ]
+
+    // Build and validate the full option set.
+    const validSet = (distrs: DistractorCandidate[]): boolean => {
+      // Every distractor must be wrong on at least one axis.
+      if (distrs.some((cd) => cd.wrongAxes.length === 0)) return false
+      // No distractor equals the key cell verbatim.
+      if (distrs.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
+      // No two distractors are identical.
+      for (let i = 0; i < distrs.length; i++)
+        for (let j = i + 1; j < distrs.length; j++)
+          if (cellEq({ elements: distrs[i].elements }, { elements: distrs[j].elements })) return false
+
+      const cells = [{ elements: ctx.keyCell.elements }, ...distrs.map((x) => ({ elements: x.elements }))]
+
+      // G-08 — context blind (modal hit rate and centroid).
+      if (!contextBlindGate(cells, 0, ctx.axes).ok) return false
+      // G-10 — no giveaway pairs.
+      if (!giveawayPairGate(cells, ctx.axes).ok) return false
+      // G-11 — copy elimination must not isolate key.
+      if (!copyEliminationOk(ctx.grid, cells, 0)) return false
+      // G-18 — no single rule isolates key. cheapAxes = all axes, so the scoped
+      // check is the unscoped one: every axis must keep ≥ 2 options.
+      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes, ctx.template.cheapAxes)) return false
+      // G-19 — elimination resistance (rule-blind cue chain).
+      if (!eliminationResistanceOk(ctx.grid, cells, 0, ctx.axes)) return false
+
+      return true
+    }
+
+    // Build the distractors with PM/RP labels and test.
+    const distractors: DistractorCandidate[] = candidates.map((cand) => {
+      const elements = repeatCell(cand.shape, cand.fill, cand.count)
+      const wrongAxes = [
+        ...(cand.shape === keyShape.v ? [] : [SHAPE_AXIS]),
+        ...(cand.fill === keyFill.v ? [] : [FILL_AXIS]),
+        ...(cand.count === keyCount.v ? [] : [COUNT_AXIS]),
+      ]
+      // ABC (the last, all-wrong distractor) is labeled RP. The others are PM.
+      // The chimera function handles the RP labeling.
+      return cand.label === 'RP'
+        ? chimera(`fractional-factorial:ABC[${A},${B},${C}]`, elements, wrongAxes)
+        : { elements, label: 'PM' as const, mechanism: `fractional-factorial:${cand.wrongAxisCount === 2 ? ['AB0', 'A0C', '0BC'][candidates.indexOf(cand)] : 'ABC'}[${A},${B},${C}]`, wrongAxes }
+    })
+
+    if (validSet(distractors)) return distractors
+
+    throw new Error(`LRM-3R-DIST: balanced fractional design failed validation for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: M7Params) => ({ startShape: params.startShape, startFill: params.startFill }),

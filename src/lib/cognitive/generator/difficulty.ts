@@ -18,6 +18,14 @@
  * generation-pipeline.md's framing note + the task's own instructions) — so
  * this number orders items into rough bands, it does not know their
  * difficulty.
+ *
+ * CHEAP-RULE DISCOUNT (2026-08-19, build-plan §3): when a family declares
+ * cheap axes, a rule whose axis is in cheapAxes contributes half its weight
+ * to the difficulty prior. This is an ORDERING PRIOR ONLY, documented here
+ * so readers know the priors are computed under this discount, and to clarify
+ * that the discount reflects pilot finding (cheap rules cost seconds, not
+ * induction) rather than an estimate of real difficulty. Once real sitter data
+ * arrives, the priors will be re-derived from calibration.
  */
 import type { RuleId } from '../spec/schema'
 
@@ -75,8 +83,12 @@ const DELTA = 0.15
  * difficulty.test.ts` for the worked reconciliation and the very-hard
  * acceptance test.
  */
-export function predictedB(rad: RadicalsForDifficulty, opts: { nonCardinalAsymmetricRotation: boolean }): number {
-  const ruleSum = rad.ruleIds.reduce((s, id) => s + (W[id] ?? 0), 0) + (opts.nonCardinalAsymmetricRotation ? 0.3 : 0)
+export function predictedB(rad: RadicalsForDifficulty, opts: { nonCardinalAsymmetricRotation: boolean; cheapRuleIds?: readonly string[] }): number {
+  const cheapSet = new Set(opts.cheapRuleIds ?? [])
+  const ruleSum = rad.ruleIds.reduce((s, id) => {
+    const weight = W[id] ?? 0
+    return s + (cheapSet.has(id) ? weight / 2 : weight)
+  }, 0) + (opts.nonCardinalAsymmetricRotation ? 0.3 : 0)
   return BETA0 + ruleSum + GAMMA * (rad.ruleCount - 1) + LAMBDA * (rad.crossLayer ? 1 : 0) + PI * rad.perceptualLoad + DELTA * Math.max(0, rad.nearMissCount - 2)
 }
 

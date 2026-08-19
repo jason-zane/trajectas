@@ -56,7 +56,7 @@ export type IngestGeneratedBankInput = z.infer<typeof ingestGeneratedBankSchema>
  * file does — and ingest is idempotent by content hash, so re-running a seed
  * completes a partial load rather than duplicating it.
  *
- * `perFamily` is capped at 20. There are ten families, so 20 is 200 candidate
+ * `perFamily` is capped at 20. There are twelve families, so 20 is 240 candidate
  * items before QA rejection, which is already at the edge of what fits in a
  * request; the cap exists so a mistyped number cannot turn into a request that
  * times out halfway through writing.

@@ -150,14 +150,24 @@ describe('the registered bank is free of both shortcuts end to end', () => {
     expect(offenders).toEqual([])
   })
 
-  it('no accepted multi-rule item can be solved from one declared rule alone, in any family', () => {
+  it('no accepted multi-rule item can be solved from one CHEAP rule alone, in any family (the hard rule alone is allowed to — solving it is solving the item)', () => {
+    // 2026-08-19 (build-plan §1.1 / §2): families that declare a cheap/hard
+    // split carry the asymmetric option-set contract — every distractor but
+    // one holds the key's cheap values and each carries a distinct hard-rule
+    // error — so the HARD axis isolates the key by design and the ≥ 2 rule is
+    // scoped to the cheap axes (G-18 re-scoped; G-20 guards the cheap ones).
+    // Families with no declaration (both bit-grid rules are comparably hard;
+    // 3R-DIST declares all three cheap) are held to every axis, as before.
     const offenders: string[] = []
     for (const item of result.items) {
       const family = ALL_FAMILIES.find((f) => f.code === item.familyCode)!
       if (family.axes.length < 2) continue
+      const cheap = family.cheapAxes ?? []
+      const hasHardAxis = cheap.length > 0 && cheap.length < family.axes.length
+      const axesToCheck = hasHardAxis ? cheap : family.axes
       const keyIndex = item.optionSpecs.findIndex((o) => o.slot === item.keySlot)
       const options = item.optionSpecs.map((o) => ({ elements: o.elements }))
-      for (const axis of family.axes) {
+      for (const axis of axesToCheck) {
         const keyValue = readAxis(options[keyIndex], axis)
         if (!keyValue) continue
         const survivors = options.filter((o) => {

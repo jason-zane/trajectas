@@ -50,6 +50,10 @@ export function elementInkArea(el: Element, strokeWidth: number): number {
       return el.length * strokeWidth
     case 'bars':
       return el.bars.length * 60 * strokeWidth
+    case 'bitgrid':
+      // Each mini-cell is 8×8 units; black cells are solid fill, hatched cells are
+      // approximately equivalent. Total ink = (black + hatched cell count) × 64.
+      return (el.black.length + el.hatched.length) * 64
   }
 }
 
@@ -86,6 +90,10 @@ const INK_MIN = 0.04
 const INK_MAX = 0.38
 const INK_VARIANCE_MAX = 4.0
 
+function isBitgridCell(cell: CellLike): boolean {
+  return cell.elements.length > 0 && cell.elements.some((el) => el.type === 'bitgrid')
+}
+
 /**
  * `varianceIsRuleIntended`: FINDING, reported in the LR-7 writeup — doc
  * 03-item-generation-pipeline.md §3.5's `INK_VARIANCE` (max/min <= 4.0
@@ -104,14 +112,20 @@ const INK_VARIANCE_MAX = 4.0
  * per-cell floor/ceiling — a single very sparse or very cluttered cell is
  * still a real legibility problem) whenever the caller marks the variance
  * as rule-intended.
+ *
+ * BITGRID SPECIAL CASE: bitgrid cells carry set-valued rule axes, which
+ * naturally vary (the rule produces different set compositions per cell),
+ * so bitgrid items are classified as `varianceIsRuleIntended` by default.
+ * The INK_MAX ceiling still applies to guard against over-dense grids.
  */
 export function inkCoverageGate(cells: readonly CellLike[], strokeWidth: number, varianceIsRuleIntended = false): DensityGateResult {
   const fractions = cells.map((c) => cellInkFraction(c, strokeWidth))
+  const isBitgridItem = cells.some(isBitgridCell)
   const outOfBand = cells
     .map((c, i) => ({ c, f: fractions[i] }))
-    .filter(({ c, f }) => f > INK_MAX || (f < INK_MIN && !isLineOnlyCell(c)))
+    .filter(({ c, f }) => f > INK_MAX || (f < INK_MIN && !isLineOnlyCell(c) && !isBitgridCell(c)))
   if (outOfBand.length > 0) return { status: 'fail', detail: { reason: 'INK_COVERAGE', fractions } }
-  if (varianceIsRuleIntended) return { status: 'pass', detail: { fractions, varianceCheckSkipped: 'rule-intended count variation' } }
+  if (varianceIsRuleIntended || isBitgridItem) return { status: 'pass', detail: { fractions, varianceCheckSkipped: varianceIsRuleIntended ? 'rule-intended count variation' : 'bitgrid set-operator variance' } }
   const max = Math.max(...fractions)
   const min = Math.min(...fractions)
   if (min > 0 && max / min > INK_VARIANCE_MAX) return { status: 'fail', detail: { reason: 'INK_VARIANCE', ratio: max / min, fractions } }
@@ -143,6 +157,15 @@ function boundsOf(el: Element): { minX: number; minY: number; maxX: number; maxY
     const xs = el.anchors.map((a) => ANCHOR_XY[a][0])
     const ys = el.anchors.map((a) => ANCHOR_XY[a][1])
     return { minX: Math.min(...xs) - size / 2, maxX: Math.max(...xs) + size / 2, minY: Math.min(...ys) - size / 2, maxY: Math.max(...ys) + size / 2 }
+  }
+  if (el.type === 'bitgrid') {
+    // Bitgrid occupies a 3×3 grid of 8-unit cells with 1-unit gaps, centered in the 100×100 canvas.
+    const cellSize = 8
+    const gap = 1
+    const gridSize = 3 * cellSize + 2 * gap // 26 units
+    const start = (100 - gridSize) / 2 // 37 units
+    const end = start + gridSize // 63 units
+    return { minX: start, maxX: end, minY: start, maxY: end }
   }
   return null
 }

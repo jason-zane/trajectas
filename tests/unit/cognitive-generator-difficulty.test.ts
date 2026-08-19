@@ -106,17 +106,30 @@ describe('generator/difficulty — doc 03-item-generation-pipeline.md §3.7', ()
   })
 
   it('the figures above are what the REGISTERED families actually emit — asserted against generated items, not against a second hand-typed copy of their radicals', () => {
+    // 2026-08-19 (build-plan §3): the two families now DECLARE their Latin-
+    // square axes cheap, and a rule on a declared cheap axis contributes half
+    // its weight to the ordering prior. The formula test above passes no
+    // cheap rules and is unchanged (the weights are untouched); this test
+    // states what the registered families now emit:
+    //   XOR-DIST-XLAYER: 1.8 - 0.45 (one cheap R6)  = 1.35, hard
+    //   3R-XLAYER:       2.2 - 0.9  (two cheap R6s) = 1.30, hard
+    // The very-hard band those two used to occupy was reached through cheap
+    // rules whose "difficulty" the first pilot showed to be seconds of reading
+    // (positions 19–24 in 3.5–12 s each) — the discount is the honest prior
+    // until calibration replaces it. The band is now carried by LRM-BITS-2OP
+    // (two comparably hard Boolean rules, cross-layer; families/lrm-bits-2op.ts),
+    // asserted in tests/unit/cognitive-bitgrid.test.ts.
     const xorDist = generateFamily(LRM_XOR_DIST_XLAYER, 'very-hard-band-check', 4)
     const threeR = generateFamily(LRM_3R_XLAYER, 'very-hard-band-check', 4)
     expect(xorDist.items.length).toBeGreaterThan(0)
     expect(threeR.items.length).toBeGreaterThan(0)
     for (const item of xorDist.items) {
-      expect(item.qa.predictedB).toBeCloseTo(1.8, 5)
-      expect(item.qa.band).toBe('very_hard')
+      expect(item.qa.predictedB).toBeCloseTo(1.35, 5)
+      expect(item.qa.band).toBe('hard')
     }
     for (const item of threeR.items) {
-      expect(item.qa.predictedB).toBeCloseTo(2.2, 5)
-      expect(item.qa.band).toBe('very_hard')
+      expect(item.qa.predictedB).toBeCloseTo(1.3, 5)
+      expect(item.qa.band).toBe('hard')
     }
   })
 })

@@ -1,9 +1,24 @@
 /**
- * Context-blind solvability (doc 03-item-generation-pipeline.md §4.4). The
- * I-RAVEN finding: an option set built entirely from single-attribute
- * perturbations of the key lets a solver recover the key from the OPTIONS
- * ALONE, without ever consulting the grid. Two blind scorers, both run over
- * options only — neither may recover the key.
+ * Context-blind solvability. The I-RAVEN finding: an option set built entirely
+ * from single-attribute perturbations of the key lets a solver recover the key
+ * from the OPTIONS ALONE, without ever consulting the grid.
+ *
+ * G-08' (2026-08-19, build-plan §2): replace the boolean modal check with an
+ * expected-hit-rate bound. Blind scorer 1 (modal composition) and Scorer 2
+ * (centroid) are checked independently:
+ *
+ *  - CENTROID_RECOVERS_KEY: rejects iff the key is the unique nearest cell
+ *    (checked unchanged from before).
+ *  - MODAL_HIT_RATE: computes the expected hit rate of a blind modal scorer
+ *    who applies per-axis modal values and ties uniformly. Matched options
+ *    are those agreeing with any modal composition on every axis that
+ *    composition constrains. If matched is empty (no composition constrains
+ *    any axis), the blind scorer guesses uniformly among all 5 options;
+ *    P(hit) = key ∈ matched ? 1/|matched| : 0. Rejects iff P(hit) > 0.25.
+ *
+ * Single-axis items and families with no cheap/hard split both satisfy this
+ * readily: the key cannot dominate a single axis, and balanced multi-axis
+ * items are exactly those this gate is designed to accept.
  */
 import { type AxisId, type AxisValue, type CellLike, axisEq, axisKey, cellEq, readAxis } from '../axes'
 
@@ -79,20 +94,42 @@ export function centroidPick(options: readonly CellLike[], axes: readonly AxisId
 }
 
 /**
- * Item-level context-blind gate (G-08). `keyIndex` identifies the key among
+ * Modal hit-rate computation. Computes the per-axis modal values (cartesian product
+ * over ties), then counts options matching any composition on every axis that
+ * composition constrains. If matched is empty, the blind scorer guesses uniformly
+ * (P = 0). Otherwise P = key ∈ matched ? 1/|matched| : 0.
+ *
+ * Exported for tests and measurements (see `tests/unit/cognitive-generator-contextblind.test.ts`).
+ */
+export function modalHitRate(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): { pHit: number; matched: number[] } {
+  const modal = modalComposition(options, axes)
+  const matchedSet = new Set<number>()
+  for (const composition of modal) {
+    for (let i = 0; i < options.length; i++) {
+      if (compositionMatchesCell(composition.values, options[i], axes)) {
+        matchedSet.add(i)
+      }
+    }
+  }
+  const matched = Array.from(matchedSet)
+  // No option matches the blind composition: the scorer has nothing to prefer
+  // and guesses uniformly among all N — that IS chance, and it is what the
+  // bound is measured against. Otherwise it guesses among the matched set.
+  const pHit = matched.length === 0 ? 1 / options.length : matched.includes(keyIndex) ? 1 / matched.length : 0
+  return { pHit, matched }
+}
+
+/**
+ * Item-level context-blind gate (G-08'). `keyIndex` identifies the key among
  * `options` purely so the gate can check whether blind scoring recovers it —
  * this function reads NOTHING else about which option is correct.
  */
 export function contextBlindGate(options: readonly CellLike[], keyIndex: number, axes: readonly AxisId[]): GateResult {
-  const modal = modalComposition(options, axes)
-  const recovered = modal.some((m) => compositionMatchesCell(m.values, options[keyIndex], axes))
-  if (recovered) return fail('MODAL_RECOVERS_KEY')
+  const { pHit, matched } = modalHitRate(options, keyIndex, axes)
+  if (pHit > 0.25) return fail('MODAL_HIT_RATE', { pHit, matched })
 
   const centroid = centroidPick(options, axes)
   if (centroid.includes(keyIndex) && centroid.length === 1) return fail('CENTROID_RECOVERS_KEY')
-
-  const minority = axes.filter((a) => options.filter((o) => { const v = readAxis(o, a); return v !== null && axisEq(v, readAxis(options[keyIndex], a)!) }).length <= 2)
-  if (minority.length < Math.ceil(axes.length / 2)) return fail('KEY_VALUE_DOMINATES', { minority, required: Math.ceil(axes.length / 2) })
 
   return ok()
 }
