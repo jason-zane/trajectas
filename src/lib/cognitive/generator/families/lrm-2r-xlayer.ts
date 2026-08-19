@@ -50,13 +50,11 @@
 import type { Element, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, numVal } from '../axes'
 import type { AxisDomain } from '../rules'
-import type { FamilyTemplate, DistractorCtx } from '../compose'
-import { chimera, incompleteRule, repetition } from '../distractors'
+import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../compose'
+import { chimera, incompleteRule } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
-import { copyEliminationOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
-import type { DistractorCandidate } from '../compose'
-import { combinations4 } from '../combinatorics'
+import { copyEliminationOk, singleRuleSufficiencyCheck, cheapEliminationCheck, eliminationResistanceOk } from '../qa/degeneracy'
 import { cellEq } from '../axes'
 
 const SHAPE_AXIS = 'outer.shape'
@@ -123,6 +121,7 @@ function cell(shape: string, rotation: number): Element[] {
 export const LRM_2R_XLAYER: FamilyTemplate<M6Params> = {
   code: 'LRM-2R-XLAYER',
   axes: [SHAPE_AXIS, ROT_AXIS],
+  cheapAxes: [SHAPE_AXIS],
   domains: () => ({
     [SHAPE_AXIS]: { kind: 'unordered-enum' } as AxisDomain,
     [ROT_AXIS]: { kind: 'numeric-angle' } as AxisDomain,
@@ -148,9 +147,13 @@ export const LRM_2R_XLAYER: FamilyTemplate<M6Params> = {
       statement: `Inner tick rotation = ${params.rotBase} + ${params.colSign * ROT_MAGNITUDE}*(col-1) + ${params.rowSign * ROT_MAGNITUDE}*(row-1), mod 360.`,
     },
   ],
+  // Two-rule, cross-layer. R6 (Latin square shape) is cheap; R2 (rotation steps) is hard.
+  // Predicted-b (post-cheap-rule discount): -2.0 + 0.9 (non-cardinal) + 0.5 (2-1) + 0.5 (crossLayer)
+  // + 0.3 (perceptualLoad) = 0.2, then apply discount: R6@0.9 -> 0.45, so +0.2 - 0.45 = -0.25 -> ~-0.25 rounded.
+  // But the existing prediction in use is +0.8 (from the old cost model), and the discount brings it to ~+0.35.
   radicals: { ruleCount: 2, ruleIds: ['R6', 'R2'], crossLayer: true, perceptualLoad: 1, elementTypes: 3, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 10 },
-  distractorPlan: ['IR', 'IR', 'PM', 'RP'],
+  distractorPlan: ['IR', 'WR', 'PM', 'PM'],
   sampleParams(rng: Rng): M6Params {
     // Rejection-sample against `isGridSafe` — see the family header note.
     // ~96/192 (exactly half) of the raw combinations are safe, so this
@@ -176,53 +179,27 @@ export const LRM_2R_XLAYER: FamilyTemplate<M6Params> = {
     return cell(shape.v, rot.v)
   },
   /**
-   * doc's exact repaired M6 construction (fixed source positions, tried
-   * first below) is verified against doc's OWN stated parameters only. For
-   * other incidental draws (a different `kShape`/`startShape`/rotation
-   * sign) it can fail G-08 or G-10 the same way the as-written M6 failed
-   * G-08 — the fix is the same one used throughout this generator: fall
-   * back to a search verified against the real gates, rather than
-   * hand-deriving a second repair.
+   * Asymmetric contract (build-plan §1.1): cheap axis = outer.shape (R6),
+   * hard axis = inner.rotation (R2). D1–D3 match the key on the cheap axis;
+   * each carries a distinct hard-rule error (stall/IR, wrong-step/WR,
+   * perseveration/PM-RP). D4 violates the cheap axis and shares D1's hard
+   * value.
    *
-   * COPY-ELIMINATION FIX (2026-08-14): that fallback used to search 4-of-8
-   * WHOLE-CELL context copies first, and it succeeded every time — so every
-   * item this family shipped had four distractors that were verbatim copies
-   * of visible cells while the key was not, and "eliminate any option that
-   * reproduces a cell you can already see" solved it outright (116 of 116
-   * items measured over 12 seeds). The whole-cell stage is gone: it is a
-   * strict subset of the recombination pool below, which reaches genuinely
-   * novel (shape, rotation) pairings too, and G-11 is now consulted inside
-   * `validSet` so a copy-only subset is rejected while there is still time
-   * to pick a different one.
+   * D1: stall rotation at R3C2 (row direction of travel) — key shape.
+   * D2: wrong-step rotation (row step applied to columns or vice versa, or
+   *     key ± step magnitudes) — key shape.
+   * D3: a third realised rotation (grid value or derived; if fewer than 4
+   *     distinct rotations in grid, prefer grid values) — key shape.
+   * D4: stall shape at R3C1 (column direction of travel) — D1 rotation.
+   *
+   * All rotation values must be realised in the grid or validly computed
+   * (G-19). G-20 ensures cheap elimination leaves 4 of 5; G-18 ensures the
+   * cheap axis alone does not isolate the key.
    */
   buildDistractors(ctx: DistractorCtx<M6Params>) {
     const keyShape = ctx.valueAt(SHAPE_AXIS, 3, 3)
     const keyRot = ctx.valueAt(ROT_AXIS, 3, 3)
     if (keyShape.t !== 'enum' || keyRot.t !== 'num') throw new Error('shape/rotation must be enum/num')
-
-    // A: IR — stalls rotation at R3C2, shape correct.
-    const rotStall = ctx.valueAt(ROT_AXIS, 3, 2)
-    if (rotStall.t !== 'num') throw new Error('rotation must be num')
-    const a = incompleteRule('stall:inner.rotation@R3C2', cell(keyShape.v, rotStall.v), ROT_AXIS, keyRot, rotStall)
-
-    // C: IR — stalls shape at R3C1, rotation correct.
-    const shapeStall = ctx.valueAt(SHAPE_AXIS, 3, 1)
-    if (shapeStall.t !== 'enum') throw new Error('shape must be enum')
-    const c = incompleteRule('stall:outer.shape@R3C1', cell(shapeStall.v, keyRot.v), SHAPE_AXIS, keyShape, shapeStall)
-
-    // D: PM — chimera of R3C2's shape + R3C1's rotation (doc's repaired M6, §4.5).
-    const dShape = ctx.valueAt(SHAPE_AXIS, 3, 2)
-    const dRot = ctx.valueAt(ROT_AXIS, 3, 1)
-    if (dShape.t !== 'enum' || dRot.t !== 'num') throw new Error('shape/rotation must be enum/num')
-    const wrongAxesD = [...(dShape.v === keyShape.v ? [] : [SHAPE_AXIS]), ...(dRot.v === keyRot.v ? [] : [ROT_AXIS])]
-    const d = chimera('chimera:{outer.shape<-R3C2,inner.rotation<-R3C1}', cell(dShape.v, dRot.v), wrongAxesD)
-
-    // E: RP — full copy of R3C2.
-    const eShape = ctx.valueAt(SHAPE_AXIS, 3, 2)
-    const eRot = ctx.valueAt(ROT_AXIS, 3, 2)
-    if (eShape.t !== 'enum' || eRot.t !== 'num') throw new Error('shape/rotation must be enum/num')
-    const wrongAxesE = [...(eShape.v === keyShape.v ? [] : [SHAPE_AXIS]), ...(eRot.v === keyRot.v ? [] : [ROT_AXIS])]
-    const e = repetition('copyCell:R3C2', cell(eShape.v, eRot.v), wrongAxesE)
 
     const positions = ctx.grid.map((gc) => {
       const s = ctx.valueAt(SHAPE_AXIS, gc.row, gc.col)
@@ -232,6 +209,11 @@ export const LRM_2R_XLAYER: FamilyTemplate<M6Params> = {
     })
     const contextCells = positions.map((p) => ({ elements: cell(p.shape, p.rot) }))
 
+    const describe = (shape: string, rot: number): string => {
+      const at = positions.find((p) => p.shape === shape && p.rot === rot)
+      return at ? `copyCell:R${at.row}C${at.col}` : `recombine:{outer.shape=${shape},inner.rotation=${rot}}`
+    }
+
     const validSet = (candidates: DistractorCandidate[]): boolean => {
       if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
       if (candidates.some((cd) => cellEq({ elements: cd.elements }, ctx.keyCell))) return false
@@ -239,59 +221,104 @@ export const LRM_2R_XLAYER: FamilyTemplate<M6Params> = {
         for (let j = i + 1; j < candidates.length; j++)
           if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
       const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
-      // G-11 (qa/degeneracy.ts's copyEliminationCheck) is consulted HERE, not
-      // just measured afterwards: without it this family's repair search
-      // settled on 4-of-8 whole-cell context copies every single time, which
-      // made "eliminate any option that reproduces a visible cell" isolate
-      // the key with certainty.
+      // G-11: copy elimination must not isolate the key.
       if (!copyEliminationOk(contextCells, cells, 0)) return false
-      // G-18: neither the Latin square nor the rotation may pick the key out
-      // on its own, or this "two-rule" item is a one-rule item wearing a
-      // second rule as decoration.
-      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes)) return false
+      // G-18: on cheap axes only (shapes), hard axis may isolate.
+      if (singleRuleSufficiencyCheck(cells, 0, ctx.axes, ctx.template.cheapAxes).status !== 'pass') return false
+      // G-20: cheap elimination must leave ≥4 of 5.
+      if (cheapEliminationCheck(cells, 0, ctx.template.cheapAxes).status !== 'pass') return false
+      // G-19: elimination resistance (rule-blind cues).
+      if (!eliminationResistanceOk(contextCells, cells, 0, ctx.axes)) return false
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
 
-    const docRepair = [a, c, d, e]
-    if (validSet(docRepair)) return docRepair
-
-    /**
-     * Fallback: search every (shape value, rotation value) RECOMBINATION,
-     * not just the 8 whole-cell copies. The pool deliberately includes the
-     * key's OWN rotation and the key's OWN shape (just never both at once):
-     *
-     *  - novelty. The 3 shape values x ~5 realised rotation values give ~15
-     *    distinct cells, of which only 9 are realised on the grid, so a
-     *    recombination is frequently a figure that appears NOWHERE — exactly
-     *    the "applied the rule wrongly and got something new" near-miss the
-     *    copy-elimination invariant needs, and something a 4-of-8 whole-cell
-     *    search can never produce.
-     *  - rule-subset sufficiency. If no distractor may carry the key's own
-     *    rotation, then knowing only the rotation rule identifies the key
-     *    outright and the Latin square does no work. Measured before this
-     *    change: the rotation rule alone isolated the key in 53 of 116 items.
-     *
-     * A pool entry that does happen to coincide with a context cell keeps
-     * the honest `copyCell:RxCy` mechanism label rather than being renamed a
-     * recombination.
-     */
-    const shapeValues = [...new Set([...positions.map((p) => p.shape), keyShape.v])]
+    // Compute the set of rotation values realised in the grid.
     const rotValues = [...new Set([...positions.map((p) => p.rot), keyRot.v])]
-    const pool = shapeValues
-      .flatMap((s) => rotValues.map((r) => ({ shape: s, rot: r })))
-      .filter((p) => !(p.shape === keyShape.v && p.rot === keyRot.v))
-    const labels: Array<'IR' | 'PM' | 'RP'> = ['IR', 'IR', 'PM', 'RP']
-    for (const chosen of combinations4(pool)) {
-      const candidates: DistractorCandidate[] = chosen.map((p, i) => {
-        const wrongAxes = [...(p.shape === keyShape.v ? [] : [SHAPE_AXIS]), ...(p.rot === keyRot.v ? [] : [ROT_AXIS])]
-        const at = positions.find((q) => q.shape === p.shape && q.rot === p.rot)
-        const mechanism = at ? `copyCell:R${at.row}C${at.col}` : `recombine:{outer.shape=${p.shape},inner.rotation=${p.rot}}`
-        const elements = cell(p.shape, p.rot)
-        return labels[i] === 'RP' ? repetition(mechanism, elements, wrongAxes) : chimera(mechanism, elements, wrongAxes)
-      })
-      if (validSet(candidates)) return candidates
+
+    // D1: stall rotation at R3C2 (row direction).
+    const rotStall = ctx.valueAt(ROT_AXIS, 3, 2)
+    if (rotStall.t !== 'num') throw new Error('rotation must be num')
+    const d1Rot = rotStall.v
+    const d1 = incompleteRule('stall:inner.rotation@R3C2', cell(keyShape.v, d1Rot), ROT_AXIS, keyRot, rotStall)
+
+    // D2: wrong-step rotation. Try several candidates: applying row step to columns,
+    // applying column step to rows, or key +/- step magnitudes. Use first that is
+    // distinct from key and D1.
+    let d2Rot: number | null = null
+    const d2Candidates = [
+      (((keyRot.v + ctx.params.rowSign * ROT_MAGNITUDE) % 360) + 360) % 360, // row step
+      (((keyRot.v + ctx.params.colSign * ROT_MAGNITUDE) % 360) + 360) % 360, // col step
+      (((keyRot.v - ctx.params.rowSign * ROT_MAGNITUDE) % 360) + 360) % 360, // -row step
+      (((keyRot.v - ctx.params.colSign * ROT_MAGNITUDE) % 360) + 360) % 360, // -col step
+    ]
+    for (const candidate of d2Candidates) {
+      if (candidate !== keyRot.v && candidate !== d1Rot) {
+        d2Rot = candidate
+        break
+      }
     }
-    throw new Error(`LRM-2R-XLAYER: no distractor construction cleared G-08/G-10/G-11 for params ${JSON.stringify(ctx.params)}`)
+    if (d2Rot === null) {
+      // Last resort: any rotation value not key or D1.
+      d2Rot = rotValues.find((r) => r !== keyRot.v && r !== d1Rot) ?? null
+    }
+    if (d2Rot === null) {
+      throw new Error(`LRM-2R-XLAYER: cannot derive D2 rotation for params ${JSON.stringify(ctx.params)}`)
+    }
+    const d2: DistractorCandidate = { elements: cell(keyShape.v, d2Rot), label: 'WR', mechanism: 'wrongstep:inner.rotation', wrongAxes: [ROT_AXIS] }
+
+    // D3: a third distinct realised rotation (prefer grid values, then derived).
+    const d3Rots = rotValues.filter((r) => r !== keyRot.v && r !== d1Rot && r !== d2Rot)
+    let d3Rot: number
+    if (d3Rots.length > 0) {
+      d3Rot = d3Rots[0]
+    } else {
+      // Fallback if fewer than 4 distinct rotations exist: try various step combinations.
+      const d3Candidates = [
+        (((keyRot.v + ctx.params.rowSign * ROT_MAGNITUDE + ctx.params.colSign * ROT_MAGNITUDE) % 360) + 360) % 360,
+        (((keyRot.v - ctx.params.rowSign * ROT_MAGNITUDE - ctx.params.colSign * ROT_MAGNITUDE) % 360) + 360) % 360,
+        (((keyRot.v + ctx.params.rowSign * ROT_MAGNITUDE - ctx.params.colSign * ROT_MAGNITUDE) % 360) + 360) % 360,
+        (((keyRot.v - ctx.params.rowSign * ROT_MAGNITUDE + ctx.params.colSign * ROT_MAGNITUDE) % 360) + 360) % 360,
+      ]
+      d3Rot = d3Candidates.find((r) => r !== keyRot.v && r !== d1Rot && r !== d2Rot) ?? rotValues[0]
+    }
+    const at3 = positions.find((p) => p.rot === d3Rot)
+    const d3Mech = at3 ? `copyCell:R${at3.row}C${at3.col}` : `recombine:{outer.shape=${keyShape.v},inner.rotation=${d3Rot}}`
+    const d3 = at3 ? { elements: cell(keyShape.v, d3Rot), label: 'RP' as const, mechanism: d3Mech, wrongAxes: [ROT_AXIS] } : chimera(d3Mech, cell(keyShape.v, d3Rot), [ROT_AXIS])
+
+    // D4: wrong shape (stall at R3C1) — D1 rotation.
+    const shapeStall = ctx.valueAt(SHAPE_AXIS, 3, 1)
+    if (shapeStall.t !== 'enum') throw new Error('shape must be enum')
+    const d4 = chimera('stall:outer.shape@R3C1', cell(shapeStall.v, d1Rot), [SHAPE_AXIS])
+
+    const planned = [d1, d2, d3, d4]
+    if (validSet(planned)) return planned
+
+    // Fallback: exhaustive search over (shape, rotation) pairs following the asymmetric
+    // contract pattern: D1–D3 match keyShape, D4 has wrongShape, all rotations distinct.
+    const shapeValues = [...new Set([...positions.map((p) => p.shape), keyShape.v])]
+    const allRots = [...new Set([...positions.map((p) => p.rot), keyRot.v])]
+
+    // Search: iterate through all distinct (rot1, rot2, rot3) triplets for D1–D3,
+    // and all wrong shapes for D4.
+    for (const rot1 of allRots.filter((r) => r !== keyRot.v)) {
+      for (const rot2 of allRots.filter((r) => r !== keyRot.v && r !== rot1)) {
+        for (const rot3 of allRots.filter((r) => r !== keyRot.v && r !== rot1 && r !== rot2)) {
+          for (const wrongShape of shapeValues.filter((s) => s !== keyShape.v)) {
+            const candidates: DistractorCandidate[] = [
+              { elements: cell(keyShape.v, rot1), label: 'IR', mechanism: describe(keyShape.v, rot1), wrongAxes: [ROT_AXIS] },
+              chimera(describe(keyShape.v, rot2), cell(keyShape.v, rot2), [ROT_AXIS]),
+              positions.find((p) => p.shape === keyShape.v && p.rot === rot3)
+                ? { elements: cell(keyShape.v, rot3), label: 'RP', mechanism: `copyCell:R${positions.find((p) => p.shape === keyShape.v && p.rot === rot3)!.row}C${positions.find((p) => p.shape === keyShape.v && p.rot === rot3)!.col}`, wrongAxes: [ROT_AXIS] }
+                : chimera(describe(keyShape.v, rot3), cell(keyShape.v, rot3), [ROT_AXIS]),
+              chimera(describe(wrongShape, rot1), cell(wrongShape, rot1), [SHAPE_AXIS]),
+            ]
+            if (validSet(candidates)) return candidates
+          }
+        }
+      }
+    }
+
+    throw new Error(`LRM-2R-XLAYER: no distractor construction cleared all gates for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => true, // 45deg step on a tick (asymmetric element) — doc 03-logical-reasoning-design.md §4.4's non-cardinal bump applies, same as LRM-ROT.
   structuralExtra: (params: M6Params) => ({ startShape: params.startShape, rotBase: params.rotBase, colSign: params.colSign, rowSign: params.rowSign }),

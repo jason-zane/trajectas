@@ -26,15 +26,22 @@
  * (shape, bar-set) combinations unused and available as honest distractors.
  * No search is needed for the GRID; the construction is duplicate-free by
  * proof, not by trial.
+ *
+ * DISTRACTOR REDESIGN (2026-08-19): re-authored to the asymmetric contract
+ * (build-plan §1.1). Hard axis: inner.bars (R7 XOR, weight 1.6). Cheap axis:
+ * outer.shape (R1 progression, weight 0). Since R1's weight is 0, the
+ * predicted-b of +0.9 is unchanged. The distractor plan (D1/D2/D3 matching
+ * key shape + three distinct bar errors, D4 wrong shape + D1 bars) is
+ * attempted first; if it fails G-19 (in-vocabulary), fallback search handles
+ * it like before.
  */
 import type { BarId, Element, RuleSpec, ShapeId } from '../../spec/schema'
 import { enumVal, setVal } from '../axes'
 import type { AxisDomain } from '../rules'
 import type { FamilyTemplate, DistractorCtx, DistractorCandidate } from '../compose'
-import { repetition } from '../distractors'
 import type { Rng } from '../rng'
 import { contextBlindGate, giveawayPairGate } from '../qa/contextblind'
-import { copyEliminationOk, eliminationResistanceOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
+import { cheapEliminationOk, copyEliminationOk, eliminationResistanceOk, singleRuleSufficiencyOk } from '../qa/degeneracy'
 import { combinations4 } from '../combinatorics'
 import { cellEq } from '../axes'
 import { ALL_BAR_IDS, type BarRoles, barsAt as barsAtRole, sameBars, sortBars, twoBarSets } from './xor-bars'
@@ -79,6 +86,7 @@ function cell(shape: ShapeId, bars: readonly BarId[]): Element[] {
 export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
   code: 'LRM-XOR-XLAYER',
   axes: [BARS_AXIS, SHAPE_AXIS],
+  cheapAxes: [SHAPE_AXIS],
   domains: () => ({
     [SHAPE_AXIS]: { kind: 'ordered-enum', ladder: SHAPE_LADDER.map(enumVal) } as AxisDomain,
     [BARS_AXIS]: { kind: 'set' } as AxisDomain,
@@ -106,7 +114,7 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
   ],
   radicals: { ruleCount: 2, ruleIds: ['R7', 'R1'], crossLayer: true, perceptualLoad: 1, elementTypes: 4, nearMissCount: 2 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
-  distractorPlan: ['WR', 'WR', 'IR', 'RP'],
+  distractorPlan: ['IR', 'WR', 'RP', 'RP'],
   sampleParams(rng: Rng): M8Params {
     const barRoles = rng.shuffle(ALL_BAR_IDS) as BarRoles
     const shapeDir = rng.pick([1, -1] as const)
@@ -122,30 +130,70 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
     const keyBars = ctx.valueAt(BARS_AXIS, 3, 3)
     const keyShape = ctx.valueAt(SHAPE_AXIS, 3, 3)
     if (keyBars.t !== 'set' || keyShape.t !== 'enum') throw new Error('bars/shape must be set/enum')
+    const keyBarsArr = keyBars.v as BarId[]
     const keyShapeId = keyShape.v as ShapeId
 
-    // B (doc): intersection instead of symmetric difference — keeps only the shared bar.
     const c1 = ctx.valueAt(BARS_AXIS, 3, 1)
     const c2 = ctx.valueAt(BARS_AXIS, 3, 2)
     if (c1.t !== 'set' || c2.t !== 'set') throw new Error('bars must be set')
-    const intersection = c1.v.filter((x) => c2.v.includes(x))
-    const wr1: DistractorCandidate = { elements: cell(keyShapeId, intersection as BarId[]), label: 'WR', mechanism: 'wrongRule:intersection', wrongAxes: [BARS_AXIS] }
-
-    // C (doc): union instead of symmetric difference — keeps everything.
-    const union = [...new Set([...c1.v, ...c2.v])]
-    const wr2: DistractorCandidate = { elements: cell(keyShapeId, union as BarId[]), label: 'WR', mechanism: 'wrongRule:union', wrongAxes: [BARS_AXIS] }
-
-    // D (doc): inner bars fully correct, outer layer wrong — repeats C2's shape (the previous column).
-    const c2Shape = ctx.valueAt(SHAPE_AXIS, 3, 2)
-    if (c2Shape.t !== 'enum') throw new Error('shape must be enum')
-    const ir: DistractorCandidate = { elements: cell(c2Shape.v as ShapeId, keyBars.v as BarId[]), label: 'IR', mechanism: 'stall:outer.shape@prevColumn', wrongAxes: [SHAPE_AXIS] }
-
-    // E (doc): copies R3C2's inner set inside the correct pentagon.
-    const rpBars = ctx.valueAt(BARS_AXIS, 3, 2)
-    if (rpBars.t !== 'set') throw new Error('bars must be set')
-    const rp = repetition('chimera:copyCell:R3C2.bars+correctShape', cell(keyShapeId, rpBars.v as BarId[]), [BARS_AXIS])
+    const c1Bars = c1.v as BarId[]
+    const c2Bars = c2.v as BarId[]
 
     const contextCells = ctx.grid.map((gc) => ({ elements: gc.elements }))
+
+    /**
+     * ASYMMETRIC CONTRACT (build-plan §1.1, 2026-08-19 redesign).
+     *
+     * D1 (IR): key shape + "XOR result minus one bar" — ideally a 1-bar set
+     * representing the stall error (lost one element from the XOR). This will
+     * be out-of-vocabulary per G-19 (grid shows only 2-bar sets), but we
+     * attempt it anyway; if it clears the gates, use it; if it fails G-19, the
+     * fallback search handles it.
+     *
+     * D2 (WR): key shape + wrong operator (UNION instead of XOR). If operands
+     * are disjoint (share zero bars), UNION = 4 bars; if they share 1 bar, UNION
+     * = 3 bars; if they share both bars, UNION = 2 bars (same as key). In the
+     * last case, use INTERSECTION (0 bars) if available; otherwise use operand
+     * difference (keep C1 only, or C2 only, whichever differs from the key).
+     *
+     * D3 (RP/PM): key shape + copy of one operand bar set (perseveration).
+     * Prefer C2 (the more recent/salient operand); fall back to C1 if needed.
+     *
+     * D4 (RP): wrong shape (R3C2) + D1 bars (shared hard value with D1).
+     */
+    const c2Shape = ctx.valueAt(SHAPE_AXIS, 3, 2)
+    if (c2Shape.t !== 'enum') throw new Error('shape must be enum')
+    const c2ShapeId = c2Shape.v as ShapeId
+
+    // D1: attempt a 1-bar set (lose one bar from the 2-bar result).
+    const d1Bars: BarId[] = [keyBarsArr[0]] // Just the first bar of the XOR result
+
+    // D2: union instead of XOR (wrong operator).
+    const union = [...new Set([...c1Bars, ...c2Bars])].sort() as BarId[]
+    let d2Bars: BarId[]
+    if (union.length === keyBarsArr.length && union.every((b) => keyBarsArr.includes(b))) {
+      // Union equals XOR (operands are disjoint or both equal). Use intersection or difference.
+      const intersection = c1Bars.filter((b) => c2Bars.includes(b))
+      if (intersection.length > 0) {
+        d2Bars = intersection as BarId[]
+      } else {
+        // Operands are disjoint; use the difference (one operand only).
+        d2Bars = c1Bars.length > c2Bars.length ? c1Bars : c2Bars
+      }
+    } else {
+      d2Bars = union
+    }
+
+    // D3: copy one operand (perseveration).
+    const d3Bars = c2Bars.length === keyBarsArr.length && c2Bars.every((b) => keyBarsArr.includes(b)) ? c1Bars : c2Bars
+
+    // D4 bars: same as D1.
+    const d4Bars = d1Bars
+
+    const d1: DistractorCandidate = { elements: cell(keyShapeId, d1Bars), label: 'IR', mechanism: 'stall:inner.bars@dropOneElement', wrongAxes: [BARS_AXIS] }
+    const d2: DistractorCandidate = { elements: cell(keyShapeId, d2Bars), label: 'WR', mechanism: 'wrongRule:unionInsteadOfXor', wrongAxes: [BARS_AXIS] }
+    const d3: DistractorCandidate = { elements: cell(keyShapeId, d3Bars), label: 'RP', mechanism: `perseverate:copyOperand:${sameBars(d3Bars, c1Bars) ? 'C1' : 'C2'}`, wrongAxes: [BARS_AXIS] }
+    const d4: DistractorCandidate = { elements: cell(c2ShapeId, d4Bars), label: 'RP', mechanism: 'incompleteCorrelate:wrongShape@R3C2+sharedHardValue', wrongAxes: [SHAPE_AXIS] }
 
     const validSet = (candidates: DistractorCandidate[]): boolean => {
       if (candidates.some((cd) => cd.wrongAxes.length === 0)) return false
@@ -154,64 +202,77 @@ export const LRM_XOR_XLAYER: FamilyTemplate<M8Params> = {
         for (let j = i + 1; j < candidates.length; j++) if (cellEq({ elements: candidates[i].elements }, { elements: candidates[j].elements })) return false
       const cells = [{ elements: ctx.keyCell.elements }, ...candidates.map((x) => ({ elements: x.elements }))]
       if (!copyEliminationOk(contextCells, cells, 0)) return false
+      if (!cheapEliminationOk(cells, 0, ctx.template.cheapAxes)) return false
       if (!eliminationResistanceOk(contextCells, cells, 0, ctx.axes)) return false
-      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes)) return false
+      if (!singleRuleSufficiencyOk(cells, 0, ctx.axes, ctx.template.cheapAxes)) return false
       return contextBlindGate(cells, 0, ctx.axes).ok && giveawayPairGate(cells, ctx.axes).ok
     }
 
-    const docStyle = [wr1, wr2, ir, rp]
-    if (validSet(docStyle)) return docStyle
+    const planned = [d1, d2, d3, d4]
+    if (validSet(planned)) return planned
 
     /**
-     * FURTHER FINDING: this construction (three of the four distractors
-     * keep the key's shape, matching doc's own M8 option layout 1-for-1)
-     * clears the MODAL scorer the same way doc 03-item-generation-
-     * pipeline.md Appendix A found for M8 — but fails the CENTROID scorer
-     * (qa/contextblind.ts's `centroidPick`), which doc's Appendix A never
-     * ran against M8 (it only ever applied the modal-vote check by hand).
-     * With 4 of 5 options sharing a shape, the key sits close to every
-     * other option in aggregate axis-distance regardless of the modal
-     * tally. Fall back to a pool-and-search repair, as elsewhere.
+     * IN-VOCABULARY PRIMARY SEARCH (2026-08-19). Every visible cell in this
+     * construction shows exactly two bars, so the two "wrong operator" sets —
+     * union (three bars) and intersection (one bar) — and any one-bar stall
+     * are out of vocabulary by construction and G-19 rejects them on sight
+     * (which is right: a candidate would too). The plan above therefore
+     * never clears the gates, and before this block every item paid for the
+     * exhaustive recombination search below (~20 ms/item, 30× the other
+     * families — enough to time out the smoke test under CI coverage). The
+     * wrong bar sets a candidate CAN be shown are the other two-bar sets:
+     * the two operand copies (perseveration, RP), the sets pairing one XOR
+     * bar with the row's unused bar (a half-right result, IR), and the
+     * shared bar with the unused bar (PM). Three of those, in preference
+     * order, on the key's shape; D4 = the wrong shape with D1's bars. The
+     * contract (D1–D3 hold the cheap value with three distinct hard errors;
+     * D4 breaks the cheap axis and shares D1's hard value) is unchanged —
+     * only the mechanisms are the ones this construction can honestly show.
      */
+    {
+      const allBars = ALL_BAR_IDS
+      const barsEqKey = (bars: readonly BarId[]) => bars.length === keyBarsArr.length && bars.every((x) => keyBarsArr.includes(x))
+      const usedInRow = new Set<BarId>([...c1Bars, ...c2Bars])
+      const unused = allBars.filter((b) => !usedInRow.has(b))
+      const inVocab: Array<{ bars: BarId[]; label: 'IR' | 'WR' | 'PM' | 'RP'; mech: string }> = []
+      inVocab.push({ bars: sortBars(c1Bars), label: 'RP', mech: 'perseverate:copyOperand:C1' }, { bars: sortBars(c2Bars), label: 'RP', mech: 'perseverate:copyOperand:C2' })
+      for (const kb of keyBarsArr) for (const u of unused) inVocab.push({ bars: sortBars([kb, u]), label: 'IR', mech: `stall:oneElementKept:${kb}+unused:${u}` })
+      const shared = c1Bars.filter((b) => c2Bars.includes(b))
+      for (const sb of shared) for (const u of unused) inVocab.push({ bars: sortBars([sb, u]), label: 'PM', mech: `chimera:sharedBar:${sb}+unused:${u}` })
+      const distinct = inVocab.filter((v, i) => !barsEqKey(v.bars) && inVocab.findIndex((w) => sameBars(w.bars, v.bars)) === i)
+      for (let i = 0; i < distinct.length; i++)
+        for (let j = 0; j < distinct.length; j++)
+          for (let k = 0; k < distinct.length; k++) {
+            if (i === j || j === k || i === k) continue
+            const [p, q, r] = [distinct[i], distinct[j], distinct[k]]
+            const cands: DistractorCandidate[] = [
+              { elements: cell(keyShapeId, p.bars), label: p.label, mechanism: p.mech, wrongAxes: [BARS_AXIS] },
+              { elements: cell(keyShapeId, q.bars), label: q.label, mechanism: q.mech, wrongAxes: [BARS_AXIS] },
+              { elements: cell(keyShapeId, r.bars), label: r.label, mechanism: r.mech, wrongAxes: [BARS_AXIS] },
+              { elements: cell(c2ShapeId, p.bars), label: 'PM', mechanism: 'incompleteCorrelate:wrongShape@R3C2+sharedHardValue', wrongAxes: [SHAPE_AXIS] },
+            ]
+            if (validSet(cands)) return cands
+          }
+    }
+
     /**
-     * SECOND FINDING (the copy-elimination leak, G-11) AND ITS CORRECTION.
-     * The recombination pool this fallback originally searched was the 3
-     * shapes x the 3 TWO-bar sets a three-bar universe affords — and that is
-     * exactly the 9 cells of the grid. Every 4-subset of it was therefore
-     * four verbatim copies of visible cells, and since the key was the one
-     * combination the grid did not show, "eliminate every option that
-     * reproduces a cell" identified the key in 84 of 84 items measured.
-     *
-     * The first repair added the ONE-bar and THREE-bar sets (what the
-     * intersection and union wrong-operator errors produce). That did not
-     * work, and could not have: no cell in a three-bar grid shows one or
-     * three bars, so the imported option was eliminable by a second
-     * rule-blind cue and the pair (copy-elimination, then "that bar count is
-     * impossible") isolated the key in 121 of 121 items measured. It is the
-     * same escape hatch `families/lrm-dist3x2.ts` was unregistered for
-     * reaching, and the theorem there applies here verbatim: while the grid
-     * exhausts the vocabulary, EVERY non-key non-copy must carry a feature
-     * value appearing in zero visible cells.
-     *
-     * The real repair is upstream, in `xor-bars.ts`: the bar universe is now
-     * all four schema bar positions, so the grid's 9 cells consume only 9 of
-     * 18 (shape, bar-set) combinations and the remaining 9 are honest
-     * two-bar figures built from bars the candidate has already seen. THIS
-     * pool is exactly those in-vocabulary combinations. It deliberately does
-     * NOT carry one- or three-bar sets: `validSet` now also runs G-19
-     * (`eliminationResistanceOk`), which would reject a set relying on them.
+     * FALLBACK SEARCH: The planned construction may fail G-19 (in-vocabulary)
+     * because the 1-bar set for D1 does not appear in the grid. Search all
+     * 2-bar combinations (the 6 two-bar sets across 3 shapes = 18 candidates,
+     * minus the key) for a 4-subset that clears all gates. Labels are fixed
+     * per the distractorPlan: IR, WR, RP, RP.
      */
-    const pool = SHAPE_LADDER.flatMap((s) => twoBarSets(ctx.params.barRoles).map((b) => ({ shape: s, bars: b }))).filter((p) => !(p.shape === keyShapeId && sameBars(p.bars, keyBars.v)))
-    const labels: Array<'WR' | 'IR'> = ['WR', 'WR', 'IR', 'IR']
+    const pool = SHAPE_LADDER.flatMap((s) => twoBarSets(ctx.params.barRoles).map((b) => ({ shape: s, bars: b }))).filter((p) => !(p.shape === keyShapeId && sameBars(p.bars, keyBarsArr)))
+    const labels: Array<'IR' | 'WR' | 'RP' | 'RP'> = ['IR', 'WR', 'RP', 'RP']
     for (const chosen of combinations4(pool)) {
       const candidates: DistractorCandidate[] = chosen.map((p, i) => {
-        const wrongAxes = [...(p.shape === keyShapeId ? [] : [SHAPE_AXIS]), ...(sameBars(p.bars, keyBars.v) ? [] : [BARS_AXIS])]
+        const wrongAxes = [...(p.shape === keyShapeId ? [] : [SHAPE_AXIS]), ...(sameBars(p.bars, keyBarsArr) ? [] : [BARS_AXIS])]
         const mechanism = `recombine:{outer.shape=${p.shape},inner.bars=${p.bars.join('+')}}`
         return { elements: cell(p.shape, p.bars), label: labels[i], mechanism, wrongAxes }
       })
       if (validSet(candidates)) return candidates
     }
-    throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18/G-19 for params ${JSON.stringify(ctx.params)}`)
+    throw new Error(`LRM-XOR-XLAYER: no distractor construction cleared G-08/G-10/G-11/G-18/G-19/G-20 for params ${JSON.stringify(ctx.params)}`)
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: M8Params) => ({ barRoles: params.barRoles, shapeDir: params.shapeDir }),

@@ -202,6 +202,35 @@ export function renderElement(element: Element, render: RenderDirectives, ink: s
       }
       return tags
     }
+    case 'bitgrid': {
+      // 3×3 mini-grid filling most of the cell: 20-unit mini-cells with 2-unit
+      // gaps = 64 of the 100-unit canvas, centred (margin 18). Sized so a
+      // mini-cell stays well above `minElementUnits` and so black vs hatched
+      // vs empty reads at ~140 CSS px per cell (a mini-cell is then ~28 px,
+      // with ~5 hatch strokes at pitch 4). Ink: 4 black mini-cells = 16% of
+      // the canvas, 5 black + 3 hatched ≈ 24% — inside qa/density.ts's ceiling.
+      // Each mini-cell is drawn through `renderFilledGeometry` as a square
+      // polygon, so hatching is the same clipped 45° family every hatched
+      // shape uses (no <pattern>/<clipPath>, no ids — see hatchSegments).
+      const cellSize = 20
+      const gap = 2
+      const gridSize = 3 * cellSize + 2 * gap // 64 units
+      const startX = (100 - gridSize) / 2 // 18 units from left
+      const startY = (100 - gridSize) / 2 // 18 units from top
+      const blackSet = new Set(element.black)
+      const hatchedSet = new Set(element.hatched)
+      const tags: string[] = []
+      for (let pos = 0; pos < 9; pos++) {
+        const row = Math.floor(pos / 3)
+        const col = pos % 3
+        const x = startX + col * (cellSize + gap)
+        const y = startY + row * (cellSize + gap)
+        const geom: ShapeGeom = { kind: 'polygon', points: [[x, y], [x + cellSize, y], [x + cellSize, y + cellSize], [x, y + cellSize]] }
+        const fill: Fill = blackSet.has(pos) ? 'solid' : hatchedSet.has(pos) ? 'hatched' : 'outline'
+        tags.push(...renderFilledGeometry(geom, fill, ink, render.strokeWidth, render.hatchPitch))
+      }
+      return tags
+    }
   }
 }
 

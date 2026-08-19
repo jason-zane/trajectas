@@ -15,13 +15,12 @@
  * (`runBatchGates`, which also reconciles G-17 — see that file's header
  * comment) and invoked from generator/index.ts's `generateBatch`, not here.
  *
- * G-18 and G-19 have no doc §7 counterpart at all — they are additions
- * (rule-subset sufficiency and elimination resistance, both in
- * `qa/degeneracy.ts`), made alongside the correction to G-11 because all
- * three catch the same class of defect: a shortcut that lets a candidate
- * reach the key without doing the work the item's declared rule content is
- * credited with. G-09 gained a third component (`keyBulkExtremumCheck`) for
- * the same reason.
+ * G-18, G-19, and G-20 have no doc §7 counterpart — they are additions to the
+ * 2026-08-19 build plan. G-18 (rule-subset sufficiency) and G-19 (elimination
+ * resistance) catch shortcut strategies that bypass declared rules. G-20
+ * (cheap-elimination resistance, 2026-08-19) verifies that cheap axes cannot
+ * narrow options to fewer than N−1 alone. G-09 gained a third component
+ * (`keyBulkExtremumCheck`) for the same reason.
  */
 import { FiguralMatrixItemSpec, CognitiveOptionSpec, type RuleSpec } from '../../spec/schema'
 import { contentHash } from '../../spec/hash'
@@ -29,7 +28,7 @@ import type { ComposedItem } from '../compose'
 import type { PlacedOption } from '../distractors'
 import { detectAllAxes, levelA, levelB } from './uniqueness'
 import { contextBlindGate, giveawayPairGate } from './contextblind'
-import { copyEliminationCheck, eliminationResistanceCheck, gridLevelDegeneracy, keyBulkExtremumCheck, optionComplexitySpreadCheck, optionHomogeneityCheck, singleRuleSufficiencyCheck } from './degeneracy'
+import { cheapEliminationCheck, copyEliminationCheck, eliminationResistanceCheck, gridLevelDegeneracy, keyBulkExtremumCheck, optionComplexitySpreadCheck, optionHomogeneityCheck, singleRuleSufficiencyCheck } from './degeneracy'
 import { inkCoverageGate, elementOverlapGate, renderLegibilityGate } from './density'
 import { duplicateGate, structuralHash } from './duplicates'
 import { predictedB, band, type Band } from '../difficulty'
@@ -161,9 +160,10 @@ export function runQaBattery(input: QaInput): QaOutcome {
         : { status: 'fail', detail: { ...copyElim.detail, sharesCompleteLayerWithContextCell: sharesLayer } }
 
     // G-18 — rule-subset sufficiency. Beyond doc §7's G-01..G-17; see
-    // `singleRuleSufficiencyCheck`. Same class of defect as G-11 (a shortcut
-    // that makes the declared rule content a fiction), found the same way.
-    const srs = singleRuleSufficiencyCheck(optionCells, keyIndex, item.template.axes)
+    // `singleRuleSufficiencyCheck`. With cheapAxes declared (build-plan §1.1),
+    // the ≥ 2 requirement applies to cheap axes only; the hard axis may
+    // isolate (solving the hard rule solves the item).
+    const srs = singleRuleSufficiencyCheck(optionCells, keyIndex, item.template.axes, item.template.cheapAxes)
     gates['G-18'] = srs.status === 'pass' ? { status: 'pass', detail: srs.detail } : { status: 'fail', detail: srs.detail }
 
     // G-19 — elimination resistance. G-11's invariant, applied to the
@@ -175,12 +175,19 @@ export function runQaBattery(input: QaInput): QaOutcome {
     // visible cell showed.
     const elim = eliminationResistanceCheck(item.grid, optionCells, keyIndex, item.template.axes)
     gates['G-19'] = elim.status === 'pass' ? { status: 'pass', detail: elim.detail } : { status: 'fail', detail: elim.detail }
+
+    // G-20 — cheap-elimination resistance (build-plan §2). Applies iff the
+    // family declares cheapAxes (non-empty). Verifies that cheap axes alone
+    // cannot narrow options to fewer than N−1.
+    const cheap = cheapEliminationCheck(optionCells, keyIndex, item.template.cheapAxes, item.template.axes)
+    gates['G-20'] = cheap.status === 'skip' ? { status: 'skip', detail: cheap.detail } : cheap.status === 'pass' ? { status: 'pass', detail: cheap.detail } : { status: 'fail', detail: cheap.detail }
   } else {
     gates['G-08'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-10'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-11'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-18'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
     gates['G-19'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
+    gates['G-20'] = { status: 'skip', detail: { reason: 'NO_KEY_INDEX' } }
   }
 
   // G-09 — option homogeneity. `countGoverned` (also used by G-15's ink
@@ -213,8 +220,12 @@ export function runQaBattery(input: QaInput): QaOutcome {
   const dup = duplicateGate({ familyCode: item.template.code, rules: item.rules, radicals: item.template.radicals, contentHashValue: ch, structuralExtra }, input.existingContentHashes, input.existingStructuralHashes, input.familyStructuralHashes)
   gates['G-13'] = dup
 
-  // G-14 — difficulty consistency.
-  const pb = predictedB(item.template.radicals, { nonCardinalAsymmetricRotation: input.nonCardinalAsymmetricRotation })
+  // G-14 — difficulty consistency. With cheapAxes declared (build-plan §3),
+  // rules on cheap axes contribute half their weight to the difficulty prior.
+  // This is an ordering prior only; calibration will re-derive difficulties.
+  const cheapAxesSet = new Set(item.template.cheapAxes ?? [])
+  const cheapRuleIds = item.rules.filter((r) => cheapAxesSet.has(r.axis)).map((r) => r.id)
+  const pb = predictedB(item.template.radicals, { nonCardinalAsymmetricRotation: input.nonCardinalAsymmetricRotation, cheapRuleIds })
   const b = band(pb)
   gates['G-14'] = { status: 'pass', detail: { predictedB: pb, band: b } } // always self-consistent: pb is computed fresh from radicals, never hand-typed.
 

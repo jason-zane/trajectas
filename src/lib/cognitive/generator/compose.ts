@@ -61,6 +61,8 @@ export interface FamilyTemplate<P = unknown> {
   code: string
   /** Rule-governed axes, in the canonical order they appear in `rules[]`. */
   axes: AxisId[]
+  /** Cheap axes — those governed by low-inference rules (constants, Latin squares, single-step progressions on visually dominant attributes). Subset of `axes`; empty or undefined means no cheap/hard distinction. Used by gates G-08', G-18, G-20 to scope elimination resistance and difficulty priors to the hard axes only. See build-plan §1 for the terminology and per-gate semantics. */
+  cheapAxes?: AxisId[]
   domains(params: P): Record<AxisId, AxisDomain>
   valueAt(axis: AxisId, row: number, col: number, params: P): AxisValue
   ruleSpecs(params: P): RuleSpec[]

@@ -78,6 +78,11 @@ finish screen. The next form needs a no-adjacent-family constraint,
 
 ## The next session picks up here
 
+> **Superseded 2026-08-19 (later the same day):** items 1 and 2 below are
+> DONE on branch `feat/cognitive-v2-defensible-form` — see
+> `2026-08-19-pilot-v2-handoff.md` for what was built and the two
+> production steps that remain. Items 3–4 stand.
+
 1. **Distractor redesign implementation** (the spec above, plus §7 of
    the benchmark doc): implement G-20, re-formalise G-08, re-author the
    five leaking families' distractor plans using HeiQ's facet-design
