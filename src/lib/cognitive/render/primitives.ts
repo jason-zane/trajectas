@@ -1,6 +1,6 @@
 import 'server-only'
-import { fmt, polygon, rot, clipLineToPolygon, clipLineToCircle, segLength, type Pt } from './geometry'
-import type { Anchor, BarId, Element, Fill, RenderDirectives, ShapeId, SizeToken } from '../spec/schema'
+import { fmt, polygon, rot, mirror, arcPoints, isConvex, clipLineToPolygon, clipLineToPolygonEvenOdd, clipLineToCircle, segLength, type Pt } from './geometry'
+import type { Anchor, BarId, Element, Fill, Flip, RenderDirectives, RingId, ShapeId, SizeToken, StrokeId } from '../spec/schema'
 
 /**
  * Element -> SVG primitives, per doc 03 (item-generation-pipeline) §6.2-6.6.
@@ -35,6 +35,22 @@ const BAR_ENDPOINTS: Record<BarId, [Pt, Pt]> = {
 
 export type ShapeGeom = { kind: 'circle'; cx: number; cy: number; r: number } | { kind: 'polygon'; points: Pt[] }
 
+/** Stroke endpoints for the `strokes` element: straight strokes span 70 units through CTR. */
+const STROKE_HALF = 35
+const STROKE_D = STROKE_HALF / Math.SQRT2
+const STROKE_ENDPOINTS: Record<'H' | 'V' | 'D1' | 'D2', [Pt, Pt]> = {
+  H: [[50 - STROKE_HALF, 50], [50 + STROKE_HALF, 50]],
+  V: [[50, 50 - STROKE_HALF], [50, 50 + STROKE_HALF]],
+  D1: [[50 - STROKE_D, 50 - STROKE_D], [50 + STROKE_D, 50 + STROKE_D]],
+  D2: [[50 + STROKE_D, 50 - STROKE_D], [50 - STROKE_D, 50 + STROKE_D]],
+}
+const STROKE_ORDER: Record<StrokeId, number> = { H: 0, V: 1, D1: 2, D2: 3, ARC_T: 4, ARC_B: 5 }
+const ARC_SEGMENTS = 24
+
+/** Ring widths for the `nest` element, largest first; always centred on CTR. */
+export const RING_SIZE: Record<RingId, number> = { R1: 64, R2: 44, R3: 24 }
+const RING_ORDER: Record<RingId, number> = { R1: 0, R2: 1, R3: 2 }
+
 /** Shaft/head proportions per doc 03 (item-generation-pipeline) §6.2's arrow row. */
 function arrowPoints(cx: number, cy: number, size: number, deg: number): Pt[] {
   const shaftHalf = 0.06 * size
@@ -55,25 +71,90 @@ function arrowPoints(cx: number, cy: number, size: number, deg: number): Pt[] {
   return raw.map(([x, y]) => rot(x, y, cx, cy, deg))
 }
 
+/** Five-point star, point up, outer-vertex width = size; inner radius 0.4 of outer. */
+function starPoints(cx: number, cy: number, size: number): Pt[] {
+  const outerR = size / (2 * Math.cos((18 * Math.PI) / 180))
+  const innerR = 0.4 * outerR
+  const pts: Pt[] = []
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? outerR : innerR
+    const a = ((-90 + 36 * i) * Math.PI) / 180
+    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
+  }
+  return pts
+}
+
+/** Greek cross (plus sign) spanning `size` both ways, arm thickness 0.3·size. */
+function crossPoints(cx: number, cy: number, size: number): Pt[] {
+  const h = size / 2
+  const t = 0.15 * size
+  return [
+    [cx - t, cy - h], [cx + t, cy - h], [cx + t, cy - t], [cx + h, cy - t],
+    [cx + h, cy + t], [cx + t, cy + t], [cx + t, cy + h], [cx - t, cy + h],
+    [cx - t, cy + t], [cx - h, cy + t], [cx - h, cy - t], [cx - t, cy - t],
+  ]
+}
+
+/** Half-disc, width = size, flat edge at the bottom, centred on its bounding box. */
+function semicirclePoints(cx: number, cy: number, size: number): Pt[] {
+  const r = size / 2
+  const chordY = cy + r / 2
+  return arcPoints(cx, chordY, r, 180, 360, 16)
+}
+
+/** Flag: a pole down the left (0.12·size wide) with a pennant to the upper right. */
+function flagPoints(cx: number, cy: number, size: number): Pt[] {
+  const h = size / 2
+  const poleR = cx - h + 0.12 * size
+  return [
+    [cx - h, cy + h], [cx - h, cy - h], [poleR, cy - h], [cx + h, cy - 0.275 * size], [poleR, cy - 0.05 * size], [poleR, cy + h],
+  ]
+}
+
+/** L-shape: stem down the left (0.32·size wide), foot along the bottom (0.32·size tall). */
+function lshapePoints(cx: number, cy: number, size: number): Pt[] {
+  const h = size / 2
+  const t = 0.32 * size
+  return [
+    [cx - h, cy - h], [cx - h + t, cy - h], [cx - h + t, cy + h - t], [cx + h, cy + h - t], [cx + h, cy + h], [cx - h, cy + h],
+  ]
+}
+
 /**
  * Resolve a shape element's geometry. `square` is a diamond rotated a
  * further 45deg (doc 03 (item-generation-pipeline) §6.2's primitives table);
- * `diamond` is the unrotated n=4 polygon.
+ * `diamond` is the unrotated n=4 polygon. Rotation is applied about the
+ * anchor first, then `flip` mirrors the rotated points about the anchor
+ * (v3, R10) — emitted as literal coordinates, never a `transform`.
  */
-export function shapeGeometry(shape: ShapeId, cx: number, cy: number, size: number, rotationDeg: number): ShapeGeom {
+export function shapeGeometry(shape: ShapeId, cx: number, cy: number, size: number, rotationDeg: number, flip: Flip = 'none'): ShapeGeom {
+  const finish = (pts: Pt[]): ShapeGeom => ({ kind: 'polygon', points: flip === 'none' ? pts : pts.map(([x, y]) => mirror(x, y, cx, cy, flip)) })
+  const rotated = (pts: Pt[]) => (rotationDeg === 0 ? pts : pts.map(([x, y]) => rot(x, y, cx, cy, rotationDeg)))
   switch (shape) {
     case 'circle':
       return { kind: 'circle', cx, cy, r: size / 2 }
     case 'square':
-      return { kind: 'polygon', points: polygon(4, cx, cy, size, rotationDeg + 45) }
+      return finish(polygon(4, cx, cy, size, rotationDeg + 45))
     case 'diamond':
-      return { kind: 'polygon', points: polygon(4, cx, cy, size, rotationDeg) }
+      return finish(polygon(4, cx, cy, size, rotationDeg))
     case 'triangle':
-      return { kind: 'polygon', points: polygon(3, cx, cy, size, rotationDeg) }
+      return finish(polygon(3, cx, cy, size, rotationDeg))
     case 'pentagon':
-      return { kind: 'polygon', points: polygon(5, cx, cy, size, rotationDeg) }
+      return finish(polygon(5, cx, cy, size, rotationDeg))
+    case 'hexagon':
+      return finish(polygon(6, cx, cy, size, rotationDeg))
     case 'arrow':
-      return { kind: 'polygon', points: arrowPoints(cx, cy, size, rotationDeg) }
+      return finish(arrowPoints(cx, cy, size, rotationDeg))
+    case 'star':
+      return finish(rotated(starPoints(cx, cy, size)))
+    case 'cross':
+      return finish(rotated(crossPoints(cx, cy, size)))
+    case 'semicircle':
+      return finish(rotated(semicirclePoints(cx, cy, size)))
+    case 'flag':
+      return finish(rotated(flagPoints(cx, cy, size)))
+    case 'lshape':
+      return finish(rotated(lshapePoints(cx, cy, size)))
   }
 }
 
@@ -104,11 +185,23 @@ export function hatchSegments(geom: ShapeGeom, pitch: number): [Pt, Pt][] {
   // A long segment along direction (1,-1) through (k,0), well beyond any
   // cell's 0..100 canvas, so the clip functions see the full chord.
   const EXT = 1000
+  const convex = geom.kind === 'circle' || isConvex(geom.points)
   for (let k = kMin; k <= kMax; k += step) {
     const p0: Pt = [k - EXT, EXT]
     const p1: Pt = [k + EXT, -EXT]
-    const clipped = geom.kind === 'circle' ? clipLineToCircle(p0, p1, geom.cx, geom.cy, geom.r) : clipLineToPolygon(p0, p1, geom.points)
-    if (clipped && segLength(clipped[0], clipped[1]) >= 3) segs.push(clipped)
+    if (geom.kind === 'circle') {
+      const clipped = clipLineToCircle(p0, p1, geom.cx, geom.cy, geom.r)
+      if (clipped && segLength(clipped[0], clipped[1]) >= 3) segs.push(clipped)
+    } else if (convex) {
+      const clipped = clipLineToPolygon(p0, p1, geom.points)
+      if (clipped && segLength(clipped[0], clipped[1]) >= 3) segs.push(clipped)
+    } else {
+      // Non-convex (star, cross, flag, L, arrow): even-odd clipping yields
+      // one run per inside stretch of the chord.
+      for (const seg of clipLineToPolygonEvenOdd(p0, p1, geom.points)) {
+        if (segLength(seg[0], seg[1]) >= 3) segs.push(seg)
+      }
+    }
   }
   return segs
 }
@@ -137,14 +230,31 @@ function lineTag(x1: number, y1: number, x2: number, y2: number, stroke: string,
   return `<line x1="${fmt(x1)}" y1="${fmt(y1)}" x2="${fmt(x2)}" y2="${fmt(y2)}" stroke="${stroke}" stroke-width="${fmt(strokeWidth)}" stroke-linecap="round" />`
 }
 
+/** Open stroked polyline (arcs are emitted as chords — see geometry.ts arcPoints). */
+function polylineTag(points: readonly Pt[], stroke: string, strokeWidth: number): string {
+  const pts = points.map(([x, y]) => `${fmt(x)},${fmt(y)}`).join(' ')
+  return `<polyline points="${pts}" fill="none" stroke="${stroke}" stroke-width="${fmt(strokeWidth)}" stroke-linecap="round" stroke-linejoin="round" />`
+}
+
+/**
+ * Mid tone for the `grey` fill (v3): a fixed 45%-ink grey, the same in both
+ * themes — grey is a FILL STATE like hatched, not a colour channel (doc 03
+ * §6.5 still holds: the item survives desaturation because it already is
+ * desaturated). Drawn with the ink outline so the boundary stays crisp.
+ */
+export const GREY_FILL = '#8E9299'
+
 /** Render a filled/outlined/hatched shape into its constituent tags. */
 export function renderFilledGeometry(geom: ShapeGeom, fill: Fill, ink: string, strokeWidth: number, hatchPitch: number): string[] {
   const tags: string[] = []
-  const outline = fill !== 'solid' // 'outline' and 'hatched' both draw the boundary stroke-only
+  // 'outline' and 'hatched' draw the boundary stroke-only; 'grey' fills with
+  // the mid tone AND strokes the boundary in ink; 'solid' fills with ink.
+  const interior = fill === 'solid' ? ink : fill === 'grey' ? GREY_FILL : 'none'
+  const stroked = fill !== 'solid'
   if (geom.kind === 'circle') {
-    tags.push(outline ? circleTag(geom.cx, geom.cy, geom.r, 'none', ink, strokeWidth) : circleTag(geom.cx, geom.cy, geom.r, ink))
+    tags.push(stroked ? circleTag(geom.cx, geom.cy, geom.r, interior, ink, strokeWidth) : circleTag(geom.cx, geom.cy, geom.r, ink))
   } else {
-    tags.push(outline ? polygonTag(geom.points, 'none', ink, strokeWidth) : polygonTag(geom.points, ink))
+    tags.push(stroked ? polygonTag(geom.points, interior, ink, strokeWidth) : polygonTag(geom.points, ink))
   }
   if (fill === 'hatched') {
     const hatchStrokeWidth = hatchPitch * 0.3
@@ -160,7 +270,7 @@ export function renderElement(element: Element, render: RenderDirectives, ink: s
   switch (element.type) {
     case 'shape': {
       const [cx, cy] = ANCHOR_XY[element.anchor]
-      const geom = shapeGeometry(element.shape, cx, cy, SIZE_PX[element.size], element.rotation)
+      const geom = shapeGeometry(element.shape, cx, cy, SIZE_PX[element.size], element.rotation, element.flip ?? 'none')
       return renderFilledGeometry(geom, element.fill, ink, render.strokeWidth, render.hatchPitch)
     }
     case 'tick': {
@@ -228,6 +338,37 @@ export function renderElement(element: Element, render: RenderDirectives, ink: s
         const geom: ShapeGeom = { kind: 'polygon', points: [[x, y], [x + cellSize, y], [x + cellSize, y + cellSize], [x, y + cellSize]] }
         const fill: Fill = blackSet.has(pos) ? 'solid' : hatchedSet.has(pos) ? 'hatched' : 'outline'
         tags.push(...renderFilledGeometry(geom, fill, ink, render.strokeWidth, render.hatchPitch))
+      }
+      return tags
+    }
+    case 'strokes': {
+      // Large frameless strokes (v3): straight ones 70 units through CTR,
+      // arcs the upper/lower half of the 70-unit circle about CTR — so
+      // H + ARC_T + ARC_B reads as a circle with its diameter, and any subset
+      // is a distinct glyph. Drawn in canonical order so the output is stable.
+      const kinds = [...element.strokes].sort((a, b) => STROKE_ORDER[a] - STROKE_ORDER[b])
+      const tags: string[] = []
+      for (const kind of kinds) {
+        if (kind === 'ARC_T') tags.push(polylineTag(arcPoints(50, 50, STROKE_HALF, 180, 360, ARC_SEGMENTS), ink, render.strokeWidth))
+        else if (kind === 'ARC_B') tags.push(polylineTag(arcPoints(50, 50, STROKE_HALF, 0, 180, ARC_SEGMENTS), ink, render.strokeWidth))
+        else {
+          const [p0, p1] = STROKE_ENDPOINTS[kind]
+          tags.push(lineTag(p0[0], p0[1], p1[0], p1[1], ink, render.strokeWidth))
+        }
+      }
+      return tags
+    }
+    case 'nest': {
+      // Concentric containers (v3), largest first so inner rings paint on
+      // top. Ring k's shape/fill come from the per-item tuples; only the
+      // innermost ring may carry a non-outline fill (schema refine), so an
+      // outer ring never hides the ones inside it.
+      const rings = [...element.rings].sort((a, b) => RING_ORDER[a] - RING_ORDER[b])
+      const tags: string[] = []
+      for (const ring of rings) {
+        const idx = RING_ORDER[ring]
+        const geom = shapeGeometry(element.ringShapes[idx], 50, 50, RING_SIZE[ring], 0)
+        tags.push(...renderFilledGeometry(geom, element.ringFills[idx], ink, render.strokeWidth, render.hatchPitch))
       }
       return tags
     }

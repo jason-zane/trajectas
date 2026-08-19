@@ -55,12 +55,17 @@ describe('FiguralMatrixItemSpec / CognitiveOptionSpec — .strict() key-isolatio
     expect(FiguralMatrixItemSpec.safeParse(tooMany).success).toBe(false)
   })
 
-  it('enforces the closed shape vocabulary', () => {
+  it('enforces the closed shape vocabulary (hexagon joined it in v3; an octagon has not)', () => {
     const invalidShape = {
       ...m1OptionSpecs[0],
-      elements: [{ type: 'shape', layer: 'outer', shape: 'hexagon', fill: 'solid', size: 'S', anchor: 'CTR', rotation: 0 }],
+      elements: [{ type: 'shape', layer: 'outer', shape: 'octagon', fill: 'solid', size: 'S', anchor: 'CTR', rotation: 0 }],
     }
     expect(CognitiveOptionSpec.safeParse(invalidShape).success).toBe(false)
+    const v3Shape = {
+      ...m1OptionSpecs[0],
+      elements: [{ type: 'shape', layer: 'outer', shape: 'hexagon', fill: 'grey', size: 'S', anchor: 'CTR', rotation: 0, flip: 'h' }],
+    }
+    expect(CognitiveOptionSpec.safeParse(v3Shape).success).toBe(true)
   })
 
   it('enforces rotation range 0-359', () => {

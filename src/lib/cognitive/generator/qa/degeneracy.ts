@@ -151,7 +151,7 @@ export function latinTrivialCheck(rows: readonly (readonly string[])[]): CheckRe
 }
 
 /** Rotational-symmetry-order per shape, per doc 03-item-generation-pipeline.md §3.5's ROTATION_ALIAS/SYMMETRY_INVISIBLE. 0 = infinite (circle: any rotation is invisible). */
-const SHAPE_SYMMETRY_ORDER: Record<string, number> = { circle: 0, square: 4, diamond: 4, triangle: 3, pentagon: 5, arrow: 1 }
+const SHAPE_SYMMETRY_ORDER: Record<string, number> = { circle: 0, square: 4, diamond: 4, triangle: 3, pentagon: 5, arrow: 1, hexagon: 6, star: 5, cross: 4, semicircle: 1, flag: 1, lshape: 1 }
 
 export function symmetryInvisibleCheck(shape: string, stepDeg: number): CheckResult {
   const order = SHAPE_SYMMETRY_ORDER[shape] ?? 1
