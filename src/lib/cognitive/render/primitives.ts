@@ -71,17 +71,23 @@ function arrowPoints(cx: number, cy: number, size: number, deg: number): Pt[] {
   return raw.map(([x, y]) => rot(x, y, cx, cy, deg))
 }
 
-/** Five-point star, point up, outer-vertex width = size; inner radius 0.4 of outer. */
+/** Five-point star, point up, outer-vertex width = size; inner radius 0.4 of
+ *  outer. A 5-star's bounding box is NOT centred on its circumcentre (one
+ *  point up, two legs down), so the points are shifted to centre the BOX on
+ *  (cx, cy) — review finding, PR #369 math sweep: without the shift the glyph
+ *  sat ~0.05·size high in its cell. */
 function starPoints(cx: number, cy: number, size: number): Pt[] {
   const outerR = size / (2 * Math.cos((18 * Math.PI) / 180))
   const innerR = 0.4 * outerR
-  const pts: Pt[] = []
+  const raw: Pt[] = []
   for (let i = 0; i < 10; i++) {
     const r = i % 2 === 0 ? outerR : innerR
     const a = ((-90 + 36 * i) * Math.PI) / 180
-    pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
+    raw.push([cx + r * Math.cos(a), cy + r * Math.sin(a)])
   }
-  return pts
+  const ys = raw.map((p) => p[1])
+  const dy = cy - (Math.min(...ys) + Math.max(...ys)) / 2
+  return raw.map(([x, y]) => [x, y + dy])
 }
 
 /** Greek cross (plus sign) spanning `size` both ways, arm thickness 0.3·size. */
