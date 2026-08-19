@@ -29,9 +29,9 @@ next session starts from the repo.
 | ADD / SUB | 89 % / 98 % | −0.90 moderate | 0 | n/a |
 | 2R-XLAYER | 98 % | +0.35 moderate | 0 | 4/5 on every item |
 | 3R-DIST | 84 % | +0.35 moderate | 0 | all-cheap (G-20 skips) |
-| XOR-XLAYER | 93 % | +0.90 hard | 0 | 4/5 |
+| XOR-XLAYER | 91 % | +0.90 hard | 0 | 4/5 |
 | BITS-XOR | 100 % | +0.20 moderate | 0.20 (chance) | n/a |
-| XOR-DIST-XLAYER | 93 % | +1.35 hard | 0 | 4/5 |
+| XOR-DIST-XLAYER | 98 % | +1.35 hard | ≤ 0.2 (chance) | 4/5 |
 | 3R-XLAYER | 98 % | +1.30 hard | 0 | 4/5 |
 | BITS-2OP | 100 % | +2.00 very hard | 0 | n/a (both rules hard) |
 
