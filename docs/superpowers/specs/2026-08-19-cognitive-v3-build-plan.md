@@ -1,6 +1,17 @@
 # Cognitive v3 — six options, a comprehensive and distinct item set
 
-**Status: implementation plan, executing on `feat/cognitive-v3-six-options-surfaces` (2026-08-19).**
+**Status: BUILT on `feat/cognitive-v3-six-options-surfaces` (2026-08-19) — see `2026-08-19-pilot-v3-handoff.md` for what shipped and how it measured.**
+Deviations from the plan as written, decided while building: `flip` is
+the full D4 orientation group (eight states), not four, so a
+reflection-only item has five wrong orientations; `trapezoid` joined the
+glyphs and the L-shape got unequal arms (both needed for eight distinct
+images); LRM-SIZE-COUNT became **LRM-FILL-COUNT** (a size Latin square
+cannot coexist with counts > 1 inside the ink ceiling); LRM-SUM carries a
+cheap shape Latin square (a count axis under G-09's spread cap cannot
+supply five distinct wrong values alone); G-20's floor is max(4, N−2)
+(§1); G-17 is restated as expected blind hits ≤ chance; the form's tiers
+are 7 / 9 / 12 with BITS-2OP last in tier 3 rather than a separate tier
+of two adjacent ceiling items.
 Supersedes nothing; builds on v2 (`2026-08-19-cognitive-v2-build-plan.md`).
 JH's brief for v3, verbatim in substance: six options; the patterns
 should look different and better; "a really comprehensive tool, but

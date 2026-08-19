@@ -82,7 +82,7 @@ writeFileSync(join(outDir, 'items.json'), JSON.stringify(files.items, null, 2))
 // ---------------------------------------------------------------------------
 const bandCounts: Record<string, number> = { easy: 0, moderate: 0, hard: 0, very_hard: 0 }
 for (const item of result.items) bandCounts[item.qa.band]++
-const keySlotCounts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0 }
+const keySlotCounts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0 }
 for (const item of result.items) keySlotCounts[item.keySlot]++
 
 const blindItems = result.items.map((item: GeneratedItem) => {
