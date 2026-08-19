@@ -359,6 +359,22 @@ export const LRM_STROKE_XOR: FamilyTemplate<StrokeXorParams> = {
       }
     }
 
+    // Review finding (2026-08-20, PR #369 adversarial sweep): when the
+    // deduplicated pool collapses below five, the combination search never
+    // runs and this function used to THROW — killing the whole generateFamily
+    // run for one unlucky draw. Pad with subsets of the strokes the grid
+    // shows (in-vocab kinds) so five candidates always exist; a padded set
+    // that breaks a gate is REJECTED per item and tallied.
+    if (uniq.length < 5) {
+      const seen = sortStrokes([...new Set(ctx.grid.flatMap((gc) => fromSetVal(ctx.valueAt(AXIS, gc.row, gc.col))))])
+      for (let bits = 1; bits < 1 << seen.length && uniq.length < 5; bits++) {
+        const subset = seen.filter((_, idx) => (bits >> idx) & 1)
+        if (sameSet(subset, key)) continue
+        if (uniq.some((u) => sameSet(u.strokes, subset))) continue
+        uniq.push({ strokes: subset, label: 'PM', mech: `otherSet:${bits.toString(2)}` })
+      }
+    }
+
     // Try to build a valid set of 5 distractors
     // First, try combinations prioritizing the most reliable error types
     for (let i = 0; i < uniq.length; i++) {
@@ -374,11 +390,10 @@ export const LRM_STROKE_XOR: FamilyTemplate<StrokeXorParams> = {
       }
     }
 
-    throw new Error(
-      `LRM-STROKE-XOR: no distractor construction cleared the gates for rows ${JSON.stringify(
-        ctx.params.rows,
-      )}`,
-    )
+    // No five-subset cleared every gate: return the first five and let the
+    // per-item gates reject the item (counted), rather than treating an
+    // unlucky draw as a family-authoring bug.
+    return uniq.slice(0, 5).map((p) => mk(p.strokes, p.label, p.mech))
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: StrokeXorParams) => ({ rows: params.rows.map((r) => ({ a: sortStrokes(r.a), b: sortStrokes(r.b) })) }),

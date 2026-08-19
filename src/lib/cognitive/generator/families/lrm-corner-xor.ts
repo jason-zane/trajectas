@@ -470,6 +470,22 @@ export const LRM_CORNER_XOR: FamilyTemplate<CornerXorParams> = {
       }
     }
 
+    // Review finding (2026-08-20, PR #369 adversarial sweep): when the
+    // deduplicated pool collapses below five, the combination search never
+    // runs and this function used to THROW — killing the whole generateFamily
+    // run for one unlucky draw. Pad the pool with the remaining non-empty
+    // corner subsets (15 exist over four corners) so five candidates always
+    // exist; a padded set that breaks a gate is REJECTED per item and
+    // tallied, which is the correct failure mode for a bad draw.
+    if (uniq.length < 5) {
+      for (let bits = 1; bits < 16 && uniq.length < 5; bits++) {
+        const subset = ALL_CORNERS.filter((c) => (bits >> c) & 1)
+        if (sameCorners(subset, keyCorners)) continue
+        if (uniq.some((u) => sameCorners(u.corners, subset) && u.shape === keyShapeId)) continue
+        uniq.push({ corners: subset, shape: keyShapeId, label: 'PM', mech: `otherSet:${bits.toString(2)}` })
+      }
+    }
+
     // Try all 5-element combinations
     for (let i = 0; i < uniq.length; i++) {
       for (let j = i + 1; j < uniq.length; j++) {
@@ -486,7 +502,10 @@ export const LRM_CORNER_XOR: FamilyTemplate<CornerXorParams> = {
       }
     }
 
-    throw new Error(`LRM-CORNER-XOR: no distractor construction cleared the gates`)
+    // No five-subset cleared every gate: return the first five and let the
+    // per-item gates reject the item (counted), rather than treating an
+    // unlucky draw as a family-authoring bug.
+    return uniq.slice(0, 5).map((p) => mk(p.corners, p.shape, p.label, p.mech))
   },
   nonCardinalAsymmetricRotation: () => false,
   structuralExtra: (params: CornerXorParams) => ({
