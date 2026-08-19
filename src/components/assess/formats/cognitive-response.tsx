@@ -74,6 +74,20 @@ export function CognitiveResponse({
   const [activeIndex, setActiveIndex] = useState(initialActive);
 
   const optionCount = options.length;
+  /**
+   * The number of grid columns the option row is RENDERED with, so vertical
+   * arrows move between visible rows (codex review, PR #369): six options
+   * wrap 3+3 under the 400 px breakpoint (the min-[400px] classes below);
+   * five options and six-in-one-row keep a single row, where a vertical
+   * arrow wraps to the same tile (the pre-v3 behaviour). Read at event time
+   * — a resize between keydowns must not act on a stale column count.
+   */
+  const renderedColumns = useCallback(() => {
+    if (optionCount === 6 && typeof window !== "undefined" && !window.matchMedia("(min-width: 400px)").matches) {
+      return 3;
+    }
+    return optionCount;
+  }, [optionCount]);
   const focusTile = useCallback(
     (index: number) => {
       if (options.length === 0) return;
@@ -96,17 +110,17 @@ export function CognitiveResponse({
           break;
         case "ArrowDown":
           event.preventDefault();
-          focusTile(index + optionCount);
+          focusTile(index + renderedColumns());
           break;
         case "ArrowUp":
           event.preventDefault();
-          focusTile(index - optionCount);
+          focusTile(index - renderedColumns());
           break;
         default:
           break;
       }
     },
-    [focusTile, optionCount],
+    [focusTile, renderedColumns],
   );
 
   return (
