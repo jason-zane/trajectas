@@ -341,15 +341,23 @@ for the redesign branch, not a given.
 - **A persistent countdown** in the corner (Mensa: mm:ss, top-left,
   always visible). Ours has `SectionTimer`; make sure the next form
   shows it by default in the scored section.
-- **Review within the section.** Mensa: Previous / Next / Finish, and
-  after item 35 an explicit "review your answers or Finish" screen. JH
-  used it (Ex 1 and Ex 27 revisits). Ours forbids back-navigation, and
-  the save-ack protocol depends on that guard. For pilot forms — where
-  the aim is to measure the bank, not to proctor — allowing revision
-  inside the scored section is a **decision for JH**, not a
-  recommendation: it is the standard power-test affordance (RAPM
-  permits it), it changes what the response-time data mean, and it is
-  real engineering against a protocol that has just been made to work.
+- **Tap advances, Back revises — decided and built.** Mensa: choosing an
+  option moves to the next item; Previous / Next / Finish; after item 35
+  an explicit "review your answers or Finish" screen. JH used the
+  revisits (Ex 1 and Ex 27). JH's decision (2026-08-19): a cognitive
+  item behaves exactly like every other single-select format in our
+  runner — the tap advances, and Back is how a slipped tap is corrected.
+  Implemented in PR #367: `cognitive` moves to the runner's
+  auto-advance set; the pilot's scored section flips to
+  `allow_back_nav = true` (the save RPCs already accept revisions when
+  the flag is true; no migration); doc 03 §7.3's mis-tap concern is
+  kept as a coupling — the tap only advances where Back exists, a locked
+  section keeps tap + Continue. What it costs: a revised answer
+  refreshes `answered_at`, so the recorded latency for that item is
+  time-since-previous-action, not reading time (`ability-session.ts`
+  documents this). Not built: the "review or Finish" screen — the last
+  answer still completes the section, as it does for every other
+  format.
 
 ### 5.4 Presentation
 
@@ -367,6 +375,66 @@ chrome beyond the timer. Two things transfer directly:
   `render.minElementUnits`, not a constant.
 - **Options are the same size as cells.** Ours already are (round-1
   fix 3). Keep it.
+
+### 5.5 How many items make a useful test
+
+JH's question: is 35 the minimum, 30, 20? The honest answer has two
+parts — a formula and a set of published anchors — and both give the
+same numbers.
+
+*The formula.* Reliability of a sum score grows with item count by
+Spearman-Brown; matrix items typically inter-correlate at r̄ ≈ 0.12–0.20
+(single items are noisy). That gives:
+
+| items | α at r̄ = 0.12 | α at r̄ = 0.18 | SEM in IQ points (SD 15) |
+|---|---|---|---|
+| 10 | 0.58 | 0.69 | 9.7 / 8.4 |
+| 15 | 0.67 | 0.77 | 8.6 / 7.2 |
+| 20 | 0.73 | 0.81 | 7.8 / 6.5 |
+| 25 | 0.77 | 0.85 | 7.2 / 5.8 |
+| 30 | 0.80 | 0.87 | 6.7 / 5.4 |
+| 36 | 0.83 | 0.89 | 6.2 / 5.0 |
+| 48 | 0.87 | 0.91 | 5.4 / 4.5 |
+
+The same story in IRT terms: a well-targeted item (a ≈ 1.2, b near θ)
+contributes ≈ 0.25–0.36 information; 20 such items give SEM ≈ 0.45
+logits (reliability ≈ 0.80), 30 give ≈ 0.37 (≈ 0.87). Past ~36 the curve
+flattens: doubling from 36 to 72 buys ≈ 0.05–0.08 of reliability, for
+twice the candidate's time.
+
+*The anchors.* HeiQ (Pallentin, Danner & Rummel 2023; short forms 2024):
+48 items α = 0.93, retest 0.88; the 20-item parallel short forms
+α = 0.82–0.86 at 25 minutes; the 6-item form is a screener. RAPM Set II:
+36 items, α ≈ 0.85–0.90 in adult samples. Mensa Norway: 35 items,
+reliability unpublished. MaRs-IB's 8-minute administration (~25 items
+at 30 s each) sits lower.
+
+*So:* **~20 good items is the floor for a score you would show a
+candidate (α ≈ 0.80, SEM ≈ 6–7 IQ points); 24–30 is where a selection
+decision becomes defensible (α ≈ 0.85–0.88, SEM ≈ 5–6); beyond ~36 the
+return is small.** Three qualifications that matter more than the count:
+
+1. **"Good" is doing the work.** A leaky item that everyone gets right,
+   or a block-position item that measures rule reuse, contributes
+   almost nothing — the pilot's 24 items were nearer 10 in information
+   terms. Fix the leak and the blocking first; then count.
+2. **Targeting beats length.** Information is highest where b ≈ θ. A
+   20-item form concentrated between b = −0.5 and +2 measures an
+   above-average applicant pool more precisely than a 35-item form spread
+   from −3 to +3. This is also why the ceiling matters: without items at
+   b ≥ +2 the top of the pool is measured badly no matter how many easy
+   items there are.
+3. **Reliability is not validity.** A 30-item α = 0.87 form is a
+   precise measure of *something*; that it predicts the job is separate
+   evidence (criterion validity), and it is the evidence a selection
+   product actually needs. HeiQ's r = −0.49 with final-year grades is
+   the sort of number to aim at.
+
+For planning: pilot forms of 20–24 items are right for calibration
+(they estimate item parameters, not people); the operational form should
+be 24–30 items in 25–30 minutes; and the bank behind it needs 3–4× that
+for parallel forms and exposure control — the seeded generator makes the
+bank the cheap part.
 
 ## 6. What not to copy
 
@@ -401,17 +469,102 @@ In addition to the redesign spec as written:
    the scored section (or a purpose-built practice family). This is a
    builder constraint, cheap, and it removes a bias from every future
    calibration.
-3. **Timing:** 25 min for ~20 items; countdown visible.
+3. **Timing:** 25 min for ~20 items; countdown visible. (HeiQ-S lands
+   on exactly this — 20 items, 25 min, ≈1:15 per item.)
 4. **Six options** alongside the new option-set contract.
 5. **Ceiling content** (§5.1) as its own workstream after the
    redesign is re-piloted — first the bit-grid Boolean family, which
-   also retires the `dist3x2` pigeonhole.
+   also retires the `dist3x2` pigeonhole. BOLT (§9) is the published
+   precedent: Boolean algebra as the generator, binary-operation count
+   as the difficulty driver, N = 7,150.
 6. **Second sitting design:** the same candidate cannot re-sit blind
    (he has now seen every family). Recruit 2–3 internal sitters for the
    post-redesign form; run Mensa Norway on them too (25 min, free) so
    each has a comparator score under the same conditions.
+7. **Read HeiQ before re-authoring the distractor plans** (§9). Its
+   facet-design construction — every distractor is a distinct
+   combination of correctly and incorrectly applied operations, every
+   figural element appears equally often across the options, so no
+   option can be eliminated without solving at least one operation — is
+   the published, validated form of what the redesign spec's D1–D4
+   contract is reaching for, and its distractors are diagnostic of
+   *which* operation the candidate missed, which is exactly the
+   per-distractor error label our reviewers see. Adopt its construction
+   rule; keep our gates as the verifier.
+8. **Anchor block for the re-pilot** (§9): 8–10 OMIB items (item-level
+   Rasch parameters on 2,572 applicants; GPLv3 bank) or, with written
+   permission, MaRs-IB items, placed as an unscored block in the pilot
+   form. That co-calibrates our items onto a scale with real numbers
+   behind it and gives each sitter a convergent-validity score without
+   a second sitting. Not for the operational form.
+9. **Runner interaction — done** (PR #367): tap advances, Back revises;
+   pilot section flipped to `allow_back_nav = true`.
 
-## 8. Sources
+## 8. "Could we just use an open-source one?"
+
+JH's question, re-explored 2026-08-19 with a licence-first survey (each
+candidate's licence, availability and norms checked against its
+primary source by a second agent). Short answer: **not as the delivered
+instrument — for two independent reasons — but yes as anchors and as
+design references, and two of them change how we should build.**
+
+The two reasons no open bank can be the product: (1) *licence* — every
+human-normed bank with published item parameters is non-commercial or
+copyleft (table); (2) *exposure* — every one of them is downloadable
+with its answer key, which for a selection instrument is disqualifying
+regardless of licence. The seeded generator is the answer to both, and
+nothing found here replaces it.
+
+| Bank / generator | What it is | Norms / item stats | Licence (primary source) | Use for us |
+|---|---|---|---|---|
+| **OMIB** — Open Matrices Item Bank (Koch, Spinath, Greiff & Becker 2022, *J. Intell.* 10:41; osf.io/4km79) | 220 figural matrices, six construction rules (add, subtract, XOR, AND, rotation, completeness); **construction-based response** — the candidate builds the answer from 20 elements, no options | N = 2,572 med-school *applicants* (mean age 19); Rasch/IRT item parameters published per item | Bank: **GPLv3** ("free and unlimited access"); paper CC-BY | **Anchor block** for the re-pilot (best available: applicant sample, item-level parameters). Design reference for the response format (see below) |
+| **HeiQ** — Heidelberg figural matrices (Pallentin, Danner & Rummel 2023, *J. Intell.* 11:73; short forms 2024, 12:100) | 48 items (+ 20-item parallel forms A/B, 6-item XS), 7–8 options, 2–3 operations per item, **facet-design distractors** so no option is eliminable without solving an operation | N = 767; Rasch-scalable; α .93 (48) / .82–.86 (20); r = .81 with RPM; r = −.49 with school grades | Described as free-to-use for research; formal licence not stated on a primary page — ask before any use of items | **Design reference for the distractor redesign** (§7 item 7). Item use only after asking |
+| **BOLT** — Boolean Operations & Logical Thinking (Schroeders & Walter, 2026, *Intelligence*; PsyArXiv 39cbv) | Matrices generated from Boolean algebra (unary/binary/ternary ops); built for upper-ability discrimination in admissions | Studies N = 473 / 430 / **7,150 operational**; Rasch b predicted by binary-op count + perceptual organisation (LLTM R² .55–.74) | Paper; items are an admissions instrument — not open | **Design reference for the ceiling** (bit-grid Boolean family) and for the difficulty model |
+| **MaRs-IB** (Chierchia et al. 2019, *R. Soc. Open Sci.*; osf.io/g96f4; Gorilla open materials) | 80 items × 3 shape variants, 4 options, 30 s/item, 8-min form; difficulty = number of visual dimensions | N = 659 (11–33) + 2023 IRT recalibration N = 1,501 adults (b −3.7…+3.5, a .65–1.69) | Blakemore Lab: "academic and **non-commercial** purposes only" | Anchor only with written permission; design reference for the dimensionality→difficulty model |
+| **ICAR** matrix reasoning (Condon & Revelle 2014; icar-project.com) | 11 items in ICAR60; 6 options | 2PL parameters from SAPA N ≈ 97k | Data CC0; the *items* are held for non-commercial research behind registration/approval (site not reachable to confirm wording); items are widely exposed | Not for delivery; anchor only with approval |
+| **HMT** — Hagen Matrices Test (Heydasch, Haubrich & Renner 2013) | 20 items (6-item short), 8 options | N = 1,339 / 1,572 | "free for **non-commercial** use" (FernUniversität) | No |
+| **Sandia** generator (Matzen et al. 2010) | Parametric 3×3 generator + normed matrices; ancestor of ours | 2010 norming tables | Original repo has **no licence file**; a Python port claims BSD-3 with Sandia attribution — unconfirmed at the primary source | Design reference; nothing it does that ours doesn't |
+| **RAVEN / I-RAVEN / RAVEN-FAIR / PGM** (ML benchmarks, 2018–21) | Procedural generators; the I-RAVEN and RAVEN-FAIR papers are already the redesign spec's references | Not human-normed | GPL-3 / GPL-3 / MIT / Apache-2 code but **non-commercial dataset** | Design references only (already used) |
+| TestMyBrain matrix reasoning (Many Brains Project) | 36-item form | ~80k online sample | Code LGPL-3, stimuli CC-BY-SA 4.0 | Possible anchor (copyleft on derivatives; items exposed) — behind OMIB |
+| Not open, stop looking | Raven SPM/APM/CPM (Pearson), Cattell CFIT (IPAT), BOMAT (Hogrefe), WMT-2, SHL/Korn Ferry/Hogan banks | — | Proprietary | — |
+
+Two of these change how we build, not just what we compare against:
+
+- **HeiQ's distractor construction is the answer to our leak, published
+  and validated.** Mittring & Rost (2008) showed ~50% of RAPM items are
+  solvable by "counting" the options without seeing the matrix — the
+  context-blind attack our G-08 targets. HeiQ's fix: for an item with
+  operations {A, B, …}, the distractor set is the facet design of
+  correctly/incorrectly-applied operations, balanced so every figural
+  element appears equally often across options; incorrect applications
+  stay visually close to the correct one (same element, wrong position /
+  size / orientation). Consequences: no option can be eliminated without
+  solving an operation, and each distractor tells you *which* operation
+  the candidate got wrong. That is our redesign spec's D1–D4 with the
+  authorship rule made explicit, and it comes with α .93 and r = .81
+  against RPM. Adopt the construction rule for the five re-authored
+  families; keep G-08′/G-20 as the machine verifier that the rule was
+  achieved.
+- **OMIB's construction-based response format removes the distractor
+  problem entirely.** No options → no leak, no context-blind attack, no
+  guess floor, and G-08/G-19/G-20 become unnecessary. It is Becker &
+  Spinath's DESIGMA format ("Design a Matrix"), and it validated well on
+  2,572 applicants. The cost is real: a different task (construction,
+  not recognition — correlations with option-based matrices are high
+  but not 1), a heavier runner (compose from a palette, on mobile,
+  accessibly), and a break from the format every candidate recognises.
+  **Not a recommendation for now** — the redesign spec is the right
+  next step and it is a week's work, not a quarter's — but it is the
+  strategic alternative if the option-set problem keeps resurfacing
+  after the redesign is re-piloted, and worth a design spike then.
+
+The remaining honest use is the anchor block (§7 item 8): 8–10 OMIB
+items in the re-pilot form, unscored, so our items are co-calibrated
+onto a scale that has 2,572 real applicants behind it and each internal
+sitter gets a convergent-validity number for free. That is worth more
+than any of these banks would be as content.
+
+## 9. Sources
 
 - test.mensa.no result page (screenshot, 2026-08-19 10:38): "Your IQ was
   measured to 118 which is equivalent to the 88 percentile, with a
@@ -430,3 +583,21 @@ In addition to the redesign spec as written:
   `5d2a52e1-23e5-4a19-b2e8-3832f352108f`; `item_families` for priors.
 - Carpenter, Just & Shell (1990); Embretson (1998) — as cited in the
   redesign spec.
+- §5.5 / §8: Koch, Spinath, Greiff & Becker (2022), *Development and
+  Validation of the Open Matrices Item Bank*, J. Intell. 10:41
+  (mdpi.com/2079-3200/10/3/41; osf.io/4km79). Pallentin, Danner &
+  Rummel (2023), *Construction and Validation of the HeiQ*, J. Intell.
+  11:73 (mdpi.com/2079-3200/11/4/73); Pallentin et al. (2024), HeiQ
+  short forms, J. Intell. 12:100. Schroeders & Walter (2026), *Developing
+  BOLT*, PsyArXiv 10.31234/osf.io/39cbv. Chierchia et al. (2019),
+  MaRs-IB, R. Soc. Open Sci. 6:190232 (osf.io/g96f4; licence at
+  sites.google.com/site/blakemorelab/research/mars-ib). Condon &
+  Revelle (2014), ICAR, Intelligence 43. Heydasch, Haubrich & Renner
+  (2013), HMT (fernuni-hagen.de/arbeitspsychologie/forschung/
+  hagener-matrizentest-en.shtml). Matzen et al. (2010), Sandia
+  generator, Behav. Res. Methods 42. Mittring & Rost (2008) on
+  option-counting in RAPM, as cited by Pallentin et al. TestMyBrain:
+  github.com/manybrainsproject/TestMyBrainCodeRepo (LGPL-3 / CC-BY-SA
+  stimuli). Licence quotes were checked against these primary pages on
+  2026-08-19; where a page could not be reached (icar-project.com) the
+  table says so.
