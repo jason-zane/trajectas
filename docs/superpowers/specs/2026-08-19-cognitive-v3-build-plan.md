@@ -74,11 +74,15 @@ composition of published primitives.
 
 Slots A–F; the schema accepts 5 or 6 (v1/v2 items in production keep 5);
 the generator emits 6; every gate thresholds on N = options.length (G-20
-≥ N−1; G-11/G-18/G-19 ≥ 2; G-08′ P ≤ ¼; G-16 balance over N; G-17
-p = 1/N); every family declares a five-entry distractor plan under its
-existing contract (cheap+hard families: four hard-axis errors + one
-incomplete correlate; 3R-DIST: fractional design extended; single-rule
-and bit-grid families: one more labelled mechanism). Runner: one row of
+cheap elimination leaves ≥ max(4, N−2) — the absolute ≤25%-guess floor the
+v2 contract set at N=5, kept as a floor because a four-state hard axis or a
+count axis under G-09's spread cap cannot supply five distinct wrong values;
+G-11/G-18/G-19 ≥ 2; G-08′ P ≤ ¼; G-16 balance over N; G-17 p = 1/N); every
+family declares a five-entry distractor plan under its existing contract
+(cheap+hard families: four hard-axis errors + one incomplete correlate
+where the hard axis allows, three + two otherwise; 3R-DIST: fractional
+design extended; single-rule and bit-grid families: one more labelled
+mechanism). Runner: one row of
 six, wrapping 3+3 below 360 px. A data migration relabels the response
 format "Figural Matrix (5-option)" → "Figural Matrix" (option count is
 per item).
