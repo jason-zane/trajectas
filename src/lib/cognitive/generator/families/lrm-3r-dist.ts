@@ -132,6 +132,9 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
   ],
   radicals: { ruleCount: 3, ruleIds: ['R6', 'R6', 'R1'], crossLayer: false, perceptualLoad: 1, elementTypes: 3, nearMissCount: 3 },
   render: { styleVersion: 'v1', canvas: 100, strokeWidth: 2, hatchPitch: 4, minElementUnits: 8 },
+  // Typical realisation: three chimeras and one repetition (ABC built from
+  // stall values is usually a verbatim copy of a visible cell); the realised
+  // label per option is decided in buildDistractors and audited by G-07.
   distractorPlan: ['PM', 'PM', 'PM', 'RP'],
   sampleParams(rng: Rng): M7Params {
     const shapeSet = rng.pick(SHAPE_SETS)
@@ -250,11 +253,18 @@ export const LRM_3R_DIST: FamilyTemplate<M7Params> = {
         ...(cand.fill === keyFill.v ? [] : [FILL_AXIS]),
         ...(cand.count === keyCount.v ? [] : [COUNT_AXIS]),
       ]
-      // ABC (the last, all-wrong distractor) is labeled RP. The others are PM.
-      // The chimera function handles the RP labeling.
-      return cand.label === 'RP'
-        ? chimera(`fractional-factorial:ABC[${A},${B},${C}]`, elements, wrongAxes)
-        : { elements, label: 'PM' as const, mechanism: `fractional-factorial:${cand.wrongAxisCount === 2 ? ['AB0', 'A0C', '0BC'][candidates.indexOf(cand)] : 'ABC'}[${A},${B},${C}]`, wrongAxes }
+      // Labels are what the option IS, not what the plan hoped: ABC (the
+      // all-wrong corner) is a repetition (RP) only when it reproduces a
+      // visible cell verbatim — with stall values it usually does (A, B, C
+      // are read off R3C1 / R3C2 / R2C3) — and a chimera (PM) otherwise. The
+      // three two-wrong corners are chimeras. `distractorPlan` below states
+      // the typical case; G-07 audits the realised labels per item.
+      const corner = cand.wrongAxisCount === 2 ? ['AB0', 'A0C', '0BC'][candidates.indexOf(cand)] : 'ABC'
+      const copyOf = ctx.grid.find((gc) => cellEq({ elements: gc.elements }, { elements }))
+      if (cand.label === 'RP' && copyOf) {
+        return { elements, label: 'RP' as const, mechanism: `fractional-factorial:${corner}[${A},${B},${C}]:copyCell:R${copyOf.row}C${copyOf.col}`, wrongAxes }
+      }
+      return chimera(`fractional-factorial:${corner}[${A},${B},${C}]`, elements, wrongAxes)
     })
 
     if (validSet(distractors)) return distractors

@@ -57,7 +57,8 @@ build session (production writes are permission-gated there).
 2. **Seed the v2 form.** Run `scripts/cognitive/seed-pilot-v2-assessment.sql`
    (psql or the SQL editor). It refreshes the four changed families'
    priors, creates assessment `b3…0002`, sections `b4…0003/0004`, places
-   3 + 24 items from the `v2-` bank in tier/round-robin order, and creates
+   3 + 24 items from the `v2-2026-08-19` bank (pinned to that exact seed)
+   in tier/round-robin order, and creates
    campaign `figural-matrix-pilot-v2-internal`. Idempotent. The commented
    sanity query at the bottom prints the placed form with family per
    position — check no two adjacent scored positions share a family.

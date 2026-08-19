@@ -8,16 +8,21 @@
 -- exactly as it is: it is the round-1 record.
 --
 -- ORDER OF OPERATIONS. The v2 bank must be ingested BEFORE this runs
--- (scripts/cognitive/ingest-to-live.ts --seed=<v2 seed> …, or
--- /item-bank/generate with the same seed). Section 3 below places items by
--- family and generator seed; with no v2 items present it places nothing,
--- and re-running after the ingest completes the placement.
+-- (scripts/cognitive/ingest-to-live.ts --seed=v2-2026-08-19 --per-family=12,
+-- or /item-bank/generate with the same seed). Section 3 below places items
+-- by family and generator seed; with no such items present it places
+-- nothing, and re-running after the ingest completes the placement.
 --
 -- REQUIRES migration 20260817103000_internal_pilot_assessments.sql
 -- (`assessments.internal_pilot`, the named exception that lets unreviewed
 -- draft items be served internally and only internally).
 --
 -- Parameters, deliberately at the top so 28/35 or 30/37 is a one-line change:
+--   BANK_SEED      = 'v2-2026-08-19'  (the ingest seed; placement below is
+--                   pinned to EXACTLY this run — `generator_seed` is stored
+--                   as '<seed>/<family>/<n>', so the predicate is
+--                   `LIKE 'v2-2026-08-19/%'`, not `'v2-%'`: another run whose
+--                   seed merely starts with v2- must never mix into the form)
 --   SCORED_ITEMS   = 24  (JH: 24–30)
 --   SECTION_SECS   = 1800 (30 min = 75 s/item, HeiQ-S's validated pace;
 --                   the pilot-1 90th-percentile item time was 135 s)
@@ -90,9 +95,10 @@ ON CONFLICT DO NOTHING;
 -- same family as the three practice items — pre-taught.
 --
 -- Selection is deterministic (ordered by generator seed, then item id) so
--- re-running picks the same items. Only items from a v2 generation run are
--- eligible: `generator_seed LIKE 'v2-%'` — the ingest is run with a seed of
--- that shape (see the hand-over note). Predicted b is read from the family
+-- re-running picks the same items. Only items from THE v2 generation run are
+-- eligible: `generator_seed LIKE 'v2-2026-08-19/%'` — the ingest is run with
+-- exactly that seed (see the hand-over note); a later v2 bank gets its own
+-- seed AND its own copy of this file. Predicted b is read from the family
 -- row at placement time for the report, not used for ordering inside a tier.
 WITH quota(code, tier, family_order, practice_n, scored_n) AS (VALUES
   -- practice (unscored; family absent from the scored section)
@@ -118,7 +124,7 @@ ranked AS (
   FROM items i
   JOIN item_families f ON f.id = i.family_id
   JOIN cognitive_item_specs s ON s.item_id = i.id
-  WHERE s.generator_seed LIKE 'v2-%'
+  WHERE s.generator_seed LIKE 'v2-2026-08-19/%'
     AND i.deleted_at IS NULL
 ),
 picked AS (
