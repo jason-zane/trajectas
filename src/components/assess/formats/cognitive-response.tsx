@@ -162,20 +162,19 @@ export function CognitiveResponse({
       <div
         role="radiogroup"
         aria-label="Answer options"
+        // The row's own budget — deliberately wider than the puzzle grid.
+        // Width caps the tiles on wide screens; the dvh term caps them on
+        // short screens so the block never scrolls; 92vw floors the phone.
+        // The dvh term is ROW-COUNT-AWARE (codex review, PR #370): below sm
+        // the six options render as 3+3, whose HEIGHT is ~2/3 of the row's
+        // width, so the cap there is 45dvh + gaps (two rows ≤ ~30dvh) —
+        // 96dvh would let a 500px-tall viewport grow the block past the
+        // fold. One-row layouts cap at their single tile height instead.
         className={
           options.length === 6
-            ? "grid w-full grid-cols-3 gap-2.5 sm:grid-cols-6"
-            : "grid w-full grid-cols-5 gap-2.5"
+            ? "grid w-full grid-cols-3 gap-2.5 max-w-[min(92vw,calc(45dvh+20px))] sm:grid-cols-6 sm:max-w-[min(92vw,700px,96dvh)]"
+            : "grid w-full grid-cols-5 gap-2.5 max-w-[min(92vw,600px,82dvh)]"
         }
-        style={{
-          // The row's own budget — deliberately wider than the puzzle grid.
-          // Width caps the tiles on wide screens; the dvh term caps them on
-          // short screens so the block never scrolls; 92vw floors the phone.
-          maxWidth:
-            options.length === 6
-              ? "min(92vw, 700px, 96dvh)"
-              : "min(92vw, 600px, 82dvh)",
-        }}
       >
         {options.map((option, index) => {
           const isSelected = selectedValue === option.value;
