@@ -2071,6 +2071,13 @@ export async function unpublishBuild(buildId: string): Promise<{ itemsUnpublishe
  *
  * Platform-admin only.
  */
+/**
+ * How long the LLM pair review may take before the step gives up on it and
+ * falls back to cosine similarity. The construct proposal itself returns in
+ * ~20s; the user should not wait minutes past that for optional enrichment.
+ */
+const PREFLIGHT_BUDGET_MS = 45_000
+
 export async function proposeStructureAction(buildId: string): Promise<{
   constructs: Array<{ name: string; definition: string; exclusions: string[] }>
   warnings: string[]
@@ -2176,9 +2183,28 @@ export async function proposeStructureAction(buildId: string): Promise<{
         definition: c.definition,
       }))
 
-      const preflightResult = await runConstructPreflight(constructsForPreflight)
+      // Preflight is ENRICHMENT, not a gate. It adds an LLM review of the most
+      // overlapping pairs on top of plain cosine similarity, and each review is
+      // a slow model call. Measured on a real run: the construct proposal itself
+      // returns in ~20s, then preflight ran for minutes and sometimes did not
+      // return at all, leaving the user staring at a spinner for the step that
+      // is supposed to be the fast one.
+      //
+      // Bound it. If the richer analysis does not arrive in time the step still
+      // completes, and the discriminability matrix falls back to cosine
+      // similarity — which is what this screen showed before preflight was
+      // wired in, and is still an honest heuristic.
+      const preflightResult = await Promise.race([
+        runConstructPreflight(constructsForPreflight),
+        new Promise<null>((resolve) =>
+          setTimeout(() => resolve(null), PREFLIGHT_BUDGET_MS),
+        ),
+      ])
 
-      // Transform preflight pairs to the UI format (mapping constructId to indices)
+      if (!preflightResult) {
+        throw new Error('preflight-timeout')
+      }
+
       preflightPairs = preflightResult.pairs.map((p) => {
         const aIdx = constructsForPreflight.findIndex((c) => c.id === p.constructAId)
         const bIdx = constructsForPreflight.findIndex((c) => c.id === p.constructBId)
@@ -2202,10 +2228,41 @@ export async function proposeStructureAction(buildId: string): Promise<{
         }
       })
     } catch (err) {
-      // Preflight failure is not fatal; just skip discriminability analysis
-      proposal.warnings.push(
-        `Could not run discriminability analysis: ${err instanceof Error ? err.message : 'unknown error'}`,
-      )
+      // Preflight is enrichment, so its failure must not cost the user the
+      // discriminability check entirely — fall back to plain cosine overlap,
+      // which is what this screen showed before the LLM review was added and
+      // is still an honest heuristic. Only if THAT fails is the matrix empty.
+      const timedOut = err instanceof Error && err.message === 'preflight-timeout'
+      try {
+        const { computeSimilarityMatrix } = await import('@/lib/instrument/structure')
+        const { embedTexts } = await import('@/lib/ai/generation/embeddings')
+        const embeddingModel = await getModelForTask('embedding')
+        const embeddings = await embedTexts(
+          proposal.constructs.map((c) => `${c.name}. ${c.definition}`),
+          embeddingModel.modelId,
+        )
+        const matrix = computeSimilarityMatrix(embeddings, proposal.constructs)
+        preflightPairs = matrix.pairs.map((pair) => ({
+          constructAIndex: pair.constructAIndex,
+          constructBIndex: pair.constructBIndex,
+          constructAName: pair.constructAName,
+          constructBName: pair.constructBName,
+          cosineSimilarity: pair.cosineSimilarity,
+          status: 'green' as const,
+          reviewedByLlm: false,
+        }))
+        proposal.warnings.push(
+          timedOut
+            ? 'Detailed overlap review took too long, so pairs are shown by embedding similarity only.'
+            : 'Detailed overlap review was unavailable, so pairs are shown by embedding similarity only.',
+        )
+      } catch (fallbackErr) {
+        proposal.warnings.push(
+          `Could not run discriminability analysis: ${
+            fallbackErr instanceof Error ? fallbackErr.message : 'unknown error'
+          }`,
+        )
+      }
     }
   }
 

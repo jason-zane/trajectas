@@ -8,6 +8,7 @@
  * 4. Returns PreflightResult with green/amber/red status per pair
  */
 import { embedTexts } from './embeddings'
+import { mapWithConcurrency } from '@/lib/instrument/concurrency'
 import { openRouterProvider } from '@/lib/ai/providers/openrouter'
 import { getModelForTask } from '@/lib/ai/model-config'
 import { getActiveSystemPrompt } from '@/lib/ai/prompt-config'
@@ -24,6 +25,22 @@ import type {
 export const PREFLIGHT_SIMILARITY_THRESHOLD = 0.75
 export const PREFLIGHT_REVIEW_SIMILARITY_THRESHOLD = 0.5
 export const PREFLIGHT_TOP_PAIR_COUNT = 5
+
+/**
+ * Hard ceiling on LLM-reviewed pairs.
+ *
+ * Pair review is quadratic in construct count, and the similarity threshold
+ * below selects EVERY pair above it. That was tuned for a library-wide sweep
+ * where most constructs are unrelated; inside a single instrument every
+ * construct is a facet of the same idea, so nearly all pairs clear the
+ * threshold. Measured: 8 constructs = 28 pairs at ~26s per call = 12+ minutes
+ * of blocking work for one click. The cap keeps the highest-overlap pairs —
+ * the only ones a reviewer would act on — and bounds both latency and spend.
+ */
+export const PREFLIGHT_MAX_LLM_PAIRS = 8
+
+/** Pair reviews are independent; run this many at once rather than in series. */
+export const PREFLIGHT_REVIEW_CONCURRENCY = 4
 export const PREFLIGHT_FULL_CONTEXT_THRESHOLD = 15
 
 export interface PreflightPairCandidate {
@@ -117,27 +134,38 @@ export async function runConstructPreflight(
 
   const reviewedPairs = selectPairsForLlmReview(pairCandidates)
   const pairs: ConstructPairResult[] = []
-  let llmPairCount = 0
+
+  // Pairs below the review bar need no model call at all.
   for (const candidate of pairCandidates) {
+    if (reviewedPairs.has(buildPairKey(candidate.constructAIndex, candidate.constructBIndex))) {
+      continue
+    }
+    pairs.push({
+      constructAId: constructs[candidate.constructAIndex].id,
+      constructAName: constructs[candidate.constructAIndex].name,
+      constructBId: constructs[candidate.constructBIndex].id,
+      constructBName: constructs[candidate.constructBIndex].name,
+      cosineSimilarity: candidate.cosineSimilarity,
+      status: 'green',
+      reviewedByLlm: false,
+    })
+  }
+
+  const toReview = pairCandidates.filter((candidate) =>
+    reviewedPairs.has(buildPairKey(candidate.constructAIndex, candidate.constructBIndex)),
+  )
+  const llmPairCount = toReview.length
+
+  // These were awaited one at a time. Each call costs ~25s, so a set of eight
+  // pairs took over three minutes of pure waiting for a single click. They are
+  // independent of one another, so run them concurrently.
+  const reviewOutcomes = await mapWithConcurrency(
+    toReview,
+    PREFLIGHT_REVIEW_CONCURRENCY,
+    async (candidate): Promise<ConstructPairResult> => {
     const i = candidate.constructAIndex
     const j = candidate.constructBIndex
     const similarity = candidate.cosineSimilarity
-    const pairKey = buildPairKey(i, j)
-
-    if (!reviewedPairs.has(pairKey)) {
-      pairs.push({
-        constructAId: constructs[i].id,
-        constructAName: constructs[i].name,
-        constructBId: constructs[j].id,
-        constructBName: constructs[j].name,
-        cosineSimilarity: similarity,
-        status: 'green',
-        reviewedByLlm: false,
-      })
-      continue
-    }
-
-    llmPairCount += 1
     let pairResult: ConstructPairResult
     try {
       const response = await openRouterProvider.complete({
@@ -220,7 +248,12 @@ export async function runConstructPreflight(
         llmExplanation: 'Could not complete discrimination check',
       }
     }
-    pairs.push(pairResult)
+    return pairResult
+  },
+  )
+
+  for (const outcome of reviewOutcomes) {
+    if (outcome.ok) pairs.push(outcome.value)
   }
 
   const overallStatus = pairs.some(p => p.status === 'red')
@@ -249,18 +282,22 @@ export function selectPairsForLlmReview(
   pairCandidates: PreflightPairCandidate[],
   reviewThreshold = PREFLIGHT_REVIEW_SIMILARITY_THRESHOLD,
   topPairCount = PREFLIGHT_TOP_PAIR_COUNT,
+  maxLlmPairs = PREFLIGHT_MAX_LLM_PAIRS,
 ): Set<string> {
   const rankedPairs = [...pairCandidates].sort((left, right) => right.cosineSimilarity - left.cosineSimilarity)
   const selected = new Set<string>()
 
-  rankedPairs.slice(0, topPairCount).forEach((pair) => {
+  const take = (pair: PreflightPairCandidate) => {
+    if (selected.size >= maxLlmPairs) return
     selected.add(buildPairKey(pair.constructAIndex, pair.constructBIndex))
-  })
+  }
 
+  // Always review the most-overlapping pairs, then any others above the
+  // threshold, until the cap is reached. Because rankedPairs is sorted by
+  // descending similarity, the cap always keeps the pairs that matter most.
+  rankedPairs.slice(0, topPairCount).forEach(take)
   rankedPairs.forEach((pair) => {
-    if (pair.cosineSimilarity >= reviewThreshold) {
-      selected.add(buildPairKey(pair.constructAIndex, pair.constructBIndex))
-    }
+    if (pair.cosineSimilarity >= reviewThreshold) take(pair)
   })
 
   return selected
