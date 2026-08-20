@@ -28,17 +28,22 @@ interface CognitiveResponseProps {
 /**
  * Figural-matrix (LR-M) response format (dark-editorial re-skin).
  *
- * 3x3 stimulus grid (server-rendered SVG, inlined) above a single row of
- * five option tiles, the whole block centred and sized against the viewport
- * HEIGHT as well as width — the first pilot sitting had to scroll to see
- * the options, which on a timed test costs seconds per item and hides the
- * answer set while the puzzle is being read. `--cog-size` caps the grid at
- * min(420px, 88vw, 44dvh); the option row matches the grid's width, so a
- * shorter viewport shrinks everything proportionally instead of scrolling.
+ * 3x3 stimulus grid (server-rendered SVG, inlined) above the option tiles,
+ * the whole block centred and sized against the viewport HEIGHT as well as
+ * width — the first pilot sitting had to scroll to see the options, which
+ * on a timed test costs seconds per item and hides the answer set while the
+ * puzzle is being read. `--cog-size` caps the grid at min(420px, 88vw,
+ * 44dvh). The option row has its OWN width budget (JH, v3 pilot feedback:
+ * tiles sized to a sixth of the grid width were too small to read) — it may
+ * run wider than the grid, up to min(92vw, 700px, 96dvh) for six options,
+ * so a desktop shows one generous row of six under a narrower puzzle, and a
+ * phone below 640 px wraps 3+3 at near-grid-cell size. Height still
+ * governs: the dvh term shrinks tiles before anything scrolls.
  * Options form a `radiogroup`: click/tap or Enter/Space selects; arrow keys
- * move focus between tiles (one row, so Left/Right walk it; Up/Down are
- * wired ±N and hence no-ops until a second row ever exists; N is 5 for items
- * generated before v3 and 6 from v3 on — the row is one row either way). Selecting
+ * move focus between tiles (Left/Right walk the row; Up/Down move by the
+ * RENDERED column count — 3 in the wrapped phone layout, the full row
+ * width otherwise, where they wrap to the same tile; N is 5 for items
+ * generated before v3 and 6 from v3 on). Selecting
  * auto-advances like every other single-select format — `cognitive` is in
  * section-wrapper.tsx's `AUTO_ADVANCE_FORMATS` — provided the section allows
  * back-nav, which is what makes a slipped tap recoverable (doc 03 §7.3's
@@ -77,13 +82,13 @@ export function CognitiveResponse({
   /**
    * The number of grid columns the option row is RENDERED with, so vertical
    * arrows move between visible rows (codex review, PR #369): six options
-   * wrap 3+3 under the 400 px breakpoint (the min-[400px] classes below);
-   * five options and six-in-one-row keep a single row, where a vertical
-   * arrow wraps to the same tile (the pre-v3 behaviour). Read at event time
-   * — a resize between keydowns must not act on a stale column count.
+   * wrap 3+3 under the 640 px breakpoint (the sm: classes below); five
+   * options and six-in-one-row keep a single row, where a vertical arrow
+   * wraps to the same tile (the pre-v3 behaviour). Read at event time — a
+   * resize between keydowns must not act on a stale column count.
    */
   const renderedColumns = useCallback(() => {
-    if (optionCount === 6 && typeof window !== "undefined" && !window.matchMedia("(min-width: 400px)").matches) {
+    if (optionCount === 6 && typeof window !== "undefined" && !window.matchMedia("(min-width: 640px)").matches) {
       return 3;
     }
     return optionCount;
@@ -159,10 +164,18 @@ export function CognitiveResponse({
         aria-label="Answer options"
         className={
           options.length === 6
-            ? "grid grid-cols-3 gap-2 min-[400px]:grid-cols-6 min-[400px]:gap-1.5 sm:gap-2"
-            : "grid grid-cols-5 gap-2"
+            ? "grid w-full grid-cols-3 gap-2.5 sm:grid-cols-6"
+            : "grid w-full grid-cols-5 gap-2.5"
         }
-        style={{ width: "var(--cog-size)" }}
+        style={{
+          // The row's own budget — deliberately wider than the puzzle grid.
+          // Width caps the tiles on wide screens; the dvh term caps them on
+          // short screens so the block never scrolls; 92vw floors the phone.
+          maxWidth:
+            options.length === 6
+              ? "min(92vw, 700px, 96dvh)"
+              : "min(92vw, 600px, 82dvh)",
+        }}
       >
         {options.map((option, index) => {
           const isSelected = selectedValue === option.value;
@@ -182,15 +195,16 @@ export function CognitiveResponse({
               onClick={() => onSelect(option.value)}
               onKeyDown={(event) => handleKeyDown(event, index)}
               className="
-                flex items-center justify-center p-1.5
+                flex items-center justify-center p-2
                 transition-all duration-150 ease-out
+                hover:scale-[1.03] hover:shadow-lg
                 focus-visible:outline-none focus-visible:ring-2
                 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--runner-page)]
                 active:scale-95
               "
               style={{
                 aspectRatio: "1 / 1",
-                borderRadius: "10px",
+                borderRadius: "12px",
                 border: "1px solid",
                 borderColor: isSelected
                   ? "var(--runner-selected-fill)"
