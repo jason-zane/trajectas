@@ -31,8 +31,11 @@ import {
   deleteCongruenceRatingsForItems,
   listCongruenceRatingsForBuild,
   updateCandidateItemFairness,
+  listLibraryConstructsForMatching,
   StageRunInFlightError,
 } from '@/lib/dal/instrument'
+import type { ConstructMatchResult } from '@/lib/instrument/library-match'
+import type { SoundnessFinding, SoundnessReport } from '@/lib/instrument/soundness'
 import {
   instrumentBuildInputSchema,
   blueprintInputSchema,
@@ -2071,7 +2074,10 @@ export async function unpublishBuild(buildId: string): Promise<{ itemsUnpublishe
  *
  * Platform-admin only.
  */
-export async function proposeStructureAction(buildId: string): Promise<{
+export async function proposeStructureAction(
+  buildId: string,
+  knownConstructs?: Array<{ name: string; definition: string; exclusions?: string[] }>,
+): Promise<{
   constructs: Array<{ name: string; definition: string; exclusions: string[] }>
   warnings: string[]
   preflightPairs: Array<{
@@ -2109,6 +2115,16 @@ export async function proposeStructureAction(buildId: string): Promise<{
   } = await import('@/lib/instrument/structure')
   const { runConstructPreflight } = await import('@/lib/ai/generation/construct-preflight')
 
+  // Constructs the author already has. Named ones only — a blank row in the editor
+  // is not a commitment.
+  const known = (knownConstructs ?? [])
+    .filter((c) => typeof c.name === 'string' && c.name.trim().length > 0)
+    .map((c) => ({
+      name: c.name.trim(),
+      definition: (c.definition ?? '').trim(),
+      exclusions: c.exclusions ?? [],
+    }))
+
   // Build the prompt
   const prompt = buildStructurePrompt({
     buildName: build.name,
@@ -2117,6 +2133,7 @@ export async function proposeStructureAction(buildId: string): Promise<{
     audience: build.audience,
     useContext: build.useContext,
     targetConstructCount: build.targetConstructCount,
+    knownConstructs: known.length > 0 ? known : null,
   })
 
   // Get model and system prompt
@@ -2145,6 +2162,24 @@ export async function proposeStructureAction(buildId: string): Promise<{
 
   // Parse response
   const proposal = parseStructureProposal(response.content)
+
+  // During gap-fill the model returns only its additions, but the author's model is
+  // the union. Merging here means preflight scores the whole set — a new construct
+  // that collides with one the author brought is exactly the collision worth
+  // catching — and the caller can replace its list wholesale as it always has.
+  if (known.length > 0) {
+    const knownNames = new Set(known.map((c) => c.name.toLowerCase()))
+    const additions = proposal.constructs.filter((c) => {
+      const collides = knownNames.has(c.name.trim().toLowerCase())
+      if (collides) {
+        proposal.warnings.push(
+          `Dropped "${c.name}" — the model proposed a construct you had already defined.`,
+        )
+      }
+      return !collides
+    })
+    proposal.constructs = [...known, ...additions]
+  }
 
   // Run construct preflight for discriminability analysis
   let preflightPairs: Array<{
@@ -2228,6 +2263,240 @@ export async function proposeStructureAction(buildId: string): Promise<{
  *
  * Platform-admin only.
  */
+/**
+ * Match a set of constructs against the existing library.
+ *
+ * The builder minted constructs de novo and only checked for an exact name
+ * collision at publish time, so "Adaptability" and "Flexibility" both got created
+ * and the library quietly filled with near-duplicates. This runs the check while
+ * the author can still act on it.
+ *
+ * Takes constructs as an argument rather than a buildId because it runs before
+ * anything is persisted — during a paste, or against an unsaved edit.
+ */
+export async function matchModelAgainstLibraryAction(
+  constructs: Array<{ name: string; definition?: string }>,
+): Promise<ConstructMatchResult[]> {
+  await requireAdminScope()
+
+  // Unnamed rows cannot be matched, but dropping them would renumber everything
+  // after them. The caller keys its reuse decisions by proposedIndex and reads
+  // them back against its own array, so an index that means something different
+  // here links the wrong construct. Carry the original position through.
+  const named = constructs
+    .map((c, originalIndex) => ({ c, originalIndex }))
+    .filter(({ c }) => typeof c.name === 'string' && c.name.trim().length > 0)
+
+  if (named.length === 0) {
+    return []
+  }
+
+  const db = createAdminClient()
+  const library = await listLibraryConstructsForMatching(db)
+
+  const { matchConstructsToLibraryWithDefaultEmbedder } = await import(
+    '@/lib/instrument/library-match'
+  )
+
+  const results = await matchConstructsToLibraryWithDefaultEmbedder(
+    named.map(({ c }) => ({ name: c.name.trim(), definition: (c.definition ?? '').trim() })),
+    library,
+  )
+
+  return results.map((result) => ({
+    ...result,
+    proposedIndex: named[result.proposedIndex]?.originalIndex ?? result.proposedIndex,
+  }))
+}
+
+/**
+ * Assess whether a build's measurement model is psychometrically sound.
+ *
+ * Runs on constructs and blueprints alone, before any item exists. The congruence
+ * panel is the real validity machinery but it needs items, so it cannot tell you
+ * your model is malformed until after you have paid to generate against it. This
+ * can, and it runs on whatever constructs are present regardless of whether a
+ * human or the model wrote them — the existing discriminability preflight only
+ * ever fired inside the AI proposal path, so a hand-edited construct was never
+ * checked at all.
+ *
+ * Advisory by design. It never blocks; delivery is already gated elsewhere.
+ *
+ * The findings are recomputed live rather than stored: the assessment is a pure
+ * function of the current model, and a persisted finding would be a lie the moment
+ * someone edited a definition. Only the score enters the evidence ledger, so the
+ * trend across revisions survives.
+ */
+export async function assessBuildSoundnessAction(
+  buildId: string,
+  draftConstructs?: Array<{ name: string; definition?: string; exclusions?: string[] }>,
+): Promise<SoundnessReport> {
+  const scope = await requireAdminScope()
+
+  const db = createAdminClient()
+  const build = await getBuild(db, buildId)
+  if (!build) {
+    throw new Error('Build not found')
+  }
+
+  const { assessModelSoundness } = await import('@/lib/instrument/soundness')
+  const { computeSimilarityMatrix } = await import('@/lib/instrument/structure')
+
+  // Draft constructs arrive from the structure editor, where nothing is committed
+  // yet — which is exactly when this is worth running. Waiting for blueprints
+  // would mean the check only ever fires after the author has built on the model.
+  const draft = (draftConstructs ?? [])
+    .filter((c) => typeof c.name === 'string' && c.name.trim().length > 0)
+    .map((c) => ({
+      name: c.name.trim(),
+      definition: (c.definition ?? '').trim(),
+      exclusions: c.exclusions ?? [],
+    }))
+
+  const isDraft = draft.length > 0
+  const blueprints = isDraft ? [] : await listBlueprints(db, buildId)
+
+  // A blueprint carries either a linked library construct or a draft name.
+  const constructs = isDraft
+    ? draft
+    : blueprints.map((bp) => ({
+        name: bp.draftConstructName ?? 'Untitled construct',
+        definition: bp.draftConstructDefinition ?? '',
+        exclusions: bp.exclusions ?? [],
+      }))
+
+  // Facet and reliability checks need cells, which only exist once blueprints do.
+  const blueprintSummaries = await Promise.all(
+    blueprints.map(async (bp) => {
+      const withCells = await getBlueprintWithCells(db, bp.id)
+      const cells = withCells?.cells ?? []
+      const facets = new Set(cells.map((cell) => cell.facetLabel))
+      return {
+        constructName: bp.draftConstructName ?? 'Untitled construct',
+        facetCount: facets.size,
+        totalTargetItems: cells.reduce((sum, cell) => sum + (cell.targetItemCount ?? 0), 0),
+        targetAlpha: bp.targetAlpha ?? null,
+      }
+    }),
+  )
+
+  // A check that silently fails to run makes the score look better than the model
+  // deserves, which is the worst thing this panel could do. Failures become
+  // findings so the omission is visible.
+  const degraded: SoundnessFinding[] = []
+
+  // Cosine only — no LLM. This runs on every visit to the panel, so it has to be
+  // cheap; the LLM discrimination pass stays where it is, behind the propose step.
+  let similarityPairs: Array<{
+    constructAName: string
+    constructBName: string
+    cosineSimilarity: number
+  }> = []
+
+  const definedConstructs = constructs.filter((c) => c.definition.length > 0)
+
+  if (definedConstructs.length > 1) {
+    try {
+      const { embedTexts } = await import('@/lib/ai/generation/embeddings')
+      const embeddings = await embedTexts(
+        definedConstructs.map((c) => `${c.name} ${c.definition}`),
+      )
+      const matrix = computeSimilarityMatrix(embeddings, definedConstructs)
+      similarityPairs = matrix.pairs.map((pair) => ({
+        constructAName: pair.constructAName,
+        constructBName: pair.constructBName,
+        cosineSimilarity: pair.cosineSimilarity,
+      }))
+    } catch (err) {
+      degraded.push({
+        code: 'overlap-check-unavailable',
+        severity: 'advisory',
+        title: 'Overlap between constructs could not be checked',
+        detail: `The embedding service did not respond, so this score does not account for constructs that may measure the same thing. ${err instanceof Error ? err.message : 'Unknown error.'}`,
+        constructNames: [],
+        guidance: 'Re-run the assessment. If it keeps failing, check the embedding provider before trusting this score.',
+      })
+    }
+  }
+
+  let libraryOverlaps: Array<{
+    constructName: string
+    libraryConstructName: string
+    similarity: number
+  }> = []
+
+  try {
+    const matches = await matchModelAgainstLibraryAction(constructs)
+    libraryOverlaps = matches.flatMap((result) =>
+      result.matches
+        .filter((match) => match.similarity >= 0.8)
+        .map((match) => ({
+          constructName: result.proposedName,
+          libraryConstructName: match.libraryConstruct.name,
+          similarity: match.similarity,
+        })),
+    )
+  } catch (err) {
+    degraded.push({
+      code: 'library-check-unavailable',
+      severity: 'advisory',
+      title: 'The construct library could not be checked',
+      detail: `This score does not account for constructs that already exist in your library. ${err instanceof Error ? err.message : 'Unknown error.'}`,
+      constructNames: [],
+      guidance: 'Re-run the assessment before publishing, so you do not mint a duplicate of something you already own.',
+    })
+  }
+
+  const report = assessModelSoundness({
+    constructs,
+    similarityPairs,
+    blueprints: blueprintSummaries,
+    libraryOverlaps,
+    // In, not appended afterwards — the score has to account for a check that
+    // did not run, or a degraded assessment reads as a clean bill of health.
+    extraFindings: degraded,
+  })
+
+  const stamped: SoundnessReport = {
+    ...report,
+    checkedAt: new Date().toISOString(),
+  }
+
+  // Score only, and only for a committed model. Persisting a score for an
+  // uncommitted draft would fill the ledger with entries for constructs that were
+  // edited seconds later and may never have existed.
+  if (!isDraft && constructs.length > 0) {
+    await appendEvidence(db, buildId, [
+      {
+        targetType: 'instrument',
+        targetId: buildId,
+        claim: 'soundness',
+        value: stamped.score / 100,
+        interval: undefined,
+        evidenceClass: 'a_priori',
+        method: 'soundness_v1',
+        sampleSize: undefined,
+        producedAt: new Date(),
+        supersededAt: null,
+      },
+    ])
+  }
+
+  await logAuditEvent({
+    actorProfileId: scope.actor?.id ?? null,
+    eventType: 'instrument_build.soundness_assessed',
+    targetTable: 'instrument_builds',
+    targetId: buildId,
+    metadata: {
+      score: stamped.score,
+      band: stamped.band,
+      findingCount: stamped.findings.length,
+    },
+  })
+
+  return stamped
+}
+
 export async function confirmStructureAction(
   buildId: string,
   constructs: Array<Record<string, unknown>>,
@@ -2236,6 +2505,13 @@ export async function confirmStructureAction(
     constructBName: string
     cosineSimilarity: number
   }>,
+  /**
+   * Constructs the author chose to reuse from the library rather than mint fresh,
+   * keyed by the proposed construct name. Binding the choice here rather than at
+   * publish means the blueprint points at the real construct from the moment it
+   * exists, so everything downstream inherits it.
+   */
+  libraryLinks?: Record<string, string>,
 ): Promise<InstrumentBlueprintDto[]> {
   await requireAdminScope()
 
@@ -2293,8 +2569,14 @@ export async function confirmStructureAction(
       continue
     }
 
+    // A reused construct still carries its draft name and definition: the author
+    // may have refined the wording, and losing that on link would silently discard
+    // an edit they just made.
+    const linkedConstructId = libraryLinks?.[construct.name] ?? null
+
     const blueprint = await createBlueprint(db, {
       buildId,
+      constructId: linkedConstructId,
       draftConstructName: construct.name,
       draftConstructDefinition: construct.definition,
       measureType: build.measureType,

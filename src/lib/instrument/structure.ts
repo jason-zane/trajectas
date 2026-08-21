@@ -111,8 +111,13 @@ export function buildStructurePrompt(input: {
   audience?: Record<string, unknown> | null
   useContext?: string | null
   targetConstructCount?: number | null
+  knownConstructs?: Array<{ name: string; definition: string }> | null
 }): string {
   const lines: string[] = []
+
+  // Computed up front because it changes what the whole prompt is asking for:
+  // a fresh set, or the remainder of one the author has started.
+  const known = (input.knownConstructs ?? []).filter((c) => c.name.trim().length > 0)
 
   lines.push(`Instrument: ${input.buildName}`)
   lines.push('')
@@ -159,10 +164,42 @@ export function buildStructurePrompt(input: {
     lines.push('')
   }
 
-  // Target construct count
-  if (input.targetConstructCount && input.targetConstructCount > 0) {
+  // Target construct count. Suppressed during gap-fill, where the count is
+  // restated below as a remainder — saying "target 8" and "propose 3 more" in the
+  // same prompt reliably produces 8 new constructs on top of the 5 that exist.
+  if (known.length === 0 && input.targetConstructCount && input.targetConstructCount > 0) {
     lines.push(`Target number of constructs: ${input.targetConstructCount}`)
     lines.push('')
+  }
+
+  // Gap-fill. When the author already has part of the model, the request changes
+  // from "propose a set" to "complete this set" — and the constructs they brought
+  // are fixed points, not suggestions to be rewritten. Without this the only
+  // available move was Regenerate, which replaced every construct the author had
+  // written.
+  if (known.length > 0) {
+    lines.push('The author has already defined these constructs. Treat them as fixed:')
+    lines.push('')
+    for (const construct of known) {
+      const definition = construct.definition.trim()
+      lines.push(`- ${construct.name.trim()}${definition ? `: ${definition}` : ' (no definition yet)'}`)
+    }
+    lines.push('')
+    lines.push(
+      'Do NOT restate, rename, redefine or drop any construct listed above. Propose ONLY the additional constructs needed to complete the model, and make each one discriminable from those already defined. Return only your new constructs.',
+    )
+
+    if (input.targetConstructCount && input.targetConstructCount > known.length) {
+      lines.push('')
+      lines.push(
+        `The finished model should hold about ${input.targetConstructCount} constructs, so propose roughly ${input.targetConstructCount - known.length} more.`,
+      )
+    }
+
+    lines.push('')
+    lines.push('Be explicit about what each new construct is NOT, to prevent scope creep.')
+
+    return lines.join('\n')
   }
 
   lines.push(

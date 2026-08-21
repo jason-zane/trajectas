@@ -12,8 +12,12 @@ export const instrumentBuildInputSchema = z.object({
   name: z.string().min(1, 'Build name is required').max(200),
   measureType: z.enum(MEASURE_TYPES),
   brief: z.string().max(500).optional(),
-  targetConstructCount: z.number().int().min(1).max(20).optional(),
-  targetItemsPerConstruct: z.number().int().min(1).max(50).optional(),
+  // nullish, not optional: these columns are nullable, the action already
+  // coalesces with `?? null`, and callers legitimately send an explicit null to
+  // mean "no target". Accepting only undefined made Quick Build fail to create a
+  // build at all — it passes null for both.
+  targetConstructCount: z.number().int().min(1).max(20).nullish(),
+  targetItemsPerConstruct: z.number().int().min(1).max(50).nullish(),
   audience: z.object({
     level: z.enum(['entry', 'mid', 'senior', 'executive', 'mixed', 'open']).optional(),
     description: z.string().optional(),

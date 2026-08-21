@@ -1439,6 +1439,72 @@ export async function listTakenSlugs(
 }
 
 /**
+ * Load every live library construct with the text needed to match against it.
+ *
+ * The builder mints constructs de novo and only ever checked for an exact name
+ * collision at publish time, so near-duplicates ("Adaptability" / "Flexibility")
+ * accumulated silently. Semantic matching needs the definition text, which
+ * findConstructBySlug deliberately does not return.
+ *
+ * Counts come back so the UI can show what reusing a construct would inherit —
+ * a construct already carrying 40 items is a much stronger reuse candidate than
+ * an empty one.
+ */
+export async function listLibraryConstructsForMatching(
+  db: DbClient,
+): Promise<
+  Array<{
+    id: string;
+    name: string;
+    slug: string;
+    definition: string | null;
+    description: string | null;
+    factorCount: number;
+    itemCount: number;
+  }>
+> {
+  const { data, error } = await db
+    .from("constructs")
+    .select(
+      "id, name, slug, definition, description, factor_constructs(count), items(count)",
+    )
+    .is("deleted_at", null)
+    .eq("is_active", true)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throwActionError(
+      "listLibraryConstructsForMatching",
+      "Unable to load the construct library.",
+      error,
+    );
+  }
+
+  type CountRel = Array<{ count: number }> | null;
+  type Row = {
+    id: string;
+    name: string;
+    slug: string;
+    definition: string | null;
+    description: string | null;
+    factor_constructs: CountRel;
+    items: CountRel;
+  };
+
+  const firstCount = (rel: CountRel): number => rel?.[0]?.count ?? 0;
+
+  return ((data ?? []) as Row[]).map((row) => ({
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    definition: row.definition,
+    description: row.description,
+    factorCount: firstCount(row.factor_constructs),
+    itemCount: firstCount(row.items),
+  }));
+}
+
+/**
  * Create a new construct in the library.
  * Returns the construct id.
  */

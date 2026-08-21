@@ -26,13 +26,24 @@ import {
 } from '@/components/ui/select'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   createInstrumentBuild,
   proposeStructureAction,
   deleteInstrumentBuild,
   confirmStructureAction,
+  matchModelAgainstLibraryAction,
+  assessBuildSoundnessAction,
   quickBuildInstrumentAction,
 } from '@/app/actions/instrument'
+import { ModelInput } from '@/components/instruments/model-input'
+import { SoundnessPanel } from '@/components/instruments/soundness-panel'
+import type { SoundnessReport } from '@/lib/instrument/soundness'
+import {
+  LibraryMatchList,
+  type MatchDecision,
+} from '@/components/instruments/library-match-list'
+import type { ConstructMatchResult } from '@/lib/instrument/library-match'
 import type { MeasureType } from '@/lib/instrument/types'
 
 const MEASURE_TYPE_OPTIONS: Array<{ value: MeasureType; label: string; description: string }> = [
@@ -146,6 +157,17 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
   const [proposing, setProposing] = useState(false)
   const [renamedConstructs, setRenamedConstructs] = useState<ProposedConstruct[]>([])
 
+  // Bring-your-own model. When the author pastes a set, it becomes the starting
+  // point and the AI proposal is skipped entirely — asking a model to invent
+  // constructs for someone who already has them is the wrong default.
+  const [modelText, setModelText] = useState('')
+  const [pastedConstructs, setPastedConstructs] = useState<ProposedConstruct[]>([])
+  const [matchResults, setMatchResults] = useState<ConstructMatchResult[]>([])
+  const [matchDecisions, setMatchDecisions] = useState<Record<number, MatchDecision>>({})
+  const [matching, setMatching] = useState(false)
+  const [soundness, setSoundness] = useState<SoundnessReport | null>(null)
+  const [assessing, setAssessing] = useState(false)
+
   // Step 3: Scope
   const [itemsPerConstruct, setItemsPerConstruct] = useState(10)
   const [targetAlpha, setTargetAlpha] = useState(0.8)
@@ -180,6 +202,17 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
     setReadingLevel('mixed')
     setGenerationProgress(null)
     setGenerationErrors([])
+    // Without these, reopening the wizard silently reuses the previous model:
+    // pastedConstructs survives, handleNext sees a non-empty array, skips the AI
+    // proposal, and builds the new instrument from the old constructs even
+    // though the textarea looks empty.
+    setModelText('')
+    setPastedConstructs([])
+    setMatchResults([])
+    setMatchDecisions({})
+    setMatching(false)
+    setSoundness(null)
+    setAssessing(false)
   }
 
   function handleOpenChange(next: boolean) {
@@ -216,6 +249,84 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
     setStepId(next)
   }
 
+  /** Check a construct set against the library so duplicates surface before build. */
+  async function runLibraryMatch(constructs: ProposedConstruct[]) {
+    // Reuse decisions are keyed by position, so a replaced construct set (gap
+    // fill, re-proposal) invalidates every one of them.
+    setMatchDecisions({})
+
+    // Send the whole array, blanking the names of excluded constructs so the
+    // action skips them. Filtering here instead would renumber what follows, and
+    // the returned proposedIndex is read straight back against displayConstructs.
+    const forMatching = constructs.map((c) => ({
+      name: c.included ? c.name : '',
+      definition: c.definition,
+    }))
+
+    if (forMatching.every((c) => c.name.trim().length === 0)) {
+      setMatchResults([])
+      return
+    }
+    setMatching(true)
+    try {
+      setMatchResults(await matchModelAgainstLibraryAction(forMatching))
+    } catch {
+      // Never block the build on this — publish remains a second line of defence.
+      setMatchResults([])
+    } finally {
+      setMatching(false)
+    }
+  }
+
+  /** Check the model before spending anything generating items against it. */
+  async function handleAssessSoundness() {
+    if (!buildId) return
+    setAssessing(true)
+    try {
+      setSoundness(
+        await assessBuildSoundnessAction(
+          buildId,
+          displayConstructs.filter((c) => c.included && c.name.trim().length > 0)
+        )
+      )
+    } catch (err) {
+      toast.error('Could not check the model', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      })
+    } finally {
+      setAssessing(false)
+    }
+  }
+
+  /** Fill in what the pasted model is missing, keeping every supplied construct. */
+  async function handleFillGaps() {
+    if (!buildId) return
+    setProposing(true)
+    try {
+      const result = await proposeStructureAction(
+        buildId,
+        displayConstructs.filter((c) => c.included && c.name.trim().length > 0)
+      )
+      const constructs = result.constructs.map((c) => ({
+        name: c.name,
+        definition: c.definition,
+        exclusions: c.exclusions,
+        included: true,
+      }))
+      setProposedConstructs(constructs)
+      setRenamedConstructs([])
+      setPreflightPairs(result.preflightPairs)
+      toast.success(`Model now has ${constructs.length} constructs`)
+      await runLibraryMatch(constructs)
+    } catch (err) {
+      toast.error('Could not fill gaps', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      })
+    } finally {
+      setProposing(false)
+    }
+  }
+
   async function handleNext() {
     if (!canAdvance()) return
 
@@ -233,19 +344,29 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
         })
         setBuildId(result.id)
 
-        // Propose structures
         setProposing(true)
-        const proposal = await proposeStructureAction(result.id)
-        setProposedConstructs(
-          proposal.constructs.map((c) => ({
+
+        let constructs: ProposedConstruct[]
+
+        if (pastedConstructs.length > 0) {
+          // The author brought their own. Take it as given.
+          constructs = pastedConstructs
+          setProposedConstructs(constructs)
+          setPreflightPairs([])
+        } else {
+          const proposal = await proposeStructureAction(result.id)
+          constructs = proposal.constructs.map((c) => ({
             name: c.name,
             definition: c.definition,
             exclusions: c.exclusions,
             included: true,
           }))
-        )
-        setPreflightPairs(proposal.preflightPairs)
+          setProposedConstructs(constructs)
+          setPreflightPairs(proposal.preflightPairs)
+        }
+
         setRenamedConstructs([])
+        await runLibraryMatch(constructs)
       } catch (err) {
         toast.error('Failed to create build', {
           description: err instanceof Error ? err.message : 'Please try again.',
@@ -265,6 +386,18 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
       try {
         // Use renamed constructs if available, otherwise use proposed
         const toConfirm = renamedConstructs.length > 0 ? renamedConstructs : proposedConstructs
+
+        // Honour the reuse choices, so a construct the author recognised as one
+        // they already own links to it instead of being minted a second time.
+        const libraryLinks: Record<string, string> = {}
+        for (const [indexKey, decision] of Object.entries(matchDecisions)) {
+          if (decision.decision !== 'reuse') continue
+          const construct = displayConstructs[Number(indexKey)]
+          if (construct?.included && construct.name.trim()) {
+            libraryLinks[construct.name.trim()] = decision.libraryConstructId
+          }
+        }
+
         // Pass the overlap pairs through so they are persisted as evidence and
         // reach the technical report's discriminant section.
         await confirmStructureAction(
@@ -274,7 +407,8 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
             constructAName: p.constructAName,
             constructBName: p.constructBName,
             cosineSimilarity: p.cosineSimilarity,
-          }))
+          })),
+          libraryLinks
         )
       } catch (err) {
         toast.error('Failed to confirm constructs', {
@@ -469,6 +603,35 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Already have a model? Skip the proposal entirely. */}
+            <div className='space-y-2 border-t border-border pt-4'>
+              <Label htmlFor='qb-model'>Already have your constructs? (optional)</Label>
+              <ModelInput
+                value={modelText}
+                onChange={setModelText}
+                onAccept={(constructs) => {
+                  setPastedConstructs(
+                    constructs.map((c) => ({
+                      name: c.name,
+                      definition: c.definition,
+                      exclusions: c.exclusions,
+                      included: true,
+                    }))
+                  )
+                  toast.success(`${constructs.length} constructs ready`)
+                }}
+                disabled={busy}
+              />
+              {pastedConstructs.length > 0 && (
+                <Alert variant='success'>
+                  <AlertDescription>
+                    Using your {pastedConstructs.length} constructs. The AI proposal
+                    will be skipped — you can fill any gaps on the next step.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           </div>
         )}
 
@@ -483,27 +646,63 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
               </div>
             ) : (
               <>
-                <p className='text-sm text-muted-foreground'>
-                  Review the proposed constructs below. Edit names or definitions, toggle to include/exclude, and confirm to proceed.
-                </p>
+                <div className='flex items-start justify-between gap-4'>
+                  <p className='text-sm text-muted-foreground'>
+                    Review the constructs below. Edit names or definitions, toggle to include/exclude, and confirm to proceed.
+                  </p>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={handleFillGaps}
+                    disabled={busy || proposing}
+                    className='shrink-0'
+                  >
+                    Fill gaps with AI
+                  </Button>
+                </div>
 
                 {preflightPairs.length > 0 && (
-                  <div className='rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm'>
-                    <div className='flex items-start gap-2'>
-                      <AlertTriangle className='mt-0.5 size-4 shrink-0 text-amber-600' />
+                  <Alert variant='warning'>
+                    <AlertTriangle className='size-4' />
+                    <AlertDescription>
                       <div className='space-y-1'>
-                        <p className='font-medium text-amber-900'>Discriminability review</p>
-                        <ul className='space-y-0.5 text-xs text-amber-800'>
+                        <p className='font-medium'>Discriminability review</p>
+                        <ul className='space-y-0.5 text-xs'>
                           {preflightPairs.map((pair, i) => (
                             <li key={i}>
-                              {pair.constructAName} ↔ {pair.constructBName} ({(pair.cosineSimilarity * 100).toFixed(1)}%) — {pair.status}
+                              {pair.constructAName} ↔ {pair.constructBName}{' '}
+                              <span className='tabular-nums'>
+                                ({(pair.cosineSimilarity * 100).toFixed(1)}%)
+                              </span>{' '}
+                              — {pair.status}
                             </li>
                           ))}
                         </ul>
                       </div>
-                    </div>
-                  </div>
+                    </AlertDescription>
+                  </Alert>
                 )}
+
+                <SoundnessPanel
+                  report={soundness}
+                  isRunning={assessing}
+                  onRun={handleAssessSoundness}
+                />
+
+                <LibraryMatchList
+                  results={matchResults}
+                  decisions={matchDecisions}
+                  onDecide={(decision) =>
+                    setMatchDecisions((prev) => ({
+                      ...prev,
+                      [decision.constructIndex]: decision,
+                    }))
+                  }
+                  proposedDefinitions={Object.fromEntries(
+                    displayConstructs.map((c, i) => [i, c.definition])
+                  )}
+                  isLoading={matching}
+                />
 
                 <div className='space-y-2'>
                   {displayConstructs.map((construct, idx) => (
