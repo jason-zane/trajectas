@@ -47,6 +47,17 @@ export interface SoundnessInput {
   similarityPairs?: Array<{ constructAName: string; constructBName: string; cosineSimilarity: number }>
   blueprints?: Array<{ constructName: string; facetCount: number; totalTargetItems: number; targetAlpha: number | null }>
   libraryOverlaps?: Array<{ constructName: string; libraryConstructName: string; similarity: number }>
+  /**
+   * Findings the caller already knows about — in practice, checks that could not
+   * run because a dependency was unavailable.
+   *
+   * They must arrive here rather than being appended to the returned report,
+   * because score, band and summary are all computed from `findings`. Bolting
+   * them on afterwards produced a report that read "100 / sound / no issues
+   * detected" while simultaneously listing an unavailable check, and persisted
+   * that inflated score as evidence.
+   */
+  extraFindings?: SoundnessFinding[]
 }
 
 // ---------------------------------------------------------------------------
@@ -449,6 +460,8 @@ function checkLibraryDuplicates(
 export function assessModelSoundness(input: SoundnessInput): SoundnessReport {
   const findings: SoundnessFinding[] = []
 
+  const extra = input.extraFindings ?? []
+
   // Handle empty input gracefully
   if (!input.constructs || input.constructs.length === 0) {
     return {
@@ -460,7 +473,8 @@ export function assessModelSoundness(input: SoundnessInput): SoundnessReport {
           detail: 'The model has no constructs yet.',
           constructNames: [],
           guidance: 'Proceed to the STRUCTURE step to define your construct set.'
-        }
+        },
+        ...extra
       ],
       score: 100,
       band: 'sound',
@@ -468,6 +482,9 @@ export function assessModelSoundness(input: SoundnessInput): SoundnessReport {
       summary: 'No constructs defined yet; nothing to assess.'
     }
   }
+
+  // Checks the caller could not run count against the model like any other.
+  findings.push(...extra)
 
   // Run all checks
   findings.push(...checkDefinitions(input.constructs))

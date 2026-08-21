@@ -2279,9 +2279,13 @@ export async function matchModelAgainstLibraryAction(
 ): Promise<ConstructMatchResult[]> {
   await requireAdminScope()
 
+  // Unnamed rows cannot be matched, but dropping them would renumber everything
+  // after them. The caller keys its reuse decisions by proposedIndex and reads
+  // them back against its own array, so an index that means something different
+  // here links the wrong construct. Carry the original position through.
   const named = constructs
-    .filter((c) => typeof c.name === 'string' && c.name.trim().length > 0)
-    .map((c) => ({ name: c.name.trim(), definition: (c.definition ?? '').trim() }))
+    .map((c, originalIndex) => ({ c, originalIndex }))
+    .filter(({ c }) => typeof c.name === 'string' && c.name.trim().length > 0)
 
   if (named.length === 0) {
     return []
@@ -2294,7 +2298,15 @@ export async function matchModelAgainstLibraryAction(
     '@/lib/instrument/library-match'
   )
 
-  return matchConstructsToLibraryWithDefaultEmbedder(named, library)
+  const results = await matchConstructsToLibraryWithDefaultEmbedder(
+    named.map(({ c }) => ({ name: c.name.trim(), definition: (c.definition ?? '').trim() })),
+    library,
+  )
+
+  return results.map((result) => ({
+    ...result,
+    proposedIndex: named[result.proposedIndex]?.originalIndex ?? result.proposedIndex,
+  }))
 }
 
 /**
@@ -2440,11 +2452,13 @@ export async function assessBuildSoundnessAction(
     similarityPairs,
     blueprints: blueprintSummaries,
     libraryOverlaps,
+    // In, not appended afterwards — the score has to account for a check that
+    // did not run, or a degraded assessment reads as a clean bill of health.
+    extraFindings: degraded,
   })
 
   const stamped: SoundnessReport = {
     ...report,
-    findings: [...report.findings, ...degraded],
     checkedAt: new Date().toISOString(),
   }
 

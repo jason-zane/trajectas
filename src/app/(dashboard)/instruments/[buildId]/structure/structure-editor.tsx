@@ -75,14 +75,22 @@ export function StructureEditor({ build }: StructureEditorProps) {
    * worth matching.
    */
   const runLibraryMatch = async (next: ProposedConstruct[]) => {
-    const named = next.filter((c) => c.name.trim().length > 0)
-    if (named.length === 0) {
+    // Decisions are keyed by position in the construct array, so any change to
+    // that array invalidates them. Keeping a stale decision would link a
+    // blueprint to the library construct chosen for a DIFFERENT construct, and
+    // put its items under the wrong taxonomy — silently.
+    setMatchDecisions({})
+
+    // Whole array, unfiltered: the action skips unnamed rows while preserving
+    // their positions, and the returned proposedIndex is read straight back
+    // against this same array.
+    if (next.every((c) => c.name.trim().length === 0)) {
       setMatchResults([])
       return
     }
     setIsMatching(true)
     try {
-      setMatchResults(await matchModelAgainstLibraryAction(named))
+      setMatchResults(await matchModelAgainstLibraryAction(next))
     } catch (error) {
       // A library outage must not block authoring — the author can still proceed,
       // and the publish step remains a second line of defence against duplicates.
@@ -186,7 +194,14 @@ export function StructureEditor({ build }: StructureEditorProps) {
   }
 
   const handleDeleteConstruct = (index: number) => {
-    setConstructs(constructs.filter((_, i) => i !== index))
+    const next = constructs.filter((_, i) => i !== index)
+    setConstructs(next)
+    // Deleting shifts every later construct down one, so both the match results
+    // and the reuse decisions keyed against them are now pointing at the wrong
+    // rows. Re-running rebuilds both from the new array.
+    startTransition(async () => {
+      await runLibraryMatch(next)
+    })
   }
 
   const handleAddConstruct = () => {

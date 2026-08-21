@@ -164,6 +164,28 @@ describe('instrument/model-parser', () => {
       expect(result.constructs[0].exclusions.length).toBeGreaterThan(0)
     })
 
+    it('should parse a list nested under a constructs: key', () => {
+      // The most conventional YAML shape there is. Requiring the list marker at
+      // column 0 sent this to the Markdown parser, which produced a construct
+      // literally named "name".
+      const yaml = `constructs:
+  - name: Adaptability
+    definition: Adjusts approach when conditions change.
+    exclusions:
+      - Resilience
+  - name: Curiosity
+    definition: Seeks new information unprompted.`
+
+      const result = parseModelText(yaml)
+
+      expect(result.format).toBe('yaml')
+      expect(result.constructs).toHaveLength(2)
+      expect(result.constructs[0].name).toBe('Adaptability')
+      expect(result.constructs[0].exclusions).toEqual(['Resilience'])
+      expect(result.constructs[1].name).toBe('Curiosity')
+      expect(result.constructs.map((c) => c.name)).not.toContain('name')
+    })
+
     it('should parse YAML with block scalar >', () => {
       const yaml = `- name: Self-Awareness
   definition: >

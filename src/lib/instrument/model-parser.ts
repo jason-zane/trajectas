@@ -144,13 +144,17 @@ function tryParseYaml(raw: string): ParsedModel | null {
   while (i < lines.length) {
     const line = lines[i]
 
-    // Look for list marker at column 0: "- ..."
-    if (!line.startsWith('-')) {
+    // Look for a list marker at any indentation. Requiring column 0 rejected the
+    // most conventional YAML shape of all — a list nested under a `constructs:`
+    // key — which then fell through to the Markdown parser and produced a
+    // construct literally named "name".
+    const withoutIndent = line.trimStart()
+    if (!withoutIndent.startsWith('-')) {
       i++
       continue
     }
 
-    const afterDash = line.replace(/^-\s*/, '')
+    const afterDash = withoutIndent.replace(/^-\s*/, '')
     if (!afterDash) {
       i++
       continue

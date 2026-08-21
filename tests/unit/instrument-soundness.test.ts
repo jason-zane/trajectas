@@ -957,6 +957,60 @@ describe('instrument/soundness', () => {
       expect(report.summary.endsWith('.')).toBe(true)
     })
 
+    it('should count a check that could not run against the score', () => {
+      // A degraded check appended to the finished report produced "100 / sound /
+      // no issues detected" while listing an unavailable check, and persisted
+      // that inflated score as evidence.
+      const clean = {
+        constructs: [
+          {
+            name: 'Adaptability',
+            definition:
+              'Adjusts working approach when operating conditions change, revising plans and methods in response to new information while continuing to pursue the original objective and keeping colleagues informed of the change.',
+            exclusions: ['Resilience under sustained stress'],
+          },
+        ],
+      }
+
+      const baseline = assessModelSoundness(clean)
+
+      const degraded = assessModelSoundness({
+        ...clean,
+        extraFindings: [
+          {
+            code: 'overlap-check-unavailable',
+            severity: 'advisory',
+            title: 'Overlap between constructs could not be checked',
+            detail: 'The embedding service did not respond.',
+            constructNames: [],
+            guidance: 'Re-run the assessment.',
+          },
+        ],
+      })
+
+      expect(degraded.score).toBeLessThan(baseline.score)
+      expect(degraded.findings.map((f) => f.code)).toContain('overlap-check-unavailable')
+      expect(degraded.summary).not.toContain('no issues detected')
+    })
+
+    it('should still report an unavailable check when there are no constructs', () => {
+      const report = assessModelSoundness({
+        constructs: [],
+        extraFindings: [
+          {
+            code: 'library-check-unavailable',
+            severity: 'advisory',
+            title: 'The construct library could not be checked',
+            detail: 'Unavailable.',
+            constructNames: [],
+            guidance: 'Re-run.',
+          },
+        ],
+      })
+
+      expect(report.findings.map((f) => f.code)).toContain('library-check-unavailable')
+    })
+
     it('should use singular forms when every count is one', () => {
       const report = assessModelSoundness({
         constructs: [

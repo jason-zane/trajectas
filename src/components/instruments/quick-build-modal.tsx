@@ -202,6 +202,17 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
     setReadingLevel('mixed')
     setGenerationProgress(null)
     setGenerationErrors([])
+    // Without these, reopening the wizard silently reuses the previous model:
+    // pastedConstructs survives, handleNext sees a non-empty array, skips the AI
+    // proposal, and builds the new instrument from the old constructs even
+    // though the textarea looks empty.
+    setModelText('')
+    setPastedConstructs([])
+    setMatchResults([])
+    setMatchDecisions({})
+    setMatching(false)
+    setSoundness(null)
+    setAssessing(false)
   }
 
   function handleOpenChange(next: boolean) {
@@ -240,14 +251,25 @@ export function QuickBuildModal({ open, onOpenChange }: QuickBuildModalProps) {
 
   /** Check a construct set against the library so duplicates surface before build. */
   async function runLibraryMatch(constructs: ProposedConstruct[]) {
-    const named = constructs.filter((c) => c.included && c.name.trim().length > 0)
-    if (named.length === 0) {
+    // Reuse decisions are keyed by position, so a replaced construct set (gap
+    // fill, re-proposal) invalidates every one of them.
+    setMatchDecisions({})
+
+    // Send the whole array, blanking the names of excluded constructs so the
+    // action skips them. Filtering here instead would renumber what follows, and
+    // the returned proposedIndex is read straight back against displayConstructs.
+    const forMatching = constructs.map((c) => ({
+      name: c.included ? c.name : '',
+      definition: c.definition,
+    }))
+
+    if (forMatching.every((c) => c.name.trim().length === 0)) {
       setMatchResults([])
       return
     }
     setMatching(true)
     try {
-      setMatchResults(await matchModelAgainstLibraryAction(named))
+      setMatchResults(await matchModelAgainstLibraryAction(forMatching))
     } catch {
       // Never block the build on this — publish remains a second line of defence.
       setMatchResults([])
