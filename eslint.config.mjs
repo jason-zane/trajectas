@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Scratch directory the Supabase CLI writes on `supabase start`. It holds
+    // bundled edge-runtime vendor code, so linting it produced ~200 errors and
+    // made `npm run lint` fail for anyone running the local stack. Gitignored
+    // already; this keeps it out of the linter too.
+    "supabase/.temp/**",
   ]),
   // Guard: prevent new local definitions of formatting helpers outside src/lib/formatting.ts
   {
