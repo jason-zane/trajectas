@@ -12,7 +12,17 @@ import type { InstrumentBuildDto } from '@/lib/dal/instrument-mappers'
 import {
   proposeStructureAction,
   confirmStructureAction,
+  matchModelAgainstLibraryAction,
+  assessBuildSoundnessAction,
 } from '@/app/actions/instrument'
+import { ModelInput } from '@/components/instruments/model-input'
+import {
+  LibraryMatchList,
+  type MatchDecision,
+} from '@/components/instruments/library-match-list'
+import { SoundnessPanel } from '@/components/instruments/soundness-panel'
+import type { ConstructMatchResult } from '@/lib/instrument/library-match'
+import type { SoundnessReport } from '@/lib/instrument/soundness'
 
 interface ProposedConstruct {
   name: string
@@ -50,28 +60,111 @@ export function StructureEditor({ build }: StructureEditorProps) {
   const [preflightPairs, setPreflightPairs] = useState<PreflightPair[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [isProposing, setIsProposing] = useState(false)
+  const [modelText, setModelText] = useState('')
+  const [matchResults, setMatchResults] = useState<ConstructMatchResult[]>([])
+  const [matchDecisions, setMatchDecisions] = useState<Record<number, MatchDecision>>({})
+  const [isMatching, setIsMatching] = useState(false)
+  const [soundness, setSoundness] = useState<SoundnessReport | null>(null)
+  const [isAssessing, setIsAssessing] = useState(false)
 
-  const handleProposeStructure = () => {
+  /**
+   * Check a construct set against the library.
+   *
+   * Fired whenever the set changes wholesale rather than on every keystroke —
+   * each run costs an embedding call, and a half-typed construct name is not
+   * worth matching.
+   */
+  const runLibraryMatch = async (next: ProposedConstruct[]) => {
+    const named = next.filter((c) => c.name.trim().length > 0)
+    if (named.length === 0) {
+      setMatchResults([])
+      return
+    }
+    setIsMatching(true)
+    try {
+      setMatchResults(await matchModelAgainstLibraryAction(named))
+    } catch (error) {
+      // A library outage must not block authoring — the author can still proceed,
+      // and the publish step remains a second line of defence against duplicates.
+      toast.error(
+        error instanceof Error ? error.message : 'Could not check the construct library'
+      )
+      setMatchResults([])
+    } finally {
+      setIsMatching(false)
+    }
+  }
+
+  /**
+   * Propose constructs. Passing the current set turns this into gap-fill: what is
+   * already on screen is treated as fixed and the model returns only additions.
+   * Passing nothing is the original behaviour — propose the set from scratch.
+   */
+  const handleProposeStructure = (mode: 'fresh' | 'fill-gaps' = 'fresh') => {
     setIsProposing(true)
     startTransition(async () => {
       try {
-        const result = await proposeStructureAction(build.id)
+        const known =
+          mode === 'fill-gaps'
+            ? constructs.filter((c) => c.name.trim().length > 0)
+            : undefined
+
+        const result = await proposeStructureAction(build.id, known)
         setConstructs(result.constructs)
         setPreflightPairs(result.preflightPairs)
         setWarnings(result.warnings)
+
+        const added = result.constructs.length - (known?.length ?? 0)
         if (result.warnings.length > 0) {
           toast.info(`Generated with ${result.warnings.length} warning(s)`)
+        } else if (mode === 'fill-gaps') {
+          toast.success(added > 0 ? `Added ${added} construct${added === 1 ? "" : "s"}` : 'No gaps found')
         } else {
           toast.success(`Generated ${result.constructs.length} constructs`)
         }
+
+        await runLibraryMatch(result.constructs)
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : 'Failed to propose constructs'
         )
-        setConstructs([])
-        setPreflightPairs([])
+        if (mode === 'fresh') {
+          setConstructs([])
+          setPreflightPairs([])
+        }
       } finally {
         setIsProposing(false)
+      }
+    })
+  }
+
+  /** Adopt a model the author pasted, rather than one the AI wrote. */
+  const handleAcceptPastedModel = (parsed: ProposedConstruct[]) => {
+    setConstructs(parsed)
+    setWarnings([])
+    setPreflightPairs([])
+    toast.success(`Loaded ${parsed.length} construct${parsed.length === 1 ? "" : "s"}`)
+    startTransition(async () => {
+      await runLibraryMatch(parsed)
+    })
+  }
+
+  const handleAssessSoundness = () => {
+    setIsAssessing(true)
+    startTransition(async () => {
+      try {
+        setSoundness(
+          await assessBuildSoundnessAction(
+            build.id,
+            constructs.filter((c) => c.name.trim().length > 0)
+          )
+        )
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : 'Could not check the model'
+        )
+      } finally {
+        setIsAssessing(false)
       }
     })
   }
@@ -128,10 +221,37 @@ export function StructureEditor({ build }: StructureEditorProps) {
       return
     }
 
+    // Turn the per-construct reuse choices into name -> library construct id, so
+    // a construct the author chose to reuse is linked at creation rather than
+    // being minted again as a near-duplicate.
+    const libraryLinks: Record<string, string> = {}
+    for (const [indexKey, decision] of Object.entries(matchDecisions)) {
+      if (decision.decision !== 'reuse') continue
+      const construct = constructs[Number(indexKey)]
+      if (construct?.name.trim()) {
+        libraryLinks[construct.name.trim()] = decision.libraryConstructId
+      }
+    }
+
+    const reuseCount = Object.keys(libraryLinks).length
+
     startTransition(async () => {
       try {
-        await confirmStructureAction(build.id, constructs as unknown as Array<Record<string, unknown>>)
-        toast.success(`Created ${constructs.length} blueprint(s)`)
+        await confirmStructureAction(
+          build.id,
+          constructs as unknown as Array<Record<string, unknown>>,
+          preflightPairs.map((p) => ({
+            constructAName: p.constructAName,
+            constructBName: p.constructBName,
+            cosineSimilarity: p.cosineSimilarity,
+          })),
+          libraryLinks
+        )
+        toast.success(
+          reuseCount > 0
+            ? `Created ${constructs.length} blueprint${constructs.length === 1 ? "" : "s"}, reusing ${reuseCount} from your library`
+            : `Created ${constructs.length} blueprint${constructs.length === 1 ? "" : "s"}`
+        )
         router.push(`/instruments/${build.id}`)
       } catch (error) {
         toast.error(
@@ -177,23 +297,44 @@ export function StructureEditor({ build }: StructureEditorProps) {
       )}
 
       {!hasConstructs ? (
-        <Card className="p-12">
-          <div className="text-center space-y-6">
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Already have a model? Start from it. */}
+          <Card className="p-6 space-y-4">
             <div>
-              <h2 className="text-2xl font-semibold">No constructs proposed yet</h2>
-              <p className="text-muted-foreground mt-2">
-                Use AI to generate a complete construct set based on your instrument brief, measure type, and audience.
+              <p className="text-overline text-[var(--gold)]">Bring your own</p>
+              <h2 className="text-lg font-semibold mt-1">Paste your model</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Constructs and definitions you already have. JSON, YAML, a markdown
+                list, or one per line.
+              </p>
+            </div>
+            <ModelInput
+              value={modelText}
+              onChange={setModelText}
+              onAccept={handleAcceptPastedModel}
+              disabled={isPending || isProposing}
+            />
+          </Card>
+
+          {/* Or start from nothing. */}
+          <Card className="p-6 space-y-4">
+            <div>
+              <p className="text-overline text-[var(--gold)]">Start from the brief</p>
+              <h2 className="text-lg font-semibold mt-1">Let AI propose the set</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                A complete construct set drawn from your brief, measure type and
+                audience. You can edit everything afterwards.
               </p>
             </div>
             <Button
-              onClick={handleProposeStructure}
+              onClick={() => handleProposeStructure('fresh')}
               disabled={isPending || isProposing}
               size="lg"
             >
               {isProposing ? 'Proposing constructs...' : 'Propose constructs with AI'}
             </Button>
-          </div>
-        </Card>
+          </Card>
+        </div>
       ) : (
         <div className="space-y-8">
           {/* Constructs editor */}
@@ -202,15 +343,46 @@ export function StructureEditor({ build }: StructureEditorProps) {
               <h2 className="text-lg font-semibold">
                 Constructs ({constructs.length})
               </h2>
-              <Button
-                onClick={handleProposeStructure}
-                variant="outline"
-                size="sm"
-                disabled={isPending || isProposing}
-              >
-                Regenerate
-              </Button>
+              <div className="flex items-center gap-2">
+                {/* Gap-fill keeps what is on screen and asks only for the rest.
+                    Regenerate throws it all away — which used to be the only
+                    option, and quietly discarded hand-written constructs. */}
+                <Button
+                  onClick={() => handleProposeStructure('fill-gaps')}
+                  variant="outline"
+                  size="sm"
+                  disabled={isPending || isProposing}
+                >
+                  Fill gaps with AI
+                </Button>
+                <Button
+                  onClick={() => handleProposeStructure('fresh')}
+                  variant="ghost"
+                  size="sm"
+                  disabled={isPending || isProposing}
+                >
+                  Regenerate all
+                </Button>
+              </div>
             </div>
+
+            <SoundnessPanel
+              report={soundness}
+              isRunning={isAssessing}
+              onRun={handleAssessSoundness}
+            />
+
+            <LibraryMatchList
+              results={matchResults}
+              decisions={matchDecisions}
+              onDecide={(decision) =>
+                setMatchDecisions((prev) => ({ ...prev, [decision.constructIndex]: decision }))
+              }
+              proposedDefinitions={Object.fromEntries(
+                constructs.map((c, i) => [i, c.definition])
+              )}
+              isLoading={isMatching}
+            />
 
             <div className="space-y-4">
               {constructs.map((construct, idx) => (
@@ -448,7 +620,7 @@ export function StructureEditor({ build }: StructureEditorProps) {
               onClick={handleConfirmStructure}
               disabled={isPending || constructs.length === 0}
             >
-              {isPending ? 'Creating blueprints...' : `Create ${constructs.length} blueprint(s)`}
+              {isPending ? 'Creating blueprints...' : `Create ${constructs.length} blueprint${constructs.length === 1 ? "" : "s"}`}
             </Button>
           </div>
         </div>

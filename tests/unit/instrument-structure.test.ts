@@ -15,6 +15,80 @@ import {
 } from '@/lib/instrument/structure'
 
 describe('instrument/structure', () => {
+  describe('buildStructurePrompt — gap fill', () => {
+    const known = [
+      { name: 'Adaptability', definition: 'Adjusts approach when conditions change.' },
+      { name: 'Resilience', definition: 'Recovers function after setbacks.' },
+    ]
+
+    it('should treat supplied constructs as fixed and ask only for the remainder', () => {
+      const prompt = buildStructurePrompt({
+        buildName: 'Leadership Scale',
+        measureType: 'competency_behavioural',
+        knownConstructs: known,
+      })
+
+      expect(prompt).toContain('Adaptability')
+      expect(prompt).toContain('Resilience')
+      expect(prompt).toContain('Treat them as fixed')
+      expect(prompt).toContain('ONLY the additional constructs')
+      expect(prompt).not.toContain('propose a complete construct set')
+    })
+
+    it('should express the target count as a remainder, never as an absolute', () => {
+      // Saying "target 8" alongside "propose 3 more" reliably yields 8 new
+      // constructs on top of the 5 that already exist.
+      const prompt = buildStructurePrompt({
+        buildName: 'Leadership Scale',
+        measureType: 'competency_behavioural',
+        targetConstructCount: 6,
+        knownConstructs: known,
+      })
+
+      expect(prompt).not.toContain('Target number of constructs: 6')
+      expect(prompt).toContain('4 more')
+    })
+
+    it('should omit the remainder hint when the model is already at or over target', () => {
+      const prompt = buildStructurePrompt({
+        buildName: 'Leadership Scale',
+        measureType: 'competency_behavioural',
+        targetConstructCount: 2,
+        knownConstructs: known,
+      })
+
+      expect(prompt).not.toContain('more.')
+      expect(prompt).toContain('ONLY the additional constructs')
+    })
+
+    it('should ignore blank names and handle a construct with no definition yet', () => {
+      const prompt = buildStructurePrompt({
+        buildName: 'Leadership Scale',
+        measureType: 'competency_behavioural',
+        knownConstructs: [
+          { name: '   ', definition: 'orphan' },
+          { name: 'Curiosity', definition: '' },
+        ],
+      })
+
+      expect(prompt).not.toContain('orphan')
+      expect(prompt).toContain('Curiosity (no definition yet)')
+    })
+
+    it('should fall back to a full proposal when nothing is supplied', () => {
+      const prompt = buildStructurePrompt({
+        buildName: 'Leadership Scale',
+        measureType: 'competency_behavioural',
+        targetConstructCount: 6,
+        knownConstructs: [],
+      })
+
+      expect(prompt).toContain('Target number of constructs: 6')
+      expect(prompt).toContain('propose a complete construct set')
+      expect(prompt).not.toContain('Treat them as fixed')
+    })
+  })
+
   describe('buildStructurePrompt', () => {
     it('should build a prompt with required fields', () => {
       const prompt = buildStructurePrompt({
