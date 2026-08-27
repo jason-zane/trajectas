@@ -18,6 +18,7 @@ import { findParticipantTool } from '@/lib/chat/tools/find-participant'
 import { findCampaignTool } from '@/lib/chat/tools/find-campaign'
 import { findAssessmentTool } from '@/lib/chat/tools/find-assessment'
 import { getSessionScoresTool } from '@/lib/chat/tools/get-session-scores'
+import { getCampaignProgressTool } from '@/lib/chat/tools/get-campaign-progress'
 
 const ts = Date.now()
 const tag = `chat${ts}`
@@ -361,6 +362,91 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       expect(result.ok).toBe(false)
       if (result.ok) return
       expect(result.reason).toBe('invalid_input')
+    })
+  })
+  describe('get_campaign_progress', () => {
+    it('counts people, not sittings, when a campaign carries several assessments', async () => {
+      // participantA has one session on assessmentA; add a second on
+      // assessmentB. A session-based count would now report 2 started against
+      // 1 invited — a figure that is both wrong and impossible.
+      const { error } = await admin.from('participant_sessions').insert({
+        assessment_id: ids.assessmentB,
+        campaign_id: ids.campaignA,
+        campaign_participant_id: ids.participantA,
+        client_id: ids.clientA,
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
+      expect(error).toBeNull()
+
+      const result = await getCampaignProgressTool.execute(
+        { campaign_id: ids.campaignA },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.progress.invited).toBe(1)
+      expect(result.data.progress.started).toBeLessThanOrEqual(
+        result.data.progress.invited,
+      )
+      expect(result.data.progress.completed).toBeLessThanOrEqual(
+        result.data.progress.invited,
+      )
+    })
+
+    it('excludes 360 raters from the headcount', async () => {
+      // campaign_participants.campaign_rater_id points at campaign_raters, so
+      // a rater's participant row needs the rater record to exist first.
+      const { data: raterRecord, error: rrErr } = await admin
+        .from('campaign_raters')
+        .insert({
+          campaign_id: ids.campaignA,
+          subject_participant_id: ids.participantA,
+          relationship: 'peer',
+          email: `rater-${ts}@test.local`,
+          access_token: `tok-${ts}`,
+          status: 'invited',
+        })
+        .select('id')
+        .single()
+      expect(rrErr).toBeNull()
+
+      const { data: rater, error } = await admin
+        .from('campaign_participants')
+        .insert({
+          campaign_id: ids.campaignA,
+          email: `rater-${ts}@test.local`,
+          first_name: 'Rater',
+          last_name: tag,
+          status: 'invited',
+          campaign_rater_id: raterRecord!.id,
+        })
+        .select('id')
+        .single()
+      expect(error).toBeNull()
+
+      const result = await getCampaignProgressTool.execute(
+        { campaign_id: ids.campaignA },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      // The rater must not inflate the invited population.
+      expect(result.data.progress.invited).toBe(1)
+
+      if (rater?.id) await admin.from('campaign_participants').delete().eq('id', rater.id)
+      if (raterRecord?.id)
+        await admin.from('campaign_raters').delete().eq('id', raterRecord.id)
+    })
+
+    it("returns not_found for a campaign the caller cannot see", async () => {
+      const result = await getCampaignProgressTool.execute(
+        { campaign_id: ids.campaignA },
+        ctx(clientBDb, false),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toBe('not_found')
     })
   })
 })

@@ -13,7 +13,6 @@ import { defineChatTool } from '../registry'
 import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import { completionBucket } from '../redaction'
 import { getCampaignProgress, ChatScoresError } from '@/lib/dal/chat-scores'
-import { searchCampaigns, ChatSearchError } from '@/lib/dal/chat-search'
 
 export const getCampaignProgressTool = defineChatTool({
   name: 'get_campaign_progress',
@@ -25,36 +24,33 @@ export const getCampaignProgressTool = defineChatTool({
   }),
   async execute({ campaign_id }, { db }) {
     try {
-      // Resolve identity through the same scoped read the search tool uses, so
-      // an id the caller cannot see reads as not-found rather than as an empty
-      // but apparently valid campaign.
-      const matches = await searchCampaigns(db, { limit: 200 })
-      const campaign = matches.find((c) => c.campaignId === campaign_id)
-      if (!campaign) {
-        return toolFail(
-          'not_found',
-          'No such campaign is visible to you.',
+      // Resolved by id through the caller's own connection: an id they cannot
+      // see reads as not-found because RLS returns no row, not because of any
+      // check here.
+      const progress = await getCampaignProgress(db, campaign_id)
+      if (!progress) {
+        return toolFail('not_found', 'No such campaign is visible to you.')
+      }
+
+      const caveats: string[] = [
+        'Counts are people, not sittings, and describe participation only — they say nothing about how anyone scored.',
+      ]
+      if (progress.assessmentCount > 1) {
+        caveats.push(
+          `This campaign carries ${progress.assessmentCount} assessments; a person counts once regardless of how many they take.`,
         )
       }
 
-      const progress = await getCampaignProgress(db, campaign_id)
-      const caveats: string[] = [
-        'Counts describe participation only — they say nothing about how anyone scored.',
-      ]
-
       return toolOk(
-        { campaign, progress, caveats },
+        { progress, caveats },
         {
-          source: 'campaign_participants + participant_sessions',
-          deepLink: campaign.href,
+          source: 'campaigns_with_counts',
+          deepLink: `/campaigns/${progress.campaignId}`,
           caveats,
         },
       )
     } catch (error) {
-      const message =
-        error instanceof ChatScoresError || error instanceof ChatSearchError
-          ? error.message
-          : 'lookup failed'
+      const message = error instanceof ChatScoresError ? error.message : 'lookup failed'
       return toolFail('unavailable', `Could not load campaign progress: ${message}`)
     }
   },
@@ -64,15 +60,15 @@ export const getCampaignProgressTool = defineChatTool({
       {
         kind: 'campaign_summary',
         v: 1,
-        campaignTitle: data.campaign.title,
-        clientName: data.campaign.clientName,
-        status: data.campaign.status,
+        campaignTitle: data.progress.title,
+        clientName: null,
+        status: data.progress.status,
         invited: data.progress.invited,
         started: data.progress.started,
         completed: data.progress.completed,
-        scoredSessions: data.progress.scoredSessions,
+        scoredSessions: data.progress.completed,
         caveats: data.caveats,
-        href: data.campaign.href,
+        href: `/campaigns/${data.progress.campaignId}`,
       },
     ]
   },
@@ -80,12 +76,15 @@ export const getCampaignProgressTool = defineChatTool({
   /** Identity and a coarse bucket — never the counts themselves. */
   redactForModel(data) {
     return {
-      campaignTitle: data.campaign.title,
-      clientName: data.campaign.clientName,
-      status: data.campaign.status,
-      completionState: completionBucket(data.progress.completed, data.progress.invited),
+      campaignTitle: data.progress.title,
+      status: data.progress.status,
+      completionState: completionBucket(
+        data.progress.completed,
+        data.progress.invited,
+      ),
       hasAnyParticipants: data.progress.invited > 0,
       hasAnyCompleted: data.progress.completed > 0,
+      carriesMultipleAssessments: data.progress.assessmentCount > 1,
     }
   },
 })

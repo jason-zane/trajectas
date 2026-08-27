@@ -124,18 +124,16 @@ describe("what the model is given", () => {
 
   it("a campaign result carries no count", () => {
     const data = {
-      campaign: {
+      progress: {
         campaignId: "c1",
         title: "Q1 Leadership",
         status: "active",
-        kind: "baseline",
-        clientName: "Acme",
-        opensAt: null,
-        closesAt: null,
-        href: "/campaigns/c1",
+        invited: 50,
+        started: 42,
+        completed: 37,
+        assessmentCount: 3,
       },
-      progress: { invited: 50, started: 42, completed: 37, scoredSessions: 37 },
-      caveats: [],
+      caveats: [] as string[],
     };
 
     const redacted = JSON.stringify(getCampaignProgressTool.redactForModel!(data));

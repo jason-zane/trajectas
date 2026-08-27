@@ -125,39 +125,75 @@ export async function getSessionScores(
 }
 
 export interface CampaignProgress {
+  campaignId: string
+  title: string | null
+  status: string | null
   invited: number
   started: number
   completed: number
-  scoredSessions: number
+  assessmentCount: number
 }
 
-/** Counts of where a campaign's participants have got to. */
+/**
+ * Where a campaign's PEOPLE have got to.
+ *
+ * Counted from campaign_participants, not from participant_sessions. A
+ * campaign can carry several assessments and a participant gets a session per
+ * assessment, so session totals are not headcounts — ten people taking three
+ * assessments would otherwise report thirty started, which is both wrong and
+ * larger than the invited population.
+ *
+ * `campaigns_with_counts` is the platform's own definition of these figures
+ * (it excludes soft-deleted rows and 360 raters via campaign_rater_id IS NULL)
+ * and is security_invoker, so it respects the caller's RLS exactly as a direct
+ * table read would. Reusing it means a chat card and the campaign overview
+ * cannot disagree about how many people are in a campaign.
+ *
+ * Returns null when the campaign is not visible to the caller.
+ */
 export async function getCampaignProgress(
   db: SupabaseClient,
   campaignId: string,
-): Promise<CampaignProgress> {
-  const { data: participantRows, error: pErr } = await db
+): Promise<CampaignProgress | null> {
+  const { data: row, error } = await db
+    .from('campaigns_with_counts')
+    .select('id, title, status, participant_count, completed_count, assessment_count')
+    .eq('id', campaignId)
+    .is('deleted_at', null)
+    .maybeSingle()
+
+  if (error) throw new ChatScoresError(error.message)
+  if (!row) return null
+
+  const view = row as unknown as {
+    id: string
+    title: string | null
+    status: string | null
+    participant_count: number | null
+    completed_count: number | null
+    assessment_count: number | null
+  }
+
+  // "Started" is not in the view; count the same population it does — real
+  // participants, raters excluded — that have moved beyond being invited.
+  const { data: startedRows, error: startedError } = await db
     .from('campaign_participants')
     .select('id, status')
     .eq('campaign_id', campaignId)
     .is('deleted_at', null)
+    .is('campaign_rater_id', null)
+    .in('status', ['in_progress', 'completed'])
 
-  if (pErr) throw new ChatScoresError(pErr.message)
-
-  const { data: sessionRows, error: sErr } = await db
-    .from('participant_sessions')
-    .select('id, status')
-    .eq('campaign_id', campaignId)
-
-  if (sErr) throw new ChatScoresError(sErr.message)
-
-  const sessions = (sessionRows ?? []) as Array<{ id: string; status: string | null }>
+  if (startedError) throw new ChatScoresError(startedError.message)
 
   return {
-    invited: (participantRows ?? []).length,
-    started: sessions.length,
-    completed: sessions.filter((s) => s.status === 'completed').length,
-    scoredSessions: sessions.filter((s) => s.status === 'completed').length,
+    campaignId: view.id,
+    title: view.title,
+    status: view.status,
+    invited: view.participant_count ?? 0,
+    started: (startedRows ?? []).length,
+    completed: view.completed_count ?? 0,
+    assessmentCount: view.assessment_count ?? 0,
   }
 }
 
