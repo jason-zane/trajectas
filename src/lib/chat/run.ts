@@ -18,7 +18,7 @@ import 'server-only'
 
 import type OpenAI from 'openai'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { encodeFrame, type ChatBlock, type ChatFrame, type EntityLink } from './envelope'
+import { encodeFrame, type ChatBlock, type ChatFrame } from './envelope'
 import { toOpenAITools, type ChatToolRegistry } from './registry'
 import { recordChatToolCall } from './audit'
 import { logActionError } from '@/lib/security/action-errors'
@@ -48,51 +48,6 @@ export interface RunDataChatOptions {
   signal?: AbortSignal
 }
 
-/** Structured payloads a tool result should surface to the browser. */
-function blocksFromToolResult(toolName: string, result: unknown): ChatBlock[] {
-  if (!result || typeof result !== 'object') return []
-  const envelope = result as { ok?: boolean; data?: unknown }
-  if (envelope.ok !== true || !envelope.data || typeof envelope.data !== 'object') return []
-
-  const data = envelope.data as Record<string, unknown>
-  const collections: Array<{ key: string; title: string }> = [
-    { key: 'participants', title: 'Participants' },
-    { key: 'campaigns', title: 'Campaigns' },
-    { key: 'assessments', title: 'Assessments' },
-  ]
-
-  for (const { key, title } of collections) {
-    const rows = data[key]
-    if (!Array.isArray(rows) || rows.length === 0) continue
-    const links: EntityLink[] = rows.flatMap((row) => {
-      const r = row as Record<string, unknown>
-      const id = (r.participantId ?? r.campaignId ?? r.assessmentId) as string | undefined
-      if (!id) return []
-      const label = (r.name ?? r.title) as string | null
-      return [
-        {
-          kind:
-            key === 'participants'
-              ? ('participant' as const)
-              : key === 'campaigns'
-                ? ('campaign' as const)
-                : ('assessment' as const),
-          id,
-          label: label ?? 'Untitled',
-          sublabel: (r.campaignTitle ?? r.clientName ?? null) as string | null,
-          href: (r.href ?? null) as string | null,
-        },
-      ]
-    })
-    if (links.length > 0) {
-      return [{ kind: 'entity_links', v: 1, title, links }]
-    }
-  }
-
-  void toolName
-  return []
-}
-
 /**
  * A compact, machine-readable transcript of the cards a previous turn showed,
  * so the model can resolve follow-up references to them by id. Kept terse
@@ -101,12 +56,26 @@ function blocksFromToolResult(toolName: string, result: unknown): ChatBlock[] {
 function describeBlocks(blocks: ChatBlock[]): string {
   const lines: string[] = []
   for (const block of blocks.slice(0, MAX_REPLAYED_BLOCKS)) {
-    if (block.kind !== 'entity_links') continue
-    lines.push(`[${block.title} shown to the user]`)
-    block.links.slice(0, MAX_REPLAYED_LINKS).forEach((link, i) => {
-      const suffix = link.sublabel ? ` — ${link.sublabel}` : ''
-      lines.push(`${i + 1}. ${link.label} (${link.kind} id: ${link.id})${suffix}`)
-    })
+    if (block.kind === 'entity_links') {
+      lines.push(`[${block.title} shown to the user]`)
+      block.links.slice(0, MAX_REPLAYED_LINKS).forEach((link, i) => {
+        const suffix = link.sublabel ? ` — ${link.sublabel}` : ''
+        lines.push(`${i + 1}. ${link.label} (${link.kind} id: ${link.id})${suffix}`)
+      })
+    } else if (block.kind === 'score_card') {
+      // Identity only. The replayed transcript is prompt context, so it obeys
+      // the same rule as a fresh tool result: the model never sees the values.
+      lines.push(
+        `[Score card shown to the user: ${block.participantName}` +
+          `${block.assessmentTitle ? ` — ${block.assessmentTitle}` : ''}, ` +
+          `${block.factors.length} factor(s). Values were shown to the user, not to you.]`,
+      )
+    } else if (block.kind === 'campaign_summary') {
+      lines.push(
+        `[Campaign summary shown to the user: ${block.campaignTitle ?? 'untitled'}. ` +
+          `Figures were shown to the user, not to you.]`,
+      )
+    }
   }
   return lines.join('\n')
 }
@@ -221,15 +190,32 @@ export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Ar
                 }
               } else {
                 const result = await tool.execute(validated.data, { db, isPlatformAdmin })
-                payload = result
                 if (result.ok) {
                   const data = result.data as Record<string, unknown> | null
                   const count = data && typeof data === 'object' ? data.matchCount : null
                   rowCount = typeof count === 'number' ? count : null
-                  for (const block of blocksFromToolResult(tool.name, result)) {
+
+                  // Cards go to the browser with the real values...
+                  for (const block of tool.toBlocks?.(result.data) ?? []) {
                     send({ type: 'block', block })
                   }
+
+                  // ...while the model sees only what the tool permits. For
+                  // anything carrying measurements that is identity plus
+                  // code-computed ordinals and no numbers at all, so a
+                  // misstated score is not a thing that can happen.
+                  payload = tool.redactForModel
+                    ? {
+                        ok: true,
+                        data: tool.redactForModel(result.data),
+                        provenance: result.provenance,
+                        deepLink: result.deepLink,
+                        caveats: result.caveats,
+                        note: 'Values are rendered to the user in a card. Do not restate numbers; you have not been shown them.',
+                      }
+                    : result
                 } else {
+                  payload = result
                   outcome = 'failed'
                   reason = result.reason
                 }
