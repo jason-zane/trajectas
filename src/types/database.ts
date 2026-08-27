@@ -212,6 +212,7 @@ export type AIPromptPurpose =
   | 'preflight_analysis'
   | 'embedding'
   | 'chat'
+  | 'chat_data'
   | 'report_narrative'
   | 'report_strengths_analysis'
   | 'report_development_advice'

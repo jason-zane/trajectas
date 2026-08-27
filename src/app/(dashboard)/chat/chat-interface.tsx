@@ -1,19 +1,28 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Loader2, RotateCcw, StopCircle } from "lucide-react";
+import { Send, Bot, User, Loader2, RotateCcw, StopCircle, Database, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { randomId } from "@/lib/ids";
 import { cancellableFetch, isAbortError } from "@/lib/net/cancellable-fetch";
 import { ModelPickerCombobox } from "../settings/models/model-picker-combobox";
+import { EntityLinksBlockView } from "@/components/chat/entity-links-block";
+import { readChatFrames } from "@/lib/chat/stream-client";
+import type { ChatBlock } from "@/lib/chat/envelope";
 import type { OpenRouterModel } from "@/types/generation";
+
+type ChatMode = "general" | "data";
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  /** Structured payloads rendered as cards, never as prose. */
+  blocks?: ChatBlock[];
+  /** Transient progress label while tools run. */
+  status?: string | null;
 }
 
 interface ChatInterfaceProps {
@@ -26,6 +35,7 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState(defaultModel);
+  const [mode, setMode] = useState<ChatMode>("general");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -75,6 +85,7 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
             content: m.content,
           })),
           model: selectedModel,
+          mode,
         }),
         controller,
       });
@@ -92,25 +103,56 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
         return;
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
+      if (!response.body) {
         setIsStreaming(false);
         return;
       }
 
-      let accumulated = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        accumulated += decoder.decode(value, { stream: true });
-        const current = accumulated;
+      if (mode === "data") {
+        let accumulated = "";
+        const blocks: ChatBlock[] = [];
+        for await (const frame of readChatFrames(response.body)) {
+          if (frame.type === "text") {
+            accumulated += frame.delta;
+          } else if (frame.type === "block") {
+            blocks.push(frame.block);
+          } else if (frame.type === "error") {
+            accumulated += `\n\n[Error: ${frame.message}]`;
+          }
+          const content = accumulated;
+          const currentBlocks = [...blocks];
+          const status = frame.type === "status" ? frame.label : null;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsg.id
+                ? {
+                    ...m,
+                    content,
+                    blocks: currentBlocks,
+                    status: content ? null : status ?? m.status,
+                  }
+                : m
+            )
+          );
+        }
         setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsg.id ? { ...m, content: current } : m
-          )
+          prev.map((m) => (m.id === assistantMsg.id ? { ...m, status: null } : m))
         );
+      } else {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          const current = accumulated;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantMsg.id ? { ...m, content: current } : m
+            )
+          );
+        }
       }
     } catch (error) {
       if (isAbortError(error)) {
@@ -160,6 +202,33 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
     <div className="flex flex-col h-full rounded-xl border border-border bg-card overflow-hidden">
       {/* Toolbar */}
       <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+        <div
+          role="group"
+          aria-label="Chat mode"
+          className="flex shrink-0 items-center rounded-lg border border-border p-0.5"
+        >
+          {([
+            { value: "general", label: "General", Icon: MessageSquare },
+            { value: "data", label: "Data", Icon: Database },
+          ] as const).map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMode(value)}
+              disabled={isStreaming}
+              aria-pressed={mode === value}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50",
+                mode === value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Icon className="size-3.5" />
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="flex-1 min-w-0 max-w-xs">
           <ModelPickerCombobox
             value={selectedModel}
@@ -190,11 +259,13 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
               <Bot className="size-7 text-primary" />
             </div>
             <h3 className="text-lg font-semibold tracking-tight">
-              AI Chat
+              {mode === "data" ? "Ask about your data" : "AI Chat"}
             </h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-md">
-              Ask about psychometrics, assessment design, competency frameworks,
-              or anything else. {isConfigured ? `Using ${selectedModelName}.` : "Configure a chat model in Settings before sending messages."}
+              {mode === "data"
+                ? "Find people, campaigns and assessments in the platform. Answers come from the database and link back to the page that shows them."
+                : "Ask about psychometrics, assessment design, competency frameworks, or anything else."}{" "}
+              {isConfigured ? `Using ${selectedModelName}.` : "Configure a chat model in Settings before sending messages."}
             </p>
           </div>
         )}
@@ -223,16 +294,34 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
                 <Bot className="size-4" />
               )}
             </div>
-            <div
-              className={cn(
-                "rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
-                message.role === "user"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted"
+            <div className="flex min-w-0 flex-col gap-2">
+              {message.blocks?.map((block, i) =>
+                block.kind === "entity_links" ? (
+                  <EntityLinksBlockView
+                    key={`${message.id}-block-${i}`}
+                    title={block.title}
+                    links={block.links}
+                  />
+                ) : null
               )}
-            >
-              {message.content || (
-                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              {(message.content || message.role === "user" || !message.blocks?.length) && (
+                <div
+                  className={cn(
+                    "rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap",
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted"
+                  )}
+                >
+                  {message.content || (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="size-4 animate-spin" />
+                      {message.status ? (
+                        <span className="text-xs">{message.status}</span>
+                      ) : null}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -247,7 +336,13 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isConfigured ? "Type a message..." : "No chat model configured"}
+            placeholder={
+              !isConfigured
+                ? "No chat model configured"
+                : mode === "data"
+                  ? "Ask about a person, campaign or assessment..."
+                  : "Type a message..."
+            }
             rows={1}
             className="min-h-[44px] max-h-[120px] resize-none"
             disabled={isStreaming || !isConfigured}
