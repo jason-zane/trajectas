@@ -706,6 +706,35 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       expect(result.message).toMatch(/different instruments|no assessment in common/i)
     })
 
+    it('refuses a self-comparison when two terms resolve to one person', async () => {
+      // Name and email for the same human would otherwise become two columns
+      // and produce leader facts about someone against themselves.
+      const result = await comparePeopleTool.execute(
+        { people: [`Alfa ${tag}`, `alfa-${ts}@test.local`] },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toBe('invalid_input')
+      expect(result.message).toMatch(/same person/i)
+    })
+
+    it('honours a named assessment', async () => {
+      const result = await comparePeopleTool.execute(
+        {
+          people: [`Alfa ${tag}`, `Bravo ${tag}`],
+          assessment: 'no-such-instrument-anywhere',
+        },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      // Names an instrument that does not exist — refuses on that, rather than
+      // quietly comparing on some other shared assessment.
+      expect(result.reason).toBe('not_found')
+      expect(result.message).toMatch(/no-such-instrument-anywhere/i)
+    })
+
     it('needs at least two resolvable people', async () => {
       const result = await comparePeopleTool.execute(
         { people: [`Alfa ${tag}`, 'nobody-by-this-name'] },

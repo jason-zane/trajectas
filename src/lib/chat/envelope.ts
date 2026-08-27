@@ -180,12 +180,18 @@ export interface TimelineBlock {
   destinations: BlockDestination[]
 }
 
+export interface ComparisonCell {
+  score: number
+  /** Carried through so a leader marker is never shown as settled when it isn't. */
+  provisional: boolean
+}
+
 export interface ComparisonPersonView {
   name: string
   campaignTitle: string | null
   completedAt: string | null
   /** Keyed by factorId, for the shared factors only. */
-  scores: Record<string, number>
+  cells: Record<string, ComparisonCell>
 }
 
 export interface ComparisonBlock {

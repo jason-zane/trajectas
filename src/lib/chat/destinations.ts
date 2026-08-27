@@ -55,16 +55,14 @@ export function trajectoryForPerson(participantIds: string[]): ChatDestination |
 /**
  * The Trajectory canvas for several people at once — the platform's own
  * candidates-over-time comparison.
+ *
+ * Takes ONE id per person (the caller decides which), so eight people fit
+ * rather than one person's eight participations crowding everyone else out.
  */
 export function trajectoryForPeople(
-  peopleParticipantIds: string[][],
+  representativeIds: string[],
 ): ChatDestination | null {
-  // One representative id per person, so eight people fit rather than one
-  // person's eight participations crowding everyone else out.
-  const ids = idsParam(
-    peopleParticipantIds.map((list) => list[0]).filter(Boolean),
-    TRAJECTORY_MAX_PEOPLE,
-  )
+  const ids = idsParam(representativeIds.filter(Boolean), TRAJECTORY_MAX_PEOPLE)
   if (!ids) return null
   return {
     label: 'Compare over time',
@@ -73,15 +71,18 @@ export function trajectoryForPeople(
   }
 }
 
-/** The comparison matrix, pre-loaded with these people. */
+/**
+ * The comparison matrix, pre-loaded with these people.
+ *
+ * Pass the participation id of the SITTING being compared, not just any of the
+ * person's rows: the page loads sessions attached to the exact id it is given,
+ * so the wrong row opens an empty matrix.
+ */
 export function compareMatrixFor(
-  peopleParticipantIds: string[][],
+  selectedParticipantIds: string[],
   assessmentId?: string | null,
 ): ChatDestination | null {
-  const ids = idsParam(
-    peopleParticipantIds.map((list) => list[0]).filter(Boolean),
-    TRAJECTORY_MAX_PEOPLE,
-  )
+  const ids = idsParam(selectedParticipantIds.filter(Boolean), TRAJECTORY_MAX_PEOPLE)
   if (!ids) return null
   const assessments = assessmentId ? `&assessments=${assessmentId}` : ''
   return {

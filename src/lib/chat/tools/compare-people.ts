@@ -21,7 +21,7 @@ import { defineChatTool } from '../registry'
 import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import { compareMatrixFor, trajectoryForPeople } from '../destinations'
 import { comparePeopleOnCommonAssessment, ChatTimelineError } from '@/lib/dal/chat-timeline'
-import { searchPeople, ChatSearchError } from '@/lib/dal/chat-search'
+import { searchPeople, searchAssessments, ChatSearchError } from '@/lib/dal/chat-search'
 import { getChatBandScheme } from '@/lib/dal/chat-band-scheme'
 
 export const comparePeopleTool = defineChatTool({
@@ -35,10 +35,17 @@ export const comparePeopleTool = defineChatTool({
       .min(2)
       .max(8)
       .describe('Two to eight names or email addresses.'),
+    assessment: z
+      .string()
+      .max(160)
+      .optional()
+      .describe(
+        'Optional assessment title, when the user named a particular instrument. Without it the most recently sat shared assessment is used.',
+      ),
   }),
-  async execute({ people }, { db }) {
+  async execute({ people, assessment }, { db }) {
     try {
-      const resolved: Array<{ name: string; participantIds: string[] }> = []
+      const resolved: Array<{ personKey: string; name: string; participantIds: string[] }> = []
       const unresolved: string[] = []
 
       for (const term of people) {
@@ -60,7 +67,15 @@ export const comparePeopleTool = defineChatTool({
             })),
           )
         }
-        resolved.push({ name: matches[0].name, participantIds: matches[0].participantIds })
+        const match = matches[0]
+        // Two spellings of the same person would otherwise become two columns
+        // and produce tie/leader facts about someone against themselves.
+        if (resolved.some((r) => r.personKey === match.personKey)) continue
+        resolved.push({
+          personKey: match.personKey,
+          name: match.name,
+          participantIds: match.participantIds,
+        })
       }
 
       if (unresolved.length > 0) {
@@ -70,14 +85,49 @@ export const comparePeopleTool = defineChatTool({
         )
       }
       if (resolved.length < 2) {
-        return toolFail('invalid_input', 'Need at least two distinct people to compare.')
+        return toolFail(
+          'invalid_input',
+          'Need at least two distinct people to compare — those terms resolved to the same person.',
+        )
       }
 
-      const comparison = await comparePeopleOnCommonAssessment(db, resolved)
+      // Honour a named instrument when the user asked for one.
+      let preferredAssessmentId: string | undefined
+      if (assessment?.trim()) {
+        const found = await searchAssessments(db, { term: assessment })
+        if (found.length === 0) {
+          return toolFail(
+            'not_found',
+            `No assessment matching "${assessment}" is visible to you.`,
+          )
+        }
+        if (found.length > 1) {
+          return toolFail(
+            'ambiguous',
+            `"${assessment}" matches more than one assessment. Ask which one.`,
+            found.map((a) => ({
+              kind: 'assessment' as const,
+              id: a.assessmentId,
+              label: a.title ?? 'Untitled',
+              sublabel: a.clientName,
+              href: a.href,
+            })),
+          )
+        }
+        preferredAssessmentId = found[0].assessmentId
+      }
+
+      const comparison = await comparePeopleOnCommonAssessment(
+        db,
+        resolved,
+        preferredAssessmentId,
+      )
       if (!comparison) {
         return toolFail(
           'not_found',
-          'These people have no assessment in common with scores visible to you. Comparing scores from different instruments would not be meaningful, so there is nothing to show.',
+          assessment
+            ? `These people have no scored sitting in common on "${assessment}" visible to you.`
+            : 'These people have no assessment in common with scores visible to you. Comparing scores from different instruments would not be meaningful, so there is nothing to show.',
         )
       }
       if (comparison.sharedFactorIds.length === 0) {
@@ -91,6 +141,15 @@ export const comparePeopleTool = defineChatTool({
       const caveats: string[] = [
         'Criterion-referenced: everyone is measured against the same standard on this instrument. This says nothing about how any of them compares with people generally.',
       ]
+      if (
+        comparison.people.some((person) =>
+          person.factors.some((f) => f.provisional),
+        )
+      ) {
+        caveats.push(
+          'Some scores here are provisional, so who leads on those factors is not settled.',
+        )
+      }
       if (!comparison.sameCampaign) {
         caveats.push(
           'These sittings are from different campaigns, so conditions and timing differed.',
@@ -104,7 +163,7 @@ export const comparePeopleTool = defineChatTool({
         source: 'participant_scores',
         deepLink:
           compareMatrixFor(
-            comparison.people.map((p) => p.campaignParticipantIds),
+            comparison.people.map((p) => p.selectedParticipantId),
             comparison.assessmentId,
           )?.href ?? null,
         caveats,
@@ -128,10 +187,10 @@ export const comparePeopleTool = defineChatTool({
       }
     }
 
-    const idLists = comparison.people.map((p) => p.campaignParticipantIds)
+    const selectedIds = comparison.people.map((p) => p.selectedParticipantId)
     const destinations = [
-      compareMatrixFor(idLists, comparison.assessmentId),
-      trajectoryForPeople(idLists),
+      compareMatrixFor(selectedIds, comparison.assessmentId),
+      trajectoryForPeople(selectedIds),
     ].filter((d): d is NonNullable<typeof d> => d !== null)
 
     return [
@@ -148,10 +207,13 @@ export const comparePeopleTool = defineChatTool({
           name: person.name,
           campaignTitle: person.campaignTitle,
           completedAt: person.completedAt,
-          scores: Object.fromEntries(
+          cells: Object.fromEntries(
             person.factors
               .filter((f) => shared.has(f.factorId))
-              .map((f) => [f.factorId, f.scaledScore]),
+              .map((f) => [
+                f.factorId,
+                { score: f.scaledScore, provisional: f.provisional },
+              ]),
           ),
         })),
         bandScheme: data.bandScheme,

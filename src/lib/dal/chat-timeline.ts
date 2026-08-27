@@ -230,6 +230,13 @@ export function deriveChanges(sittings: TimelineSitting[]): FactorChange[] {
 export interface ComparisonPerson {
   name: string
   campaignParticipantIds: string[]
+  /**
+   * The participation row the SELECTED sitting belongs to. The compare page
+   * treats each `ids` value as the exact entry and only loads sessions attached
+   * to it, so a link built from "the newest participation" can open a matrix
+   * with empty cells when the shared assessment was sat under an older one.
+   */
+  selectedParticipantId: string
   sessionId: string
   campaignId: string | null
   campaignTitle: string | null
@@ -327,6 +334,7 @@ export async function comparePeopleOnCommonAssessment(
     return {
       name: s.person.name,
       campaignParticipantIds: s.person.participantIds,
+      selectedParticipantId: latest.campaignParticipantId || s.person.participantIds[0],
       sessionId: latest.sessionId,
       campaignId: latest.campaignId,
       campaignTitle: latest.campaignTitle,

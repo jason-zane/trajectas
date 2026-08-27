@@ -48,28 +48,24 @@ describe("trajectoryForPerson", () => {
 
 describe("trajectoryForPeople", () => {
   it("takes one id per person so eight people fit, not one person's eight sittings", () => {
-    const d = trajectoryForPeople([
-      ["a1", "a2", "a3"],
-      ["b1", "b2"],
-      ["c1"],
-    ]);
+    const d = trajectoryForPeople(["a1", "b1", "c1"]);
     expect(d?.href).toBe("/participants/trajectory?ids=a1,b1,c1");
   });
 
-  it("skips people with no participations rather than emitting a blank id", () => {
-    const d = trajectoryForPeople([["a1"], [], ["c1"]]);
+  it("skips blanks rather than emitting an empty id", () => {
+    const d = trajectoryForPeople(["a1", "", "c1"]);
     expect(d?.href).toBe("/participants/trajectory?ids=a1,c1");
   });
 });
 
 describe("compareMatrixFor", () => {
   it("pins the assessment when one was chosen", () => {
-    const d = compareMatrixFor([["a1"], ["b1"]], "asmt-1");
+    const d = compareMatrixFor(["a1", "b1"], "asmt-1");
     expect(d?.href).toBe("/participants/compare?ids=a1,b1&assessments=asmt-1");
   });
 
   it("omits the assessment param when none applies", () => {
-    expect(compareMatrixFor([["a1"], ["b1"]])?.href).toBe(
+    expect(compareMatrixFor(["a1", "b1"])?.href).toBe(
       "/participants/compare?ids=a1,b1",
     );
   });
@@ -84,11 +80,23 @@ describe("campaign destinations", () => {
   it("every destination explains what is there", () => {
     for (const d of [
       trajectoryForPerson(["cp1"])!,
-      compareMatrixFor([["a"], ["b"]])!,
+      compareMatrixFor(["a", "b"])!,
       campaignResults("c1"),
     ]) {
       expect(d.label.length).toBeGreaterThan(0);
       expect(d.description.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("comparison links use the sitting's own participation row", () => {
+  it("is built from the selected ids, not from whichever row is newest", () => {
+    // The compare page loads sessions attached to the exact id it is given, so
+    // linking a person's newest participation while the shared assessment was
+    // sat under an older one opens a matrix with empty cells.
+    const selected = ["cp-old-a", "cp-old-b"];
+    expect(compareMatrixFor(selected, "asmt-1")?.href).toBe(
+      "/participants/compare?ids=cp-old-a,cp-old-b&assessments=asmt-1",
+    );
   });
 });
