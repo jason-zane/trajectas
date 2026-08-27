@@ -14,44 +14,89 @@ import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import { ordinalFactsFrom } from '../redaction'
 import {
   getSessionScores,
-  getLatestSessionForParticipant,
+  getLatestScoredSession,
   ChatScoresError,
 } from '@/lib/dal/chat-scores'
+import { searchPeople, ChatSearchError } from '@/lib/dal/chat-search'
 import { getChatBandScheme } from '@/lib/dal/chat-band-scheme'
 
 export const getSessionScoresTool = defineChatTool({
   name: 'get_session_scores',
   description:
-    "Get a person's competency results for one assessment sitting. Pass a session_id, or a participant_id to use their most recent completed sitting. Call find_participant first to get the participant id. The scores are shown to the user as a card.",
+    "Get a person's competency results. Pass person_name_or_email (e.g. \"Jason Hunt\" or their email) to get their MOST RECENT result across every campaign — this is the right choice for \"show me X's latest result\". Pass participant_id for their latest result in one specific campaign, or session_id for one exact sitting. The scores are shown to the user as a card.",
   statusLabel: 'Loading results',
   params: z.object({
+    person_name_or_email: z
+      .string()
+      .max(160)
+      .optional()
+      .describe(
+        "A person's name or email address. Resolves their most recent result across ALL campaigns.",
+      ),
     session_id: z
       .string()
       .uuid()
       .optional()
-      .describe('The specific sitting to load.'),
+      .describe('One exact sitting.'),
     participant_id: z
       .string()
       .uuid()
       .optional()
-      .describe("A participant id, to load their most recent completed sitting."),
+      .describe("A participant id — their latest result within that one campaign."),
   }),
-  async execute({ session_id, participant_id }, { db }) {
-    if (!session_id && !participant_id) {
+  async execute({ session_id, participant_id, person_name_or_email }, { db }) {
+    if (!session_id && !participant_id && !person_name_or_email) {
       return toolFail(
         'invalid_input',
-        'Provide either a session_id or a participant_id.',
+        'Provide a person_name_or_email, a participant_id, or a session_id.',
       )
     }
 
     let sessionId = session_id ?? null
+    let skippedMoreRecent = false
     try {
-      if (!sessionId && participant_id) {
-        sessionId = await getLatestSessionForParticipant(db, participant_id)
+      if (!sessionId && person_name_or_email) {
+        // A person is not a participant row: campaign_participants holds one
+        // per campaign, so "their latest result" has to span all of them.
+        const { people } = await searchPeople(db, person_name_or_email)
+        if (people.length === 0) {
+          return toolFail(
+            'not_found',
+            `No one matching "${person_name_or_email}" is visible to you.`,
+          )
+        }
+        if (people.length > 1) {
+          return toolFail(
+            'ambiguous',
+            `More than one person matches "${person_name_or_email}". Ask which one.`,
+            people.map((person) => ({
+              kind: 'participant' as const,
+              id: person.participantIds[0],
+              label: person.name,
+              sublabel: person.email,
+              href: person.href,
+            })),
+          )
+        }
+        const resolved = await getLatestScoredSession(db, people[0].participantIds)
+        sessionId = resolved.sessionId
+        skippedMoreRecent = resolved.skippedMoreRecent
         if (!sessionId) {
           return toolFail(
             'not_found',
-            'That person has no assessment sitting visible to you yet.',
+            `${people[0].name} has no completed sitting with competency scores visible to you.`,
+          )
+        }
+      }
+
+      if (!sessionId && participant_id) {
+        const resolved = await getLatestScoredSession(db, [participant_id])
+        sessionId = resolved.sessionId
+        skippedMoreRecent = resolved.skippedMoreRecent
+        if (!sessionId) {
+          return toolFail(
+            'not_found',
+            'That person has no completed sitting with competency scores visible to you.',
           )
         }
       }
@@ -94,6 +139,15 @@ export const getSessionScoresTool = defineChatTool({
           `${scores.cognitiveRows} cognitive score(s) are not shown here — they use a different scale.`,
         )
       }
+      if (skippedMoreRecent) {
+        // Say only what the query established: the later sitting had no
+        // competency scores VISIBLE TO THIS CALLER. It might be cognitive-only,
+        // unscored, or scored behind a policy that hides it — claiming which
+        // would be a guess dressed as a fact.
+        caveats.push(
+          'This is the most recent sitting with competency scores available to you. A later sitting exists but has none to show.',
+        )
+      }
 
       return toolOk(
         { ...scores, bandScheme, caveats, normReferenced },
@@ -105,7 +159,10 @@ export const getSessionScoresTool = defineChatTool({
         },
       )
     } catch (error) {
-      const message = error instanceof ChatScoresError ? error.message : 'lookup failed'
+      const message =
+        error instanceof ChatScoresError || error instanceof ChatSearchError
+          ? error.message
+          : 'lookup failed'
       return toolFail('unavailable', `Could not load results: ${message}`)
     }
   },

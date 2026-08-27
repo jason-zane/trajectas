@@ -41,6 +41,7 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
     participantB: '',
     factor: '',
     sessionA: '',
+    campaignA2: '',
     campaignConfidential: '',
     participantConfidential: '',
     sessionConfidential: '',
@@ -85,6 +86,9 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       return data.id as string
     }
     ids.campaignA = await mkCampaign(ids.clientA, `${tag}-alpha-campaign`)
+    // A second campaign under the SAME client, so a person can hold two
+    // participations that share one client-scoped person_key.
+    ids.campaignA2 = await mkCampaign(ids.clientA, `${tag}-alpha-campaign-two`)
     ids.campaignB = await mkCampaign(ids.clientB, `${tag}-beta-campaign`)
 
     const mkParticipant = async (campaignId: string, first: string) => {
@@ -228,11 +232,21 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
     await admin
       .from('campaign_participants')
       .delete()
-      .in('campaign_id', [ids.campaignA, ids.campaignB, ids.campaignConfidential])
+      .in('campaign_id', [
+        ids.campaignA,
+        ids.campaignA2,
+        ids.campaignB,
+        ids.campaignConfidential,
+      ])
     await admin
       .from('campaigns')
       .delete()
-      .in('id', [ids.campaignA, ids.campaignB, ids.campaignConfidential])
+      .in('id', [
+        ids.campaignA,
+        ids.campaignA2,
+        ids.campaignB,
+        ids.campaignConfidential,
+      ])
     await admin.from('assessments').delete().in('id', [ids.assessmentA, ids.assessmentB])
     await admin.from('client_memberships').delete().in('client_id', [ids.clientA, ids.clientB])
     await admin.from('clients').delete().in('id', [ids.clientA, ids.clientB])
@@ -245,7 +259,7 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       const result = await findParticipantTool.execute({ query: tag }, ctx(adminDb, true))
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      const ids_ = result.data.participants.map((p) => p.participantId)
+      const ids_ = result.data.people.flatMap((p) => p.participantIds)
       expect(ids_).toContain(ids.participantA)
       expect(ids_).toContain(ids.participantB)
     })
@@ -254,7 +268,7 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       const result = await findParticipantTool.execute({ query: tag }, ctx(clientADb, false))
       expect(result.ok).toBe(true)
       if (!result.ok) return
-      const ids_ = result.data.participants.map((p) => p.participantId)
+      const ids_ = result.data.people.flatMap((p) => p.participantIds)
       expect(ids_).toContain(ids.participantA)
       expect(ids_).not.toContain(ids.participantB)
     })
@@ -266,11 +280,57 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       expect(result.reason).toBe('not_found')
     })
 
+    it('finds a person by full name, not just by one name field', async () => {
+      // The first thing anyone types. Names live in separate columns, so
+      // matching the whole phrase against each in turn finds nothing.
+      const result = await findParticipantTool.execute(
+        { query: `Alfa ${tag}` },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.people.flatMap((p) => p.participantIds)).toContain(
+        ids.participantA,
+      )
+    })
+
+    it('collapses a person\'s many participations into one entry', async () => {
+      // participantA is in campaignA; add a second participation for the same
+      // human so the raw row count and the person count diverge.
+      const { data: extra } = await admin
+        .from('campaign_participants')
+        .insert({
+          // Same client, so the trigger assigns the same person_key — this is
+          // one human with two participations, not two people.
+          campaign_id: ids.campaignA2,
+          email: `alfa-${ts}@test.local`,
+          first_name: 'Alfa',
+          last_name: tag,
+          status: 'invited',
+        })
+        .select('id')
+        .single()
+
+      const result = await findParticipantTool.execute(
+        { query: `Alfa ${tag}` },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      const alfa = result.data.people.find((p) => p.name === `Alfa ${tag}`)
+      expect(alfa).toBeDefined()
+      expect(alfa!.participationCount).toBeGreaterThanOrEqual(2)
+      expect(result.data.people.filter((p) => p.name === `Alfa ${tag}`)).toHaveLength(1)
+      expect(alfa!.campaigns.length).toBeGreaterThanOrEqual(2)
+
+      if (extra?.id) await admin.from('campaign_participants').delete().eq('id', extra.id)
+    })
+
     it('treats LIKE wildcards in the query as literal text', async () => {
       const result = await findParticipantTool.execute({ query: '%' }, ctx(adminDb, true))
       // A bare '%' must not match every participant in the database.
       if (result.ok) {
-        expect(result.data.participants.map((p) => p.participantId)).not.toContain(
+        expect(result.data.people.flatMap((p) => p.participantIds)).not.toContain(
           ids.participantA,
         )
       } else {
@@ -355,6 +415,91 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
         ctx(adminDb, true),
       )
       expect(asAdmin.ok).toBe(true)
+    })
+
+    it('resolves a person by full name to their latest scored sitting', async () => {
+      const result = await getSessionScoresTool.execute(
+        { person_name_or_email: `Alfa ${tag}` },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.session.sessionId).toBe(ids.sessionA)
+    })
+
+    it('skips a more recent sitting that has nothing this card can render', async () => {
+      // Self-contained person: one scored sitting, then a LATER sitting with no
+      // competency scores. Answering "your latest result" with the later one
+      // would render an empty card.
+      const label = `Delta${ts}`
+      const { data: person, error: pErr } = await admin
+        .from('campaign_participants')
+        .insert({
+          campaign_id: ids.campaignA,
+          email: `delta-${ts}@test.local`,
+          first_name: 'Delta',
+          last_name: label,
+          status: 'completed',
+        })
+        .select('id')
+        .single()
+      expect(pErr).toBeNull()
+
+      const mkS = async (assessmentId: string, completedAt: string) => {
+        const { data, error } = await admin
+          .from('participant_sessions')
+          .insert({
+            assessment_id: assessmentId,
+            campaign_id: ids.campaignA,
+            campaign_participant_id: person!.id,
+            client_id: ids.clientA,
+            status: 'completed',
+            completed_at: completedAt,
+          })
+          .select('id')
+          .single()
+        expect(error).toBeNull()
+        return data!.id as string
+      }
+
+      const scoredSession = await mkS(
+        ids.assessmentA,
+        new Date(Date.now() - 172_800_000).toISOString(),
+      )
+      const { error: scoreErr } = await admin.from('participant_scores').insert({
+        session_id: scoredSession,
+        factor_id: ids.factor,
+        raw_score: 20,
+        scaled_score: 55.5,
+        scoring_method: 'ctt',
+        metric: 'pomp',
+        provisional: false,
+      })
+      expect(scoreErr).toBeNull()
+
+      const laterUnscored = await mkS(ids.assessmentB, new Date().toISOString())
+
+      const result = await getSessionScoresTool.execute(
+        { person_name_or_email: `Delta ${label}` },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.data.session.sessionId).toBe(scoredSession)
+        expect(result.data.caveats.join(' ')).toMatch(
+          /most recent sitting with competency scores available to you/i,
+        )
+        // The caveat must not claim to know WHY the later sitting was empty —
+        // this fixture's later sitting is simply unscored, not cognitive.
+        expect(result.data.caveats.join(' ')).not.toMatch(/cognitive/i)
+      }
+
+      await admin.from('participant_scores').delete().eq('session_id', scoredSession)
+      await admin
+        .from('participant_sessions')
+        .delete()
+        .in('id', [scoredSession, laterUnscored])
+      await admin.from('campaign_participants').delete().eq('id', person!.id)
     })
 
     it('refuses without an identifier rather than guessing', async () => {

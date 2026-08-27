@@ -193,6 +193,7 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
 
 export const PURPOSE_ORDER: AIPromptPurpose[] = [
   "chat",
+  "chat_data",
   "item_generation",
   "factor_item_generation",
   "library_import_structuring",

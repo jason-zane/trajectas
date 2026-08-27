@@ -197,19 +197,76 @@ export async function getCampaignProgress(
   }
 }
 
-/** The session a participant most recently completed, if any is visible. */
-export async function getLatestSessionForParticipant(
+export interface LatestSessionResolution {
+  sessionId: string | null
+  /**
+   * A more recent sitting existed with no competency scores VISIBLE TO THIS
+   * CALLER. Deliberately not narrowed further: the query distinguishes
+   * "has a visible pomp row" from "does not", and cognitive-only, unscored and
+   * policy-hidden all land on the same side of that line.
+   */
+  skippedMoreRecent: boolean
+}
+
+/**
+ * The most recent sitting WITH RENDERABLE COMPETENCY SCORES across every one of
+ * a person's participations.
+ *
+ * Two things make this less obvious than "order by completed_at desc":
+ *
+ *  1. A person is not a participant row. campaign_participants holds one row
+ *     per campaign, so "their latest result" has to look across all of them —
+ *     asking one row gives you the latest result *in that campaign*, which is
+ *     rarely what was meant.
+ *  2. The latest sitting is not always the latest *result*. A sitting can carry
+ *     no POMP rows this caller can see — cognitive-only, not yet scored, or
+ *     scored behind a policy that hides it. Silently returning it would answer
+ *     "your latest result" with an empty card, so we skip to the newest sitting
+ *     that can actually be shown and report that we did, without claiming to
+ *     know WHY the newer one was empty.
+ *
+ * The inner join on participant_scores filtered to metric='pomp' does the
+ * "has renderable scores" test in the database rather than by fetching each
+ * session's scores in turn.
+ */
+export async function getLatestScoredSession(
   db: SupabaseClient,
-  participantId: string,
-): Promise<string | null> {
-  const { data, error } = await db
+  participantIds: string[],
+): Promise<LatestSessionResolution> {
+  if (participantIds.length === 0) {
+    return { sessionId: null, skippedMoreRecent: false }
+  }
+
+  const { data: newest, error: newestError } = await db
     .from('participant_sessions')
-    .select('id, completed_at, created_at')
-    .eq('campaign_participant_id', participantId)
+    .select('id, completed_at')
+    .in('campaign_participant_id', participantIds)
+    .eq('status', 'completed')
     .order('completed_at', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
 
-  if (error) throw new ChatScoresError(error.message)
-  return (data as { id: string } | null)?.id ?? null
+  if (newestError) throw new ChatScoresError(newestError.message)
+
+  const { data: scored, error: scoredError } = await db
+    .from('participant_sessions')
+    .select('id, completed_at, participant_scores!inner(metric)')
+    .in('campaign_participant_id', participantIds)
+    .eq('status', 'completed')
+    .eq('participant_scores.metric', 'pomp')
+    .order('completed_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (scoredError) throw new ChatScoresError(scoredError.message)
+
+  const scoredRow = scored as { id: string } | null
+  const newestRow = newest as { id: string } | null
+
+  return {
+    sessionId: scoredRow?.id ?? null,
+    skippedMoreRecent: Boolean(
+      scoredRow && newestRow && scoredRow.id !== newestRow.id,
+    ),
+  }
 }
