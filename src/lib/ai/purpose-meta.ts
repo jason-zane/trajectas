@@ -3,6 +3,7 @@ import {
   Layers,
   Sparkles,
   MessageSquare,
+  DatabaseZap,
   BarChart3,
   ScanSearch,
   FileText,
@@ -103,6 +104,13 @@ export const PURPOSE_META: Record<AIPromptPurpose, PurposeMeta> = {
     label: "Chat",
     description: "General-purpose AI chat for testing and exploration.",
     icon: MessageSquare,
+    glowColor: "var(--primary)",
+  },
+  chat_data: {
+    label: "Chat — Data Mode",
+    description:
+      "Grounded chat that answers from real platform data via tools. Constrained to what the tools return.",
+    icon: DatabaseZap,
     glowColor: "var(--primary)",
   },
   report_narrative: {

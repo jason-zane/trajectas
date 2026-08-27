@@ -23,6 +23,7 @@ export const AI_PROMPT_PURPOSES = [
   'preflight_analysis',
   'embedding',
   'chat',
+  'chat_data',
   'report_narrative',
   'report_strengths_analysis',
   'report_development_advice',

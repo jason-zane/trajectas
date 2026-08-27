@@ -4,8 +4,9 @@ import { openRouterProvider } from "@/lib/ai/providers/openrouter";
 import { ChatInterface } from "./chat-interface";
 
 export default async function ChatPage() {
-  const [defaultModel, models] = await Promise.all([
+  const [defaultModel, defaultDataModel, models] = await Promise.all([
     getDefaultModelIdForPurpose("chat"),
+    getDefaultModelIdForPurpose("chat_data"),
     openRouterProvider.listModels("text"),
   ]);
 
@@ -14,7 +15,11 @@ export default async function ChatPage() {
       <PageHeader eyebrow="AI Tools" title="Chat" />
 
       <div className="flex-1 min-h-0 mt-4">
-        <ChatInterface defaultModel={defaultModel ?? ""} models={models} />
+        <ChatInterface
+          defaultModel={defaultModel ?? ""}
+          defaultDataModel={defaultDataModel ?? defaultModel ?? ""}
+          models={models}
+        />
       </div>
     </div>
   );
