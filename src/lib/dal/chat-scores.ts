@@ -199,7 +199,12 @@ export async function getCampaignProgress(
 
 export interface LatestSessionResolution {
   sessionId: string | null
-  /** A more recent sitting existed but had nothing this view can render. */
+  /**
+   * A more recent sitting existed with no competency scores VISIBLE TO THIS
+   * CALLER. Deliberately not narrowed further: the query distinguishes
+   * "has a visible pomp row" from "does not", and cognitive-only, unscored and
+   * policy-hidden all land on the same side of that line.
+   */
   skippedMoreRecent: boolean
 }
 
@@ -213,11 +218,12 @@ export interface LatestSessionResolution {
  *     per campaign, so "their latest result" has to look across all of them —
  *     asking one row gives you the latest result *in that campaign*, which is
  *     rarely what was meant.
- *  2. The latest sitting is not always the latest *result*. A cognitive sitting
- *     carries percent_correct rows and no POMP rows, so this view has nothing
- *     to draw. Silently returning it would answer "your latest result" with an
- *     empty card, so we skip to the newest sitting that can actually be shown
- *     and report that we did.
+ *  2. The latest sitting is not always the latest *result*. A sitting can carry
+ *     no POMP rows this caller can see — cognitive-only, not yet scored, or
+ *     scored behind a policy that hides it. Silently returning it would answer
+ *     "your latest result" with an empty card, so we skip to the newest sitting
+ *     that can actually be shown and report that we did, without claiming to
+ *     know WHY the newer one was empty.
  *
  * The inner join on participant_scores filtered to metric='pomp' does the
  * "has renderable scores" test in the database rather than by fetching each

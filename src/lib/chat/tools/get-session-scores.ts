@@ -140,8 +140,12 @@ export const getSessionScoresTool = defineChatTool({
         )
       }
       if (skippedMoreRecent) {
+        // Say only what the query established: the later sitting had no
+        // competency scores VISIBLE TO THIS CALLER. It might be cognitive-only,
+        // unscored, or scored behind a policy that hides it — claiming which
+        // would be a guess dressed as a fact.
         caveats.push(
-          'This is the most recent sitting with competency scores. A later sitting exists but carries only cognitive scores, which this card does not show.',
+          'This is the most recent sitting with competency scores available to you. A later sitting exists but has none to show.',
         )
       }
 

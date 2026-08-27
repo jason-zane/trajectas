@@ -41,6 +41,7 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
     participantB: '',
     factor: '',
     sessionA: '',
+    campaignA2: '',
     campaignConfidential: '',
     participantConfidential: '',
     sessionConfidential: '',
@@ -85,6 +86,9 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       return data.id as string
     }
     ids.campaignA = await mkCampaign(ids.clientA, `${tag}-alpha-campaign`)
+    // A second campaign under the SAME client, so a person can hold two
+    // participations that share one client-scoped person_key.
+    ids.campaignA2 = await mkCampaign(ids.clientA, `${tag}-alpha-campaign-two`)
     ids.campaignB = await mkCampaign(ids.clientB, `${tag}-beta-campaign`)
 
     const mkParticipant = async (campaignId: string, first: string) => {
@@ -228,11 +232,21 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
     await admin
       .from('campaign_participants')
       .delete()
-      .in('campaign_id', [ids.campaignA, ids.campaignB, ids.campaignConfidential])
+      .in('campaign_id', [
+        ids.campaignA,
+        ids.campaignA2,
+        ids.campaignB,
+        ids.campaignConfidential,
+      ])
     await admin
       .from('campaigns')
       .delete()
-      .in('id', [ids.campaignA, ids.campaignB, ids.campaignConfidential])
+      .in('id', [
+        ids.campaignA,
+        ids.campaignA2,
+        ids.campaignB,
+        ids.campaignConfidential,
+      ])
     await admin.from('assessments').delete().in('id', [ids.assessmentA, ids.assessmentB])
     await admin.from('client_memberships').delete().in('client_id', [ids.clientA, ids.clientB])
     await admin.from('clients').delete().in('id', [ids.clientA, ids.clientB])
@@ -286,7 +300,9 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       const { data: extra } = await admin
         .from('campaign_participants')
         .insert({
-          campaign_id: ids.campaignB,
+          // Same client, so the trigger assigns the same person_key — this is
+          // one human with two participations, not two people.
+          campaign_id: ids.campaignA2,
           email: `alfa-${ts}@test.local`,
           first_name: 'Alfa',
           last_name: tag,
@@ -305,6 +321,7 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       expect(alfa).toBeDefined()
       expect(alfa!.participationCount).toBeGreaterThanOrEqual(2)
       expect(result.data.people.filter((p) => p.name === `Alfa ${tag}`)).toHaveLength(1)
+      expect(alfa!.campaigns.length).toBeGreaterThanOrEqual(2)
 
       if (extra?.id) await admin.from('campaign_participants').delete().eq('id', extra.id)
     })
@@ -470,8 +487,11 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       if (result.ok) {
         expect(result.data.session.sessionId).toBe(scoredSession)
         expect(result.data.caveats.join(' ')).toMatch(
-          /most recent sitting with competency scores/i,
+          /most recent sitting with competency scores available to you/i,
         )
+        // The caveat must not claim to know WHY the later sitting was empty —
+        // this fixture's later sitting is simply unscored, not cognitive.
+        expect(result.data.caveats.join(' ')).not.toMatch(/cognitive/i)
       }
 
       await admin.from('participant_scores').delete().eq('session_id', scoredSession)

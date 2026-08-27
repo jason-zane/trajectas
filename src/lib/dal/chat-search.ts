@@ -76,7 +76,9 @@ export async function searchParticipants(
 
   let builder = db
     .from('campaign_participants')
-    .select('id, email, first_name, last_name, status, campaign_id, campaigns(id, title)')
+    .select(
+      'id, email, first_name, last_name, status, campaign_id, person_key, campaigns(id, title, client_id, clients(id, name))',
+    )
     .is('deleted_at', null)
     .is('campaign_rater_id', null)
 
