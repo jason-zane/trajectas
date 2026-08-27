@@ -27,11 +27,18 @@ import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/provide
 /** Hard ceiling on tool rounds, so a confused model cannot loop forever. */
 const MAX_TOOL_ROUNDS = 4
 
+/**
+ * Replayed history comes from the client, so bound how much of it is folded
+ * back into the prompt regardless of what was posted.
+ */
+const MAX_REPLAYED_BLOCKS = 4
+const MAX_REPLAYED_LINKS = 20
+
 export interface RunDataChatOptions {
   client: OpenAI
   modelId: string
   systemPrompt: string
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  messages: Array<{ role: 'user' | 'assistant'; content: string; blocks?: ChatBlock[] }>
   registry: ChatToolRegistry
   db: SupabaseClient
   isPlatformAdmin: boolean
@@ -86,6 +93,24 @@ function blocksFromToolResult(toolName: string, result: unknown): ChatBlock[] {
   return []
 }
 
+/**
+ * A compact, machine-readable transcript of the cards a previous turn showed,
+ * so the model can resolve follow-up references to them by id. Kept terse
+ * because it is replayed on every subsequent request.
+ */
+function describeBlocks(blocks: ChatBlock[]): string {
+  const lines: string[] = []
+  for (const block of blocks.slice(0, MAX_REPLAYED_BLOCKS)) {
+    if (block.kind !== 'entity_links') continue
+    lines.push(`[${block.title} shown to the user]`)
+    block.links.slice(0, MAX_REPLAYED_LINKS).forEach((link, i) => {
+      const suffix = link.sublabel ? ` — ${link.sublabel}` : ''
+      lines.push(`${i + 1}. ${link.label} (${link.kind} id: ${link.id})${suffix}`)
+    })
+  }
+  return lines.join('\n')
+}
+
 export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Array> {
   const {
     client,
@@ -112,7 +137,16 @@ export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Ar
 
       const conversation: OpenAI.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
-        ...messages.map((m) => ({ role: m.role, content: m.content })),
+        ...messages.map((m) => ({
+          role: m.role,
+          // Cards are rendered client-side, so replaying only the prose would
+          // drop every id the user might refer back to ("the second campaign").
+          // Fold a compact transcript of what they saw back into history.
+          content:
+            m.role === 'assistant' && m.blocks?.length
+              ? `${m.content}\n\n${describeBlocks(m.blocks)}`
+              : m.content,
+        })),
       ]
 
       try {
@@ -135,9 +169,15 @@ export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Ar
           const toolCalls = choice?.message?.tool_calls ?? []
 
           if (toolCalls.length === 0) {
-            // The model answered without (further) tools. Stream that answer.
-            conversation.push(choice.message)
-            break
+            // This completion IS the answer — emit it. Pushing it and asking
+            // for another completion would discard it and prompt the model to
+            // continue past its own reply, which produces empty or unrelated
+            // text on every normal round (ambiguity questions and refusals
+            // included).
+            const answer = choice?.message?.content ?? ''
+            if (answer) send({ type: 'text', delta: answer })
+            controller.close()
+            return
           }
 
           conversation.push(choice.message)
@@ -223,9 +263,9 @@ export function runDataChat(options: RunDataChatOptions): ReadableStream<Uint8Ar
           }
         }
 
-        // Final pass: stream the prose the model writes around whatever the
-        // tools returned. Tools are withheld here so this call always
-        // terminates in text rather than another round of calls.
+        // Only reached when MAX_TOOL_ROUNDS is exhausted while the model was
+        // still asking for tools. Withhold tools so this pass must terminate
+        // in text rather than another round of calls.
         const stream = await withOpenRouterRetry(() =>
           client.chat.completions.create(
             {

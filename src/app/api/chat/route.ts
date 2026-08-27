@@ -11,6 +11,7 @@ import { getOpenRouterErrorMessage, withOpenRouterRetry } from '@/lib/ai/provide
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkKeyedRateLimit } from '@/lib/security/rate-limit'
 import { chatToolRegistry } from '@/lib/chat/tools'
+import type { ChatBlock } from '@/lib/chat/envelope'
 import { runDataChat } from '@/lib/chat/run'
 import { isToolCapableModel, toolModelRejectionMessage } from '@/lib/chat/models'
 import {
@@ -62,7 +63,11 @@ export async function POST(request: Request) {
   }
 
   let body: {
-    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+    messages: Array<{
+      role: 'user' | 'assistant'
+      content: string
+      blocks?: ChatBlock[]
+    }>
     model?: string
     mode?: ChatMode
   }

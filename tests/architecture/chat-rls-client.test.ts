@@ -14,12 +14,21 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const CHAT_DIR = join(ROOT, "src", "lib", "chat");
+/**
+ * The chat entity lookups live in the DAL (per AGENTS.md), so the ban has to
+ * follow them there — a chat-search query on the admin client would bypass RLS
+ * just as surely as one inside src/lib/chat.
+ */
+const DAL_CHAT_FILES = [
+  join(ROOT, "src", "lib", "dal", "chat-search.ts"),
+  join(ROOT, "src", "lib", "dal", "chat-search-mappers.ts"),
+];
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx"]);
 
 /** Files permitted to open the admin client, with the reason they may. */
@@ -55,10 +64,16 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 describe("chat tools query through the caller's RLS-scoped client", () => {
-  const files = walk(CHAT_DIR);
+  const files = [...walk(CHAT_DIR), ...DAL_CHAT_FILES];
 
   it("scans a non-trivial number of chat modules", () => {
     expect(files.length).toBeGreaterThan(3);
+  });
+
+  it("covers the chat DAL modules, where the queries actually live", () => {
+    for (const file of DAL_CHAT_FILES) {
+      expect(existsSync(file), `${file} is guarded but missing`).toBe(true);
+    }
   });
 
   it.each(files.map((f) => [relative(ROOT, f), f]))(

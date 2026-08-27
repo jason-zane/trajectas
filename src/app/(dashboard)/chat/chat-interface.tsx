@@ -27,15 +27,33 @@ interface Message {
 
 interface ChatInterfaceProps {
   defaultModel: string;
+  /** Data mode is configured separately so a tool-capable model can be pinned. */
+  defaultDataModel: string;
   models: OpenRouterModel[];
 }
 
-export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
+export function ChatInterface({
+  defaultModel,
+  defaultDataModel,
+  models,
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(defaultModel);
+  // One model per mode. Sending the general-chat model in data mode would
+  // override the separately configured chat_data model on every request —
+  // making that setting inert, and 400-ing whenever the general model cannot
+  // call tools.
+  const [modelByMode, setModelByMode] = useState<Record<ChatMode, string>>({
+    general: defaultModel,
+    data: defaultDataModel,
+  });
   const [mode, setMode] = useState<ChatMode>("general");
+  const selectedModel = modelByMode[mode];
+  const setSelectedModel = useCallback(
+    (model: string) => setModelByMode((prev) => ({ ...prev, [mode]: model })),
+    [mode]
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -83,6 +101,9 @@ export function ChatInterface({ defaultModel, models }: ChatInterfaceProps) {
           messages: updatedMessages.map((m) => ({
             role: m.role,
             content: m.content,
+            // Replay the cards the user saw so follow-ups like "the second
+            // one" can still resolve to a real id.
+            ...(m.blocks?.length ? { blocks: m.blocks } : {}),
           })),
           model: selectedModel,
           mode,

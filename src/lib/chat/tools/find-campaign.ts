@@ -1,31 +1,25 @@
 // =============================================================================
 // src/lib/chat/tools/find-campaign.ts
 //
-// Resolve a campaign the user named. Tenancy comes from the campaigns SELECT
-// policy on the requester's connection, not from a predicate here.
+// Resolve a campaign the user named. Query lives in the DAL; tenancy comes from
+// the campaigns SELECT policy on the caller's connection.
 // =============================================================================
 
 import 'server-only'
 
 import { z } from 'zod'
 import { defineChatTool } from '../registry'
-import { toolOk, toolFail, type EntityLink } from '../envelope'
-import { escapeLikePattern, sanitiseOrTerm, SEARCH_LIMIT } from './search-utils'
-
-interface CampaignRow {
-  id: string
-  title: string | null
-  status: string | null
-  kind: string | null
-  opens_at: string | null
-  closes_at: string | null
-  clients: { id: string; name: string | null } | null
-}
+import { toolOk, toolFail } from '../envelope'
+import {
+  searchCampaigns,
+  ChatSearchError,
+  CHAT_SEARCH_LIMIT,
+} from '@/lib/dal/chat-search'
 
 export const findCampaignTool = defineChatTool({
   name: 'find_campaign',
   description:
-    'Find assessment campaigns by title, optionally narrowed by status. Returns campaign ids needed by progress and results tools. Call with an empty query to list the campaigns visible to the user.',
+    'Find assessment campaigns by title, optionally narrowed by status. Returns campaign ids needed by other tools. Call with no query to list the campaigns visible to the user.',
   statusLabel: 'Searching campaigns',
   params: z.object({
     query: z
@@ -40,29 +34,16 @@ export const findCampaignTool = defineChatTool({
       .describe('Optional exact status filter, e.g. "active", "draft", "closed".'),
   }),
   async execute({ query, status }, { db }) {
-    let builder = db
-      .from('campaigns')
-      .select('id, title, status, kind, opens_at, closes_at, clients(id, name)')
-      .is('deleted_at', null)
+    let campaigns
+    try {
+      campaigns = await searchCampaigns(db, { term: query, status })
+    } catch (error) {
+      const message = error instanceof ChatSearchError ? error.message : 'lookup failed'
+      return toolFail('unavailable', `Campaign lookup failed: ${message}`)
+    }
 
     const term = query?.trim()
-    if (term) {
-      builder = builder.ilike('title', `%${escapeLikePattern(sanitiseOrTerm(term))}%`)
-    }
-    if (status?.trim()) {
-      builder = builder.eq('status', status.trim())
-    }
-
-    const { data, error } = await builder
-      .order('created_at', { ascending: false })
-      .limit(SEARCH_LIMIT)
-
-    if (error) {
-      return toolFail('unavailable', `Campaign lookup failed: ${error.message}`)
-    }
-
-    const rows = (data ?? []) as unknown as CampaignRow[]
-    if (rows.length === 0) {
+    if (campaigns.length === 0) {
       return toolFail(
         'not_found',
         term
@@ -71,35 +52,18 @@ export const findCampaignTool = defineChatTool({
       )
     }
 
-    const links: EntityLink[] = rows.map((row) => ({
-      kind: 'campaign' as const,
-      id: row.id,
-      label: row.title ?? 'Untitled campaign',
-      sublabel: row.clients?.name ?? null,
-      href: `/campaigns/${row.id}`,
-    }))
-
     return toolOk(
       {
-        matchCount: links.length,
-        truncated: links.length === SEARCH_LIMIT,
-        campaigns: rows.map((row, i) => ({
-          campaignId: row.id,
-          title: row.title,
-          status: row.status,
-          kind: row.kind,
-          clientName: row.clients?.name ?? null,
-          opensAt: row.opens_at,
-          closesAt: row.closes_at,
-          href: links[i].href,
-        })),
+        matchCount: campaigns.length,
+        truncated: campaigns.length === CHAT_SEARCH_LIMIT,
+        campaigns,
       },
       {
         source: 'campaigns',
-        deepLink: links.length === 1 ? links[0].href : null,
+        deepLink: campaigns.length === 1 ? campaigns[0].href : null,
         caveats:
-          links.length === SEARCH_LIMIT
-            ? [`Only the first ${SEARCH_LIMIT} matches are shown.`]
+          campaigns.length === CHAT_SEARCH_LIMIT
+            ? [`Only the first ${CHAT_SEARCH_LIMIT} matches are shown.`]
             : [],
       },
     )
