@@ -19,6 +19,8 @@ import { findCampaignTool } from '@/lib/chat/tools/find-campaign'
 import { findAssessmentTool } from '@/lib/chat/tools/find-assessment'
 import { getSessionScoresTool } from '@/lib/chat/tools/get-session-scores'
 import { getCampaignProgressTool } from '@/lib/chat/tools/get-campaign-progress'
+import { getPersonTimelineTool } from '@/lib/chat/tools/get-person-timeline'
+import { comparePeopleTool } from '@/lib/chat/tools/compare-people'
 
 const ts = Date.now()
 const tag = `chat${ts}`
@@ -588,6 +590,155 @@ describe.skipIf(!canRun)('grounded chat tools', () => {
       const result = await getCampaignProgressTool.execute(
         { campaign_id: ids.campaignA },
         ctx(clientBDb, false),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toBe('not_found')
+    })
+  })
+  describe('get_person_timeline', () => {
+    it('returns a person\'s sittings with a Trajectory link carrying their ids', async () => {
+      const result = await getPersonTimelineTool.execute(
+        { person_name_or_email: `Alfa ${tag}` },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      expect(result.data.timeline.sittings.length).toBeGreaterThan(0)
+      // The deep link must carry the person's participation ids so the canvas
+      // opens already loaded rather than on an empty landing page.
+      expect(result.deepLink).toContain('/participants/trajectory?ids=')
+      expect(result.deepLink).toContain(ids.participantA)
+    })
+
+    it('says there is no trend from a single sitting', async () => {
+      const result = await getPersonTimelineTool.execute(
+        { person_name_or_email: `Alfa ${tag}` },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+      const scored = result.data.timeline.sittings.filter((s) => s.factors.length > 0)
+      if (scored.length === 1) {
+        expect(result.data.caveats.join(' ')).toMatch(/not a trend/i)
+      }
+    })
+
+    it("a client member cannot build a timeline for another tenant's person", async () => {
+      const result = await getPersonTimelineTool.execute(
+        { person_name_or_email: `Alfa ${tag}` },
+        ctx(clientBDb, false),
+      )
+      expect(result.ok).toBe(false)
+    })
+  })
+
+  describe('compare_people', () => {
+    it('compares two people on a shared instrument without needing norms', async () => {
+      // Second person in the same campaign, same assessment, scored.
+      const { data: rival } = await admin
+        .from('campaign_participants')
+        .insert({
+          campaign_id: ids.campaignA,
+          email: `rival-${ts}@test.local`,
+          first_name: 'Rival',
+          last_name: tag,
+          status: 'completed',
+        })
+        .select('id')
+        .single()
+
+      const { data: rivalSession } = await admin
+        .from('participant_sessions')
+        .insert({
+          assessment_id: ids.assessmentA,
+          campaign_id: ids.campaignA,
+          campaign_participant_id: rival!.id,
+          client_id: ids.clientA,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+        })
+        .select('id')
+        .single()
+
+      await admin.from('participant_scores').insert({
+        session_id: rivalSession!.id,
+        factor_id: ids.factor,
+        raw_score: 40,
+        scaled_score: 81.0,
+        scoring_method: 'ctt',
+        metric: 'pomp',
+        provisional: false,
+      })
+
+      const result = await comparePeopleTool.execute(
+        { people: [`Alfa ${tag}`, `Rival ${tag}`] },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(true)
+      if (result.ok) {
+        expect(result.data.comparison.people).toHaveLength(2)
+        expect(result.data.comparison.sharedFactorIds).toContain(ids.factor)
+        expect(result.data.comparison.sameCampaign).toBe(true)
+        // Criterion-referenced framing is mandatory, not optional.
+        expect(result.data.caveats.join(' ')).toMatch(/criterion-referenced/i)
+        // The model is told who leads, never by how much.
+        const redacted = JSON.stringify(comparePeopleTool.redactForModel!(result.data))
+        expect(redacted).not.toContain('81')
+        expect(redacted).not.toContain('62.4')
+      }
+
+      await admin.from('participant_scores').delete().eq('session_id', rivalSession!.id)
+      await admin.from('participant_sessions').delete().eq('id', rivalSession!.id)
+      await admin.from('campaign_participants').delete().eq('id', rival!.id)
+    })
+
+    it('refuses rather than comparing across different instruments', async () => {
+      // Bravo is in client B on a different assessment; even as an admin who
+      // can see both, there is no shared instrument to line them up on.
+      const result = await comparePeopleTool.execute(
+        { people: [`Alfa ${tag}`, `Bravo ${tag}`] },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toBe('not_found')
+      expect(result.message).toMatch(/different instruments|no assessment in common/i)
+    })
+
+    it('refuses a self-comparison when two terms resolve to one person', async () => {
+      // Name and email for the same human would otherwise become two columns
+      // and produce leader facts about someone against themselves.
+      const result = await comparePeopleTool.execute(
+        { people: [`Alfa ${tag}`, `alfa-${ts}@test.local`] },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      expect(result.reason).toBe('invalid_input')
+      expect(result.message).toMatch(/same person/i)
+    })
+
+    it('honours a named assessment', async () => {
+      const result = await comparePeopleTool.execute(
+        {
+          people: [`Alfa ${tag}`, `Bravo ${tag}`],
+          assessment: 'no-such-instrument-anywhere',
+        },
+        ctx(adminDb, true),
+      )
+      expect(result.ok).toBe(false)
+      if (result.ok) return
+      // Names an instrument that does not exist — refuses on that, rather than
+      // quietly comparing on some other shared assessment.
+      expect(result.reason).toBe('not_found')
+      expect(result.message).toMatch(/no-such-instrument-anywhere/i)
+    })
+
+    it('needs at least two resolvable people', async () => {
+      const result = await comparePeopleTool.execute(
+        { people: [`Alfa ${tag}`, 'nobody-by-this-name'] },
+        ctx(adminDb, true),
       )
       expect(result.ok).toBe(false)
       if (result.ok) return
