@@ -31,7 +31,7 @@ export default async function GenerationRunsPage() {
   return (
     <div className="space-y-8 max-w-6xl">
       <div>
-        <Link href="/item-bank">
+        <Link href="/cognitive-items">
           <Button variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
             <ArrowLeft className="size-4" />
             Item bank

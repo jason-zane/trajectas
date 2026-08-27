@@ -70,7 +70,7 @@ export default async function ItemReviewPage({
   return (
     <div className="space-y-8 max-w-6xl">
       <div>
-        <Link href="/item-bank/review">
+        <Link href="/cognitive-items/review">
           <Button variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
             <ArrowLeft className="size-4" />
             Review queue
@@ -84,14 +84,14 @@ export default async function ItemReviewPage({
           <div className="flex items-center gap-2">
             <LifecycleBadge state={item.lifecycleState} />
             {item.familyId ? (
-              <Link href={`/item-bank/families/${item.familyId}`}>
+              <Link href={`/cognitive-items/families/${item.familyId}`}>
                 <Button variant="outline" size="sm">
                   Family
                 </Button>
               </Link>
             ) : null}
             {item.generationRunId ? (
-              <Link href={`/item-bank/runs/${item.generationRunId}`}>
+              <Link href={`/cognitive-items/runs/${item.generationRunId}`}>
                 <Button variant="outline" size="sm">
                   <FlaskConical className="size-4" />
                   Run

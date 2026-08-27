@@ -310,7 +310,7 @@ export function ItemList({ items, healthMap = {} }: { items: ItemWithMeta[]; hea
       */}
       <p className="text-caption text-muted-foreground">
         Cognitive items — the figural matrix puzzles — are not listed here. They live in the{" "}
-        <Link href="/item-bank" className="underline underline-offset-2 hover:text-foreground">
+        <Link href="/cognitive-items" className="underline underline-offset-2 hover:text-foreground">
           Item Bank
         </Link>
         , which carries its own lifecycle states and review gate.

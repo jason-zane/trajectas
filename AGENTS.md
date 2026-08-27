@@ -57,12 +57,12 @@ Consequences worth knowing before you debug one of them:
   including the 400+ Likert items in live assessments; the lifecycle states were
   introduced for the cognitive bank and only that bank uses them.
 - **Nothing in the app promotes an item.** Sign-offs come from a person in
-  `/item-bank/review`. `item_reviews` is append-only — a mistaken approval is
+  `/cognitive-items/review`. `item_reviews` is append-only — a mistaken approval is
   corrected by adding a rejection, never by editing history. Any script that
   writes an `item_reviews` row is fabricating a sign-off; that is what
   `scripts/cognitive/ingest-to-live.ts` was rewritten to stop doing.
 
-To load items, use **`/item-bank/generate`** (seed + per-family count). Ingest is
+To load items, use **`/cognitive-items/generate`** (seed + per-family count). Ingest is
 idempotent by content hash, so re-running a seed completes a partial load rather
 than duplicating it.
 

@@ -38,13 +38,13 @@ export default async function GenerateBankPage() {
         description="Run the figural-matrix generator against a seed and ingest whatever clears the QA battery. Deterministic, and idempotent by content hash."
       >
         <div className="flex items-center gap-2">
-          <Link href="/item-bank/runs">
+          <Link href="/cognitive-items/runs">
             <Button variant="outline">
               <FlaskConical className="size-4" />
               Generation runs
             </Button>
           </Link>
-          <Link href="/item-bank/review">
+          <Link href="/cognitive-items/review">
             <Button variant="outline">
               <ClipboardCheck className="size-4" />
               Review queue

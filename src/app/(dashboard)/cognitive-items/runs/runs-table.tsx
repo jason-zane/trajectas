@@ -98,7 +98,7 @@ export function RunsTable({ runs }: { runs: RunRow[] }) {
       searchableColumns={['generator', 'seed', 'kind']}
       searchPlaceholder="Search runs by generator or seed"
       defaultSort={{ id: 'startedAt', desc: true }}
-      rowHref={(row) => `/item-bank/runs/${row.id}`}
+      rowHref={(row) => `/cognitive-items/runs/${row.id}`}
       getRowId={(row) => row.id}
       pageSize={25}
       emptyState={

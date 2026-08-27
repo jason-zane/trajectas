@@ -144,6 +144,24 @@ export function createTrajectasNextConfig(
       // @base-ui/react is not.
       optimizePackageImports: ["@base-ui/react"],
     },
+    async redirects() {
+      return [
+        // /item-bank became /cognitive-items — the old name implied it was THE
+        // item bank, which the Likert items under /items contradict. The review
+        // queue is deliberately URL-shareable by lifecycle state, so links
+        // already sent out have to keep resolving.
+        {
+          source: "/item-bank",
+          destination: "/cognitive-items",
+          permanent: true,
+        },
+        {
+          source: "/item-bank/:path*",
+          destination: "/cognitive-items/:path*",
+          permanent: true,
+        },
+      ];
+    },
     async headers() {
       return [
         {

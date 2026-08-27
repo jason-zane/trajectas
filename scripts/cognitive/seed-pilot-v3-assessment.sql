@@ -10,7 +10,7 @@
 -- ORDER OF OPERATIONS. (1) Apply migration
 -- 20260819120000_figural_matrix_six_options.sql (response-format label and
 -- option_count). (2) Ingest the v3 bank with seed v3-2026-08-19, 12 per
--- family, via /item-bank/generate (or ingest-to-live.ts). (3) Run this file.
+-- family, via /cognitive-items/generate (or ingest-to-live.ts). (3) Run this file.
 -- Section 3 places items by family and generator seed; with no such items
 -- present it places nothing, and re-running after the ingest completes it.
 --

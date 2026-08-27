@@ -41,7 +41,7 @@ export default async function ReviewQueuePage({
   return (
     <div className="space-y-8 max-w-6xl">
       <div>
-        <Link href="/item-bank">
+        <Link href="/cognitive-items">
           <Button variant="ghost" size="sm" className="-ml-2 mb-2 text-muted-foreground">
             <ArrowLeft className="size-4" />
             Item bank
@@ -61,7 +61,7 @@ export default async function ReviewQueuePage({
           return (
             <Link
               key={candidate}
-              href={`/item-bank/review?state=${candidate}`}
+              href={`/cognitive-items/review?state=${candidate}`}
               aria-current={isActive ? 'page' : undefined}
               title={lifecycleDisplay(candidate).description}
               className={cn(

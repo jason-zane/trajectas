@@ -1,7 +1,7 @@
 /**
  * Pins the UI's advisory sign-off policy to the database guard it mirrors.
  *
- * `src/app/(dashboard)/item-bank/signoff-policy.ts` holds the one fact the
+ * `src/app/(dashboard)/cognitive-items/signoff-policy.ts` holds the one fact the
  * review UI needs before it attempts a write: which target states require which
  * sign-offs. The enforcer is `items_review_signoff_guard()` in migration
  * 20260814110000 — but #347 also requires that a reviewer sees the gate coming
@@ -26,7 +26,7 @@ import {
   STATES_REQUIRING_FAIRNESS_SIGNOFF,
   signOffBlockers,
   signOffsRequiredFor,
-} from '@/app/(dashboard)/item-bank/signoff-policy'
+} from '@/app/(dashboard)/cognitive-items/signoff-policy'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const MIGRATION = join(
