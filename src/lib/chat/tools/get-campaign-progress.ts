@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { defineChatTool } from '../registry'
 import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import { completionBucket } from '../redaction'
+import { campaignResults, campaignParticipants } from '../destinations'
 import { getCampaignProgress, ChatScoresError } from '@/lib/dal/chat-scores'
 
 export const getCampaignProgressTool = defineChatTool({
@@ -69,6 +70,10 @@ export const getCampaignProgressTool = defineChatTool({
         scoredSessions: data.progress.completed,
         caveats: data.caveats,
         href: `/campaigns/${data.progress.campaignId}`,
+        destinations: [
+          campaignResults(data.progress.campaignId),
+          campaignParticipants(data.progress.campaignId),
+        ],
       },
     ]
   },

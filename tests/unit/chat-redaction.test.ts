@@ -106,6 +106,7 @@ describe("what the model is given", () => {
       normReferenced: false,
       droppedRows: 0,
       cognitiveRows: 0,
+      timelineIds: ["33333333-3333-3333-3333-333333333333"],
     };
 
     const redacted = JSON.stringify(getSessionScoresTool.redactForModel!(data));

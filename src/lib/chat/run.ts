@@ -75,6 +75,17 @@ function describeBlocks(blocks: ChatBlock[]): string {
         `[Campaign summary shown to the user: ${block.campaignTitle ?? 'untitled'}. ` +
           `Figures were shown to the user, not to you.]`,
       )
+    } else if (block.kind === 'timeline') {
+      lines.push(
+        `[Timeline shown to the user: ${block.personName}, ` +
+          `${block.sittings.length} sitting(s). Values were shown to the user, not to you.]`,
+      )
+    } else if (block.kind === 'comparison') {
+      lines.push(
+        `[Comparison shown to the user: ${block.people.map((p) => p.name).join(' vs ')} ` +
+          `on ${block.assessmentTitle ?? 'a shared assessment'}. ` +
+          `Scores were shown to the user, not to you.]`,
+      )
     }
   }
   return lines.join('\n')

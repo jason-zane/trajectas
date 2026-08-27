@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { defineChatTool } from '../registry'
 import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import { ordinalFactsFrom } from '../redaction'
+import { trajectoryForPerson } from '../destinations'
 import {
   getSessionScores,
   getLatestScoredSession,
@@ -54,6 +55,7 @@ export const getSessionScoresTool = defineChatTool({
 
     let sessionId = session_id ?? null
     let skippedMoreRecent = false
+    let personParticipantIds: string[] | null = null
     try {
       if (!sessionId && person_name_or_email) {
         // A person is not a participant row: campaign_participants holds one
@@ -78,6 +80,7 @@ export const getSessionScoresTool = defineChatTool({
             })),
           )
         }
+        personParticipantIds = people[0].participantIds
         const resolved = await getLatestScoredSession(db, people[0].participantIds)
         sessionId = resolved.sessionId
         skippedMoreRecent = resolved.skippedMoreRecent
@@ -149,8 +152,14 @@ export const getSessionScoresTool = defineChatTool({
         )
       }
 
+      // Offer the richer surface with this person already loaded, rather than
+      // making the user find them again.
+      const timelineIds = personParticipantIds ?? (
+        scores.session.participantId ? [scores.session.participantId] : []
+      )
+
       return toolOk(
-        { ...scores, bandScheme, caveats, normReferenced },
+        { ...scores, bandScheme, caveats, normReferenced, timelineIds },
         {
           source: 'participant_scores',
           asOf: scores.session.completedAt ?? new Date().toISOString(),
@@ -168,6 +177,7 @@ export const getSessionScoresTool = defineChatTool({
   },
 
   toBlocks(data): ChatBlock[] {
+    const destination = trajectoryForPerson(data.timelineIds)
     return [
       {
         kind: 'score_card',
@@ -180,6 +190,7 @@ export const getSessionScoresTool = defineChatTool({
         bandScheme: data.bandScheme,
         caveats: data.caveats,
         href: data.session.href,
+        destinations: destination ? [destination] : [],
       },
     ]
   },

@@ -81,6 +81,13 @@ export function toolFail(
 // Blocks — the structured payloads streamed to the browser
 // ---------------------------------------------------------------------------
 
+/** Where an answer continues — a real surface, with this answer's state loaded. */
+export interface BlockDestination {
+  label: string
+  href: string
+  description: string
+}
+
 export interface EntityLinksBlock {
   kind: 'entity_links'
   v: 1
@@ -122,6 +129,7 @@ export interface ScoreCardBlock {
   }
   caveats: string[]
   href: string | null
+  destinations?: BlockDestination[]
 }
 
 export interface CampaignSummaryBlock {
@@ -136,9 +144,71 @@ export interface CampaignSummaryBlock {
   scoredSessions: number
   caveats: string[]
   href: string | null
+  destinations?: BlockDestination[]
 }
 
-export type ChatBlock = EntityLinksBlock | ScoreCardBlock | CampaignSummaryBlock
+/** Where an answer continues — a real surface, with this answer's state loaded. */
+export interface TimelineSittingView {
+  sessionId: string
+  campaignTitle: string | null
+  assessmentTitle: string | null
+  completedAt: string | null
+  factorCount: number
+  compositeScore: number | null
+  compositeMethod: string | null
+  href: string | null
+}
+
+export interface TimelineChangeView {
+  factorName: string
+  assessmentTitle: string | null
+  fromScore: number
+  toScore: number
+  delta: number
+  fromAt: string | null
+  toAt: string | null
+}
+
+export interface TimelineBlock {
+  kind: 'timeline'
+  v: 1
+  personName: string
+  sittings: TimelineSittingView[]
+  /** Only ever within one instrument. */
+  changes: TimelineChangeView[]
+  caveats: string[]
+  destinations: BlockDestination[]
+}
+
+export interface ComparisonPersonView {
+  name: string
+  campaignTitle: string | null
+  completedAt: string | null
+  /** Keyed by factorId, for the shared factors only. */
+  scores: Record<string, number>
+}
+
+export interface ComparisonBlock {
+  kind: 'comparison'
+  v: 1
+  assessmentTitle: string | null
+  sameCampaign: boolean
+  factors: Array<{ factorId: string; name: string }>
+  people: ComparisonPersonView[]
+  bandScheme: {
+    palette: string
+    bands: Array<{ key: string; label: string; min: number; max: number }>
+  }
+  caveats: string[]
+  destinations: BlockDestination[]
+}
+
+export type ChatBlock =
+  | EntityLinksBlock
+  | ScoreCardBlock
+  | CampaignSummaryBlock
+  | TimelineBlock
+  | ComparisonBlock
 
 // ---------------------------------------------------------------------------
 // Stream frames — one JSON object per line (ndjson)

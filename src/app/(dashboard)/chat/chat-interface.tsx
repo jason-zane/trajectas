@@ -11,6 +11,8 @@ import { ModelPickerCombobox } from "../settings/models/model-picker-combobox";
 import { EntityLinksBlockView } from "@/components/chat/entity-links-block";
 import { ChatScoreCard } from "@/components/chat/chat-score-card";
 import { CampaignSummaryCard } from "@/components/chat/campaign-summary-card";
+import { TimelineCard } from "@/components/chat/timeline-card";
+import { ComparisonCard } from "@/components/chat/comparison-card";
 import { readChatFrames } from "@/lib/chat/stream-client";
 import type { ChatBlock } from "@/lib/chat/envelope";
 import type { OpenRouterModel } from "@/types/generation";
@@ -334,6 +336,12 @@ export function ChatInterface({
                 }
                 if (block.kind === "campaign_summary") {
                   return <CampaignSummaryCard key={key} block={block} />;
+                }
+                if (block.kind === "timeline") {
+                  return <TimelineCard key={key} block={block} />;
+                }
+                if (block.kind === "comparison") {
+                  return <ComparisonCard key={key} block={block} />;
                 }
                 // Unknown block kind from a newer server: ignore rather than crash.
                 return null;
