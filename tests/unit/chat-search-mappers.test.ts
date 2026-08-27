@@ -10,6 +10,8 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSearchPattern,
+  searchTokens,
+  groupParticipantsByPerson,
   escapeLikePattern,
   sanitiseOrTerm,
   participantDisplayName,
@@ -148,5 +150,88 @@ describe("row → DTO mapping", () => {
       clientName: null,
       href: "/assessments/a1/edit/overview",
     });
+  });
+});
+
+describe("searchTokens", () => {
+  it("splits a full name into tokens that must each match", () => {
+    // "Jason Hunt" against first_name/last_name separately matches nothing —
+    // the reason a plain full-name search silently failed.
+    expect(searchTokens("Jason Hunt")).toEqual(["Jason", "Hunt"]);
+  });
+
+  it("collapses arbitrary whitespace", () => {
+    expect(searchTokens("  Jason   Zane  Hunt ")).toEqual([
+      "Jason",
+      "Zane",
+      "Hunt",
+    ]);
+  });
+
+  it("returns nothing for an empty phrase", () => {
+    expect(searchTokens("   ")).toEqual([]);
+  });
+
+  it("caps the token count so a pasted paragraph cannot fan out", () => {
+    expect(searchTokens("a b c d e f g h").length).toBe(4);
+  });
+});
+
+describe("groupParticipantsByPerson", () => {
+  const row = (over: Partial<ReturnType<typeof toParticipantSearchResult>>) => ({
+    participantId: "p1",
+    name: "Jason Hunt",
+    email: "jason@example.com",
+    status: "completed",
+    campaignId: "c1",
+    campaignTitle: "Campaign One",
+    href: "/campaigns/c1/participants/p1",
+    ...over,
+  });
+
+  it("collapses one person's many participations into a single entry", () => {
+    const people = groupParticipantsByPerson([
+      row({}),
+      row({ participantId: "p2", campaignId: "c2", campaignTitle: "Two" }),
+      row({ participantId: "p3", campaignId: "c3", campaignTitle: "Three" }),
+    ]);
+    expect(people).toHaveLength(1);
+    expect(people[0].participationCount).toBe(3);
+    expect(people[0].participantIds).toEqual(["p1", "p2", "p3"]);
+    expect(people[0].campaigns).toHaveLength(3);
+  });
+
+  it("groups case-insensitively on email", () => {
+    const people = groupParticipantsByPerson([
+      row({}),
+      row({ participantId: "p2", email: "JASON@EXAMPLE.COM" }),
+    ]);
+    expect(people).toHaveLength(1);
+  });
+
+  it("does not merge distinct people", () => {
+    const people = groupParticipantsByPerson([
+      row({}),
+      row({ participantId: "p9", email: "someone@else.com", name: "Someone" }),
+    ]);
+    expect(people).toHaveLength(2);
+  });
+
+  it("keeps rows with no email separate rather than merging them all", () => {
+    // Grouping on a null email would fuse every anonymous row into one person.
+    const people = groupParticipantsByPerson([
+      row({ participantId: "p1", email: null }),
+      row({ participantId: "p2", email: null }),
+    ]);
+    expect(people).toHaveLength(2);
+  });
+
+  it("dedupes repeat participations within one campaign", () => {
+    const people = groupParticipantsByPerson([
+      row({ participantId: "p1" }),
+      row({ participantId: "p2" }),
+    ]);
+    expect(people[0].participationCount).toBe(2);
+    expect(people[0].campaigns).toHaveLength(1);
   });
 });

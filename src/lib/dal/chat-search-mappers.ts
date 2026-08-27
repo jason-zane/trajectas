@@ -134,3 +134,75 @@ export function sanitiseOrTerm(value: string): string {
 export function buildSearchPattern(term: string): string {
   return `%${escapeLikePattern(sanitiseOrTerm(term))}%`
 }
+
+/**
+ * Split a search phrase into the tokens that must EACH match somewhere.
+ *
+ * Names are stored split across first_name and last_name, so matching the whole
+ * phrase against each column in turn finds nothing for "Jason Hunt" — the very
+ * first thing anyone types. Tokenising and requiring every token to match some
+ * column makes the natural query work, while still narrowing rather than
+ * widening the result set as more words are added.
+ */
+export function searchTokens(term: string, max = 4): string[] {
+  return term
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, max)
+}
+
+export interface PersonSearchResult {
+  /** Stable key for the person within this result set. */
+  personKey: string
+  name: string
+  email: string | null
+  /** Every campaign_participants row this person has, newest campaign first. */
+  participantIds: string[]
+  participationCount: number
+  campaigns: Array<{ campaignId: string; title: string | null }>
+  /** Deep link to their most recent participation. */
+  href: string
+}
+
+/**
+ * Collapse participation rows into PEOPLE.
+ *
+ * campaign_participants holds one row per person per campaign, and re-invites
+ * create more. Returning those rows raw means asking for one person yields a
+ * wall of near-identical entries — which is what "show me my results" did
+ * before this: 37 rows for one human. Grouping by email (falling back to the
+ * row id when there is none) restores the unit the question was asked in.
+ */
+export function groupParticipantsByPerson(
+  rows: ParticipantSearchResult[],
+): PersonSearchResult[] {
+  const byPerson = new Map<string, PersonSearchResult>()
+
+  for (const row of rows) {
+    const key = row.email?.trim().toLowerCase() || `row:${row.participantId}`
+    const existing = byPerson.get(key)
+    if (!existing) {
+      byPerson.set(key, {
+        personKey: key,
+        name: row.name,
+        email: row.email,
+        participantIds: [row.participantId],
+        participationCount: 1,
+        campaigns: [{ campaignId: row.campaignId, title: row.campaignTitle }],
+        href: row.href,
+      })
+      continue
+    }
+    existing.participantIds.push(row.participantId)
+    existing.participationCount += 1
+    if (!existing.campaigns.some((c) => c.campaignId === row.campaignId)) {
+      existing.campaigns.push({
+        campaignId: row.campaignId,
+        title: row.campaignTitle,
+      })
+    }
+  }
+
+  return Array.from(byPerson.values())
+}

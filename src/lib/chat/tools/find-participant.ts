@@ -1,9 +1,15 @@
 // =============================================================================
 // src/lib/chat/tools/find-participant.ts
 //
-// Resolve a person the user named ("Sarah", "s.chen@acme.com") to participants
-// they are allowed to see. The query lives in the DAL; tenancy comes from the
-// RLS policies on the caller's connection, not from a predicate here.
+// Resolve a person the user named to PEOPLE, not to participation rows.
+//
+// campaign_participants holds one row per person per campaign, and re-invites
+// add more, so a single human can hold dozens. Returning those raw answered
+// "who is Jason Hunt" with a wall of near-identical entries. Grouping restores
+// the unit the question was asked in, and carries the participation count so
+// the breadth is still visible.
+//
+// Tenancy comes from the RLS policies on the caller's connection.
 // =============================================================================
 
 import 'server-only'
@@ -11,74 +17,83 @@ import 'server-only'
 import { z } from 'zod'
 import { defineChatTool } from '../registry'
 import { toolOk, toolFail, type ChatBlock } from '../envelope'
-import {
-  searchParticipants,
-  ChatSearchError,
-  CHAT_SEARCH_LIMIT,
-} from '@/lib/dal/chat-search'
+import { searchPeople, ChatSearchError, CHAT_SEARCH_LIMIT } from '@/lib/dal/chat-search'
 
 export const findParticipantTool = defineChatTool({
   name: 'find_participant',
   description:
-    'Find people (participants) by name or email address. Returns matching participants with the campaign each belongs to. Use this first whenever the user names a person, to get the participant id needed by other tools.',
-  statusLabel: 'Searching participants',
+    'Find people by name or email. A full name works ("Jason Hunt"). Returns one entry per person with how many campaigns they appear in. Use this to confirm who is meant; to show their results, prefer passing the name or email straight to get_session_scores.',
+  statusLabel: 'Searching people',
   params: z.object({
     query: z
       .string()
       .min(1)
-      .max(120)
-      .describe('Part of a name or email address, e.g. "Sarah" or "chen@acme.com".'),
+      .max(160)
+      .describe('A name or email address, whole or partial.'),
   }),
   async execute({ query }, { db }) {
     const term = query.trim()
     if (!term) {
-      return toolFail('invalid_input', 'Provide a name or email fragment to search for.')
+      return toolFail('invalid_input', 'Provide a name or email to search for.')
     }
 
-    let participants
+    let result
     try {
-      participants = await searchParticipants(db, term)
+      result = await searchPeople(db, term)
     } catch (error) {
       const message = error instanceof ChatSearchError ? error.message : 'lookup failed'
-      return toolFail('unavailable', `Participant lookup failed: ${message}`)
+      return toolFail('unavailable', `Person lookup failed: ${message}`)
     }
 
-    if (participants.length === 0) {
+    if (result.people.length === 0) {
       return toolFail(
         'not_found',
-        `No participant matching "${term}" is visible to you. Try an email address, or a different spelling.`,
+        `No one matching "${term}" is visible to you. Try an email address, or fewer words.`,
       )
     }
 
     return toolOk(
       {
-        matchCount: participants.length,
-        truncated: participants.length === CHAT_SEARCH_LIMIT,
-        participants,
+        matchCount: result.people.length,
+        truncated: result.truncated,
+        people: result.people.map((person) => ({
+          name: person.name,
+          email: person.email,
+          participationCount: person.participationCount,
+          campaigns: person.campaigns.slice(0, 5),
+          // The first id is enough to chain into a campaign-specific lookup;
+          // the full set is what makes a cross-campaign "latest" possible.
+          participantId: person.participantIds[0],
+          participantIds: person.participantIds,
+          href: person.href,
+        })),
       },
       {
         source: 'campaign_participants',
-        deepLink: participants.length === 1 ? participants[0].href : null,
-        caveats:
-          participants.length === CHAT_SEARCH_LIMIT
-            ? [`Only the first ${CHAT_SEARCH_LIMIT} matches are shown.`]
-            : [],
+        deepLink: result.people.length === 1 ? result.people[0].href : null,
+        caveats: result.truncated
+          ? [`Only the first ${CHAT_SEARCH_LIMIT} people are shown.`]
+          : [],
       },
     )
   },
+
   toBlocks(data): ChatBlock[] {
-    if (data.participants.length === 0) return []
+    if (data.people.length === 0) return []
     return [
       {
         kind: 'entity_links',
         v: 1,
-        title: 'Participants',
-        links: data.participants.map((row) => ({
+        title: 'People',
+        links: data.people.map((person) => ({
           kind: 'participant' as const,
-          id: row.participantId,
-          label: row.name ?? 'Untitled',
-          sublabel: row.campaignTitle ?? null,
-          href: row.href,
+          id: person.participantId,
+          label: person.name,
+          sublabel:
+            person.participationCount > 1
+              ? `${person.email ?? 'no email'} · ${person.participationCount} campaigns`
+              : (person.email ?? person.campaigns[0]?.title ?? null),
+          href: person.href,
         })),
       },
     ]

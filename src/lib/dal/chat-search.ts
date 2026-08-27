@@ -23,6 +23,8 @@ import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildSearchPattern,
+  searchTokens,
+  groupParticipantsByPerson,
   toParticipantSearchResult,
   toCampaignSearchResult,
   toAssessmentSearchResult,
@@ -32,10 +34,17 @@ import {
   type ParticipantSearchResult,
   type CampaignSearchResult,
   type AssessmentSearchResult,
+  type PersonSearchResult,
 } from './chat-search-mappers'
 
-/** Every chat lookup caps its result set at this many rows. */
+/** Every chat lookup caps its DISPLAYED result set at this many entries. */
 export const CHAT_SEARCH_LIMIT = 20
+
+/**
+ * How many participation rows to scan before grouping into people. Higher than
+ * the display limit on purpose: one person can hold dozens of participations.
+ */
+export const PARTICIPATION_SCAN_LIMIT = 400
 
 export class ChatSearchError extends Error {
   constructor(message: string) {
@@ -44,24 +53,65 @@ export class ChatSearchError extends Error {
   }
 }
 
-/** People matching a name or email fragment, within what the caller may see. */
+/**
+ * Participation rows matching a name or email fragment, within what the caller
+ * may see.
+ *
+ * Every token in the phrase must match SOMEWHERE — chained .or() calls are
+ * ANDed by PostgREST — because a name is stored split across first_name and
+ * last_name, so matching "Jason Hunt" whole against either column finds
+ * nothing. Each token is escaped independently.
+ *
+ * The row cap is raised well above the display limit here because these rows
+ * are about to be collapsed into people: one person can easily hold dozens of
+ * participations, and truncating before grouping would drop whole humans.
+ */
 export async function searchParticipants(
   db: SupabaseClient,
   term: string,
-  limit = CHAT_SEARCH_LIMIT,
+  limit = PARTICIPATION_SCAN_LIMIT,
 ): Promise<ParticipantSearchResult[]> {
-  const pattern = buildSearchPattern(term)
-  const { data, error } = await db
+  const tokens = searchTokens(term)
+  if (tokens.length === 0) return []
+
+  let builder = db
     .from('campaign_participants')
     .select('id, email, first_name, last_name, status, campaign_id, campaigns(id, title)')
     .is('deleted_at', null)
-    .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern}`)
+    .is('campaign_rater_id', null)
+
+  for (const token of tokens) {
+    const pattern = buildSearchPattern(token)
+    builder = builder.or(
+      `first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern}`,
+    )
+  }
+
+  const { data, error } = await builder
+    .order('created_at', { ascending: false })
     .limit(limit)
 
   if (error) throw new ChatSearchError(error.message)
   return ((data ?? []) as unknown as ParticipantSearchRow[]).map(
     toParticipantSearchResult,
   )
+}
+
+/**
+ * The same search, collapsed into PEOPLE rather than participations — the unit
+ * the question is actually asked in.
+ */
+export async function searchPeople(
+  db: SupabaseClient,
+  term: string,
+  limit = CHAT_SEARCH_LIMIT,
+): Promise<{ people: PersonSearchResult[]; truncated: boolean }> {
+  const rows = await searchParticipants(db, term)
+  const people = groupParticipantsByPerson(rows)
+  return {
+    people: people.slice(0, limit),
+    truncated: people.length > limit || rows.length === PARTICIPATION_SCAN_LIMIT,
+  }
 }
 
 /** Campaigns matching a title fragment, optionally filtered by status. */
