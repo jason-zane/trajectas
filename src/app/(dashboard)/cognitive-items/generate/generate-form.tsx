@@ -214,7 +214,7 @@ export function GenerateForm({ constructs, responseFormats }: GenerateFormProps)
         </div>
       </form>
 
-      {result ? <ResultPanel result={result} onOpenRun={() => router.push('/item-bank/runs')} /> : null}
+      {result ? <ResultPanel result={result} onOpenRun={() => router.push('/cognitive-items/runs')} /> : null}
     </div>
   )
 }

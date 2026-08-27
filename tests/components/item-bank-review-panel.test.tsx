@@ -44,7 +44,7 @@ import {
   ABSENT_SIGN_OFF,
   ReviewPanel,
   type SignOffView,
-} from '@/app/(dashboard)/item-bank/review/[itemId]/review-panel'
+} from '@/app/(dashboard)/cognitive-items/review/[itemId]/review-panel'
 
 const APPROVED: SignOffView = {
   present: true,

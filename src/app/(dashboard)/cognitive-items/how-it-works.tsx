@@ -7,9 +7,9 @@
  * The cognitive bank is four screens spread across two areas of the app, and
  * the names do not tell you which one to open:
  *
- *   - `/item-bank` lists FAMILIES, not items. Somebody looking for "the 98
+ *   - `/cognitive-items` lists FAMILIES, not items. Somebody looking for "the 98
  *     puzzles I generated" lands here and sees ten rows.
- *   - `/item-bank/review/[itemId]` is the ONLY screen that draws the matrix.
+ *   - `/cognitive-items/review/[itemId]` is the ONLY screen that draws the matrix.
  *     Nothing about the word "review" says "this is where you look at it".
  *   - `/items` is the separate Likert library — 400+ self-report statements,
  *     no puzzles. It is the most natural place to go looking, and it is wrong.
@@ -50,14 +50,14 @@ function buildSteps(
   return [
     {
       title: 'Generate the items',
-      href: '/item-bank/generate',
+      href: '/cognitive-items/generate',
       description:
         'Pick a construct and a count. Re-running the same seed completes a partial load rather than duplicating it.',
       status: itemCount > 0 ? `${itemCount} in the bank` : undefined,
     },
     {
       title: 'Look at each one, and sign it off',
-      href: '/item-bank/review',
+      href: '/cognitive-items/review',
       description:
         'Open any row to see the puzzle drawn full size, its five options, the keyed answer and what each wrong answer is meant to catch. Content and fairness are recorded separately, and an item needs both.',
       status: draft > 0 ? `${draft} awaiting review` : 'nothing waiting',
@@ -98,7 +98,7 @@ export function HowItWorks({
         </p>
         <p className="text-caption text-muted-foreground">
           Four steps, in this order. The puzzles are drawn on step two —{' '}
-          <Link href="/item-bank/review" className="underline underline-offset-2">
+          <Link href="/cognitive-items/review" className="underline underline-offset-2">
             open any row in the review queue
           </Link>
           . This page lists families; <span className="font-medium">/items</span> is the separate

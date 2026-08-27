@@ -114,7 +114,7 @@ export function FamiliesTable({ families }: { families: FamilyRow[] }) {
       searchableColumns={['code', 'constructName']}
       searchPlaceholder="Search families"
       defaultSort={{ id: 'code', desc: false }}
-      rowHref={(row) => `/item-bank/families/${row.id}`}
+      rowHref={(row) => `/cognitive-items/families/${row.id}`}
       getRowId={(row) => row.id}
       pageSize={25}
       emptyState={

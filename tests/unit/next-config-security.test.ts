@@ -107,3 +107,21 @@ describe("next config security helpers", () => {
     });
   });
 });
+
+describe("legacy route redirects", () => {
+  it("keeps shared /item-bank links resolving after the rename", async () => {
+    const config = createTrajectasNextConfig({ NODE_ENV: "test" });
+    const redirects = await config.redirects?.();
+
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        { source: "/item-bank", destination: "/cognitive-items", permanent: true },
+        {
+          source: "/item-bank/:path*",
+          destination: "/cognitive-items/:path*",
+          permanent: true,
+        },
+      ])
+    );
+  });
+})

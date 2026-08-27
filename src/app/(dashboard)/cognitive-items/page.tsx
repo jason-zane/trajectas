@@ -50,19 +50,19 @@ export default async function ItemBankPage() {
         description="Cognitive item families, their lifecycle state and their provenance. Every item must clear content and fairness review before it can enter service."
       >
         <div className="flex items-center gap-2">
-          <Link href="/item-bank/generate">
+          <Link href="/cognitive-items/generate">
             <Button variant="outline">
               <Sparkles className="size-4" />
               Generate items
             </Button>
           </Link>
-          <Link href="/item-bank/runs">
+          <Link href="/cognitive-items/runs">
             <Button variant="outline">
               <FlaskConical className="size-4" />
               Generation runs
             </Button>
           </Link>
-          <Link href="/item-bank/review">
+          <Link href="/cognitive-items/review">
             <Button>
               <ClipboardCheck className="size-4" />
               View &amp; review items
@@ -121,7 +121,7 @@ export default async function ItemBankPage() {
           title="No item families yet"
           description="Families appear here once a generated bank has been ingested. Ingest is idempotent by content hash, so re-running a bank cannot duplicate it."
           actionLabel="Generate items"
-          actionHref="/item-bank/generate"
+          actionHref="/cognitive-items/generate"
         />
       ) : (
         <FamiliesTable families={rows} />

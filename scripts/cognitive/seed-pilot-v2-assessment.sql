@@ -9,7 +9,7 @@
 --
 -- ORDER OF OPERATIONS. The v2 bank must be ingested BEFORE this runs
 -- (scripts/cognitive/ingest-to-live.ts --seed=v2-2026-08-19 --per-family=12,
--- or /item-bank/generate with the same seed). Section 3 below places items
+-- or /cognitive-items/generate with the same seed). Section 3 below places items
 -- by family and generator seed; with no such items present it places
 -- nothing, and re-running after the ingest completes the placement.
 --

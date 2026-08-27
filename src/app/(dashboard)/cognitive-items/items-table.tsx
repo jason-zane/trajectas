@@ -203,7 +203,7 @@ export function ItemsTable({
         data={items}
         searchableColumns={['stem', 'generatorSeed', 'familyCode']}
         searchPlaceholder="Search items"
-        rowHref={(row) => `/item-bank/review/${row.id}`}
+        rowHref={(row) => `/cognitive-items/review/${row.id}`}
         getRowId={(row) => row.id}
         pageSize={25}
         emptyState={

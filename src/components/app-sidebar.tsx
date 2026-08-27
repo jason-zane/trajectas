@@ -108,7 +108,7 @@ const adminNav: NavSection[] = [
     defaultOpen: false,
     items: [
       { title: "Instruments", href: "/instruments", icon: FlaskConical },
-      { title: "Cognitive Items", href: "/item-bank", icon: Layers },
+      { title: "Cognitive Items", href: "/cognitive-items", icon: Layers },
       { title: "Psychometrics", href: "/psychometrics", icon: BarChart3 },
     ],
   },

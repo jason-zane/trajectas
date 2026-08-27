@@ -4,8 +4,8 @@
  * between #281 and the fix these tests pin.
  *
  * Reported as "I click on any of the rows in the item bank and nothing
- * happens". The Vercel logs agreed and narrowed it: `/item-bank/review` was
- * requested six times in 24h and `/item-bank/review/<itemId>` zero times, so
+ * happens". The Vercel logs agreed and narrowed it: `/cognitive-items/review` was
+ * requested six times in 24h and `/cognitive-items/review/<itemId>` zero times, so
  * no navigation was ever attempted and the destination page was never at
  * fault. The cause was in `DataTable` and therefore applied to all 23 tables
  * that pass `rowHref` or `onRowClick` — `shouldIgnoreRowEvent` matched the
@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DataTable } from '@/components/data-table'
-import { ItemsTable, type ItemRow } from '@/app/(dashboard)/item-bank/items-table'
+import { ItemsTable, type ItemRow } from '@/app/(dashboard)/cognitive-items/items-table'
 
 // jsdom has no IntersectionObserver, and `ScrollReveal` wraps every DataTable.
 // Stubbed as "immediately intersecting" so the table is in its revealed state,
@@ -44,7 +44,7 @@ const push = vi.fn()
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn() }),
-  usePathname: () => '/item-bank/review',
+  usePathname: () => '/cognitive-items/review',
   useSearchParams: () => new URLSearchParams(),
 }))
 
@@ -77,7 +77,7 @@ function itemRow(overrides: Partial<ItemRow> = {}): ItemRow {
   }
 }
 
-const REVIEW_HREF = '/item-bank/review/11111111-1111-1111-1111-111111111111'
+const REVIEW_HREF = '/cognitive-items/review/11111111-1111-1111-1111-111111111111'
 
 describe('item bank review queue', () => {
   it('opens the item when its row is clicked', () => {

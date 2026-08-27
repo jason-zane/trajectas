@@ -608,7 +608,7 @@ function main(): void {
       fail(
         `construct ${constructId} has ${drafts} figural-matrix items, but none has been ` +
           'reviewed. Record content and fairness sign-offs in the item bank review queue ' +
-          '(/item-bank/review), move the approved items to "piloting", then re-run. ' +
+          '(/cognitive-items/review), move the approved items to "piloting", then re-run. ' +
           'Nothing composes an assessment out of unreviewed items.',
       )
     }

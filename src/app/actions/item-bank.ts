@@ -64,13 +64,13 @@ import {
 /**
  * URL path of the admin item bank surface, for `revalidatePath`.
  *
- * `/item-bank`, NOT `/dashboard/item-bank`: the pages live under
- * `src/app/(dashboard)/item-bank/`, and `(dashboard)` is a ROUTE GROUP, so it
+ * `/cognitive-items`, NOT `/dashboard/cognitive-items`: the pages live under
+ * `src/app/(dashboard)/cognitive-items/`, and `(dashboard)` is a ROUTE GROUP, so it
  * contributes nothing to the URL — exactly as its siblings `/items` and
  * `/generate` do. `revalidatePath` matches on the URL, so the previous value
  * pointed at a path that does not exist and silently revalidated nothing.
  */
-const ITEM_BANK_PATH = '/item-bank'
+const COGNITIVE_ITEMS_PATH = '/cognitive-items'
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -199,7 +199,7 @@ export async function recordItemReview(input: RecordItemReviewInput): Promise<Ac
     metadata: { reviewKind: parsed.data.reviewKind, decision: parsed.data.decision },
   })
 
-  revalidatePath(ITEM_BANK_PATH)
+  revalidatePath(COGNITIVE_ITEMS_PATH)
   return { ok: true, data: undefined }
 }
 
@@ -245,7 +245,7 @@ export async function transitionItemLifecycle(
     metadata: { targetState },
   })
 
-  revalidatePath(ITEM_BANK_PATH)
+  revalidatePath(COGNITIVE_ITEMS_PATH)
   return { ok: true, data: { lifecycleState: String(data.lifecycle_state) } }
 }
 
@@ -304,7 +304,7 @@ export async function ingestBank(input: IngestGeneratedBankInput): Promise<
       },
     })
 
-    revalidatePath(ITEM_BANK_PATH)
+    revalidatePath(COGNITIVE_ITEMS_PATH)
     return {
       ok: true,
       data: {
@@ -401,7 +401,7 @@ export async function generateAndIngestBank(
       },
     })
 
-    revalidatePath(ITEM_BANK_PATH)
+    revalidatePath(COGNITIVE_ITEMS_PATH)
 
     const rejectionReasons: Record<string, number> = {}
     for (const perFamily of Object.values(generated.rejects)) {

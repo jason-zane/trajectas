@@ -69,6 +69,9 @@ describe("AppSidebar structure", () => {
       "Cognitive Items",
       "Psychometrics",
     ])
+    expect(
+      within(panel as HTMLElement).getByRole("link", { name: /^cognitive items$/i })
+    ).toHaveAttribute("href", "/cognitive-items")
   })
 
   it("points Dashboard at the workspace, not the marketing home", () => {
