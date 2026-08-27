@@ -9,7 +9,7 @@ import 'server-only'
 
 import { z } from 'zod'
 import { defineChatTool } from '../registry'
-import { toolOk, toolFail } from '../envelope'
+import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import {
   searchCampaigns,
   ChatSearchError,
@@ -67,5 +67,22 @@ export const findCampaignTool = defineChatTool({
             : [],
       },
     )
+  },
+  toBlocks(data): ChatBlock[] {
+    if (data.campaigns.length === 0) return []
+    return [
+      {
+        kind: 'entity_links',
+        v: 1,
+        title: 'Campaigns',
+        links: data.campaigns.map((row) => ({
+          kind: 'campaign' as const,
+          id: row.campaignId,
+          label: row.title ?? 'Untitled',
+          sublabel: row.clientName ?? null,
+          href: row.href,
+        })),
+      },
+    ]
   },
 })

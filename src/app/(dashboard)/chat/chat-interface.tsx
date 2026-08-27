@@ -9,6 +9,8 @@ import { randomId } from "@/lib/ids";
 import { cancellableFetch, isAbortError } from "@/lib/net/cancellable-fetch";
 import { ModelPickerCombobox } from "../settings/models/model-picker-combobox";
 import { EntityLinksBlockView } from "@/components/chat/entity-links-block";
+import { ChatScoreCard } from "@/components/chat/chat-score-card";
+import { CampaignSummaryCard } from "@/components/chat/campaign-summary-card";
 import { readChatFrames } from "@/lib/chat/stream-client";
 import type { ChatBlock } from "@/lib/chat/envelope";
 import type { OpenRouterModel } from "@/types/generation";
@@ -316,15 +318,26 @@ export function ChatInterface({
               )}
             </div>
             <div className="flex min-w-0 flex-col gap-2">
-              {message.blocks?.map((block, i) =>
-                block.kind === "entity_links" ? (
-                  <EntityLinksBlockView
-                    key={`${message.id}-block-${i}`}
-                    title={block.title}
-                    links={block.links}
-                  />
-                ) : null
-              )}
+              {message.blocks?.map((block, i) => {
+                const key = `${message.id}-block-${i}`;
+                if (block.kind === "entity_links") {
+                  return (
+                    <EntityLinksBlockView
+                      key={key}
+                      title={block.title}
+                      links={block.links}
+                    />
+                  );
+                }
+                if (block.kind === "score_card") {
+                  return <ChatScoreCard key={key} block={block} />;
+                }
+                if (block.kind === "campaign_summary") {
+                  return <CampaignSummaryCard key={key} block={block} />;
+                }
+                // Unknown block kind from a newer server: ignore rather than crash.
+                return null;
+              })}
               {(message.content || message.role === "user" || !message.blocks?.length) && (
                 <div
                   className={cn(

@@ -17,7 +17,7 @@ import 'server-only'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type OpenAI from 'openai'
-import type { ToolEnvelope } from './envelope'
+import type { ChatBlock, ToolEnvelope } from './envelope'
 
 /** What a tool may do with the request beyond querying. */
 export interface ChatToolContext {
@@ -38,6 +38,21 @@ export interface ChatTool<TParams extends z.ZodTypeAny = z.ZodTypeAny, TData = u
     args: z.infer<TParams>,
     ctx: ChatToolContext,
   ) => Promise<ToolEnvelope<TData>>
+  /**
+   * Structured payloads for the browser to render. Declared per tool rather
+   * than inferred from result keys, so adding a tool cannot silently produce
+   * the wrong card.
+   */
+  toBlocks?: (data: TData) => ChatBlock[]
+  /**
+   * What the MODEL is allowed to see of this result. Tools returning
+   * measurements implement this to strip every numeric value, leaving
+   * identity and code-computed ordinal facts. The full data still reaches the
+   * browser via toBlocks — so the numbers on screen never passed through the
+   * token stream, and restating one wrongly is impossible rather than merely
+   * discouraged. Omit for tools whose results carry no measurements.
+   */
+  redactForModel?: (data: TData) => unknown
 }
 
 export function defineChatTool<TParams extends z.ZodTypeAny, TData>(

@@ -88,7 +88,57 @@ export interface EntityLinksBlock {
   links: EntityLink[]
 }
 
-export type ChatBlock = EntityLinksBlock
+/**
+ * One factor's score, already resolved through the claims ladder. `percentile`
+ * and the confidence interval appear ONLY when the underlying row had a
+ * versioned norm group — otherwise the fields are absent, mirroring
+ * UncalibratedCompetencyScore, so a card can never render a rank claim the
+ * data does not support.
+ */
+export interface ScoreCardFactor {
+  factorId: string
+  name: string
+  scaledScore: number
+  provisional: boolean
+  percentile?: number
+  confidenceIntervalLower?: number | null
+  confidenceIntervalUpper?: number | null
+  normVersion?: string
+}
+
+export interface ScoreCardBlock {
+  kind: 'score_card'
+  v: 1
+  participantName: string
+  assessmentTitle: string | null
+  completedAt: string | null
+  /** True only when every factor carries a versioned norm group. */
+  normReferenced: boolean
+  factors: ScoreCardFactor[]
+  /** The band scheme these scores are being read against. */
+  bandScheme: {
+    palette: string
+    bands: Array<{ key: string; label: string; min: number; max: number }>
+  }
+  caveats: string[]
+  href: string | null
+}
+
+export interface CampaignSummaryBlock {
+  kind: 'campaign_summary'
+  v: 1
+  campaignTitle: string | null
+  clientName: string | null
+  status: string | null
+  invited: number
+  started: number
+  completed: number
+  scoredSessions: number
+  caveats: string[]
+  href: string | null
+}
+
+export type ChatBlock = EntityLinksBlock | ScoreCardBlock | CampaignSummaryBlock
 
 // ---------------------------------------------------------------------------
 // Stream frames — one JSON object per line (ndjson)

@@ -10,7 +10,7 @@ import 'server-only'
 
 import { z } from 'zod'
 import { defineChatTool } from '../registry'
-import { toolOk, toolFail } from '../envelope'
+import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import {
   searchAssessments,
   ChatSearchError,
@@ -63,5 +63,22 @@ export const findAssessmentTool = defineChatTool({
             : [],
       },
     )
+  },
+  toBlocks(data): ChatBlock[] {
+    if (data.assessments.length === 0) return []
+    return [
+      {
+        kind: 'entity_links',
+        v: 1,
+        title: 'Assessments',
+        links: data.assessments.map((row) => ({
+          kind: 'assessment' as const,
+          id: row.assessmentId,
+          label: row.title ?? 'Untitled',
+          sublabel: row.clientName ?? null,
+          href: row.href,
+        })),
+      },
+    ]
   },
 })

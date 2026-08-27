@@ -10,7 +10,7 @@ import 'server-only'
 
 import { z } from 'zod'
 import { defineChatTool } from '../registry'
-import { toolOk, toolFail } from '../envelope'
+import { toolOk, toolFail, type ChatBlock } from '../envelope'
 import {
   searchParticipants,
   ChatSearchError,
@@ -65,5 +65,22 @@ export const findParticipantTool = defineChatTool({
             : [],
       },
     )
+  },
+  toBlocks(data): ChatBlock[] {
+    if (data.participants.length === 0) return []
+    return [
+      {
+        kind: 'entity_links',
+        v: 1,
+        title: 'Participants',
+        links: data.participants.map((row) => ({
+          kind: 'participant' as const,
+          id: row.participantId,
+          label: row.name ?? 'Untitled',
+          sublabel: row.campaignTitle ?? null,
+          href: row.href,
+        })),
+      },
+    ]
   },
 })
