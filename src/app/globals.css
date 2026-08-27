@@ -505,6 +505,24 @@
   overflow: hidden;
 }
 
+/* Sidebar group panel — same grid-rows collapse as the accordion */
+[data-slot="sidebar-group-panel"] {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.2s var(--ease-spring);
+}
+[data-slot="sidebar-group-panel"][data-open] {
+  grid-template-rows: 1fr;
+}
+[data-slot="sidebar-group-panel"] > * {
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sidebar-group-panel"] {
+    transition: none;
+  }
+}
+
 /* Primary button shimmer */
 [data-slot="button"].bg-primary {
   position: relative;

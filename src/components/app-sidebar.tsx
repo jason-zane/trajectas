@@ -24,7 +24,6 @@ import {
   Megaphone,
   Palette,
   Users,
-  Wand2,
   LayoutTemplate,
   Settings,
   ArrowLeft,
@@ -36,14 +35,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
 import { TrajectasLogo } from "@/components/brand/trajectas-logo";
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
+  SidebarGroupCollapsible,
+  SidebarGroupPanel,
+  SidebarGroupTrigger,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -51,6 +49,7 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { usePortal, type PortalType } from "@/components/portal-context";
+import { useSidebarSections } from "@/hooks/use-sidebar-sections";
 
 const portalConfig: Record<
   PortalType,
@@ -77,18 +76,22 @@ type NavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
-  comingSoon?: boolean;
 };
 
 type NavSection = {
   label: string;
   items: NavItem[];
+  /** Sections a user has never toggled start in this state. */
+  defaultOpen?: boolean;
 };
 
+// Sections are grouped by what a page does to data: the Library holds it,
+// Instrument Development manufactures and validates it, Assessments assembles
+// it, Delivery runs it, Insights reads it back.
 const adminNav: NavSection[] = [
   {
     label: "Overview",
-    items: [{ title: "Dashboard", href: "/", icon: Home }],
+    items: [{ title: "Dashboard", href: "/dashboard", icon: Home }],
   },
   {
     label: "Library",
@@ -97,9 +100,15 @@ const adminNav: NavSection[] = [
       { title: "Factors", href: "/factors", icon: Brain },
       { title: "Constructs", href: "/constructs", icon: Dna },
       { title: "Items", href: "/items", icon: FileQuestion },
-      { title: "Item Bank", href: "/item-bank", icon: Layers },
+      { title: "Item Formats", href: "/response-formats", icon: Settings2 },
+    ],
+  },
+  {
+    label: "Instrument Development",
+    defaultOpen: false,
+    items: [
       { title: "Instruments", href: "/instruments", icon: FlaskConical },
-      { title: "Response Formats", href: "/response-formats", icon: Settings2 },
+      { title: "Cognitive Items", href: "/item-bank", icon: Layers },
       { title: "Psychometrics", href: "/psychometrics", icon: BarChart3 },
     ],
   },
@@ -107,8 +116,12 @@ const adminNav: NavSection[] = [
     label: "Assessments",
     items: [
       { title: "Assessment Builder", href: "/assessments", icon: ClipboardList },
-      { title: "Architect", href: "/assessments?new=architect", icon: Wand2 },
       { title: "Report Templates", href: "/report-templates", icon: LayoutTemplate },
+    ],
+  },
+  {
+    label: "Delivery",
+    items: [
       { title: "Campaigns", href: "/campaigns", icon: Megaphone },
       { title: "Participants", href: "/participants", icon: Users },
     ],
@@ -118,17 +131,21 @@ const adminNav: NavSection[] = [
     items: [
       { title: "Compare", href: "/participants/compare", icon: Scale },
       { title: "Trajectory", href: "/participants/trajectory", icon: TrendingUp },
+      { title: "Reports", href: "/reports", icon: FileText },
     ],
   },
   {
-    label: "Diagnostics",
+    label: "Org Diagnostics",
+    defaultOpen: false,
     items: [
-      { title: "Templates", href: "/diagnostic-templates", icon: FileText, comingSoon: true },
-      { title: "Sessions", href: "/diagnostics", icon: Layers, comingSoon: true },
+      { title: "Sessions", href: "/diagnostics", icon: Layers },
+      { title: "Templates", href: "/diagnostics/templates", icon: FileText },
+      { title: "Matching Engine", href: "/matching", icon: Sparkles },
     ],
   },
   {
-    label: "People",
+    label: "Clients & People",
+    defaultOpen: false,
     items: [
       { title: "Directory", href: "/directory", icon: Building2 },
       { title: "Users", href: "/users", icon: Users },
@@ -136,17 +153,11 @@ const adminNav: NavSection[] = [
   },
   {
     label: "Business",
+    defaultOpen: false,
     items: [
       { title: "Overview", href: "/business", icon: Activity },
       { title: "Invoices", href: "/business/invoices", icon: Receipt },
       { title: "Usage", href: "/business/usage", icon: BarChart3 },
-    ],
-  },
-  {
-    label: "AI Tools",
-    items: [
-      { title: "Chat", href: "/chat", icon: MessageSquare },
-      { title: "Matching Engine", href: "/matching", icon: Sparkles },
     ],
   },
 ];
@@ -201,6 +212,7 @@ const settingsNav: NavSection[] = [
       { title: "Brand", href: "/settings/brand", icon: Palette },
       { title: "Experience", href: "/settings/experience", icon: Users },
       { title: "AI Configuration", href: "/settings/ai", icon: Cpu },
+      { title: "Band Scheme", href: "/settings/reports/band-scheme", icon: Scale },
       { title: "Email Templates", href: "/settings/email-templates", icon: Mail },
       { title: "Content Sources", href: "/settings/content-sources", icon: Tag },
       { title: "Audit log", href: "/settings/audit", icon: Shield },
@@ -253,6 +265,7 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
   const config = portalConfig[portal];
   const PortalIcon = config.icon;
   const navSections = navByPortal[portal];
+  const { isSectionOpen, setSectionOpen } = useSidebarSections(portal);
   const settingsHref = href("/settings");
   const isSettingsArea =
     pathname === settingsHref || pathname.startsWith(`${settingsHref}/`);
@@ -333,24 +346,37 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
           (portal === "admin" || portal === "client" || portal === "partner") && (
           <div className="px-3 py-2">
             <Link
-              href={
-                portal === "admin"
-                  ? href("/")
-                  : href("/dashboard")
-              }
+              href={href("/dashboard")}
               className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
             >
               <ArrowLeft className="size-4" />
-              <span>{portal === "admin" ? "Back to platform" : "Back to dashboard"}</span>
+              <span>Back to dashboard</span>
             </Link>
           </div>
         )}
-        {displayNav.map((section) => (
-          <SidebarGroup key={section.label}>
-            <SidebarGroupLabel className="text-overline text-sidebar-foreground/60">
+        {displayNav.map((section) => {
+          // Landing inside a section opens it even when it normally starts
+          // closed — otherwise navigating there hides where you are. This only
+          // raises the default, so an explicit collapse still wins and the
+          // trigger never looks dead.
+          const containsActive = section.items.some((item) => {
+            const resolved = href(item.href);
+            return pathname === resolved || pathname.startsWith(`${resolved}/`);
+          });
+          const open = isSectionOpen(
+            section.label,
+            (section.defaultOpen ?? true) || containsActive
+          );
+          return (
+          <SidebarGroupCollapsible
+            key={section.label}
+            open={open}
+            onOpenChange={(next) => setSectionOpen(section.label, next)}
+          >
+            <SidebarGroupTrigger className="text-overline text-sidebar-foreground/60">
               {section.label}
-            </SidebarGroupLabel>
-            <SidebarGroupContent>
+            </SidebarGroupTrigger>
+            <SidebarGroupPanel>
               <SidebarMenu>
                 {section.items.map((item) => {
                   const resolvedHref = href(item.href);
@@ -358,27 +384,6 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
                     resolvedHref === "/"
                       ? pathname === "/"
                       : pathname === resolvedHref || pathname.startsWith(`${resolvedHref}/`);
-                  if (item.comingSoon) {
-                    return (
-                      <SidebarMenuItem key={resolvedHref} className="relative">
-                        <SidebarMenuButton
-                          isActive={false}
-                          tooltip="This feature is coming soon"
-                          className="opacity-40 cursor-default pointer-events-none"
-                          render={<div />}
-                        >
-                          <item.icon className="size-4" />
-                          <span>{item.title}</span>
-                          <Badge
-                            variant="outline"
-                            className="ml-auto text-[10px] px-1.5 py-0"
-                          >
-                            Coming soon
-                          </Badge>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  }
                   return (
                     <SidebarMenuItem key={resolvedHref} className="relative">
                       {isActive && (
@@ -396,14 +401,25 @@ export function AppSidebar({ identity }: AppSidebarProps = {}) {
                   );
                 })}
               </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        ))}
+            </SidebarGroupPanel>
+          </SidebarGroupCollapsible>
+          );
+        })}
       </SidebarContent>
 
       {portal === "admin" && !isSettingsArea && (
         <SidebarFooter className="px-3 pb-3">
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname === "/chat" || pathname.startsWith("/chat/")}
+                tooltip="Chat"
+                render={<Link href="/chat" />}
+              >
+                <MessageSquare className="size-4" />
+                <span>Chat</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 isActive={pathname.startsWith("/settings")}

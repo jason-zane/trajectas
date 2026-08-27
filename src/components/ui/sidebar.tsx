@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { Collapsible as CollapsiblePrimitive } from "@base-ui/react/collapsible"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -23,7 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { PanelLeftIcon } from "lucide-react"
+import { ChevronRightIcon, PanelLeftIcon } from "lucide-react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
@@ -452,6 +453,63 @@ function SidebarGroupContent({
   )
 }
 
+/**
+ * A SidebarGroup whose label toggles the items below it. Compose as:
+ *
+ *   <SidebarGroupCollapsible open={open} onOpenChange={setOpen}>
+ *     <SidebarGroupTrigger>Library</SidebarGroupTrigger>
+ *     <SidebarGroupPanel>…menu…</SidebarGroupPanel>
+ *   </SidebarGroupCollapsible>
+ */
+function SidebarGroupCollapsible({
+  className,
+  ...props
+}: CollapsiblePrimitive.Root.Props) {
+  return (
+    <CollapsiblePrimitive.Root
+      data-slot="sidebar-group"
+      data-sidebar="group"
+      className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
+      {...props}
+    />
+  )
+}
+
+function SidebarGroupTrigger({
+  className,
+  children,
+  ...props
+}: CollapsiblePrimitive.Trigger.Props) {
+  return (
+    <CollapsiblePrimitive.Trigger
+      data-slot="sidebar-group-trigger"
+      data-sidebar="group-label"
+      className={cn(
+        "flex h-8 w-full shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 ring-sidebar-ring outline-hidden transition-[margin,opacity,color] duration-200 ease-linear group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0 hover:text-sidebar-foreground focus-visible:ring-2",
+        className
+      )}
+      {...props}
+    >
+      <ChevronRightIcon className="size-3 shrink-0 opacity-60 transition-transform duration-200 [[data-panel-open]_&]:rotate-90" />
+      {children}
+    </CollapsiblePrimitive.Trigger>
+  )
+}
+
+function SidebarGroupPanel({
+  className,
+  ...props
+}: CollapsiblePrimitive.Panel.Props) {
+  return (
+    <CollapsiblePrimitive.Panel
+      data-slot="sidebar-group-panel"
+      data-sidebar="group-content"
+      className={cn("w-full overflow-hidden text-sm", className)}
+      {...props}
+    />
+  )
+}
+
 function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
   return (
     <ul
@@ -701,8 +759,11 @@ export {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
+  SidebarGroupCollapsible,
   SidebarGroupContent,
   SidebarGroupLabel,
+  SidebarGroupPanel,
+  SidebarGroupTrigger,
   SidebarHeader,
   SidebarInput,
   SidebarInset,
