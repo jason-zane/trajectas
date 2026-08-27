@@ -180,6 +180,13 @@ const SCAN_EXTENSIONS = new Set([".ts", ".tsx"]);
  * cognitive-claims.ts is the sanctioned raw-row reader/writer — exempt from
  * every pattern below.
  *
+ * competency-claims.ts is the sanctioned raw-row reader for the OTHER half of
+ * the ladder (metric='pomp'). It is the exact peer of cognitive-claims.ts —
+ * same fail-closed structure, same field-by-field construction, its own
+ * architecture test — and between them they cover every metric
+ * participant_scores_metric_check allows. It must read the raw columns for the
+ * same reason cognitive-claims.ts does: something has to be the boundary.
+ *
  * cognitive-profile.tsx is the sanctioned RESOLVED-value renderer — exempt
  * from the `percentile` pattern only, because CalibratedCognitiveScore's
  * field is (deliberately) named identically to the raw column. It gets no
@@ -188,9 +195,13 @@ const SCAN_EXTENSIONS = new Set([".ts", ".tsx"]);
  * so this component never has a legitimate reason to reference the raw
  * snake_case names.
  */
-const FULLY_EXEMPT = new Set([join(ROOT, "src", "lib", "reports", "cognitive-claims.ts")]);
+const FULLY_EXEMPT = new Set([
+  join(ROOT, "src", "lib", "reports", "cognitive-claims.ts"),
+  join(ROOT, "src", "lib", "reports", "competency-claims.ts"),
+]);
 const PERCENTILE_EXEMPT = new Set([
   join(ROOT, "src", "lib", "reports", "cognitive-claims.ts"),
+  join(ROOT, "src", "lib", "reports", "competency-claims.ts"),
   join(ROOT, "src", "components", "reports", "blocks", "cognitive-profile.tsx"),
 ]);
 
