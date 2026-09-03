@@ -1,7 +1,13 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireParticipantAccess, requireSessionAccess } from '@/lib/auth/authorization'
+import {
+  requireCampaignAccess,
+  requireParticipantAccess,
+  requireSessionAccess,
+  resolveAuthorizedScope,
+  resolveTenantClientFilter,
+} from '@/lib/auth/authorization'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
 import {
   comparisonRequestSchema,
@@ -214,6 +220,14 @@ export async function searchCampaignParticipants(
 ): Promise<ParticipantSearchHit[]> {
   const parsed = searchCampaignParticipantsSchema.safeParse({ campaignId, query })
   if (!parsed.success) return []
+  // The campaign id arrives from the client, so establish access here rather
+  // than leaning on RLS — RLS lets a platform admin read every campaign even
+  // while they are standing inside one client's workspace.
+  try {
+    await requireCampaignAccess(parsed.data.campaignId)
+  } catch {
+    return []
+  }
   const supabase = await createClient()
   let q = supabase
     .from('campaign_participants')
@@ -235,17 +249,73 @@ export async function searchCampaignParticipants(
   return sortHits(hits)
 }
 
-export async function searchAllParticipants(
+/**
+ * Campaign ids the caller may see within the client ids they are scoped to.
+ *
+ * Resolved as an explicit id list rather than a filter on the embedded
+ * `campaigns` relation: a predicate that silently fails to apply would reopen
+ * the leak this function exists to close, and an id list is unambiguous.
+ */
+async function scopedCampaignIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  clientIds: string[],
+  partnerIds: string[],
+): Promise<string[]> {
+  const clauses: string[] = []
+  if (clientIds.length) clauses.push(`client_id.in.(${clientIds.join(',')})`)
+  if (partnerIds.length) clauses.push(`partner_id.in.(${partnerIds.join(',')})`)
+  if (clauses.length === 0) return []
+
+  // Deliberately not filtered on `deleted_at`: the picker has always listed
+  // participants of soft-deleted campaigns (the RLS policy does not filter
+  // them either), and narrowing that here would be a behaviour change riding
+  // along with a security fix. `requireCampaignAccess` still refuses them at
+  // comparison time.
+  const { data, error } = await supabase
+    .from('campaigns')
+    .select('id')
+    .or(clauses.join(','))
+  if (error) throw error
+  return (data ?? []).map((row) => String(row.id))
+}
+
+/**
+ * Participants the caller may add to a comparison from the workspace they are
+ * currently in — not every participant their memberships reach.
+ *
+ * The distinction matters because RLS cannot draw it. `auth_user_client_ids()`
+ * spans every membership regardless of the active workspace, and
+ * `is_platform_admin()` short-circuits to everything, so a platform admin
+ * inside one client's portal (including via a support session) was offered the
+ * whole platform's participants — names, emails and campaign titles across
+ * every tenant. The workspace boundary lives in `resolveAuthorizedScope()`, so
+ * apply it here as an explicit predicate.
+ */
+export async function searchWorkspaceParticipants(
   query: string,
 ): Promise<ParticipantSearchHit[]> {
   const parsed = searchAllParticipantsSchema.safeParse({ query })
   if (!parsed.success) return []
   const supabase = await createClient()
+
+  const scope = await resolveAuthorizedScope()
+  const clientFilter = resolveTenantClientFilter(scope)
+  // `null` means genuinely unrestricted; an empty list means restricted to
+  // nothing, which must return no rows rather than falling through unfiltered.
+  let scopedIds: string[] | null = null
+  if (clientFilter !== null) {
+    scopedIds = await scopedCampaignIds(supabase, clientFilter, scope.partnerIds)
+    if (scopedIds.length === 0) return []
+  }
+
   let q = supabase
     .from('campaign_participants')
     .select(PICKER_SELECT)
     .order('created_at', { ascending: false })
     .limit(PICKER_LIMIT)
+  if (scopedIds) {
+    q = q.in('campaign_id', scopedIds)
+  }
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
     q = q.or(

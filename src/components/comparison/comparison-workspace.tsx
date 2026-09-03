@@ -15,7 +15,7 @@ import { buildCellStyleResolver } from '@/lib/comparison/resolve-bands'
 import {
   getComparisonMatrix,
   getEligibleAssessmentsForParticipants,
-  searchAllParticipants,
+  searchWorkspaceParticipants,
   searchCampaignParticipants,
   type EligibleAssessment,
 } from '@/app/actions/comparison'
@@ -28,7 +28,12 @@ import {
  * inside this component so it lives entirely on the client.
  */
 export type PickerScope =
-  | { kind: 'all' }
+  /**
+   * Everyone in the caller's *current workspace* — not the whole platform.
+   * `searchWorkspaceParticipants` derives the tenant boundary server-side from
+   * the session, so this variant carries no id to be tampered with.
+   */
+  | { kind: 'workspace' }
   | { kind: 'campaign'; campaignId: string }
 import type { BandScheme } from '@/lib/reports/band-scheme'
 import { DEFAULT_VISIBLE_LEVELS } from '@/lib/comparison/url-params'
@@ -83,7 +88,7 @@ export function ComparisonWorkspace({
     () =>
       pickerScope.kind === 'campaign'
         ? (query) => searchCampaignParticipants(pickerScope.campaignId, query)
-        : (query) => searchAllParticipants(query),
+        : (query) => searchWorkspaceParticipants(query),
     [pickerScope],
   )
   const router = useRouter()

@@ -105,7 +105,7 @@ export default async function ClientComparePage({
         basePath={BASE_PATH}
         partnerBandScheme={null}
         platformBandScheme={platformBandScheme}
-        pickerScope={{ kind: 'all' }}
+        pickerScope={{ kind: 'workspace' }}
         currentUserId={actor?.id ?? null}
       />
     </div>

@@ -13,6 +13,7 @@ import {
   canManageReportTemplateLibrary,
   getPreferredPartnerIdForClientCreation,
   getPreferredPartnerIdForReportTemplateCreation,
+  resolveTenantClientFilter,
   type AuthorizedScope,
 } from "@/lib/auth/authorization";
 
@@ -356,5 +357,58 @@ describe("authorization rules", () => {
     it("fails admin-only check", () => {
       expect(() => assertAdminOnly(emptyScope)).toThrow(AuthorizationError);
     });
+  });
+});
+
+// =============================================================================
+// Workspace tenant filter
+// =============================================================================
+
+describe("resolveTenantClientFilter", () => {
+  it("is unrestricted only for a platform admin with no workspace selected", () => {
+    expect(resolveTenantClientFilter(createScope({ isPlatformAdmin: true }))).toBeNull();
+  });
+
+  it("confines a platform admin who has entered a client workspace", () => {
+    // The regression this guards: RLS cannot see the active context, so a
+    // platform admin inside one client's portal was served every tenant's rows.
+    const scope = createScope({
+      isPlatformAdmin: true,
+      activeContext: { surface: "client", tenantType: "client", tenantId: "client-1" },
+      clientIds: ["client-1"],
+    });
+
+    expect(resolveTenantClientFilter(scope)).toEqual(["client-1"]);
+  });
+
+  it("confines a platform admin inside a support session", () => {
+    const scope = createScope({
+      requestSurface: "client",
+      clientIds: ["client-1"],
+      supportSession: {
+        id: "support-1",
+        actorProfileId: "actor-1",
+        targetSurface: "client",
+        targetTenantId: "client-1",
+        reason: "Admin portal access",
+        sessionKey: "session-key-1",
+        createdAt: "2026-01-01T00:00:00.000Z",
+        expiresAt: "2099-01-01T00:00:00.000Z",
+        metadata: {},
+      },
+    });
+
+    expect(resolveTenantClientFilter(scope)).toEqual(["client-1"]);
+  });
+
+  it("restricts an ordinary member to their memberships", () => {
+    expect(
+      resolveTenantClientFilter(createScope({ clientIds: ["client-1", "client-2"] }))
+    ).toEqual(["client-1", "client-2"]);
+  });
+
+  it("returns an empty list — not null — when the caller reaches no client", () => {
+    // Callers must read this as "no rows", never as "unrestricted".
+    expect(resolveTenantClientFilter(createScope())).toEqual([]);
   });
 });
