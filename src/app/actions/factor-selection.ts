@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireCampaignAccess } from '@/lib/auth/authorization'
+import { requireCampaignManage } from '@/lib/auth/authorization'
 import { revalidatePath } from 'next/cache'
 import { throwActionError } from '@/lib/security/action-errors'
 import { getItemsPerConstructForCount } from '@/app/actions/item-selection-rules'
@@ -175,7 +175,7 @@ export async function saveFactorSelection(
   }
 
   // Auth check
-  await requireCampaignAccess(ca.campaign_id)
+  await requireCampaignManage(ca.campaign_id)
 
   // Verify assessment has min_custom_factors set
   const { data: assessment, error: assessmentError } = await admin
@@ -266,7 +266,7 @@ export async function clearFactorSelection(
     throwActionError('clearFactorSelection', 'Campaign assessment not found.', caError)
   }
 
-  await requireCampaignAccess(ca.campaign_id)
+  await requireCampaignManage(ca.campaign_id)
 
   const { error: deleteError } = await admin
     .from('campaign_assessment_factors')

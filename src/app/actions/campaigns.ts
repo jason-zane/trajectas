@@ -42,6 +42,7 @@ import {
   getAccessiblePartnerIds,
   requireAssessmentAccess,
   requireCampaignAccess,
+  requireCampaignManage,
   requireClientAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
@@ -305,7 +306,7 @@ function buildReusedCampaignTitle(title: string): string {
 export async function duplicateCampaignForReuse(sourceCampaignId: string) {
   let access
   try {
-    access = await requireCampaignAccess(sourceCampaignId)
+    access = await requireCampaignManage(sourceCampaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -515,7 +516,7 @@ export async function updateCampaign(id: string, payload: Record<string, unknown
 
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: { _form: [error.message] } }
@@ -593,7 +594,7 @@ export async function updateCampaignField(id: string, field: string, value: stri
 
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -639,7 +640,7 @@ export async function updateCampaignField(id: string, field: string, value: stri
 export async function deleteCampaign(id: string) {
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -677,7 +678,7 @@ export async function deleteCampaign(id: string) {
 export async function restoreCampaign(id: string) {
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -719,7 +720,7 @@ export async function restoreCampaign(id: string) {
 export async function activateCampaign(id: string) {
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -863,7 +864,7 @@ export async function activateCampaign(id: string) {
 export async function pauseCampaign(id: string) {
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -898,7 +899,7 @@ export async function pauseCampaign(id: string) {
 export async function closeCampaign(id: string) {
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -942,7 +943,7 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
 
   let access
   try {
-    access = await requireCampaignAccess(id)
+    access = await requireCampaignManage(id)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -983,7 +984,7 @@ export async function toggleCampaignSetting(id: string, field: string, value: bo
 export async function addAssessmentToCampaign(campaignId: string, assessmentId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1115,7 +1116,7 @@ export async function addAssessmentToCampaign(campaignId: string, assessmentId: 
 export async function removeAssessmentFromCampaign(campaignId: string, assessmentId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1153,7 +1154,7 @@ export async function removeAssessmentFromCampaign(campaignId: string, assessmen
 export async function reorderCampaignAssessments(campaignId: string, orderedIds: string[]) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1205,7 +1206,7 @@ export async function inviteParticipant(
 
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: { _form: [error.message] } }
@@ -1367,7 +1368,7 @@ export async function sendParticipantInviteEmail(
   participantId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireCampaignAccess(campaignId)
+    await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { success: false, error: error.message }
@@ -1449,7 +1450,7 @@ export async function bulkInviteParticipants(
 ) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1646,7 +1647,7 @@ export async function bulkInviteParticipants(
 export async function removeParticipant(campaignId: string, participantId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1686,7 +1687,7 @@ export async function removeParticipant(campaignId: string, participantId: strin
 export async function restoreParticipant(campaignId: string, participantId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1734,7 +1735,7 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
 
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: { _form: [error.message] } }
@@ -1780,7 +1781,7 @@ export async function createAccessLink(campaignId: string, payload: Record<strin
 export async function deactivateAccessLink(campaignId: string, linkId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1816,7 +1817,7 @@ export async function deactivateAccessLink(campaignId: string, linkId: string) {
 export async function reactivateAccessLink(campaignId: string, linkId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -1852,7 +1853,7 @@ export async function reactivateAccessLink(campaignId: string, linkId: string) {
 export async function deleteAccessLink(campaignId: string, linkId: string) {
   let access
   try {
-    access = await requireCampaignAccess(campaignId)
+    access = await requireCampaignManage(campaignId)
   } catch (error) {
     if (error instanceof AuthorizationError) {
       return { error: error.message }
@@ -2446,7 +2447,7 @@ export async function updateCampaignConsultantSettings(
   campaignId: string,
   input: Partial<CampaignConsultantSettings>,
 ): Promise<{ success: true } | { error: string }> {
-  const access = await requireCampaignAccess(campaignId)
+  const access = await requireCampaignManage(campaignId)
   if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
     return { error: 'You do not have permission to modify this campaign.' }
   }
