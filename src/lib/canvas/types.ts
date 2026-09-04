@@ -27,6 +27,12 @@ export type CanvasEntity = {
   level: CanvasLevel
   /** Parent dimension id for factors; null for dimensions. */
   parentId: string | null
+  /**
+   * Authored `dimensions.display_order`, so consumers can render the framework
+   * order rather than re-deriving one. Factors carry 0 — the table has no such
+   * column — which leaves them on the name tiebreak.
+   */
+  displayOrder: number
 }
 
 export type CanvasPoint = {

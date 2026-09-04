@@ -20,7 +20,6 @@ import { resolveSessionActor } from '@/lib/auth/actor'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
-import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { computePersonAttemptOrdinals } from '@/lib/comparison/session-resolution'
 import { canvasRequestSchema, canvasViewStateSchema } from '@/lib/validations/canvas'
 import { canvasTitle } from '@/lib/canvas/summarize'
@@ -437,6 +436,8 @@ async function loadTaxonomy(
       name: String(row.name),
       level: 'factor',
       parentId: dim ? String(dim.id) : null,
+      // `factors` has no display_order column; the name tiebreak orders these.
+      displayOrder: 0,
     })
     if (dim) {
       dimensionByFactor.set(String(row.id), String(dim.id))
@@ -446,12 +447,17 @@ async function loadTaxonomy(
       })
     }
   }
-  // Framework order, so canvas series legends match the report.
-  const orderedDimensions = [...seenDimensions.entries()].sort(([, a], [, b]) =>
-    byDisplayOrder(a, b),
-  )
-  for (const [id, dim] of orderedDimensions) {
-    entities.push({ id, name: dim.name, level: 'dimension', parentId: null })
+  // Carry the authored order onto the entity rather than relying on the order
+  // they are pushed in: every consumer re-sorts (orderEntities, CanvasHero),
+  // so insertion order here would be discarded.
+  for (const [id, dim] of seenDimensions) {
+    entities.push({
+      id,
+      name: dim.name,
+      level: 'dimension',
+      parentId: null,
+      displayOrder: dim.displayOrder,
+    })
   }
   return { entities, dimensionByFactor }
 }

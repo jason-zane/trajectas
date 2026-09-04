@@ -39,8 +39,8 @@ const RESULT: CanvasResult = {
     },
   ],
   entities: [
-    { id: 'dim1', name: 'Relating', level: 'dimension', parentId: null },
-    { id: 'f1', name: 'Influence', level: 'factor', parentId: 'dim1' },
+    { id: 'dim1', name: 'Relating', level: 'dimension', parentId: null, displayOrder: 1 },
+    { id: 'f1', name: 'Influence', level: 'factor', parentId: 'dim1', displayOrder: 0 },
   ],
   series: [
     { personKey: 'amara', entityId: OVERALL_ID, points: [point('s1', '2025-09-01', 50), point('s2', '2026-05-01', 62)] },

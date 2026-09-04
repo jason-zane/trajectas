@@ -10,6 +10,7 @@ import type {
   CanvasOrder,
   CanvasSeries,
 } from './types'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 
 /** Changes smaller than this are presented as "within noise" (grey chip). */
 export const NOISE_FLOOR = 3
@@ -94,12 +95,13 @@ export function orderEntities(
 ): CanvasEntity[] {
   const sorted = [...entities]
   if (order === 'standard') {
-    sorted.sort((a, b) => a.name.localeCompare(b.name))
+    // "Standard" is the framework's own order, not the alphabet's.
+    sorted.sort(byDisplayOrder)
   } else {
     sorted.sort((a, b) => {
       const m = metricById(b.id) - metricById(a.id)
       if (m !== 0) return m
-      return a.name.localeCompare(b.name)
+      return byDisplayOrder(a, b)
     })
   }
   return sorted
