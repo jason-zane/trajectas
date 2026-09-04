@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { throwActionError } from "@/lib/security/action-errors";
 import type { CompletionTimelinePoint } from "@/app/actions/campaigns";
 import {
-  bucketCompletionsByDay,
+  mapCompletionTimelineRows,
   mapRecentResultRows,
   zeroFilledTimeline,
   type PartnerRecentResult,
@@ -15,6 +15,12 @@ import {
  * Data Access Layer for the partner dashboard. Each function owns a query and
  * returns a DTO; the calling Server Action owns authorization and injects the
  * Supabase client. See src/lib/dal/README.md.
+ *
+ * The two portfolio-wide panels read from SQL projections rather than raw
+ * tables. A plain PostgREST select is capped at `max_rows` (1000) before any
+ * client-side grouping or sorting happens, which made both panels quietly
+ * wrong for a large portfolio; grouping and ordering in the database is also
+ * what keeps the payload proportional to what is rendered.
  */
 
 type DbClient = SupabaseClient;
@@ -44,16 +50,10 @@ export async function getPartnerCompletionTimeline(
 ): Promise<CompletionTimelinePoint[]> {
   if (clientIds.length === 0) return zeroFilledTimeline(days);
 
-  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const { data, error } = await db
-    .from("participant_sessions")
-    .select("completed_at, campaigns!inner(client_id, status, deleted_at)")
-    .in("campaigns.client_id", clientIds)
-    .eq("campaigns.status", "active")
-    .is("campaigns.deleted_at", null)
-    .eq("status", "completed")
-    .gte("completed_at", since)
-    .not("completed_at", "is", null);
+  const { data, error } = await db.rpc("partner_dashboard_completion_timeline", {
+    p_client_ids: clientIds,
+    p_days: days,
+  });
 
   if (error) {
     throwActionError(
@@ -63,10 +63,7 @@ export async function getPartnerCompletionTimeline(
     );
   }
 
-  return zeroFilledTimeline(
-    days,
-    bucketCompletionsByDay((data ?? []) as Array<{ completed_at?: string | null }>),
-  );
+  return zeroFilledTimeline(days, mapCompletionTimelineRows(data ?? []));
 }
 
 /** The most recent participant movement across the portfolio. */
@@ -77,15 +74,10 @@ export async function getRecentPartnerResults(
 ): Promise<PartnerRecentResult[]> {
   if (clientIds.length === 0) return [];
 
-  const { data, error } = await db
-    .from("campaign_participants")
-    .select(
-      "id, email, first_name, last_name, status, started_at, completed_at, campaign_id, created_at, campaigns!inner(title, client_id, deleted_at, clients(name)), participant_sessions(id, status, started_at, completed_at)",
-    )
-    .in("campaigns.client_id", clientIds)
-    .is("campaigns.deleted_at", null)
-    .in("status", ["in_progress", "completed"])
-    .is("deleted_at", null);
+  const { data, error } = await db.rpc("partner_dashboard_recent_results", {
+    p_client_ids: clientIds,
+    p_limit: limit,
+  });
 
   if (error) {
     throwActionError(
@@ -95,5 +87,5 @@ export async function getRecentPartnerResults(
     );
   }
 
-  return mapRecentResultRows(data ?? []).slice(0, limit);
+  return mapRecentResultRows(data ?? []);
 }
