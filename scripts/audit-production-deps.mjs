@@ -50,8 +50,17 @@ const ATTEMPTS = 4;
 const BASE_DELAY_MS = 3_000;
 const MAX_DELAY_MS = 30_000;
 
-/** Per-attempt ceiling. A hung request is a registry failure too, just a quieter one. */
-const AUDIT_TIMEOUT_MS = 90_000;
+/**
+ * Per-attempt ceiling. A hung request is a registry failure too, just a quieter
+ * one — without this the job sits until the job timeout and goes red anyway.
+ *
+ * Sized off observation, not taste: on this change's own first CI run the audit
+ * endpoint blew a 90s ceiling twice and then answered in 82s, so the registry is
+ * capable of being slow rather than dead, and a tight ceiling throws away
+ * attempts that were about to succeed. 4 x 150s plus backoff fits the job's
+ * 20-minute budget with room for `npm ci` and gitleaks.
+ */
+const AUDIT_TIMEOUT_MS = 150_000;
 
 /** The audit endpoints npm may call. A failure naming one of these is transport. */
 const AUDIT_ENDPOINT = /\/-\/npm\/v1\/security\/(advisories\/bulk|audits(\/quick)?)\b/;

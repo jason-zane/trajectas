@@ -306,12 +306,17 @@ exit code:
 | --- | --- |
 | Report with a high/critical count | **exit 1** — the gate doing its job |
 | Report clean at `high` | exit 0 |
-| 5xx/408/429, a network error, or anything from the retired quick endpoint | retried 4× with backoff; if it never lands, a `::warning::` annotation and exit 0 |
+| 5xx/408/429, a network error, a request that hangs past 150s, or anything from the retired quick endpoint | retried 4× with backoff; if it never lands, a `::warning::` annotation and exit 0 |
 | 4xx from the bulk endpoint, a local npm error, unparseable output | **exit 1** — fail closed, that is not a blip |
 
 So a give-up is visible in the Actions summary as *"npm audit skipped — nothing
 was verified"*, never as a green tick that implies a clean bill of health.
 `tests/unit/audit-production-deps.test.ts` pins the classification.
+
+The timeout is not decoration: on this wrapper's own first CI run the endpoint
+blew a 90s ceiling twice and then answered in 82s. The registry is capable of
+being slow rather than dead, which is why the ceiling is 150s and the job gets
+20 minutes — a tighter ceiling throws away attempts that were about to land.
 
 If you find yourself wanting to add `|| true` or drop `--audit-level` to
 `critical`, don't — the wrapper already absorbs the failure mode that tempts

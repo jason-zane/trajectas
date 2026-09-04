@@ -14,7 +14,9 @@ env:
 jobs:
   security:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 20 rather than 15: the audit step now retries a slow registry instead of
+    # failing on it, and its worst case is ~11 minutes of attempts and backoff.
+    timeout-minutes: 20
 
     permissions:
       contents: read
