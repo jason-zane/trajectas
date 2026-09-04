@@ -11,6 +11,7 @@ import {
 } from '@/lib/canvas/summarize'
 import { OVERALL_ID, type CanvasResult } from '@/lib/canvas/types'
 import type { TrajectorySeries } from '@/lib/trajectory/types'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 
 /**
  * Hero chart: the charted competency over time.
@@ -75,7 +76,7 @@ export function CanvasHero({
         ? result.entities.filter((e) => e.level === 'dimension')
         : result.entities.filter((e) => e.parentId === charted)
     const charteds = children.length
-      ? children.sort((a, b) => a.name.localeCompare(b.name))
+      ? [...children].sort(byDisplayOrder)
       : result.entities.filter((e) => e.id === charted)
     const series: TrajectorySeries[] = charteds.map((entity) => ({
       entityId: entity.id,
