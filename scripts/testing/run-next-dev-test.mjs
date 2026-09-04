@@ -36,11 +36,23 @@ function readEnvFile(filePath) {
 }
 
 function readLocalSupabaseEnv(cwd) {
+  // CI has no local Supabase stack, so this call can only fail — but `supabase`
+  // is not a project dependency, so npx fetches the CLI binary from the registry
+  // before it can find that out. That download blocks `next dev` from spawning
+  // at all, and on a slow runner it outlasts Playwright's 120s webServer timeout
+  // (the suite then fails having never started the server). The fallbacks below
+  // already cover CI, so skip it there; keep a timeout for everyone else so a
+  // wedged CLI degrades to the fallbacks instead of hanging the harness.
+  if (process.env.CI) {
+    return {};
+  }
+
   try {
     const output = execFileSync("npx", ["supabase", "status", "-o", "env"], {
       cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
+      timeout: 30_000,
     });
 
     const parsed = parseEnvContent(output);
