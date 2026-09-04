@@ -61,6 +61,7 @@ export function ClientDetailsForm({
   canAssignPartner = false,
   archiveRedirectPath = "/directory?tab=clients",
   ownershipLinkHref = "/partners",
+  clientBasePath = "/clients",
 }: {
   client: Client;
   partnerOptions?: Array<{ id: string; name: string }>;
@@ -69,6 +70,12 @@ export function ClientDetailsForm({
   archiveRedirectPath?: string;
   /** Partner link on the read-only ownership row; `null` renders plain text. */
   ownershipLinkHref?: string | null;
+  /**
+   * Route prefix this form is mounted under. Renaming the slug moves the page,
+   * so the redirect has to stay on the surface the editor came from — the
+   * partner console mounts the same form at `/partner/clients`.
+   */
+  clientBasePath?: string;
 }) {
   const router = useRouter();
 
@@ -176,7 +183,9 @@ export function ClientDetailsForm({
       setTimeout(() => setSaveState("idle"), 2000);
       setInitialState({ name, slug, industry, sizeRange, partnerId });
       if (result.slug !== client.slug) {
-        router.replace(`/clients/${result.slug}/details`, { scroll: false });
+        router.replace(`${clientBasePath}/${result.slug}/details`, {
+          scroll: false,
+        });
       }
     }
   }
