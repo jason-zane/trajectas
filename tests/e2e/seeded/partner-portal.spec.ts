@@ -108,10 +108,24 @@ test.describe("seeded partner portal", () => {
     }
   });
 
-  test("a client outside the partner's portfolio is not reachable", async ({ page }) => {
+  test("another partner's client is not reachable", async ({ page }) => {
+    // A client that really exists, owned by Rival Advisory Group (see
+    // supabase/seed.sql). A made-up slug would only exercise the "no such row"
+    // branch and would still pass if every foreign client were reachable.
+    //
     // Assert on what the visitor sees rather than the HTTP status: a
-    // layout-level notFound() streams the 404 page after headers are sent, so
-    // the status is not a reliable signal here.
+    // layout-level notFound() streams its page after headers are sent, so the
+    // status is not a reliable signal here.
+    await page.goto("/partner/clients/rival-client-co/overview");
+
+    await expect(page.getByText("Rival Client Co")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Overview" })).toHaveCount(0);
+    await expect(
+      page.getByText("Page not found").or(page.getByText(/not authoriz|unauthoriz/i)).first()
+    ).toBeVisible();
+  });
+
+  test("an unknown client slug is not reachable either", async ({ page }) => {
     await page.goto("/partner/clients/does-not-exist/overview");
     await expect(page.getByText("Page not found")).toBeVisible();
     await expect(page.getByRole("tab", { name: "Overview" })).toHaveCount(0);

@@ -31,6 +31,64 @@ set
   can_customize_branding = excluded.can_customize_branding,
   updated_at = excluded.updated_at;
 
+-- A second partner and its client, so the cross-partner boundary can be tested
+-- against a client that really exists. Pointing the test at a made-up slug only
+-- exercises the "no such row" branch, which would still pass if a partner could
+-- reach every other partner's clients.
+insert into partners (
+  id,
+  name,
+  slug,
+  settings,
+  created_at,
+  updated_at,
+  can_customize_branding
+)
+values (
+  '20000000-0000-0000-0000-000000000002',
+  'Rival Advisory Group',
+  'rival-advisory-group',
+  '{}'::jsonb,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  false
+)
+on conflict (id) do update
+set
+  name = excluded.name,
+  slug = excluded.slug,
+  can_customize_branding = excluded.can_customize_branding,
+  updated_at = excluded.updated_at;
+
+insert into clients (
+  id,
+  partner_id,
+  name,
+  slug,
+  industry,
+  settings,
+  created_at,
+  updated_at,
+  deleted_at
+)
+values (
+  '20000000-0000-0000-0000-000000000102',
+  '20000000-0000-0000-0000-000000000002',
+  'Rival Client Co',
+  'rival-client-co',
+  'Technology',
+  '{}'::jsonb,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  null
+)
+on conflict (id) do update
+set
+  partner_id = excluded.partner_id,
+  name = excluded.name,
+  slug = excluded.slug,
+  updated_at = excluded.updated_at;
+
 insert into clients (
   id,
   partner_id,
