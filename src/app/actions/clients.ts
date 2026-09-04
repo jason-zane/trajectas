@@ -61,6 +61,7 @@ function revalidateDirectoryPaths() {
   revalidatePath('/directory')
   revalidatePath('/clients')
   revalidatePath('/partners')
+  revalidatePath('/partner/clients')
   revalidatePath('/')
 }
 
@@ -254,7 +255,7 @@ export async function updateClient(id: string, formData: FormData) {
     throw error
   }
 
-  if (!canManageClient(access.scope, id, access.partnerId)) {
+  if (!canManageClient(access.scope, id)) {
     return { error: { _form: ['You do not have permission to update this client'] } }
   }
 
@@ -317,7 +318,7 @@ export async function deleteClient(id: string) {
     throw error
   }
 
-  if (!canManageClient(access.scope, id, access.partnerId)) {
+  if (!canManageClient(access.scope, id)) {
     return { error: 'You do not have permission to delete this client' }
   }
 
@@ -481,7 +482,7 @@ export async function restoreClient(id: string) {
     throw error
   }
 
-  if (!canManageClient(access.scope, id, access.partnerId)) {
+  if (!canManageClient(access.scope, id)) {
     return { error: 'You do not have permission to restore this client' }
   }
 
@@ -532,15 +533,7 @@ export interface ClientPendingInvite {
 
 export async function getClientMembers(clientId: string): Promise<ClientMember[]> {
   const access = await requireClientAccess(clientId)
-  // Allow: platform admins, direct client admins, and partner admins of the parent partner
-  const isPartnerAdminOfClient = access.partnerId
-    ? access.scope.partnerAdminIds.includes(access.partnerId)
-    : false
-  if (
-    !access.scope.isPlatformAdmin &&
-    !access.scope.clientAdminIds.includes(clientId) &&
-    !isPartnerAdminOfClient
-  ) {
+  if (!canManageClient(access.scope, clientId)) {
     return []
   }
 
@@ -573,11 +566,13 @@ export async function getClientMembers(clientId: string): Promise<ClientMember[]
 
 export async function getClientPendingInvites(clientId: string): Promise<ClientPendingInvite[]> {
   const access = await requireClientAccess(clientId)
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  if (!canManageClient(access.scope, clientId)) {
     return []
   }
 
-  const db = await createSupabaseClient()
+  // Admin client: the gate above already authorised the read (partner admins of
+  // the client's partner have no RLS path to client invites yet).
+  const db = createAdminClient()
   const { data, error } = await db
     .from('user_invites')
     .select('id, email, role, created_at, expires_at')
@@ -619,7 +614,7 @@ export async function inviteUserToClient(
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  if (!canManageClient(access.scope, clientId)) {
     return { error: 'You do not have permission to invite users to this client' }
   }
 
@@ -671,6 +666,8 @@ export async function inviteUserToClient(
   })
 
   revalidatePath(`/clients`)
+
+  revalidatePath('/partner/clients', 'layout')
   return { success: true as const, inviteLink, emailDelivered }
 }
 
@@ -693,7 +690,7 @@ export async function reissueClientInvite(
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  if (!canManageClient(access.scope, clientId)) {
     return { error: 'You do not have permission to manage invites for this client' }
   }
 
@@ -718,7 +715,7 @@ export async function changeClientMemberRole(
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  if (!canManageClient(access.scope, clientId)) {
     return { error: 'You do not have permission to change member roles' }
   }
 
@@ -742,6 +739,8 @@ export async function changeClientMemberRole(
   })
 
   revalidatePath(`/clients`)
+
+  revalidatePath('/partner/clients', 'layout')
   return { success: true as const }
 }
 
@@ -759,7 +758,7 @@ export async function removeClientMember(
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  if (!canManageClient(access.scope, clientId)) {
     return { error: 'You do not have permission to remove members' }
   }
 
@@ -786,6 +785,8 @@ export async function removeClientMember(
   })
 
   revalidatePath(`/clients`)
+
+  revalidatePath('/partner/clients', 'layout')
   return { success: true as const }
 }
 
@@ -803,7 +804,7 @@ export async function revokeClientInvite(
     throw error
   }
 
-  if (!access.scope.isPlatformAdmin && !access.scope.clientAdminIds.includes(clientId)) {
+  if (!canManageClient(access.scope, clientId)) {
     return { error: 'You do not have permission to revoke invites' }
   }
 
@@ -816,6 +817,8 @@ export async function revokeClientInvite(
   }
 
   revalidatePath(`/clients`)
+
+  revalidatePath('/partner/clients', 'layout')
   return { success: true as const }
 }
 

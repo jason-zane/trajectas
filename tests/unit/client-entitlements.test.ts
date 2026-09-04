@@ -53,9 +53,15 @@ const supabase = vi.hoisted(() => ({
 // Module mocks
 // ---------------------------------------------------------------------------
 
-vi.mock("@/lib/auth/authorization", () => ({
-  requireClientAccess: auth.requireClientAccess,
-}));
+// requireClientAccess is mocked per test; canManageClient is the real pure
+// function so the managed-set rule is exercised, not re-implemented.
+vi.mock("@/lib/auth/authorization", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/authorization")>();
+  return {
+    ...actual,
+    requireClientAccess: auth.requireClientAccess,
+  };
+});
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: supabase.createAdminClient,
@@ -90,25 +96,43 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
+const CLIENT_ID = "11111111-1111-1111-1111-111111111111";
+
 function adminScope() {
   return {
     scope: {
       isPlatformAdmin: true,
+      managedClientIds: [] as string[],
       actor: { id: "admin-user-1" },
     },
-    clientId: "11111111-1111-1111-1111-111111111111",
+    clientId: CLIENT_ID,
     partnerId: null,
   };
 }
 
+/** Signed in, sees the client, manages nothing (e.g. a partner member). */
 function nonAdminScope() {
   return {
     scope: {
       isPlatformAdmin: false,
+      managedClientIds: [] as string[],
       actor: { id: "member-user-1" },
     },
-    clientId: "11111111-1111-1111-1111-111111111111",
+    clientId: CLIENT_ID,
     partnerId: null,
+  };
+}
+
+/** A partner admin whose managed set includes the client (resolved by the scope). */
+function partnerAdminScope() {
+  return {
+    scope: {
+      isPlatformAdmin: false,
+      managedClientIds: [CLIENT_ID],
+      actor: { id: "partner-admin-1" },
+    },
+    clientId: CLIENT_ID,
+    partnerId: "99999999-9999-9999-9999-999999999999",
   };
 }
 
@@ -196,7 +220,7 @@ describe("client entitlement actions", () => {
       });
 
       expect(result).toEqual({
-        error: "Only platform administrators can assign assessments.",
+        error: "You do not have permission to manage this client.",
       });
     });
 
@@ -351,8 +375,7 @@ describe("client entitlement actions", () => {
       });
 
       expect(result).toEqual({
-        error:
-          "Only platform administrators can update assessment assignments.",
+        error: "You do not have permission to manage this client.",
       });
     });
 
@@ -415,7 +438,7 @@ describe("client entitlement actions", () => {
 
       const result = await toggleClientBranding("11111111-1111-1111-1111-111111111111", true);
       expect(result).toEqual({
-        error: "Only platform administrators can manage branding settings.",
+        error: "You do not have permission to manage this client.",
       });
     });
 
@@ -438,6 +461,100 @@ describe("client entitlement actions", () => {
       expect(result).toEqual({ success: true, id: "11111111-1111-1111-1111-111111111111" });
       expect(cache.revalidatePath).toHaveBeenCalledWith("/clients", "layout");
       expect(cache.revalidatePath).toHaveBeenCalledWith("/client", "layout");
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/partner/clients", "layout");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Partner admins (Phase 1 of the partner self-service plan)
+  // -------------------------------------------------------------------------
+  describe("partner admin callers", () => {
+    const ASSESSMENT_ID = "22222222-2222-2222-2222-222222222222";
+    const PARTNER_ID = "99999999-9999-9999-9999-999999999999";
+
+    it("assignAssessment refuses an assessment outside the partner's allocation", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      // clients → partner-owned client
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: PARTNER_ID }, error: null });
+      // partner_assessment_assignments → no pool row; assessments → owned by nobody
+      queryBuilder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: null, client_id: null }, error: null });
+
+      const result = await assignAssessment(CLIENT_ID, { assessmentId: ASSESSMENT_ID, quotaLimit: 5 });
+      expect(result).toEqual({
+        error: "This assessment is not available through the partner's allocation.",
+      });
+      expect(queryBuilder.insert).not.toHaveBeenCalled();
+    });
+
+    it("assignAssessment caps the client quota at the partner allocation", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: PARTNER_ID }, error: null });
+      queryBuilder.maybeSingle.mockResolvedValueOnce({ data: { quota_limit: 5 }, error: null });
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: null, client_id: null }, error: null });
+
+      const result = await assignAssessment(CLIENT_ID, { assessmentId: ASSESSMENT_ID, quotaLimit: 10 });
+      expect(result).toEqual({ error: "Quota cannot exceed the partner allocation of 5." });
+    });
+
+    it("assignAssessment requires a quota when the partner allocation is capped", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: PARTNER_ID }, error: null });
+      queryBuilder.maybeSingle.mockResolvedValueOnce({ data: { quota_limit: 5 }, error: null });
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: null, client_id: null }, error: null });
+
+      const result = await assignAssessment(CLIENT_ID, { assessmentId: ASSESSMENT_ID, quotaLimit: null });
+      expect(result).toEqual({
+        error: "Set a quota of at most 5: this assessment is capped for your partner.",
+      });
+    });
+
+    it("assignAssessment accepts a partner-owned assessment with no pool row (D4)", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: PARTNER_ID }, error: null });
+      queryBuilder.maybeSingle.mockResolvedValueOnce({ data: null, error: null });
+      queryBuilder.single.mockResolvedValueOnce({ data: { partner_id: PARTNER_ID, client_id: null }, error: null });
+      // insert → select → single resolves with the new row
+      queryBuilder.single.mockResolvedValueOnce({ data: { id: "new-assignment" }, error: null });
+
+      const result = await assignAssessment(CLIENT_ID, { assessmentId: ASSESSMENT_ID, quotaLimit: 25 });
+      expect(result).toEqual({ success: true, id: "new-assignment" });
+      expect(cache.revalidatePath).toHaveBeenCalledWith("/partner/clients", "layout");
+    });
+
+    it("toggleClientBranding refuses to enable while the partner's own flag is off (D5)", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      // clients (previous state) → partner-owned; partners → flag off
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { can_customize_branding: false, partner_id: PARTNER_ID },
+        error: null,
+      });
+      queryBuilder.single.mockResolvedValueOnce({ data: { can_customize_branding: false }, error: null });
+
+      const result = await toggleClientBranding(CLIENT_ID, true);
+      expect(result).toEqual({
+        error: "Brand customisation is not enabled for your partner. Contact Trajectas to enable it.",
+      });
+      expect(queryBuilder.update).not.toHaveBeenCalled();
+    });
+
+    it("toggleClientBranding enables branding once the partner's flag is on", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      queryBuilder.single.mockResolvedValueOnce({
+        data: { can_customize_branding: false, partner_id: PARTNER_ID },
+        error: null,
+      });
+      queryBuilder.single.mockResolvedValueOnce({ data: { can_customize_branding: true }, error: null });
+      queryBuilder.update.mockReturnValueOnce(queryBuilder);
+
+      const result = await toggleClientBranding(CLIENT_ID, true);
+      expect(result).toEqual({ success: true, id: CLIENT_ID });
+    });
+
+    it("a signed-in caller who manages nothing is still refused", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
+      const result = await toggleClientBranding(CLIENT_ID, false);
+      expect(result).toEqual({ error: "You do not have permission to manage this client." });
     });
   });
 });
