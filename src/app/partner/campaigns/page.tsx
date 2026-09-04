@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { getActiveAssessments, getCampaigns } from "@/app/actions/campaigns";
@@ -39,7 +40,17 @@ export default async function PartnerCampaignsPage() {
           </Link>
         </div>
       </PageHeader>
-      <CampaignsTable campaigns={campaigns} />
+      {campaigns.length === 0 ? (
+        <EmptyState
+          eyebrow="Campaigns"
+          title="No campaigns yet"
+          description="Launch a campaign for one of your clients to start inviting participants."
+          actionLabel="New campaign"
+          actionHref="/partner/campaigns/create"
+        />
+      ) : (
+        <CampaignsTable campaigns={campaigns} />
+      )}
     </div>
   );
 }

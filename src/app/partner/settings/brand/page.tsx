@@ -1,6 +1,6 @@
-import { Building2 } from "lucide-react"
 import { notFound, redirect } from "next/navigation"
 import { getBrandConfig } from "@/app/actions/brand"
+import { EmptyState } from "@/components/empty-state"
 import { canManagePartner, resolveAuthorizedScope } from "@/lib/auth/authorization"
 import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -34,19 +34,11 @@ export default async function PartnerPortalBrandPage() {
 
   if (!partner.can_customize_branding) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="max-w-sm space-y-3 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-muted">
-            <Building2 className="size-6 text-muted-foreground" />
-          </div>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Brand customisation is not enabled
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Contact your administrator to enable brand customisation for your organisation.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        eyebrow="Branding"
+        title="Brand customisation is not enabled"
+        description="Trajectas has not enabled brand customisation for your partner organisation yet. Contact Trajectas to switch it on."
+      />
     )
   }
 
