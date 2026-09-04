@@ -37,7 +37,10 @@ jobs:
         run: npm ci
 
       - name: Start local Supabase stack
-        run: npm run db:test:start
+        # Wrapper, not `supabase start`: Docker Hub rate-limits anonymous pulls
+        # and the CLI still exits 0 with containers missing, which surfaces
+        # later as auth failures in the tests. See the script's header.
+        run: npm run db:test:start:ci
 
       - name: Reset local Supabase database
         run: npm run db:test:reset
