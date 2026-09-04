@@ -250,36 +250,6 @@ export async function searchCampaignParticipants(
 }
 
 /**
- * Campaign ids the caller may see within the client ids they are scoped to.
- *
- * Resolved as an explicit id list rather than a filter on the embedded
- * `campaigns` relation: a predicate that silently fails to apply would reopen
- * the leak this function exists to close, and an id list is unambiguous.
- */
-async function scopedCampaignIds(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  clientIds: string[],
-  partnerIds: string[],
-): Promise<string[]> {
-  const clauses: string[] = []
-  if (clientIds.length) clauses.push(`client_id.in.(${clientIds.join(',')})`)
-  if (partnerIds.length) clauses.push(`partner_id.in.(${partnerIds.join(',')})`)
-  if (clauses.length === 0) return []
-
-  // Deliberately not filtered on `deleted_at`: the picker has always listed
-  // participants of soft-deleted campaigns (the RLS policy does not filter
-  // them either), and narrowing that here would be a behaviour change riding
-  // along with a security fix. `requireCampaignAccess` still refuses them at
-  // comparison time.
-  const { data, error } = await supabase
-    .from('campaigns')
-    .select('id')
-    .or(clauses.join(','))
-  if (error) throw error
-  return (data ?? []).map((row) => String(row.id))
-}
-
-/**
  * Participants the caller may add to a comparison from the workspace they are
  * currently in — not every participant their memberships reach.
  *
@@ -302,19 +272,23 @@ export async function searchWorkspaceParticipants(
   const clientFilter = resolveTenantClientFilter(scope)
   // `null` means genuinely unrestricted; an empty list means restricted to
   // nothing, which must return no rows rather than falling through unfiltered.
-  let scopedIds: string[] | null = null
-  if (clientFilter !== null) {
-    scopedIds = await scopedCampaignIds(supabase, clientFilter, scope.partnerIds)
-    if (scopedIds.length === 0) return []
-  }
+  if (clientFilter !== null && clientFilter.length === 0) return []
 
   let q = supabase
     .from('campaign_participants')
     .select(PICKER_SELECT)
     .order('created_at', { ascending: false })
     .limit(PICKER_LIMIT)
-  if (scopedIds) {
-    q = q.in('campaign_id', scopedIds)
+  if (clientFilter !== null) {
+    // Filtered through the `!inner` join on the embedded alias, the same shape
+    // `getParticipantsForClient` uses. Note this is the CLIENT dimension only:
+    // ORing in the caller's partner ids would undo the fix, because a campaign
+    // belonging to one client also carries its parent partner_id, so every
+    // sibling client under that partner would come back. A partner workspace
+    // is already covered — `resolveAuthorizedScope` puts that partner's client
+    // ids in `clientIds`. The residue is a partner-owned campaign with no
+    // client_id at all, which no client workspace should surface anyway.
+    q = q.in('campaign.client_id', clientFilter)
   }
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
