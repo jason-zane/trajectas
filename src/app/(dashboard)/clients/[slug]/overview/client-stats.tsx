@@ -12,6 +12,8 @@ type ClientStatsProps = {
   assignedAssessmentCount: number;
   reportsGenerated: number;
   clientSlug: string;
+  /** Tab root. Defaults to the admin console. */
+  basePath?: string;
 };
 
 const statCards = [
@@ -59,7 +61,10 @@ export function ClientStats(props: ClientStatsProps) {
 
         if (stat.segment) {
           return (
-            <Link key={stat.key} href={`/clients/${props.clientSlug}/${stat.segment}`}>
+            <Link
+              key={stat.key}
+              href={`${props.basePath ?? `/clients/${props.clientSlug}`}/${stat.segment}`}
+            >
               {content}
             </Link>
           );

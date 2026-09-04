@@ -35,6 +35,14 @@ interface ClientOverviewProps {
     participantCount: number;
     completedCount: number;
   }>;
+  /** Tab root. Defaults to the admin console. */
+  basePath?: string;
+  /** Where "View Campaigns" goes. Defaults to this client's campaigns tab. */
+  campaignsHref?: string;
+  /** Partner link target; `null` renders the partner name as plain text. */
+  partnerHref?: string | null;
+  /** The admin-only audited "Enter portal" launch. */
+  showEnterPortal?: boolean;
 }
 
 const statusVariant: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -46,17 +54,32 @@ const statusVariant: Record<string, "default" | "secondary" | "outline" | "destr
   failed: "destructive",
 };
 
-export function ClientOverview({ client, partnerName, partnerSlug, stats, recentCampaigns }: ClientOverviewProps) {
+export function ClientOverview({
+  client,
+  partnerName,
+  partnerSlug,
+  stats,
+  recentCampaigns,
+  basePath,
+  campaignsHref,
+  partnerHref,
+  showEnterPortal = true,
+}: ClientOverviewProps) {
+  const root = basePath ?? `/clients/${client.slug}`;
+  const resolvedPartnerHref =
+    partnerHref === undefined
+      ? `/partners/${partnerSlug ?? client.partnerId}/overview`
+      : partnerHref;
   const quickActions = [
-    { title: "View Campaigns", href: `/clients/${client.slug}/campaigns`, icon: Megaphone, description: "Manage campaign activity" },
-    { title: "Manage Assessments", href: `/clients/${client.slug}/assessments`, icon: ClipboardList, description: "Assessment assignments" },
-    { title: "Invite User", href: `/clients/${client.slug}/users`, icon: UserPlus, description: "Add a team member" },
+    { title: "View Campaigns", href: campaignsHref ?? `${root}/campaigns`, icon: Megaphone, description: "Manage campaign activity" },
+    { title: "Manage Assessments", href: `${root}/assessments`, icon: ClipboardList, description: "Assessment assignments" },
+    { title: "Invite User", href: `${root}/users`, icon: UserPlus, description: "Add a team member" },
   ];
 
   return (
     <div className="space-y-8">
       {/* Stat Cards */}
-      <ClientStats {...stats} clientSlug={client.slug} />
+      <ClientStats {...stats} clientSlug={client.slug} basePath={root} />
 
       {/* Key Context + Quick Actions */}
       <div className="grid gap-6 lg:grid-cols-5">
@@ -66,10 +89,7 @@ export function ClientOverview({ client, partnerName, partnerSlug, stats, recent
             <CardHeader>
               <CardTitle>Client Profile</CardTitle>
               <CardDescription>
-                <Link
-                  href={`/clients/${client.slug}/details`}
-                  className="text-primary hover:underline"
-                >
+                <Link href={`${root}/details`} className="text-primary hover:underline">
                   Edit details &rarr;
                 </Link>
               </CardDescription>
@@ -91,19 +111,20 @@ export function ClientOverview({ client, partnerName, partnerSlug, stats, recent
                 <div>
                   <p className="text-caption text-muted-foreground">Partner</p>
                   <p className="text-sm">
-                    <Link
-                      href={`/partners/${partnerSlug ?? client.partnerId}/overview`}
-                      className="text-primary hover:underline"
-                    >
-                      {partnerName ?? "View partner"}
-                    </Link>
+                    {resolvedPartnerHref ? (
+                      <Link href={resolvedPartnerHref} className="text-primary hover:underline">
+                        {partnerName ?? "View partner"}
+                      </Link>
+                    ) : (
+                      partnerName ?? "Your organisation"
+                    )}
                   </p>
                 </div>
               )}
               {!client.industry && !client.sizeRange && !client.partnerId && (
                 <p className="text-sm text-muted-foreground">
                   No profile details yet.{" "}
-                  <Link href={`/clients/${client.slug}/details`} className="text-primary hover:underline">
+                  <Link href={`${root}/details`} className="text-primary hover:underline">
                     Add details &rarr;
                   </Link>
                 </p>
@@ -127,12 +148,14 @@ export function ClientOverview({ client, partnerName, partnerSlug, stats, recent
               <CardTitle>Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <EnterPortalButton
-                tenantType="client"
-                tenantId={client.id}
-                tenantName={client.name}
-                variant="default"
-              />
+              {showEnterPortal && (
+                <EnterPortalButton
+                  tenantType="client"
+                  tenantId={client.id}
+                  tenantName={client.name}
+                  variant="default"
+                />
+              )}
               <div className="space-y-1">
                 {quickActions.map((action) => (
                   <Link

@@ -113,6 +113,33 @@ export async function getPartnerReportTemplateAssignments(
   return (data ?? []).map(mapPartnerReportTemplateAssignmentRow)
 }
 
+/**
+ * Is brand customisation switched on for this partner? The partner portal gates
+ * both its own brand editor and its clients' on this (D5); `isClientBrandingEnabled`
+ * applies the same cascade for the client portal.
+ */
+export async function getPartnerBrandingEnabled(partnerId: string): Promise<boolean> {
+  const parsed = partnerIdSchema.safeParse({ partnerId })
+  if (!parsed.success) return false
+  await requirePartnerAccess(partnerId)
+  const db = await createClient()
+
+  const { data, error } = await db
+    .from('partners')
+    .select('can_customize_branding')
+    .eq('id', partnerId)
+    .single()
+
+  if (error) {
+    throwActionError(
+      'getPartnerBrandingEnabled',
+      'Unable to load partner settings.',
+      error
+    )
+  }
+  return Boolean(data?.can_customize_branding)
+}
+
 // ---------------------------------------------------------------------------
 // Mutations (admin-only)
 // ---------------------------------------------------------------------------

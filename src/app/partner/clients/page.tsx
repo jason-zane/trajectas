@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { getClients } from "@/app/actions/clients";
@@ -19,7 +20,17 @@ export default async function PartnerClientsPage() {
           New Client
         </Link>
       </PageHeader>
-      <ClientsTable clients={clients} />
+      {clients.length === 0 ? (
+        <EmptyState
+          eyebrow="Clients"
+          title="No clients yet"
+          description="Create your first client to assign assessments, set quotas and launch campaigns."
+          actionLabel="New client"
+          actionHref="/partner/clients/create"
+        />
+      ) : (
+        <ClientsTable clients={clients} />
+      )}
     </div>
   );
 }

@@ -13,6 +13,8 @@ interface ClientSettingsPanelProps {
   clientSlug: string;
   canCustomizeBranding: boolean;
   partnerBrandingDisabled?: boolean;
+  /** Shown when the partner's own flag is off. Wording differs by surface. */
+  partnerBrandingDisabledMessage?: string;
   integrationSettings: ClientInternalIntegrationSettings;
 }
 
@@ -21,6 +23,7 @@ export function ClientSettingsPanel({
   clientSlug,
   canCustomizeBranding: initialValue,
   partnerBrandingDisabled = false,
+  partnerBrandingDisabledMessage = "Brand customisation is controlled by the partner. Contact the partner admin to enable.",
   integrationSettings,
 }: ClientSettingsPanelProps) {
   const router = useRouter();
@@ -63,7 +66,7 @@ export function ClientSettingsPanel({
             </p>
             {partnerBrandingDisabled && (
               <p className="text-xs text-muted-foreground">
-                Brand customisation is controlled by the partner. Contact the partner admin to enable.
+                {partnerBrandingDisabledMessage}
               </p>
             )}
           </div>

@@ -6,6 +6,7 @@ import type { ClientWithCounts } from "@/app/actions/clients";
 import {
   DataTable,
   DataTableColumnHeader,
+  DataTableRowLink,
 } from "@/components/data-table";
 import { Badge } from "@/components/ui/badge";
 
@@ -25,7 +26,13 @@ const columns: ColumnDef<PartnerClientRow>[] = [
     ),
     cell: ({ row }) => (
       <div>
-        <span className="font-semibold text-foreground">{row.original.name}</span>
+        <DataTableRowLink
+          href={`/partner/clients/${row.original.slug}/overview`}
+          ariaLabel={`Open ${row.original.name}`}
+          className="font-semibold text-foreground hover:text-primary"
+        >
+          {row.original.name}
+        </DataTableRowLink>
         <div className="text-xs text-muted-foreground">{row.original.slug}</div>
       </div>
     ),

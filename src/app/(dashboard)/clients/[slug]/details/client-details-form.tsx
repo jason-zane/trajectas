@@ -59,10 +59,16 @@ export function ClientDetailsForm({
   client,
   partnerOptions = [],
   canAssignPartner = false,
+  archiveRedirectPath = "/directory?tab=clients",
+  ownershipLinkHref = "/partners",
 }: {
   client: Client;
   partnerOptions?: Array<{ id: string; name: string }>;
   canAssignPartner?: boolean;
+  /** Where an archive lands once the undo window closes. */
+  archiveRedirectPath?: string;
+  /** Partner link on the read-only ownership row; `null` renders plain text. */
+  ownershipLinkHref?: string | null;
 }) {
   const router = useRouter();
 
@@ -219,7 +225,7 @@ export function ClientDetailsForm({
 
     let undone = false;
     const timer = setTimeout(() => {
-      if (!undone) router.push("/directory?tab=clients");
+      if (!undone) router.push(archiveRedirectPath);
     }, 5000);
 
     toast.success("Client archived", {
@@ -350,13 +356,19 @@ export function ClientDetailsForm({
               <div className="space-y-2">
                 <Label>Ownership</Label>
                 <p className="text-sm text-muted-foreground">
-                  Managed by{" "}
-                  <Link
-                    href={`/partners`}
-                    className="text-primary underline underline-offset-4 hover:text-primary/80"
-                  >
-                    partner organisation
-                  </Link>
+                  {ownershipLinkHref ? (
+                    <>
+                      Managed by{" "}
+                      <Link
+                        href={ownershipLinkHref}
+                        className="text-primary underline underline-offset-4 hover:text-primary/80"
+                      >
+                        partner organisation
+                      </Link>
+                    </>
+                  ) : (
+                    "Managed by your partner organisation."
+                  )}
                 </p>
               </div>
             ) : null}
