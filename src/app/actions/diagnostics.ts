@@ -9,6 +9,7 @@ import {
   requireAdminScope,
   requireClientAccess,
   resolveAuthorizedScope,
+  resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
@@ -285,6 +286,21 @@ export async function getDiagnosticSessions(): Promise<DiagnosticSessionWithMeta
   })
 }
 
+/**
+ * Whether a resolved row's client sits inside the caller's active workspace.
+ *
+ * RLS narrows by membership, not by workspace, and is not a boundary at all for
+ * a platform admin — so a row fetched by a caller-supplied id still has to be
+ * checked against the resolved scope. Returns false rather than throwing so the
+ * callers below keep their existing "not found" shape.
+ */
+async function isInWorkspace(clientId: string | null | undefined) {
+  if (!clientId) return false
+  const scope = await resolveAuthorizedScope()
+  const clientFilter = resolveTenantClientFilter(scope)
+  return clientFilter === null || clientFilter.includes(String(clientId))
+}
+
 export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSession | null> {
   const db = await createClient()
   const { data, error } = await db
@@ -294,6 +310,9 @@ export async function getDiagnosticSessionById(id: string): Promise<DiagnosticSe
     .single()
 
   if (error) return null
+  // The id arrives from the caller, and an id predicate only proves the query
+  // is targeted — not that the target sits inside the active workspace.
+  if (!(await isInWorkspace(data.client_id))) return null
 
   return {
     id: data.id,
@@ -319,6 +338,7 @@ export async function getDiagnosticSessionDetail(
     .single()
 
   if (error || !data) return null
+  if (!(await isInWorkspace(data.client_id))) return null
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row = data as any
@@ -354,6 +374,11 @@ export async function getDiagnosticRespondents(
     .single()
 
   if (sessionError || !session) {
+    return []
+  }
+  // session.client_id was already being fetched here and then never used — the
+  // check it was fetched for was missing.
+  if (!(await isInWorkspace(session.client_id))) {
     return []
   }
 

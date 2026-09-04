@@ -90,17 +90,74 @@ const ALLOWLIST = new Map<string, string>([
     "src/app/actions/reports.ts:backfillAllPreviewSeeds",
     "Platform-admin maintenance job behind an isPlatformAdmin gate; operates over every tenant's templates by design.",
   ],
+  [
+    "src/app/actions/assessments.ts:getAssessments",
+    "The platform assessment library console. Listing every assessment IS the screen; the workspace-scoped view is getWorkspaceAssessmentSummaries(). Behind requireAdminScope(), so unreachable from a client or partner surface — and from a support session, where isPlatformAdmin is false.",
+  ],
+  [
+    "src/app/actions/factors.ts:getClientsForFactorSelect",
+    "Client picker on the platform factor-authoring screen: the admin is choosing which client to scope a factor to, so every client must be offered. Behind requireAdminScope().",
+  ],
+  [
+    "src/app/actions/matching.ts:getClientsForMatchingSelect",
+    "Client picker on the platform matching console — same reasoning as getClientsForFactorSelect. Behind requireAdminScope().",
+  ],
+  [
+    "src/app/actions/matching.ts:getMatchingRuns",
+    "The platform matching console's run list. Cross-tenant is the screen; the client-scoped list is getWorkspaceMatchingRuns(), which does apply the filter. Behind requireAdminScope().",
+  ],
+  [
+    "src/app/actions/partners.ts:getUnassignedClients",
+    "Lists clients with no partner so a platform admin can assign one — narrowing to a workspace would empty the screen it exists for. Behind requireAdminScope().",
+  ],
 ]);
 
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx"]);
 
-/** `.eq`/`.in`/`.filter`/`.match` on an id-ish column, dotted paths included. */
+/**
+ * A predicate on a TENANT-IDENTIFYING column — `client_id`, `campaign_id`,
+ * `partner_id` — dotted embedded paths included.
+ *
+ * Deliberately narrow. An earlier version accepted any id-ish column, which is
+ * wrong: `.eq('id', x)` or `.eq('session_id', x)` proves the query is TARGETED,
+ * not that the target sits inside the caller's workspace. When the id arrives
+ * from a request body or a model tool call, a targeted query is exactly how one
+ * tenant's row gets read from inside another tenant's workspace. Those reads
+ * must earn their pass through an access gate instead.
+ */
 const SCOPE_PREDICATE =
+  /\.(eq|in|filter|match|contains)\(\s*['"`][A-Za-z_]*\.?(client_id|campaign_id|partner_id)['"`]/;
+
+/**
+ * A predicate on an opaque object id. Proves the query is TARGETED, not that
+ * the target sits in the caller's workspace — so it is accepted only where the
+ * id cannot have come straight off the wire:
+ *
+ *   - inside a module-private helper, reached only through an exported function
+ *     in the same file that this guard has already checked; or
+ *   - anywhere under src/lib/dal, which is not a network boundary. A DAL module
+ *     is a building block called by a server action or route that must satisfy
+ *     this guard itself (see src/lib/dal/README.md).
+ *
+ * In an exported function under src/app it is not accepted: that IS the wire.
+ */
+const OBJECT_ID_PREDICATE =
   /\.(eq|in|filter|match|contains)\(\s*['"`][A-Za-z_]*\.?(id|[a-z_]+_id|person_key|email|slug|token|session_key)['"`]/;
 
-/** Gates that resolve access through resolveAuthorizedScope(). */
+/**
+ * Gates that resolve access for a SPECIFIC tenant object, or that hand back the
+ * workspace boundary directly.
+ *
+ * `requireAdminScope()` and `assertAdminOnly()` are deliberately NOT here. They
+ * assert role-and-surface, not workspace: a platform admin with a client
+ * workspace active on the admin surface passes both, so accepting them would
+ * wave through a completely unfiltered tenant read — recreating the very
+ * admin-in-a-workspace leak this guard exists to catch. A function that is
+ * genuinely cross-tenant admin tooling belongs in ALLOWLIST, where the reason
+ * is written down and reviewed.
+ */
 const SCOPE_GATE =
-  /require(Client|Campaign|Participant|Session|Assessment|Partner|ReportSnapshot|ReportTemplate)Access\s*\(|requireAdminScope\s*\(|assertAdminOnly\s*\(|resolveTenantClientFilter\s*\(|applyTenantClientFilter\s*\(|getAccessibleCampaignIds\s*\(/;
+  /\b(require|assert)[A-Z]\w*Access\s*\(|resolveTenantClientFilter\s*\(|applyTenantClientFilter\s*\(|getAccessibleCampaignIds\s*\(|isInWorkspace\s*\(/;
 
 /**
  * A resolved boundary threaded in as a parameter. DAL functions take the client
@@ -165,6 +222,13 @@ function enclosingDeclaration(lines: string[], starts: number[], line: number) {
   return {
     name: named ? (named[1] ?? named[2]) : "<module>",
     body: lines.slice(start, end).join("\n"),
+    // Exported = reachable from outside the module. For a server action or a
+    // route handler that means the arguments arrive from the client (or, in
+    // chat, from a model tool call) and cannot be assumed to name a row inside
+    // the caller's workspace. A module-private helper is only reachable through
+    // an exported function in the same file, which must itself satisfy this
+    // guard — so its ids have already been vouched for.
+    exported: /^export\b/.test(lines[start]),
   };
 }
 
@@ -215,6 +279,13 @@ function findViolations({ applyAllowlist = true } = {}): Violation[] {
         if (SCOPE_PREDICATE.test(declaration.body)) return;
         if (SCOPE_GATE.test(declaration.body)) return;
         if (SCOPE_PARAMETER.some((re) => re.test(declaration.body))) return;
+        const isNetworkBoundary = relativePath.startsWith("src/app/");
+        if (
+          (!declaration.exported || !isNetworkBoundary) &&
+          OBJECT_ID_PREDICATE.test(declaration.body)
+        ) {
+          return;
+        }
 
         const key = `${relativePath}:${declaration.name}`;
         if (applyAllowlist && ALLOWLIST.has(key)) return;

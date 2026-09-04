@@ -586,6 +586,11 @@ export async function getConstructScoresForFactor(
     throw new Error('Unauthorized')
   }
 
+  // Being a platform admin is not the same as being outside every workspace:
+  // inside a client's, this drilldown must not reach another tenant's scores.
+  // The session id comes from the caller, so resolve it and check.
+  await assertSessionAccess(sessionId)
+
   const db = createAdminClient()
 
   // 1. Constructs under this factor + their names.
