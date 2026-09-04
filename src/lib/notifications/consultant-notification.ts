@@ -15,6 +15,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import { reportError } from '@/lib/observability/report-error'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { sendHtmlEmail } from '@/lib/email/provider'
 import { downloadSnapshotPdfBase64 } from '@/lib/reports/pdf-access'
 import { getEffectiveBrand } from '@/app/actions/brand'
@@ -34,7 +35,7 @@ type SessionSummary = {
   participantName: string
   participantEmail: string
   compositeScore: number | null
-  dimensions: Array<{ name: string; score: number }>
+  dimensions: Array<{ name: string; displayOrder: number; score: number }>
 }
 
 function pickEmbedded<T>(value: T | T[] | null | undefined): T | null {
@@ -223,25 +224,29 @@ async function loadSessionSummary(db: any, sessionId: string): Promise<SessionSu
 
   // Per-dimension aggregate scores. Use the same logic as the session view:
   // join scores → entity → dimension and take the mean per dimension.
-  const dimensions: Array<{ name: string; score: number }> = []
+  const dimensions: Array<{ name: string; displayOrder: number; score: number }> = []
   if (assessmentId) {
     const { data: scoreRows } = await db
       .from('participant_scores')
       .select(
-        'factor_id, scaled_score, factors(dimension_id, dimensions(name))',
+        'factor_id, scaled_score, factors(dimension_id, dimensions(name, display_order))',
       )
       .eq('session_id', sessionId)
 
+    type DimensionEmbed = { name?: string | null; display_order?: number | null }
     type FactorEmbed = {
       dimension_id?: string | null
-      dimensions?: { name?: string | null } | { name?: string | null }[] | null
+      dimensions?: DimensionEmbed | DimensionEmbed[] | null
     }
     type ScoreRow = {
       factor_id?: string | null
       scaled_score: number | string
       factors?: FactorEmbed | FactorEmbed[] | null
     }
-    const buckets = new Map<string, { name: string; sum: number; count: number }>()
+    const buckets = new Map<
+      string,
+      { name: string; displayOrder: number; sum: number; count: number }
+    >()
     for (const s of (scoreRows ?? []) as ScoreRow[]) {
       const score = Number(s.scaled_score)
       const factor = pickEmbedded(s.factors)
@@ -254,16 +259,24 @@ async function loadSessionSummary(db: any, sessionId: string): Promise<SessionSu
         existing.sum += score
         existing.count += 1
       } else {
-        buckets.set(dimId, { name: dimName, sum: score, count: 1 })
+        buckets.set(dimId, {
+          name: dimName,
+          displayOrder: typeof dim?.display_order === 'number' ? dim.display_order : 0,
+          sum: score,
+          count: 1,
+        })
       }
     }
     for (const bucket of buckets.values()) {
       dimensions.push({
         name: bucket.name,
+        displayOrder: bucket.displayOrder,
         score: bucket.count > 0 ? bucket.sum / bucket.count : 0,
       })
     }
-    dimensions.sort((a, b) => b.score - a.score)
+    // Framework order, not a leaderboard — the summary table has to read the
+    // same way as the report the consultant opens next.
+    dimensions.sort(byDisplayOrder)
   }
 
   return {
