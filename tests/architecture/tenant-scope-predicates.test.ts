@@ -26,7 +26,10 @@
  *   - an explicit id predicate in the query chain — `.eq('client_id', …)`,
  *     `.in('campaign_id', …)`, `.eq('campaigns.client_id', …)`;
  *   - an authorization gate in the enclosing function — `requireCampaignAccess`
- *     and friends, which resolve access through resolveAuthorizedScope();
+ *     and friends, which resolve access through resolveAuthorizedScope(). The
+ *     `require<Thing>Manage()` write gates count too: each one wraps its
+ *     matching Access gate and adds a `canManage*` check, so it resolves the
+ *     same workspace boundary and then narrows it further;
  *   - `resolveTenantClientFilter` / `applyTenantClientFilter` /
  *     `getAccessibleCampaignIds`, which return the workspace boundary directly;
  *   - a vetted entry in ALLOWLIST below.
@@ -157,7 +160,7 @@ const OBJECT_ID_PREDICATE =
  * is written down and reviewed.
  */
 const SCOPE_GATE =
-  /\b(require|assert)[A-Z]\w*Access\s*\(|resolveTenantClientFilter\s*\(|applyTenantClientFilter\s*\(|getAccessibleCampaignIds\s*\(|isInWorkspace\s*\(/;
+  /\b(require|assert)[A-Z]\w*(Access|Manage)\s*\(|resolveTenantClientFilter\s*\(|applyTenantClientFilter\s*\(|getAccessibleCampaignIds\s*\(|isInWorkspace\s*\(/;
 
 /**
  * A resolved boundary threaded in as a parameter. DAL functions take the client
@@ -327,7 +330,8 @@ describe("tenant-scoped reads carry their own predicate", () => {
             "  const scoped = applyTenantClientFilter(query, scope, 'client_id')",
             "  if (!scoped) return []",
             "",
-            "or by gating the function on require<Thing>Access(). If the read is",
+            "or by gating the function on require<Thing>Access() /",
+            "require<Thing>Manage(). If the read is",
             "genuinely cross-tenant by design, add it to ALLOWLIST with a reason.",
             "",
           ].join("\n"),

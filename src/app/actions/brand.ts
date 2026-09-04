@@ -239,6 +239,42 @@ async function assertCanManageBrandOwner(
 }
 
 /**
+ * D5 gate for brand WRITES, applied to every layer whose content a client
+ * ultimately wears: the client layer itself and the campaign layer beneath it.
+ *
+ * The campaign layer matters as much as the client layer — a campaign brand
+ * override is what a participant actually sees — so a partner whose
+ * `can_customize_branding` flag is off must not be able to reach it by
+ * addressing the campaign directly. Platform and partner layers are governed
+ * by `assertCanManageBrandOwner` alone.
+ */
+async function assertBrandLayerEditable(
+  scope: Awaited<ReturnType<typeof resolveAuthorizedScope>>,
+  ownerType: BrandOwnerType,
+  ownerId: string | null
+): Promise<void> {
+  if (!ownerId) return
+
+  if (ownerType === 'client') {
+    await assertCanEditClientBrand(scope, ownerId)
+    return
+  }
+
+  if (ownerType === 'campaign') {
+    const db = createAdminClient()
+    const { data: campaign } = await db
+      .from('campaigns')
+      .select('client_id')
+      .eq('id', ownerId)
+      .single()
+    const clientId = campaign?.client_id ? String(campaign.client_id) : null
+    // A platform-owned campaign has no client flags to honour; reaching here at
+    // all already required admin rights via assertCanManageBrandOwner.
+    if (clientId) await assertCanEditClientBrand(scope, clientId)
+  }
+}
+
+/**
  * Create or update a brand config.
  *
  * The platform config must be complete (it is the merge base); partner/
@@ -254,11 +290,10 @@ export async function upsertBrandConfig(
 ): Promise<{ error?: Record<string, string[]> }> {
   const scope = await resolveAuthorizedScope()
   await assertCanManageBrandOwner(scope, ownerType, ownerId)
-  if (ownerType === 'client' && ownerId) {
-    // D5: a partner admin edits a client's brand only while the partner flag is
-    // on; a client admin only while both flags are on. Platform admins always.
-    await assertCanEditClientBrand(scope, ownerId)
-  }
+  // D5: a partner admin edits a client/campaign brand only while the partner
+  // flag is on; a client admin only while both flags are on. Platform admins
+  // always.
+  await assertBrandLayerEditable(scope, ownerType, ownerId)
   const schema = ownerType === 'platform' ? brandConfigSchema : brandOverridesSchema
   const parsed = schema.safeParse(configInput)
   if (!parsed.success) {
@@ -340,11 +375,7 @@ export async function resetBrandToDefault(
 ): Promise<{ error?: string }> {
   const scope = await resolveAuthorizedScope()
   await assertCanManageBrandOwner(scope, ownerType, ownerId)
-  if (ownerType === 'client' && ownerId) {
-    // D5: a partner admin edits a client's brand only while the partner flag is
-    // on; a client admin only while both flags are on. Platform admins always.
-    await assertCanEditClientBrand(scope, ownerId)
-  }
+  await assertBrandLayerEditable(scope, ownerType, ownerId)
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform brand — edit it instead.' }
   }

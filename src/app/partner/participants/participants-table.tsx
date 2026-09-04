@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, GitCompare } from "lucide-react";
 
 import type { ParticipantWithMeta, UniqueParticipant } from "@/app/actions/participants";
 import {
@@ -11,6 +11,7 @@ import {
   DataTableColumnHeader,
   DataTableRowLink,
 } from "@/components/data-table";
+import type { BulkAction } from "@/components/data-table/data-table-bulk-bar";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -266,6 +267,17 @@ export function ParticipantsTable({
     }
   }
 
+  const sessionsBulkActions: BulkAction<SessionTableRow>[] = [
+    {
+      label: "Compare selected",
+      icon: <GitCompare className="mr-1.5 h-3.5 w-3.5" />,
+      action: (ids) => {
+        const qs = new URLSearchParams({ ids: ids.join(",") });
+        router.push(`/partner/participants/compare?${qs.toString()}`);
+      },
+    },
+  ];
+
   if (view === "sessions") {
     const rows: SessionTableRow[] = sessions.map((s) => ({
       ...s,
@@ -288,6 +300,9 @@ export function ParticipantsTable({
         <DataTable
           columns={sessionsColumns}
           data={rows}
+          enableRowSelection
+          getRowId={(row) => row.id}
+          bulkActions={sessionsBulkActions}
           searchableColumns={["displayName", "email"]}
           searchPlaceholder="Search participants"
           filterableColumns={[

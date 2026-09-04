@@ -135,38 +135,6 @@ export const partnerPortalPages: Record<string, WorkspacePortalPageConfig> = {
       },
     ],
   },
-  results: {
-    eyebrow: "Results",
-    title: "Results and reporting",
-    description: "Campaign and participant outcomes across your client portfolio.",
-    primaryAction: { label: "View campaigns", href: "/campaigns" },
-    sections: [
-      {
-        title: "Reporting",
-        description: "Access campaign results and participant reports.",
-        highlights: [
-          "View completed campaign outcomes.",
-          "Launch participant reports.",
-          "Export reports for offline use.",
-        ],
-      },
-    ],
-  },
-  matching: {
-    eyebrow: "Matching",
-    title: "Matching results",
-    description: "AI matching recommendations for your clients.",
-    sections: [
-      {
-        title: "Matching outputs",
-        description: "Review published matching recommendations.",
-        highlights: [
-          "View matching run status and results.",
-          "See top factor recommendations per session.",
-        ],
-      },
-    ],
-  },
 };
 
 export const clientPortalPages: Record<string, WorkspacePortalPageConfig> = {
