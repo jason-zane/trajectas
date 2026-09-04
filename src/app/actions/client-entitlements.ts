@@ -530,6 +530,76 @@ export async function getReportTemplateAssignments(
   return (data ?? []).map(mapClientReportTemplateAssignmentRow)
 }
 
+export type AssignableAssessment = {
+  id: string
+  title: string
+  status: Assessment['status']
+}
+
+/**
+ * The assessments this client may be assigned, from the assigner's side.
+ *
+ * Mirrors `checkPartnerPoolAndCap` and the database trigger exactly (D4): the
+ * partner's active allocation, plus assessments owned by that partner, plus
+ * assessments owned by the client itself. A platform-owned client has no
+ * allocation to draw from, so every active assessment is available.
+ *
+ * Already-assigned assessments are still returned — the caller filters those
+ * out against its own assignment list, the way the admin console does.
+ */
+export async function getAssignableAssessmentsForClient(
+  clientId: string,
+): Promise<AssignableAssessment[]> {
+  const parsed = clientIdSchema.safeParse({ clientId })
+  if (!parsed.success) return []
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) return []
+
+  const db = createAdminClient()
+  let query = db
+    .from('assessments')
+    .select('id, title, status')
+    .is('deleted_at', null)
+    .eq('status', 'active')
+    .order('title', { ascending: true })
+
+  if (partnerId) {
+    const { data: pool, error: poolError } = await db
+      .from('partner_assessment_assignments')
+      .select('assessment_id')
+      .eq('partner_id', partnerId)
+      .eq('is_active', true)
+
+    if (poolError) {
+      throwActionError(
+        'getAssignableAssessmentsForClient.pool',
+        'Unable to load assignable assessments.',
+        poolError,
+      )
+    }
+
+    const poolIds = (pool ?? []).map((row) => String(row.assessment_id))
+    const clauses = [`partner_id.eq.${partnerId}`, `client_id.eq.${clientId}`]
+    if (poolIds.length > 0) clauses.push(`id.in.(${poolIds.join(',')})`)
+    query = query.or(clauses.join(','))
+  }
+
+  const { data, error } = await query
+  if (error) {
+    throwActionError(
+      'getAssignableAssessmentsForClient',
+      'Unable to load assignable assessments.',
+      error,
+    )
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    title: String(row.title),
+    status: row.status as Assessment['status'],
+  }))
+}
+
 export async function getAvailableReportTemplateIds(
   clientId: string,
 ): Promise<string[]> {

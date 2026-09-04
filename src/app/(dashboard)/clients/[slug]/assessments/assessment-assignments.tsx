@@ -58,12 +58,27 @@ import { getSelectLabel } from "@/lib/select-display";
 // Props
 // ---------------------------------------------------------------------------
 
+/** The partner's allocation for one assessment, when the client has a partner. */
+export interface PartnerPoolEntry {
+  assessmentId: string;
+  /** `null` = the partner's allocation is uncapped. */
+  quotaLimit: number | null;
+  quotaUsed: number;
+}
+
 interface AssessmentAssignmentsProps {
   clientId: string;
   assignments: AssessmentAssignmentWithUsage[];
-  allAssessments: AssessmentWithMeta[];
+  /** Only id/title/status are read, so a narrower list is welcome. */
+  allAssessments: Array<Pick<AssessmentWithMeta, "id" | "title" | "status">>;
   /** When client belongs to a partner, only these assessment IDs are available. */
   partnerPoolAssessmentIds?: string[];
+  /**
+   * The partner's allocation, when the caller knows it. A capped allocation
+   * forces a numeric client quota at or below the cap — the server enforces
+   * the same rule; this is guidance so the dialog does not fail on submit.
+   */
+  partnerPool?: PartnerPoolEntry[];
 }
 
 // ---------------------------------------------------------------------------
@@ -75,8 +90,14 @@ export function AssessmentAssignments({
   assignments,
   allAssessments,
   partnerPoolAssessmentIds,
+  partnerPool,
 }: AssessmentAssignmentsProps) {
   const router = useRouter();
+
+  const poolByAssessment = useMemo(
+    () => new Map((partnerPool ?? []).map((entry) => [entry.assessmentId, entry])),
+    [partnerPool],
+  );
 
   // Optimistic mutations for assignments
   type OptimisticAction =
@@ -122,6 +143,21 @@ export function AssessmentAssignments({
   const editInputRef = useRef<HTMLInputElement>(null);
   const [isSavingQuota, startSaveQuota] = useTransition();
 
+  // Partner allocation for the assessment being assigned (D3).
+  const selectedPool = selectedAssessmentId
+    ? poolByAssessment.get(selectedAssessmentId)
+    : undefined;
+  const selectedCap = selectedPool?.quotaLimit ?? null;
+  const capRemaining =
+    selectedCap !== null ? Math.max(0, selectedCap - (selectedPool?.quotaUsed ?? 0)) : null;
+  // A capped allocation cannot be handed on as unlimited.
+  const effectiveUnlimited = selectedCap === null && unlimited;
+  const quotaNumber = quotaInput.trim() === "" ? null : Number(quotaInput);
+  const quotaExceedsCap =
+    selectedCap !== null && quotaNumber !== null && quotaNumber > selectedCap;
+  const quotaMissingUnderCap = selectedCap !== null && (quotaNumber === null || quotaNumber < 1);
+  const assignBlocked = quotaExceedsCap || quotaMissingUnderCap;
+
   // Filter available assessments (exclude already-assigned ones)
   // If partnerPoolAssessmentIds is provided, further restrict to partner pool
   const assignedIds = new Set(optimisticAssignments.map((a) => a.assessmentId));
@@ -145,7 +181,7 @@ export function AssessmentAssignments({
   function handleAssign() {
     if (!selectedAssessmentId) return;
 
-    const quotaLimit = unlimited ? null : Number(quotaInput) || null;
+    const quotaLimit = effectiveUnlimited ? null : Number(quotaInput) || null;
     const selectedAssessment = allAssessments.find((a) => a.id === selectedAssessmentId);
 
     if (!selectedAssessment) return;
@@ -298,17 +334,26 @@ export function AssessmentAssignments({
             );
           }
 
+          const pool = poolByAssessment.get(a.assessmentId);
+
           return (
-            <span className="tabular-nums text-sm text-muted-foreground">
-              {isUnlimited ? (
-                <span className="inline-flex items-center gap-1">
-                  <InfinityIcon className="size-3.5" />
-                  Unlimited
-                </span>
-              ) : (
-                `${a.quotaUsed} / ${a.quotaLimit}`
+            <div className="space-y-0.5">
+              <span className="tabular-nums text-sm text-muted-foreground">
+                {isUnlimited ? (
+                  <span className="inline-flex items-center gap-1">
+                    <InfinityIcon className="size-3.5" />
+                    Unlimited
+                  </span>
+                ) : (
+                  `${a.quotaUsed} / ${a.quotaLimit}`
+                )}
+              </span>
+              {pool?.quotaLimit != null && (
+                <p className="text-caption text-muted-foreground tabular-nums">
+                  Partner allocation: {pool.quotaUsed} / {pool.quotaLimit}
+                </p>
               )}
-            </span>
+            </div>
           );
         },
       },
@@ -440,7 +485,7 @@ export function AssessmentAssignments({
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [editingId, editValue, isSavingQuota]
+    [editingId, editValue, isSavingQuota, poolByAssessment]
   );
 
   // ----- Render -----
@@ -511,6 +556,12 @@ export function AssessmentAssignments({
                   : "All active assessments have already been assigned."}
               </p>
             )}
+            {selectedCap !== null && (
+              <p className="text-xs text-muted-foreground">
+                Partner allocation: {selectedPool?.quotaUsed ?? 0} of {selectedCap} used
+                {capRemaining !== null ? ` · ${capRemaining} remaining` : ""}
+              </p>
+            )}
           </div>
 
           <div className="space-y-3">
@@ -518,21 +569,36 @@ export function AssessmentAssignments({
               <Label htmlFor="quota-limit">Quota limit</Label>
               <label className="flex items-center gap-2 text-sm">
                 <Switch
-                  checked={unlimited}
+                  checked={effectiveUnlimited}
                   onCheckedChange={(val) => setUnlimited(val as boolean)}
+                  disabled={selectedCap !== null}
                 />
                 Unlimited
               </label>
             </div>
-            {!unlimited && (
+            {!effectiveUnlimited && (
               <Input
                 id="quota-limit"
                 type="number"
                 min={1}
-                placeholder="e.g. 100"
+                max={selectedCap ?? undefined}
+                placeholder={selectedCap !== null ? `Up to ${selectedCap}` : "e.g. 100"}
                 value={quotaInput}
                 onChange={(e) => setQuotaInput(e.target.value)}
               />
+            )}
+            {selectedCap !== null && (
+              <p
+                className={
+                  quotaExceedsCap
+                    ? "text-xs text-destructive"
+                    : "text-xs text-muted-foreground"
+                }
+              >
+                {quotaExceedsCap
+                  ? `Quota cannot exceed the partner allocation of ${selectedCap}.`
+                  : `This assessment is capped for your partner, so a quota is required (max ${selectedCap}).`}
+              </p>
             )}
           </div>
         </ActionDialogBody>
@@ -542,7 +608,7 @@ export function AssessmentAssignments({
           </Button>
           <Button
             onClick={handleAssign}
-            disabled={!selectedAssessmentId || isAssigning}
+            disabled={!selectedAssessmentId || isAssigning || assignBlocked}
           >
             {isAssigning ? "Assigning..." : "Assign assessment"}
           </Button>

@@ -13,6 +13,8 @@ interface ClientSettingsPanelProps {
   clientSlug: string;
   canCustomizeBranding: boolean;
   partnerBrandingDisabled?: boolean;
+  /** Shown when the partner's own flag is off. Wording differs by surface. */
+  partnerBrandingDisabledMessage?: string;
   integrationSettings: ClientInternalIntegrationSettings;
 }
 
@@ -21,6 +23,7 @@ export function ClientSettingsPanel({
   clientSlug,
   canCustomizeBranding: initialValue,
   partnerBrandingDisabled = false,
+  partnerBrandingDisabledMessage = "Brand customisation is controlled by the partner. Contact the partner admin to enable.",
   integrationSettings,
 }: ClientSettingsPanelProps) {
   const router = useRouter();
@@ -63,7 +66,7 @@ export function ClientSettingsPanel({
             </p>
             {partnerBrandingDisabled && (
               <p className="text-xs text-muted-foreground">
-                Brand customisation is controlled by the partner. Contact the partner admin to enable.
+                {partnerBrandingDisabledMessage}
               </p>
             )}
           </div>
@@ -75,10 +78,19 @@ export function ClientSettingsPanel({
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Even when disabled, you can still configure branding for this client on
-        the Branding tab.
-      </p>
+      {/*
+        The toggle above governs whether the CLIENT may self-serve branding —
+        with it off, whoever is reading this can still edit the client's brand
+        layer themselves. That stops being true once the partner's own flag is
+        off: then the Branding tab is empty for everyone but Trajectas, so the
+        reassurance would be a lie.
+      */}
+      {!partnerBrandingDisabled && (
+        <p className="text-sm text-muted-foreground">
+          Even when disabled, you can still configure branding for this client
+          on the Branding tab.
+        </p>
+      )}
 
       <ClientIntegrationsPanel
         clientId={clientId}
