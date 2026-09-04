@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import { resolveAuthorizedScope, AuthorizationError } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 import {
   bulkSessionIdsSchema,
   sessionIdSchema,
@@ -25,6 +26,8 @@ export type SessionDetailScore = {
   dimensionId?: string
   /** Parent dimension name, when one is known. */
   dimensionName?: string
+  /** Parent dimension's authored display_order, for framework-order grouping. */
+  dimensionDisplayOrder?: number
   rawScore: number
   scaledScore: number
   percentile?: number
@@ -54,6 +57,8 @@ export type SessionDetailSnapshot = {
 export type SessionDetailDimensionScore = {
   dimensionId: string
   dimensionName: string
+  /** Authored `dimensions.display_order`; drives framework order in the UI. */
+  displayOrder: number
   /** Mean of the entity scores rolling up to this dimension (POMP 0–100). */
   scaledScore: number
   /** How many scored entities contributed. */
@@ -121,6 +126,7 @@ type EmbeddedParticipantRecord = {
 type EmbeddedDimensionRecord = {
   id?: string | null
   name?: string | null
+  display_order?: number | null
 }
 
 type EmbeddedFactorRecord = {
@@ -308,7 +314,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
             confidence_interval_lower,
             confidence_interval_upper,
             scoring_method,
-            factors(name, dimension_id, dimensions(id, name))
+            factors(name, dimension_id, dimensions(id, name, display_order))
           `)
           .eq('session_id', sessionId)
       : Promise.resolve({ data: [], error: null }),
@@ -411,6 +417,8 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
         entityName: String(factor?.name ?? 'Unnamed factor'),
         dimensionId: factor?.dimension_id ? String(factor.dimension_id) : undefined,
         dimensionName: dim?.name ? String(dim.name) : undefined,
+        dimensionDisplayOrder:
+          typeof dim?.display_order === 'number' ? dim.display_order : undefined,
       }
     })
     .filter((s): s is SessionDetailScore => s !== null)
@@ -418,7 +426,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
   // Per-dimension aggregates: mean of children that report a parent dimension.
   const dimensionBuckets = new Map<
     string,
-    { dimensionName: string; sum: number; count: number }
+    { dimensionName: string; displayOrder: number; sum: number; count: number }
   >()
   for (const score of scores) {
     if (!score.dimensionId) continue
@@ -429,6 +437,7 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     } else {
       dimensionBuckets.set(score.dimensionId, {
         dimensionName: score.dimensionName ?? 'Unnamed dimension',
+        displayOrder: score.dimensionDisplayOrder ?? 0,
         sum: score.scaledScore,
         count: 1,
       })
@@ -438,10 +447,14 @@ export async function getSessionDetail(sessionId: string): Promise<SessionDetail
     .map(([dimensionId, bucket]) => ({
       dimensionId,
       dimensionName: bucket.dimensionName,
+      displayOrder: bucket.displayOrder,
       scaledScore: bucket.count > 0 ? bucket.sum / bucket.count : 0,
       childCount: bucket.count,
     }))
-    .sort((a, b) => a.dimensionName.localeCompare(b.dimensionName))
+    .sort((a, b) => byDisplayOrder(
+      { displayOrder: a.displayOrder, name: a.dimensionName },
+      { displayOrder: b.displayOrder, name: b.dimensionName },
+    ))
 
   const snapshots: SessionDetailSnapshot[] = snapshotRows.map((r) => {
     const tpl = getEmbeddedRecord(r.report_templates)

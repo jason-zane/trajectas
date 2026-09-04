@@ -20,6 +20,7 @@ import { resolveSessionActor } from '@/lib/auth/actor'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { throwActionError } from '@/lib/security/action-errors'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 import { computePersonAttemptOrdinals } from '@/lib/comparison/session-resolution'
 import { canvasRequestSchema, canvasViewStateSchema } from '@/lib/validations/canvas'
 import { canvasTitle } from '@/lib/canvas/summarize'
@@ -73,7 +74,10 @@ type FactorRow = {
   id: string
   name: string
   dimension_id: string | null
-  dimensions: { id: string; name: string } | { id: string; name: string }[] | null
+  dimensions:
+    | { id: string; name: string; display_order: number | null }
+    | { id: string; name: string; display_order: number | null }[]
+    | null
 }
 
 function unwrap<T>(v: T | T[] | null | undefined): T | null {
@@ -419,13 +423,13 @@ async function loadTaxonomy(
   if (factorIds.length === 0) return { entities: [], dimensionByFactor: new Map() }
   const { data, error } = await db
     .from('factors')
-    .select('id, name, dimension_id, dimensions(id, name)')
+    .select('id, name, dimension_id, dimensions(id, name, display_order)')
     .in('id', factorIds)
   if (error) throwActionError('getComparisonCanvas', 'Unable to load taxonomy.', error)
 
   const entities: CanvasEntity[] = []
   const dimensionByFactor = new Map<string, string>()
-  const seenDimensions = new Map<string, string>()
+  const seenDimensions = new Map<string, { name: string; displayOrder: number }>()
   for (const row of (data ?? []) as FactorRow[]) {
     const dim = unwrap(row.dimensions)
     entities.push({
@@ -436,11 +440,18 @@ async function loadTaxonomy(
     })
     if (dim) {
       dimensionByFactor.set(String(row.id), String(dim.id))
-      seenDimensions.set(String(dim.id), String(dim.name))
+      seenDimensions.set(String(dim.id), {
+        name: String(dim.name),
+        displayOrder: dim.display_order ?? 0,
+      })
     }
   }
-  for (const [id, name] of seenDimensions) {
-    entities.push({ id, name, level: 'dimension', parentId: null })
+  // Framework order, so canvas series legends match the report.
+  const orderedDimensions = [...seenDimensions.entries()].sort(([, a], [, b]) =>
+    byDisplayOrder(a, b),
+  )
+  for (const [id, dim] of orderedDimensions) {
+    entities.push({ id, name: dim.name, level: 'dimension', parentId: null })
   }
   return { entities, dimensionByFactor }
 }
