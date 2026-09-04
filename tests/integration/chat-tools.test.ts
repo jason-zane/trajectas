@@ -22,7 +22,15 @@ import { getCampaignProgressTool } from '@/lib/chat/tools/get-campaign-progress'
 import { getPersonTimelineTool } from '@/lib/chat/tools/get-person-timeline'
 import { comparePeopleTool } from '@/lib/chat/tools/compare-people'
 
+// A letters-only run token, not the raw millisecond timestamp. The tag is
+// embedded in participant names, assessment titles and factor ids, and the
+// redaction assertions below check that specific score digits are ABSENT from
+// the serialised payload — so a timestamp containing those digits fails the
+// test on the tag rather than on a leaked score. Seen in CI: a run tagged
+// `chat1788481078855` tripped `not.toContain('81')`.
 const ts = Date.now()
+  .toString(36)
+  .replace(/[0-9]/g, (digit) => 'ghijklmnop'[Number(digit)])
 const tag = `chat${ts}`
 
 function email(label: string) {
