@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,11 +40,31 @@ export default async function PartnerAssessmentsPage() {
         </TabsList>
 
         <TabsContent value="owned" className="mt-6">
-          <AssessmentsTable assessments={ownedAssessments} />
+          {ownedAssessments.length === 0 ? (
+            <EmptyState
+              size="sm"
+              eyebrow="Your assessments"
+              title="You haven't built an assessment yet"
+              description="Build one to offer alongside the platform assessments in your allocation."
+              actionLabel="Build assessment"
+              actionHref="/partner/assessments/create"
+            />
+          ) : (
+            <AssessmentsTable assessments={ownedAssessments} />
+          )}
         </TabsContent>
 
         <TabsContent value="platform" className="mt-6">
-          <AssessmentsTable assessments={platformAssessments} />
+          {platformAssessments.length === 0 ? (
+            <EmptyState
+              size="sm"
+              eyebrow="Platform assessments"
+              title="No platform assessments allocated"
+              description="Trajectas allocates assessments to your partner organisation. Contact Trajectas to get started."
+            />
+          ) : (
+            <AssessmentsTable assessments={platformAssessments} />
+          )}
         </TabsContent>
       </Tabs>
     </div>

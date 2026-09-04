@@ -1,265 +1,70 @@
-import Link from "next/link";
+import { Building2 } from "lucide-react";
+
 import {
-  Building2,
-  Megaphone,
-  Users,
-  CheckCircle2,
-  ClipboardList,
-  ArrowRight,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { AnimatedNumber } from "@/components/animated-number";
-import { MiniBars } from "@/components/mini-bars";
-import { ScrollReveal } from "@/components/scroll-reveal";
-import { TiltCard } from "@/components/tilt-card";
+  getActiveAssessments,
+  getCampaigns,
+  getFavoriteCampaignIds,
+} from "@/app/actions/campaigns";
 import { getClients } from "@/app/actions/clients";
-import { getCampaigns } from "@/app/actions/campaigns";
-import { statusBadgeVariant } from "@/lib/formatting";
-
-const quickActions = [
-  {
-    title: "View Clients",
-    href: "/partner/clients",
-    icon: Building2,
-    description: "Browse your client portfolio",
-    bgClass: "bg-primary/10",
-    iconClass: "text-primary",
-  },
-  {
-    title: "Review Campaigns",
-    href: "/partner/campaigns",
-    icon: Megaphone,
-    description: "Monitor campaign progress",
-    bgClass: "bg-brand/10",
-    iconClass: "text-brand",
-  },
-  {
-    title: "View Participants",
-    href: "/partner/participants",
-    icon: Users,
-    description: "Track participant outcomes",
-    bgClass: "bg-accent",
-    iconClass: "text-accent-foreground",
-  },
-  {
-    title: "View Assessments",
-    href: "/partner/assessments",
-    icon: ClipboardList,
-    description: "Manage your assessment library",
-    bgClass: "bg-muted",
-    iconClass: "text-muted-foreground",
-  },
-];
-
+import { getPartnerDashboardData } from "@/app/actions/partner-dashboard";
+import { getPartnerAssessmentAssignments } from "@/app/actions/partner-entitlements";
+import { PageHeader } from "@/components/page-header";
+import { Card, CardContent } from "@/components/ui/card";
+import { getPartnerName } from "@/lib/dal/partners";
+import { resolvePartnerOrg } from "@/lib/auth/resolve-partner-org";
+import { PartnerDashboard } from "./partner-dashboard";
 
 export default async function PartnerDashboardPage() {
-  const [clients, campaigns] = await Promise.all([getClients(), getCampaigns()]);
+  const { partnerId } = await resolvePartnerOrg("/partner/dashboard");
 
-  const participantCount = campaigns.reduce(
-    (sum, campaign) => sum + campaign.participantCount,
-    0
-  );
-  const completedCount = campaigns.reduce(
-    (sum, campaign) => sum + campaign.completedCount,
-    0
-  );
-
-  const today = new Date().toLocaleDateString("en-AU", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-
-  const greeting = (() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  })();
-
-  const statCards = [
-    {
-      key: "clients",
-      title: "Clients",
-      value: clients.length,
-      icon: Building2,
-      href: "/partner/clients",
-      bgClass: "bg-primary/10",
-      iconClass: "text-primary",
-      accentClass: "bg-primary/50",
-      glowColor: "var(--primary)",
-    },
-    {
-      key: "campaigns",
-      title: "Campaigns",
-      value: campaigns.length,
-      icon: Megaphone,
-      href: "/partner/campaigns",
-      bgClass: "bg-brand/10",
-      iconClass: "text-brand",
-      accentClass: "bg-brand/50",
-      glowColor: "var(--brand)",
-    },
-    {
-      key: "participants",
-      title: "Participants",
-      value: participantCount,
-      icon: Users,
-      href: "/partner/participants",
-      bgClass: "bg-accent",
-      iconClass: "text-accent-foreground",
-      accentClass: "bg-accent-foreground/30",
-      glowColor: "var(--accent-foreground)",
-    },
-    {
-      key: "completed",
-      title: "Completed",
-      value: completedCount,
-      icon: CheckCircle2,
-      href: "/partner/participants",
-      bgClass: "bg-muted",
-      iconClass: "text-muted-foreground",
-      accentClass: "bg-muted-foreground/30",
-      glowColor: "var(--muted-foreground)",
-    },
-  ];
-
-  const recentCampaigns = [...campaigns]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-    .slice(0, 5);
-
-  return (
-    <div className="space-y-12 max-w-6xl">
-      {/* Hero */}
-      <div className="animate-fade-in-up">
-        <p className="text-overline text-primary mb-2">{today}</p>
-        <h1 className="text-3xl md:text-display font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-          {greeting}
-        </h1>
-        <p className="text-body text-muted-foreground mt-2">
-          Here&apos;s an overview of your partner workspace.
-        </p>
-      </div>
-
-      {/* Stat Cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat, index) => (
-          <ScrollReveal key={stat.key} delay={index * 60}>
-            <TiltCard>
-              <Link href={stat.href}>
-                <Card variant="interactive" className="relative overflow-hidden">
-                  <CardContent className="pt-5 pb-4 px-5">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <AnimatedNumber
-                          value={stat.value}
-                          className="text-3xl font-bold tabular-nums"
-                        />
-                        <MiniBars color={stat.glowColor} />
-                        <p className="text-caption text-muted-foreground mt-1">
-                          {stat.title}
-                        </p>
-                      </div>
-                      <div
-                        className={`flex size-10 items-center justify-center rounded-xl ${stat.bgClass} transition-all duration-300 group-hover/card:shadow-[0_0_20px_var(--glow-color)]`}
-                        style={
-                          {
-                            "--glow-color": stat.glowColor,
-                          } as React.CSSProperties
-                        }
-                      >
-                        <stat.icon className={`size-5 ${stat.iconClass}`} />
-                      </div>
-                    </div>
-                  </CardContent>
-                  <div className={`h-[2px] ${stat.accentClass} opacity-50`} />
-                </Card>
-              </Link>
-            </TiltCard>
-          </ScrollReveal>
-        ))}
-      </div>
-
-      {/* Quick Actions */}
-      <div>
-        <h2 className="text-title font-semibold tracking-tight mb-5">
-          Quick Actions
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {quickActions.map((action, index) => (
-            <ScrollReveal key={action.href} delay={index * 60}>
-              <TiltCard>
-                <Link href={action.href}>
-                  <Card variant="interactive">
-                    <CardContent className="py-4 px-5">
-                      <div className="flex items-center gap-4">
-                        <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${action.bgClass} transition-colors`}>
-                          <action.icon className={`size-5 ${action.iconClass}`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium">{action.title}</p>
-                          <p className="text-caption text-muted-foreground truncate">
-                            {action.description}
-                          </p>
-                        </div>
-                        <ArrowRight className="size-4 text-muted-foreground opacity-0 -translate-x-1 group-hover/card:opacity-100 group-hover/card:translate-x-0 transition-all" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </TiltCard>
-            </ScrollReveal>
-          ))}
-        </div>
-      </div>
-
-      {/* Recent Campaigns */}
-      <div>
+  if (!partnerId) {
+    return (
+      <div className="space-y-6 max-w-5xl">
+        <PageHeader eyebrow="Dashboard" title="Welcome" />
         <Card>
-          <CardHeader>
-            <CardTitle>Recent campaigns</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recentCampaigns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No campaigns are visible in this workspace yet.
-              </p>
-            ) : (
-              recentCampaigns.map((campaign) => (
-                <div
-                  key={campaign.id}
-                  className="flex items-start justify-between gap-4 rounded-lg border border-border/70 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/partner/campaigns/${campaign.id}`}
-                      className="font-semibold hover:text-primary transition-colors"
-                    >
-                      {campaign.title}
-                    </Link>
-                    <p className="text-caption text-muted-foreground mt-0.5">
-                      {campaign.clientName || "Client not set"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <Badge variant={statusBadgeVariant(campaign.status)}>
-                      {campaign.status}
-                    </Badge>
-                    <span className="text-caption text-muted-foreground whitespace-nowrap">
-                      {campaign.participantCount} / {campaign.completedCount} completed
-                    </span>
-                  </div>
-                </div>
-              ))
-            )}
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="flex size-12 items-center justify-center rounded-xl bg-muted mb-4">
+              <Building2 className="size-6 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No partner set up yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Your account has been created but no partner organisation has been
+              configured. Contact Trajectas to get started.
+            </p>
           </CardContent>
         </Card>
       </div>
-    </div>
+    );
+  }
+
+  const [
+    clients,
+    campaigns,
+    allocation,
+    launchAssessments,
+    favoriteCampaignIds,
+    { completionTimeline, recentResults },
+    partnerName,
+  ] = await Promise.all([
+    getClients(),
+    getCampaigns(),
+    getPartnerAssessmentAssignments(partnerId),
+    getActiveAssessments(),
+    getFavoriteCampaignIds(),
+    getPartnerDashboardData(partnerId),
+    getPartnerName(partnerId),
+  ]);
+
+  return (
+    <PartnerDashboard
+      partnerName={partnerName ?? "your partner organisation"}
+      clients={clients}
+      campaigns={campaigns}
+      allocation={allocation}
+      launchAssessments={launchAssessments}
+      recentResults={recentResults}
+      favoriteCampaignIds={favoriteCampaignIds}
+      completionTimeline={completionTimeline}
+    />
   );
 }

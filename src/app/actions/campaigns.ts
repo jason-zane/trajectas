@@ -47,6 +47,7 @@ import {
   resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { zeroFilledTimeline } from '@/lib/dal/partner-dashboard-mappers'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
 import { requireAppUrl } from '@/lib/hosts'
 import { mapCampaignAccessLinkRow } from '@/lib/supabase/mappers'
@@ -2165,22 +2166,6 @@ export async function getCompletionTimeline(
   }
 
   return zeroFilledTimeline(days, counts)
-}
-
-function zeroFilledTimeline(
-  days: number,
-  counts?: Map<string, number>,
-): CompletionTimelinePoint[] {
-  const out: CompletionTimelinePoint[] = []
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(today)
-    d.setUTCDate(today.getUTCDate() - i)
-    const key = d.toISOString().slice(0, 10)
-    out.push({ day: key, count: counts?.get(key) ?? 0 })
-  }
-  return out
 }
 
 // ---------------------------------------------------------------------------

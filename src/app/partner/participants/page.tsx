@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { getParticipants, getUniqueParticipants } from "@/app/actions/participants";
 import { ParticipantsTable } from "./participants-table";
@@ -26,11 +27,21 @@ export default async function PartnerParticipantsPage({
         title="Participants"
         description={`${total} ${view === "participants" ? "participant" : "session"}${total !== 1 ? "s" : ""} across all campaigns.`}
       />
-      <ParticipantsTable
-        view={view}
-        sessions={sessionsResult?.data ?? []}
-        participants={participantsResult?.data ?? []}
-      />
+      {total === 0 ? (
+        <EmptyState
+          eyebrow="Participants"
+          title="No participants yet"
+          description="Participants appear here once a campaign for one of your clients starts inviting people."
+          actionLabel="View campaigns"
+          actionHref="/partner/campaigns"
+        />
+      ) : (
+        <ParticipantsTable
+          view={view}
+          sessions={sessionsResult?.data ?? []}
+          participants={participantsResult?.data ?? []}
+        />
+      )}
     </div>
   );
 }

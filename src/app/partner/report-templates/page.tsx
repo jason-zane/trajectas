@@ -1,3 +1,4 @@
+import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getReportTemplates } from "@/app/actions/reports";
@@ -30,17 +31,35 @@ export default async function PartnerReportTemplatesPage() {
         </TabsList>
 
         <TabsContent value="owned" className="mt-6">
-          <ReportTemplatesTable
-            templates={ownedTemplates}
-            basePath="/partner/report-templates"
-          />
+          {ownedTemplates.length === 0 ? (
+            <EmptyState
+              size="sm"
+              eyebrow="Your templates"
+              title="You haven't built a report template yet"
+              description="Build one to present results in your own voice, alongside the platform templates."
+            />
+          ) : (
+            <ReportTemplatesTable
+              templates={ownedTemplates}
+              basePath="/partner/report-templates"
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="platform" className="mt-6">
-          <ReportTemplatesTable
-            templates={platformTemplates}
-            basePath="/partner/report-templates"
-          />
+          {platformTemplates.length === 0 ? (
+            <EmptyState
+              size="sm"
+              eyebrow="Platform templates"
+              title="No platform templates allocated"
+              description="Trajectas allocates report templates to your partner organisation. Contact Trajectas to get started."
+            />
+          ) : (
+            <ReportTemplatesTable
+              templates={platformTemplates}
+              basePath="/partner/report-templates"
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>
