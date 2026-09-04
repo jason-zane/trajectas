@@ -9,6 +9,7 @@ import {
   canManageClientAssignment,
   canManageClient,
   canManageClientDirectory,
+  canManageClientEntitlements,
   canManagePartnerDirectory,
   canManageReportTemplateLibrary,
   getPreferredPartnerIdForClientCreation,
@@ -382,6 +383,53 @@ describe("authorization rules", () => {
 // =============================================================================
 // Workspace tenant filter
 // =============================================================================
+
+describe("canManageClientEntitlements", () => {
+  const partnerAdmin = createScope({
+    partnerIds: ["partner-a"],
+    partnerAdminIds: ["partner-a"],
+    clientIds: ["client-a1", "client-a2"],
+    managedClientIds: ["client-a1", "client-a2"],
+  });
+
+  it("platform admins always may", () => {
+    const scope = createScope({ isPlatformAdmin: true });
+    expect(canManageClientEntitlements(scope, "client-1", null)).toBe(true);
+    expect(canManageClientEntitlements(scope, "client-1", "partner-9")).toBe(true);
+  });
+
+  it("partner admins may, for clients of their partner in the managed set", () => {
+    expect(canManageClientEntitlements(partnerAdmin, "client-a1", "partner-a")).toBe(true);
+    expect(canManageClientEntitlements(partnerAdmin, "client-a2", "partner-a")).toBe(true);
+  });
+
+  it("partner admins may not for another partner's client, or a platform-owned one", () => {
+    expect(canManageClientEntitlements(partnerAdmin, "client-b1", "partner-b")).toBe(false);
+    expect(canManageClientEntitlements(partnerAdmin, "client-p", null)).toBe(false);
+  });
+
+  it("client admins never may, even for their own client", () => {
+    const clientAdmin = createScope({
+      clientIds: ["client-a1"],
+      clientAdminIds: ["client-a1"],
+      managedClientIds: ["client-a1"],
+    });
+    expect(canManageClient(clientAdmin, "client-a1")).toBe(true);
+    expect(canManageClientEntitlements(clientAdmin, "client-a1", "partner-a")).toBe(false);
+    expect(canManageClientEntitlements(clientAdmin, "client-a1", null)).toBe(false);
+  });
+
+  it("partner members may not", () => {
+    const member = createScope({ partnerIds: ["partner-a"], clientIds: ["client-a1"] });
+    expect(canManageClientEntitlements(member, "client-a1", "partner-a")).toBe(false);
+  });
+
+  it("follows workspace narrowing through the managed set", () => {
+    const narrowed = createScope({ ...partnerAdmin, managedClientIds: ["client-a1"] });
+    expect(canManageClientEntitlements(narrowed, "client-a1", "partner-a")).toBe(true);
+    expect(canManageClientEntitlements(narrowed, "client-a2", "partner-a")).toBe(false);
+  });
+});
 
 describe("resolveTenantClientFilter", () => {
   it("is unrestricted only for a platform admin with no workspace selected", () => {

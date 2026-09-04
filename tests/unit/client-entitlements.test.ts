@@ -97,11 +97,15 @@ import {
 // ---------------------------------------------------------------------------
 
 const CLIENT_ID = "11111111-1111-1111-1111-111111111111";
+const PARTNER_ID = "99999999-9999-9999-9999-999999999999";
+const ENTITLEMENT_ERROR =
+  "Only platform administrators or the client's partner can manage entitlements.";
 
 function adminScope() {
   return {
     scope: {
       isPlatformAdmin: true,
+      partnerAdminIds: [] as string[],
       managedClientIds: [] as string[],
       actor: { id: "admin-user-1" },
     },
@@ -115,6 +119,7 @@ function nonAdminScope() {
   return {
     scope: {
       isPlatformAdmin: false,
+      partnerAdminIds: [] as string[],
       managedClientIds: [] as string[],
       actor: { id: "member-user-1" },
     },
@@ -123,16 +128,31 @@ function nonAdminScope() {
   };
 }
 
-/** A partner admin whose managed set includes the client (resolved by the scope). */
+/** A direct client admin: manages the client, but entitlements are not theirs to set. */
+function clientAdminScope() {
+  return {
+    scope: {
+      isPlatformAdmin: false,
+      partnerAdminIds: [] as string[],
+      managedClientIds: [CLIENT_ID],
+      actor: { id: "client-admin-1" },
+    },
+    clientId: CLIENT_ID,
+    partnerId: PARTNER_ID,
+  };
+}
+
+/** An admin of the partner that owns the client (managed set resolved by the scope). */
 function partnerAdminScope() {
   return {
     scope: {
       isPlatformAdmin: false,
+      partnerAdminIds: [PARTNER_ID],
       managedClientIds: [CLIENT_ID],
       actor: { id: "partner-admin-1" },
     },
     clientId: CLIENT_ID,
-    partnerId: "99999999-9999-9999-9999-999999999999",
+    partnerId: PARTNER_ID,
   };
 }
 
@@ -220,7 +240,7 @@ describe("client entitlement actions", () => {
       });
 
       expect(result).toEqual({
-        error: "You do not have permission to manage this client.",
+        error: ENTITLEMENT_ERROR,
       });
     });
 
@@ -375,7 +395,7 @@ describe("client entitlement actions", () => {
       });
 
       expect(result).toEqual({
-        error: "You do not have permission to manage this client.",
+        error: ENTITLEMENT_ERROR,
       });
     });
 
@@ -438,7 +458,7 @@ describe("client entitlement actions", () => {
 
       const result = await toggleClientBranding("11111111-1111-1111-1111-111111111111", true);
       expect(result).toEqual({
-        error: "You do not have permission to manage this client.",
+        error: ENTITLEMENT_ERROR,
       });
     });
 
@@ -470,7 +490,20 @@ describe("client entitlement actions", () => {
   // -------------------------------------------------------------------------
   describe("partner admin callers", () => {
     const ASSESSMENT_ID = "22222222-2222-2222-2222-222222222222";
-    const PARTNER_ID = "99999999-9999-9999-9999-999999999999";
+
+    it("a client admin may not set entitlements for their own client", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(clientAdminScope());
+      const result = await assignAssessment(CLIENT_ID, { assessmentId: ASSESSMENT_ID, quotaLimit: 5 });
+      expect(result).toEqual({ error: ENTITLEMENT_ERROR });
+      expect(queryBuilder.insert).not.toHaveBeenCalled();
+    });
+
+    it("a client admin may not switch their own branding flag", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(clientAdminScope());
+      const result = await toggleClientBranding(CLIENT_ID, true);
+      expect(result).toEqual({ error: ENTITLEMENT_ERROR });
+      expect(queryBuilder.update).not.toHaveBeenCalled();
+    });
 
     it("assignAssessment refuses an assessment outside the partner's allocation", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
@@ -554,7 +587,7 @@ describe("client entitlement actions", () => {
     it("a signed-in caller who manages nothing is still refused", async () => {
       auth.requireClientAccess.mockResolvedValueOnce(nonAdminScope());
       const result = await toggleClientBranding(CLIENT_ID, false);
-      expect(result).toEqual({ error: "You do not have permission to manage this client." });
+      expect(result).toEqual({ error: ENTITLEMENT_ERROR });
     });
   });
 });

@@ -200,6 +200,12 @@ AGENTS.md
 
 This phase changes security posture and ships alone. Nothing in it is user-visible except that the client portal's brand and users pages now accept partner admins.
 
+> **Execution notes (2026-09-04, from the Codex review of PR #383) — now part of the design:**
+> 1. Entitlement actions gate on `canManageClientEntitlements(scope, clientId, partnerId)`: platform admin, or admin of the partner that owns the client (and the client is in the managed set). Client admins never set their own entitlements, as the target matrix says; `canManageClient` alone would have let them.
+> 2. D5 is enforced where the brand is written, not only on the flag toggle: `assertCanEditClientBrand` (`src/lib/brand/brand-write-authorization.ts`) runs in `upsertBrandConfig`, `resetBrandToDefault` and the brand-asset upload route. Partner admins need the partner flag; client admins need both flags; platform admins are exempt. Reads are not gated.
+> 3. The pool invariant also holds against parent-side changes: `clients.partner_id` may not change to a partner while the client holds active assignments outside that partner's allocation, and a pool row may not be deactivated or deleted while active client assignments depend on it (archived partners exempt, so `deletePartner` still works). Migration `20260905090100_partner_pool_parent_guards.sql`.
+> 4. In a partner support session the managed set is resolved from the partner's clients directly, not filtered out of the admin's own (usually empty) memberships — the same resolution #381 applies to `clientIds`.
+
 ### Pre-flight
 
 - [ ] **Step 0a.** Create the worktree and install.

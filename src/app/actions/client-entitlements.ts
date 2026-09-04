@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
-  canManageClient,
+  canManageClientEntitlements,
   requireClientAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
@@ -682,10 +682,14 @@ export async function checkQuotaAvailability(
 }
 
 // ---------------------------------------------------------------------------
-// Mutations — platform admins, or admins of the client / of the partner that
-// owns the client (canManageClient). Partner writes flow through here so the
-// pool, cap and audit rules apply; RLS keeps direct writes platform-only.
+// Mutations — platform admins, or admins of the partner that owns the client
+// (canManageClientEntitlements). Client admins never set their own
+// entitlements. Partner writes flow through here so the pool, cap and audit
+// rules apply; RLS keeps direct writes platform-only.
 // ---------------------------------------------------------------------------
+
+const ENTITLEMENT_PERMISSION_ERROR =
+  "Only platform administrators or the client's partner can manage entitlements."
 
 /**
  * Partner pool + cap rule (D3/D4). Returns an error string, or null when the
@@ -755,9 +759,9 @@ export async function assignAssessment(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = assignAssessmentSchema.safeParse({ clientId, ...input })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!canManageClient(scope, clientId)) {
-    return { error: 'You do not have permission to manage this client.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
   if (!scope.actor?.id) {
     return { error: "Unable to determine the acting user" };
@@ -819,9 +823,9 @@ export async function updateAssessmentAssignment(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = updateAssessmentAssignmentSchema.safeParse({ assignmentId, clientId, ...updates })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!canManageClient(scope, clientId)) {
-    return { error: 'You do not have permission to manage this client.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
 
   const db = createAdminClient()
@@ -907,9 +911,9 @@ export async function toggleReportTemplateAssignment(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = toggleReportTemplateAssignmentSchema.safeParse({ clientId, reportTemplateId, assigned })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!canManageClient(scope, clientId)) {
-    return { error: 'You do not have permission to manage this client.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
   if (!scope.actor?.id) {
     return { error: "Unable to determine the acting user" };
@@ -1055,9 +1059,9 @@ export async function toggleClientBranding(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = toggleClientBrandingSchema.safeParse({ clientId, canCustomize })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!canManageClient(scope, clientId)) {
-    return { error: 'You do not have permission to manage this client.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
 
   const db = createAdminClient()

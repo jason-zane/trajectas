@@ -334,4 +334,85 @@ describe.skipIf(!canRun)("partner-managed clients (RLS + pool trigger)", () => {
       expect(restoredError).toBeNull();
     });
   });
+
+  // -------------------------------------------------------------------------
+  // Parent-side guards: clients.partner_id changes and pool-row removal
+  // -------------------------------------------------------------------------
+  describe("parent-side guards", () => {
+    it("refuses moving a client under a partner while it holds active assignments outside that pool", async () => {
+      // Client P holds assessment Y (active, from the platform-owned case above).
+      const { error } = await adminDb
+        .from("clients")
+        .update({ partner_id: ids.partnerA })
+        .eq("id", ids.clientP);
+      expect(error).not.toBeNull();
+      expect(error!.message).toContain("outside partner");
+
+      const { data } = await adminDb
+        .from("clients")
+        .select("partner_id")
+        .eq("id", ids.clientP)
+        .single();
+      expect(data?.partner_id).toBeNull();
+    });
+
+    it("allows the move once the offending assignment is inactive, and moving back to platform-owned", async () => {
+      await adminDb
+        .from("client_assessment_assignments")
+        .update({ is_active: false })
+        .eq("client_id", ids.clientP)
+        .eq("assessment_id", ids.assessmentY);
+
+      const { error: moveError } = await adminDb
+        .from("clients")
+        .update({ partner_id: ids.partnerA })
+        .eq("id", ids.clientP);
+      expect(moveError).toBeNull();
+
+      const { error: backError } = await adminDb
+        .from("clients")
+        .update({ partner_id: null })
+        .eq("id", ids.clientP);
+      expect(backError).toBeNull();
+    });
+
+    it("refuses deactivating a pool row that active client assignments depend on", async () => {
+      // A1 ← X is active again after the deactivate / re-activate case above.
+      const { error } = await adminDb
+        .from("partner_assessment_assignments")
+        .update({ is_active: false })
+        .eq("id", ids.poolRowX);
+      expect(error).not.toBeNull();
+      expect(error!.message).toContain("still assigned");
+    });
+
+    it("refuses deleting such a pool row too", async () => {
+      const { error } = await adminDb
+        .from("partner_assessment_assignments")
+        .delete()
+        .eq("id", ids.poolRowX);
+      expect(error).not.toBeNull();
+      expect(error!.message).toContain("still assigned");
+    });
+
+    it("lets an archived partner's allocation be wound down (the deletePartner path)", async () => {
+      await adminDb
+        .from("partners")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", ids.partnerA);
+
+      const { error } = await adminDb
+        .from("partner_assessment_assignments")
+        .update({ is_active: false })
+        .eq("id", ids.poolRowX);
+      expect(error).toBeNull();
+
+      // Restore so teardown sees the state the other cases left behind.
+      await adminDb.from("partners").update({ deleted_at: null }).eq("id", ids.partnerA);
+      await adminDb
+        .from("partner_assessment_assignments")
+        .update({ is_active: true })
+        .eq("id", ids.poolRowX);
+    });
+  });
 });

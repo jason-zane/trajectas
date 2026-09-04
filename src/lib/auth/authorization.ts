@@ -426,7 +426,12 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
   if (supportSession) {
     managedClientIds =
       supportSession.targetSurface === "partner"
-        ? clientIds
+        ? // Resolved from the partner, not filtered out of the actor's own
+          // memberships: the platform admin opening the session typically holds
+          // none, so `clientIds` can be empty here while the partner has clients.
+          Array.from(
+            (await loadClientPartnerMap([supportSession.targetTenantId])).keys()
+          )
         : [supportSession.targetTenantId];
   } else {
     managedClientIds = managedClientIds.filter((clientId) =>
@@ -466,6 +471,26 @@ export function canAccessClient(scope: AuthorizedScope, clientId: string) {
  */
 export function canManageClient(scope: AuthorizedScope, clientId: string) {
   return scope.isPlatformAdmin || scope.managedClientIds.includes(clientId);
+}
+
+/**
+ * Entitlements — assessment assignments and quotas, report-template
+ * assignments, the client branding flag — are set by the platform or by the
+ * partner that owns the client, never by the client's own admins (who satisfy
+ * `canManageClient` for their tenant). The managed-set check keeps workspace
+ * narrowing and support-session confinement in force.
+ */
+export function canManageClientEntitlements(
+  scope: AuthorizedScope,
+  clientId: string,
+  clientPartnerId: string | null | undefined
+) {
+  return (
+    scope.isPlatformAdmin ||
+    (clientPartnerId != null &&
+      scope.partnerAdminIds.includes(clientPartnerId) &&
+      scope.managedClientIds.includes(clientId))
+  );
 }
 
 export function canManagePartner(scope: AuthorizedScope, partnerId: string) {
