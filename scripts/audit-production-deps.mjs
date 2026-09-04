@@ -72,12 +72,28 @@ const RETIRED_ENDPOINT = /\/-\/npm\/v1\/security\/audits\/quick\b/;
 const isRetryableStatus = (status) => status >= 500 || status === 408 || status === 429;
 
 /**
+ * What a run of the audit amounted to. Spelled out for the type checker's sake:
+ * `npm run build` type-checks the tests, and without this the inferred shape
+ * comes from whichever branch is written first and loses the rest.
+ *
+ * @typedef {object} AuditOutcome
+ * @property {"report" | "transport" | "unknown"} outcome
+ * @property {Record<string, any>} [report] parsed `npm audit --json`, when one came back
+ * @property {string} [reason] why no report came back
+ * @property {string} [stderr] npm's stderr from the deciding attempt
+ * @property {number | null} [exitCode] npm's exit code from the deciding attempt
+ * @property {number} [attempts] how many attempts it took
+ */
+
+/**
  * Decide what a single `npm audit --json` run actually told us.
  *
  * Returns one of:
  *   { outcome: "report", report }        a real advisory report came back
  *   { outcome: "transport", reason }     the audit endpoint failed; worth retrying
  *   { outcome: "unknown", reason }       something else went wrong; fail closed
+ *
+ * @returns {AuditOutcome}
  */
 export function classifyAuditRun({ stdout, exitCode, timedOut = false }) {
   if (timedOut) {
@@ -198,8 +214,11 @@ function runNpmAudit() {
 /**
  * Run the audit, retrying only the failures that are the registry's fault.
  * `run` and `wait` are injected so the retry policy can be tested without a network.
+ *
+ * @returns {Promise<AuditOutcome>}
  */
 export async function auditWithRetry({ run = runNpmAudit, wait = sleep, attempts = ATTEMPTS, random } = {}) {
+  /** @type {AuditOutcome} */
   let last = { outcome: "unknown", reason: "audit never ran" };
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
