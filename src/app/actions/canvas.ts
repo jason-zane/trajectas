@@ -73,7 +73,10 @@ type FactorRow = {
   id: string
   name: string
   dimension_id: string | null
-  dimensions: { id: string; name: string } | { id: string; name: string }[] | null
+  dimensions:
+    | { id: string; name: string; display_order: number | null }
+    | { id: string; name: string; display_order: number | null }[]
+    | null
 }
 
 function unwrap<T>(v: T | T[] | null | undefined): T | null {
@@ -419,13 +422,13 @@ async function loadTaxonomy(
   if (factorIds.length === 0) return { entities: [], dimensionByFactor: new Map() }
   const { data, error } = await db
     .from('factors')
-    .select('id, name, dimension_id, dimensions(id, name)')
+    .select('id, name, dimension_id, dimensions(id, name, display_order)')
     .in('id', factorIds)
   if (error) throwActionError('getComparisonCanvas', 'Unable to load taxonomy.', error)
 
   const entities: CanvasEntity[] = []
   const dimensionByFactor = new Map<string, string>()
-  const seenDimensions = new Map<string, string>()
+  const seenDimensions = new Map<string, { name: string; displayOrder: number }>()
   for (const row of (data ?? []) as FactorRow[]) {
     const dim = unwrap(row.dimensions)
     entities.push({
@@ -433,14 +436,28 @@ async function loadTaxonomy(
       name: String(row.name),
       level: 'factor',
       parentId: dim ? String(dim.id) : null,
+      // `factors` has no display_order column; the name tiebreak orders these.
+      displayOrder: 0,
     })
     if (dim) {
       dimensionByFactor.set(String(row.id), String(dim.id))
-      seenDimensions.set(String(dim.id), String(dim.name))
+      seenDimensions.set(String(dim.id), {
+        name: String(dim.name),
+        displayOrder: dim.display_order ?? 0,
+      })
     }
   }
-  for (const [id, name] of seenDimensions) {
-    entities.push({ id, name, level: 'dimension', parentId: null })
+  // Carry the authored order onto the entity rather than relying on the order
+  // they are pushed in: every consumer re-sorts (orderEntities, CanvasHero),
+  // so insertion order here would be discarded.
+  for (const [id, dim] of seenDimensions) {
+    entities.push({
+      id,
+      name: dim.name,
+      level: 'dimension',
+      parentId: null,
+      displayOrder: dim.displayOrder,
+    })
   }
   return { entities, dimensionByFactor }
 }

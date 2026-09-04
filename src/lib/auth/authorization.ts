@@ -666,6 +666,28 @@ export async function requireCampaignAccess(campaignId: string) {
 }
 
 /**
+ * Campaign access is membership-wide: any member of the owning client or
+ * partner may READ a campaign. Mutating one is a management action, so every
+ * campaign write goes through this instead of `requireCampaignAccess` — it
+ * adds the `canManageCampaign` check on top of the same lookup.
+ *
+ * Without it an ordinary (non-admin) member of a tenant could edit, activate,
+ * or invite into any campaign that tenant owns, because the actions run on the
+ * service-role client and RLS never sees the request.
+ */
+export async function requireCampaignManage(campaignId: string) {
+  const access = await requireCampaignAccess(campaignId);
+
+  if (!canManageCampaign(access.scope, access.partnerId, access.clientId)) {
+    throw new AuthorizationError(
+      "You do not have permission to manage this campaign."
+    );
+  }
+
+  return access;
+}
+
+/**
  * Throws unless the viewer may see individual-level results (scores,
  * responses, report snapshots) for a campaign with the given confidentiality
  * mode. See src/lib/reports/confidentiality.ts for the policy rationale.

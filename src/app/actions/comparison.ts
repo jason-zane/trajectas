@@ -9,6 +9,7 @@ import {
   resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
+import { byDisplayOrder } from '@/lib/taxonomy-order'
 import {
   comparisonRequestSchema,
   eligibleAssessmentsSchema,
@@ -331,15 +332,18 @@ type AssessmentMetaRow = {
   title: string
 }
 
+type DimensionRow = { id: string; name: string; display_order: number | null }
+
 type FactorRow = {
   id: string
   name: string
   dimension_id: string | null
-  dimensions: { id: string; name: string } | { id: string; name: string }[] | null
+  dimensions: DimensionRow | DimensionRow[] | null
 }
 
 type AssessmentFactorRow = {
   factor_id: string
+  display_order: number | null
   factors: FactorRow | FactorRow[] | null
 }
 
@@ -548,11 +552,17 @@ async function factorLevelGroups(
 ): Promise<ColumnGroup[]> {
   const { data, error } = await supabase
     .from('assessment_factors')
-    .select('factor_id, factors(id, name, dimension_id, dimensions(id, name))')
+    .select(
+      'factor_id, display_order, factors(id, name, dimension_id, dimensions(id, name, display_order))',
+    )
     .eq('assessment_id', assessment.id)
   if (error) throw error
 
-  type DimBucket = { dim: Column; children: Column[] }
+  // Column order is the framework's, not the query plan's: dimensions by their
+  // authored `display_order`, factors by the Composition canvas order. Both
+  // fall back to name so an unauthored taxonomy is still stable between loads.
+  type OrderedColumn = Column & { displayOrder: number }
+  type DimBucket = { dim: OrderedColumn; children: OrderedColumn[] }
   const byDim = new Map<string, DimBucket>()
   // Keep a synthetic "no-dimension" bucket as a fallback so factors without a
   // dimension still surface — uses the assessment as the rollup label.
@@ -563,14 +573,28 @@ async function factorLevelGroups(
     if (!f) continue
     const dim = unwrapEmbedded(f.dimensions)
 
+    const factorOrder = row.display_order ?? 0
+
     if (dim) {
       const bucket =
         byDim.get(dim.id) ??
         {
-          dim: { id: dim.id, name: dim.name, level: 'dimension' as const, parentId: null },
+          dim: {
+            id: dim.id,
+            name: dim.name,
+            level: 'dimension' as const,
+            parentId: null,
+            displayOrder: dim.display_order ?? 0,
+          },
           children: [],
         }
-      bucket.children.push({ id: f.id, name: f.name, level: 'factor', parentId: dim.id })
+      bucket.children.push({
+        id: f.id,
+        name: f.name,
+        level: 'factor',
+        parentId: dim.id,
+        displayOrder: factorOrder,
+      })
       byDim.set(dim.id, bucket)
     } else {
       orphan ??= {
@@ -579,28 +603,44 @@ async function factorLevelGroups(
           name: assessment.title,
           level: 'dimension',
           parentId: null,
+          displayOrder: 0,
         },
         children: [],
       }
-      orphan.children.push({ id: f.id, name: f.name, level: 'factor', parentId: orphan.dim.id })
+      orphan.children.push({
+        id: f.id,
+        name: f.name,
+        level: 'factor',
+        parentId: orphan.dim.id,
+        displayOrder: factorOrder,
+      })
     }
   }
 
+  // `displayOrder` is a sort key, not part of the client-facing column shape.
+  const strip = (column: OrderedColumn): Column => ({
+    id: column.id,
+    name: column.name,
+    level: column.level,
+    parentId: column.parentId,
+  })
+
   const out: ColumnGroup[] = []
-  for (const bucket of byDim.values()) {
+  for (const bucket of [...byDim.values()].sort((a, b) => byDisplayOrder(a.dim, b.dim))) {
     out.push({
       assessmentId: assessment.id,
       assessmentName: assessment.title,
-      rollup: bucket.dim,
-      children: bucket.children,
+      rollup: strip(bucket.dim),
+      children: [...bucket.children].sort(byDisplayOrder).map(strip),
     })
   }
+  // The unparented bucket has no place in the framework order, so it trails.
   if (orphan) {
     out.push({
       assessmentId: assessment.id,
       assessmentName: assessment.title,
-      rollup: orphan.dim,
-      children: orphan.children,
+      rollup: strip(orphan.dim),
+      children: [...orphan.children].sort(byDisplayOrder).map(strip),
     })
   }
   return out

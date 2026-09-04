@@ -5,6 +5,7 @@ import type {
 } from "@/app/actions/sessions";
 import type { ParticipantSessionProcessingStatus } from "@/types/database";
 import { FactorScoreRow } from "./factor-score-row";
+import { byDisplayOrder } from "@/lib/taxonomy-order";
 
 interface SessionScoresPanelProps {
   scores: SessionDetailScore[];
@@ -25,8 +26,15 @@ const UNGROUPED_LABEL = "Other";
 interface ScoreGroup {
   key: string;
   label: string | null;
+  /** Authored `dimensions.display_order`. Ungrouped rows sort last regardless. */
+  displayOrder: number;
   groupScore?: number;
   scores: SessionDetailScore[];
+}
+
+/** Capabilities read in framework order, matching the report — name ascending. */
+function sortScores(scores: SessionDetailScore[]): SessionDetailScore[] {
+  return [...scores].sort((a, b) => a.entityName.localeCompare(b.entityName));
 }
 
 function groupScores(
@@ -44,7 +52,8 @@ function groupScores(
       {
         key: UNGROUPED_KEY,
         label: null,
-        scores: [...scores].sort((a, b) => b.scaledScore - a.scaledScore),
+        displayOrder: 0,
+        scores: sortScores(scores),
       },
     ];
   }
@@ -62,6 +71,7 @@ function groupScores(
           score.dimensionId == null
             ? UNGROUPED_LABEL
             : (score.dimensionName ?? "Unnamed dimension"),
+        displayOrder: score.dimensionDisplayOrder ?? 0,
         groupScore:
           score.dimensionId != null
             ? dimensionScoreById.get(score.dimensionId)
@@ -72,17 +82,14 @@ function groupScores(
   }
 
   return Array.from(buckets.values())
-    .map((group) => ({
-      ...group,
-      scores: group.scores.sort((a, b) => b.scaledScore - a.scaledScore),
-    }))
+    .map((group) => ({ ...group, scores: sortScores(group.scores) }))
     .sort((a, b) => {
       if (a.key === UNGROUPED_KEY) return 1;
       if (b.key === UNGROUPED_KEY) return -1;
-      if (a.groupScore != null && b.groupScore != null) {
-        return b.groupScore - a.groupScore;
-      }
-      return (a.label ?? "").localeCompare(b.label ?? "");
+      return byDisplayOrder(
+        { displayOrder: a.displayOrder, name: a.label },
+        { displayOrder: b.displayOrder, name: b.label },
+      );
     });
 }
 

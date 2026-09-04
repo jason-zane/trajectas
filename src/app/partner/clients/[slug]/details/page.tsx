@@ -16,6 +16,7 @@ export default async function PartnerClientDetailsPage({
       partnerOptions={[]}
       canAssignPartner={false}
       archiveRedirectPath="/partner/clients"
+      clientBasePath="/partner/clients"
       ownershipLinkHref={null}
     />
   );

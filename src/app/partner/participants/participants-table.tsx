@@ -300,6 +300,8 @@ export function ParticipantsTable({
         <DataTable
           columns={sessionsColumns}
           data={rows}
+          enableRowSelection
+          getRowId={(row) => row.id}
           bulkActions={sessionsBulkActions}
           searchableColumns={["displayName", "email"]}
           searchPlaceholder="Search participants"
