@@ -1403,12 +1403,18 @@ export async function getAllReadySnapshots(
 ): Promise<ReportSnapshotListItem[]> {
   const parsed = getAllReadySnapshotsSchema.safeParse(options)
   if (!parsed.success) return []
-  await requireAdminScope()
+  const scope = await requireAdminScope()
   const db = await createClient()
 
   const limit = Math.min(Math.max(options.limit ?? 1000, 1), 5000)
 
-  const { data, error } = await db
+  // Being a platform admin is not the same as standing outside every
+  // workspace, and these rows carry participant names and email addresses.
+  // Inside a client's workspace this list is that client's, like any other.
+  const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) return []
+
+  let query = db
     .from('report_snapshots')
     .select(
       '*, participant_sessions(campaign_participant_id, campaign_participants(first_name, last_name, email))'
@@ -1416,6 +1422,12 @@ export async function getAllReadySnapshots(
     .in('status', ['ready', 'released', 'failed'])
     .order('created_at', { ascending: false })
     .limit(limit)
+
+  if (accessibleCampaignIds) {
+    query = query.in('campaign_id', accessibleCampaignIds)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     throwActionError(
@@ -1508,7 +1520,7 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
   const access = await requireReportTemplateAccess(templateId)
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(access.scope)
-  if (!access.scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
     return []
   }
 
@@ -1518,7 +1530,7 @@ export async function getTemplateUsage(templateId: string): Promise<TemplateUsag
     .eq('template_id', templateId)
     .order('created_at', { ascending: false })
 
-  if (!access.scope.isPlatformAdmin && accessibleCampaignIds) {
+  if (accessibleCampaignIds) {
     query = query.in('campaign_id', accessibleCampaignIds)
   }
 
@@ -1541,7 +1553,7 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
-  if (!scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
     return {}
   }
 
@@ -1549,7 +1561,7 @@ export async function getTemplateUsageCounts(): Promise<Record<string, number>> 
     .from('campaign_report_templates')
     .select('template_id')
 
-  if (!scope.isPlatformAdmin && accessibleCampaignIds) {
+  if (accessibleCampaignIds) {
     query = query.in('campaign_id', accessibleCampaignIds)
   }
 
@@ -1575,7 +1587,7 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
   const scope = await resolveAuthorizedScope()
   const db = createAdminClient()
   const accessibleCampaignIds = await getAccessibleCampaignIds(scope)
-  if (!scope.isPlatformAdmin && (!accessibleCampaignIds || accessibleCampaignIds.length === 0)) {
+  if (accessibleCampaignIds && accessibleCampaignIds.length === 0) {
     return []
   }
 
@@ -1585,7 +1597,7 @@ export async function getAllCampaigns(): Promise<{ id: string; title: string }[]
     .is('deleted_at', null)
     .order('title')
 
-  if (!scope.isPlatformAdmin && accessibleCampaignIds) {
+  if (accessibleCampaignIds) {
     query = query.in('id', accessibleCampaignIds)
   }
 

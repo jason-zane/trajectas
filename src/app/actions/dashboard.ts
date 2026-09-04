@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   redirectToLoginOnDeadSession,
   resolveAuthorizedScope,
+  resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 
@@ -19,7 +20,9 @@ export async function getDashboardStats() {
     redirectToLoginOnDeadSession(error)
   }
   const db = await createClient()
-  if (scope.isPlatformAdmin) {
+  // Global counts only outside every tenant workspace — inside one, an admin
+  // gets that workspace's numbers like anyone else.
+  if (resolveTenantClientFilter(scope) === null) {
     const [dimensions, factors, constructs, items, assessments, clients] =
       await Promise.all([
         db.from('dimensions').select('*', { count: 'exact', head: true }).is('deleted_at', null),

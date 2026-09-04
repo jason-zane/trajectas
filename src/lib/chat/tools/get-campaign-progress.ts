@@ -23,12 +23,12 @@ export const getCampaignProgressTool = defineChatTool({
   params: z.object({
     campaign_id: z.string().uuid().describe('The campaign to summarise.'),
   }),
-  async execute({ campaign_id }, { db }) {
+  async execute({ campaign_id }, { db, scope }) {
     try {
       // Resolved by id through the caller's own connection: an id they cannot
       // see reads as not-found because RLS returns no row, not because of any
       // check here.
-      const progress = await getCampaignProgress(db, campaign_id)
+      const progress = await getCampaignProgress(db, scope, campaign_id)
       if (!progress) {
         return toolFail('not_found', 'No such campaign is visible to you.')
       }

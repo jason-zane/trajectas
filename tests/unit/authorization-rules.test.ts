@@ -13,6 +13,7 @@ import {
   canManageReportTemplateLibrary,
   getPreferredPartnerIdForClientCreation,
   getPreferredPartnerIdForReportTemplateCreation,
+  applyTenantClientFilter,
   resolveTenantClientFilter,
   type AuthorizedScope,
 } from "@/lib/auth/authorization";
@@ -410,5 +411,65 @@ describe("resolveTenantClientFilter", () => {
   it("returns an empty list — not null — when the caller reaches no client", () => {
     // Callers must read this as "no rows", never as "unrestricted".
     expect(resolveTenantClientFilter(createScope())).toEqual([]);
+  });
+});
+
+// =============================================================================
+// applyTenantClientFilter
+//
+// The empty-list case is the one that matters: "restricted to nothing" read as
+// "unrestricted" is exactly the mistake that leaked one client's participants
+// to every other. Returning null forces the caller to handle it.
+// =============================================================================
+
+describe("applyTenantClientFilter", () => {
+  /** Minimal stand-in for a PostgREST filter builder. */
+  function createQuery() {
+    const calls: Array<{ column: string; values: string[] }> = [];
+    const query = {
+      calls,
+      in(column: string, values: string[]) {
+        calls.push({ column, values });
+        return query;
+      },
+    };
+    return query;
+  }
+
+  it("leaves the query untouched when the caller is unrestricted", () => {
+    const query = createQuery();
+    const scoped = applyTenantClientFilter(
+      query,
+      createScope({ isPlatformAdmin: true }),
+      "client_id"
+    );
+
+    expect(scoped).toBe(query);
+    expect(query.calls).toEqual([]);
+  });
+
+  it("applies the workspace client ids as an explicit predicate", () => {
+    const query = createQuery();
+    const scoped = applyTenantClientFilter(
+      query,
+      createScope({
+        isPlatformAdmin: true,
+        activeContext: { surface: "client", tenantType: "client", tenantId: "client-1" },
+        clientIds: ["client-1"],
+      }),
+      "campaigns.client_id"
+    );
+
+    expect(scoped).toBe(query);
+    expect(query.calls).toEqual([
+      { column: "campaigns.client_id", values: ["client-1"] },
+    ]);
+  });
+
+  it("returns null — never an unfiltered query — when confined to nothing", () => {
+    const query = createQuery();
+
+    expect(applyTenantClientFilter(query, createScope(), "client_id")).toBeNull();
+    expect(query.calls).toEqual([]);
   });
 });

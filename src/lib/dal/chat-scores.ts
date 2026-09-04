@@ -3,8 +3,13 @@
 //
 // Score and progress reads for grounded chat. As with chat-search.ts the
 // Supabase client is INJECTED: callers pass the requester's RLS-scoped
-// connection, so tenancy — and campaign confidentiality — come from the
-// policies rather than from predicates here.
+// connection, so MEMBERSHIP tenancy — and campaign confidentiality — come from
+// the policies rather than from predicates here.
+//
+// The WORKSPACE boundary does not: RLS cannot see the active context or a
+// support session (both live in a signed cookie), and every id these functions
+// take arrives from the model. So each also checks the row against the caller's
+// resolved campaign scope — see chat-search.ts for the full explanation.
 //
 // That second point is worth stating plainly, because it is doing real work.
 // The participant_scores SELECT policy already excludes aggregate-only
@@ -25,6 +30,7 @@
 import 'server-only'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { ChatSearchScope } from './chat-search'
 import {
   resolveCompetencyScoreDisplay,
   CompetencyClaimsViolation,
@@ -64,6 +70,7 @@ export interface SessionScores {
  */
 export async function getSessionScores(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   sessionId: string,
 ): Promise<SessionScores | null> {
   const { data: sessionRow, error: sessionError } = await db
@@ -76,6 +83,11 @@ export async function getSessionScores(
 
   if (sessionError) throw new ChatScoresError(sessionError.message)
   if (!sessionRow) return null
+  // Visible to the caller's memberships is not the same as inside the workspace
+  // they are standing in, and the session id came from the model.
+  if (scope.campaignIds && !scope.campaignIds.includes(String(sessionRow.campaign_id))) {
+    return null
+  }
 
   const { data: scoreRows, error: scoreError } = await db
     .from('participant_scores')
@@ -153,8 +165,11 @@ export interface CampaignProgress {
  */
 export async function getCampaignProgress(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   campaignId: string,
 ): Promise<CampaignProgress | null> {
+  if (scope.campaignIds && !scope.campaignIds.includes(campaignId)) return null
+
   const { data: row, error } = await db
     .from('campaigns_with_counts')
     .select('id, title, status, participant_count, completed_count, assessment_count')
@@ -231,29 +246,43 @@ export interface LatestSessionResolution {
  */
 export async function getLatestScoredSession(
   db: SupabaseClient,
+  scope: ChatSearchScope,
   participantIds: string[],
 ): Promise<LatestSessionResolution> {
   if (participantIds.length === 0) {
     return { sessionId: null, skippedMoreRecent: false }
   }
+  if (scope.campaignIds && scope.campaignIds.length === 0) {
+    return { sessionId: null, skippedMoreRecent: false }
+  }
 
-  const { data: newest, error: newestError } = await db
+  let newestQuery = db
     .from('participant_sessions')
     .select('id, completed_at')
     .in('campaign_participant_id', participantIds)
     .eq('status', 'completed')
+  if (scope.campaignIds) {
+    newestQuery = newestQuery.in('campaign_id', scope.campaignIds)
+  }
+
+  const { data: newest, error: newestError } = await newestQuery
     .order('completed_at', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()
 
   if (newestError) throw new ChatScoresError(newestError.message)
 
-  const { data: scored, error: scoredError } = await db
+  let scoredQuery = db
     .from('participant_sessions')
     .select('id, completed_at, participant_scores!inner(metric)')
     .in('campaign_participant_id', participantIds)
     .eq('status', 'completed')
     .eq('participant_scores.metric', 'pomp')
+  if (scope.campaignIds) {
+    scoredQuery = scoredQuery.in('campaign_id', scope.campaignIds)
+  }
+
+  const { data: scored, error: scoredError } = await scoredQuery
     .order('completed_at', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle()

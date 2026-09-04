@@ -31,7 +31,7 @@ export const findParticipantTool = defineChatTool({
       .max(160)
       .describe('A name or email address, whole or partial.'),
   }),
-  async execute({ query }, { db }) {
+  async execute({ query }, { db, scope }) {
     const term = query.trim()
     if (!term) {
       return toolFail('invalid_input', 'Provide a name or email to search for.')
@@ -39,7 +39,7 @@ export const findParticipantTool = defineChatTool({
 
     let result
     try {
-      result = await searchPeople(db, term)
+      result = await searchPeople(db, scope, term)
     } catch (error) {
       const message = error instanceof ChatSearchError ? error.message : 'lookup failed'
       return toolFail('unavailable', `Person lookup failed: ${message}`)

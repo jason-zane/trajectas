@@ -114,6 +114,19 @@ async function getRequestEnvironment() {
   };
 }
 
+/**
+ * The clients belonging to one partner.
+ *
+ * Needed when a platform admin steps into a partner workspace they hold no
+ * membership in: `clientPartnerMap` is built from the actor's own memberships,
+ * so for such an actor it is empty and narrowing to the workspace would leave
+ * `clientIds` empty — i.e. "no clients" rather than "this partner's clients".
+ */
+async function loadPartnerClientIds(partnerId: string) {
+  const map = await loadClientPartnerMap([partnerId]);
+  return Array.from(map.keys());
+}
+
 async function loadClientPartnerMap(partnerIds: string[]) {
   if (partnerIds.length === 0) {
     return new Map<string, string>();
@@ -352,9 +365,10 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
     if (supportSession.targetSurface === "partner") {
       partnerIds = [supportSession.targetTenantId];
       partnerAdminIds = [supportSession.targetTenantId];
-      clientIds = partnerClientIds.filter(
-        (clientId) => clientPartnerMap.get(clientId) === supportSession.targetTenantId
-      );
+      // Resolved from the partner rather than filtered out of the actor's own
+      // scope: a support session is only ever opened by a platform admin, who
+      // typically holds no partner membership, so filtering would yield none.
+      clientIds = await loadPartnerClientIds(supportSession.targetTenantId);
       clientAdminIds = [];
     } else {
       partnerIds = [];
@@ -368,9 +382,14 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
       partnerAdminIds = actorPartnerAdminIds.includes(activeContext.tenantId)
         ? [activeContext.tenantId]
         : [];
-      clientIds = clientIds.filter(
-        (clientId) => clientPartnerMap.get(clientId) === activeContext.tenantId
-      );
+      clientIds = actorPartnerIds.includes(activeContext.tenantId)
+        ? // A member of this partner: narrow the scope they already had.
+          clientIds.filter(
+            (clientId) => clientPartnerMap.get(clientId) === activeContext.tenantId
+          )
+        : // A platform admin stepping in from outside: their scope was every
+          // client, so resolve this partner's clients directly.
+          await loadPartnerClientIds(activeContext.tenantId);
       clientAdminIds = clientAdminIds.filter((clientId) =>
         clientIds.includes(clientId)
       );
@@ -693,7 +712,11 @@ export async function requireReportSnapshotAccess(snapshotId: string) {
 }
 
 export async function getAccessibleCampaignIds(scope: AuthorizedScope) {
-  if (scope.isPlatformAdmin) {
+  // `null` means unrestricted, and only a platform admin standing outside every
+  // tenant workspace is. Gating on `isPlatformAdmin` alone returned `null` to an
+  // admin inside a client's workspace too, which is how the workspace boundary
+  // leaked through every caller that trusts this list.
+  if (resolveTenantClientFilter(scope) === null) {
     return null;
   }
 
@@ -943,4 +966,32 @@ export function resolveTenantClientFilter(
   }
 
   return scope.clientIds;
+}
+
+/**
+ * Narrow a query to the caller's workspace on a client-id column, or return
+ * `null` when the caller is confined to nothing.
+ *
+ * Prefer this over calling `resolveTenantClientFilter` by hand: the empty-array
+ * case means "no rows", and expressing it as a `null` the caller must handle
+ * makes the mistake that caused the original leak — treating "restricted to
+ * nothing" as "unrestricted" — a type error rather than a silent widening.
+ *
+ *   const scoped = applyTenantClientFilter(query, scope, "client_id");
+ *   if (!scoped) return [];
+ *   const { data, error } = await scoped;
+ *
+ * `column` may address an embedded relation ("campaigns.client_id").
+ */
+export function applyTenantClientFilter<
+  Q extends { in(column: string, values: string[]): Q },
+>(query: Q, scope: AuthorizedScope, column: string): Q | null {
+  const clientFilter = resolveTenantClientFilter(scope);
+  if (clientFilter === null) {
+    return query;
+  }
+  if (clientFilter.length === 0) {
+    return null;
+  }
+  return query.in(column, clientFilter);
 }

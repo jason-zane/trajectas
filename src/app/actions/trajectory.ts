@@ -14,9 +14,11 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
+  applyTenantClientFilter,
   AuthorizationError,
   requireParticipantAccess,
   resolveAuthorizedScope,
+  resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { throwActionError } from '@/lib/security/action-errors'
 
@@ -217,10 +219,9 @@ export async function searchPersons(
     .order('created_at', { ascending: false })
     .limit(200)
 
-  if (!scope.isPlatformAdmin) {
-    if (scope.clientIds.length === 0) return []
-    q = q.in('campaigns.client_id', scope.clientIds)
-  }
+  const scopedQ = applyTenantClientFilter(q, scope, 'campaigns.client_id')
+  if (!scopedQ) return []
+  q = scopedQ
 
   const { data, error } = await q
   if (error) {
@@ -283,7 +284,8 @@ export async function getTrajectoryLandingData(
     stats: { peopleTracked: 0, sessionsCompleted: 0, sessionsLast30Days: 0 },
     recent: [],
   }
-  if (!scope.isPlatformAdmin && scope.clientIds.length === 0) return empty
+  const clientFilter = resolveTenantClientFilter(scope)
+  if (clientFilter && clientFilter.length === 0) return empty
 
   // Cut-off for "last 30 days". Computed once for consistency across queries.
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
@@ -327,11 +329,11 @@ export async function getTrajectoryLandingData(
     .order('completed_at', { ascending: false })
     .limit(Math.max(50, recentLimit * 5))
 
-  if (!scope.isPlatformAdmin) {
-    sessionsCompletedReq = sessionsCompletedReq.in('campaigns.client_id', scope.clientIds)
-    sessionsRecentReq = sessionsRecentReq.in('campaigns.client_id', scope.clientIds)
-    personKeysReq = personKeysReq.in('campaigns.client_id', scope.clientIds)
-    recentReq = recentReq.in('campaigns.client_id', scope.clientIds)
+  if (clientFilter) {
+    sessionsCompletedReq = sessionsCompletedReq.in('campaigns.client_id', clientFilter)
+    sessionsRecentReq = sessionsRecentReq.in('campaigns.client_id', clientFilter)
+    personKeysReq = personKeysReq.in('campaigns.client_id', clientFilter)
+    recentReq = recentReq.in('campaigns.client_id', clientFilter)
   }
 
   const [sessionsCompletedRes, sessionsRecentRes, personKeysRes, recentRes] = await Promise.all([

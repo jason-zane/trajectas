@@ -39,10 +39,12 @@ import {
   canAccessClient,
   canManageCampaign,
   getAccessibleCampaignIds,
+  getAccessiblePartnerIds,
   requireAssessmentAccess,
   requireCampaignAccess,
   requireClientAccess,
   resolveAuthorizedScope,
+  resolveTenantClientFilter,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { logActionError, throwActionError } from '@/lib/security/action-errors'
@@ -153,8 +155,10 @@ export async function getCampaigns(options?: { clientId?: string }): Promise<Cam
     (scope.requestSurface === 'client' ? (scope.activeContext?.tenantId ?? null) : null)
 
   let scopedCampaignIds: string[] | null = null
-  if (!effectiveClientId && !scope.isPlatformAdmin) {
-    scopedCampaignIds = (await getAccessibleCampaignIds(scope)) ?? []
+  if (!effectiveClientId) {
+    // null means unrestricted (no tenant workspace active); anything else,
+    // including an empty list, is the workspace boundary and must be applied.
+    scopedCampaignIds = await getAccessibleCampaignIds(scope)
   }
 
   const db = await createClient()
@@ -2264,13 +2268,20 @@ export async function getUniqueParticipantsForClient(
 export async function getActiveAssessments(): Promise<CampaignAssessmentOption[]> {
   const scope = await resolveAuthorizedScope()
 
-  // Scope-aware: partners see their own + platform-owned assessments; admins and
-  // the local-dev bypass see all. Clients use getClientAssessmentLibrary instead,
-  // so a non-admin non-partner caller gets nothing.
+  // Scope-aware: partners see their own + platform-owned assessments; the
+  // local-dev bypass, and an admin outside every workspace, see all. Clients use
+  // getClientAssessmentLibrary instead, so a non-admin non-partner caller gets
+  // nothing.
   let partnerScope: string[] | null = null
-  if (!scope.isPlatformAdmin && !scope.isLocalDevelopmentBypass) {
-    if (scope.partnerIds.length === 0) return []
-    partnerScope = scope.partnerIds
+  if (resolveTenantClientFilter(scope) !== null && !scope.isLocalDevelopmentBypass) {
+    // Unrestricted only outside every workspace. A platform admin standing in
+    // one gets that workspace's partners — resolved through the active client
+    // when they hold no partner membership of their own.
+    const partnerIds = scope.isPlatformAdmin
+      ? await getAccessiblePartnerIds(scope)
+      : scope.partnerIds
+    if (partnerIds.length === 0) return []
+    partnerScope = partnerIds
   }
 
   const db = await createClient()

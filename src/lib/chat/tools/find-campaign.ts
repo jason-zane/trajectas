@@ -33,10 +33,10 @@ export const findCampaignTool = defineChatTool({
       .optional()
       .describe('Optional exact status filter, e.g. "active", "draft", "closed".'),
   }),
-  async execute({ query, status }, { db }) {
+  async execute({ query, status }, { db, scope }) {
     let campaigns
     try {
-      campaigns = await searchCampaigns(db, { term: query, status })
+      campaigns = await searchCampaigns(db, scope, { term: query, status })
     } catch (error) {
       const message = error instanceof ChatSearchError ? error.message : 'lookup failed'
       return toolFail('unavailable', `Campaign lookup failed: ${message}`)

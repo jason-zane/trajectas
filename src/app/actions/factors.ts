@@ -3,7 +3,9 @@
 import { revalidatePath, unstable_cache, updateTag } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { requireAdminScope } from '@/lib/auth/authorization'
+import {
+  requireAdminScope,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { throwActionError, logActionError } from '@/lib/security/action-errors'
 import { mapFactorRow } from '@/lib/supabase/mappers'

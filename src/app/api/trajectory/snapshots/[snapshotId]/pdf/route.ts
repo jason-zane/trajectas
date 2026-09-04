@@ -1,6 +1,9 @@
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { resolveAuthorizedScope } from '@/lib/auth/authorization'
+import {
+  resolveAuthorizedScope,
+  resolveTenantClientFilter,
+} from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
 import { generateGrowthReportPdf } from '@/lib/canvas/growth-pdf'
 import { postgresUuid } from '@/lib/validations/uuid'
@@ -9,9 +12,14 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
- * Streams the growth-report PDF for a snapshot. Authorisation: the caller
- * must be able to SELECT the snapshot under RLS (owner or member of the
- * snapshot's client) — the row read below runs on the cookie-scoped client.
+ * Streams the growth-report PDF for a snapshot.
+ *
+ * Authorisation is two-layered, and the second layer is the one that matters
+ * here. RLS narrows the row read below to what the caller's MEMBERSHIPS reach,
+ * but it knows nothing about the workspace they are standing in and is not a
+ * boundary at all for a platform admin — so a snapshot id from the URL would
+ * otherwise stream another tenant's report. The client is checked against the
+ * resolved scope before the PDF is generated.
  */
 export async function GET(
   _req: Request,
@@ -29,6 +37,16 @@ export async function GET(
     .eq('id', snapshotId)
     .maybeSingle()
   if (error || !snapshot) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
+  }
+
+  const clientFilter = resolveTenantClientFilter(await resolveAuthorizedScope())
+  if (
+    clientFilter !== null &&
+    (!snapshot.client_id || !clientFilter.includes(String(snapshot.client_id)))
+  ) {
+    // Same shape as a missing row: a snapshot outside the workspace should not
+    // be distinguishable from one that does not exist.
     return NextResponse.json({ error: 'not_found' }, { status: 404 })
   }
 
