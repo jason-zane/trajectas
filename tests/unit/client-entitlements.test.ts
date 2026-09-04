@@ -23,6 +23,7 @@ const queryBuilder = vi.hoisted(() => {
     "eq",
     "in",
     "is",
+    "or",
     "order",
     "single",
     "maybeSingle",
@@ -85,6 +86,7 @@ vi.mock("@/lib/auth/support-sessions", () => ({
 
 import {
   getAssessmentAssignments,
+  getAssignableAssessmentsForClient,
   assignAssessment,
   checkQuotaAvailability,
   updateAssessmentAssignment,
@@ -582,6 +584,44 @@ describe("client entitlement actions", () => {
 
       const result = await toggleClientBranding(CLIENT_ID, true);
       expect(result).toEqual({ success: true, id: CLIENT_ID });
+    });
+
+    it("getAssignableAssessmentsForClient returns the pool, partner-owned and client-owned set", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(partnerAdminScope());
+      // `eq` is called three times: the assessments query builds first
+      // (…eq(status)), then the pool lookup (…eq(partner_id).eq(is_active)),
+      // and only that third call is awaited. mockReset clears any `once` values
+      // queued by earlier tests in this file.
+      queryBuilder.eq.mockReset();
+      let eqCalls = 0;
+      queryBuilder.eq.mockImplementation(() => {
+        eqCalls += 1;
+        return eqCalls === 3
+          ? Promise.resolve({ data: [{ assessment_id: ASSESSMENT_ID }], error: null })
+          : queryBuilder;
+      });
+      queryBuilder.or.mockReset();
+      queryBuilder.or.mockResolvedValue({
+        data: [{ id: ASSESSMENT_ID, title: "Leadership", status: "active" }],
+        error: null,
+      });
+
+      const result = await getAssignableAssessmentsForClient(CLIENT_ID);
+      expect(result).toEqual([
+        { id: ASSESSMENT_ID, title: "Leadership", status: "active" },
+      ]);
+      // The pool ids and both ownership escapes are in the filter (D4).
+      const orArg = queryBuilder.or.mock.calls[0][0] as string;
+      expect(orArg).toContain(`partner_id.eq.${PARTNER_ID}`);
+      expect(orArg).toContain(`client_id.eq.${CLIENT_ID}`);
+      expect(orArg).toContain(`id.in.(${ASSESSMENT_ID})`);
+    });
+
+    it("getAssignableAssessmentsForClient returns nothing for a client admin", async () => {
+      auth.requireClientAccess.mockResolvedValueOnce(clientAdminScope());
+      const result = await getAssignableAssessmentsForClient(CLIENT_ID);
+      expect(result).toEqual([]);
+      expect(supabase.createAdminClient).not.toHaveBeenCalled();
     });
 
     it("a signed-in caller who manages nothing is still refused", async () => {

@@ -21,10 +21,13 @@ export function ClientDetailShell({
   client,
   children,
   isPlatformAdmin,
+  basePath,
 }: {
   client: Client;
   children: React.ReactNode;
   isPlatformAdmin: boolean;
+  /** Tab root. Defaults to the admin console; the partner portal passes its own. */
+  basePath?: string;
 }) {
   const pathname = usePathname();
   // Billing is platform-admin only (matches the gate on the billing page).
@@ -48,7 +51,7 @@ export function ClientDetailShell({
 
       <RouteTabs
         tabs={tabs}
-        basePath={`/clients/${client.slug}`}
+        basePath={basePath ?? `/clients/${client.slug}`}
         activeSegment={activeSegment}
       />
 
