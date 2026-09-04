@@ -37,7 +37,10 @@ jobs:
         run: npm ci
 
       - name: Start local Supabase stack
-        run: npm run db:test:start
+        # Wrapper, not `supabase start`: Docker Hub rate-limits anonymous pulls
+        # and the CLI still exits 0 with containers missing, which surfaces
+        # later as auth failures in the tests. See the script's header.
+        run: npm run db:test:start:ci
 
       - name: Reset local Supabase database
         run: npm run db:test:reset
@@ -45,7 +48,25 @@ jobs:
       - name: Export local Supabase environment
         # --silent suppresses npm's "> trajectas@0.1.0 db:test:env" banner,
         # which is not KEY=VALUE and makes GITHUB_ENV parsing fail.
-        run: npm run --silent db:test:env >> "$GITHUB_ENV"
+        #
+        # `supabase status -o env` emits API_URL / ANON_KEY / SERVICE_ROLE_KEY,
+        # but the app reads NEXT_PUBLIC_SUPABASE_URL /
+        # NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY. Without
+        # the alias the dev server silently starts on the placeholder values in
+        # scripts/testing/run-next-dev-test.mjs, every authenticated page throws
+        # AuthenticationRequiredError, and the error reporter says "Expected 3
+        # parts in JWT; got 1" — which reads like a broken session rather than a
+        # missing variable. run-next-dev-test.mjs cannot fill the gap itself: it
+        # skips its own `supabase status` lookup when CI is set.
+        run: |
+          ENV_OUTPUT="$(npm run --silent db:test:env)"
+          echo "$ENV_OUTPUT" >> "$GITHUB_ENV"
+          value() { echo "$ENV_OUTPUT" | sed -n "s/^$1=\"\{0,1\}\([^\"]*\)\"\{0,1\}$/\1/p"; }
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(value API_URL)"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(value ANON_KEY)"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$(value SERVICE_ROLE_KEY)"
+          } >> "$GITHUB_ENV"
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium

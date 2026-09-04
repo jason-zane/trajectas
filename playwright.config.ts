@@ -25,10 +25,16 @@ export default defineConfig({
       name: "seeded-setup",
       testMatch: /seeded\/admin-auth\.setup\.ts$/,
     },
+    // The partner journey signs in as a different seeded actor, so it needs its
+    // own storageState minted before the seeded specs run.
+    {
+      name: "seeded-partner-setup",
+      testMatch: /seeded\/partner-auth\.setup\.ts$/,
+    },
     {
       name: "seeded",
       testMatch: /seeded\/.*\.spec\.ts$/,
-      dependencies: ["seeded-setup"],
+      dependencies: ["seeded-setup", "seeded-partner-setup"],
       use: {
         ...devices["Desktop Chrome"],
       },

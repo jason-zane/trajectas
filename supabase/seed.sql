@@ -9,7 +9,8 @@ insert into partners (
   slug,
   settings,
   created_at,
-  updated_at
+  updated_at,
+  can_customize_branding
 )
 values (
   '10000000-0000-0000-0000-000000000001',
@@ -17,13 +18,75 @@ values (
   'seeded-advisory-group',
   '{}'::jsonb,
   '2026-03-01T00:00:00Z',
-  '2026-03-01T00:00:00Z'
+  '2026-03-01T00:00:00Z',
+  -- Branding on, so the partner console's Branding tab is exercisable; the
+  -- "not enabled" empty state is covered by flipping this off in a test.
+  true
 )
 on conflict (id) do update
 set
   name = excluded.name,
   slug = excluded.slug,
   settings = excluded.settings,
+  can_customize_branding = excluded.can_customize_branding,
+  updated_at = excluded.updated_at;
+
+-- A second partner and its client, so the cross-partner boundary can be tested
+-- against a client that really exists. Pointing the test at a made-up slug only
+-- exercises the "no such row" branch, which would still pass if a partner could
+-- reach every other partner's clients.
+insert into partners (
+  id,
+  name,
+  slug,
+  settings,
+  created_at,
+  updated_at,
+  can_customize_branding
+)
+values (
+  '20000000-0000-0000-0000-000000000002',
+  'Rival Advisory Group',
+  'rival-advisory-group',
+  '{}'::jsonb,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  false
+)
+on conflict (id) do update
+set
+  name = excluded.name,
+  slug = excluded.slug,
+  can_customize_branding = excluded.can_customize_branding,
+  updated_at = excluded.updated_at;
+
+insert into clients (
+  id,
+  partner_id,
+  name,
+  slug,
+  industry,
+  settings,
+  created_at,
+  updated_at,
+  deleted_at
+)
+values (
+  '20000000-0000-0000-0000-000000000102',
+  '20000000-0000-0000-0000-000000000002',
+  'Rival Client Co',
+  'rival-client-co',
+  'Technology',
+  '{}'::jsonb,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  null
+)
+on conflict (id) do update
+set
+  partner_id = excluded.partner_id,
+  name = excluded.name,
+  slug = excluded.slug,
   updated_at = excluded.updated_at;
 
 insert into clients (
@@ -683,6 +746,176 @@ on conflict (profile_id, client_id) do update
 set
   role = excluded.role,
   is_default = excluded.is_default,
+  updated_at = excluded.updated_at;
+
+-- The seeded PARTNER admin, for the partner-portal e2e journey. Admin of
+-- Seeded Advisory Group, which owns Seeded Client Co — so this actor reaches
+-- the client console through its partner membership, not a client one. Same
+-- passwordless model as the client admin above.
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  is_sso_user,
+  is_anonymous,
+  confirmation_token,
+  recovery_token,
+  email_change,
+  email_change_token_new
+)
+values (
+  '00000000-0000-0000-0000-000000000000',
+  '10000000-0000-0000-0000-000000000112',
+  'authenticated',
+  'authenticated',
+  'seed-partner-admin@seeded-advisory-group.test',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  '{"provider":"email","providers":["email"]}'::jsonb,
+  '{}'::jsonb,
+  false,
+  false,
+  false,
+  '',
+  '',
+  '',
+  ''
+)
+on conflict (id) do update
+set
+  email = excluded.email,
+  email_confirmed_at = excluded.email_confirmed_at,
+  raw_app_meta_data = excluded.raw_app_meta_data,
+  confirmation_token = excluded.confirmation_token,
+  recovery_token = excluded.recovery_token,
+  email_change = excluded.email_change,
+  email_change_token_new = excluded.email_change_token_new,
+  updated_at = excluded.updated_at;
+
+insert into auth.identities (
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000112',
+  '10000000-0000-0000-0000-000000000112',
+  jsonb_build_object(
+    'sub', '10000000-0000-0000-0000-000000000112',
+    'email', 'seed-partner-admin@seeded-advisory-group.test',
+    'email_verified', true
+  ),
+  'email',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (provider_id, provider) do update
+set
+  identity_data = excluded.identity_data,
+  updated_at = excluded.updated_at;
+
+insert into profiles (
+  id,
+  partner_id,
+  client_id,
+  role,
+  first_name,
+  last_name,
+  email,
+  display_name,
+  is_active,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000112',
+  '10000000-0000-0000-0000-000000000001',
+  null,
+  'partner_admin',
+  'Seeded',
+  'Partner',
+  'seed-partner-admin@seeded-advisory-group.test',
+  'Seeded Partner Admin',
+  true,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (id) do update
+set
+  partner_id = excluded.partner_id,
+  client_id = excluded.client_id,
+  role = excluded.role,
+  first_name = excluded.first_name,
+  last_name = excluded.last_name,
+  email = excluded.email,
+  display_name = excluded.display_name,
+  is_active = excluded.is_active,
+  updated_at = excluded.updated_at;
+
+insert into partner_memberships (
+  id,
+  profile_id,
+  partner_id,
+  role,
+  is_default,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000122',
+  '10000000-0000-0000-0000-000000000112',
+  '10000000-0000-0000-0000-000000000001',
+  'admin',
+  true,
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (profile_id, partner_id) do update
+set
+  role = excluded.role,
+  is_default = excluded.is_default,
+  updated_at = excluded.updated_at;
+
+-- The partner's allocation for the seeded assessment, capped at 25 so the
+-- assign dialog's cap rule and the pool guard are both exercisable. The
+-- assessment is client-owned, so D4 would admit it anyway; the cap is the point.
+-- Seeded last: assigned_by references a profile created further down.
+insert into partner_assessment_assignments (
+  id,
+  partner_id,
+  assessment_id,
+  quota_limit,
+  assigned_by,
+  created_at,
+  updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000211',
+  '10000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000201',
+  25,
+  '10000000-0000-0000-0000-000000000111',
+  '2026-03-01T00:00:00Z',
+  '2026-03-01T00:00:00Z'
+)
+on conflict (id) do update
+set
+  quota_limit = excluded.quota_limit,
+  is_active = true,
   updated_at = excluded.updated_at;
 
 commit;
