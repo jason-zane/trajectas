@@ -7,6 +7,7 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { assertCanEditClientBrand } from '@/lib/brand/brand-write-authorization'
 import { detectBrandAssetMimeType } from '@/lib/brand-assets/file-validation'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2MB
@@ -77,6 +78,8 @@ export async function POST(request: NextRequest) {
       if (!canManageClient(scope, resolvedOwnerId)) {
         throw new AuthorizationError('Not authorized to manage this client')
       }
+      // D5: writes to a client's brand layer also require the branding flags.
+      await assertCanEditClientBrand(scope, resolvedOwnerId)
     } else {
       assertAdminOnly(scope)
     }

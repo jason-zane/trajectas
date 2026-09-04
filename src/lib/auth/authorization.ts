@@ -61,6 +61,15 @@ export interface AuthorizedScope {
   partnerAdminIds: string[];
   clientIds: string[];
   clientAdminIds: string[];
+  /**
+   * Clients the actor may MANAGE: direct client-admin memberships plus every
+   * client owned by a partner the actor administers. Narrowed by the active
+   * workspace context and by support sessions exactly like `clientIds`.
+   * `canManageClient` reads this — callers never reconstruct it.
+   */
+  managedClientIds: string[];
+  /** True when the request host is localhost. Dev conveniences only. */
+  isLocalDevelopment: boolean;
   supportSession: SupportSessionRecord | null;
 }
 
@@ -315,6 +324,8 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
       partnerAdminIds: partnerIds,
       clientIds,
       clientAdminIds: clientIds,
+      managedClientIds: clientIds,
+      isLocalDevelopment: true,
       supportSession: null,
     };
   }
@@ -355,11 +366,16 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
       : Promise.resolve(null),
   ]);
   const partnerClientIds = Array.from(clientPartnerMap.keys());
+  // Every client owned by a partner the actor ADMINISTERS (not merely belongs to).
+  const partnerManagedClientIds = Array.from(clientPartnerMap.entries())
+    .filter(([, partnerId]) => actorPartnerAdminIds.includes(partnerId))
+    .map(([clientId]) => clientId);
 
   let partnerIds = actorPartnerIds;
   let partnerAdminIds = actorPartnerAdminIds;
   let clientIds = dedupe([...directClientIds, ...partnerClientIds]);
   let clientAdminIds = directClientAdminIds;
+  let managedClientIds = dedupe([...directClientAdminIds, ...partnerManagedClientIds]);
 
   if (supportSession) {
     if (supportSession.targetSurface === "partner") {
@@ -403,6 +419,26 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
     }
   }
 
+  // The managed set narrows with the same context as `clientIds`: inside a
+  // partner support session the actor manages every client of the target
+  // partner; inside a client support session exactly that client; otherwise
+  // whatever survives the workspace narrowing above.
+  if (supportSession) {
+    managedClientIds =
+      supportSession.targetSurface === "partner"
+        ? // Resolved from the partner, not filtered out of the actor's own
+          // memberships: the platform admin opening the session typically holds
+          // none, so `clientIds` can be empty here while the partner has clients.
+          Array.from(
+            (await loadClientPartnerMap([supportSession.targetTenantId])).keys()
+          )
+        : [supportSession.targetTenantId];
+  } else {
+    managedClientIds = managedClientIds.filter((clientId) =>
+      clientIds.includes(clientId)
+    );
+  }
+
   return {
     actor,
     activeContext,
@@ -414,6 +450,8 @@ async function resolveAuthorizedScopeImpl(): Promise<AuthorizedScope> {
     partnerAdminIds,
     clientIds,
     clientAdminIds,
+    managedClientIds,
+    isLocalDevelopment: requestEnvironment.isLocalDevelopment,
     supportSession,
   };
 }
@@ -424,15 +462,34 @@ export function canAccessClient(scope: AuthorizedScope, clientId: string) {
   return scope.isPlatformAdmin || scope.clientIds.includes(clientId);
 }
 
-export function canManageClient(
+/**
+ * May the actor manage (not merely see) this client? Platform admins on the
+ * admin surface always may; everyone else only when the client is in their
+ * managed set — a direct client-admin membership, or admin membership of the
+ * partner that owns the client. The set is resolved once in
+ * `resolveAuthorizedScope`, so callers never need to know the client's partner.
+ */
+export function canManageClient(scope: AuthorizedScope, clientId: string) {
+  return scope.isPlatformAdmin || scope.managedClientIds.includes(clientId);
+}
+
+/**
+ * Entitlements — assessment assignments and quotas, report-template
+ * assignments, the client branding flag — are set by the platform or by the
+ * partner that owns the client, never by the client's own admins (who satisfy
+ * `canManageClient` for their tenant). The managed-set check keeps workspace
+ * narrowing and support-session confinement in force.
+ */
+export function canManageClientEntitlements(
   scope: AuthorizedScope,
   clientId: string,
-  clientPartnerId?: string | null
+  clientPartnerId: string | null | undefined
 ) {
   return (
     scope.isPlatformAdmin ||
-    scope.clientAdminIds.includes(clientId) ||
-    (clientPartnerId != null && scope.partnerAdminIds.includes(clientPartnerId))
+    (clientPartnerId != null &&
+      scope.partnerAdminIds.includes(clientPartnerId) &&
+      scope.managedClientIds.includes(clientId))
   );
 }
 

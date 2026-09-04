@@ -14,7 +14,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Resolution order:
  * 1. Active context tenantId (if tenantType === 'partner')
  * 2. First partner membership (if any)
- * 3. First partner in database (platform admin / local dev fallback)
+ * 3. First partner in database — local development only. On production hosts a
+ *    platform admin with no partner membership reaches the partner portal only
+ *    through an audited support session ("Enter portal"); anyone else lands on
+ *    /unauthorized rather than on an arbitrary partner.
  */
 export async function resolvePartnerOrg(
   redirectPath: string
@@ -49,7 +52,11 @@ export async function resolvePartnerOrg(
     partnerId = scope.partnerIds[0];
   }
 
-  if (!partnerId && (hasPlatformAdminRole || scope.isLocalDevelopmentBypass)) {
+  if (
+    !partnerId &&
+    (scope.isLocalDevelopmentBypass ||
+      (hasPlatformAdminRole && scope.isLocalDevelopment))
+  ) {
     const db = createAdminClient();
     const { data } = await db
       .from("partners")
@@ -59,6 +66,10 @@ export async function resolvePartnerOrg(
       .limit(1)
       .single();
     partnerId = data?.id ?? null;
+  }
+
+  if (!partnerId && hasPlatformAdminRole && !scope.isLocalDevelopment) {
+    redirect("/unauthorized?reason=membership");
   }
 
   return { partnerId: partnerId ?? null };

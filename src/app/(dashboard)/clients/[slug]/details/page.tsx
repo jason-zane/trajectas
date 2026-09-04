@@ -19,7 +19,7 @@ export default async function ClientDetailsPage({
     resolveAuthorizedScope(),
   ]);
   if (!client) notFound();
-  if (!canManageClient(scope, client.id, client.partnerId)) {
+  if (!canManageClient(scope, client.id)) {
     redirect("/unauthorized?reason=client-directory");
   }
 

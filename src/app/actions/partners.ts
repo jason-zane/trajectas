@@ -869,7 +869,12 @@ export async function assignClientToPartner(clientId: string, partnerId: string)
 
   if (error) {
     logActionError('assignClientToPartner', error)
-    return { error: 'Unable to assign client.' }
+    // 23514 = check_violation: the pool guard refused because the client still
+    // holds active assignments outside this partner's allocation. That reason
+    // is actionable, so surface it; every other failure stays generic.
+    return {
+      error: error.code === '23514' ? error.message : 'Unable to assign client.',
+    }
   }
 
   revalidateDirectoryPaths()

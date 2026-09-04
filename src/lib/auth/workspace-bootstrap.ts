@@ -22,6 +22,8 @@ function createAnonymousScope(requestSurface: Surface): WorkspaceBootstrap["scop
     partnerAdminIds: [],
     clientIds: [],
     clientAdminIds: [],
+    managedClientIds: [],
+    isLocalDevelopment: false,
     supportSession: null,
   };
 }

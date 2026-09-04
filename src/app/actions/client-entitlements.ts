@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import {
+  canManageClientEntitlements,
   requireClientAccess,
   resolveAuthorizedScope,
   resolveTenantClientFilter,
@@ -681,8 +682,76 @@ export async function checkQuotaAvailability(
 }
 
 // ---------------------------------------------------------------------------
-// Mutations (admin-only)
+// Mutations — platform admins, or admins of the partner that owns the client
+// (canManageClientEntitlements). Client admins never set their own
+// entitlements. Partner writes flow through here so the pool, cap and audit
+// rules apply; RLS keeps direct writes platform-only.
 // ---------------------------------------------------------------------------
+
+const ENTITLEMENT_PERMISSION_ERROR =
+  "Only platform administrators or the client's partner can manage entitlements."
+
+/**
+ * Partner pool + cap rule (D3/D4). Returns an error string, or null when the
+ * assignment is allowed. Platform-owned clients (no partner) always pass.
+ *
+ * - The assessment must be in the partner's active allocation, or be owned by
+ *   that partner, or be owned by this client.
+ * - When the allocation carries a quota cap, the client quota is required and
+ *   may not exceed it. (Use-time enforcement in checkQuotaAvailability remains
+ *   the hard stop; this is the assignment-time guard.)
+ */
+async function checkPartnerPoolAndCap(
+  db: ReturnType<typeof createAdminClient>,
+  clientId: string,
+  assessmentId: string,
+  quotaLimit: number | null | undefined,
+): Promise<string | null> {
+  const { data: clientRow, error: clientError } = await db
+    .from('clients')
+    .select('partner_id')
+    .eq('id', clientId)
+    .single()
+  if (clientError) return clientError.message
+  const partnerId = clientRow?.partner_id ? String(clientRow.partner_id) : null
+  if (!partnerId) return null
+
+  const [
+    { data: pool, error: poolError },
+    { data: assessment, error: assessmentError },
+  ] = await Promise.all([
+    db
+      .from('partner_assessment_assignments')
+      .select('quota_limit')
+      .eq('partner_id', partnerId)
+      .eq('assessment_id', assessmentId)
+      .eq('is_active', true)
+      .maybeSingle(),
+    db.from('assessments').select('partner_id, client_id').eq('id', assessmentId).single(),
+  ])
+  if (poolError) return poolError.message
+  if (assessmentError) return assessmentError.message
+
+  // D4: owned assessments never need a pool row.
+  const partnerOwned =
+    assessment?.partner_id != null && String(assessment.partner_id) === partnerId
+  const clientOwned =
+    assessment?.client_id != null && String(assessment.client_id) === clientId
+  if (!pool && !partnerOwned && !clientOwned) {
+    return "This assessment is not available through the partner's allocation."
+  }
+
+  const cap = pool?.quota_limit ?? null
+  if (cap != null) {
+    if (quotaLimit == null) {
+      return `Set a quota of at most ${cap}: this assessment is capped for your partner.`
+    }
+    if (quotaLimit > cap) {
+      return `Quota cannot exceed the partner allocation of ${cap}.`
+    }
+  }
+  return null
+}
 
 export async function assignAssessment(
   clientId: string,
@@ -690,9 +759,9 @@ export async function assignAssessment(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = assignAssessmentSchema.safeParse({ clientId, ...input })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!scope.isPlatformAdmin) {
-    return { error: 'Only platform administrators can assign assessments.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
   if (!scope.actor?.id) {
     return { error: "Unable to determine the acting user" };
@@ -700,29 +769,16 @@ export async function assignAssessment(
 
   const db = createAdminClient()
 
-  // If client belongs to a partner, verify assessment is in partner's pool
-  const { data: clientRow, error: clientRowError } = await db.from('clients')
-    .select('partner_id')
-    .eq('id', clientId)
-    .single()
-
-  if (clientRowError) return { error: clientRowError.message }
-
-  if (clientRow?.partner_id) {
-    const { data: partnerAssignment, error: partnerAssignmentError } = await db
-      .from('partner_assessment_assignments')
-      .select('id')
-      .eq('partner_id', clientRow.partner_id)
-      .eq('assessment_id', input.assessmentId)
-      .eq('is_active', true)
-      .maybeSingle()
-
-    if (partnerAssignmentError) return { error: partnerAssignmentError.message }
-
-    if (!partnerAssignment) {
-      return { error: "This assessment is not available through the partner's allocation." }
-    }
-  }
+  // Pool + cap rule (D3/D4). The database trigger
+  // enforce_client_assignment_in_partner_pool re-checks the pool rule for every
+  // actor; this gives the caller a readable message first.
+  const poolError = await checkPartnerPoolAndCap(
+    db,
+    clientId,
+    input.assessmentId,
+    input.quotaLimit ?? null,
+  )
+  if (poolError) return { error: poolError }
 
   const { data, error } = await db
     .from('client_assessment_assignments')
@@ -755,6 +811,8 @@ export async function assignAssessment(
   })
 
   revalidatePath('/clients')
+
+  revalidatePath('/partner/clients', 'layout')
   return { success: true, id: data.id }
 }
 
@@ -765,9 +823,9 @@ export async function updateAssessmentAssignment(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = updateAssessmentAssignmentSchema.safeParse({ assignmentId, clientId, ...updates })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!scope.isPlatformAdmin) {
-    return { error: 'Only platform administrators can update assessment assignments.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
 
   const db = createAdminClient()
@@ -791,6 +849,16 @@ export async function updateAssessmentAssignment(
 
   if (fetchError) return { error: fetchError.message }
   if (!previous) return { error: 'Assignment not found.' }
+
+  if (updates.quotaLimit !== undefined) {
+    const poolError = await checkPartnerPoolAndCap(
+      db,
+      clientId,
+      String(previous.assessment_id),
+      updates.quotaLimit,
+    )
+    if (poolError) return { error: poolError }
+  }
 
   const { error } = await db
     .from('client_assessment_assignments')
@@ -820,6 +888,8 @@ export async function updateAssessmentAssignment(
   })
 
   revalidatePath('/clients')
+
+  revalidatePath('/partner/clients', 'layout')
   return { success: true, id: assignmentId }
 }
 
@@ -841,15 +911,34 @@ export async function toggleReportTemplateAssignment(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = toggleReportTemplateAssignmentSchema.safeParse({ clientId, reportTemplateId, assigned })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!scope.isPlatformAdmin) {
-    return { error: 'Only platform administrators can manage report template assignments.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
   if (!scope.actor?.id) {
     return { error: "Unable to determine the acting user" };
   }
 
   const db = createAdminClient()
+
+  // D8: a partner may assign platform-global templates or templates owned by
+  // the client's partner. Platform admins are unrestricted.
+  if (assigned && !scope.isPlatformAdmin) {
+    const [
+      { data: template, error: templateError },
+      { data: clientRow, error: clientRowError },
+    ] = await Promise.all([
+      db.from('report_templates').select('partner_id').eq('id', reportTemplateId).single(),
+      db.from('clients').select('partner_id').eq('id', clientId).single(),
+    ])
+    if (templateError) return { error: templateError.message }
+    if (clientRowError) return { error: clientRowError.message }
+    const templatePartnerId = template?.partner_id ? String(template.partner_id) : null
+    const clientPartnerId = clientRow?.partner_id ? String(clientRow.partner_id) : null
+    if (templatePartnerId && templatePartnerId !== clientPartnerId) {
+      return { error: 'This report template is not available to your partner.' }
+    }
+  }
 
   if (assigned) {
     // Upsert: insert or re-activate
@@ -881,6 +970,8 @@ export async function toggleReportTemplateAssignment(
     })
 
     revalidatePath('/clients')
+
+    revalidatePath('/partner/clients', 'layout')
     return { success: true, id: data.id }
   } else {
     // Deactivate
@@ -914,6 +1005,8 @@ export async function toggleReportTemplateAssignment(
     })
 
     revalidatePath('/clients')
+
+    revalidatePath('/partner/clients', 'layout')
     return { success: true, id: data.id }
   }
 }
@@ -966,19 +1059,36 @@ export async function toggleClientBranding(
 ): Promise<{ success: true; id: string } | { error: string }> {
   const parsed = toggleClientBrandingSchema.safeParse({ clientId, canCustomize })
   if (!parsed.success) return { error: 'Invalid input' }
-  const { scope } = await requireClientAccess(clientId)
-  if (!scope.isPlatformAdmin) {
-    return { error: 'Only platform administrators can manage branding settings.' }
+  const { scope, partnerId } = await requireClientAccess(clientId)
+  if (!canManageClientEntitlements(scope, clientId, partnerId)) {
+    return { error: ENTITLEMENT_PERMISSION_ERROR }
   }
 
   const db = createAdminClient()
 
-  // Fetch previous state for audit logging
+  // Fetch previous state for audit logging (and the partner, for the D5 gate)
   const { data: previous } = await db
     .from('clients')
-    .select('can_customize_branding')
+    .select('can_customize_branding, partner_id')
     .eq('id', clientId)
     .single()
+
+  // D5: a partner admin may switch a client's branding on only while the
+  // partner's own flag is on. Platform admins keep their veto either way.
+  if (canCustomize && !scope.isPlatformAdmin && previous?.partner_id) {
+    const { data: partner, error: partnerError } = await db
+      .from('partners')
+      .select('can_customize_branding')
+      .eq('id', previous.partner_id)
+      .single()
+    if (partnerError) return { error: partnerError.message }
+    if (!partner?.can_customize_branding) {
+      return {
+        error:
+          'Brand customisation is not enabled for your partner. Contact Trajectas to enable it.',
+      }
+    }
+  }
 
   const { error } = await db
     .from('clients')
@@ -1005,5 +1115,6 @@ export async function toggleClientBranding(
   // see "Brand customisation is not enabled" after the admin enables it.
   revalidatePath('/clients', 'layout')
   revalidatePath('/client', 'layout')
+  revalidatePath('/partner/clients', 'layout')
   return { success: true, id: clientId }
 }

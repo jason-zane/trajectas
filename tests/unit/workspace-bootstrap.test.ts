@@ -104,6 +104,8 @@ describe("getWorkspaceBootstrap", () => {
       partnerAdminIds: [],
       clientIds: ["client-1"],
       clientAdminIds: [],
+      managedClientIds: [],
+      isLocalDevelopment: false,
       supportSession: null,
     });
 

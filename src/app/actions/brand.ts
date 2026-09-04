@@ -11,6 +11,7 @@ import {
   resolveAuthorizedScope,
 } from '@/lib/auth/authorization'
 import { logAuditEvent } from '@/lib/auth/support-sessions'
+import { assertCanEditClientBrand } from '@/lib/brand/brand-write-authorization'
 import { mapBrandConfigRow } from '@/lib/supabase/mappers'
 import { brandConfigSchema, brandOverridesSchema } from '@/lib/validations/brand'
 import { mergeBrandLayers, isEmptyOverrides } from '@/lib/brand/merge'
@@ -253,6 +254,11 @@ export async function upsertBrandConfig(
 ): Promise<{ error?: Record<string, string[]> }> {
   const scope = await resolveAuthorizedScope()
   await assertCanManageBrandOwner(scope, ownerType, ownerId)
+  if (ownerType === 'client' && ownerId) {
+    // D5: a partner admin edits a client's brand only while the partner flag is
+    // on; a client admin only while both flags are on. Platform admins always.
+    await assertCanEditClientBrand(scope, ownerId)
+  }
   const schema = ownerType === 'platform' ? brandConfigSchema : brandOverridesSchema
   const parsed = schema.safeParse(configInput)
   if (!parsed.success) {
@@ -334,6 +340,11 @@ export async function resetBrandToDefault(
 ): Promise<{ error?: string }> {
   const scope = await resolveAuthorizedScope()
   await assertCanManageBrandOwner(scope, ownerType, ownerId)
+  if (ownerType === 'client' && ownerId) {
+    // D5: a partner admin edits a client's brand only while the partner flag is
+    // on; a client admin only while both flags are on. Platform admins always.
+    await assertCanEditClientBrand(scope, ownerId)
+  }
   if (ownerType === 'platform') {
     return { error: 'Cannot reset platform brand — edit it instead.' }
   }
