@@ -104,6 +104,9 @@ vi.mock('@/lib/auth/authorization', () => ({
   requireAdminScope: vi.fn(),
   requireAssessmentAccess: auth.requireAssessmentAccess,
   requireCampaignAccess: auth.requireCampaignAccess,
+  // The write gate wraps the read gate with canManageCampaign (mocked true
+  // above), so for these content-guard tests it resolves to the same stub.
+  requireCampaignManage: auth.requireCampaignAccess,
   requireClientAccess: vi.fn(),
   resolveAuthorizedScope: vi.fn(),
 }))

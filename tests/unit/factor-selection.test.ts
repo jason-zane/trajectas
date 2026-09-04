@@ -56,6 +56,11 @@ const supabase = vi.hoisted(() => ({
 
 vi.mock('@/lib/auth/authorization', () => ({
   requireCampaignAccess: auth.requireCampaignAccess,
+  // The write gate wraps the read gate with canManageCampaign. These tests are
+  // about the factor rules, not the gate, so both resolve to the same stub;
+  // that the actions pick the *manage* one is pinned by
+  // tests/architecture/campaign-write-manage-gate.test.ts.
+  requireCampaignManage: auth.requireCampaignAccess,
 }))
 
 vi.mock('@/lib/supabase/admin', () => ({

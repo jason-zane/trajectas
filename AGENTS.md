@@ -148,8 +148,16 @@ model.
    `enforce_client_partner_change_pool`, `enforce_pool_row_removal`) so it binds
    every actor, service role included.
 
+4. **Reading a campaign is membership-wide; writing one is not.**
+   `requireCampaignAccess` admits any member of the owning client or partner,
+   which is right for reads and wrong for every mutation, because the actions
+   run on the service role and RLS never sees them. Campaign writes use
+   `requireCampaignManage`, which layers `canManageCampaign` onto the same
+   lookup. Pinned by `tests/architecture/campaign-write-manage-gate.test.ts`.
+
 Brand writes carry one extra gate: `assertCanEditClientBrand`, at every write
-site, not only on the flag toggle.
+site, not only on the flag toggle — and that includes the campaign brand layer,
+which is what a participant actually sees.
 
 ## Naming Conventions
 

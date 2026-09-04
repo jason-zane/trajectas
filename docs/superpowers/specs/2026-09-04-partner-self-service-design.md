@@ -59,6 +59,9 @@ missing was the decision to open the gates, and the machinery to do it safely.
    `audit_events` row.
 5. `isPlatformAdmin` is false off the admin host. Platform admins reach the
    partner and client portals through audited support sessions.
+6. Reading a campaign is a membership-wide right; changing one is a management
+   right. Every campaign mutation holds `requireCampaignManage`, never the read
+   gate.
 
 ## Decisions
 
@@ -109,6 +112,25 @@ missing was the decision to open the gates, and the machinery to do it safely.
 - **D13 — Stays admin-only:** partner allocation, quotas, branding flag and
   taxonomy; moving a client between partners; billing; Leadership 360.
 - **D14 — Placeholder pages removed:** `/partner/results` and `/partner/matching`.
+- **D15 — Campaign writes need manage, not membership.** `requireCampaignAccess`
+  is a read gate: it admits any member of the owning client or partner. That is
+  correct for reads and wrong for mutations, which run on the service role where
+  RLS never sees them. `requireCampaignManage` is the write gate. Found when the
+  partner campaign console made the gap reachable; the gap itself predated it and
+  covered the client portal too. Pinned by
+  `tests/architecture/campaign-write-manage-gate.test.ts`.
+- **D16 — D5 covers the campaign brand layer.** The flag check originally ran
+  only for `ownerType === 'client'`, so a campaign brand override — the layer a
+  participant actually sees — could be written with the partner flag off, by
+  addressing the campaign directly. `assertBrandLayerEditable` now resolves a
+  campaign to its client and applies the same rule, and the partner campaign
+  branding route enforces the flag itself rather than relying on a hidden tab.
+- **D17 — Portfolio panels aggregate in SQL.** `partner_dashboard_*` are
+  SECURITY INVOKER projections. A plain PostgREST select is truncated at
+  `max_rows` (1000) before any client-side grouping or sorting runs, which made
+  the timeline undercount and "recent activity" show the wrong rows for a large
+  portfolio. Rollups key on client id, not display name — only the slug is
+  unique.
 
 ## Shape of the implementation
 
@@ -123,6 +145,8 @@ missing was the decision to open the gates, and the machinery to do it safely.
   parent-side cases (moving a client under a partner; removing an allocation row)
 - `src/app/partner/clients/[slug]/**`, `src/app/partner/campaigns/[id]/**`,
   `src/app/partner/dashboard/**`
+- `supabase/migrations/20260905093000_partner_dashboard_projections.sql` — the
+  dashboard's two SQL projections
 
 ## Outstanding
 
