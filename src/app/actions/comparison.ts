@@ -1,7 +1,13 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { requireParticipantAccess, requireSessionAccess } from '@/lib/auth/authorization'
+import {
+  requireCampaignAccess,
+  requireParticipantAccess,
+  requireSessionAccess,
+  resolveAuthorizedScope,
+  resolveTenantClientFilter,
+} from '@/lib/auth/authorization'
 import { rollupChildren } from '@/lib/comparison/rollup-scores'
 import {
   comparisonRequestSchema,
@@ -214,6 +220,14 @@ export async function searchCampaignParticipants(
 ): Promise<ParticipantSearchHit[]> {
   const parsed = searchCampaignParticipantsSchema.safeParse({ campaignId, query })
   if (!parsed.success) return []
+  // The campaign id arrives from the client, so establish access here rather
+  // than leaning on RLS — RLS lets a platform admin read every campaign even
+  // while they are standing inside one client's workspace.
+  try {
+    await requireCampaignAccess(parsed.data.campaignId)
+  } catch {
+    return []
+  }
   const supabase = await createClient()
   let q = supabase
     .from('campaign_participants')
@@ -235,17 +249,47 @@ export async function searchCampaignParticipants(
   return sortHits(hits)
 }
 
-export async function searchAllParticipants(
+/**
+ * Participants the caller may add to a comparison from the workspace they are
+ * currently in — not every participant their memberships reach.
+ *
+ * The distinction matters because RLS cannot draw it. `auth_user_client_ids()`
+ * spans every membership regardless of the active workspace, and
+ * `is_platform_admin()` short-circuits to everything, so a platform admin
+ * inside one client's portal (including via a support session) was offered the
+ * whole platform's participants — names, emails and campaign titles across
+ * every tenant. The workspace boundary lives in `resolveAuthorizedScope()`, so
+ * apply it here as an explicit predicate.
+ */
+export async function searchWorkspaceParticipants(
   query: string,
 ): Promise<ParticipantSearchHit[]> {
   const parsed = searchAllParticipantsSchema.safeParse({ query })
   if (!parsed.success) return []
   const supabase = await createClient()
+
+  const scope = await resolveAuthorizedScope()
+  const clientFilter = resolveTenantClientFilter(scope)
+  // `null` means genuinely unrestricted; an empty list means restricted to
+  // nothing, which must return no rows rather than falling through unfiltered.
+  if (clientFilter !== null && clientFilter.length === 0) return []
+
   let q = supabase
     .from('campaign_participants')
     .select(PICKER_SELECT)
     .order('created_at', { ascending: false })
     .limit(PICKER_LIMIT)
+  if (clientFilter !== null) {
+    // Filtered through the `!inner` join on the embedded alias, the same shape
+    // `getParticipantsForClient` uses. Note this is the CLIENT dimension only:
+    // ORing in the caller's partner ids would undo the fix, because a campaign
+    // belonging to one client also carries its parent partner_id, so every
+    // sibling client under that partner would come back. A partner workspace
+    // is already covered — `resolveAuthorizedScope` puts that partner's client
+    // ids in `clientIds`. The residue is a partner-owned campaign with no
+    // client_id at all, which no client workspace should surface anyway.
+    q = q.in('campaign.client_id', clientFilter)
+  }
   const trimmed = escapeOrPattern(query.trim())
   if (trimmed) {
     q = q.or(

@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { getComparisonCanvas } from '@/app/actions/canvas'
-import { searchAllParticipants } from '@/app/actions/comparison'
+import { searchWorkspaceParticipants } from '@/app/actions/comparison'
 import { AddParticipantDialog } from '@/components/comparison/add-participant-dialog'
 import { PALETTE } from '@/components/trajectory/trajectory-timeline'
 import { CanvasHero } from './canvas-hero'
@@ -279,7 +279,7 @@ export function CanvasWorkspace({
           open
           onClose={() => setShowAdd(false)}
           onAdd={(opts) => addPeople(opts.map((o) => o.id))}
-          searchSource={(query) => searchAllParticipants(query)}
+          searchSource={(query) => searchWorkspaceParticipants(query)}
         />
       )}
 

@@ -912,3 +912,35 @@ export async function requireAdminScope() {
   assertAdminOnly(scope);
   return scope;
 }
+
+/**
+ * The client ids a workspace-scoped read must be restricted to, or `null` when
+ * the caller is genuinely unrestricted — a platform admin on the admin surface
+ * with no tenant workspace selected.
+ *
+ * Reach for this in any query whose tenant isolation would otherwise rest on
+ * RLS alone. RLS scopes by *membership* (`auth_user_client_ids()`) and knows
+ * nothing about the active workspace context or an in-flight support session:
+ * both live in a signed cookie that never reaches Postgres. `is_platform_admin()`
+ * is role-only, so for a platform admin RLS is not a tenant boundary at all.
+ * Entering a client workspace therefore narrows `resolveAuthorizedScope()` and
+ * nothing else — a query that trusts RLS still spans every client.
+ *
+ * An empty array means "restricted to nothing"; callers must return no rows
+ * rather than treating it as unrestricted.
+ */
+export function resolveTenantClientFilter(
+  scope: AuthorizedScope
+): string[] | null {
+  const inTenantWorkspace = Boolean(
+    scope.supportSession ||
+      scope.activeContext?.tenantId ||
+      scope.previewContext?.tenantId
+  );
+
+  if (scope.isPlatformAdmin && !inTenantWorkspace) {
+    return null;
+  }
+
+  return scope.clientIds;
+}
